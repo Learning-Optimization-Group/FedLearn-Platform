@@ -1,0 +1,322 @@
+/* ==========================================================================
+   Base Card Layout
+   ========================================================================== */
+.project-card {
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+.project-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* ==========================================================================
+   Card Header
+   ========================================================================== */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #2c3e50; /* Dark blue-gray text */
+}
+
+.status-indicator {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-indicator.running {
+  background-color: #d4edda; /* Light green */
+  color: #155724; /* Dark green */
+}
+
+.status-indicator.stopped {
+  background-color: #f8d7da; /* Light red */
+  color: #721c24; /* Dark red */
+}
+
+.status-indicator.completed {
+  background-color: #eef0ae;
+  color: #99951a;
+}
+
+/* ==========================================================================
+   Card Body
+   ========================================================================== */
+.card-body {
+  padding: 1.5rem;
+  flex-grow: 1;
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.75rem 1rem;
+    align-items: center;
+}
+
+.details-grid p, .details-grid .optimizer-section { 
+    margin: 0; 
+}
+
+.details-grid strong { 
+    color: #333; 
+}
+
+.optimizer-section { 
+    grid-column: 1 / -1; /* Make optimizer span both columns */
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.display-optimizer, .edit-optimizer { 
+    display: flex; 
+    align-items: center; 
+    gap: 0.5rem; 
+}
+
+.optimizer-value {
+    background-color: #e9ecef;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: #555;
+    transition: color 0.2s;
+}
+.icon-btn:hover { color: #007bff; }
+
+.edit-optimizer select { padding: 0.25rem; border-radius: 4px; border: 1px solid #ccc; }
+
+.save-btn, .cancel-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1rem;
+}
+.save-btn { color: #28a745; }
+.cancel-btn { color: #dc3545; }
+
+.port-info {
+    font-size: 0.9rem;
+    color: #333; /* Change color for better contrast */
+    font-weight: 500;
+    margin-top: 1rem;
+    background-color: #e7f5ff; /* Light blue background */
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    display: flex; /* <-- Add this */
+    justify-content: space-between; /* <-- Add this */
+    align-items: center; /* <-- Add this */
+}
+
+.port-info strong {
+  color: #0056b3;
+}
+
+.project-id-display {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 0.5rem 0.5rem 0.5rem 0.75rem; 
+  margin-bottom: 1.5rem;
+  font-size: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  word-break: break-all;
+}
+
+.project-id-display strong {
+  margin-right: 0.5rem;
+  color: #495057;
+}
+
+.project-id-display code {
+  font-family: 'Courier New', Courier, monospace;
+  color: #333;
+  flex-grow: 1;
+  text-align: left; 
+}
+/* ==========================================================================
+   Start Configuration Section
+   ========================================================================== */
+.start-config-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #f0f0f0;
+}
+
+.start-config-section h4 { 
+    margin-top: 0; 
+    margin-bottom: 1rem; 
+    color: #333; 
+}
+
+.config-grid { 
+    display: grid; 
+    grid-template-columns: auto 1fr; 
+    gap: 0.75rem; 
+    align-items: center; 
+}
+
+.config-grid label { 
+    font-weight: 500; 
+}
+
+.config-grid select, .config-grid input { 
+    padding: 0.5rem; 
+    border-radius: 6px; 
+    border: 1px solid #ccc; 
+    width: 100%; 
+    box-sizing: border-box; 
+}
+
+/* ==========================================================================
+   Metrics and Actions
+   ========================================================================== */
+.metrics-section { 
+    padding: 0 1.5rem 1rem 1.5rem; 
+}
+
+.metrics-toggle { 
+    width: 100%; 
+    padding: 0.6rem; 
+    background-color: #6c757d; 
+    color: white; 
+    border: none; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    font-weight: 500; 
+}
+.metrics-toggle:hover { background-color: #5a6268; }
+
+.metrics-content { 
+    max-height: 0; 
+    overflow-y: auto; 
+    transition: max-height 0.4s ease-in-out; 
+}
+.metrics-content.expanded { 
+    max-height: 200px; /* Animate to this height */
+    margin-top: 1rem; 
+}
+.metrics-content table { 
+    width: 100%; 
+    border-collapse: collapse; 
+}
+.metrics-content th, .metrics-content td { 
+    border: 1px solid #ddd; 
+    padding: 0.5rem; 
+    text-align: left; 
+}
+.metrics-content th { background-color: #f8f9fa; }
+
+/* ==========================================================================
+   Card Footer and Toggle Switch
+   ========================================================================== */
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background-color: #f8f9fa;
+  border-top: 1px solid #f0f0f0;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.toggle-switch { 
+    position: relative; 
+    display: inline-block; 
+    width: 50px; 
+    height: 28px; 
+}
+.toggle-switch input { 
+    opacity: 0; 
+    width: 0; 
+    height: 0; 
+}
+.slider { 
+    position: absolute; 
+    cursor: pointer; 
+    top: 0; left: 0; right: 0; bottom: 0; 
+    background-color: #ccc; 
+    transition: .4s; 
+}
+.slider:before { 
+    position: absolute; 
+    content: ""; 
+    height: 20px; 
+    width: 20px; 
+    left: 4px; 
+    bottom: 4px; 
+    background-color: white; 
+    transition: .4s; 
+}
+input:checked + .slider { background-color: #28a745; }
+input:checked + .slider:before { transform: translateX(22px); }
+.slider.round { border-radius: 34px; }
+.slider.round:before { border-radius: 50%; }
+
+
+.card-actions {
+    padding: 0 1.5rem 1rem 1.5rem;
+    display: flex; /* <-- Use flexbox to place buttons side-by-side */
+    gap: 1rem; /* <-- Add space between the buttons */
+}
+
+.action-btn {
+    flex: 1; /* <-- Make both buttons share the space equally */
+    padding: 0.6rem;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s, opacity 0.2s;
+}
+
+.results-btn {
+    background-color: #6c757d; /* Gray */
+}
+.results-btn:hover {
+    background-color: #5a6268;
+}
+
+.logs-btn {
+    background-color: #17a2b8; /* Info blue/teal */
+}
+.logs-btn:hover {
+    background-color: #138496;
+}
+
+/* Style for when the button is disabled */
+.action-btn:disabled {
+    background-color: #a0aec0;
+    cursor: not-allowed;
+    opacity: 0.6;
+}

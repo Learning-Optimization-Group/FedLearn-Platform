@@ -1,0 +1,106 @@
+/* Example AuthStyles.css */
+.auth-container {
+    max-width: 400px;
+    margin: 40px auto;
+    padding: 30px;
+    background-color: var(--background-secondary);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    border: 1px solid var(--border-color);
+  }
+  
+  .auth-container h2 {
+    text-align: center;
+    margin-bottom: 25px;
+    color: var(--text-primary);
+  }
+  
+  .form-group {
+    margin-bottom: 20px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.9em;
+  }
+  
+  .form-group input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background-color: var(--background-primary);
+    color: var(--text-primary);
+    font-size: 1em;
+    box-sizing: border-box; /* Include padding/border in width */
+  }
+   .form-group input:focus {
+       outline: none;
+       border-color: var(--accent-primary);
+       box-shadow: 0 0 0 2px rgba(var(--accent-primary-rgb, 88, 166, 255), 0.3); /* Requires defining --accent-primary-rgb */
+   }
+  
+  
+  .auth-button {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--accent-primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  
+  .auth-button:hover:not(:disabled) {
+    opacity: 0.9; /* Slight fade on hover */
+  }
+  
+  .auth-button:disabled {
+    background-color: var(--text-secondary);
+    cursor: not-allowed;
+  }
+  
+  .error-message {
+    color: var(--error, #DC3545); /* Use error color variable */
+    background-color: rgba(var(--error-rgb, 220, 53, 69), 0.1); /* Requires defining --error-rgb */
+    border: 1px solid var(--error, #DC3545);
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 0.9em;
+  }
+  
+  .auth-switch {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.9em;
+    color: var(--text-secondary);
+  }
+  
+  .auth-switch a {
+    color: var(--accent-primary);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  
+  .auth-switch a:hover {
+    text-decoration: underline;
+  }
+
+  .success-message {
+    color: var(--success, #28a745); /* Use success color variable */
+    background-color: rgba(var(--success-rgb, 40, 167, 69), 0.1); /* Requires defining --success-rgb */
+    border: 1px solid var(--success, #28a745);
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 0.9em;
+  }

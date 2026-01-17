@@ -1,0 +1,231 @@
+/* General body styling for the landing page */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.landing-container {
+  /* --- NEW BLUE GRADIENT BACKGROUND --- */
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  color: #e2e8f0; /* Lighter text for contrast */
+  min-height: 100vh;
+}
+
+/* --- Header Section --- */
+.landing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 3rem;
+  background-color: rgba(15, 23, 42, 0.5); /* Semi-transparent dark blue */
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #334155;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo span {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.landing-nav a {
+  color: #cbd5e1;
+  text-decoration: none;
+  margin: 0 1rem;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.landing-nav a:hover {
+  color: #63b3ed; /* Light Blue on hover */
+}
+
+.auth-buttons .btn {
+  margin-left: 1rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  border: 2px solid #63b3ed;
+  color: #63b3ed;
+}
+
+.btn-secondary:hover {
+  background-color: #63b3ed;
+  color: #0f172a;
+}
+
+.btn-primary {
+  background-color: #63b3ed;
+  border: 2px solid #63b3ed;
+  color: #0f172a;
+}
+
+.btn-primary:hover {
+  background-color: #4299e1;
+  border-color: #4299e1;
+}
+
+/* --- Hero Section (Main Content) --- */
+.hero-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6rem 1.5rem;
+  text-align: center;
+}
+
+.hero-title {
+  font-size: 3.8rem;
+  font-weight: 800;
+  color: #ffffff;
+  max-width: 850px;
+  margin-bottom: 1.5rem;
+  line-height: 1.2;
+}
+
+.hero-subtitle {
+  font-size: 1.3rem;
+  color: #94a3b8; /* Softer gray */
+  max-width: 700px;
+  margin: 0 auto 4rem auto;
+  line-height: 1.7;
+}
+
+/* --- Service Cards --- */
+.services-grid {
+  display: grid;
+  /* Allow 4 columns if there's space */
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  max-width: 1200px;
+  margin-bottom: 4rem;
+}
+
+.service-card {
+  background: rgba(45, 55, 72, 0.5); /* Semi-transparent card */
+  padding: 2rem;
+  border-radius: 12px;
+  border: 1px solid #4a5568;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.service-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.service-card h3 {
+  font-size: 1.3rem;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #ffffff;
+}
+
+.service-card p {
+  font-size: 1rem;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+/* --- Launch Button --- */
+.btn-launch {
+  background-color: #4299e1; /* Primary blue */
+  color: #ffffff;
+  padding: 1rem 3rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  border-radius: 50px;
+  text-decoration: none;
+  border: none;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.btn-launch:hover {
+  background-color: #3182ce;
+  transform: scale(1.05);
+}
+
+/* --- Upcoming Features Section --- */
+.features-section {
+  padding: 5rem 2rem;
+  background-color: rgba(15, 23, 42, 0.7); /* Slightly darker, semi-transparent section */
+}
+
+.section-title {
+  font-size: 2.8rem;
+  font-weight: 700;
+  margin-bottom: 3rem;
+  text-align: center;
+}
+
+.features-category {
+  max-width: 1200px;
+  margin: 0 auto 3rem auto;
+}
+
+.features-category h3 {
+  font-size: 1.8rem;
+  color: #63b3ed; /* Highlight category titles */
+  margin-bottom: 2rem;
+  text-align: left;
+  border-bottom: 2px solid #334155;
+  padding-bottom: 0.5rem;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.feature-card {
+  background-color: #1e293b; /* Match the darker gradient color */
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.feature-card h4 {
+  font-size: 1.2rem;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #ffffff;
+}
+
+.feature-card p {
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.logo-link {
+  text-decoration: none; /* Removes the underline */
+  color: inherit; /* Makes the text color inherit from the parent */
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem; /* Adds space between the image and the text */
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+}
+
+/* Style for the logo image itself */
+.logo-image {
+  height: 100px; /* Adjust the height as needed */
+  width: auto;  /* Let the width adjust automatically to maintain aspect ratio */
+}

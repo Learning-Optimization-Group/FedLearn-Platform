@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+
+/* :root typically defaults to light theme */
+:root {
+  --background-primary: #FFFFFF; /* White */
+  --background-secondary: #F8F9FA; /* Very light gray */
+  --background-card: #FFFFFF; 
+  --text-primary: #212529; /* Dark gray/Black */
+  --text-secondary: #6C757D; /* Medium gray */
+  --accent-primary: #007BFF; /* Standard blue */
+  --accent-secondary: #58A6FF; /* Lighter blue */
+  --border-color: #DEE2E6; 
+
+  --font-family-sans: 'Inter', sans-serif;
+  /* Add more colors as needed (success, error, warning) */
+  --success: #28A745; 
+  --error: #DC3545; 
+  --training: #FFFF00;
+}
+
+
+/* Dark theme overrides */
+html.dark {
+  --background-primary: #0D1117; /* Very dark blue/gray */
+  --background-secondary: #161B22; /* Darker gray */
+  --background-card: #161B22; 
+  --text-primary: #C9D1D9; /* Light gray */
+  --text-secondary: #8B949E; /* Medium-dark gray */
+  --accent-primary: #58A6FF; /* Lighter blue (more visible on dark) */
+  --accent-secondary: #80BFFF; /* Even lighter blue */
+  --border-color: #30363D; /* Dark border */
+  --success: #238636; 
+  --error: #DA3633;
+  --training: #FFFF00;
+}
+
+body {
+  background-color: var(--background-primary);
+  color: var(--text-primary);
+  font-family: var(--font-family-sans); 
+  margin: 0;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+}
+
+body::-webkit-scrollbar {
+  display: none; /* Hides the scrollbar */
+}
+
+/* Example usage for other elements */
+h1, h2, h3 {
+  color: var(--text-primary); 
+}
+
+p {
+  color: var(--text-secondary);
+}
+
+a {
+   color: var(--accent-primary);
+}

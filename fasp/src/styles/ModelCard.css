@@ -1,0 +1,57 @@
+.model-card{
+    display: flex;
+    justify-content: space-between;
+    padding: 18px 18px;
+    border: 1px solid var(--border-color);
+    background-color: var(--background-primary);
+    border-radius: 1rem;
+    cursor: pointer;
+    
+}
+
+.model-card:hover {
+    background-color: var(--background-secondary); /* Slightly different hover */
+}
+
+.model-name{
+    color: var(--text-primary);
+    font-weight: 900;
+    font-size: 1rem;
+}
+
+
+.model-type{
+    color: var(--text-secondary);
+    font-weight: 300;
+    font-size: 0.9rem;
+}
+
+
+.model-version{
+    color: var(--text-secondary);
+    font-weight: 300;
+    font-size: 0.8rem;
+}
+
+.status-badge{
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 10px;
+    padding: 5px 5px;
+    border: 1px solid var(--border-color);
+    background-color: var(--background-primary);
+    border-radius: 1rem;
+    cursor: pointer;
+}
+
+.status-badge.status-training{
+    background-color: var(--training);
+}
+
+.status-badge.status-available{
+    background-color: var(--success);
+}
+
+
+
+

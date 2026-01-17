@@ -1,0 +1,66 @@
+/* src/components/DiskLoader.css */
+.disk-loader-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    min-height: 200px;
+    background: transparent;
+}
+
+.disk-loader {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+}
+
+.disk {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #007bff;
+    animation: diskBounce 1.4s infinite ease-in-out both;
+}
+
+.disk:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.disk:nth-child(2) {
+    animation-delay: -0.16s;
+}
+
+.disk:nth-child(3) {
+    animation-delay: 0s;
+}
+
+@keyframes diskBounce {
+    0%, 80%, 100% {
+        transform: scale(0);
+        opacity: 0.5;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.loader-message {
+    margin-top: 20px;
+    color: #007bff;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}

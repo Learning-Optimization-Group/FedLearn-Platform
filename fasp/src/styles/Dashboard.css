@@ -1,0 +1,189 @@
+.welcome-message h1{
+    color:var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.welcome-message .tagline{
+    color:var(--accent-primary);
+    font-weight:500;
+    font-size:1.5rem;
+    margin-top:0;
+    margin-bottom:2rem;
+}
+
+.section-title {
+    color: var(--text-secondary); /* Subtler color for section titles */
+    font-weight: 500;
+    margin-bottom: 1em;
+    text-transform: uppercase; /* Optional styling */
+    font-size: 0.9em; /* Optional styling */
+    letter-spacing: 0.5px; /* Optional styling */
+  }
+
+
+  .dashboard {
+  padding: 2rem;
+  background-color: #f4f7f6; /* Light gray background for the page */
+  min-height: 100vh;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #d1d9e6;
+}
+
+.dashboard-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  color: #333;
+}
+
+.create-project-btn {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background-color: #007bff; /* Primary blue */
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.create-project-btn:hover {
+  background-color: #0056b3; /* Darker blue */
+}
+
+.project-grid {
+  display: grid;
+  /* Create a responsive grid that shows as many cards as fit */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 1200px) {
+  .project-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+
+@media (max-width: 768px) {
+  .project-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.loading-fullscreen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-size: 1.5rem;
+  color: #555;
+}
+  
+  .dashboard-section {
+    margin-bottom: 2.5em; /* Spacing between sections */
+    /* Add background/padding ONLY if you want distinct blocks */
+    /* background-color: var(--background-card); */
+    /* padding: 1.5em; */
+    /* border-radius: 8px; */
+  }
+  
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive grid */
+    gap: 2em; /* Spacing between grid items */
+  }
+
+  .model-card-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fit,minmax(250px,1fr));
+    gap: 1.5rem;
+  }
+
+  /* Example styles for the table */
+.table-container {
+  overflow-x: auto; /* Allow horizontal scroll if needed */
+}
+
+.sessions-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1em;
+}
+
+.sessions-table th,
+.sessions-table td {
+  padding: 12px 15px; /* Adjust padding */
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap; /* Prevent text wrapping */
+}
+
+.sessions-table th {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 0.85em;
+  text-transform: uppercase;
+}
+
+.sessions-table td {
+  color: var(--text-primary);
+  font-size: 0.95em;
+}
+
+.sessions-table tbody tr:hover {
+   background-color: var(--background-card); /* Subtle hover for rows */
+}
+
+.progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Space between text and bar */
+}
+
+.progress-cell span {
+   min-width: 40px; /* Ensure space for text */
+   text-align: right;
+}
+
+.progress-bar-container {
+  flex-grow: 1;
+  height: 8px;
+  background-color: var(--background-secondary); /* Darker background for the track */
+  border-radius: 4px;
+  overflow: hidden; /* Hide overflow from inner bar */
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: var(--accent-primary); /* Blue progress */
+  border-radius: 4px;
+  transition: width 0.3s ease-in-out;
+}
+
+/* Example styles for the chart placeholder */
+.chart-placeholder-container {
+  min-height: 250px; /* Example height */
+  background-color: var(--background-card); /* Match card background */
+  border-radius: 8px; /* Match card border radius */
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border-color); /* Optional: Dashed border */
+}
+
+.chart-placeholder-container p {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+

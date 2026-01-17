@@ -1,0 +1,275 @@
+/* Example Layout.css */
+.app-layout {
+    display: flex;
+    min-height: 100vh; /* Ensure layout takes full height */
+  }
+  
+.title-text{
+  font-size: largeer;
+  font-weight: 500;
+  padding-left: 1rem;
+}
+ /* Example Layout.css updates */
+.sidebar {
+    /* width is now set by expanded/collapsed states */
+    flex-shrink: 0;
+    background-color: var(--background-secondary);
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    padding: 20px 0; /* Adjust padding maybe */
+    /*transition: width 0.5s ease; /* Smooth transition for width */
+    color: var(--text-primary);
+    overflow-x: hidden; /* Hide content that overflows horizontally when collapsing */
+  }
+  
+  .sidebar.expanded {
+    width: 260px;
+    padding: 10px 10px;
+  }
+  
+  .sidebar.collapsed {
+    width: 80px; /* Adjust as needed */
+    /* Potentially different padding for collapsed */
+    padding: 108px 10px; 
+  }
+  
+  .sidebar-toggle-btn {
+    /* Basic styling - position as needed */
+    display: block; /* Or inline-block */
+    margin: 0 auto 20px auto; /* Example positioning */
+    padding: 8px;
+    background-color: transparent;
+    border: none;/* Or another distinct color */
+    color: var(--text-primary);
+    justify-items: right;
+    /* border: 1px solid var(--border-color); */
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  /* Align button to the right when sidebar is expanded */
+.sidebar.expanded .sidebar-toggle-btn {
+  display: block; /* Or inline-block */
+  margin-left: auto; /* Pushes the button to the right */
+  margin-right: 15px; /* Add some margin from the edge */
+  /* Reset centering margins */
+  margin-top: 20px; /* Keep vertical margin consistent if desired */
+  margin-bottom: 20px;
+}
+  /* Style adjustments might be needed for main content based on sidebar state too,
+     but let's keep it simple for now */
+  .main-content {
+     flex-grow: 1;
+     background-color: var(--background-primary);
+     padding: 24px 48px;
+     overflow-y: auto;
+   }
+
+   /* Example Layout.css additions */
+.sidebar-nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-nav li {
+  margin-bottom: 8px; /* Spacing between links */
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px; /* Adjust padding */
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--text-secondary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.nav-link:hover {
+  background-color: var(--background-primary); /* Or a slightly different hover */
+  color: var(--text-primary);
+}
+
+.nav-link.active {
+  background-color: var(--accent-primary); /* Use accent for active */
+  color: #fff; /* White text on active blue background */
+  font-weight: 500;
+}
+.nav-link.active .nav-icon {
+   color: #fff; /* Ensure icon matches text */
+}
+.nav-link.active:hover{
+    color: #fff; /* Ensure text stays white on hover */
+}
+
+.nav-icon {
+  font-size: 1.2em; /* Adjust icon size */
+  min-width: 30px; /* Ensure space even when text is hidden */
+  color: var(--text-secondary); /* Match link text */
+   transition: color 0.2s ease;
+}
+
+/* Adjustments when expanded */
+.sidebar.expanded .nav-icon {
+  margin-right: 15px;
+}
+
+/* Adjustments when collapsed */
+.sidebar.collapsed .nav-link {
+  justify-content: center; /* Center icon */
+  padding: 10px;
+}
+ .sidebar.collapsed .nav-text {
+   display: none; /* Hide text */
+ }
+
+ /* Example Layout.css additions */
+
+.main-content {
+  flex-grow: 1;
+  background-color: var(--background-primary);
+  /* Remove padding from main-content if header/page-content have their own */
+  /* padding: 24px 48px; */
+  overflow-y: auto;
+  display: flex; /* Use flex column for header/content stacking */
+  flex-direction: column;
+  
+}
+
+.main-content-header {
+  display: flex;
+  justify-content: flex-end; /* Push content (user button) to the right */
+  padding: 16px 10px; /* Padding for the header area */
+  border-bottom: 1px solid var(--border-color); /* Optional separator */
+  background-color: var(--background-primary); /* Ensure consistent bg */
+}
+
+.user-profile-button {
+  background-color: var(--background-secondary); /* Subtle background */
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 50%; /* Make it circular */
+  width: 40px; /* Fixed size */
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.2em; /* Adjust icon size */
+  transition: background-color 0.2s ease;
+}
+
+.user-profile-button:hover {
+  background-color: var(--background-card); /* Slightly different hover */
+}
+
+.page-content {
+  padding: 24px 48px; /* Add padding back for the actual page content */
+  flex-grow: 1; /* Allow page content to take remaining space */
+}
+
+.user-controls{
+  display: flex;
+  width: 150px;
+  justify-content: space-between;
+
+}
+
+.logout-button{
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    border-radius: 6px;
+    text-decoration: none;
+    background-color: var(--accent-primary);
+    color: #fff;
+    font-weight: 500;
+    border: 0;
+    cursor: pointer;
+    
+    
+}
+
+.logout-button:hover {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    border: 1px solid var(--accent-primary);
+    border-radius: 6px ;
+    text-decoration: none;
+    color: var(--accent-primary);
+    background-color: #fff;
+    font-weight: 500;
+    border: 0;
+    cursor: pointer;
+
+
+}
+.layout-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0rem 2rem;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.app-nav a {
+  margin: 0 1rem;
+  text-decoration: none;
+  color: #555;
+  font-weight: 500;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.welcome-text {
+  color: #333;
+  font-weight: 500;
+}
+
+
+
+.app-content {
+  flex-grow: 1;
+  background-color: #f4f7f6;
+}
+
+.logo-link {
+  text-decoration: none; /* Removes the underline */
+  color: inherit; /* Makes the text color inherit from the parent */
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem; /* Adds space between the image and the text */
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+}
+
+/* Style for the logo image itself */
+.logo-image {
+  height: 100px; /* Adjust the height as needed */
+  width: auto;  /* Let the width adjust automatically to maintain aspect ratio */
+}
