@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fedlearn"
+version = "0.1.0"
+authors = [
+    {name = "Chinmay Lokare", email="chinmaylokare9@gmail.com"},
+]
+
+description = "A modular federated learning framework."
+readme = "README.md"
+requires-python = ">=3.9"  # It's good practice to stick to the version you are developing with
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "torch>=1.12.0",
+    "numpy>=1.21.0",
+    "grpcio>=1.48.0",
+    "grpcio-tools>=1.48.0",
+    "protobuf>=4.21.0",
+    "PyYAML>=6.0",
+    "torchvision", # Needed for examples, good to have in main deps for simplicity
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "isort",
+    "mypy",
+]
+
+[project.urls]
+#"Homepage" = "https://github.com/your-username/fedlearn"
+#"Bug Tracker" = "https://github.com/your-username/fedlearn/issues"

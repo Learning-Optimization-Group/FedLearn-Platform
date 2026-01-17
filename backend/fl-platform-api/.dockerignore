@@ -1,0 +1,55 @@
+# ==================================
+# Build artifacts
+# ==================================
+target/
+*.jar
+*.war
+*.ear
+
+# ==================================
+# Maven
+# ==================================
+.mvn/
+mvnw
+mvnw.cmd
+
+# ==================================
+# IDE files
+# ==================================
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings
+.factorypath
+
+# ==================================
+# Python
+# ==================================
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+# Datasets
+data/
+
+# ==================================
+# Log files and temp files
+# ==================================
+*.log
+*.tmp
+nohup.out
+
+# ==================================
+# OS-specific
+# ==================================
+.DS_Store
+Thumbs.db
