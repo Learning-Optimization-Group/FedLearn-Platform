@@ -7,11 +7,25 @@ This document provides detailed explanations of all core modules in the `src/fed
 ```
 src/fedlearn/
 ├── client/              # Client-side implementations
+│   ├── __init__.py
+│   ├── client.py        # Base client class and main loop
+│   └── grpc_client.py   # gRPC communication wrapper
 ├── server/              # Server-side coordination
+│   ├── __init__.py
+│   ├── server.py        # Server entry point
+│   ├── coordinator.py   # Round management & synchronization
+│   ├── strategy.py      # Aggregation strategies (FedAvg)
+│   └── grpc_servicer.py # gRPC service handlers
 ├── communication/       # gRPC and serialization
+│   ├── generated/       # Auto-generated Protocol Buffer code
+│   │   ├── fedlearn_pb2.py
+│   │   └── fedlearn_pb2_grpc.py
+│   ├── protos/
+│   │   └── fedlearn.proto  # Protocol Buffer definitions
+│   └── serializer.py    # Tensor serialization/deserialization
 ├── core/               # Core utilities
-├── data/               # Data handling
-└── estimators/         # DeComFL estimators
+├── data/               # Data handling utilities
+└── estimators/         # Custom gradient estimators
 ```
 
 ---
@@ -20,7 +34,7 @@ src/fedlearn/
 
 ### `client.py`
 
-**Purpose**: Base client class and client lifecycle management.
+**Purpose**: Base client class and client lifecycle management for federated learning.
 
 **Key Classes**:
 
@@ -35,7 +49,11 @@ class Client(ABC):
         pass
     
     @abstractmethod
-    def fit(self, parameters: OrderedDict[str, torch.Tensor], config: dict):
+    def fit(
+        self, 
+        parameters: OrderedDict[str, torch.Tensor], 
+        config: dict
+    ) -> Tuple[OrderedDict[str, torch.Tensor], int]:
         """Train model locally and return updated parameters"""
         pass
 ```
@@ -46,103 +64,208 @@ class Client(ABC):
   - **Args**:
     - `parameters`: Global model parameters from server
     - `config`: Training configuration (epochs, learning rate, etc.)
-  - **Returns**: `(updated_parameters, num_samples)`
+  - **Returns**: `(updated_parameters, num_examples)`
 
 **Usage Example**:
 ```python
-class MyClient(fl.Client):
-    def __init__(self, model, data_loader):
+class CNNClient(Client):
+    def __init__(self, model, train_loader, device='cpu'):
         self.model = model
-        self.data_loader = data_loader
+        self.train_loader = train_loader
+        self.device = device
+        self.optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+        self.criterion = nn.CrossEntropyLoss()
     
     def get_parameters(self):
         return self.model.state_dict()
     
     def fit(self, parameters, config):
+        # Load global model
         self.model.load_state_dict(parameters)
-        # Training logic here
-        return self.model.state_dict(), len(self.data_loader.dataset)
+        self.model.train()
+        
+        # Train for specified epochs
+        epochs = config.get('local_epochs', 1)
+        for epoch in range(epochs):
+            for batch_idx, (data, target) in enumerate(self.train_loader):
+                data, target = data.to(self.device), target.to(self.device)
+                
+                self.optimizer.zero_grad()
+                output = self.model(data)
+                loss = self.criterion(output, target)
+                loss.backward()
+                self.optimizer.step()
+        
+        # Return updated model and number of training samples
+        return self.model.state_dict(), len(self.train_loader.dataset)
 ```
 
-**When to Modify**: Create custom client classes for:
-- Different training loops (RL, unsupervised learning)
+**Key Function**:
+
+#### `start_client()`
+```python
+def start_client(
+    server_address: str, 
+    client: Client, 
+    client_id: str
+):
+    """
+    Starts a client that connects to a server with heartbeat support.
+    
+    Args:
+        server_address: gRPC server address (e.g., "localhost:50051")
+        client: The Client instance that implements fit() and get_parameters()
+        client_id: Unique identifier for this client
+    """
+```
+
+**Client Lifecycle**:
+1. **Registration**: Register with server
+2. **Heartbeat**: Start background heartbeat thread
+3. **Main Loop**:
+   - Fetch global model from server
+   - Train locally using `fit()`
+   - Submit update to server
+   - Wait for new round or termination
+4. **Cleanup**: Stop heartbeat and close connection
+
+**Status Updates**:
+The client tracks and reports its status:
+- `"fetching_model"`: Downloading global model
+- `"training"`: Local training in progress
+- `"submitting_update"`: Uploading trained model
+- `"waiting"`: Waiting for new round to start
+- `"idle"`: Nothing to do
+- `"error"`: Error occurred
+
+**When to Extend**:
+- Different training loops (e.g., reinforcement learning, generative models)
 - Custom optimization strategies
-- Specialized privacy mechanisms
-- Multi-task learning
-
----
-
-### `decomfl_client.py`
-
-**Purpose**: Client implementation for DeComFL (Decomposed Federated Learning) with Byzantine-robust aggregation.
-
-**Key Classes**:
-
-#### `DeComFLClient`
-Specialized client that computes gradient estimators for DeComFL strategy.
-
-```python
-class DeComFLClient(Client):
-    def __init__(self, model, data_loader, estimator_type='zo'):
-        self.estimator_type = estimator_type  # 'zo' or 'fo'
-        # ... initialization
-```
-
-**Key Methods**:
-- `compute_zo_gradients()`: Zero-order gradient estimation
-- `compute_fo_gradients()`: First-order gradient estimation
-- `fit()`: Trains with decomposed gradient computation
-
-**Estimator Types**:
-- **ZO (Zero-Order)**: Gradient-free optimization using function evaluations
-- **FO (First-Order)**: Traditional gradient-based optimization
-
-**Usage**:
-```python
-client = fl.DeComFLClient(
-    model=model,
-    data_loader=loader,
-    estimator_type='zo'
-)
-```
-
-**When to Use**: 
-- Byzantine fault tolerance needed
-- Non-differentiable models
-- Black-box optimization scenarios
+- Specialized privacy mechanisms (differential privacy)
+- Multi-task learning scenarios
+- Custom data augmentation during training
 
 ---
 
 ### `grpc_client.py`
 
-**Purpose**: gRPC communication layer for client-server interaction.
+**Purpose**: gRPC communication layer for client-server interaction with support for large model streaming.
 
 **Key Classes**:
 
-#### `GRPCClient`
-Handles low-level gRPC communication with server.
+#### `GrpcClient`
+Handles all gRPC communication with the server, including model download/upload and heartbeats.
 
-**Methods**:
-- `connect(server_address)`: Establish connection to server
-- `send_parameters(parameters)`: Send model updates
-- `receive_parameters()`: Receive global model
-- `disconnect()`: Close connection gracefully
-
-**Configuration**:
+**Initialization**:
 ```python
-# gRPC options
-options = [
-    ('grpc.max_send_message_length', 100 * 1024 * 1024),  # 100MB
-    ('grpc.max_receive_message_length', 100 * 1024 * 1024),
-    ('grpc.keepalive_time_ms', 10000),
+class GrpcClient:
+    def __init__(self, client_id: str, server_address: str):
+        # Main channel for model transfer
+        self.channel = grpc.insecure_channel(server_address, options=grpc_options)
+        self.stub = FederatedLearningServiceStub(self.channel)
+        
+        # Separate channel for heartbeats (non-blocking)
+        self.heartbeat_channel = grpc.insecure_channel(server_address, options=grpc_options)
+        self.heartbeat_stub = FederatedLearningServiceStub(self.heartbeat_channel)
+```
+
+**Why Two Channels?**
+- Main channel: For model downloads/uploads (can take minutes for large models)
+- Heartbeat channel: For keep-alive signals (needs to be non-blocking)
+
+**Key Methods**:
+
+##### `register() -> bool`
+Register client with server.
+```python
+def register(self) -> bool:
+    req = fedlearn_pb2.RegisterClientRequest(client_id=self.client_id)
+    res = self.stub.RegisterClient(req)
+    return res.status == RegisterClientResponse.Status.ACCEPTED
+```
+
+##### `get_global_model() -> Tuple[OrderedDict, int, dict]`
+Download global model using streaming (supports large models like LLMs).
+```python
+def get_global_model(self):
+    # Uses GetGlobalModelStream RPC
+    # Returns: (parameters, current_round, config)
+```
+
+**Streaming Process**:
+1. Request model from server
+2. Receive model in 50MB chunks
+3. Reconstruct full model from chunks
+4. Return parameters, round number, and config
+
+##### `submit_update() -> bool`
+Upload trained model. Automatically chooses between unary and streaming based on model size.
+```python
+def submit_update(
+    self, 
+    params: OrderedDict[str, torch.Tensor], 
+    num_examples: int, 
+    round_number: int
+) -> bool:
+    # Decision logic:
+    # - If model > 100MB OR is transformer: use streaming
+    # - Otherwise: use unary (single message)
+```
+
+**Adaptive Streaming**:
+```python
+STREAMING_THRESHOLD_MB = 100
+ALWAYS_STREAM_TRANSFORMERS = True
+
+# Detects transformer models by layer names
+is_transformer = any(
+    keyword in name.lower()
+    for name in params.keys()
+    for keyword in ['transformer', 'bert', 'gpt', 'attention']
+)
+```
+
+##### Heartbeat Methods
+```python
+def start_heartbeat():
+    """Start background thread that sends periodic heartbeats"""
+    
+def send_heartbeat() -> bool:
+    """Send single heartbeat with current status"""
+    
+def stop_heartbeat():
+    """Stop heartbeat thread"""
+    
+def update_status(status: str, current_step: int, total_steps: int):
+    """Update status that will be sent in next heartbeat"""
+```
+
+**Heartbeat Interval**: 5 seconds (configurable)
+
+**gRPC Configuration**:
+```python
+grpc_options = [
+    # Message size limits (1GB)
+    ('grpc.max_send_message_length', 1024 * 1024 * 1024),
+    ('grpc.max_receive_message_length', 1024 * 1024 * 1024),
+    
+    # Keepalive settings
+    ('grpc.keepalive_time_ms', 120000),  # Ping every 2 minutes
+    ('grpc.keepalive_timeout_ms', 60000),  # Wait 1 minute for pong
+    ('grpc.keepalive_permit_without_calls', True),
+    
+    # Connection timeouts
+    ('grpc.max_connection_idle_ms', 7200000),  # 2 hours
+    ('grpc.max_connection_age_ms', 14400000),  # 4 hours
 ]
 ```
 
 **When to Modify**:
-- Custom serialization protocols
+- Custom compression algorithms
 - Additional metadata transmission
 - Connection pooling
-- Compression algorithms
+- Retry logic
+- Authentication/authorization
 
 ---
 
@@ -152,59 +275,248 @@ options = [
 
 **Purpose**: Main server orchestration and federated round management.
 
-**Key Functions**:
+**Key Components**:
+
+#### `ServerConfig`
+```python
+@dataclass
+class ServerConfig:
+    num_rounds: int = 3  # Number of federated learning rounds
+```
 
 #### `start_server()`
 ```python
 def start_server(
     server_address: str,
     config: ServerConfig,
-    strategy: Strategy,
-) -> Tuple[History, float]:
+    strategy: Strategy
+) -> tuple[list, dict]:
     """
-    Start federated learning server.
+    Start a gRPC Federated Learning server.
     
     Args:
         server_address: Address to bind (e.g., "0.0.0.0:50051")
         config: Server configuration
-        strategy: Aggregation strategy (FedAvg, DeComFL, etc.)
+        strategy: Aggregation strategy (FedAvg, custom, etc.)
     
     Returns:
-        (history, elapsed_time): Training history and total time
+        (history, final_parameters): Training history and final global model
     """
 ```
 
-**ServerConfig**:
-```python
-@dataclass
-class ServerConfig:
-    num_rounds: int = 10
-    round_timeout: float = 600.0  # seconds
-    min_fit_clients: int = 2
-    min_available_clients: int = 2
-```
-
 **Server Lifecycle**:
-1. Initialize global model
-2. Wait for clients to connect
-3. For each round:
-   - Select clients
-   - Send global model
-   - Receive and aggregate updates
-   - Evaluate global model
-4. Return training history
+
+1. **Initialization**:
+   ```python
+   coordinator = FLCoordinator(
+       strategy=strategy,
+       min_clients_for_aggregation=strategy.min_fit_clients,
+       clients_per_round=strategy.clients_per_round,
+   )
+   coordinator.set_initial_parameters(strategy.initial_parameters)
+   ```
+
+2. **gRPC Server Setup**:
+   ```python
+   grpc_server = grpc.server(
+       futures.ThreadPoolExecutor(max_workers=10),
+       options=[...]
+   )
+   grpc_server.add_insecure_port(server_address)
+   grpc_server.start()
+   ```
+
+3. **Training Loop**:
+   ```python
+   for round_num in range(1, config.num_rounds + 1):
+       coordinator.start_round()
+       coordinator.wait_for_round_to_complete()  # BLOCKS until aggregation
+       
+       metrics = coordinator.get_latest_metrics()
+       history.append((round_num, metrics))
+       
+       coordinator.current_round += 1
+   ```
+
+4. **Cleanup**:
+   ```python
+   final_parameters = coordinator.get_global_model_params()
+   grpc_server.stop(grace=5)
+   return history, final_parameters
+   ```
+
+**gRPC Configuration**:
+- **Thread pool**: 10 workers (handles concurrent client requests)
+- **Message size**: 1GB limit (for large models)
+- **Keepalive**: Prevents idle connection timeouts
+- **Connection limits**: Long-lived connections for training
 
 **When to Modify**:
-- Custom round selection logic
-- Adaptive timeout mechanisms
-- Multi-stage training pipelines
-- Hierarchical aggregation
+- Implement client selection strategies
+- Add adaptive timeout mechanisms
+- Implement checkpoint saving
+- Add TensorBoard logging
+- Implement warm restarts
+
+---
+
+### `coordinator.py`
+
+**Purpose**: Coordinates federated learning rounds and manages client updates.
+
+**Key Classes**:
+
+#### `FLCoordinator`
+Manages the state and synchronization of federated learning.
+
+**Initialization**:
+```python
+class FLCoordinator:
+    def __init__(
+        self, 
+        strategy: Strategy, 
+        min_clients_for_aggregation: int,
+        clients_per_round: int
+    ):
+        self.strategy = strategy
+        self.min_clients = min_clients_for_aggregation
+        self.clients_per_round = clients_per_round
+        
+        # Synchronization
+        self._lock = threading.Lock()
+        self._round_complete_event = threading.Event()
+        
+        # State
+        self._global_model_params = None
+        self._client_updates_received = []
+        self._registered_clients = set()
+        self.current_round = 1
+        
+        # Heartbeat tracking
+        self.client_heartbeats = {}
+        self.heartbeat_timeout = 300  # 5 minutes
+```
+
+**Key Methods**:
+
+##### Round Management
+```python
+def start_round(self):
+    """Called by server to begin a new round"""
+    self._round_complete_event.clear()
+
+def wait_for_round_to_complete(self):
+    """Blocks until current round finishes"""
+    while not self._round_complete_event.wait(timeout=1.0):
+        if self.stop_requested:
+            break
+```
+
+##### Client Update Handling
+```python
+def submit_client_update(
+    self, 
+    client_id: str, 
+    params: OrderedDict[str, torch.Tensor], 
+    num_examples: int,
+    trained_on_round: int
+):
+    """
+    Accept update from client and trigger aggregation if enough updates received.
+    """
+    with self._lock:
+        # Ignore stale updates
+        if trained_on_round < self.current_round:
+            return
+        
+        # Ignore future updates (shouldn't happen)
+        if trained_on_round > self.current_round:
+            return
+        
+        # Add update to list
+        self._client_updates_received.append((params, num_examples))
+        
+        # Check if we have enough clients
+        if len(self._client_updates_received) == self.clients_per_round:
+            self._trigger_aggregation_and_evaluation()
+```
+
+##### Aggregation & Evaluation
+```python
+def _trigger_aggregation_and_evaluation(self):
+    """Core logic for advancing a round"""
+    # Get all updates
+    results = list(self._client_updates_received)
+    self._client_updates_received.clear()
+    
+    # Aggregate using strategy
+    aggregated_parameters = self.strategy.aggregate_fit(
+        self.current_round, 
+        results
+    )
+    
+    # Update global model
+    if aggregated_parameters is not None:
+        self._global_model_params = aggregated_parameters
+        
+        # Evaluate
+        loss, metrics = self.strategy.evaluate(
+            self.current_round,
+            self._global_model_params
+        )
+        self.latest_metrics = {"loss": loss, **metrics}
+    
+    # Signal round complete
+    self._round_complete_event.set()
+```
+
+##### Heartbeat Management
+```python
+def update_client_heartbeat(
+    self, 
+    client_id: str, 
+    status: str, 
+    current_step: int, 
+    total_steps: int, 
+    current_round: int
+) -> tuple[bool, bool, str]:
+    """Update the last heartbeat time for a client"""
+    with self.heartbeat_lock:
+        self.client_heartbeats[client_id] = {
+            'status': status,
+            'current_step': current_step,
+            'total_steps': total_steps,
+            'current_round': current_round,
+            'last_seen': time.time()
+        }
+    return True, False, f"Heartbeat received for {client_id}"
+
+def is_client_alive(self, client_id: str) -> bool:
+    """Check if client is still alive based on heartbeat"""
+    with self.heartbeat_lock:
+        if client_id not in self.client_heartbeats:
+            return False
+        last_seen = self.client_heartbeats[client_id]['last_seen']
+        return (time.time() - last_seen) < self.heartbeat_timeout
+```
+
+**Thread Safety**:
+- Uses `threading.Lock()` for state mutations
+- Uses `threading.Event()` for round completion signaling
+- Separate `heartbeat_lock` for heartbeat operations
+
+**When to Modify**:
+- Implement asynchronous aggregation
+- Add client selection logic
+- Implement stragglers mitigation
+- Add round timeout handling
+- Implement client weighting schemes
 
 ---
 
 ### `strategy.py`
 
-**Purpose**: Base strategy class for model aggregation.
+**Purpose**: Defines aggregation strategies for combining client updates.
 
 **Key Classes**:
 
@@ -212,363 +524,532 @@ class ServerConfig:
 ```python
 class Strategy(ABC):
     @abstractmethod
+    def initialize_parameters(self) -> Optional[OrderedDict[str, torch.Tensor]]:
+        """Return initial global model parameters"""
+        pass
+    
+    @abstractmethod
     def aggregate_fit(
-        self, 
-        results: List[Tuple[ClientProxy, FitRes]]
-    ) -> Optional[Parameters]:
+        self,
+        server_round: int,
+        results: list[Tuple[OrderedDict[str, torch.Tensor], int]],
+    ) -> Optional[OrderedDict[str, torch.Tensor]]:
         """Aggregate training results from clients"""
         pass
     
     @abstractmethod
-    def configure_fit(
+    def evaluate(
         self, 
-        round_num: int, 
-        parameters: Parameters, 
-        client_manager: ClientManager
-    ) -> List[Tuple[ClientProxy, FitIns]]:
-        """Configure clients for training round"""
+        server_round: int, 
+        parameters: OrderedDict[str, torch.Tensor]
+    ) -> Optional[Tuple[float, dict]]:
+        """Evaluate the global model"""
         pass
 ```
 
-**Built-in Strategies**:
-
-1. **FedAvg** (Federated Averaging)
-   - Weighted average of client models
-   - Weight = number of training samples
-   
-2. **DeComFL** (Decomposed Federated Learning)
-   - Byzantine-robust aggregation
-   - Uses gradient estimators
-
-**When to Modify**:
-- Implement custom aggregation (FedProx, FedOpt)
-- Add client selection strategies
-- Implement adaptive learning rates
-- Add differential privacy
-
----
-
-### `decomfl_strategy.py`
-
-**Purpose**: DeComFL aggregation strategy with Byzantine robustness.
-
-**Key Classes**:
-
-#### `DeComFL`
+#### `FedAvg` (Federated Averaging Strategy)
 ```python
-class DeComFL(Strategy):
+class FedAvg(Strategy):
     def __init__(
         self,
-        initial_parameters,
-        byzantine_threshold: float = 0.2,
-        estimator_type: str = 'zo'
+        initial_parameters: OrderedDict[str, torch.Tensor],
+        evaluate_fn: Optional[Callable] = None,
+        min_fit_clients: int = 1,
+        clients_per_round: int = 2
     ):
-        self.byzantine_threshold = byzantine_threshold
-        self.estimator_type = estimator_type
+        self.initial_parameters = initial_parameters
+        self.evaluate_fn = evaluate_fn
+        self.min_fit_clients = min_fit_clients
+        self.clients_per_round = clients_per_round
+        self.aggregator = FedAvgAggregator()
 ```
 
-**Aggregation Process**:
-1. Collect gradient estimates from clients
-2. Detect Byzantine clients using statistical methods
-3. Aggregate only trusted gradients
-4. Update global model
+**Methods**:
 
-**Byzantine Detection**:
-- Krum algorithm
-- Median-based filtering
-- Trimmed mean
-
-**Usage**:
+##### `initialize_parameters()`
 ```python
-strategy = fl.DeComFL(
+def initialize_parameters(self):
+    return self.initial_parameters
+```
+
+##### `aggregate_fit()`
+```python
+def aggregate_fit(self, server_round, results):
+    if not results:
+        return None
+    return self.aggregator.aggregate(results)
+```
+
+##### `evaluate()`
+```python
+def evaluate(self, server_round, parameters):
+    if self.evaluate_fn is None:
+        return None
+    
+    loss, metrics = self.evaluate_fn(server_round, parameters)
+    print(f"Strategy Evaluation (Round {server_round}): Loss={loss:.4f}, Metrics={metrics}")
+    return loss, metrics
+```
+
+**Custom Evaluation Function Example**:
+```python
+def evaluate_fn(server_round, parameters):
+    # Load parameters into model
+    model.load_state_dict(parameters)
+    model.eval()
+    
+    total_loss = 0
+    correct = 0
+    
+    with torch.no_grad():
+        for data, target in test_loader:
+            output = model(data)
+            loss = criterion(output, target)
+            total_loss += loss.item()
+            
+            pred = output.argmax(dim=1)
+            correct += (pred == target).sum().item()
+    
+    accuracy = correct / len(test_loader.dataset)
+    avg_loss = total_loss / len(test_loader)
+    
+    return avg_loss, {'accuracy': accuracy}
+
+# Use in strategy
+strategy = FedAvg(
     initial_parameters=model.state_dict(),
-    byzantine_threshold=0.2,  # Tolerate 20% Byzantine clients
-    estimator_type='zo'
+    evaluate_fn=evaluate_fn,
+    min_fit_clients=2,
+    clients_per_round=5
 )
 ```
 
----
-
-### `coordinator.py` & `async_coordinator.py`
-
-**Purpose**: Manage client connections and round coordination.
-
-**Key Classes**:
-
-#### `Coordinator`
-Synchronous coordination - waits for all clients.
+#### `FedAvgAggregator`
+Implements the weighted averaging algorithm.
 
 ```python
-class Coordinator:
-    def wait_for_clients(self, min_clients: int):
-        """Block until minimum clients connect"""
-        pass
-    
-    def broadcast_parameters(self, parameters):
-        """Send parameters to all clients"""
-        pass
+class FedAvgAggregator:
+    def aggregate(self, updates):
+        """
+        Weighted average of client models.
+        
+        Args:
+            updates: List of (parameters, num_examples) tuples
+        
+        Returns:
+            Aggregated parameters
+        """
+        # Calculate total examples
+        total_examples = sum(num_examples for _, num_examples in updates)
+        
+        # Initialize aggregated parameters
+        aggregated_params = OrderedDict()
+        
+        # Weighted sum
+        for params, num_examples in updates:
+            weight = num_examples / total_examples
+            for key in params:
+                if key not in aggregated_params:
+                    aggregated_params[key] = torch.zeros_like(params[key])
+                aggregated_params[key] += params[key] * weight
+        
+        return aggregated_params
 ```
 
-#### `AsyncCoordinator`
-Asynchronous coordination - doesn't wait for stragglers.
+**Mathematical Formula**:
+```
+w_global = Σ(w_i * n_i) / Σ(n_i)
 
-```python
-class AsyncCoordinator:
-    def configure_round(self, timeout: float):
-        """Configure round with timeout"""
-        pass
+where:
+  w_i = client i's model parameters
+  n_i = number of training samples at client i
 ```
 
-**When to Use**:
-- `Coordinator`: Small number of reliable clients
-- `AsyncCoordinator`: Large-scale, heterogeneous environments
+**Example**:
+```
+Client 1: 1000 samples, weight = 0.333
+Client 2: 500 samples,  weight = 0.167
+Client 3: 1500 samples, weight = 0.500
+
+Aggregated = 0.333*params_1 + 0.167*params_2 + 0.500*params_3
+```
+
+**When to Extend**:
+- Implement FedProx (proximal term)
+- Implement FedOpt (server-side optimization)
+- Implement adaptive learning rates
+- Add client selection strategies
+- Add differential privacy mechanisms
 
 ---
 
 ### `grpc_servicer.py`
 
-**Purpose**: gRPC server implementation (RPC handlers).
+**Purpose**: Implements gRPC service handlers (server-side RPC methods).
 
-**Key Methods**:
-- `GetParameters()`: Handle parameter requests
-- `SendUpdate()`: Handle client updates
-- `RegisterClient()`: Handle client registration
+**Key Classes**:
+
+#### `FederatedLearningServiceServicer`
+```python
+class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServiceServicer):
+    def __init__(self, coordinator: FLCoordinator):
+        self.coordinator = coordinator
+```
+
+**RPC Handlers**:
+
+##### `RegisterClient()`
+```python
+def RegisterClient(self, request, context):
+    client_id = request.client_id
+    success = self.coordinator.register_client(client_id)
+    
+    if success:
+        return fedlearn_pb2.RegisterClientResponse(
+            status=fedlearn_pb2.RegisterClientResponse.Status.ACCEPTED,
+            message=f"Client '{client_id}' registered successfully."
+        )
+```
+
+##### `GetGlobalModelStream()` (Server Streaming)
+```python
+def GetGlobalModelStream(self, request, context):
+    """Stream global model to client in chunks"""
+    # Get model from coordinator
+    params, current_round, config = self.coordinator.get_global_model_for_client()
+    
+    # Serialize
+    buffer = io.BytesIO()
+    model_data = {'parameters': params, 'num_examples': 0}
+    torch.save(model_data, buffer)
+    data_to_send = buffer.getvalue()
+    
+    # Split into 50MB chunks
+    chunk_size = 50 * 1024 * 1024
+    num_chunks = (len(data_to_send) + chunk_size - 1) // chunk_size
+    
+    # Stream chunks
+    for i in range(num_chunks):
+        start = i * chunk_size
+        end = min(start + chunk_size, len(data_to_send))
+        
+        yield fedlearn_pb2.ModelChunk(
+            chunk_index=i,
+            total_chunks=num_chunks,
+            chunk_data=data_to_send[start:end],
+            is_final_chunk=(i == num_chunks - 1),
+            current_round=current_round,
+            config=config if i == 0 else {}
+        )
+```
+
+##### `SubmitModelUpdateStream()` (Client Streaming)
+```python
+def SubmitModelUpdateStream(self, request_iterator, context):
+    """Receive streamed model update from client"""
+    chunks = []
+    client_id = None
+    
+    # Receive all chunks
+    for chunk in request_iterator:
+        if client_id is None:
+            client_id = chunk.client_id
+            round_num = chunk.trained_on_round
+        chunks.append(chunk.chunk_data)
+    
+    # Reconstruct model
+    full_data = b''.join(chunks)
+    parameters, num_examples = chunks_to_parameters(full_data)
+    
+    # Submit to coordinator
+    self.coordinator.submit_client_update(
+        client_id, 
+        parameters, 
+        num_examples, 
+        round_num
+    )
+    
+    return fedlearn_pb2.SubmitModelUpdateResponse(received=True)
+```
+
+##### `Heartbeat()`
+```python
+def Heartbeat(self, request, context):
+    """Handle heartbeat from client (fast, non-blocking)"""
+    acknowledged, should_stop, message = self.coordinator.update_client_heartbeat(
+        request.client_id,
+        request.status,
+        request.current_step,
+        request.total_steps,
+        request.current_round
+    )
+    
+    return fedlearn_pb2.HeartbeatResponse(
+        acknowledged=acknowledged,
+        should_stop=should_stop,
+        message=message
+    )
+```
+
+**Error Handling**:
+- All handlers include try-except blocks
+- Detailed error logging with stack traces
+- Graceful error reporting to clients via `context.abort()`
 
 **When to Modify**:
-- Add custom RPC methods
-- Implement authentication
-- Add rate limiting
-- Custom error handling
+- Add authentication/authorization
+- Implement rate limiting
+- Add request validation
+- Implement custom error handling
+- Add metrics collection
 
 ---
 
 ## Communication Module (`fedlearn/communication/`)
 
-### `generated/` (Protocol Buffers)
+### `fedlearn.proto` (Protocol Buffers)
 
-**Purpose**: Auto-generated gRPC stubs from `.proto` files.
+**Purpose**: Defines the communication contract between clients and server.
 
-**Files**:
-- `fedlearn_pb2.py`: Message definitions
-- `fedlearn_pb2_grpc.py`: Service definitions
-
-**Message Types**:
+**Service Definition**:
 ```protobuf
-message Parameters {
-    map<string, bytes> tensors = 1;
+service FederatedLearningService {
+  rpc RegisterClient(RegisterClientRequest) returns (RegisterClientResponse);
+  rpc GetGlobalModel(GetGlobalModelRequest) returns (GetGlobalModelResponse);
+  rpc GetGlobalModelStream(GetGlobalModelRequest) returns (stream ModelChunk);
+  rpc SubmitModelUpdate(SubmitModelUpdateRequest) returns (SubmitModelUpdateResponse);
+  rpc SubmitModelUpdateStream(stream ModelUpdateChunk) returns (SubmitModelUpdateResponse);
+  rpc GetServerStatus(GetServerStatusRequest) returns (GetServerStatusResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+}
+```
+
+**Core Messages**:
+```protobuf
+message Tensor {
+  bytes data = 1;           // Raw tensor bytes
+  repeated int64 dims = 2;  // Shape [batch, channels, height, width]
+  string dtype = 3;         // "float32", "int64", etc.
 }
 
-message FitRequest {
-    Parameters parameters = 1;
-    map<string, string> config = 2;
+message ModelParameters {
+  map<string, Tensor> tensors = 1;  // layer_name -> Tensor
+  int64 num_examples_trained = 2;   // Number of training samples
 }
 
-message FitResponse {
-    Parameters parameters = 1;
-    int64 num_examples = 2;
+message ModelChunk {
+  int32 chunk_index = 1;
+  int32 total_chunks = 2;
+  bytes chunk_data = 3;      // 50MB of serialized model
+  bool is_final_chunk = 4;
+  int32 current_round = 5;
+  map<string, string> config = 6;
 }
+
+message HeartbeatRequest {
+  string client_id = 1;
+  string status = 2;         // "training", "idle", etc.
+  int32 current_step = 3;
+  int32 total_steps = 4;
+  int32 current_round = 5;
+}
+```
+
+**Regenerating Code**:
+```bash
+python -m grpc_tools.protoc \
+    -I communication/protos \
+    --python_out=communication/generated \
+    --grpc_python_out=communication/generated \
+    communication/protos/fedlearn.proto
 ```
 
 **When to Modify**:
-- Change `.proto` file, then regenerate:
-```bash
-python -m grpc_tools.protoc \
-    -I protos \
-    --python_out=. \
-    --grpc_python_out=. \
-    protos/fedlearn.proto
-```
+- Add new RPC methods
+- Add new message fields
+- Change serialization format
+- Add versioning
 
 ---
 
 ### `serializer.py`
 
-**Purpose**: Serialize/deserialize PyTorch tensors for transmission.
+**Purpose**: Convert PyTorch tensors to/from bytes for network transmission.
 
 **Key Functions**:
 
+#### For Small Models (Unary Transfer)
 ```python
-def parameters_to_proto(parameters: OrderedDict) -> ParametersProto:
+def parameters_to_proto(
+    parameters: OrderedDict[str, torch.Tensor], 
+    num_examples: int
+) -> ModelParameters:
     """Convert PyTorch state_dict to protobuf"""
-    pass
+    tensors = {}
+    for name, tensor in parameters.items():
+        np_array = tensor.cpu().detach().numpy()
+        tensors[name] = Tensor(
+            data=np_array.tobytes(),
+            dims=list(np_array.shape),
+            dtype=str(np_array.dtype),
+        )
+    return ModelParameters(tensors=tensors, num_examples_trained=num_examples)
 
-def proto_to_parameters(proto: ParametersProto) -> OrderedDict:
+def proto_to_parameters(proto: ModelParameters) -> tuple[OrderedDict, int]:
     """Convert protobuf to PyTorch state_dict"""
-    pass
+    parameters = OrderedDict()
+    for name, tensor_proto in proto.tensors.items():
+        np_array = np.frombuffer(tensor_proto.data, dtype=tensor_proto.dtype)
+        np_array = np_array.reshape(tensor_proto.dims).copy()
+        parameters[name] = torch.tensor(np_array)
+    return parameters, proto.num_examples_trained
 ```
 
-**Serialization Format**:
-1. Tensor → NumPy array → bytes (via pickle)
-2. Wrap in protobuf message
-3. Transmit via gRPC
+#### For Large Models (Streaming Transfer)
+```python
+def parameters_to_chunks(
+    params: OrderedDict[str, torch.Tensor],
+    num_examples: int,
+    chunk_size: int = 50 * 1024 * 1024,  # 50 MB
+    compress: bool = False
+) -> Generator[Dict, None, None]:
+    """
+    Memory-efficient serialization using torch.save.
+    Yields chunks of serialized model.
+    """
+    # 1. Serialize entire model
+    buffer = io.BytesIO()
+    model_data = {'parameters': params, 'num_examples': num_examples}
+    torch.save(model_data, buffer)
+    serialized = buffer.getvalue()
+    buffer.close()
+    
+    # 2. Optional compression
+    if compress and LZ4_AVAILABLE:
+        serialized = lz4.frame.compress(serialized)
+    
+    # 3. Split into chunks and yield
+    total_size = len(serialized)
+    num_chunks = (total_size + chunk_size - 1) // chunk_size
+    
+    for i in range(num_chunks):
+        start = i * chunk_size
+        end = min(start + chunk_size, total_size)
+        
+        yield {
+            'chunk_index': i,
+            'total_chunks': num_chunks,
+            'chunk_data': serialized[start:end],
+            'is_final_chunk': (i == num_chunks - 1),
+            'num_examples': num_examples
+        }
+
+def chunks_to_parameters(
+    chunks_data: bytes, 
+    compressed: bool = False
+) -> Tuple[OrderedDict, int]:
+    """Reconstruct model from concatenated chunks"""
+    # 1. Decompress if needed
+    if compressed and LZ4_AVAILABLE:
+        chunks_data = lz4.frame.decompress(chunks_data)
+    
+    # 2. Load using torch
+    buffer = io.BytesIO(chunks_data)
+    model_data = torch.load(buffer, map_location='cpu')
+    buffer.close()
+    
+    return model_data['parameters'], model_data['num_examples']
+```
+
+**Compression**:
+- Optional LZ4 compression (2-3x size reduction)
+- `USE_COMPRESSION = False` by default (set to True if lz4 installed)
 
 **When to Modify**:
-- Use different serialization (MessagePack, FlatBuffers)
-- Add compression (gzip, zstd)
-- Implement quantization
+- Implement quantization (int8, int4)
+- Add different compression algorithms (zstd, brotli)
+- Implement sparse tensor serialization
 - Add encryption
 
 ---
 
-## Core Module (`fedlearn/core/`)
+## Usage Examples
 
-**Purpose**: Shared utilities and helper functions.
-
-**Common Contents**:
-- Logging utilities
-- Configuration management
-- Type definitions
-- Common exceptions
-
-**When to Modify**:
-- Add framework-wide utilities
-- Implement custom loggers
-- Add metrics collection
-
----
-
-## Data Module (`fedlearn/data/`)
-
-**Purpose**: Data loading, partitioning, and preprocessing utilities.
-
-**Key Functions**:
-
+### Complete Server Example
 ```python
-def partition_data(
-    X: np.ndarray,
-    y: np.ndarray,
-    num_clients: int,
-    alpha: float = 0.5,
-    seed: int = 42
-) -> List[Tuple[np.ndarray, np.ndarray]]:
-    """
-    Partition data using Dirichlet distribution for non-IID split.
-    
-    Args:
-        X: Feature array
-        y: Label array
-        num_clients: Number of clients
-        alpha: Dirichlet parameter (lower = more heterogeneous)
-        seed: Random seed
-    
-    Returns:
-        List of (X_client, y_client) tuples
-    """
-```
+import torch
+from fedlearn.server import start_server, ServerConfig
+from fedlearn.server.strategy import FedAvg
 
-**Data Distribution Types**:
-1. **IID** (α → ∞): Each client gets random uniform sample
-2. **Non-IID** (α < 1): Each client gets skewed label distribution
-3. **Extreme Non-IID** (α < 0.1): Very heterogeneous
+# Define model
+model = SimpleCNN()
 
-**Usage**:
-```python
-from fedlearn.data import partition_data
+# Define evaluation function
+def evaluate_fn(round_num, parameters):
+    model.load_state_dict(parameters)
+    # Evaluate on test set
+    return test_loss, {'accuracy': accuracy}
 
-client_data = partition_data(
-    X=X_train, 
-    y=y_train,
-    num_clients=5,
-    alpha=0.5
+# Create strategy
+strategy = FedAvg(
+    initial_parameters=model.state_dict(),
+    evaluate_fn=evaluate_fn,
+    min_fit_clients=2,
+    clients_per_round=5
 )
 
-for i, (X_client, y_client) in enumerate(client_data):
-    print(f"Client {i}: {len(X_client)} samples")
+# Create config
+config = ServerConfig(num_rounds=10)
+
+# Start server
+history, final_params = start_server(
+    server_address="0.0.0.0:50051",
+    config=config,
+    strategy=strategy
+)
+
+# Save final model
+torch.save(final_params, "final_model.pt")
 ```
 
-**When to Modify**:
-- Implement different partitioning strategies
-- Add data augmentation
-- Implement federated datasets
-- Add privacy-preserving techniques
-
----
-
-## Estimators Module (`fedlearn/estimators/`)
-
-**Purpose**: Gradient estimators for DeComFL optimization.
-
-**Key Components**:
-
-### Zero-Order (ZO) Estimators
+### Complete Client Example
 ```python
-class ZOEstimator:
-    def estimate_gradient(self, loss_fn, parameters, delta=0.01):
-        """
-        Estimate gradient using finite differences.
-        
-        ∇f(θ) ≈ [f(θ + δe) - f(θ - δe)] / (2δ)
-        """
-```
+import torch
+from fedlearn.client import Client, start_client
 
-### First-Order (FO) Estimators
-```python
-class FOEstimator:
-    def compute_gradient(self, loss, parameters):
-        """
-        Compute exact gradient using autograd.
-        """
-```
-
-**When to Use**:
-- **ZO**: Non-differentiable objectives, black-box optimization
-- **FO**: Standard differentiable deep learning
-
-**When to Modify**:
-- Implement SPSA (Simultaneous Perturbation Stochastic Approximation)
-- Add variance reduction techniques
-- Implement adaptive step sizes
-
----
-
-## File Modification Guidelines
-
-### When to Modify Files
-
-**Client-Side** (`client/`):
-- Custom training loops
-- Different model architectures
-- Privacy mechanisms (DP, secure aggregation)
-
-**Server-Side** (`server/`):
-- Aggregation strategies
-- Client selection policies
-- Evaluation metrics
-
-**Communication** (`communication/`):
-- Protocol changes
-- Compression algorithms
-- Security features
-
-**Data** (`data/`):
-- Data loading pipelines
-- Preprocessing steps
-- Augmentation strategies
-
-### How to Extend
-
-1. **Inherit from base classes**
-```python
-class MyStrategy(fl.Strategy):
-    def aggregate_fit(self, results):
-        # Custom logic
-        pass
-```
-
-2. **Override specific methods**
-```python
-class MyClient(fl.Client):
+class MNISTClient(Client):
+    def __init__(self, model, train_loader):
+        self.model = model
+        self.train_loader = train_loader
+        self.optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+    
+    def get_parameters(self):
+        return self.model.state_dict()
+    
     def fit(self, parameters, config):
-        # Custom training
-        return parameters, num_samples
-```
+        self.model.load_state_dict(parameters)
+        self.model.train()
+        
+        for epoch in range(5):
+            for data, target in self.train_loader:
+                self.optimizer.zero_grad()
+                output = self.model(data)
+                loss = F.cross_entropy(output, target)
+                loss.backward()
+                self.optimizer.step()
+        
+        return self.model.state_dict(), len(self.train_loader.dataset)
 
-3. **Add to existing modules**
-```python
-# In fedlearn/data/utils.py
-def my_custom_partitioning(data, num_clients):
-    # Implementation
-    pass
+# Create client
+model = SimpleCNN()
+client = MNISTClient(model, train_loader)
+
+# Connect to server
+start_client(
+    server_address="localhost:50051",
+    client=client,
+    client_id="client_1"
+)
 ```
 
 ---
@@ -584,20 +1065,80 @@ def my_custom_partitioning(data, num_clients):
 ### Performance
 - Profile before optimizing
 - Use vectorized operations (NumPy, PyTorch)
-- Enable mixed precision training
-- Batch operations when possible
+- Enable mixed precision training when possible
+- Batch operations when appropriate
 
 ### Debugging
-- Add logging at key points
+- Add logging at key decision points
 - Use meaningful error messages
 - Validate inputs early
-- Test with 1-2 clients first
+- Test with 1-2 clients before scaling
+
+### Security
+- Validate client inputs
+- Implement rate limiting
+- Add authentication/authorization
+- Use TLS for production deployments
+
+---
+
+## Extension Points
+
+### Custom Client
+```python
+class MyCustomClient(Client):
+    def fit(self, parameters, config):
+        # Your custom training logic
+        pass
+```
+
+### Custom Strategy
+```python
+class MyCustomStrategy(Strategy):
+    def aggregate_fit(self, server_round, results):
+        # Your custom aggregation logic
+        pass
+```
+
+### Custom Serialization
+```python
+def my_custom_serializer(parameters):
+    # Your custom serialization logic
+    pass
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Client can't connect to server**:
+- Check server address and port
+- Ensure server is running
+- Check firewall settings
+
+**Model transfer fails**:
+- Check message size limits in gRPC options
+- Enable streaming for large models
+- Check network bandwidth
+
+**Round doesn't complete**:
+- Check `clients_per_round` setting
+- Verify clients are submitting updates
+- Check heartbeat status
+
+**Memory issues**:
+- Enable streaming for large models
+- Reduce batch size
+- Use gradient checkpointing
 
 ---
 
 ## Next Steps
 
-- **Server API**: [server.md](server.md)
-- **Client API**: [client.md](client.md)
-- **Strategies**: [strategies.md](strategies.md)
-- **Custom Strategies**: [../advanced/custom-strategies.md](../advanced/custom-strategies.md)
+For more detailed information, see:
+- **Architecture**: [architecture.md](architecture.md)
+- **API Reference**: [api_reference.md](api_reference.md)
+- **Examples**: [examples/](../examples/)
+- **Advanced Topics**: [advanced/](../advanced/)
