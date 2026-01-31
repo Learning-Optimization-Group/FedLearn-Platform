@@ -1,4 +1,4 @@
-
+# src/fedlearn/__init__.py
 
 # Expose the main entry points for server and client
 from . import server
@@ -9,3 +9,7 @@ from .client.client import Client
 
 # Expose the base Strategy class and the default FedAvg strategy
 from .server.strategy import Strategy, FedAvg
+
+# Expose the DeComFL components
+from .client.decomfl_client import DeComFLClient
+from .server.decomfl_strategy import DeComFL

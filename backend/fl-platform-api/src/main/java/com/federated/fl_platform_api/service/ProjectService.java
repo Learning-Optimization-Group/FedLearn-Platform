@@ -125,8 +125,13 @@ public class ProjectService {
                 ? request.getStrategy()
                 : "FedAvg";
 
+        Integer minClients = (request != null && request.getMinClients() != null)
+                ? request.getMinClients()
+                : 1;
+
         // --- THIS IS THE NEW LOGIC FOR NUMBER OF ROUNDS ---
         System.out.println("request.getNumRounds() - "+request.getNumRounds());
+        System.out.println(("Minclients = "+request.getMinClients()));
         Integer numRoundsToUse;
         if (request != null && request.getNumRounds() != null && request.getNumRounds() > 0) {
             // 1. Use the user's value if provided and valid
@@ -150,7 +155,7 @@ public class ProjectService {
 
         System.out.println("\n[2/4] Starting dedicated Flower server process...");
 
-        int port = flowerServerManager.startServerForProject(project,true, strategyToUse, numRoundsToUse);
+        int port = flowerServerManager.startServerForProject(project,true, strategyToUse, numRoundsToUse,minClients);
         project.setServerPort(port);
         project.setStatus("RUNNING");
 

@@ -11,6 +11,15 @@ import os
 from collections import OrderedDict
 
 # ==============================================================================
+# --- HARDCODED ECG/MLP CONFIGURATION ---
+# ==============================================================================
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ECG_DATASET_PATH = os.path.join(SCRIPT_DIR, "ecg_data", "ecg.csv")  # Hardcoded ECG dataset path
+ECG_INPUT_DIM = 140
+ECG_HIDDEN_DIM = 64
+ECG_NUM_CLASSES = 2
+
+# ==============================================================================
 # --- Model Definitions ---
 # ==============================================================================
 class CnnNet(nn.Module):
@@ -50,6 +59,17 @@ def get_model(model_type: str, model_name: str, device: str):
             ).to(device)
         else:
             raise ValueError(f"Unsupported Transformer model: {model_name}")
+
+    elif model_type == 'MLP':
+        # Import ECG model
+        from models.ecg_mlp import ECGModel
+
+        if model_name in ['ecg_mlp', 'foundational']:
+            print(f"Initializing ECG MLP model (input_dim={ECG_INPUT_DIM}, hidden_dim={ECG_HIDDEN_DIM}, num_classes={ECG_NUM_CLASSES})")
+            print(f"[HARDCODED] ECG dataset path: {ECG_DATASET_PATH}")
+            return ECGModel(input_dim=ECG_INPUT_DIM, hidden_dim=ECG_HIDDEN_DIM, num_classes=ECG_NUM_CLASSES).to(device)
+        else:
+            raise ValueError(f"Unsupported MLP model: {model_name}")
 
     else:
         raise ValueError(f"Unsupported model architecture: {model_type}")
@@ -107,12 +127,12 @@ def main():
 
     net = get_model(args.model_type, args.model_name, DEVICE)
 
-    if args.model_type.lower() == "transformer":
+    if args.model_type.upper() == "TRANSFORMER":
         if args.pretrain_epochs > 0:
             print("--- WARNING: Server-side pre-training is not applicable for pre-trained LLMs. --pretrain-epochs ignored. ---")
         print("--- Initializing Transformer from public Hugging Face checkpoint. ---")
 
-    elif args.model_type.lower() == "cnn":
+    elif args.model_type.upper() == "CNN":
         if args.pretrain_epochs > 0:
             print(f"--- Starting server-side pre-training for CNN for {args.pretrain_epochs} epochs... ---")
             pytorch_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
@@ -124,6 +144,10 @@ def main():
         else:
             print("--- No pre-training requested. Initializing CNN with random weights. ---")
 
+    elif args.model_type.upper() == "MLP":
+        if args.pretrain_epochs > 0:
+            print("--- WARNING: Pre-training not supported for MLP. Ignoring --pretrain-epochs. ---")
+        print("--- Initializing MLP with random weights (Xavier initialization). ---")
 
     print(f"Saving initial model weights...")
     state_dict = net.state_dict()

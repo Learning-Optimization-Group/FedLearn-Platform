@@ -63,6 +63,7 @@ public class ProjectController {
         System.out.println("Request object: " + request);
         System.out.println("Strategy: " + request.getStrategy());
         System.out.println("NumRounds: " + request.getNumRounds());
+        System.out.println("MinClients:"+request.getMinClients());
         System.out.println("NumRounds is null: " + (request.getNumRounds() == null));
         System.out.println("===================");
         try{

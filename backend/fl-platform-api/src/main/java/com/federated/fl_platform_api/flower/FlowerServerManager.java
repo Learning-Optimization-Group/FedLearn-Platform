@@ -41,7 +41,7 @@ public class FlowerServerManager {
      * @throws InterruptedException If the thread is interrupted while waiting.
      * @throws RuntimeException If the server process fails to start and exits prematurely.
      */
-    public int startServerForProject(Project project,  boolean isPretrained, String strategy, Integer numRounds) throws IOException, InterruptedException {
+    public int startServerForProject(Project project,  boolean isPretrained, String strategy, Integer numRounds, Integer minClients) throws IOException, InterruptedException {
 
         stopServerForProject(project.getId());
         Thread.sleep(2000);
@@ -72,6 +72,8 @@ public class FlowerServerManager {
         command.add(strategy);
         command.add("--num-rounds");
         command.add(String.valueOf(numRounds));
+        command.add("--min-clients");
+        command.add(String.valueOf(minClients));
         command.add("--model-type");
         command.add(project.getModelType());
         command.add("--model-name");

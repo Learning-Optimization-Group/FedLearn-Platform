@@ -1,8 +1,12 @@
+import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
 import argparse
 import torch
 import time
 import threading
 import numpy as np
+import pandas as pd
 from collections import OrderedDict
 from typing import List, Tuple
 from torch import nn
@@ -11,6 +15,7 @@ from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR
 import psutil
 import fedlearn as fl
+from fedlearn.client import DeComFLClient  # Import DeComFL client from framework
 
 from flwr_datasets import FederatedDataset
 import torchvision.transforms as transforms
@@ -33,6 +38,7 @@ utilization_log = []
 
 # --- !! MANUAL FLAG TO SWITCH BETWEEN MODELS !! ---
 USE_LLM = True
+USE_MLP = False  # NEW: Flag for MLP/ECG
 # --------------------------------------------------
 
 # --- Configuration ---
@@ -72,12 +78,13 @@ LLM_WEIGHT_DECAY = 0.01
 LLM_MAX_GRAD_NORM = 1.0  # Standard value for transformers
 LLM_WARMUP_RATIO = 0.1  # 10% of steps for warmup
 CNN_LEARNING_RATE = 1e-3
+MLP_LEARNING_RATE = 1e-3  # Higher LR for zeroth-order optimization
 
 # Global dataset selection (will be set via argparse)
 DATASET_NAME = "sst2"
 
 print(f"Client operating on {DEVICE}")
-print(f"--- RUNNING EXPERIMENT: {'LLM (OPT-125M)' if USE_LLM else 'CNN (CIFAR-10)'} ---")
+print(f"--- RUNNING EXPERIMENT: {'LLM (OPT-125M)' if USE_LLM else 'MLP (ECG)' if USE_MLP else 'CNN (CIFAR-10)'} ---")
 
 
 # ==============================================================================
@@ -115,17 +122,81 @@ def log_processing_usage(step_tag=""):
 
 
 # ==============================================================================
+# --- ECG Data Loading ---
+# ==============================================================================
+def load_ecg_data_from_csv(dataset_path: str) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Load ECG data from CSV file.
+
+    Args:
+        dataset_path: Path to ECG CSV file
+
+    Returns:
+        X: Feature array (n_samples, n_features)
+        y: Label array (n_samples,)
+    """
+    print(f"Loading ECG data from {dataset_path}")
+
+    # Load CSV
+    df = pd.read_csv(dataset_path, header=None)
+
+    # Last column is label, rest are features
+    X = df.iloc[:, :-1].values.astype(np.float32)
+    y = df.iloc[:, -1].values.astype(np.int64)
+
+    print(f"Loaded ECG data: X shape={X.shape}, y shape={y.shape}")
+    return X, y
+
+
+# ==============================================================================
 # --- Data and Training Logic ---
 # ==============================================================================
-def load_data(partition_id: int, dataset_name: str):
+def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, num_clients: int = 10):
     """
-    Load data for either CNN (CIFAR-10) or LLM (CB/SST-2).
+    Load data for CNN (CIFAR-10), LLM (CB/SST-2), or MLP (ECG).
 
     Args:
         partition_id: Client partition ID
-        dataset_name: "cb" or "sst2" for LLM, ignored for CNN
+        dataset_name: "cb", "sst2" for LLM, "ecg" for MLP
+        dataset_path: Path to ECG CSV (required for MLP)
+        num_clients: Total number of clients (for ECG data split)
     """
-    if USE_LLM:
+    if USE_MLP:
+        # MLP: ECG dataset
+        from data_loaders.ecg_loader import get_ecg_loaders
+        from config import get_dataset_config
+
+        if not dataset_path:
+            raise ValueError("--dataset-path is required for ECG dataset")
+
+        # Load ECG data
+        X, y = load_ecg_data_from_csv(dataset_path)
+
+        # Get ECG config
+        config = get_dataset_config("ecg")
+
+        # Get data loaders for this client
+        trainloader, testloader, data_info = get_ecg_loaders(
+            X=X,
+            y=y,
+            client_id=partition_id,
+            num_clients=num_clients,
+            batch_size_train=config.batch_size_train,
+            batch_size_test=config.batch_size_test,
+            data_fraction=config.data_fraction,
+            alpha=config.alpha,
+            test_size=config.test_size,
+            num_workers=0,  # Set to 0 for client
+            seed=config.seed
+        )
+
+        print(f"ECG data loaded for client {partition_id}:")
+        print(f"  Train samples: {data_info['train_samples']}")
+        print(f"  Test samples: {data_info['test_samples']}")
+
+        return trainloader, testloader
+
+    elif USE_LLM:
         config = DATASET_CONFIGS[dataset_name]
         tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
@@ -157,7 +228,7 @@ def load_data(partition_id: int, dataset_name: str):
                     max_length=config["max_length"]
                 )
             else:  # SST-2: single sentence
-                tokenized =  tokenizer(
+                tokenized = tokenizer(
                     examples[config["text_column"]],
                     padding="max_length",
                     truncation=True,
@@ -173,8 +244,6 @@ def load_data(partition_id: int, dataset_name: str):
             num_proc=1,
             remove_columns=partition.column_names
         ).with_format("torch")
-            # remove_columns=[col for col in partition.column_names if col != config["label_column"]]
-        # ).rename_column(config["label_column"], "labels").with_format("torch")
 
         # Split into train/test
         train_test_split = tokenized_partition.train_test_split(test_size=0.2, seed=42)
@@ -212,13 +281,17 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
         net: Neural network model
         trainloader: Training data loader
         epochs: Number of epochs (K=1 for LLM as per paper)
-        dataset_name: "cb" or "sst2" for LLM
+        dataset_name: "cb" or "sst2" for LLM, "ecg" for MLP
         progress_callback: Optional callback function(current_step, total_steps)
     """
     # Get dataset-specific configuration
     if USE_LLM:
         config = DATASET_CONFIGS[dataset_name]
         learning_rate = config["learning_rate"]
+    elif USE_MLP:
+        from config import get_dataset_config
+        config = get_dataset_config("ecg")
+        learning_rate = config.learning_rate
     else:
         learning_rate = CNN_LEARNING_RATE
 
@@ -252,7 +325,7 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
 
     print(f"   [Training] Starting {total_steps} steps for {epochs} epoch(s)...")
     print(f"   [Training] Learning rate: {learning_rate}")
-    if USE_LLM:
+    if USE_LLM or USE_MLP:
         print(f"   [Training] Dataset: {dataset_name}")
 
     for epoch in range(epochs):
@@ -269,7 +342,15 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                 # Forward pass with labels
                 outputs = net(**batch)
                 loss = outputs.loss
+            elif USE_MLP:
+                # MLP: batch is (features, labels) tuple
+                features, labels = batch
+                features = features.to(DEVICE)
+                labels = labels.to(DEVICE)
+                outputs = net(features)
+                loss = criterion(outputs, labels)
             else:
+                # CNN
                 images, labels = batch["img"].to(DEVICE), batch["label"].to(DEVICE)
                 outputs = net(images)
                 loss = criterion(outputs, labels)
@@ -325,12 +406,24 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
 # --- Custom Client Class for FedLearn with Heartbeat Support ---
 # ==============================================================================
 class ZOSLClient(fl.Client):
-    def __init__(self, partition_id: int, dataset_name: str = "sst2"):
+    def __init__(self, partition_id: int, dataset_name: str = "sst2", dataset_path: str = None, num_clients: int = 10):
         self.partition_id = partition_id
         self.dataset_name = dataset_name
         self.grpc_client = None  # Will be set by start_client
 
-        if USE_LLM:
+        if USE_MLP:
+            # MLP: ECG model
+            from models.ecg_mlp import ECGModel
+            from config import get_dataset_config
+
+            config = get_dataset_config("ecg")
+            self.net = ECGModel(
+                input_dim=config.input_dim,
+                hidden_dim=config.hidden_dim,
+                num_classes=config.num_classes
+            ).to(DEVICE)
+            print(f"Loaded ECG MLP model ({config.num_classes} classes)")
+        elif USE_LLM:
             config = DATASET_CONFIGS[dataset_name]
             self.net = AutoModelForSequenceClassification.from_pretrained(
                 MODEL_NAME,
@@ -347,7 +440,9 @@ class ZOSLClient(fl.Client):
 
         self.trainloader, self.valloader = load_data(
             partition_id=self.partition_id,
-            dataset_name=dataset_name
+            dataset_name=dataset_name,
+            dataset_path=dataset_path,
+            num_clients=num_clients
         )
         print(f"Data loaded successfully for client {partition_id}.")
 
@@ -373,6 +468,10 @@ class ZOSLClient(fl.Client):
             local_epochs = config.get("local_epochs", DATASET_CONFIGS[self.dataset_name]["local_epochs"])
             print('self.dataset_name - ',self.dataset_name)
             print('Client Class epochs - ',local_epochs)
+        elif USE_MLP:
+            from config import get_dataset_config
+            ecg_config = get_dataset_config("ecg")
+            local_epochs = config.get("local_epochs", ecg_config.local_epochs)
         else:
             local_epochs = config.get("local_epochs", 1)
 
@@ -398,72 +497,272 @@ class ZOSLClient(fl.Client):
 
         return self.net.state_dict(), len(self.trainloader.dataset)
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ECG_DATASET_PATH = os.path.join(SCRIPT_DIR, "ecg_data", "ecg.csv")  # Hardcoded ECG dataset path
+ECG_NUM_CLIENTS = 5  # Hardcoded number of clients for ECG
+ECG_STRATEGY = "DeComFL"  # Hardcoded strategy for MLP
+
+
+def create_decomfl_compatible_loader(original_loader, is_llm=False):
+    """
+    Wrap a DataLoader to make it compatible with DeComFLClient.
+
+    For LLM: Converts dict batches to (inputs_dict, labels) tuples
+    For other models: Returns as-is
+    """
+    if not is_llm:
+        return original_loader
+
+    class LLMBatchWrapper:
+        def __init__(self, loader):
+            self.loader = loader
+
+        def __iter__(self):
+            for batch in self.loader:
+                # Extract labels and create inputs dict
+                labels = batch.pop('labels')
+                inputs = batch  # Contains input_ids, attention_mask, etc.
+                yield inputs, labels
+
+        def __len__(self):
+            return len(self.loader)
+
+        @property
+        def dataset(self):
+            return self.loader.dataset
+
+    return LLMBatchWrapper(original_loader)
 
 # ==============================================================================
 # --- Main Execution Block ---
 # ==============================================================================
 def main():
-    global USE_LLM, DATASET_NAME, BATCH_SIZE
+    global USE_LLM, USE_MLP, DATASET_NAME, BATCH_SIZE
 
     parser = argparse.ArgumentParser(description="FedLearn gRPC Client with Heartbeat")
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
-    parser.add_argument("--server-address", type=str, required=True, help="gRPC server address (e.g., localhost:50051)")
+    parser.add_argument("--server-address", type=str, required=True, help="gRPC server address")
     parser.add_argument("--partition-id", type=int, required=True, choices=range(0, NUM_PARTITIONS), help="Client partition ID")
-    parser.add_argument("--use-llm", action="store_true", help="Use LLM model instead of CNN")
-    parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2"], help="Dataset for LLM (cb or sst2)")
+    parser.add_argument("--model-type", type=str, choices=["CNN", "TRANSFORMER", "MLP"], help="Model type")
+    parser.add_argument("--model-name", type=str, help="Model name")
+    parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
+    parser.add_argument("--strategy", type=str, default="FedAvg", help="FL strategy (FedAvg or DeComFL)")
+    parser.add_argument("--use-llm", action="store_true", help="Use LLM (deprecated, use --model-type TRANSFORMER)")
+
     args = parser.parse_args()
 
-    # Update global configuration
-    USE_LLM = args.use_llm
-    DATASET_NAME = args.dataset
-    BATCH_SIZE = 1 if USE_LLM else 32
+    # Determine model type
+    if args.model_type:
+        USE_LLM = (args.model_type.upper() == "TRANSFORMER")
+        USE_MLP = (args.model_type.upper() == "MLP")
+    elif args.use_llm:
+        USE_LLM = True
+        USE_MLP = False
+    else:
+        USE_LLM = False
+        USE_MLP = False
 
+    # === HARDCODED ECG/MLP OVERRIDE ===
+    if USE_MLP:
+        args.dataset = "ecg"
+        dataset_path = ECG_DATASET_PATH
+        num_clients = ECG_NUM_CLIENTS
+        args.strategy = ECG_STRATEGY  # Override strategy for MLP
+
+        print(f"\n{'='*60}")
+        print(f"MLP MODEL DETECTED - Using Hardcoded ECG Configuration")
+        print(f"{'='*60}")
+        print(f"  Dataset: {args.dataset}")
+        print(f"  Dataset path: {dataset_path}")
+        print(f"  Num clients: {num_clients}")
+        print(f"  Strategy: {args.strategy}")
+        print(f"{'='*60}\n")
+    else:
+        dataset_path = None
+        num_clients = 10  # Default for CNN/LLM
+        # Keep args.strategy as passed (FedAvg or DeComFL)
+    # === END HARDCODED OVERRIDE ===
+
+    DATASET_NAME = args.dataset
+
+    # Set batch size based on model type
+    if USE_LLM:
+        BATCH_SIZE = 1
+    elif USE_MLP:
+        from config import get_dataset_config
+        config = get_dataset_config("ecg")
+        BATCH_SIZE = config.batch_size_train
+    else:
+        BATCH_SIZE = 32
+
+    # Print configuration
     print(f"\n{'='*60}")
     print(f"Starting FedLearn Client")
     print(f"{'='*60}")
     print(f"Configuration:")
     print(f"  Project ID: {args.project_id}")
     print(f"  Partition ID: {args.partition_id}")
-    print(f"  Model: {'LLM (OPT-125M)' if USE_LLM else 'CNN (CIFAR-10)'}")
+    print(f"  Model Type: {args.model_type or ('LLM' if USE_LLM else 'CNN')}")
+    print(f"  Model Name: {args.model_name or MODEL_NAME}")
+    print(f"  Strategy: {args.strategy}")
+    print(f"  Dataset: {args.dataset.upper()}")
+
     if USE_LLM:
-        print(f"  Dataset: {args.dataset.upper()}")
         print(f"  Num classes: {DATASET_CONFIGS[args.dataset]['num_classes']}")
         print(f"  Learning rate: {DATASET_CONFIGS[args.dataset]['learning_rate']}")
         print(f"  Local epochs: {DATASET_CONFIGS[args.dataset]['local_epochs']}")
+    elif USE_MLP:
+        from config import get_dataset_config
+        config = get_dataset_config("ecg")
+        print(f"  Num classes: {config.num_classes}")
+        print(f"  Input dim: {config.input_dim}")
+        print(f"  Learning rate: {config.learning_rate}")
+        print(f"  Local epochs: {config.local_epochs}")
+        print(f"  Dataset path: {dataset_path}")
+        print(f"  Total clients: {num_clients}")
+
     print(f"  Device: {DEVICE}")
     print(f"  Server: {args.server_address}")
     print(f"{'='*60}\n")
 
-    client = ZOSLClient(partition_id=args.partition_id, dataset_name=args.dataset)
-    client_id = f"project_{args.project_id}_client_{args.partition_id}"
+    # === CREATE CLIENT BASED ON STRATEGY ===
+    if args.strategy.lower() == 'decomfl':
+        print("Using DeComFL client from framework")
 
-    print(f"Connecting to gRPC server at {args.server_address}...")
+        from config import get_decomfl_config
 
-    try:
-        # Start the client
-        fl.client.start_client(
-            server_address=args.server_address,
-            client=client,
-            client_id=client_id
+        if USE_MLP:
+            # MLP/ECG with DeComFL
+            from models.ecg_mlp import ECGModel
+            from config import get_dataset_config
+
+            ecg_config = get_dataset_config("ecg")
+            decomfl_config = get_decomfl_config("ecg")
+
+            net = ECGModel(
+                input_dim=ecg_config.input_dim,
+                hidden_dim=ecg_config.hidden_dim,
+                num_classes=ecg_config.num_classes
+            ).to(DEVICE)
+
+            # Load data
+            X, y = load_ecg_data_from_csv(dataset_path)
+            from data_loaders.ecg_loader import get_ecg_loaders
+
+            trainloader, _, _ = get_ecg_loaders(
+                X=X,
+                y=y,
+                client_id=args.partition_id,
+                num_clients=num_clients,
+                batch_size_train=ecg_config.batch_size_train,
+                batch_size_test=ecg_config.batch_size_test,
+                data_fraction=ecg_config.data_fraction,
+                alpha=ecg_config.alpha,
+                test_size=ecg_config.test_size,
+                num_workers=0,
+                seed=ecg_config.seed
+            )
+
+        elif USE_LLM:
+            # LLM with DeComFL
+            config = DATASET_CONFIGS[args.dataset]
+            decomfl_config = get_decomfl_config("default")
+
+            net = AutoModelForSequenceClassification.from_pretrained(
+                MODEL_NAME,
+                num_labels=config["num_classes"],
+                use_safetensors=True
+            ).to(DEVICE)
+
+            # Load LLM data (reuse existing load_data function)
+            trainloader_original, _ = load_data(
+                partition_id=args.partition_id,
+                dataset_name=args.dataset,
+                dataset_path=None,
+                num_clients=num_clients
+            )
+
+            # Wrap the loader to make it DeComFL-compatible
+            trainloader = create_decomfl_compatible_loader(trainloader_original, is_llm=True)
+
+        else:
+            # CNN with DeComFL (if needed)
+            decomfl_config = get_decomfl_config("default")
+            net = CnnNet().to(DEVICE)
+
+            trainloader, _ = load_data(
+                partition_id=args.partition_id,
+                dataset_name=args.dataset,
+                dataset_path=None,
+                num_clients=num_clients
+            )
+
+        # Create DeComFL client (works for all model types)
+        client = DeComFLClient(
+            model=net,
+            train_loader=trainloader,
+            smoothing_param=decomfl_config.smoothing_param,
+            device=DEVICE
         )
 
-    except KeyboardInterrupt:
-        print(f"\n[{client_id}] Interrupted by user. Shutting down...")
-    except Exception as e:
-        print(f"[{client_id}] Error: {e}")
-        raise
-    finally:
-        print("\n=== Utilization Summary ===")
-        print(f"{'Step':25} {'CPU RAM (MB)':15} {'GPU Alloc (MB)':15} {'GPU Reserved (MB)':18} {'GPU Util (%)':12}")
+        client_id = f"project_{args.project_id}_client_{args.partition_id}"
 
-        for entry in utilization_log:
-            print(f"{entry['step']:25}"
-                  f"{entry['cpu_ram_mb']:<15.2f}"
-                  f"{(entry['gpu_alloc_mb'] or 0):<15.2f}"
-                  f"{(entry['gpu_reserved_mb'] or 0):<18.2f}"
-                  f"{(entry['gpu_util_percent'] or 0):<12}")
+        print(f"Connecting to gRPC server at {args.server_address}...")
 
-        print(f"[{client_id}] Client disconnected.")
+        try:
+            # Start DeComFL client
+            fl.client.start_decomfl_client(
+                server_address=args.server_address,
+                client=client,
+                client_id=client_id
+            )
+        except KeyboardInterrupt:
+            print(f"\n[{client_id}] Interrupted by user. Shutting down...")
+        except Exception as e:
+            print(f"[{client_id}] Error: {e}")
+            raise
+        finally:
+            print(f"[{client_id}] Client disconnected.")
+
+    else:
+        # Use standard FedAvg client
+        print("Using FedAvg client (standard parameter download)")
+
+        client = ZOSLClient(
+            partition_id=args.partition_id,
+            dataset_name=args.dataset,
+            dataset_path=dataset_path,
+            num_clients=num_clients
+        )
+        client_id = f"project_{args.project_id}_client_{args.partition_id}"
+
+        print(f"Connecting to gRPC server at {args.server_address}...")
+
+        try:
+            # Start the client
+            fl.client.start_client(
+                server_address=args.server_address,
+                client=client,
+                client_id=client_id
+            )
+
+        except KeyboardInterrupt:
+            print(f"\n[{client_id}] Interrupted by user. Shutting down...")
+        except Exception as e:
+            print(f"[{client_id}] Error: {e}")
+            raise
+        finally:
+            print("\n=== Utilization Summary ===")
+            print(f"{'Step':25} {'CPU RAM (MB)':15} {'GPU Alloc (MB)':15} {'GPU Reserved (MB)':18} {'GPU Util (%)':12}")
+
+            for entry in utilization_log:
+                print(f"{entry['step']:25}"
+                      f"{entry['cpu_ram_mb']:<15.2f}"
+                      f"{(entry['gpu_alloc_mb'] or 0):<15.2f}"
+                      f"{(entry['gpu_reserved_mb'] or 0):<18.2f}"
+                      f"{(entry['gpu_util_percent'] or 0):<12}")
+
+            print(f"[{client_id}] Client disconnected.")
 
 
 if __name__ == "__main__":

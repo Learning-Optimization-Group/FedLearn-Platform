@@ -1,0 +1,6 @@
+*.pkl 
+*.pth 
+*.npz 
+__pycache__/ 
+*.pyc 
+*.egg-info/ 

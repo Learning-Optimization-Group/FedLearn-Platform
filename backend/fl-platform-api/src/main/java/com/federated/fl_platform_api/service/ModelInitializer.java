@@ -19,7 +19,7 @@ public class ModelInitializer {
 
     public void initializeModelFile(String modelType, String modelName, String optimizer, String outputPath, int pretrainEpochs) throws IOException, InterruptedException {
 
-        // --- THIS IS THE CRUCIAL FIX ---
+
         // Create a File object from the relative path and get its absolute path.
         // This ensures that no matter what, we are calling the script with its full, unambiguous path.
         File scriptFile = new File(initModelWrapperPath);
