@@ -12,33 +12,32 @@ import java.util.List;
 @Component
 public class ModelInitializer {
 
-    @Value("${python.executable.path}") // Points to run_init_model.bat
+    @Value("${python.executable.path}") // Points to run_init_model.bat or .sh
     private String initModelWrapperPath;
 
-    // In ModelInitializer.java
-
     public void initializeModelFile(String modelType, String modelName, String optimizer, String outputPath, int pretrainEpochs) throws IOException, InterruptedException {
-
-
-        // Create a File object from the relative path and get its absolute path.
-        // This ensures that no matter what, we are calling the script with its full, unambiguous path.
-        File scriptFile = new File(initModelWrapperPath);
-        ProcessBuilder pb;
-        String absoluteScriptPath = scriptFile.getAbsolutePath();
 
         System.out.println("--- Preparing to Execute Model Initializer ---");
 
         List<String> command = new ArrayList<>();
         String os = System.getProperty("os.name").toLowerCase();
 
-        if (!os.contains("win")) {
-            // On Windows, the command is just the .bat file
+        // Determine script path based on OS
+        String scriptPath;
+        if (os.contains("win")) {
+            // Windows - use .bat file
+            scriptPath = initModelWrapperPath.replace(".bat", ".bat");
+            command.add(scriptPath);
+        } else {
+            // Linux/Mac - use .sh file and call with bash
+            scriptPath = initModelWrapperPath.replace(".bat", ".sh");
+            File scriptFile = new File(scriptPath);
+            String absoluteScriptPath = scriptFile.getAbsolutePath();
             command.add("bash");
-
+            command.add(absoluteScriptPath);
         }
 
         // Add the arguments for the script
-        command.add(absoluteScriptPath);
         command.add("--model-type");
         command.add(modelType);
         command.add("--model-name");
@@ -50,16 +49,7 @@ public class ModelInitializer {
         command.add("--pretrain-epochs");
         command.add(String.valueOf(pretrainEpochs));
 
-        pb = new ProcessBuilder(command);
-//        ProcessBuilder pb = new ProcessBuilder(
-//                "bash",
-//                absoluteScriptPath, // Use the absolute path here
-//                "--model", modelType,
-//                "--out", outputPath,
-//                "--pretrain-epochs", String.valueOf(pretrainEpochs)
-//        );
-
-        // Set the working directory to ensure all relative paths inside the script are correct.
+        ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(new File("."));
         pb.redirectErrorStream(true);
 
@@ -68,7 +58,6 @@ public class ModelInitializer {
 
         Process process = pb.start();
 
-        // ... (rest of the logging and waitFor logic is the same)
         StringBuilder output = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
             String line;
