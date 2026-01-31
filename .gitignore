@@ -4,3 +4,9 @@
 __pycache__/ 
 *.pyc 
 *.egg-info/ 
+"__pycache__/" 
+"*.pyc" 
+"*.pth" 
+"*.npz" 
+"**/checkpoints/" 
+"**/results/" 
