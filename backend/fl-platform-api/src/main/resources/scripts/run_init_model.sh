@@ -1,20 +1,23 @@
 #!/bin/bash
 set -e # Exit immediately if a command fails.
 
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 echo "[WRAPPER-SH] Activating Python virtual environment..."
 
-# Activate the virtual environment that we created on the server.
+# Activate the virtual environment
 source /home/ec2-user/app/venv/bin/activate
 
 echo "[WRAPPER-SH] Environment activated. Executing init_model.py..."
 
-# Execute the python script, passing along all arguments ("$@").
-# The path is relative to the project root directory, which is set by the Java ProcessBuilder.
-python3 src/main/resources/scripts/init_model.py "$@"
+# Change to script directory and execute init_model.py with absolute path
+cd "$SCRIPT_DIR"
+python3 init_model.py "$@"
 
 EXIT_CODE=$?
 echo "[WRAPPER-SH] Python script finished with exit code: $EXIT_CODE"
 
-# Deactivation happens automatically when the script exits, but this is good practice.
+# Deactivation happens automatically when the script exits
 deactivate
 exit $EXIT_CODE
