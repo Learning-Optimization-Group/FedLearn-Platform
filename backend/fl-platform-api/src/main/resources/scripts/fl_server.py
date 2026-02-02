@@ -246,37 +246,93 @@ def main():
         criterion = torch.nn.CrossEntropyLoss()
 
         with torch.no_grad():
-            for batch in test_loader:
-                if is_llm:
-                    # LLM: batch is a dict with input_ids, attention_mask, labels
-                    batch = {k: v.to(DEVICE) for k, v in batch.items()}
-                    outputs = net(**batch)
-                    loss = outputs.loss
-                    logits = outputs.logits
-                    labels = batch["labels"]
-                elif is_mlp:
-                    # MLP: batch is (features, labels) tuple
-                    features, labels = batch
-                    features = features.to(DEVICE)
-                    labels = labels.to(DEVICE)
-                    outputs = net(features)
-                    loss = criterion(outputs, labels)
-                    logits = outputs
-                else:
-                    # CNN: batch is a dict with 'img' and 'label'
-                    images = batch["img"].to(DEVICE)
-                    labels = batch["label"].to(DEVICE)
-                    outputs = net(images)
-                    loss = criterion(outputs, labels)
-                    logits = outputs
+            for batch_idx, batch in enumerate(test_loader):
+                # Debug: Print batch structure on first iteration
+                if batch_idx == 0:
+                    logging.info(f"[Debug] Batch type: {type(batch)}")
+                    if isinstance(batch, dict):
+                        logging.info(f"[Debug] Batch keys: {list(batch.keys())}")
+                    elif isinstance(batch, (tuple, list)):
+                        logging.info(f"[Debug] Batch is tuple/list with {len(batch)} elements")
+                        logging.info(f"[Debug] Element types: {[type(x) for x in batch]}")
 
-                total_loss += loss.item()
-                num_batches += 1
+                # Handle different batch formats
+                try:
+                    if is_llm:
+                        # LLM: batch should be a dict with input_ids, attention_mask, labels
+                        if isinstance(batch, dict):
+                            if 'labels' not in batch:
+                                raise KeyError(f"LLM batch is dict but missing 'labels' key. Available keys: {list(batch.keys())}")
 
-                # Calculate accuracy
-                predictions = torch.argmax(logits, dim=-1)
-                correct += (predictions == labels).sum().item()
-                total += labels.size(0)
+                            # Move all tensors to device
+                            batch = {k: v.to(DEVICE) for k, v in batch.items()}
+
+                            # Forward pass
+                            outputs = net(**batch)
+                            loss = outputs.loss
+                            logits = outputs.logits
+                            labels = batch["labels"]
+
+                        elif isinstance(batch, (tuple, list)) and len(batch) == 2:
+                            # Fallback: batch is (inputs_dict, labels) tuple
+                            inputs, labels = batch
+                            if isinstance(inputs, dict):
+                                inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
+                                labels = labels.to(DEVICE)
+                                outputs = net(**inputs, labels=labels)
+                                loss = outputs.loss
+                                logits = outputs.logits
+                            else:
+                                raise ValueError(f"Expected LLM inputs to be dict, got {type(inputs)}")
+                        else:
+                            raise ValueError(f"Unexpected LLM batch format: {type(batch)}")
+
+                    elif is_mlp:
+                        # MLP: batch is (features, labels) tuple
+                        if not isinstance(batch, (tuple, list)) or len(batch) != 2:
+                            raise ValueError(f"Expected MLP batch to be (features, labels) tuple, got {type(batch)}")
+
+                        features, labels = batch
+                        features = features.to(DEVICE)
+                        labels = labels.to(DEVICE)
+                        outputs = net(features)
+                        loss = criterion(outputs, labels)
+                        logits = outputs
+
+                    else:
+                        # CNN: batch is a dict with 'img' and 'label'
+                        if isinstance(batch, dict):
+                            if 'img' not in batch or 'label' not in batch:
+                                raise KeyError(f"CNN batch missing keys. Available: {list(batch.keys())}")
+
+                            images = batch["img"].to(DEVICE)
+                            labels = batch["label"].to(DEVICE)
+                        elif isinstance(batch, (tuple, list)) and len(batch) == 2:
+                            # Fallback: batch is (images, labels) tuple
+                            images, labels = batch
+                            images = images.to(DEVICE)
+                            labels = labels.to(DEVICE)
+                        else:
+                            raise ValueError(f"Unexpected CNN batch format: {type(batch)}")
+
+                        outputs = net(images)
+                        loss = criterion(outputs, labels)
+                        logits = outputs
+
+                    total_loss += loss.item()
+                    num_batches += 1
+
+                    # Calculate accuracy
+                    predictions = torch.argmax(logits, dim=-1)
+                    correct += (predictions == labels).sum().item()
+                    total += labels.size(0)
+
+                except Exception as e:
+                    logging.error(f"Error processing batch {batch_idx}: {e}")
+                    logging.error(f"Batch type: {type(batch)}")
+                    if isinstance(batch, dict):
+                        logging.error(f"Batch keys: {list(batch.keys())}")
+                    raise
 
         # Average loss per batch (not per sample)
         avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
