@@ -21,28 +21,29 @@ from config import DATASET_CONFIGS
 # ==============================================================================
 # --- SERVER-SIDE EVALUATION HELPERS ---
 # ==============================================================================
-def load_server_test_data(is_llm: bool, dataset_name: str = "sst2"):
-    """
-    Load test data for server-side evaluation.
+import torch
+from torch.utils.data import DataLoader
+from transformers import AutoTokenizer, DataCollatorWithPadding
+from datasets import load_dataset
+from torchvision import datasets, transforms
+from config import DATASET_CONFIGS, get_dataset_config
 
-    Args:
-        is_llm: Whether using LLM or CNN
-        dataset_name: "cb" or "sst2" for LLM
-    """
+def load_server_test_data(is_llm: bool, dataset_name: str = None):
+    """Load test data for server-side evaluation."""
     if is_llm:
-        if dataset_name not in DATASET_CONFIGS:
-            raise ValueError(f"Unknown dataset: {dataset_name}")
+        if dataset_name is None:
+            raise ValueError("dataset_name is required for LLM")
 
-        config = DATASET_CONFIGS[dataset_name]
+        # Get config object (it's a DatasetConfig dataclass, not a dict)
+        config = get_dataset_config(dataset_name)
 
         # Load tokenizer
-        from transformers import AutoTokenizer, DataCollatorWithPadding
         tokenizer = AutoTokenizer.from_pretrained("facebook/opt-125m", use_fast=True)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
 
-        # Load dataset
-        dataset = load_dataset(config["dataset_name"], config.get("dataset_config"))
+        # Load dataset - use attribute access (config.dataset_name, not config["dataset_name"])
+        dataset = load_dataset(config.dataset_name, config.dataset_config)
         test_dataset = dataset["validation"]
 
         # Tokenize based on dataset type
@@ -81,10 +82,29 @@ def load_server_test_data(is_llm: bool, dataset_name: str = "sst2"):
         # Create DataLoader with proper collator
         data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
-        return torch.utils.data.DataLoader(
+        return DataLoader(
             tokenized_test,
-            batch_size=config["eval_batch_size"],
+            batch_size=config.eval_batch_size,  # Use attribute access
             collate_fn=data_collator,
+            shuffle=False
+        )
+    else:
+        # CNN: Load CIFAR-10 test data
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ])
+
+        test_dataset = datasets.CIFAR10(
+            root='./data',
+            train=False,
+            download=True,
+            transform=transform
+        )
+
+        return DataLoader(
+            test_dataset,
+            batch_size=128,
             shuffle=False
         )
     else:
