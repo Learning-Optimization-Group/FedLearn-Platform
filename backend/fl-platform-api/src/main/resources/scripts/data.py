@@ -11,48 +11,49 @@ def load_server_test_data(is_llm: bool, dataset_name: str = None):
         if dataset_name is None:
             raise ValueError("dataset_name is required for LLM")
 
-        # Get config object
         config = get_dataset_config(dataset_name)
 
-        # Load tokenizer
         tokenizer = AutoTokenizer.from_pretrained("facebook/opt-125m", use_fast=True)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
 
-        # Load dataset
         dataset = load_dataset(config.dataset_name, config.dataset_config)
         test_dataset = dataset[config.test_split]
 
-        # Tokenize based on dataset type
+        # Tokenize
         if dataset_name == "cb":
             def tokenize_function(examples):
-                return tokenizer(
+                tokenized = tokenizer(
                     examples["premise"],
                     examples["hypothesis"],
                     truncation=True,
-                    padding="max_length",  # CHANGED: Use max_length like working version
+                    padding="max_length",
                     max_length=config.max_length
                 )
+                tokenized['labels'] = examples['label']  # Add labels here
+                return tokenized
         elif dataset_name == "sst2":
             def tokenize_function(examples):
-                return tokenizer(
+                tokenized = tokenizer(
                     examples["sentence"],
                     truncation=True,
-                    padding="max_length",  # CHANGED: Use max_length like working version
+                    padding="max_length",
                     max_length=config.max_length
                 )
+                tokenized['labels'] = examples['label']  # Add labels here
+                return tokenized
         else:
             raise ValueError(f"Unsupported dataset: {dataset_name}")
 
-        # Apply tokenization
-        tokenized_test = test_dataset.map(tokenize_function, batched=True)
+        # Apply tokenization and remove original columns
+        tokenized_test = test_dataset.map(
+            tokenize_function,
+            batched=True,
+            remove_columns=test_dataset.column_names
+        )
 
-        # Rename label to labels
-        tokenized_test = tokenized_test.rename_column("label", "labels")
-
-        # Set format to torch WITHOUT DataCollatorWithPadding
-        tokenized_test.set_format("torch")
-
+        # Set format - only return these tensor columns
+        tokenized_test.set_format("torch", columns=["input_ids", "attention_mask", "labels"])
 
         return DataLoader(
             tokenized_test,
