@@ -30,48 +30,63 @@ def load_server_test_data(is_llm: bool, dataset_name: str = "sst2"):
         dataset_name: "cb" or "sst2" for LLM
     """
     if is_llm:
+        if dataset_name not in DATASET_CONFIGS:
+            raise ValueError(f"Unknown dataset: {dataset_name}")
+
         config = DATASET_CONFIGS[dataset_name]
-        MODEL_NAME = "facebook/opt-125m"
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
-        # Load test split
+        # Load tokenizer
+        from transformers import AutoTokenizer, DataCollatorWithPadding
+        tokenizer = AutoTokenizer.from_pretrained("facebook/opt-125m", use_fast=True)
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+
+        # Load dataset
+        dataset = load_dataset(config["dataset_name"], config.get("dataset_config"))
+        test_dataset = dataset["validation"]
+
+        # Tokenize based on dataset type
         if dataset_name == "cb":
-            raw_dataset = load_dataset(config.dataset_name, config.dataset_config, split=config.test_split)
-        else:  # sst2
-            raw_dataset = load_dataset(config.dataset_name, config.dataset_config, split=config.test_split)
-
-        print(f"Loaded {dataset_name} test set: {len(raw_dataset)} samples")
-
-        def tokenize_function(examples):
-            """Tokenize based on dataset type (single or pair)."""
-            # Check if text_column is a tuple (sentence pair) or string (single sentence)
-            if isinstance(config.text_column, tuple):  # CB: premise + hypothesis
+            def tokenize_function(examples):
                 return tokenizer(
-                    examples[config.text_column[0]],  # premise
-                    examples[config.text_column[1]],  # hypothesis
-                    padding="max_length",
+                    examples["premise"],
+                    examples["hypothesis"],
                     truncation=True,
-                    max_length=config.max_length
+                    padding="max_length",
+                    max_length=128
                 )
-            else:  # SST-2: single sentence
+        elif dataset_name == "sst2":
+            def tokenize_function(examples):
                 return tokenizer(
-                    examples[config.text_column],
-                    padding="max_length",
+                    examples["sentence"],
                     truncation=True,
-                    max_length=config.max_length
+                    padding="max_length",
+                    max_length=128
                 )
+        else:
+            raise ValueError(f"Unsupported dataset: {dataset_name}")
 
-        # Tokenize and preserve labels
-        tokenized_testset = raw_dataset.map(
-            tokenize_function,
-            batched=True,
-            num_proc=1,
-            remove_columns=raw_dataset.column_names
-        ).with_format("torch")
-        #     remove_columns=[col for col in raw_dataset.column_names if col != config.label_column]
-        # ).rename_column(config.label_column, "labels").with_format("torch")
+        # Apply tokenization
+        tokenized_test = test_dataset.map(tokenize_function, batched=True)
 
-        return DataLoader(tokenized_testset, batch_size=config.batch_size_test, num_workers=0)
+        # CRITICAL: Rename 'label' to 'labels' for HuggingFace models
+        tokenized_test = tokenized_test.rename_column("label", "labels")
+
+        # Set format to include labels
+        tokenized_test.set_format(
+            "torch",
+            columns=["input_ids", "attention_mask", "labels"]
+        )
+
+        # Create DataLoader with proper collator
+        data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+
+        return torch.utils.data.DataLoader(
+            tokenized_test,
+            batch_size=config["eval_batch_size"],
+            collate_fn=data_collator,
+            shuffle=False
+        )
     else:
         # CNN: CIFAR-10
         testset = load_dataset("cifar10", split="test")
