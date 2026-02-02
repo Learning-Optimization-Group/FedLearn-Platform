@@ -247,16 +247,14 @@ def main():
 
         with torch.no_grad():
             for batch_idx, batch in enumerate(test_loader):
-                # Debug: Print batch structure on first iteration
+
                 if batch_idx == 0:
                     logging.info(f"[Debug] Batch type: {type(batch)}")
-                    if isinstance(batch, dict):
+                    if hasattr(batch, 'keys'):
                         logging.info(f"[Debug] Batch keys: {list(batch.keys())}")
-                    elif isinstance(batch, (tuple, list)):
-                        logging.info(f"[Debug] Batch is tuple/list with {len(batch)} elements")
-                        logging.info(f"[Debug] Element types: {[type(x) for x in batch]}")
-
                 # Handle different batch formats
+                if hasattr(batch, 'data'):  # BatchEncoding has a .data attribute
+                    batch = dict(batch)
                 try:
                     if is_llm:
                         # LLM: batch should be a dict with input_ids, attention_mask, labels
