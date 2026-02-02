@@ -44,7 +44,8 @@ USE_MLP = False  # NEW: Flag for MLP/ECG
 # --- Configuration ---
 NUM_PARTITIONS = 10
 BATCH_SIZE = 32
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+# DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cpu"
 MODEL_NAME = "facebook/opt-125m"
 
 # Dataset configurations (matching DeComFL paper)
