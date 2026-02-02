@@ -11,7 +11,7 @@ def load_server_test_data(is_llm: bool, dataset_name: str = None):
         if dataset_name is None:
             raise ValueError("dataset_name is required for LLM")
 
-        # Get config object (it's a DatasetConfig dataclass, not a dict)
+        # Get config object
         config = get_dataset_config(dataset_name)
 
         # Load tokenizer
@@ -19,9 +19,9 @@ def load_server_test_data(is_llm: bool, dataset_name: str = None):
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
 
-        # Load dataset - use attribute access
+        # Load dataset
         dataset = load_dataset(config.dataset_name, config.dataset_config)
-        test_dataset = dataset[config.test_split]  # Use config.test_split instead of hardcoded "validation"
+        test_dataset = dataset[config.test_split]
 
         # Tokenize based on dataset type
         if dataset_name == "cb":
@@ -30,7 +30,7 @@ def load_server_test_data(is_llm: bool, dataset_name: str = None):
                     examples["premise"],
                     examples["hypothesis"],
                     truncation=True,
-                    padding="max_length",
+                    padding="max_length",  # CHANGED: Use max_length like working version
                     max_length=config.max_length
                 )
         elif dataset_name == "sst2":
@@ -38,7 +38,7 @@ def load_server_test_data(is_llm: bool, dataset_name: str = None):
                 return tokenizer(
                     examples["sentence"],
                     truncation=True,
-                    padding="max_length",
+                    padding="max_length",  # CHANGED: Use max_length like working version
                     max_length=config.max_length
                 )
         else:
@@ -47,24 +47,19 @@ def load_server_test_data(is_llm: bool, dataset_name: str = None):
         # Apply tokenization
         tokenized_test = test_dataset.map(tokenize_function, batched=True)
 
-        # CRITICAL: Rename 'label' to 'labels' for HuggingFace models
+        # Rename label to labels
         tokenized_test = tokenized_test.rename_column("label", "labels")
 
-        # Set format to include labels
-        tokenized_test.set_format(
-            "torch",
-            columns=["input_ids", "attention_mask", "labels"]
-        )
+        # Set format to torch WITHOUT DataCollatorWithPadding
+        tokenized_test.set_format("torch")
 
-        # Create DataLoader with proper collator
-        data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
         return DataLoader(
             tokenized_test,
-            batch_size=config.batch_size_test,  # FIXED: Use batch_size_test, not eval_batch_size
-            collate_fn=data_collator,
+            batch_size=config.batch_size_test,
             shuffle=False
         )
+
     else:
         # CNN: Load CIFAR-10 test data
         transform = transforms.Compose([

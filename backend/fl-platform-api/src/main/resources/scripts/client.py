@@ -43,7 +43,7 @@ USE_MLP = False  # NEW: Flag for MLP/ECG
 
 # --- Configuration ---
 NUM_PARTITIONS = 10
-BATCH_SIZE = 32 if not USE_LLM else 1
+BATCH_SIZE = 32
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 MODEL_NAME = "facebook/opt-125m"
 
@@ -314,14 +314,14 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
     current_step = 0
 
     # Setup learning rate scheduler for LLM
-    if USE_LLM:
-        num_warmup_steps = int(total_steps * LLM_WARMUP_RATIO)
-        scheduler = get_linear_schedule_with_warmup(
-            optimizer,
-            num_warmup_steps=num_warmup_steps,
-            num_training_steps=total_steps
-        )
-        print(f"   [Training] Using warmup for {num_warmup_steps} steps")
+    # if USE_LLM:
+    #     num_warmup_steps = int(total_steps * LLM_WARMUP_RATIO)
+    #     scheduler = get_linear_schedule_with_warmup(
+    #         optimizer,
+    #         num_warmup_steps=num_warmup_steps,
+    #         num_training_steps=total_steps
+    #     )
+    #     print(f"   [Training] Using warmup for {num_warmup_steps} steps")
 
     print(f"   [Training] Starting {total_steps} steps for {epochs} epoch(s)...")
     print(f"   [Training] Learning rate: {learning_rate}")
@@ -376,8 +376,8 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
             optimizer.step()
 
             # Step scheduler for LLM
-            if USE_LLM:
-                scheduler.step()
+            # if USE_LLM:
+            #     scheduler.step()
 
             current_step += 1
             epoch_loss += loss.item()
@@ -390,7 +390,8 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
             # Log progress every 10 steps
             if (current_step % 10) == 0:
                 avg_loss = epoch_loss / epoch_steps
-                current_lr = scheduler.get_last_lr()[0] if USE_LLM else optimizer.param_groups[0]['lr']
+                # current_lr = scheduler.get_last_lr()[0] if USE_LLM else optimizer.param_groups[0]['lr']
+                current_lr = optimizer.param_groups[0]['lr']
                 print(f"   [Training] Epoch {epoch+1}/{epochs}, "
                       f"Step {current_step}/{total_steps}: "
                       f"Loss = {loss.item():.4f}, "
@@ -587,7 +588,9 @@ def main():
 
     # Set batch size based on model type
     if USE_LLM:
-        BATCH_SIZE = 1
+        config = DATASET_CONFIGS[args.dataset]
+        BATCH_SIZE = config.get("batch_size_train", 8)  # Use config value, default 8
+        print(f"  Batch size: {BATCH_SIZE}")
     elif USE_MLP:
         from config import get_dataset_config
         config = get_dataset_config("ecg")
