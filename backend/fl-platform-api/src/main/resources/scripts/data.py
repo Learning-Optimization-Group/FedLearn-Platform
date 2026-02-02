@@ -1,26 +1,3 @@
-from config import DATASET_CONFIGS
-import sys
-import io
-
-# Force UTF-8 encoding for stdout/stderr
-if sys.stdout.encoding != 'utf-8':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-
-
-import logging
-from torch.utils.data import DataLoader
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
-from datasets import load_dataset
-import torchvision.transforms as transforms
-from config import DATASET_CONFIGS
-
-# ==============================================================================
-# --- SERVER-SIDE EVALUATION HELPERS ---
-# ==============================================================================
 import torch
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, DataCollatorWithPadding
@@ -42,9 +19,9 @@ def load_server_test_data(is_llm: bool, dataset_name: str = None):
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
 
-        # Load dataset - use attribute access (config.dataset_name, not config["dataset_name"])
+        # Load dataset - use attribute access
         dataset = load_dataset(config.dataset_name, config.dataset_config)
-        test_dataset = dataset["validation"]
+        test_dataset = dataset[config.test_split]  # Use config.test_split instead of hardcoded "validation"
 
         # Tokenize based on dataset type
         if dataset_name == "cb":
@@ -54,7 +31,7 @@ def load_server_test_data(is_llm: bool, dataset_name: str = None):
                     examples["hypothesis"],
                     truncation=True,
                     padding="max_length",
-                    max_length=128
+                    max_length=config.max_length
                 )
         elif dataset_name == "sst2":
             def tokenize_function(examples):
@@ -62,7 +39,7 @@ def load_server_test_data(is_llm: bool, dataset_name: str = None):
                     examples["sentence"],
                     truncation=True,
                     padding="max_length",
-                    max_length=128
+                    max_length=config.max_length
                 )
         else:
             raise ValueError(f"Unsupported dataset: {dataset_name}")
@@ -84,7 +61,7 @@ def load_server_test_data(is_llm: bool, dataset_name: str = None):
 
         return DataLoader(
             tokenized_test,
-            batch_size=config.eval_batch_size,  # Use attribute access
+            batch_size=config.batch_size_test,  # FIXED: Use batch_size_test, not eval_batch_size
             collate_fn=data_collator,
             shuffle=False
         )
