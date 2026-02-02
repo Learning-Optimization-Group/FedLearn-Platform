@@ -107,17 +107,3 @@ def load_server_test_data(is_llm: bool, dataset_name: str = None):
             batch_size=128,
             shuffle=False
         )
-    else:
-        # CNN: CIFAR-10
-        testset = load_dataset("cifar10", split="test")
-        pytorch_transforms = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ])
-
-        def apply_transforms(batch):
-            batch["img"] = [pytorch_transforms(img) for img in batch["img"]]
-            return batch
-
-        testset.set_transform(apply_transforms)
-        return DataLoader(testset, batch_size=64, num_workers=0)
