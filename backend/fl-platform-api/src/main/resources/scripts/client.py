@@ -54,7 +54,7 @@ DATASET_CONFIGS = {
     "cb": {
         "num_classes": 3,
         "learning_rate": 2e-6,
-        "local_epochs": 1,  # K=1 as per paper
+        "local_epochs": 3,  # K=1 as per paper
         "max_length": 256,
         "dataset_key": "super_glue",
         "dataset_name": "cb",
@@ -425,8 +425,8 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                 total_norm = total_norm ** 0.5
                 print(f"     Gradient norm: {total_norm:.4f}")
             # Gradient clipping for LLM to prevent explosion
-            # if USE_LLM:
-            #     torch.nn.utils.clip_grad_norm_(net.parameters(), LLM_MAX_GRAD_NORM)
+            if USE_LLM:
+                torch.nn.utils.clip_grad_norm_(net.parameters(), LLM_MAX_GRAD_NORM)
 
             optimizer.step()
 

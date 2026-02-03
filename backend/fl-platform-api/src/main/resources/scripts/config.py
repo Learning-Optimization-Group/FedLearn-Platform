@@ -75,7 +75,7 @@ DATASET_CONFIGS = {
         num_clients=2,
         clients_per_round=2,
         alpha=1.0,
-        local_epochs=1,  # K=1
+        local_epochs=3,  # K=1
     ),
     "sst2": DatasetConfig(
         name="sst2",
