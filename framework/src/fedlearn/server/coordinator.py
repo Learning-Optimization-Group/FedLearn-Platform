@@ -60,6 +60,8 @@ class FLCoordinator:
             self._client_updates_received.append((params, num_examples))
 
             # if len(self._client_updates_received) >= self.min_clients:
+            print(f"[Coordinator] Client updates received {len(self._client_updates_received)}.")
+            print(f"[Coordinator] Clients per round {self.clients_per_round}")
             if len(self._client_updates_received) == self.clients_per_round:
                 self._trigger_aggregation_and_evaluation()
 
