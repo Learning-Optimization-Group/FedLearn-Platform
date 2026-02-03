@@ -2,14 +2,15 @@
 
 # Configuration
 PROJECT_ID="00591889-d590-46f5-99ff-1a770e3417bd"
-SERVER_ADDRESS="18.189.43.174:44021"
+SERVER_ADDRESS="3.138.193.167:37549"
 MODEL_TYPE="TRANSFORMER"
 MODEL_NAME="opt-125m"
 DATASET="cb"
 STRATEGY="FedAvg"
+DEVICE="cpu"  # Change to "cuda" if GPU support is working
 
 # Number of clients to launch
-NUM_CLIENTS=2
+NUM_CLIENTS=3
 
 # Path to your client script
 CLIENT_SCRIPT_DIR="$HOME/Desktop/FedLearn-Platform/backend/fl-platform-api/src/main/resources/scripts"
@@ -41,6 +42,7 @@ echo "Server: $SERVER_ADDRESS"
 echo "Model: $MODEL_TYPE/$MODEL_NAME"
 echo "Dataset: $DATASET"
 echo "Strategy: $STRATEGY"
+echo "Device: $DEVICE"
 echo "Terminal: $TERMINAL"
 echo "=================================================="
 echo ""
@@ -64,7 +66,8 @@ launch_client() {
                     --model-type $MODEL_TYPE \
                     --model-name $MODEL_NAME \
                     --dataset $DATASET \
-                    --strategy $STRATEGY; \
+                    --strategy $STRATEGY \
+                    --device $DEVICE; \
                 echo ''; \
                 echo 'Client $partition_id finished. Press Enter to close...'; \
                 read
@@ -81,7 +84,8 @@ launch_client() {
                     --model-type $MODEL_TYPE \
                     --model-name $MODEL_NAME \
                     --dataset $DATASET \
-                    --strategy $STRATEGY; \
+                    --strategy $STRATEGY \
+                    --device $DEVICE; \
                 echo ''; \
                 echo 'Client $partition_id finished. Press Enter to close...'; \
                 read
@@ -98,7 +102,8 @@ launch_client() {
                     --model-type $MODEL_TYPE \
                     --model-name $MODEL_NAME \
                     --dataset $DATASET \
-                    --strategy $STRATEGY; \
+                    --strategy $STRATEGY \
+                    --device $DEVICE; \
                 echo ''; \
                 echo 'Client $partition_id finished. Press Enter to close...'; \
                 read
@@ -115,7 +120,8 @@ launch_client() {
                     --model-type $MODEL_TYPE \
                     --model-name $MODEL_NAME \
                     --dataset $DATASET \
-                    --strategy $STRATEGY; \
+                    --strategy $STRATEGY \
+                    --device $DEVICE; \
                 echo ''; \
                 echo 'Client $partition_id finished. Press Enter to close...'; \
                 read

@@ -261,8 +261,8 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
         train_test_split = tokenized_partition.train_test_split(test_size=0.2, seed=42)
 
         return (
-            DataLoader(train_test_split["train"], shuffle=True, batch_size=BATCH_SIZE, num_workers=0),
-            DataLoader(train_test_split["test"], batch_size=BATCH_SIZE, num_workers=0)
+            DataLoader(tokenized_partition, shuffle=True, batch_size=BATCH_SIZE, num_workers=0),
+            DataLoader(tokenized_partition, shuffle=False, batch_size=BATCH_SIZE, num_workers=0)
         )
     else:
         # CNN: CIFAR-10 (unchanged)
