@@ -1,3 +1,14 @@
+# At the very start of client.py main():
+print(f"\n{'='*60}")
+print(f"DEVICE DETECTION")
+print(f"{'='*60}")
+print(f"torch.cuda.is_available(): {torch.cuda.is_available()}")
+if torch.cuda.is_available():
+    print(f"CUDA device: {torch.cuda.get_device_name(0)}")
+    print(f"CUDA version: {torch.version.cuda}")
+print(f"Selected device: {DEVICE}")
+print(f"{'='*60}\n")
+
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
@@ -311,15 +322,23 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
 
     # Setup optimizer based on model type
     if USE_LLM:
-        optimizer = torch.optim.AdamW(
-            net.parameters(),
-            lr=learning_rate,
-            weight_decay=LLM_WEIGHT_DECAY,
-            betas=(0.9, 0.999),
-            eps=1e-8
-        )
-        print(f"  Optimizer: AdamW")
-        print(f"  Weight decay: {LLM_WEIGHT_DECAY}")
+        # Use regular Adam on CPU for better numerical stability
+        if DEVICE == "cpu":
+            optimizer = torch.optim.Adam(
+                net.parameters(),
+                lr=learning_rate * 10,  # Increase LR for CPU
+                betas=(0.9, 0.999),
+                eps=1e-8
+            )
+            print(f"  Using Adam (CPU mode) with LR={learning_rate*10:.2e}")
+        else:
+            optimizer = torch.optim.AdamW(
+                net.parameters(),
+                lr=learning_rate,
+                weight_decay=LLM_WEIGHT_DECAY,
+                betas=(0.9, 0.999),
+                eps=1e-8
+            )
     else:
         optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
         print(f"  Optimizer: Adam")
