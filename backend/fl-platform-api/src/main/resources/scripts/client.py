@@ -1,13 +1,3 @@
-# At the very start of client.py main():
-print(f"\n{'='*60}")
-print(f"DEVICE DETECTION")
-print(f"{'='*60}")
-print(f"torch.cuda.is_available(): {torch.cuda.is_available()}")
-if torch.cuda.is_available():
-    print(f"CUDA device: {torch.cuda.get_device_name(0)}")
-    print(f"CUDA version: {torch.version.cuda}")
-print(f"Selected device: {DEVICE}")
-print(f"{'='*60}\n")
 
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
@@ -163,75 +153,53 @@ def load_ecg_data_from_csv(dataset_path: str) -> Tuple[np.ndarray, np.ndarray]:
 # ==============================================================================
 # --- Data and Training Logic ---
 # ==============================================================================
+
+def dirichlet_split(labels, num_clients, alpha=1.0, seed=42):
+    """Split data using Dirichlet distribution for non-IID data."""
+    np.random.seed(seed)
+    num_classes = len(np.unique(labels))
+
+    label_distribution = np.random.dirichlet([alpha] * num_clients, num_classes)
+    client_indices = [[] for _ in range(num_clients)]
+
+    for k in range(num_classes):
+        idx_k = np.where(labels == k)[0]
+        np.random.shuffle(idx_k)
+
+        proportions = label_distribution[k]
+        splits = (np.cumsum(proportions) * len(idx_k)).astype(int)[:-1]
+        idx_splits = np.split(idx_k, splits)
+
+        for i, idx in enumerate(idx_splits):
+            client_indices[i].extend(idx)
+
+    for i in range(num_clients):
+        np.random.shuffle(client_indices[i])
+
+    return client_indices
+
+
 def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, num_clients: int = 10):
-    """
-    Load data for CNN (CIFAR-10), LLM (CB/SST-2), or MLP (ECG).
+    """Load data with Dirichlet split."""
+    if USE_LLM:
+        from pathlib import Path
+        import pickle
+        from torch.utils.data import Subset
 
-    Args:
-        partition_id: Client partition ID
-        dataset_name: "cb", "sst2" for LLM, "ecg" for MLP
-        dataset_path: Path to ECG CSV (required for MLP)
-        num_clients: Total number of clients (for ECG data split)
-    """
-    if USE_MLP:
-        # MLP: ECG dataset
-        from data_loaders.ecg_loader import get_ecg_loaders
-        from config import get_dataset_config
-
-        if not dataset_path:
-            raise ValueError("--dataset-path is required for ECG dataset")
-
-        # Load ECG data
-        X, y = load_ecg_data_from_csv(dataset_path)
-
-        # Get ECG config
-        config = get_dataset_config("ecg")
-
-        # Get data loaders for this client
-        trainloader, testloader, data_info = get_ecg_loaders(
-            X=X,
-            y=y,
-            client_id=partition_id,
-            num_clients=num_clients,
-            batch_size_train=config.batch_size_train,
-            batch_size_test=config.batch_size_test,
-            data_fraction=config.data_fraction,
-            alpha=config.alpha,
-            test_size=config.test_size,
-            num_workers=0,  # Set to 0 for client
-            seed=config.seed
-        )
-
-        print(f"ECG data loaded for client {partition_id}:")
-        print(f"  Train samples: {data_info['train_samples']}")
-        print(f"  Test samples: {data_info['test_samples']}")
-
-        return trainloader, testloader
-
-    elif USE_LLM:
         config = DATASET_CONFIGS[dataset_name]
         tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
-        # Load dataset based on configuration
+        # Load dataset
         if dataset_name == "cb":
             raw_dataset = load_dataset(config["dataset_key"], config["dataset_name"], split="train")
-        else:  # sst2
+        else:
             raw_dataset = load_dataset(config["dataset_key"], config["dataset_name"], split="train")
 
         print(f"Dataset {dataset_name} loaded: {len(raw_dataset)} samples")
 
-        # Partition data across clients
-        num_samples = len(raw_dataset)
-        samples_per_client = num_samples // NUM_PARTITIONS
-        start = partition_id * samples_per_client
-        end = (partition_id + 1) * samples_per_client if partition_id < NUM_PARTITIONS - 1 else num_samples
-        partition = raw_dataset.select(range(start, end))
-
-        print(f"Client {partition_id} partition: {len(partition)} samples (indices {start}-{end})")
-
+        # Tokenize
         def tokenize_function(examples):
-            """Tokenize based on dataset type (single or pair)."""
-            if config["text2_column"]:  # CB: premise + hypothesis
+            if config["text2_column"]:
                 tokenized = tokenizer(
                     examples[config["text_column"]],
                     examples[config["text2_column"]],
@@ -239,7 +207,7 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
                     truncation=True,
                     max_length=config["max_length"]
                 )
-            else:  # SST-2: single sentence
+            else:
                 tokenized = tokenizer(
                     examples[config["text_column"]],
                     padding="max_length",
@@ -249,41 +217,65 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
             tokenized['labels'] = examples[config["label_column"]]
             return tokenized
 
-        # Tokenize and preserve labels
-        tokenized_partition = partition.map(
+        tokenized_dataset = raw_dataset.map(
             tokenize_function,
             batched=True,
             num_proc=1,
-            remove_columns=partition.column_names
+            remove_columns=raw_dataset.column_names
         ).with_format("torch")
 
-        # Split into train/test
-        train_test_split = tokenized_partition.train_test_split(test_size=0.2, seed=42)
+        # Get or create Dirichlet split
+        labels = np.array(raw_dataset[config["label_column"]])
 
-        return (
-            DataLoader(tokenized_partition, shuffle=True, batch_size=BATCH_SIZE, num_workers=0),
-            DataLoader(tokenized_partition, shuffle=False, batch_size=BATCH_SIZE, num_workers=0)
+        cache_dir = Path("./data_splits")
+        cache_dir.mkdir(exist_ok=True)
+
+        alpha = 1.0
+        split_file = cache_dir / f"{dataset_name}_clients{num_clients}_alpha{alpha}.pkl"
+
+        if split_file.exists():
+            print(f"Loading existing split from {split_file}")
+            with open(split_file, 'rb') as f:
+                client_indices_list = pickle.load(f)
+        else:
+            print(f"Creating new Dirichlet split (alpha={alpha})")
+            client_indices_list = dirichlet_split(labels, num_clients, alpha, seed=42)
+            with open(split_file, 'wb') as f:
+                pickle.dump(client_indices_list, f)
+
+            # Print distribution
+            for i, indices in enumerate(client_indices_list):
+                client_labels = labels[indices]
+                dist = np.bincount(client_labels, minlength=3)
+                print(f"  Client {i}: {len(indices)} samples - Class dist: {dist}")
+
+        # Get this client's data
+        client_indices = client_indices_list[partition_id]
+        client_dataset = Subset(tokenized_dataset, client_indices)
+
+        # Print client's label distribution
+        client_labels = labels[client_indices]
+        dist = np.bincount(client_labels, minlength=3)
+        print(f"Client {partition_id} label distribution:")
+        print(f"  Class 0: {dist[0]} ({dist[0]/len(client_indices)*100:.1f}%)")
+        print(f"  Class 1: {dist[1]} ({dist[1]/len(client_indices)*100:.1f}%)")
+        print(f"  Class 2: {dist[2]} ({dist[2]/len(client_indices)*100:.1f}%)")
+
+        train_loader = DataLoader(
+            client_dataset,
+            batch_size=config.get("batch_size_train", 8),
+            shuffle=True,
+            num_workers=0
         )
-    else:
-        # CNN: CIFAR-10 (unchanged)
-        fds = FederatedDataset(dataset="cifar10", partitioners={"train": NUM_PARTITIONS})
-        partition = fds.load_partition(partition_id)
-        partition_train_test = partition.train_test_split(test_size=0.2, seed=42)
-        pytorch_transforms = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ])
 
-        def apply_transforms(batch):
-            batch["img"] = [pytorch_transforms(img) for img in batch["img"]]
-            return batch
-
-        partition_train_test = partition_train_test.with_transform(apply_transforms)
-        return (
-            DataLoader(partition_train_test["train"], batch_size=BATCH_SIZE, shuffle=True, num_workers=0),
-            DataLoader(partition_train_test["test"], batch_size=BATCH_SIZE, num_workers=0)
+        test_loader = DataLoader(
+            client_dataset,
+            batch_size=config.get("batch_size_test", 8),
+            shuffle=False,
+            num_workers=0
         )
 
+        return train_loader, test_loader
 
 def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=None):
     """
@@ -632,6 +624,15 @@ def create_decomfl_compatible_loader(original_loader, is_llm=False):
 def main():
     global USE_LLM, USE_MLP, DATASET_NAME, BATCH_SIZE
 
+    print(f"\n{'='*60}")
+    print(f"DEVICE DETECTION")
+    print(f"{'='*60}")
+    print(f"torch.cuda.is_available(): {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"CUDA device: {torch.cuda.get_device_name(0)}")
+        print(f"CUDA version: {torch.version.cuda}")
+    print(f"Selected device: {DEVICE}")
+    print(f"{'='*60}\n")
     parser = argparse.ArgumentParser(description="FedLearn gRPC Client with Heartbeat")
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
     parser.add_argument("--server-address", type=str, required=True, help="gRPC server address")
@@ -672,8 +673,8 @@ def main():
         print(f"{'='*60}\n")
     else:
         dataset_path = None
-        num_clients = 10  # Default for CNN/LLM
-        # Keep args.strategy as passed (FedAvg or DeComFL)
+        num_clients = 2  # Default for CNN/LLM
+
     # === END HARDCODED OVERRIDE ===
 
     DATASET_NAME = args.dataset

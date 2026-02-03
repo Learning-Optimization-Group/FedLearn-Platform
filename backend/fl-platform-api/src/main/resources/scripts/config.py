@@ -66,14 +66,14 @@ DATASET_CONFIGS = {
         label_column="label",
         num_classes=3,  # entailment, contradiction, neutral
         max_length=256,  # CB may need longer sequences
-        learning_rate=2e-5,
+        learning_rate=1e-5,
         num_rounds=1000,  # From Table 5
         batch_size_train=8,  # Small batch for small dataset
         batch_size_test=8,
         train_split="train",
         test_split="validation",
-        num_clients=1,
-        clients_per_round=1,
+        num_clients=2,
+        clients_per_round=2,
         alpha=1.0,
         local_epochs=1,  # K=1
     ),
