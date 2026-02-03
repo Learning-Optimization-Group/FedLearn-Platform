@@ -249,8 +249,11 @@ def main():
             for batch_idx, batch in enumerate(test_loader):
 
                 if batch_idx == 0:
+                    logging.info(f"[EVAL DEBUG] First test batch:")
                     logging.info(f"[Debug] Batch type: {type(batch)}")
-                    if hasattr(batch, 'keys'):
+                    logging.info(f"  Batch keys: {list(batch.keys()) if hasattr(batch, 'keys') else 'N/A'}")
+
+                if hasattr(batch, 'keys'):
                         logging.info(f"[Debug] Batch keys: {list(batch.keys())}")
                 # Handle different batch formats
                 if hasattr(batch, 'data'):  # BatchEncoding has a .data attribute
@@ -324,6 +327,12 @@ def main():
                     predictions = torch.argmax(logits, dim=-1)
                     correct += (predictions == labels).sum().item()
                     total += labels.size(0)
+
+                    if batch_idx == 0 and is_llm:
+                        logging.info(f"  Logits shape: {logits.shape}")
+                        logging.info(f"  Predictions: {predictions[:5]}")
+                        logging.info(f"  True labels: {labels[:5]}")
+                        logging.info(f"  Batch correct: {(predictions == labels).sum().item()}/{labels.size(0)}")
 
                 except Exception as e:
                     logging.error(f"Error processing batch {batch_idx}: {e}")

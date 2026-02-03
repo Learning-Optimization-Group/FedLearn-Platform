@@ -296,6 +296,19 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
     else:
         learning_rate = CNN_LEARNING_RATE
 
+    print(f"\n{'='*60}")
+    print(f"TRAINING DEBUG INFO")
+    print(f"{'='*60}")
+    print(f"  Dataset: {dataset_name}")
+    print(f"  Learning rate: {learning_rate}")
+    print(f"  Epochs: {epochs}")
+    print(f"  Num batches: {len(trainloader)}")
+    print(f"  Batch size: {trainloader.batch_size}")
+    print(f"  Total samples: {len(trainloader.dataset)}")
+    print(f"  Device: {DEVICE}")
+    print(f"  Model type: {'LLM' if USE_LLM else 'MLP' if USE_MLP else 'CNN'}")
+    print(f"{'='*60}\n")
+
     # Setup optimizer based on model type
     if USE_LLM:
         optimizer = torch.optim.AdamW(
@@ -305,9 +318,11 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
             betas=(0.9, 0.999),
             eps=1e-8
         )
+        print(f"  Optimizer: AdamW")
+        print(f"  Weight decay: {LLM_WEIGHT_DECAY}")
     else:
         optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
-
+        print(f"  Optimizer: Adam")
     criterion = torch.nn.CrossEntropyLoss()
     net.train()
 
@@ -334,15 +349,35 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
         epoch_steps = 0
 
         for i, batch in enumerate(trainloader):
+            if i == 0:
+                print(f"\n   [DEBUG] First batch info:")
+                if USE_LLM:
+                    print(f"     Batch keys: {list(batch.keys())}")
+                    print(f"     Input IDs shape: {batch['input_ids'].shape}")
+                    print(f"     Labels shape: {batch['labels'].shape}")
+                    print(f"     Sample labels: {batch['labels'][:5]}")
+                else:
+                    print(f"     Batch type: {type(batch)}")
             optimizer.zero_grad()
 
             if USE_LLM:
                 # Move batch to device
                 batch = {k: v.to(DEVICE) for k, v in batch.items()}
 
+                if i == 0:
+                    print(f"     Keys passed to model: {list(batch.keys())}")
+                    print(f"     Input IDs device: {batch['input_ids'].device}")
+                    print(f"     Labels device: {batch['labels'].device}")
                 # Forward pass with labels
                 outputs = net(**batch)
                 loss = outputs.loss
+
+                if i == 0:
+                    print(f"     Loss: {loss.item():.4f}")
+                    print(f"     Logits shape: {outputs.logits.shape}")
+                    print(f"     Logits sample: {outputs.logits[0]}")
+                    print(f"     Predictions: {torch.argmax(outputs.logits, dim=-1)[:5]}")
+                    print(f"     True labels: {batch['labels'][:5]}")
             elif USE_MLP:
                 # MLP: batch is (features, labels) tuple
                 features, labels = batch
@@ -370,9 +405,17 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
             if current_step % 10 == 0:
                 log_processing_usage(f"batch {current_step}")
 
+            if i == 0 and USE_LLM:
+                total_norm = 0
+                for p in net.parameters():
+                    if p.grad is not None:
+                        param_norm = p.grad.data.norm(2)
+                        total_norm += param_norm.item() ** 2
+                total_norm = total_norm ** 0.5
+                print(f"     Gradient norm: {total_norm:.4f}")
             # Gradient clipping for LLM to prevent explosion
-            if USE_LLM:
-                torch.nn.utils.clip_grad_norm_(net.parameters(), LLM_MAX_GRAD_NORM)
+            # if USE_LLM:
+            #     torch.nn.utils.clip_grad_norm_(net.parameters(), LLM_MAX_GRAD_NORM)
 
             optimizer.step()
 
@@ -402,7 +445,8 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
         # Epoch summary
         avg_epoch_loss = epoch_loss / epoch_steps if epoch_steps > 0 else 0.0
         print(f"   [Training] Epoch {epoch+1} complete. Average loss: {avg_epoch_loss:.4f}")
-
+        print(f"   [Training] Epoch {epoch+1} complete. Average loss: {avg_epoch_loss:.4f}")
+        print(f"   [Training] Total batches processed: {epoch_steps}")
 
 # ==============================================================================
 # --- Custom Client Class for FedLearn with Heartbeat Support ---
@@ -463,13 +507,22 @@ class ZOSLClient(fl.Client):
     ) -> Tuple[OrderedDict[str, torch.Tensor], int]:
         # Load parameters
         parameters = OrderedDict({k: v.to(DEVICE) for k, v in parameters.items()})
+
+        initial_params = {k: v.clone() for k, v in parameters.items()}
+        print(f"\n[FIT DEBUG] Initial parameter stats:")
+        for name, param in list(parameters.items())[:3]:  # First 3 layers
+            print(f"  {name}: mean={param.mean().item():.6f}, std={param.std().item():.6f}")
+
+
         self.net.load_state_dict(parameters)
 
         # Get local epochs from config or use dataset default
         if USE_LLM:
             local_epochs = config.get("local_epochs", DATASET_CONFIGS[self.dataset_name]["local_epochs"])
-            print('self.dataset_name - ',self.dataset_name)
-            print('Client Class epochs - ',local_epochs)
+            print(f'Dataset: {self.dataset_name}')
+            print(f'Local epochs: {local_epochs}')
+            print(f'Batch size: {self.trainloader.batch_size}')
+            print(f'Num batches: {len(self.trainloader)}')
         elif USE_MLP:
             from config import get_dataset_config
             ecg_config = get_dataset_config("ecg")
@@ -493,6 +546,25 @@ class ZOSLClient(fl.Client):
             dataset_name=self.dataset_name,
             progress_callback=progress_callback
         )
+
+        # DEBUG: Check if parameters changed
+        final_params = self.net.state_dict()
+        print(f"\n[FIT DEBUG] Final parameter stats:")
+        for name, param in list(final_params.items())[:3]:  # First 3 layers
+            print(f"  {name}: mean={param.mean().item():.6f}, std={param.std().item():.6f}")
+
+        print(f"\n[FIT DEBUG] Parameter changes:")
+        total_change = 0
+        num_params = 0
+        for name in list(initial_params.keys())[:3]:
+            change = (final_params[name] - initial_params[name]).abs().mean().item()
+            print(f"  {name}: avg change = {change:.6e}")
+            total_change += change
+            num_params += 1
+        print(f"  Average parameter change: {total_change/num_params:.6e}")
+
+        if total_change/num_params < 1e-8:
+            print(f"  ⚠️ WARNING: Parameters barely changed! Model may not be training!")
 
         # Logging after training
         log_processing_usage("after training finished")
