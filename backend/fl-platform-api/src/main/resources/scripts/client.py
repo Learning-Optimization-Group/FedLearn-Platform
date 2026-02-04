@@ -318,9 +318,10 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
         if DEVICE == "cpu":
             optimizer = torch.optim.Adam(
                 net.parameters(),
-                lr=learning_rate * 10,  # Increase LR for CPU
-                betas=(0.9, 0.999),
-                eps=1e-8
+                lr=learning_rate
+                #    * 10,  # Increase LR for CPU
+                # betas=(0.9, 0.999),
+                # eps=1e-8
             )
             print(f"  Using Adam (CPU mode) with LR={learning_rate*10:.2e}")
         else:
