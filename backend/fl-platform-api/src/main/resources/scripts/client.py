@@ -54,7 +54,7 @@ DATASET_CONFIGS = {
     "cb": {
         "num_classes": 3,
         "learning_rate": 2e-6,
-        "local_epochs": 3,  # K=1 as per paper
+        "local_epochs": 1,  # K=1 as per paper
         "max_length": 256,
         "dataset_key": "super_glue",
         "dataset_name": "cb",

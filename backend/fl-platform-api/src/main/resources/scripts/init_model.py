@@ -126,8 +126,21 @@ def main():
     print(f"Using device: {DEVICE}")
 
     net = get_model(args.model_type, args.model_name, DEVICE)
+    print(f"\n{'='*60}")
+    print(f"MODEL ARCHITECTURE CHECK")
+    print(f"{'='*60}")
+    print(f"Model type: {args.model_type}")
+    print(f"Model name: {args.model_name}")
 
     if args.model_type.upper() == "TRANSFORMER":
+        print(f"\nClassification head parameters:")
+        print(f"  score.weight shape: {net.score.weight.shape}")
+        print(f"  score.bias shape: {net.score.bias.shape}")
+        print(f"  Expected for CB: [3, 768] and [3]")
+        if net.score.weight.shape[0] != 3:
+            print(f"  ❌ WARNING: Expected 3 classes, got {net.score.weight.shape[0]}")
+        else:
+            print(f"  ✅ Correct number of classes (3)")
         if args.pretrain_epochs > 0:
             print("--- WARNING: Server-side pre-training is not applicable for pre-trained LLMs. --pretrain-epochs ignored. ---")
         print("--- Initializing Transformer from public Hugging Face checkpoint. ---")
@@ -150,7 +163,19 @@ def main():
         print("--- Initializing MLP with random weights (Xavier initialization). ---")
 
     print(f"Saving initial model weights...")
+    print(f"\nTotal parameters in model:")
     state_dict = net.state_dict()
+
+    print(f"  Number of tensors: {len(state_dict)}")
+    print(f"  First 10 keys:")
+    for i, key in enumerate(list(state_dict.keys())[:10]):
+        print(f"    {i+1}. {key}: {state_dict[key].shape}")
+    print(f"  Last 5 keys:")
+    for i, key in enumerate(list(state_dict.keys())[-5:]):
+        print(f"    {i+1}. {key}: {state_dict[key].shape}")
+    print(f"{'='*60}\n")
+
+    
     params_to_save = {
         key.replace('.', '__DOT__'): tensor.detach().cpu().numpy()
         for key, tensor in state_dict.items()
