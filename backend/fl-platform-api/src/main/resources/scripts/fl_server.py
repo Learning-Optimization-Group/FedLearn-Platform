@@ -190,6 +190,37 @@ def main():
 
         logging.info("Model parameters loaded successfully with correct layer names.")
 
+        logging.info(f"\n{'='*60}")
+        logging.info(f"LOADED PARAMETERS FROM .NPZ FILE")
+        logging.info(f"{'='*60}")
+        logging.info(f"Total parameters loaded: {len(initial_parameters)}")
+
+        
+        if 'score.weight' in initial_parameters:
+            logging.info(f"✅ score.weight found: shape {initial_parameters['score.weight'].shape}")
+            logging.info(f"   Expected: torch.Size([3, 768]) for CB")
+            if initial_parameters['score.weight'].shape[0] != 3:
+                logging.error(f"   ❌ WRONG NUMBER OF CLASSES: {initial_parameters['score.weight'].shape[0]} instead of 3!")
+            else:
+                logging.info(f"   ✅ Correct: 3 classes")
+        else:
+            logging.error(f"❌ score.weight NOT FOUND!")
+
+        if 'score.bias' in initial_parameters:
+            logging.info(f"✅ score.bias found: shape {initial_parameters['score.bias'].shape}")
+        else:
+            logging.error(f"❌ score.bias NOT FOUND!")
+
+        logging.info(f"\nFirst 10 parameter keys:")
+        for i, key in enumerate(list(initial_parameters.keys())[:10]):
+            logging.info(f"  {i+1}. {key}: {initial_parameters[key].shape}")
+
+        logging.info(f"\nLast 5 parameter keys:")
+        for i, key in enumerate(list(initial_parameters.keys())[-5:]):
+            logging.info(f"  {i+1}. {key}: {initial_parameters[key].shape}")
+
+        logging.info(f"{'='*60}\n")
+
     except Exception as e:
         logging.error(f"Failed to load model parameters from {args.model_path}. Reason: {e}", exc_info=True)
         exit(1)

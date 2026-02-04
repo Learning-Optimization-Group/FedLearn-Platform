@@ -517,6 +517,24 @@ class ZOSLClient(fl.Client):
             config: dict
     ) -> Tuple[OrderedDict[str, torch.Tensor], int]:
         # Load parameters
+
+        server_round = config.get("server_round", 0)
+
+        if server_round == 1:  # Only on first round
+            print(f"\n{'='*60}")
+            print(f"CLIENT RECEIVED PARAMETERS - ROUND 1")
+            print(f"{'='*60}")
+            print(f"Total parameters: {len(parameters)}")
+
+            if 'score.weight' in parameters:
+                print(f"✅ score.weight: {parameters['score.weight'].shape}")
+                if parameters['score.weight'].shape[0] != 3:
+                    print(f"❌ WRONG! Expected [3, 768], got {parameters['score.weight'].shape}")
+            else:
+                print(f"❌ score.weight MISSING!")
+
+            print(f"{'='*60}\n")
+
         parameters = OrderedDict({k: v.to(DEVICE) for k, v in parameters.items()})
 
         initial_params = {k: v.clone() for k, v in parameters.items()}
