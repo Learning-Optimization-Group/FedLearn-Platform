@@ -135,7 +135,10 @@ def main():
     if args.model_type.upper() == "TRANSFORMER":
         print(f"\nClassification head parameters:")
         print(f"  score.weight shape: {net.score.weight.shape}")
-        print(f"  score.bias shape: {net.score.bias.shape}")
+        if hasattr(net.score, 'bias') and net.score.bias is not None:
+            print(f"  score.bias shape: {net.score.bias.shape}")
+        else:
+            print(f"  score.bias: None (no bias)")
         print(f"  Expected for CB: [3, 768] and [3]")
         if net.score.weight.shape[0] != 3:
             print(f"  ❌ WARNING: Expected 3 classes, got {net.score.weight.shape[0]}")

@@ -195,7 +195,7 @@ def main():
         logging.info(f"{'='*60}")
         logging.info(f"Total parameters loaded: {len(initial_parameters)}")
 
-        
+
         if 'score.weight' in initial_parameters:
             logging.info(f"✅ score.weight found: shape {initial_parameters['score.weight'].shape}")
             logging.info(f"   Expected: torch.Size([3, 768]) for CB")

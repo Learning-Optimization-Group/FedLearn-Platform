@@ -520,7 +520,7 @@ class ZOSLClient(fl.Client):
 
         server_round = config.get("server_round", 0)
 
-        if server_round == 1:  # Only on first round
+        if server_round == 1:
             print(f"\n{'='*60}")
             print(f"CLIENT RECEIVED PARAMETERS - ROUND 1")
             print(f"{'='*60}")
@@ -530,8 +530,16 @@ class ZOSLClient(fl.Client):
                 print(f"✅ score.weight: {parameters['score.weight'].shape}")
                 if parameters['score.weight'].shape[0] != 3:
                     print(f"❌ WRONG! Expected [3, 768], got {parameters['score.weight'].shape}")
+                else:
+                    print(f"✅ Correct shape [3, 768]")
             else:
                 print(f"❌ score.weight MISSING!")
+
+            # Bias might not exist
+            if 'score.bias' in parameters:
+                print(f"✅ score.bias: {parameters['score.bias'].shape}")
+            else:
+                print(f"ℹ️  score.bias not present (expected for OPT)")
 
             print(f"{'='*60}\n")
 
