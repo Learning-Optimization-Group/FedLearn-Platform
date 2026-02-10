@@ -28,7 +28,12 @@ def create_evaluate_fn(dataset_name: str, data_fraction: float = 1.0):
         Evaluation function for the server
     """
     config = DATASET_CONFIGS[dataset_name]
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"
+    # Load model
+    model = AutoModelForSequenceClassification.from_pretrained(
+        MODEL_NAME,
+        num_labels=config.num_classes
+    )
 
     # Load test data
     testloader, _ = get_test_loader(
@@ -92,11 +97,7 @@ def create_evaluate_fn(dataset_name: str, data_fraction: float = 1.0):
         print(f"[DEBUG] Random guessing would give: {random_acc:.2f}% (should be ~50%)")
 
 
-        # Load model
-        model = AutoModelForSequenceClassification.from_pretrained(
-            MODEL_NAME,
-            num_labels=config.num_classes
-        )
+
         model.load_state_dict(parameters)
         model.to(device)
         model.eval()

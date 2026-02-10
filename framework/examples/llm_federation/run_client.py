@@ -102,7 +102,7 @@ class LLMClient(fl.Client):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="FedLearn LLM Client")
-    parser.add_argument("--server_address", type=str, default="localhost:50051", help="Server address")
+    parser.add_argument("--server_address", type=str, default="18.224.182.111:39155", help="Server address")
     parser.add_argument("--id", type=int, required=True, help="Client ID")
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2"], help="Dataset to use")
     parser.add_argument("--num_clients", type=int, default=8, help="Total number of clients")
