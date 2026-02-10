@@ -316,14 +316,15 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
     if USE_LLM:
         # Use regular Adam on CPU for better numerical stability
         if DEVICE == "cpu":
-            optimizer = torch.optim.Adam(
+            optimizer = torch.optim.AdamW(
                 net.parameters(),
                 lr=learning_rate
                 #    * 10,  # Increase LR for CPU
                 # betas=(0.9, 0.999),
                 # eps=1e-8
             )
-            print(f"  Using Adam (CPU mode) with LR={learning_rate*10:.2e}")
+            print(f"  [DEBUG] Actual optimizer LR: {optimizer.param_groups[0]['lr']:.2e}")
+            print(f"  Using AdamW (CPU mode) with LR={learning_rate:.2e}")
         else:
             optimizer = torch.optim.AdamW(
                 net.parameters(),
@@ -390,6 +391,13 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                     print(f"     Logits sample: {outputs.logits[0]}")
                     print(f"     Predictions: {torch.argmax(outputs.logits, dim=-1)[:5]}")
                     print(f"     True labels: {batch['labels'][:5]}")
+
+                    print(f"\n     [DETAILED DEBUG]")
+                    print(f"     Optimizer type: {type(optimizer).__name__}")
+                    print(f"     Optimizer LR: {optimizer.param_groups[0]['lr']:.2e}")
+                    print(f"     Model device: {next(net.parameters()).device}")
+                    print(f"     Input device: {batch['input_ids'].device}")
+                    print(f"     Model training mode: {net.training}")
             elif USE_MLP:
                 # MLP: batch is (features, labels) tuple
                 features, labels = batch
@@ -425,11 +433,23 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                         total_norm += param_norm.item() ** 2
                 total_norm = total_norm ** 0.5
                 print(f"     Gradient norm: {total_norm:.4f}")
+
+                print(f"     Gradient clipping: {'YES (max_norm=1.0)' if False else 'NO'}")  # We removed clipping
+                print(f"\n     [WEIGHT UPDATE CHECK]")
+                # Get a reference weight before optimizer.step()
+                ref_weight_before = net.model.decoder.final_layer_norm.weight.clone()
             # Gradient clipping for LLM to prevent explosion
-            if USE_LLM:
-                torch.nn.utils.clip_grad_norm_(net.parameters(), LLM_MAX_GRAD_NORM)
+            # if USE_LLM:
+            #
+            #     torch.nn.utils.clip_grad_norm_(net.parameters(), LLM_MAX_GRAD_NORM)
 
             optimizer.step()
+            if i == 0 and USE_LLM:
+                ref_weight_after = net.model.decoder.final_layer_norm.weight
+                weight_change = (ref_weight_after - ref_weight_before).abs().mean().item()
+                print(f"     Weight change after step: {weight_change:.6e}")
+                print(f"     LR × grad_norm = {optimizer.param_groups[0]['lr'] * total_norm:.6e} (expected change magnitude)")
+                # === END ADD ===
 
             # Step scheduler for LLM
             # if USE_LLM:
@@ -554,6 +574,30 @@ class ZOSLClient(fl.Client):
 
         self.net.load_state_dict(parameters)
 
+        # RIGHT AFTER: self.net.load_state_dict(parameters)
+
+        # Verify parameters were actually loaded
+        loaded_embed = self.net.model.decoder.embed_tokens.weight
+        loaded_score = self.net.score.weight
+
+        print(f"\n[VERIFY LOAD] After load_state_dict:")
+        print(f"  embed_tokens mean: {loaded_embed.mean().item():.6f}")
+        print(f"  embed_tokens std: {loaded_embed.std().item():.6f}")
+        print(f"  score.weight mean: {loaded_score.mean().item():.6f}")
+        print(f"  score.weight std: {loaded_score.std().item():.6f}")
+
+        # Compare with what was sent
+        if 'model.decoder.embed_tokens.weight' in parameters:
+            sent_embed = parameters['model.decoder.embed_tokens.weight']
+            print(f"\n[VERIFY LOAD] What was sent by server:")
+            print(f"  embed_tokens mean: {sent_embed.mean().item():.6f}")
+            print(f"  embed_tokens std: {sent_embed.std().item():.6f}")
+
+            if torch.allclose(loaded_embed, sent_embed):
+                print(f"  ✅ MATCH: Parameters loaded correctly")
+            else:
+                print(f"  ❌ MISMATCH: Parameters NOT loaded correctly!")
+
         # Get local epochs from config or use dataset default
         if USE_LLM:
             local_epochs = config.get("local_epochs", DATASET_CONFIGS[self.dataset_name]["local_epochs"])
@@ -606,6 +650,31 @@ class ZOSLClient(fl.Client):
 
         # Logging after training
         log_processing_usage("after training finished")
+
+        # Right before: return self.net.state_dict(), len(self.trainloader.dataset)
+
+        # === ADD THIS ===
+        print(f"\n[JAVA CLIENT DEBUG] Training complete for round {server_round}")
+        print(f"  Total batches trained: {len(self.trainloader)}")
+
+        # Check if model actually learned
+        final_score_weight = self.net.score.weight
+        print(f"  Final score.weight mean: {final_score_weight.mean().item():.6f}")
+        print(f"  Final score.weight std: {final_score_weight.std().item():.6f}")
+
+        # Most importantly - did the model's predictions change?
+        self.net.eval()
+        with torch.no_grad():
+            first_batch = next(iter(self.trainloader))
+            batch = {k: v.to(DEVICE) for k, v in first_batch.items()}
+            outputs = self.net(**batch)
+            predictions = torch.argmax(outputs.logits, dim=-1)
+            print(f"  Sample predictions after training: {predictions[:8]}")
+            print(f"  Sample labels: {batch['labels'][:8]}")
+            accuracy_on_batch = (predictions == batch['labels']).float().mean().item()*100
+            print(f"  Accuracy on first training batch: {accuracy_on_batch:.2f}%")
+        self.net.train()
+        # === END ADD ===
 
         return self.net.state_dict(), len(self.trainloader.dataset)
 
