@@ -276,6 +276,26 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
         )
 
         return train_loader, test_loader
+    else:
+        # CNN: CIFAR-10 (unchanged)
+        fds = FederatedDataset(dataset="cifar10", partitioners={"train": NUM_PARTITIONS})
+        partition = fds.load_partition(partition_id)
+        partition_train_test = partition.train_test_split(test_size=0.2, seed=42)
+        pytorch_transforms = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ])
+
+        def apply_transforms(batch):
+            batch["img"] = [pytorch_transforms(img) for img in batch["img"]]
+            return batch
+
+        partition_train_test = partition_train_test.with_transform(apply_transforms)
+        return (
+            DataLoader(partition_train_test["train"], batch_size=BATCH_SIZE, shuffle=True, num_workers=0),
+            DataLoader(partition_train_test["test"], batch_size=BATCH_SIZE, num_workers=0)
+        )
+
 
 def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=None):
     """
