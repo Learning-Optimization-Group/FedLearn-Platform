@@ -28,7 +28,12 @@ def create_evaluate_fn(dataset_name: str, data_fraction: float = 1.0):
         Evaluation function for the server
     """
     config = DATASET_CONFIGS[dataset_name]
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"
+    # Load model
+    model = AutoModelForSequenceClassification.from_pretrained(
+        MODEL_NAME,
+        num_labels=config.num_classes
+    )
 
     # Load test data
     testloader, _ = get_test_loader(
@@ -43,37 +48,7 @@ def create_evaluate_fn(dataset_name: str, data_fraction: float = 1.0):
     print(f"  Num classes: {config.num_classes}")
 
 
-    def test_random_head_performance():
-        """Test if random classification head gets high accuracy."""
-        # Create model with random head
-        model = AutoModelForSequenceClassification.from_pretrained(
-            MODEL_NAME,
-            num_labels=2
-        )
-        model.to(device)
-        model.eval()
 
-        correct = 0
-        total = 0
-
-        with torch.no_grad():
-            for batch in testloader:
-                input_ids = batch["input_ids"].to(device)
-                attention_mask = batch["attention_mask"].to(device)
-                labels = batch["labels"].to(device)
-
-                outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-                predictions = torch.argmax(outputs.logits, dim=-1)
-
-                correct += (predictions == labels).sum().item()
-                total += len(labels)
-
-        acc = 100.0 * correct / total
-        print(f"[DEBUG] Random head baseline: {acc:.2f}%")
-        return acc
-
-    # Call it before training starts
-    random_head_acc = test_random_head_performance()
     def server_side_evaluate(server_round: int, parameters: OrderedDict[str, torch.Tensor]):
         """
         Evaluate the global model on the test set.
@@ -92,11 +67,7 @@ def create_evaluate_fn(dataset_name: str, data_fraction: float = 1.0):
         print(f"[DEBUG] Random guessing would give: {random_acc:.2f}% (should be ~50%)")
 
 
-        # Load model
-        model = AutoModelForSequenceClassification.from_pretrained(
-            MODEL_NAME,
-            num_labels=config.num_classes
-        )
+
         model.load_state_dict(parameters)
         model.to(device)
         model.eval()

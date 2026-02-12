@@ -1,12 +1,22 @@
-*.pkl 
-*.pth 
-*.npz 
-__pycache__/ 
-*.pyc 
-*.egg-info/ 
-"__pycache__/" 
-"*.pyc" 
-"*.pth" 
-"*.npz" 
-"**/checkpoints/" 
-"**/results/" 
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Python packaging
+*.egg-info/
+
+# ML artifacts
+*.pth
+*.pkl
+*.npz
+checkpoints/
+results/
+
+# Native binaries
+*.so
