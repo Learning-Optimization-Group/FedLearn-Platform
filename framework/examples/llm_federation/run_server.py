@@ -48,7 +48,7 @@ def create_evaluate_fn(dataset_name: str, data_fraction: float = 1.0):
     print(f"  Num classes: {config.num_classes}")
 
 
-    
+
     def server_side_evaluate(server_round: int, parameters: OrderedDict[str, torch.Tensor]):
         """
         Evaluate the global model on the test set.

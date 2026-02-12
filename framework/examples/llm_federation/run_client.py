@@ -14,7 +14,7 @@ from transformers import AutoModelForSequenceClassification
 from data import get_llm_loaders
 from config import MODEL_NAME, DATASET_CONFIGS
 
-
+client_history = []
 class LLMClient(fl.Client):
     """
     Custom LLM client for sequence classification tasks.
@@ -24,7 +24,8 @@ class LLMClient(fl.Client):
     def __init__(self, client_id: int, dataset_name: str, num_clients: int, data_fraction: float = 1.0):
         self.client_id = client_id
         self.dataset_name = dataset_name
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device =  "cpu"
+        self.current_round = 0
 
         # Get dataset configuration
         self.config = DATASET_CONFIGS[dataset_name]
@@ -56,7 +57,9 @@ class LLMClient(fl.Client):
         """
         Train the model locally for one epoch (K=1 as per Professor Yang's setup).
         """
+        self.current_round += 1
         self.net.load_state_dict(parameters)
+
 
         # Use AdamW optimizer with dataset-specific learning rate
         optimizer = torch.optim.AdamW(
@@ -67,6 +70,8 @@ class LLMClient(fl.Client):
         self.net.train()
         total_loss = 0.0
         num_batches = 0
+        correct = 0
+        total = 0
 
         # K=1: One local epoch
         for epoch in range(self.config.local_epochs):
@@ -74,8 +79,6 @@ class LLMClient(fl.Client):
                 # Move batch to device
                 input_ids = batch["input_ids"].to(self.device)
                 attention_mask = batch["attention_mask"].to(self.device)
-
-
                 labels = batch["labels"].to(self.device)
 
                 # Forward pass
@@ -86,6 +89,11 @@ class LLMClient(fl.Client):
                 )
                 loss = outputs.loss
 
+                # ← ADD THIS: Calculate accuracy
+                predictions = torch.argmax(outputs.logits, dim=-1)
+                correct += (predictions == labels).sum().item()
+                total += labels.size(0)
+
                 # Backward pass
                 optimizer.zero_grad()
                 loss.backward()
@@ -95,9 +103,20 @@ class LLMClient(fl.Client):
                 num_batches += 1
 
         avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
-        print(f"  Client {self.client_id} - Avg Loss: {avg_loss:.4f}")
+        accuracy = 100.0 * correct / total if total > 0 else 0.0
+
+        client_history.append({
+            'round': self.current_round,
+            'client_id': self.client_id,
+            'accuracy': accuracy,
+            'loss': avg_loss
+        })
+
+        print(f"  Client {self.client_id} - Avg Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%")
 
         return self.net.state_dict(), len(self.trainloader.dataset)
+
+
 
 
 if __name__ == "__main__":
@@ -117,12 +136,28 @@ if __name__ == "__main__":
         data_fraction=args.data_fraction
     )
 
-    # Start the client
-    fl.client.start_client(
-        server_address=args.server_address,
-        client=client,
-        client_id=f"client_{args.id}"
-    )
+    try:
+        # Start the client
+        fl.client.start_client(
+            server_address=args.server_address,
+            client=client,
+            client_id=f"client_{args.id}"
+        )
+    except KeyboardInterrupt:
+        print(f"\n[client_{args.id}] Interrupted by user. Shutting down...")
+    finally:
+        if client_history:
+            import pandas as pd
 
+            df = pd.DataFrame(client_history)
 
-# cd examples/llm_federation python run_client.py --server_address localhost:50051 --id 7 --dataset cb --num_clients 8
+            print(f"\n{'=' * 60}")
+            print(f"Client {args.id} Training History")
+            print(f"{'=' * 60}")
+            print(df.to_string(index=False))
+            print(f"{'=' * 60}\n")
+
+            # Save to CSV
+            df.to_csv(f'client_{args.id}_history.csv', index=False)
+            print(f"History saved to: client_{args.id}_history.csv")
+
