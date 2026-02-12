@@ -23,6 +23,7 @@ const ProjectCard = ({ project, onToggleServer, onUpdateOptimizer, onShowLogs })
     const [optimizer, setOptimizer] = useState(project.optimizer);
     const [strategy, setStrategy] = useState('FedAvg');
     const [numRounds, setNumRounds] = useState(5);
+    const [minClients, setMinClients] = useState(2);
 
     // State for the results modal, managed within this card
     const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
@@ -39,7 +40,7 @@ const ProjectCard = ({ project, onToggleServer, onUpdateOptimizer, onShowLogs })
         if (isServerRunning) {
             onToggleServer(project, true, null);
         } else {
-            const startData = { strategy, numRounds: Number(numRounds) };
+            const startData = { strategy, numRounds: Number(numRounds), minClients: Number(minClients) };
             onToggleServer(project, false, startData);
         }
     };
@@ -121,6 +122,8 @@ const ProjectCard = ({ project, onToggleServer, onUpdateOptimizer, onShowLogs })
                                 </select>
                                 <label>Rounds:</label>
                                 <input type="number" min="1" value={numRounds} onChange={(e) => setNumRounds(e.target.value)} />
+                                <label>Minimum clients:</label>
+                                <input type="number" min="2" value={minClients} onChange={(e) => setMinClients(e.target.value)} />
                             </div>
                         </div>
                     )}

@@ -51,15 +51,19 @@ export const createProject = (projectData) => {
  */
 export const startProjectServer = (projectId, startData) => {
     console.log('startData - ', startData)
-    const params = {};
+    const body = {};
     if (startData && startData.strategy) {
-        params.strategy = startData.strategy;
+        body.strategy = startData.strategy;
     }
     if (startData && startData.numRounds) {
-        params.numRounds = startData.numRounds;
+        body.numRounds = startData.numRounds;
+    }
+
+    if (startData && startData.minClients) {
+        body.minClients = startData.minClients;
     }
     // Send params as query parameters
-    return api.post(`/projects/${projectId}/start`, null, { params });
+    return api.post(`/projects/${projectId}/start`, { body }, null);
 };
 
 
