@@ -37,7 +37,9 @@ FedLearn Platform is an **open-source**, end-to-end solution for federated learn
 
 ## 🏗️ Architecture
 
-![FedLearn Platform Architecture](architecture.svg)
+<p align="center">
+  <img src="architecture.svg" alt="FedLearn Platform Architecture" style="width: 100%; max-width: 1400px;">
+</p>
 
 ### System Components
 
