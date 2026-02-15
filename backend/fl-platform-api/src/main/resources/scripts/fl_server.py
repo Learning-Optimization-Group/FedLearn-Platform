@@ -518,8 +518,13 @@ def main():
     else:
         logging.warning("--- No final model parameters to save. ---")
 
+
+    # Report results
+    results_url = "http://"+base_url+":8081"+"/api/internal/results/"+args.project_id
+
     # Mark Project as completed
     project_complete_url = "http://"+base_url+":8081"+"/api/projects/"+args.project_id+"/stop"
+
 
     try:
         response = requests.post(project_complete_url)
