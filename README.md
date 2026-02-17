@@ -7,7 +7,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![AWS](https://img.shields.io/badge/AWS-EC2-FF9900?logo=amazonaws&logoColor=white)](https://aws.amazon.com/)
 
-**A full-stack, production-ready federated learning platform with a custom-built framework, web dashboard, and containerized client deployment.**
+**A full-stack, federated learning platform with a custom-built framework, web dashboard, and containerized client deployment.**
 
 Built from scratch by the Learning Optimization Group at Rochester Institute of Technology under Professor Haibo Yang.
 
