@@ -32,7 +32,7 @@ pyarrow==21.0.0
 # -----------------------------------------------------------------------------
 # gRPC and Networking (CRITICAL: protobuf 6.x for compatibility)
 # -----------------------------------------------------------------------------
-protobuf==6.32.1
+protobuf>=4.21.0,<6.0.0
 grpcio==1.75.1
 grpcio-tools==1.75.1
 grpcio-health-checking==1.62.3

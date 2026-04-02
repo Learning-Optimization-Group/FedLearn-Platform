@@ -27,9 +27,6 @@ WORKDIR /app
 # Copy requirements first for better layer caching
 COPY requirements.txt .
 
-# Install explicit protobuf
-RUN pip3 install protobuf==6.32.1
-
 # Install all other requirements
 # Note: torch, torchvision, torchaudio are skipped because the NVIDIA base image already has optimized versions
 RUN pip3 install -r requirements.txt
