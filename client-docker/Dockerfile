@@ -34,6 +34,14 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 # Copy the fedlearn package
 COPY fedlearn/ /app/fedlearn/
 
+# Regenerate protobuf files to match installed protobuf runtime version
+# (source .proto was compiled with protobuf 6.x, but container has 5.x)
+RUN python3 -m grpc_tools.protoc \
+    -I /app/fedlearn/communication/protos \
+    --python_out=/app/fedlearn/communication/generated \
+    --grpc_python_out=/app/fedlearn/communication/generated \
+    /app/fedlearn/communication/protos/fedlearn.proto
+
 # Copy scripts directory (includes models.py, client.py, etc.)
 COPY scripts/ /app/scripts/
 
