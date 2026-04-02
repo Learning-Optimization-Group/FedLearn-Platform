@@ -1,7 +1,7 @@
 import grpc
 from collections import OrderedDict
 import torch
-from typing import Tuple, Dict, Optional
+from typing import Tuple, Dict, Optional, List
 import threading
 import time
 
@@ -322,3 +322,91 @@ class GrpcClient:
         """Closes the gRPC channel."""
         self.stop_heartbeat()
         self.channel.close()
+
+
+    def get_decomfl_config(self) -> Tuple[int, List[List[int]], List[Dict], dict]:
+        """
+        Get DeComFL configuration including seeds and rebuild history.
+
+        Returns:
+            current_round: Current round number
+            seeds: Seeds for perturbations [local_step][perturbation]
+            rebuild_history: History for missed rounds
+            config: Training configuration
+        """
+        try:
+            request = fedlearn_pb2.GetDeComFLConfigRequest(client_id=self.client_id)
+            response = self.stub.GetDeComFLConfig(request)
+
+            if response.current_round == -1:
+                return -1, [], [], {}
+
+            # Convert proto seeds to nested list
+            seeds = []
+            for local_step in response.current_seeds.local_steps:
+                seeds.append(list(local_step.seeds))
+
+            # Convert proto rebuild history
+            rebuild_history = []
+            for round_hist in response.rebuild_history.rounds:
+                round_seeds = []
+                for local_step in round_hist.seeds.local_steps:
+                    round_seeds.append(list(local_step.seeds))
+
+                round_grads = []
+                for local_step in round_hist.average_gradients.local_steps:
+                    round_grads.append(list(local_step.scalars))
+
+                rebuild_history.append({
+                    'round_number': round_hist.round_number,
+                    'seeds': round_seeds,
+                    'gradients': round_grads
+                })
+
+            config = dict(response.config)
+
+            return response.current_round, seeds, rebuild_history, config
+
+        except grpc.RpcError as e:
+            print(f"[{self.client_id}] RPC error in get_decomfl_config: {e.details()}")
+            raise
+
+    def submit_gradient_scalars(
+            self,
+            gradient_scalars: List[List[float]],
+            num_examples: int,
+            round_num: int
+    ) -> bool:
+        """
+        Submit gradient scalars to server.
+
+        Args:
+            gradient_scalars: Nested list [local_step][perturbation]
+            num_examples: Number of training examples
+            round_num: Round number
+
+        Returns:
+            True if successful
+        """
+        try:
+            # Convert to proto format
+            local_steps = []
+            for k_grads in gradient_scalars:
+                local_step_grads = fedlearn_pb2.LocalStepGradients(scalars=k_grads)
+                local_steps.append(local_step_grads)
+
+            gradients_proto = fedlearn_pb2.GradientScalars(local_steps=local_steps)
+
+            request = fedlearn_pb2.SubmitGradientScalarsRequest(
+                client_id=self.client_id,
+                trained_on_round=round_num,
+                gradients=gradients_proto,
+                num_examples=num_examples
+            )
+
+            response = self.stub.SubmitGradientScalars(request)
+            return response.received
+
+        except grpc.RpcError as e:
+            print(f"[{self.client_id}] RPC error in submit_gradient_scalars: {e.details()}")
+            return False

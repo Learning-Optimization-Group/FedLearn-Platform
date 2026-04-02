@@ -13,32 +13,6 @@ import os
 # import pika
 import traceback
 
-def get_rabbitmq_parameters():
-    user = os.environ.get("RABBITMQ_USER", "admin")
-    password = os.environ.get("RABBITMQ_PASS", "admin")
-    host = os.environ.get("RABBITMQ_HOST", "localhost")
-    port = int(os.environ.get("RABBITMQ_PORT", 5672))
-    vhost = "/"  # explicitly use default vhost
-
-    print("=== RabbitMQ Connection Parameters ===")
-    print(f"USER: {user}")
-    print(f"PASS: {password}")
-    print(f"HOST: {host}")
-    print(f"PORT: {port}")
-    print(f"VHOST: {vhost}")
-    print("====================================")
-
-    credentials = pika.PlainCredentials(user, password)
-    parameters = pika.ConnectionParameters(
-        host=host,
-        port=port,
-        virtual_host=vhost,
-        credentials=credentials,
-        heartbeat=600,
-        blocked_connection_timeout=300
-    )
-    return parameters
-
 class Client(ABC):
     """Abstract base class for federated learning clients."""
 
@@ -146,62 +120,3 @@ def start_client(server_address: str, client: Client, client_id: str):
         comm_client.close()
         print(f"[{client_id}] Shutdown complete.")
 
-
-def start_mq_client(mq_host: str, client: Client, client_id: str, project_id: str):
-    """Connects to RabbitMQ and enters a loop to consume tasks and produce results."""
-
-    connection = pika.BlockingConnection(get_rabbitmq_parameters())
-    channel = connection.channel()
-    tasks_queue_name = f'tasks_queue_{project_id}'
-    results_queue_name = f'results_queue_{project_id}'
-
-
-    channel.queue_declare(queue=tasks_queue_name, durable=True)
-    channel.queue_declare(queue=results_queue_name, durable=True)
-    print(f"[{client_id}] tasks_queue_name", tasks_queue_name)
-    print(f"[{client_id}] results_queue_name", results_queue_name)
-
-
-    print(f"[{client_id}] Waiting for tasks. To exit press CTRL+C")
-
-    def callback(ch, method, properties, body):
-        print(f"\n[{client_id}] Task received.")
-        try:
-            task_message = pickle.loads(body)
-            params = task_message['params']
-            server_round = task_message['round']
-            config = task_message['config']
-
-            print(f"[{client_id}] Starting local training for round {server_round}...")
-            new_params, num_examples = client.fit(params, config)
-
-            # Move parameters to CPU before sending
-            new_params_cpu = OrderedDict({k: v.cpu() for k, v in new_params.items()})
-
-            print(f"[{client_id}] Training complete. Publishing results for round {server_round}...")
-            result_message = {
-                'client_id': client_id,
-                'params': new_params_cpu,
-                'num_examples': num_examples,
-                'round': server_round
-            }
-            channel.basic_publish(
-                exchange='',
-                routing_key=results_queue_name,
-                body=pickle.dumps(result_message),
-                properties=pika.BasicProperties(delivery_mode=2)
-            )
-            print(f"[{client_id}] Results published. Waiting for next task.")
-            ch.basic_ack(delivery_tag=method.delivery_tag)
-        except Exception as e:
-            print(f"[{client_id}] ERROR processing task: {e}")
-            ch.basic_nack(delivery_tag=method.delivery_tag)
-
-    channel.basic_qos(prefetch_count=1)
-    channel.basic_consume(queue=tasks_queue_name, on_message_callback=callback)
-
-    try:
-        channel.start_consuming()
-    except KeyboardInterrupt:
-        print(f"\n[{client_id}] Shutting down.")
-        connection.close()

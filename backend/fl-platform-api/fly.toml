@@ -25,5 +25,6 @@ primary_region = 'bom'
 [env]
   LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY="DEBUG"
   LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB_FILTER_CORSFILTER="TRACE"
-
+  PYTHON_EXECUTABLE_PATH="/app/scripts/run_init_model.sh"
+  PYTHON_SCRIPT_FL_SERVER_PATH="/app/scripts/run_fl_server.sh"
 

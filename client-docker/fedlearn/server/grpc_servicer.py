@@ -1,4 +1,6 @@
-﻿import grpc
+﻿from typing import List, Dict
+
+import grpc
 from concurrent import futures
 import io
 import torch
@@ -9,6 +11,7 @@ from fedlearn.communication.generated import fedlearn_pb2_grpc
 # Import the business logic layer and helpers
 from .coordinator import FLCoordinator
 from fedlearn.communication.serializer import proto_to_parameters, parameters_to_proto, chunks_to_parameters, USE_COMPRESSION
+from fedlearn.server.decomfl_strategy import DeComFL
 
 
 class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServiceServicer):
@@ -272,3 +275,157 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                 should_stop=False,
                 message=f"Error: {str(e)}"
             )
+
+    def GetDeComFLConfig(self, request: fedlearn_pb2.GetDeComFLConfigRequest, context):
+        """
+        Handle DeComFL-specific configuration request.
+        Returns seeds and rebuild history for the client.
+        """
+        try:
+            client_id = request.client_id
+
+            # Import here to avoid circular import
+            from fedlearn.server.decomfl_strategy import DeComFL
+
+            # Check if using DeComFL strategy
+            if 'DeComFL' not in str(type(self.coordinator.strategy)):
+                error_msg = "Server is not configured for DeComFL."
+                print(f"[Server] ERROR: {error_msg}")
+                context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+                context.set_details(error_msg)
+                return fedlearn_pb2.GetDeComFLConfigResponse()
+
+            strategy = self.coordinator.strategy
+            current_round = self.coordinator.current_round
+
+            # Check if training is complete
+            if self.coordinator.stop_requested:
+                return fedlearn_pb2.GetDeComFLConfigResponse(current_round=-1)
+
+            print(f"[Server] DeComFL config request from {client_id} for round {current_round}")
+
+            # Generate seeds for current round
+            seeds = strategy.generate_seeds(current_round)
+            strategy.seed_history.append(seeds)
+
+            # Get rebuild history for missed rounds
+            rebuild_history = strategy.get_rebuild_history(client_id, current_round)
+
+            # Convert to proto format
+            current_seeds_proto = self._seeds_to_proto(seeds)
+            rebuild_history_proto = self._rebuild_history_to_proto(rebuild_history)
+
+            # Configuration
+            config = {
+                'learning_rate': str(strategy.eta),
+                'smoothing_param': str(strategy.mu),
+                'num_local_steps': str(strategy.K),
+                'num_perturbations': str(strategy.P)
+            }
+
+            print(f"[Server] Sending {len(seeds)} local steps, {len(rebuild_history)} missed rounds")
+
+            return fedlearn_pb2.GetDeComFLConfigResponse(
+                current_round=current_round,
+                current_seeds=current_seeds_proto,
+                rebuild_history=rebuild_history_proto,
+                config=config
+            )
+
+        except Exception as e:
+            print(f"[Server] Error in GetDeComFLConfig: {e}")
+            print(f"[Server] Error type: {type(e).__name__}")
+            import traceback
+            traceback.print_exc()
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"Error: {str(e)}")
+            return fedlearn_pb2.GetDeComFLConfigResponse()
+
+    def SubmitGradientScalars(self, request: fedlearn_pb2.SubmitGradientScalarsRequest, context):
+        """
+        Handle submission of gradient scalars from DeComFL client.
+        """
+        try:
+            client_id = request.client_id
+            trained_on_round = request.trained_on_round
+            num_examples = request.num_examples
+
+            print(f"[Server] Receiving gradient scalars from {client_id} for round {trained_on_round}")
+
+            # Import here to avoid circular import
+            from fedlearn.server.decomfl_strategy import DeComFL
+
+            # Check if using DeComFL strategy
+            if 'DeComFL' not in str(type(self.coordinator.strategy)):
+                error_msg = "Server is not configured for DeComFL."
+                print(f"[Server] ERROR: {error_msg}")
+                context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+                context.set_details(error_msg)
+                return fedlearn_pb2.GetDeComFLConfigResponse()
+
+            # Convert proto gradients to nested list format
+            gradient_scalars = self._proto_to_gradients(request.gradients)
+
+            print(f"[Server] Received {len(gradient_scalars)} local steps, "
+                  f"{len(gradient_scalars[0]) if gradient_scalars else 0} perturbations per step")
+
+            # Submit to coordinator (modified to handle DeComFL data)
+            self.coordinator.submit_decomfl_update(
+                client_id,
+                gradient_scalars,
+                num_examples,
+                trained_on_round
+            )
+
+            print(f"[Server] Successfully received gradient scalars from {client_id}")
+
+            return fedlearn_pb2.SubmitGradientScalarsResponse(received=True)
+
+        except Exception as e:
+            print(f"[Server] Error in SubmitGradientScalars: {e}")
+            print(f"[Server] Error type: {type(e).__name__}")
+            import traceback
+            traceback.print_exc()
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"Error: {str(e)}")
+            return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
+
+    # Helper methods for proto conversion
+    def _seeds_to_proto(self, seeds: List[List[int]]) -> fedlearn_pb2.PerturbationSeeds:
+        """Convert nested list of seeds to proto format."""
+        local_steps = []
+        for k_seeds in seeds:
+            local_step_seeds = fedlearn_pb2.LocalStepSeeds(seeds=k_seeds)
+            local_steps.append(local_step_seeds)
+        return fedlearn_pb2.PerturbationSeeds(local_steps=local_steps)
+
+    def _rebuild_history_to_proto(self, history: List[Dict]) -> fedlearn_pb2.RebuildHistory:
+        """Convert rebuild history to proto format."""
+        rounds = []
+        for round_data in history:
+            seeds_proto = self._seeds_to_proto(round_data['seeds'])
+            gradients_proto = self._gradients_to_proto(round_data['gradients'])
+
+            round_history = fedlearn_pb2.RoundHistory(
+                round_number=round_data['round_number'],
+                seeds=seeds_proto,
+                average_gradients=gradients_proto
+            )
+            rounds.append(round_history)
+
+        return fedlearn_pb2.RebuildHistory(rounds=rounds)
+
+    def _gradients_to_proto(self, gradients: List[List[float]]) -> fedlearn_pb2.GradientScalars:
+        """Convert nested list of gradient scalars to proto format."""
+        local_steps = []
+        for k_grads in gradients:
+            local_step_grads = fedlearn_pb2.LocalStepGradients(scalars=k_grads)
+            local_steps.append(local_step_grads)
+        return fedlearn_pb2.GradientScalars(local_steps=local_steps)
+
+    def _proto_to_gradients(self, proto: fedlearn_pb2.GradientScalars) -> List[List[float]]:
+        """Convert proto gradient scalars to nested list format."""
+        gradients = []
+        for local_step in proto.local_steps:
+            gradients.append(list(local_step.scalars))
+        return gradients

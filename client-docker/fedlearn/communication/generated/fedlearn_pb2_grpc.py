@@ -26,7 +26,9 @@ if _version_not_supported:
 
 
 class FederatedLearningServiceStub(object):
-    """The main service definition for the Federated Learning process.
+    """============================================================================
+    EXISTING SERVICES (keep as-is)
+    ============================================================================
     """
 
     def __init__(self, channel):
@@ -70,22 +72,32 @@ class FederatedLearningServiceStub(object):
                 request_serializer=fedlearn__pb2.HeartbeatRequest.SerializeToString,
                 response_deserializer=fedlearn__pb2.HeartbeatResponse.FromString,
                 _registered_method=True)
+        self.GetDeComFLConfig = channel.unary_unary(
+                '/fedlearn.v1.FederatedLearningService/GetDeComFLConfig',
+                request_serializer=fedlearn__pb2.GetDeComFLConfigRequest.SerializeToString,
+                response_deserializer=fedlearn__pb2.GetDeComFLConfigResponse.FromString,
+                _registered_method=True)
+        self.SubmitGradientScalars = channel.unary_unary(
+                '/fedlearn.v1.FederatedLearningService/SubmitGradientScalars',
+                request_serializer=fedlearn__pb2.SubmitGradientScalarsRequest.SerializeToString,
+                response_deserializer=fedlearn__pb2.SubmitGradientScalarsResponse.FromString,
+                _registered_method=True)
 
 
 class FederatedLearningServiceServicer(object):
-    """The main service definition for the Federated Learning process.
+    """============================================================================
+    EXISTING SERVICES (keep as-is)
+    ============================================================================
     """
 
     def RegisterClient(self, request, context):
-        """A client registers itself with the server to participate.
-        """
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def GetGlobalModel(self, request, context):
-        """A client requests the latest global model and training instructions.
-        """
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -97,8 +109,7 @@ class FederatedLearningServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def SubmitModelUpdate(self, request, context):
-        """A client submits its trained model update to the server.
-        """
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -110,13 +121,27 @@ class FederatedLearningServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def GetServerStatus(self, request, context):
-        """A client or administrator queries the server's current state.
-        """
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def Heartbeat(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetDeComFLConfig(self, request, context):
+        """============================================================================
+        NEW: DeComFL-specific RPCs
+        ============================================================================
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubmitGradientScalars(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -160,6 +185,16 @@ def add_FederatedLearningServiceServicer_to_server(servicer, server):
                     request_deserializer=fedlearn__pb2.HeartbeatRequest.FromString,
                     response_serializer=fedlearn__pb2.HeartbeatResponse.SerializeToString,
             ),
+            'GetDeComFLConfig': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetDeComFLConfig,
+                    request_deserializer=fedlearn__pb2.GetDeComFLConfigRequest.FromString,
+                    response_serializer=fedlearn__pb2.GetDeComFLConfigResponse.SerializeToString,
+            ),
+            'SubmitGradientScalars': grpc.unary_unary_rpc_method_handler(
+                    servicer.SubmitGradientScalars,
+                    request_deserializer=fedlearn__pb2.SubmitGradientScalarsRequest.FromString,
+                    response_serializer=fedlearn__pb2.SubmitGradientScalarsResponse.SerializeToString,
+            ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
             'fedlearn.v1.FederatedLearningService', rpc_method_handlers)
@@ -169,7 +204,9 @@ def add_FederatedLearningServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class FederatedLearningService(object):
-    """The main service definition for the Federated Learning process.
+    """============================================================================
+    EXISTING SERVICES (keep as-is)
+    ============================================================================
     """
 
     @staticmethod
@@ -351,6 +388,60 @@ class FederatedLearningService(object):
             '/fedlearn.v1.FederatedLearningService/Heartbeat',
             fedlearn__pb2.HeartbeatRequest.SerializeToString,
             fedlearn__pb2.HeartbeatResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetDeComFLConfig(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/fedlearn.v1.FederatedLearningService/GetDeComFLConfig',
+            fedlearn__pb2.GetDeComFLConfigRequest.SerializeToString,
+            fedlearn__pb2.GetDeComFLConfigResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubmitGradientScalars(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/fedlearn.v1.FederatedLearningService/SubmitGradientScalars',
+            fedlearn__pb2.SubmitGradientScalarsRequest.SerializeToString,
+            fedlearn__pb2.SubmitGradientScalarsResponse.FromString,
             options,
             channel_credentials,
             insecure,

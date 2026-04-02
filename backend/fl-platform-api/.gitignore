@@ -2,6 +2,8 @@
 # Build artifacts
 # ==================================
 target/
+build/
+.gradle/
 *.jar
 *.war
 *.ear

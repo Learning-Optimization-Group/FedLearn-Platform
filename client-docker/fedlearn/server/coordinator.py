@@ -60,7 +60,11 @@ class FLCoordinator:
             self._client_updates_received.append((params, num_examples))
 
             # if len(self._client_updates_received) >= self.min_clients:
+
             if len(self._client_updates_received) == self.clients_per_round:
+                print(f"[Coordinator] Client updates received {len(self._client_updates_received)}.")
+                print(f"[Coordinator] Clients per round {self.clients_per_round}")
+                print(f"[Coordinator] Triggering aggregation")
                 self._trigger_aggregation_and_evaluation()
 
     def _trigger_aggregation_and_evaluation(self):
@@ -169,3 +173,113 @@ class FLCoordinator:
                 "required_clients_for_round": self.min_clients,
                 "received_updates_this_round": len(self._client_updates_received)
             }
+
+    # Add to FLCoordinator class in coordinator.py
+
+    def submit_decomfl_update(
+            self,
+            client_id: str,
+            gradient_scalars: List[List[float]],
+            num_examples: int,
+            trained_on_round: int
+    ):
+        """
+        Handle DeComFL gradient scalar submission.
+
+        Args:
+            client_id: Client identifier
+            gradient_scalars: Nested list [local_step][perturbation] of gradient scalars
+            num_examples: Number of training examples
+            trained_on_round: Round number client trained on
+        """
+        with self._lock:
+            if trained_on_round < self.current_round:
+                print(f"[Coordinator] Ignoring stale update from {client_id} "
+                      f"(trained on {trained_on_round}, current is {self.current_round})")
+                return
+
+            if trained_on_round > self.current_round:
+                print(f"[Coordinator] Warning: Client {client_id} is ahead "
+                      f"(trained on {trained_on_round}, current is {self.current_round})")
+                return
+
+            print(f"[Coordinator] Received DeComFL update from '{client_id}' for round {self.current_round}.")
+            print(f"[Coordinator] Updates so far: {len(self._client_updates_received) + 1}/{self.clients_per_round}")
+
+            # Store as tuple: (client_id, gradient_scalars, num_examples)
+            self._client_updates_received.append((client_id, gradient_scalars, num_examples))
+
+            if len(self._client_updates_received) >= self.clients_per_round:
+                print(f"[Coordinator] Received all {self.clients_per_round} updates. Starting aggregation...")
+                self._trigger_decomfl_aggregation_and_evaluation()
+
+    def _trigger_decomfl_aggregation_and_evaluation(self):
+        """
+        Aggregation logic for DeComFL.
+        Similar to _trigger_aggregation_and_evaluation but handles gradient scalars.
+        """
+        print(f"[Coordinator] Aggregating {len(self._client_updates_received)} "
+              f"DeComFL updates for round {self.current_round}...")
+
+        results = list(self._client_updates_received)
+        self._client_updates_received.clear()
+
+        # Aggregate gradient scalars
+        aggregated_parameters = self.strategy.aggregate_fit(self.current_round, results)
+
+        if aggregated_parameters is not None:
+            self._global_model_params = aggregated_parameters
+
+            # Calculate average gradients and store in strategy history
+            avg_gradients = self._calculate_average_gradients(results)
+
+            # Check if strategy is DeComFL and has gradient_history
+            if 'DeComFL' in str(type(self.strategy)) and hasattr(self.strategy, 'gradient_history'):
+                self.strategy.gradient_history.append(avg_gradients)
+                print(f"[Coordinator] Stored gradient history for round {self.current_round}")
+
+            # Evaluate
+            loss, metrics = self.strategy.evaluate(self.current_round, self._global_model_params)
+            self.latest_metrics = {"loss": loss, **metrics}
+            print(f"[Coordinator] Round {self.current_round} complete. Loss: {loss:.4f}, Metrics: {metrics}")
+        else:
+            print(f"WARNING: DeComFL aggregation for round {self.current_round} failed.")
+            self.latest_metrics = None
+
+        # Signal round completion
+        self._round_complete_event.set()
+
+    def _calculate_average_gradients(
+            self,
+            results: List[Tuple[str, List[List[float]], int]]
+    ) -> List[List[float]]:
+        """
+        Calculate average gradient scalars across clients.
+
+        Returns:
+            avg_gradients[k][p] = average gradient scalar for local step k, perturbation p
+        """
+        if not results:
+            return []
+
+        # Get dimensions from first result
+        _, first_grads, _ = results[0]
+        K = len(first_grads)
+        P = len(first_grads[0]) if K > 0 else 0
+
+        # Initialize averages
+        avg_gradients = [[0.0 for _ in range(P)] for _ in range(K)]
+
+        # Sum gradients from all clients
+        num_clients = len(results)
+        for client_id, grad_scalars, num_examples in results:
+            for k in range(K):
+                for p in range(P):
+                    avg_gradients[k][p] += grad_scalars[k][p]
+
+        # Average
+        for k in range(K):
+            for p in range(P):
+                avg_gradients[k][p] /= num_clients
+
+        return avg_gradients

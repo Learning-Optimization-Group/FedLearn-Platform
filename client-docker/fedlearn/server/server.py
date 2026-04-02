@@ -14,33 +14,7 @@ from ..communication.generated import fedlearn_pb2_grpc
 import logging
 import sys
 import os
-# import pika
 
-# def get_rabbitmq_parameters():
-#     user = os.environ.get("RABBITMQ_USER", "admin")
-#     password = os.environ.get("RABBITMQ_PASS", "admin")
-#     host = os.environ.get("RABBITMQ_HOST", "localhost")
-#     port = int(os.environ.get("RABBITMQ_PORT", 5672))
-#     vhost = "/"  # explicitly use default vhost
-#
-#     print("=== RabbitMQ Connection Parameters ===")
-#     print(f"USER: {user}")
-#     print(f"PASS: {password}")
-#     print(f"HOST: {host}")
-#     print(f"PORT: {port}")
-#     print(f"VHOST: {vhost}")
-#     print("====================================")
-#
-#     credentials = pika.PlainCredentials(user, password)
-#     parameters = pika.ConnectionParameters(
-#         host=host,
-#         port=port,
-#         virtual_host=vhost,
-#         credentials=credentials,
-#         heartbeat=600,
-#         blocked_connection_timeout=300
-#     )
-#     return parameters
 
 
 @dataclass
@@ -161,75 +135,3 @@ def start_server(
         grpc_server.stop(grace=5)
         logging.info("gRPC server stopped")
 
-
-# def start_server_mq(config: ServerConfig, strategy: Strategy, project_id: str, mq_host: str = '127.0.0.1', mq_port: int = 5672, max_retries: int = 5, retry_delay: float = 3.0):
-#     """
-#     Starts an asynchronous federated learning server using a message queue with retry mechanism.
-#     """
-#     logging.info("--- Starting ASYNCHRONOUS FedLearn Server ---")
-#
-#     coordinator = FLCoordinator(min_clients_per_round=strategy.min_fit_clients)
-#     result_consumer = ResultConsumer(coordinator, project_id, mq_host)
-#     result_consumer.daemon = True
-#     result_consumer.start()
-#
-#     # Retry loop for RabbitMQ connection
-#     attempt = 0
-#     connection = None
-#     while attempt < max_retries:
-#         try:
-#             logging.info(f"Attempting to connect to RabbitMQ at {mq_host}:{mq_port} (Attempt {attempt+1}/{max_retries})")
-#
-#             connection_params = pika.ConnectionParameters(host=mq_host, port=mq_port, virtual_host='/',heartbeat=600, blocked_connection_timeout=300)
-#             connection = pika.BlockingConnection(get_rabbitmq_parameters())
-#             logging.info("Connected to RabbitMQ successfully.")
-#             break
-#         except pika.exceptions.AMQPConnectionError as e:
-#             attempt += 1
-#             logging.warning(f"Connection attempt {attempt} failed: {e}")
-#             if attempt < max_retries:
-#                 logging.info(f"Retrying in {retry_delay} seconds...")
-#                 time.sleep(retry_delay)
-#             else:
-#                 logging.critical(f"Could not connect to RabbitMQ after {max_retries} attempts. Exiting.")
-#                 raise
-#
-#     channel = connection.channel()
-#     tasks_queue_name = f'tasks_queue_{project_id}'
-#     channel.queue_declare(queue=tasks_queue_name, durable=True)
-#     logging.info(f"start_server_mq tasks_queue_name-{tasks_queue_name}")
-#
-#     history = []
-#     parameters = strategy.initialize_parameters()
-#
-#     for r in range(1, config.num_rounds + 1):
-#         logging.info(f"\n======== Broadcasting Task for Round {r}/{config.num_rounds} ========")
-#
-#         task_message = {'params': parameters, 'round': r, 'config': {'local_epochs': 1}}
-#         logging.info(f"Task message type: {type(task_message)}")
-#         logging.info(f"Approx size: {sys.getsizeof(task_message)} bytes")
-#         channel.basic_publish(
-#             exchange='',
-#             routing_key=tasks_queue_name,
-#             body=pickle.dumps(task_message),
-#             properties=pika.BasicProperties(delivery_mode=2)
-#         )
-#
-#         coordinator.wait_for_round_to_complete(r)
-#         results = coordinator.get_and_clear_updates_for_round(r)
-#
-#         aggregator = FedAvgAggregator()
-#         aggregated_parameters = aggregator.aggregate(results)
-#
-#         if aggregated_parameters:
-#             parameters = aggregated_parameters
-#             loss, metrics = strategy.evaluate(r, parameters)
-#             history.append((r, {"loss": loss, **metrics}))
-#         else:
-#             logging.warning(f"Aggregation for round {r} failed. Skipping model update.")
-#
-#     logging.info("--- Federated Learning session complete. ---")
-#     connection.close()
-#     time.sleep(5)
-#
-#     return history, parameters

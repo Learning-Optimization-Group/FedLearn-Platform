@@ -1,4 +1,4 @@
-﻿import threading
+import threading
 from collections import OrderedDict
 import torch
 from typing import Optional, List, Tuple, Dict
@@ -86,7 +86,7 @@ class FLCoordinator:
             self.latest_metrics = None
 
         # Advance to the next round and signal completion
-        # self.current_round += 1
+        self.current_round += 1
         self._round_complete_event.set()
 
     def set_initial_parameters(self, params: Optional[OrderedDict[str, torch.Tensor]]):
