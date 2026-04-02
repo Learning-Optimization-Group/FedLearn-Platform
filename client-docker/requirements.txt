@@ -1,6 +1,8 @@
 # =============================================================================
-# FL Client Requirements
+# FL Client Requirements — Jetson AGX (Python 3.8, aarch64, CUDA 11.4)
 # =============================================================================
+# ALL versions verified for cp38-aarch64 binary wheel availability on PyPI.
+# PyTorch 2.0 is pre-installed in the L4T base image — do NOT add it here.
 
 # -----------------------------------------------------------------------------
 # Federated Learning Framework
@@ -8,21 +10,23 @@
 flwr-datasets>=0.3.0
 
 # -----------------------------------------------------------------------------
-# Transformers and NLP
+# Transformers and NLP (capped for Python 3.8 + aarch64 binary wheels)
 # -----------------------------------------------------------------------------
 transformers>=4.30.0,<4.40.0
 datasets>=2.14.0,<2.19.0
 tokenizers>=0.13.0,<0.15.0
 accelerate>=0.20.0,<0.28.0
 safetensors>=0.3.1,<0.4.0
-huggingface-hub>=0.20
+huggingface-hub>=0.20,<0.25
 
 # -----------------------------------------------------------------------------
 # Data Processing
+# NOTE: pyarrow is deliberately UNCAPPED because flwr-datasets 0.3.0
+#       requires pyarrow==16.1.0 (exact pin). Capping it causes a conflict.
+#       pyarrow 16.1.0 has a pre-built cp38-aarch64 wheel on PyPI.
 # -----------------------------------------------------------------------------
-numpy<1.25.0
-pandas<2.1.0
-pyarrow<15.0.0
+numpy>=1.21.0,<1.25.0
+pandas>=1.5.0,<2.1.0
 
 # -----------------------------------------------------------------------------
 # gRPC and Networking
@@ -64,7 +68,7 @@ msgpack>=1.0
 dill>=0.3.6
 PyYAML>=6.0
 filelock>=3.12
-fsspec>=2023.6
+fsspec>=2023.6,<2024.3
 
 # -----------------------------------------------------------------------------
 # Standard Dependencies

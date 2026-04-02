@@ -27,9 +27,9 @@ WORKDIR /app
 # Copy requirements first for better layer caching
 COPY requirements.txt .
 
-# Install all other requirements
-# Note: torch, torchvision, torchaudio are skipped because the NVIDIA base image already has optimized versions
-RUN pip3 install -r requirements.txt
+# Install all requirements (--no-cache-dir to avoid stale pip cache)
+# Note: torch/torchvision/torchaudio are pre-installed in the NVIDIA base image
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy the fedlearn package
 COPY fedlearn/ /app/fedlearn/
