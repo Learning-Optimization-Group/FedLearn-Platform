@@ -40,7 +40,9 @@ RUN python3 -m grpc_tools.protoc \
     -I /app/fedlearn/communication/protos \
     --python_out=/app/fedlearn/communication/generated \
     --grpc_python_out=/app/fedlearn/communication/generated \
-    /app/fedlearn/communication/protos/fedlearn.proto
+    /app/fedlearn/communication/protos/fedlearn.proto \
+    && sed -i 's/^import fedlearn_pb2/from fedlearn.communication.generated import fedlearn_pb2/' \
+       /app/fedlearn/communication/generated/fedlearn_pb2_grpc.py
 
 # Copy scripts directory (includes models.py, client.py, etc.)
 COPY scripts/ /app/scripts/
