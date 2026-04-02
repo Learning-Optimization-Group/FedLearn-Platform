@@ -1,4 +1,6 @@
 # src/fedlearn/estimators/zeroth_order.py
+from __future__ import annotations
+
 """
 Zeroth-order gradient estimation for DeComFL.
 Implements Algorithm 4 from the DeComFL paper.

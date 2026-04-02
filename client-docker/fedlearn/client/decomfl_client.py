@@ -1,4 +1,6 @@
 # src/fedlearn/client/decomfl_client.py
+from __future__ import annotations
+
 """
 DeComFL Client implementing Algorithm 4 from the paper.
 """

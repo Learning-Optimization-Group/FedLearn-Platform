@@ -1,4 +1,6 @@
 # src/fedlearn/client/client.py
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 # import pika

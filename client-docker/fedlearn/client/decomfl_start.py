@@ -1,4 +1,6 @@
 # src/fedlearn/client/decomfl_start.py
+from __future__ import annotations
+
 """
 Start function for DeComFL clients.
 """

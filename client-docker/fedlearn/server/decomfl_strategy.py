@@ -1,4 +1,6 @@
 # src/fedlearn/server/decomfl_strategy.py
+from __future__ import annotations
+
 """
 DeComFL Strategy implementing Algorithm 3 from the paper.
 """

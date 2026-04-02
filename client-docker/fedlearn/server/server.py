@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 ﻿from concurrent import futures
 import grpc
 import time

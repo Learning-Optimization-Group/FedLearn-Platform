@@ -1,4 +1,6 @@
 # src/fedlearn/client/__init__.py
+from __future__ import annotations
+
 """
 Client-side components for federated learning
 """

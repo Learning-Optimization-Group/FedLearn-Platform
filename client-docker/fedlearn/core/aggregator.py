@@ -1,4 +1,6 @@
 # from abc import ABC, abstractmethod
+from __future__ import annotations
+
 # from collections import OrderedDict
 # import torch
 #

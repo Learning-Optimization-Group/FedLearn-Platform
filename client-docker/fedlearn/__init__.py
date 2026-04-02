@@ -1,4 +1,6 @@
 # src/fedlearn/__init__.py
+from __future__ import annotations
+
 
 # Expose the main entry points for server and client
 from . import server

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import grpc
 from collections import OrderedDict
 import torch
