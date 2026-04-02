@@ -2,14 +2,18 @@
 .venv/
 venv/
 env/
+.env/
 
 # Python cache
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
 
 # Python packaging
 *.egg-info/
+dist/
+build/
 
 # ML artifacts
 *.pth
@@ -17,6 +21,28 @@ __pycache__/
 *.npz
 checkpoints/
 results/
+models/
+
+# Java / Gradle build
+.gradle/
+build/
+target/
+*.jar
+*.war
+*.ear
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# Environment secrets
+env.txt
 
 # Native binaries
 *.so
+
+# Logs
+*.log
