@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-﻿from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod
 from typing import Optional, Callable, Tuple
 from collections import OrderedDict
 import torch

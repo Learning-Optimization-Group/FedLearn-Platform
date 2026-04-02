@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-﻿from concurrent import futures
+from concurrent import futures
 import grpc
 import time
 from dataclasses import dataclass

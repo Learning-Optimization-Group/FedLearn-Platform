@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-﻿from typing import List, Dict
+from typing import List, Dict
 
 import grpc
 from concurrent import futures

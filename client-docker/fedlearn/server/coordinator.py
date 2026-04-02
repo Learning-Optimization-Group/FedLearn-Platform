@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-﻿import threading
+import threading
 from collections import OrderedDict
 import torch
 from typing import Optional, List, Tuple, Dict
