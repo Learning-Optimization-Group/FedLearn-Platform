@@ -1,27 +1,65 @@
+import sys
+import time as _time
+
+print("=" * 60, flush=True)
+print("FedLearn Client — Starting up...", flush=True)
+print(f"Python: {sys.version}", flush=True)
+print("=" * 60, flush=True)
+
+_t0 = _time.time()
+
+print("[BOOT] Importing argparse...", flush=True)
 import argparse
+
+print(f"[BOOT] Importing torch... (this can take 1-3 min on Jetson)", flush=True)
 import torch
+print(f"[BOOT] ✓ torch {torch.__version__} loaded in {_time.time()-_t0:.1f}s | CUDA: {torch.cuda.is_available()}", flush=True)
+
 import time
 import threading
+
+print("[BOOT] Importing numpy...", flush=True)
 import numpy as np
+print(f"[BOOT] ✓ numpy {np.__version__}", flush=True)
+
 from collections import OrderedDict
 from typing import List, Tuple
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR
-import psutil
-import fedlearn as fl
 
+print("[BOOT] Importing psutil...", flush=True)
+import psutil
+
+print("[BOOT] Importing fedlearn...", flush=True)
+import fedlearn as fl
+print("[BOOT] ✓ fedlearn loaded", flush=True)
+
+print("[BOOT] Importing flwr_datasets...", flush=True)
 from flwr_datasets import FederatedDataset
+print("[BOOT] ✓ flwr_datasets loaded", flush=True)
+
+print("[BOOT] Importing torchvision...", flush=True)
 import torchvision.transforms as transforms
+print("[BOOT] ✓ torchvision loaded", flush=True)
+
+print("[BOOT] Importing HuggingFace datasets...", flush=True)
 from datasets import load_dataset
+print("[BOOT] ✓ datasets loaded", flush=True)
+
+print("[BOOT] Importing transformers (slowest on ARM)...", flush=True)
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
+print(f"[BOOT] ✓ transformers loaded", flush=True)
+
+print("[BOOT] Importing models...", flush=True)
 from models import CnnNet
+print(f"[BOOT] ✓ All imports complete in {_time.time()-_t0:.1f}s", flush=True)
 
 
 try:
     import pynvml
-    print('pynvml - ',pynvml.__version__)
+    print(f'[BOOT] ✓ pynvml {pynvml.__version__}', flush=True)
     PYNVML_AVAILABLE = True
     pynvml.nvmlInit()
     GPU_HANDLE = pynvml.nvmlDeviceGetHandleByIndex(0)

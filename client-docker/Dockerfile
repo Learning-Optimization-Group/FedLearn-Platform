@@ -37,27 +37,15 @@ COPY fedlearn/ /app/fedlearn/
 # Copy scripts directory (includes models.py, client.py, etc.)
 COPY scripts/ /app/scripts/
 
+# Copy the entrypoint script
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 # Set Python path to include the app directory
 ENV PYTHONPATH=/app:${PYTHONPATH}
 
 # Set working directory to scripts
 WORKDIR /app/scripts
-
-# Create entry point script (using python3)
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-if [ -z "$PROJECT_ID" ] || [ -z "$SERVER_ADDRESS" ] || [ -z "$PARTITION_ID" ]; then\n\
-    echo "Error: Missing required environment variables"\n\
-    exit 1\n\
-fi\n\
-\n\
-exec python3 client.py \\\n\
-    --project-id "$PROJECT_ID" \\\n\
-    --server-address "$SERVER_ADDRESS" \\\n\
-    --partition-id "$PARTITION_ID" \\\n\
-    "$@"\n\
-' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # Set the entrypoint
 ENTRYPOINT ["/app/entrypoint.sh"]
