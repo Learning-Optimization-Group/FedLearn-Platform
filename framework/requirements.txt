@@ -107,4 +107,4 @@ tzdata>=2023.0
 # Build tools
 setuptools
 wheel
-sklearn
+scikit-learn>=1.4,<2.0

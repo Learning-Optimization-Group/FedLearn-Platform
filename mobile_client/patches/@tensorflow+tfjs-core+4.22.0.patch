@@ -1,0 +1,27 @@
+diff --git a/node_modules/@tensorflow/tfjs-core/dist/util.js b/node_modules/@tensorflow/tfjs-core/dist/util.js
+index 7c1db63..f933292 100755
+--- a/node_modules/@tensorflow/tfjs-core/dist/util.js
++++ b/node_modules/@tensorflow/tfjs-core/dist/util.js
+@@ -122,14 +122,16 @@ export function decodeString(bytes, encoding = 'utf-8') {
+     encoding = encoding || 'utf-8';
+     return env().platform.decode(bytes, encoding);
+ }
+-export function isTypedArray(a) {
+-    // TODO(mattsoulanille): Remove this fallback in 5.0.0
+-    if (env().platform.isTypedArray != null) {
+-        return env().platform.isTypedArray(a);
++export function  isTypedArray(a) {
++    // Polyfill for React Native
++    if (typeof util !== 'undefined' && util.isTypedArray) {
++        return util.isTypedArray(a);
+     }
+-    else {
+-        return isTypedArrayBrowser(a);
++    if (typeof global !== 'undefined' && global.util && global.util.isTypedArray) {
++        return global.util.isTypedArray(a);
+     }
++    // Fallback implementation
++    return ArrayBuffer.isView(a) && !(a instanceof DataView);
+ }
+ // NOTE: We explicitly type out what T extends instead of any so that
+ // util.flatten on a nested array of number doesn't try to infer T as a

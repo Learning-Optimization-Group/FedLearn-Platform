@@ -1,0 +1,24 @@
+diff --git a/node_modules/@tensorflow/tfjs-react-native/dist/platform_react_native.js b/node_modules/@tensorflow/tfjs-react-native/dist/platform_react_native.js
+index 8287a2f..462f927 100644
+--- a/node_modules/@tensorflow/tfjs-react-native/dist/platform_react_native.js
++++ b/node_modules/@tensorflow/tfjs-react-native/dist/platform_react_native.js
+@@ -142,8 +142,17 @@ export class PlatformReactNative {
+         throw new Error('react native does not support setTimeoutCustom');
+     }
+     isTypedArray(a) {
+-        return a instanceof Float32Array || a instanceof Int32Array ||
+-            a instanceof Uint8Array || a instanceof Uint8ClampedArray;
++        // return a instanceof Float32Array || a instanceof Int32Array ||
++        //     a instanceof Uint8Array || a instanceof Uint8ClampedArray;
++        // Use global util if available
++    if (typeof global !== 'undefined' && global.util && global.util.isTypedArray) {
++        return global.util.isTypedArray(a);
++    }
++    // Fallback to instanceof checks
++    return a instanceof Float32Array || a instanceof Int32Array ||
++        a instanceof Uint8Array || a instanceof Uint8ClampedArray ||
++        a instanceof Int16Array || a instanceof Uint16Array ||
++        a instanceof Uint32Array || a instanceof Float64Array;
+     }
+ }
+ function setupGlobals() {
