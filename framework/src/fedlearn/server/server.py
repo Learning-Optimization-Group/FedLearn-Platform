@@ -66,8 +66,10 @@ def start_server(
 
     coordinator.set_initial_parameters(strategy.initial_parameters)
     # Create gRPC server with proper options
+    max_expected_clients = int(os.environ.get('MAX_CLIENTS', 50))
+    optimal_workers = (max_expected_clients * 2) + 10
     grpc_server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=10),
+        futures.ThreadPoolExecutor(max_workers=optimal_workers),
         options=[
             # Keepalive settings for long-running clients
             ('grpc.keepalive_time_ms', 120000),  # 120 seconds

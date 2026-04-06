@@ -1,7 +1,6 @@
 import sys
 import io
 import os
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 # Force UTF-8 encoding for stdout/stderr
 if sys.stdout.encoding != 'utf-8':

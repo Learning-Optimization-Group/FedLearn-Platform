@@ -125,7 +125,15 @@ class FedAvgAggregator:
             weight = num_examples / total_examples
             for key in aggregated_params:
                 if key in params:
-                    aggregated_params[key] += params[key].to(device).float() * weight
+                    torch.add(
+                        aggregated_params[key], 
+                        params[key].to(device).float(), 
+                        alpha=weight, 
+                        out=aggregated_params[key]
+                    )
+            
+            # Aggressively free client memory buffer
+            params.clear()
 
         return aggregated_params
 
