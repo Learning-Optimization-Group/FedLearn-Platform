@@ -207,7 +207,7 @@ import torch
 from model import create_model
 
 # Load checkpoint
-checkpoint = torch.load('checkpoints/model_final.pth')
+checkpoint = torch.load('checkpoints/model_final.pth', weights_only=True)
 
 # Create model
 model = create_model(
