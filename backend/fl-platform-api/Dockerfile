@@ -56,6 +56,17 @@ ENV PATH="/opt/venv/bin:$PATH"
 EXPOSE 8081
 
 # --- Set the entrypoint to run the application ---
-# This command will be executed when the container starts
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+# Cloud platforms (Render, Railway, Fly.io) provide DATABASE_URL with postgres:// scheme,
+# but Spring Boot's JDBC driver requires jdbc:postgresql://.
+# This entrypoint script rewrites the URL before starting the JVM.
+COPY <<'EOF' /app/entrypoint.sh
+#!/bin/sh
+if [ -n "$DATABASE_URL" ]; then
+  export SPRING_DATASOURCE_URL=$(echo "$DATABASE_URL" | sed 's|^postgres://|jdbc:postgresql://|')
+fi
+exec java -jar /app/app.jar "$@"
+EOF
+RUN chmod +x /app/entrypoint.sh
+
+ENTRYPOINT ["/app/entrypoint.sh"]
 
