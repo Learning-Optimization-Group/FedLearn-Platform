@@ -109,7 +109,7 @@ class GrpcClient:
 
             import io
             buffer = io.BytesIO(full_data)
-            model_data = torch.load(buffer, map_location='cpu', weights_only=False)
+            model_data = torch.load(buffer, map_location='cpu', weights_only=True)
             buffer.close()
 
             params = model_data['parameters']
@@ -308,8 +308,8 @@ class GrpcClient:
     def stop_heartbeat(self):
         """Stop sending heartbeats."""
         self.heartbeat_active = False
-        if self.heartbeat_thread:
-            self.heartbeat_thread.join(timeout=2)
+        if self.heartbeat_thread and self.heartbeat_thread.is_alive():
+            self.heartbeat_thread.join(timeout=5)
             print(f"[{self.client_id}] Heartbeat stopped")
 
     def update_status(self, status: str, current_step: int, total_steps: int):
@@ -319,9 +319,11 @@ class GrpcClient:
         self.total_steps = total_steps
 
     def close(self):
-        """Closes the gRPC channel."""
+        """Closes the gRPC channels."""
         self.stop_heartbeat()
         self.channel.close()
+        if hasattr(self, 'heartbeat_channel') and self.heartbeat_channel:
+            self.heartbeat_channel.close()
 
 
     def get_decomfl_config(self) -> Tuple[int, List[List[int]], List[Dict], dict]:

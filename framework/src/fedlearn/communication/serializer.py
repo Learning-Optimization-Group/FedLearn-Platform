@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-import pickle
 from collections import OrderedDict
 from fedlearn.communication.generated import fedlearn_pb2
 from typing import Generator, Dict, Tuple, Optional
@@ -33,11 +32,36 @@ def parameters_to_proto(parameters: OrderedDict[str, torch.Tensor], num_examples
         )
     return ModelParameters(tensors=tensors, num_examples_trained=num_examples)
 
+# Whitelist of safe numpy dtypes to prevent arbitrary dtype injection
+_SAFE_DTYPES = {
+    'float16', 'float32', 'float64',
+    'int8', 'int16', 'int32', 'int64',
+    'uint8',
+    'bool',
+    'bfloat16',
+}
+
 def proto_to_parameters(proto: ModelParameters) -> tuple[OrderedDict[str, torch.Tensor], int]:
     """Deserialize a proto message to a PyTorch state_dict."""
     parameters = OrderedDict()
     for name, tensor_proto in proto.tensors.items():
-        np_array = np.frombuffer(tensor_proto.data, dtype=np.dtype(tensor_proto.dtype))
+        # Validate dtype against whitelist
+        dtype_str = tensor_proto.dtype
+        if dtype_str not in _SAFE_DTYPES:
+            raise ValueError(f"Unsafe dtype '{dtype_str}' for tensor '{name}'. Allowed: {_SAFE_DTYPES}")
+
+        np_array = np.frombuffer(tensor_proto.data, dtype=np.dtype(dtype_str))
+
+        # Validate that dims product matches data length
+        expected_size = 1
+        for d in tensor_proto.dims:
+            if d <= 0:
+                raise ValueError(f"Invalid dimension {d} for tensor '{name}'")
+            expected_size *= d
+        if expected_size != len(np_array):
+            raise ValueError(
+                f"Shape mismatch for tensor '{name}': dims product {expected_size} != data length {len(np_array)}")
+
         np_array = np_array.reshape(tensor_proto.dims).copy()
         parameters[name] = torch.tensor(np_array)
     return parameters, proto.num_examples_trained
@@ -53,20 +77,18 @@ def parameters_to_chunks(
     try:
         print(f"[Serializer] Using torch.save for {len(params)} tensors...")
 
-        # Use BytesIO buffer
-        buffer = io.BytesIO()
+        # Use BytesIO buffer with context manager to prevent memory leaks
+        with io.BytesIO() as buffer:
+            # Save using torch (more memory efficient than pickle)
+            model_data = {
+                'parameters': params,  # torch.save handles OrderedDict efficiently
+                'num_examples': num_examples
+            }
 
-        # Save using torch (more memory efficient than pickle)
-        model_data = {
-            'parameters': params,  # torch.save handles OrderedDict efficiently
-            'num_examples': num_examples
-        }
+            torch.save(model_data, buffer)
 
-        torch.save(model_data, buffer)
-
-        # Get bytes
-        serialized = buffer.getvalue()
-        buffer.close()
+            # Get bytes
+            serialized = buffer.getvalue()
 
         original_size = len(serialized)
         print(f"[Serializer] Serialized: {original_size / (1024 ** 2):.2f} MB")
@@ -118,10 +140,9 @@ def chunks_to_parameters(chunks_data: bytes, compressed: bool = USE_COMPRESSION)
         else:
             data = chunks_data
 
-        # Load using torch
-        buffer = io.BytesIO(data)
-        model_data = torch.load(buffer, map_location='cpu')
-        buffer.close()
+        # Load using torch with weights_only=True to prevent RCE via pickle deserialization
+        with io.BytesIO(data) as buffer:
+            model_data = torch.load(buffer, map_location='cpu', weights_only=True)
 
         return model_data['parameters'], model_data['num_examples']
 
