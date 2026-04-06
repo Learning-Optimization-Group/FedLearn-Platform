@@ -1,21 +1,52 @@
-# Virtual environments
-.venv/
-venv/
-env/
-.env/
+# =============================================================================
+# FedLearn-Platform — Root .gitignore
+# =============================================================================
 
-# Python cache
+# ========================
+# Environments & Secrets
+# ========================
+.env
+.env.local
+.env.*.local
+env.txt
+backend/fl-platform-api/env.txt
+
+# ========================
+# Python
+# ========================
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Python packaging
+*.py[cod]
+*$py.class
 *.egg-info/
-dist/
-build/
+.eggs/
+.pytest_cache/
+venv/
+.venv/
+env/
 
-# ML artifacts
+# ========================
+# Java / Spring Boot / Gradle
+# ========================
+target/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+.gradle/
+*.jar
+*.war
+*.ear
+*.class
+.mvn/wrapper/maven-wrapper.jar
+
+# ========================
+# Node / React
+# ========================
+node_modules/
+dist/
+.vite/
+
+# ========================
+# ML Artifacts & Data
+# ========================
 *.pth
 *.pkl
 *.npz
@@ -23,26 +54,31 @@ checkpoints/
 results/
 models/
 
-# Java / Gradle build
-.gradle/
-build/
-target/
-*.jar
-*.war
-*.ear
+# ========================
+# Logs & Ephemeral Data
+# ========================
+logs/
+*.log
+backend/Logs.txt
+**/*.csv
 
-# IDE files
+# ========================
+# IDE / Editor
+# ========================
 .idea/
 .vscode/
 *.iml
 *.iws
 *.ipr
+*.swp
+*.swo
+*~
+.DS_Store
 
-# Environment secrets
-env.txt
-
-# Native binaries
+# ========================
+# Native / Compiled
+# ========================
 *.so
+*.dylib
+*.dll
 
-# Logs
-*.log

@@ -1,4 +1,4 @@
-﻿from concurrent import futures
+from concurrent import futures
 import grpc
 import time
 from dataclasses import dataclass
@@ -14,9 +14,25 @@ from ..communication.generated import fedlearn_pb2_grpc
 import logging
 import sys
 import os
+import json
+from datetime import datetime
 
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        log_obj = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "level": record.levelname,
+            "message": record.getMessage()
+        }
+        if record.exc_info:
+            log_obj["stackTrace"] = self.formatException(record.exc_info)
+        return json.dumps(log_obj)
 
-
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(JSONFormatter())
+logger.handlers = [handler]
 @dataclass
 class ServerConfig:
     num_rounds: int = 3
@@ -112,8 +128,8 @@ def start_server(
             else:
                 logging.warning(f"[Server] Round {round_num} completed but no metrics available.")
 
-            # Advance to next round
-            coordinator.current_round += 1
+            # Note: Round advancement is handled by coordinator._trigger_aggregation_and_evaluation()
+            # Do NOT increment here — it was causing double-increment (rounds 1→3→5).
 
 
         # Get final parameters

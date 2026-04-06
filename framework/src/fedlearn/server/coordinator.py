@@ -32,6 +32,8 @@ class FLCoordinator:
 
     def start_round(self):
         """Called by the main loop to begin a new round."""
+        with self._lock:
+            self._client_updates_received.clear()  # Prevent stale state leakage across rounds
         self._round_complete_event.clear()
 
     def wait_for_round_to_complete(self):
@@ -46,6 +48,9 @@ class FLCoordinator:
                 return None, -1, {}
             return self._global_model_params, self.current_round, {}
 
+    # Maximum allowed num_examples to prevent model poisoning via inflated dataset sizes
+    MAX_NUM_EXAMPLES = 100_000
+
     def submit_client_update(self, client_id: str, params: OrderedDict[str, torch.Tensor], num_examples: int,
                              trained_on_round: int):
         with self._lock:
@@ -55,6 +60,12 @@ class FLCoordinator:
             if trained_on_round > self.current_round:
                 # Client is ahead, something is wrong. Ignore.
                 return
+
+            # Sanitize num_examples to prevent model poisoning
+            if num_examples <= 0:
+                print(f"[Coordinator] WARNING: Invalid num_examples ({num_examples}) from '{client_id}'. Skipping.")
+                return
+            num_examples = min(num_examples, self.MAX_NUM_EXAMPLES)
 
             print(f"[Coordinator] Received update from '{client_id}' for round {self.current_round}.")
             self._client_updates_received.append((params, num_examples))
@@ -246,7 +257,8 @@ class FLCoordinator:
             print(f"WARNING: DeComFL aggregation for round {self.current_round} failed.")
             self.latest_metrics = None
 
-        # Signal round completion
+        # Advance to the next round and signal completion
+        self.current_round += 1
         self._round_complete_event.set()
 
     def _calculate_average_gradients(

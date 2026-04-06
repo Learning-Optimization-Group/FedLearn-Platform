@@ -80,7 +80,7 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/**", "/ws-logs/**", "/error","/api/projects/**").permitAll()
+                        .requestMatchers("/api/auth/**", "/ws-logs/**", "/error","/api/projects/**", "/api/internal/**").permitAll()
                         .anyRequest().authenticated()
                 )
 

@@ -37,12 +37,18 @@ import requests
 from config import DATASET_CONFIGS, get_dataset_config, get_decomfl_config
 from data import load_server_test_data
 
-try:
-    base_url = os.environ['AWS_HOST']
-    print(f"Host environment variable: {base_url}")
-except KeyError:
-    base_url = "localhost"
-    print("Base url environment variable not found setting to local host.")
+target_ip = os.environ.get('SERVER_HOST') or os.environ.get('AWS_HOST') or 'localhost'
+base_url = target_ip  # Preserved to ensure downstream REST logs don't break
+bind_address = "[::]"
+
+if os.environ.get('AWS_HOST'):
+    logging.info(f"[NETWORK] Cloud deployment detected. Clients should target AWS Elastic IP: {target_ip}")
+elif os.environ.get('SERVER_HOST'):
+    logging.info(f"[NETWORK] LAN deployment detected. Clients should target LAN IP: {target_ip}")
+else:
+    logging.info(f"[NETWORK] Local environment detected. Clients should target: {target_ip}")
+
+logging.info(f"[NETWORK] gRPC Server universally binding to: {bind_address}")
 
 
 # ==============================================================================
@@ -438,7 +444,7 @@ def main():
         logging.info("Using FedAvg strategy")
 
     # Start gRPC server
-    server_address = f"0.0.0.0:{args.port}"
+    server_address = f"{bind_address}:{args.port}"
     logging.info(f"Starting FedLearn gRPC server on {server_address}...")
 
     history, final_parameters = fl.server.start_server(
@@ -521,6 +527,20 @@ def main():
 
     # Report results
     results_url = "http://"+base_url+":8081"+"/api/internal/results/"+args.project_id
+    if history:
+        for r, metrics in history:
+            result_payload = {
+                "serverRound": r,
+                "loss": float(metrics.get("loss", 0.0)),
+                "accuracy": float(metrics.get("accuracy", 0.0)),
+                "gpuUtilization": 0.0
+            }
+            try:
+                res = requests.post(results_url, json=result_payload)
+                res.raise_for_status()
+                logging.info(f"Successfully reported results for round {r}")
+            except Exception as e:
+                logging.error(f"Failed to report results for round {r}: {e}")
 
     # Mark Project as completed
     project_complete_url = "http://"+base_url+":8081"+"/api/projects/"+args.project_id+"/stop"

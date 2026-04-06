@@ -17,6 +17,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.time.Instant;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.federated.fl_platform_api.model.ServerLog;
+import com.federated.fl_platform_api.repository.ServerLogRepository;
+
 
 @Component
 public class FlowerServerManager {
@@ -30,6 +36,12 @@ public class FlowerServerManager {
 
     @Autowired
     private WebSocketService logBroadcaster;
+
+    @Autowired
+    private ServerLogRepository serverLogRepository;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     /**
      * Starts a dedicated Flower server process for a given project.
@@ -101,7 +113,21 @@ public class FlowerServerManager {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     System.out.println("[FL_SERVER_LOG " + project.getId() + "] " + line);
-                    logBroadcaster.sendLogs(project.getId(), line);
+                    try {
+                        JsonNode logNode = objectMapper.readTree(line);
+                        ServerLog dbLog = new ServerLog();
+                        dbLog.setProjectId(project.getId());
+                        dbLog.setLevel(logNode.has("level") ? logNode.get("level").asText() : "INFO");
+                        dbLog.setMessage(logNode.has("message") ? logNode.get("message").asText() : line);
+                        if (logNode.has("stackTrace")) dbLog.setStackTrace(logNode.get("stackTrace").asText());
+                        dbLog.setTimestamp(Instant.now());
+                        
+                        serverLogRepository.save(dbLog); // Saves to PostgreSQL
+                        logBroadcaster.sendLogs(project.getId(), line); // Broadcast to frontend
+                    } catch (Exception e) {
+                        String escapedLine = line.replace("\"", "\\\"");
+                        logBroadcaster.sendLogs(project.getId(), "{\"level\":\"INFO\", \"message\":\"" + escapedLine + "\"}");
+                    }
                     startupOutput.append(line).append("\n");
                 }
             } catch (IOException e) {
