@@ -1,7 +1,8 @@
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/CONTRIBUTING.md
+File: framework/CONTRIBUTING.md
 ================================================================================
 
+```md
 # Contributing to FedLearn
 
 Thank you for your interest in contributing to FedLearn! This document provides guidelines for extending and modifying the framework.
@@ -578,11 +579,13 @@ Before submitting:
 - Focus on collaboration
 
 Thank you for contributing to FedLearn!
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/README.md
+File: framework/README.md
 ================================================================================
 
+```md
 # FedLearn - Distributed Federated Learning Framework
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -825,11 +828,13 @@ Developed by the Learning Optimization Group at Rochester Institute of Technolog
 ---
 
 **Getting Started:** New to federated learning? Start with our [Quick Start Guide](docs/quickstart.md) and [Simple Federation Example](docs/examples/simple-federation.md).
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/requirements.txt
+File: framework/requirements.txt
 ================================================================================
 
+```txt
 # Core ML packages (PyTorch installed separately with CUDA support)
 torch==2.5.1
 torchvision==0.20.1
@@ -940,12 +945,13 @@ tzdata>=2023.0
 setuptools
 wheel
 scikit-learn
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/run_full_test_suite.py
+File: framework/run_full_test_suite.py
 ================================================================================
 
+```py
 #!/usr/bin/env python3
 """
 FedLearn Full E2E Test Suite
@@ -1678,12 +1684,13 @@ def main():
 if __name__ == "__main__":
     multiprocessing.set_start_method("spawn", force=True)
     main()
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/run_local_test.py
+File: framework/run_local_test.py
 ================================================================================
 
+```py
 #!/usr/bin/env python3
 """
 FedLearn End-to-End Integration Test (with Real Training)
@@ -2168,12 +2175,13 @@ def main():
 if __name__ == "__main__":
     multiprocessing.set_start_method("spawn", force=True)
     main()
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/run_platform_e2e_test.py
+File: framework/run_platform_e2e_test.py
 ================================================================================
 
+```py
 #!/usr/bin/env python3
 """
 FedLearn Full Platform E2E Test Suite
@@ -2411,12 +2419,13 @@ if __name__ == "__main__":
     multiprocessing.set_start_method("spawn", force=True)
     success = e2e_test_flow()
     sys.exit(0 if success else 1)
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/setup.py
+File: framework/setup.py
 ================================================================================
 
+```py
 from setuptools import setup, find_packages
 import os
 
@@ -2524,11 +2533,13 @@ setup(
         'Bug Reports': 'https://github.com/Learning-Optimization-Group/FedLearn-Platform/issues',
     },
 )
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/docs/installation.md
+File: framework/docs/installation.md
 ================================================================================
 
+```md
 # Installation Guide
 
 This guide provides detailed instructions for installing FedLearn and its dependencies.
@@ -2798,11 +2809,13 @@ If you encounter issues not covered here:
 - Check [GitHub Issues](https://github.com/Learning-Optimization-Group/FedLearn-Platform/issues)
 - Create a new issue with detailed error messages
 - Include Python version, OS, and CUDA version (if applicable)
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/docs/quickstart.md
+File: framework/docs/quickstart.md
 ================================================================================
 
+```md
 # Quick Start Guide
 
 Get started with FedLearn in 5 minutes. This guide walks you through running your first federated learning experiment.
@@ -3132,23 +3145,27 @@ Now that you've run your first experiment:
 ---
 
 **Ready to dive deeper?** Check out the [Examples](examples/) or [API Reference](api-reference/) for more advanced usage.
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/docs/advanced/custom-strategies.md
+File: framework/docs/advanced/custom-strategies.md
 ================================================================================
 
-
-
-================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/docs/advanced/extending-framework.md
-================================================================================
-
-
+```md
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/docs/api-reference/architecture.md
+File: framework/docs/advanced/extending-framework.md
 ================================================================================
 
+```md
+```
+
+================================================================================
+File: framework/docs/api-reference/architecture.md
+================================================================================
+
+```md
 # FedLearn Framework - Architecture Documentation
 
 ## Table of Contents
@@ -3466,7 +3483,8 @@ Client 1:
 │     chunks.append(chunk.chunk_data)                  │
 │                                                       │
 │   full_data = b''.join(chunks)                       │
-│   model_data = torch.load(BytesIO(full_data))       │
+│   with BytesIO(full_data) as buffer:                 │
+│     model_data = torch.load(buffer, weights_only=True)│
 │   return model_data['parameters'], round, config    │
 └──────────────────────────────────────────────────────┘
                     ▲
@@ -3668,7 +3686,8 @@ Coordinator (Main Thread Wakes Up):
 │     # 0.333, 0.167, 0.500                           │
 │                                                       │
 │     for key in params:                               │
-│       aggregated[key] += params[key] * weight        │
+│       torch.add(aggregated[key], params[key],        │
+│                 alpha=weight, out=aggregated[key])   │
 │                                                       │
 │   return aggregated                                  │
 └──────────────────────────────────────────────────────┘
@@ -4383,17 +4402,20 @@ Weighted Averaging    vs  Median/Krum
 ```
 
 This architecture provides a solid foundation for federated learning while remaining extensible for future enhancements.
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/docs/api-reference/client.md
+File: framework/docs/api-reference/client.md
 ================================================================================
 
-
+```md
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/docs/api-reference/core-modules.md
+File: framework/docs/api-reference/core-modules.md
 ================================================================================
 
+```md
 # Core Modules Reference
 
 This document provides detailed explanations of all core modules in the `src/fedlearn` package. These modules form the foundation of the FedLearn framework.
@@ -5047,7 +5069,7 @@ class FedAvgAggregator:
             for key in params:
                 if key not in aggregated_params:
                     aggregated_params[key] = torch.zeros_like(params[key])
-                aggregated_params[key] += params[key] * weight
+                torch.add(aggregated_params[key], params[key], alpha=weight, out=aggregated_params[key])
         
         return aggregated_params
 ```
@@ -5350,9 +5372,8 @@ def chunks_to_parameters(
         chunks_data = lz4.frame.decompress(chunks_data)
     
     # 2. Load using torch
-    buffer = io.BytesIO(chunks_data)
-    model_data = torch.load(buffer, map_location='cpu')
-    buffer.close()
+    with io.BytesIO(chunks_data) as buffer:
+        model_data = torch.load(buffer, map_location='cpu', weights_only=True)
     
     return model_data['parameters'], model_data['num_examples']
 ```
@@ -5538,41 +5559,48 @@ For more detailed information, see:
 - **API Reference**: [api_reference.md](api_reference.md)
 - **Examples**: [examples/](../examples/)
 - **Advanced Topics**: [advanced/](../advanced/)
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/docs/api-reference/server.md
+File: framework/docs/api-reference/server.md
 ================================================================================
 
-
-
-================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/docs/api-reference/strategies.md
-================================================================================
-
-
+```md
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/docs/examples/ecg-federation.md
+File: framework/docs/api-reference/strategies.md
 ================================================================================
 
-
-
-================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/docs/examples/llm-federation.md
-================================================================================
-
-
+```md
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/docs/examples/simple-federation.md
+File: framework/docs/examples/ecg-federation.md
 ================================================================================
 
-
+```md
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/llm_federation/config.py
+File: framework/docs/examples/llm-federation.md
 ================================================================================
 
+```md
+```
+
+================================================================================
+File: framework/docs/examples/simple-federation.md
+================================================================================
+
+```md
+```
+
+================================================================================
+File: framework/examples/llm_federation/config.py
+================================================================================
+
+```py
 from dataclasses import dataclass
 from typing import Literal
 
@@ -5649,12 +5677,13 @@ DATASET_CONFIGS = {
 
 MODEL_NAME = "facebook/opt-125m"
 SMOOTH_PARAMETER_MU = 1e-3
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/llm_federation/data.py
+File: framework/examples/llm_federation/data.py
 ================================================================================
 
+```py
 # =============================================================================
 # data.py - Configurable data loading for CB and SST-2
 # =============================================================================
@@ -5918,11 +5947,13 @@ def get_test_loader(dataset_name: str, data_fraction: float = 1.0):
     )
 
     return test_loader, config
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/llm_federation/run_client.py
+File: framework/examples/llm_federation/run_client.py
 ================================================================================
 
+```py
 # =============================================================================
 # run_client.py - Federated Learning Client for CB and SST-2
 # =============================================================================
@@ -6086,12 +6117,13 @@ if __name__ == "__main__":
             df.to_csv(f'client_{args.id}_history.csv', index=False)
             print(f"History saved to: client_{args.id}_history.csv")
 
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/llm_federation/run_server.py
+File: framework/examples/llm_federation/run_server.py
 ================================================================================
 
+```py
 # =============================================================================
 # run_server.py - Federated Learning Server for CB and SST-2
 # =============================================================================
@@ -6392,12 +6424,13 @@ if __name__ == "__main__":
 
 
 
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_multiclient/config.py
+File: framework/examples/ecg_decomfl_multiclient/config.py
 ================================================================================
 
+```py
 # =============================================================================
 # config.py - Configuration for DeComFL Training
 # =============================================================================
@@ -6509,377 +6542,20 @@ class Config:
     def get_results_save_path(cls):
         """Get path for saving training results"""
         return cls.RESULTS_DIR / "training_history.npz"
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_multiclient/data.py
+File: framework/examples/ecg_decomfl_multiclient/data.py
 ================================================================================
 
-# =============================================================================
-# data.py - ECG Data Loading for Federated Learning
-# =============================================================================
-
-import numpy as np
-import torch
-from torch.utils.data import Dataset, DataLoader, Subset
-from sklearn.model_selection import train_test_split
-import pickle
-from pathlib import Path
-
-
-class ECGDataset(Dataset):
-    """PyTorch Dataset for ECG signals"""
-
-    def __init__(self, X, y):
-        self.X = torch.FloatTensor(X)
-        self.y = torch.LongTensor(y)
-
-    def __len__(self):
-        return len(self.y)
-
-    def __getitem__(self, idx):
-        return self.X[idx], self.y[idx]
-
-
-def dirichlet_split(labels: np.ndarray, num_clients: int, alpha: float = 0.5, seed: int = 42):
-    """
-    Split data indices using Dirichlet distribution for non-IID partitioning.
-
-    Args:
-        labels: Array of labels (0 or 1 for binary classification)
-        num_clients: Number of clients to split data across
-        alpha: Dirichlet concentration parameter
-               - Lower alpha (e.g., 0.1) = more non-IID (heterogeneous)
-               - Higher alpha (e.g., 10.0) = more IID (homogeneous)
-        seed: Random seed for reproducibility
-
-    Returns:
-        client_indices: List of indices for each client
-    """
-    np.random.seed(seed)
-    num_classes = len(np.unique(labels))
-
-    # Dirichlet distribution for each class
-    label_distribution = np.random.dirichlet([alpha] * num_clients, num_classes)
-
-    client_indices = [[] for _ in range(num_clients)]
-
-    for k in range(num_classes):
-        # Get indices for class k
-        idx_k = np.where(labels == k)[0]
-        np.random.shuffle(idx_k)
-
-        # Split according to Dirichlet proportions
-        proportions = label_distribution[k]
-        splits = (np.cumsum(proportions) * len(idx_k)).astype(int)[:-1]
-        idx_splits = np.split(idx_k, splits)
-
-        # Assign to clients
-        for i, idx in enumerate(idx_splits):
-            client_indices[i].extend(idx)
-
-    # Shuffle each client's data
-    for i in range(num_clients):
-        np.random.shuffle(client_indices[i])
-
-    return client_indices
-
-
-def get_or_create_split(
-        X: np.ndarray,
-        y: np.ndarray,
-        num_clients: int,
-        alpha: float,
-        data_fraction: float,
-        test_size: float = 0.2,
-        seed: int = 42
-):
-    """
-    Get existing data split or create a new one.
-    This ensures all clients use the SAME split.
-
-    Args:
-        X: Feature array (samples, features)
-        y: Label array (samples,)
-        num_clients: Total number of clients
-        alpha: Dirichlet parameter for non-IID split
-        data_fraction: Fraction of data to use (1.0 = full dataset)
-        test_size: Fraction of data for test set
-        seed: Random seed
-
-    Returns:
-        X_train, X_test, y_train, y_test: Train/test splits
-        client_indices_list: List of indices for each client
-    """
-    # Create cache directory
-    cache_dir = Path("./data_splits")
-    cache_dir.mkdir(exist_ok=True)
-
-    # Create unique filename based on configuration
-    split_file = cache_dir / f"ecg_clients{num_clients}_alpha{alpha}_frac{data_fraction}_seed{seed}.pkl"
-
-    # Convert y to integer if needed
-    y = y.astype(int)
-
-    if split_file.exists():
-        # Load existing split
-        print(f"Loading existing data split from {split_file}")
-        with open(split_file, 'rb') as f:
-            split_data = pickle.load(f)
-            X_train = split_data['X_train']
-            X_test = split_data['X_test']
-            y_train = split_data['y_train']
-            y_test = split_data['y_test']
-            client_indices_list = split_data['client_indices']
-    else:
-        # Create new split
-        print(f"Creating new data split and saving to {split_file}")
-
-        # 1. First split into train/test
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=seed, stratify=y
-        )
-
-        # 2. Use only fraction of training data if specified
-        if data_fraction < 1.0:
-            num_samples = int(len(X_train) * data_fraction)
-            indices = np.random.RandomState(seed).permutation(len(X_train))[:num_samples]
-            X_train = X_train[indices]
-            y_train = y_train[indices]
-            print(f"Using {data_fraction * 100}% of training data: {num_samples} samples")
-
-        # 3. Split training data across clients using Dirichlet
-        client_indices_list = dirichlet_split(y_train, num_clients, alpha, seed)
-
-        # 4. Save the split
-        split_data = {
-            'X_train': X_train,
-            'X_test': X_test,
-            'y_train': y_train,
-            'y_test': y_test,
-            'client_indices': client_indices_list
-        }
-        with open(split_file, 'wb') as f:
-            pickle.dump(split_data, f)
-
-        # Print distribution
-        print(f"\nData distribution across {num_clients} clients:")
-        for i, indices in enumerate(client_indices_list):
-            client_labels = y_train[indices]
-            print(f"  Client {i}: {len(indices)} samples "
-                  f"(Normal: {np.sum(client_labels == 0)}, "
-                  f"Abnormal: {np.sum(client_labels == 1)})")
-
-        print(f"\nTest set: {len(X_test)} samples "
-              f"(Normal: {np.sum(y_test == 0)}, "
-              f"Abnormal: {np.sum(y_test == 1)})")
-
-    return X_train, X_test, y_train, y_test, client_indices_list
-
-
-def get_ecg_loaders(
-        X: np.ndarray,
-        y: np.ndarray,
-        client_id: int,
-        num_clients: int,
-        batch_size_train: int = 128,
-        batch_size_test: int = 128,
-        data_fraction: float = 1.0,
-        alpha: float = 0.5,
-        test_size: float = 0.2,
-        num_workers: int = 4,
-        seed: int = 42
-):
-    """
-    Prepares DataLoaders for a specific client in federated learning.
-
-    Args:
-        X: Full ECG feature array (n_samples, n_features)
-        y: Full label array (n_samples,)
-        client_id: Client ID (0 to num_clients-1)
-        num_clients: Total number of clients
-        batch_size_train: Batch size for training
-        batch_size_test: Batch size for testing
-        data_fraction: Fraction of data to use (1.0 = full dataset)
-        alpha: Dirichlet parameter (lower = more non-IID)
-        test_size: Fraction for test set
-        num_workers: Number of workers for data loading
-        seed: Random seed
-
-    Returns:
-        train_loader: DataLoader for client's training data
-        test_loader: DataLoader for test data (shared across all clients)
-        data_info: Dictionary with data statistics
-    """
-    # Get or create consistent split
-    X_train, X_test, y_train, y_test, client_indices_list = get_or_create_split(
-        X=X,
-        y=y,
-        num_clients=num_clients,
-        alpha=alpha,
-        data_fraction=data_fraction,
-        test_size=test_size,
-        seed=seed
-    )
-
-    # Get this client's training data
-    client_indices = client_indices_list[client_id]
-    X_client = X_train[client_indices]
-    y_client = y_train[client_indices]
-
-    # Create datasets
-    train_dataset = ECGDataset(X_client, y_client)
-    test_dataset = ECGDataset(X_test, y_test)
-
-    # Create DataLoaders
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size_train,
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=torch.cuda.is_available()
-    )
-
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=batch_size_test,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=torch.cuda.is_available()
-    )
-
-    # Collect data info
-    data_info = {
-        'client_id': client_id,
-        'num_clients': num_clients,
-        'train_samples': len(train_dataset),
-        'test_samples': len(test_dataset),
-        'train_normal': int(np.sum(y_client == 0)),
-        'train_abnormal': int(np.sum(y_client == 1)),
-        'test_normal': int(np.sum(y_test == 0)),
-        'test_abnormal': int(np.sum(y_test == 1)),
-        'input_dim': X.shape[1],
-        'alpha': alpha,
-        'data_fraction': data_fraction
-    }
-
-    print(f"\n{'=' * 60}")
-    print(f"CLIENT {client_id} DATA LOADED")
-    print(f"{'=' * 60}")
-    print(f"Training samples: {data_info['train_samples']}")
-    print(f"  - Normal: {data_info['train_normal']}")
-    print(f"  - Abnormal: {data_info['train_abnormal']}")
-    print(f"Test samples: {data_info['test_samples']}")
-    print(f"  - Normal: {data_info['test_normal']}")
-    print(f"  - Abnormal: {data_info['test_abnormal']}")
-    print(f"Input dimension: {data_info['input_dim']}")
-    print(f"{'=' * 60}\n")
-
-    return train_loader, test_loader, data_info
-
-
-def get_test_loader(
-        X: np.ndarray,
-        y: np.ndarray,
-        num_clients: int,
-        batch_size: int = 128,
-        alpha: float = 0.5,
-        data_fraction: float = 1.0,
-        test_size: float = 0.2,
-        num_workers: int = 4,
-        seed: int = 42
-):
-    """
-    Get test DataLoader without client partitioning.
-    Used by the server for global evaluation.
-
-    Args:
-        X: Full ECG feature array
-        y: Full label array
-        num_clients: Number of clients (needed for cache consistency)
-        batch_size: Batch size for testing
-        alpha: Dirichlet parameter (for cache consistency)
-        data_fraction: Data fraction (for cache consistency)
-        test_size: Fraction for test set
-        num_workers: Number of workers
-        seed: Random seed
-
-    Returns:
-        test_loader: DataLoader for test data
-        data_info: Dictionary with test data statistics
-    """
-    # Get split (will use cached version if available)
-    X_train, X_test, y_train, y_test, _ = get_or_create_split(
-        X=X,
-        y=y,
-        num_clients=num_clients,
-        alpha=alpha,
-        data_fraction=data_fraction,
-        test_size=test_size,
-        seed=seed
-    )
-
-    # Create test dataset
-    test_dataset = ECGDataset(X_test, y_test)
-
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=torch.cuda.is_available()
-    )
-
-    data_info = {
-        'test_samples': len(test_dataset),
-        'test_normal': int(np.sum(y_test == 0)),
-        'test_abnormal': int(np.sum(y_test == 1)),
-        'input_dim': X.shape[1]
-    }
-
-    return test_loader, data_info
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    print("Testing ECG Data Loader...")
-
-    # Create dummy ECG data for testing
-    np.random.seed(42)
-    n_samples = 1000
-    n_features = 140
-
-    X_dummy = np.random.randn(n_samples, n_features).astype(np.float32)
-    y_dummy = np.random.randint(0, 2, n_samples).astype(np.int64)
-
-    print(f"Dummy data shape: X={X_dummy.shape}, y={y_dummy.shape}")
-    print(f"Label distribution: {np.bincount(y_dummy)}\n")
-
-    # Test with 3 clients
-    num_clients = 3
-
-    for client_id in range(num_clients):
-        train_loader, test_loader, info = get_ecg_loaders(
-            X=X_dummy,
-            y=y_dummy,
-            client_id=client_id,
-            num_clients=num_clients,
-            batch_size_train=32,
-            batch_size_test=32,
-            alpha=0.5,
-            num_workers=0  # Set to 0 for testing
-        )
-
-        # Test iteration
-        for batch_X, batch_y in train_loader:
-            print(f"Client {client_id} - Batch shape: X={batch_X.shape}, y={batch_y.shape}")
-            break
-
-    print("\n✓ Data loader test completed successfully!")
+```py
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_multiclient/model.py
+File: framework/examples/ecg_decomfl_multiclient/model.py
 ================================================================================
 
+```py
 # =============================================================================
 # model.py - ECG Classification Model
 # =============================================================================
@@ -6984,11 +6660,13 @@ def create_model(input_dim: int, hidden_dim: int = 64, num_classes: int = 2, dev
     model = ECGModel(input_dim, hidden_dim, num_classes)
     model = model.to(device)
     return model
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_multiclient/run_client.py
+File: framework/examples/ecg_decomfl_multiclient/run_client.py
 ================================================================================
 
+```py
 # =============================================================================
 # run_client.py - DeComFL Client Implementation (Algorithm 4) - Multi-Client
 # =============================================================================
@@ -7183,11 +6861,13 @@ class DeComFLClient:
 
         # Algorithm 4, Line 24: Return gradient scalars
         return gradient_scalars
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_multiclient/run_server.py
+File: framework/examples/ecg_decomfl_multiclient/run_server.py
 ================================================================================
 
+```py
 # =============================================================================
 # run_server.py - DeComFL Server Implementation (Algorithm 3) - Multi-Client
 # =============================================================================
@@ -7548,11 +7228,13 @@ def run_federated_training():
 
 if __name__ == "__main__":
     server = run_federated_training()
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/simple_federation/data.py
+File: framework/examples/simple_federation/data.py
 ================================================================================
 
+```py
 import torch
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
@@ -7586,11 +7268,13 @@ def get_test_loader(data_path: str = "./data") -> DataLoader:
     ])
     test_dataset = datasets.MNIST(data_path, train=False, download=True, transform=transform)
     return DataLoader(test_dataset, batch_size=128)
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/simple_federation/model.py
+File: framework/examples/simple_federation/model.py
 ================================================================================
 
+```py
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -7613,11 +7297,13 @@ class SimpleCNN(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/simple_federation/run_client.py
+File: framework/examples/simple_federation/run_client.py
 ================================================================================
 
+```py
 # examples/simple_federation/run_client.py
 import argparse
 import sys
@@ -7694,11 +7380,13 @@ if __name__ == "__main__":
         client=client,
         client_id=f"client_{args.id}"
     )
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/simple_federation/run_server.py
+File: framework/examples/simple_federation/run_server.py
 ================================================================================
 
+```py
 # examples/simple_federation/run_server.py
 import argparse
 import sys
@@ -7763,11 +7451,13 @@ if __name__ == "__main__":
         config=fl.server.ServerConfig(num_rounds=args.num_rounds),
         strategy=strategy,
     )
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/simple_federation/run_server_debug.py
+File: framework/examples/simple_federation/run_server_debug.py
 ================================================================================
 
+```py
 # examples/simple_federation/run_server.py
 import argparse
 print("DEBUG: After torch import")
@@ -7844,11 +7534,13 @@ if __name__ == "__main__":
         strategy=strategy,
     )
     print("DEBUG: Server started (you won't see this)")
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_federation/config.py
+File: framework/examples/ecg_federation/config.py
 ================================================================================
 
+```py
 ECG_CONFIG = {
     'input_dim': 140,
     'd_model': 64,
@@ -7875,376 +7567,20 @@ SCHEDULER_CONFIG = {
 }
 
 USE_MIXED_PRECISION = True  # Enable like Colab
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_federation/data.py
+File: framework/examples/ecg_federation/data.py
 ================================================================================
 
-# =============================================================================
-# data.py - ECG Data Loading for Federated Learning
-# =============================================================================
-
-import numpy as np
-import torch
-from torch.utils.data import Dataset, DataLoader, Subset
-from sklearn.model_selection import train_test_split
-import pickle
-from pathlib import Path
-
-
-class ECGDataset(Dataset):
-    """PyTorch Dataset for ECG signals"""
-    def __init__(self, X, y):
-        self.X = torch.FloatTensor(X)
-        self.y = torch.LongTensor(y)
-    
-    def __len__(self):
-        return len(self.y)
-    
-    def __getitem__(self, idx):
-        return self.X[idx], self.y[idx]
-
-
-def dirichlet_split(labels: np.ndarray, num_clients: int, alpha: float = 0.5, seed: int = 42):
-    """
-    Split data indices using Dirichlet distribution for non-IID partitioning.
-    
-    Args:
-        labels: Array of labels (0 or 1 for binary classification)
-        num_clients: Number of clients to split data across
-        alpha: Dirichlet concentration parameter
-               - Lower alpha (e.g., 0.1) = more non-IID (heterogeneous)
-               - Higher alpha (e.g., 10.0) = more IID (homogeneous)
-        seed: Random seed for reproducibility
-    
-    Returns:
-        client_indices: List of indices for each client
-    """
-    np.random.seed(seed)
-    num_classes = len(np.unique(labels))
-    
-    # Dirichlet distribution for each class
-    label_distribution = np.random.dirichlet([alpha] * num_clients, num_classes)
-    
-    client_indices = [[] for _ in range(num_clients)]
-    
-    for k in range(num_classes):
-        # Get indices for class k
-        idx_k = np.where(labels == k)[0]
-        np.random.shuffle(idx_k)
-        
-        # Split according to Dirichlet proportions
-        proportions = label_distribution[k]
-        splits = (np.cumsum(proportions) * len(idx_k)).astype(int)[:-1]
-        idx_splits = np.split(idx_k, splits)
-        
-        # Assign to clients
-        for i, idx in enumerate(idx_splits):
-            client_indices[i].extend(idx)
-    
-    # Shuffle each client's data
-    for i in range(num_clients):
-        np.random.shuffle(client_indices[i])
-    
-    return client_indices
-
-
-def get_or_create_split(
-    X: np.ndarray,
-    y: np.ndarray,
-    num_clients: int,
-    alpha: float,
-    data_fraction: float,
-    test_size: float = 0.2,
-    seed: int = 42
-):
-    """
-    Get existing data split or create a new one.
-    This ensures all clients use the SAME split.
-    
-    Args:
-        X: Feature array (samples, features)
-        y: Label array (samples,)
-        num_clients: Total number of clients
-        alpha: Dirichlet parameter for non-IID split
-        data_fraction: Fraction of data to use (1.0 = full dataset)
-        test_size: Fraction of data for test set
-        seed: Random seed
-    
-    Returns:
-        X_train, X_test, y_train, y_test: Train/test splits
-        client_indices_list: List of indices for each client
-    """
-    # Create cache directory
-    cache_dir = Path("./data_splits")
-    cache_dir.mkdir(exist_ok=True)
-    
-    # Create unique filename based on configuration
-    split_file = cache_dir / f"ecg_clients{num_clients}_alpha{alpha}_frac{data_fraction}_seed{seed}.pkl"
-    
-    # Convert y to integer if needed
-    y = y.astype(int)
-    
-    if split_file.exists():
-        # Load existing split
-        print(f"Loading existing data split from {split_file}")
-        with open(split_file, 'rb') as f:
-            split_data = pickle.load(f)
-            X_train = split_data['X_train']
-            X_test = split_data['X_test']
-            y_train = split_data['y_train']
-            y_test = split_data['y_test']
-            client_indices_list = split_data['client_indices']
-    else:
-        # Create new split
-        print(f"Creating new data split and saving to {split_file}")
-        
-        # 1. First split into train/test
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=seed, stratify=y
-        )
-        
-        # 2. Use only fraction of training data if specified
-        if data_fraction < 1.0:
-            num_samples = int(len(X_train) * data_fraction)
-            indices = np.random.RandomState(seed).permutation(len(X_train))[:num_samples]
-            X_train = X_train[indices]
-            y_train = y_train[indices]
-            print(f"Using {data_fraction * 100}% of training data: {num_samples} samples")
-        
-        # 3. Split training data across clients using Dirichlet
-        client_indices_list = dirichlet_split(y_train, num_clients, alpha, seed)
-        
-        # 4. Save the split
-        split_data = {
-            'X_train': X_train,
-            'X_test': X_test,
-            'y_train': y_train,
-            'y_test': y_test,
-            'client_indices': client_indices_list
-        }
-        with open(split_file, 'wb') as f:
-            pickle.dump(split_data, f)
-        
-        # Print distribution
-        print(f"\nData distribution across {num_clients} clients:")
-        for i, indices in enumerate(client_indices_list):
-            client_labels = y_train[indices]
-            print(f"  Client {i}: {len(indices)} samples "
-                  f"(Normal: {np.sum(client_labels == 0)}, "
-                  f"Abnormal: {np.sum(client_labels == 1)})")
-        
-        print(f"\nTest set: {len(X_test)} samples "
-              f"(Normal: {np.sum(y_test == 0)}, "
-              f"Abnormal: {np.sum(y_test == 1)})")
-    
-    return X_train, X_test, y_train, y_test, client_indices_list
-
-
-def get_ecg_loaders(
-    X: np.ndarray,
-    y: np.ndarray,
-    client_id: int,
-    num_clients: int,
-    batch_size_train: int = 128,
-    batch_size_test: int = 128,
-    data_fraction: float = 1.0,
-    alpha: float = 0.5,
-    test_size: float = 0.2,
-    num_workers: int = 4,
-    seed: int = 42
-):
-    """
-    Prepares DataLoaders for a specific client in federated learning.
-    
-    Args:
-        X: Full ECG feature array (n_samples, n_features)
-        y: Full label array (n_samples,)
-        client_id: Client ID (0 to num_clients-1)
-        num_clients: Total number of clients
-        batch_size_train: Batch size for training
-        batch_size_test: Batch size for testing
-        data_fraction: Fraction of data to use (1.0 = full dataset)
-        alpha: Dirichlet parameter (lower = more non-IID)
-        test_size: Fraction for test set
-        num_workers: Number of workers for data loading
-        seed: Random seed
-    
-    Returns:
-        train_loader: DataLoader for client's training data
-        test_loader: DataLoader for test data (shared across all clients)
-        data_info: Dictionary with data statistics
-    """
-    # Get or create consistent split
-    X_train, X_test, y_train, y_test, client_indices_list = get_or_create_split(
-        X=X,
-        y=y,
-        num_clients=num_clients,
-        alpha=alpha,
-        data_fraction=data_fraction,
-        test_size=test_size,
-        seed=seed
-    )
-    
-    # Get this client's training data
-    client_indices = client_indices_list[client_id]
-    X_client = X_train[client_indices]
-    y_client = y_train[client_indices]
-    
-    # Create datasets
-    train_dataset = ECGDataset(X_client, y_client)
-    test_dataset = ECGDataset(X_test, y_test)
-    
-    # Create DataLoaders
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size_train,
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=torch.cuda.is_available()
-    )
-    
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=batch_size_test,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=torch.cuda.is_available()
-    )
-    
-    # Collect data info
-    data_info = {
-        'client_id': client_id,
-        'num_clients': num_clients,
-        'train_samples': len(train_dataset),
-        'test_samples': len(test_dataset),
-        'train_normal': int(np.sum(y_client == 0)),
-        'train_abnormal': int(np.sum(y_client == 1)),
-        'test_normal': int(np.sum(y_test == 0)),
-        'test_abnormal': int(np.sum(y_test == 1)),
-        'input_dim': X.shape[1],
-        'alpha': alpha,
-        'data_fraction': data_fraction
-    }
-    
-    print(f"\n{'='*60}")
-    print(f"CLIENT {client_id} DATA LOADED")
-    print(f"{'='*60}")
-    print(f"Training samples: {data_info['train_samples']}")
-    print(f"  - Normal: {data_info['train_normal']}")
-    print(f"  - Abnormal: {data_info['train_abnormal']}")
-    print(f"Test samples: {data_info['test_samples']}")
-    print(f"  - Normal: {data_info['test_normal']}")
-    print(f"  - Abnormal: {data_info['test_abnormal']}")
-    print(f"Input dimension: {data_info['input_dim']}")
-    print(f"{'='*60}\n")
-    
-    return train_loader, test_loader, data_info
-
-
-def get_test_loader(
-    X: np.ndarray,
-    y: np.ndarray,
-    num_clients: int,
-    batch_size: int = 128,
-    alpha: float = 0.5,
-    data_fraction: float = 1.0,
-    test_size: float = 0.2,
-    num_workers: int = 4,
-    seed: int = 42
-):
-    """
-    Get test DataLoader without client partitioning.
-    Used by the server for global evaluation.
-    
-    Args:
-        X: Full ECG feature array
-        y: Full label array
-        num_clients: Number of clients (needed for cache consistency)
-        batch_size: Batch size for testing
-        alpha: Dirichlet parameter (for cache consistency)
-        data_fraction: Data fraction (for cache consistency)
-        test_size: Fraction for test set
-        num_workers: Number of workers
-        seed: Random seed
-    
-    Returns:
-        test_loader: DataLoader for test data
-        data_info: Dictionary with test data statistics
-    """
-    # Get split (will use cached version if available)
-    X_train, X_test, y_train, y_test, _ = get_or_create_split(
-        X=X,
-        y=y,
-        num_clients=num_clients,
-        alpha=alpha,
-        data_fraction=data_fraction,
-        test_size=test_size,
-        seed=seed
-    )
-    
-    # Create test dataset
-    test_dataset = ECGDataset(X_test, y_test)
-    
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=torch.cuda.is_available()
-    )
-    
-    data_info = {
-        'test_samples': len(test_dataset),
-        'test_normal': int(np.sum(y_test == 0)),
-        'test_abnormal': int(np.sum(y_test == 1)),
-        'input_dim': X.shape[1]
-    }
-    
-    return test_loader, data_info
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    print("Testing ECG Data Loader...")
-    
-    # Create dummy ECG data for testing
-    np.random.seed(42)
-    n_samples = 1000
-    n_features = 140
-    
-    X_dummy = np.random.randn(n_samples, n_features).astype(np.float32)
-    y_dummy = np.random.randint(0, 2, n_samples).astype(np.int64)
-    
-    print(f"Dummy data shape: X={X_dummy.shape}, y={y_dummy.shape}")
-    print(f"Label distribution: {np.bincount(y_dummy)}\n")
-    
-    # Test with 3 clients
-    num_clients = 3
-    
-    for client_id in range(num_clients):
-        train_loader, test_loader, info = get_ecg_loaders(
-            X=X_dummy,
-            y=y_dummy,
-            client_id=client_id,
-            num_clients=num_clients,
-            batch_size_train=32,
-            batch_size_test=32,
-            alpha=0.5,
-            num_workers=0  # Set to 0 for testing
-        )
-        
-        # Test iteration
-        for batch_X, batch_y in train_loader:
-            print(f"Client {client_id} - Batch shape: X={batch_X.shape}, y={batch_y.shape}")
-            break
-    
-    print("\n✓ Data loader test completed successfully!")
+```py
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_federation/run_client.py
+File: framework/examples/ecg_federation/run_client.py
 ================================================================================
 
+```py
 # =============================================================================
 # run_client.py - Federated Learning Client for ECG Classification
 # =============================================================================
@@ -8552,11 +7888,13 @@ if __name__ == "__main__":
         client=client,
         client_id=f"client_{args.id}"
     )
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_federation/run_server.py
+File: framework/examples/ecg_federation/run_server.py
 ================================================================================
 
+```py
 # =============================================================================
 # run_server.py - Federated Learning Server for ECG Classification
 # =============================================================================
@@ -8910,11 +8248,13 @@ if __name__ == "__main__":
         print(f"  Best Accuracy: {max(accuracies):.2f}% (Round {rounds[accuracies.index(max(accuracies))]})")
         print(f"  Lowest Loss: {min(losses):.4f} (Round {rounds[losses.index(min(losses))]})")
         print("=" * 60)
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_central/README.md
+File: framework/examples/ecg_decomfl_central/README.md
 ================================================================================
 
+```md
 # DeComFL: Centralized ECG Classification
 
 Implementation of **DeComFL (Decomposed Communication in Federated Learning)** for ECG binary classification using zeroth-order optimization. This implementation follows **Algorithms 3 and 4** from the paper "Achieving Dimension-Free Communication in Federated Learning via Zeroth-Order Optimization".
@@ -9124,7 +8464,7 @@ import torch
 from model import create_model
 
 # Load checkpoint
-checkpoint = torch.load('checkpoints/model_final.pth')
+checkpoint = torch.load('checkpoints/model_final.pth', weights_only=True)
 
 # Create model
 model = create_model(
@@ -9382,11 +8722,13 @@ For questions or issues:
 **Last Updated**: January 2026  
 **Version**: 1.0.0  
 **Status**: Production-ready for centralized training ✅
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_central/config.py
+File: framework/examples/ecg_decomfl_central/config.py
 ================================================================================
 
+```py
 # =============================================================================
 # config.py - Configuration for DeComFL Training
 # =============================================================================
@@ -9495,377 +8837,20 @@ class Config:
     def get_results_save_path(cls):
         """Get path for saving training results"""
         return cls.RESULTS_DIR / "training_history.npz"
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_central/data.py
+File: framework/examples/ecg_decomfl_central/data.py
 ================================================================================
 
-# =============================================================================
-# data.py - ECG Data Loading for Federated Learning
-# =============================================================================
-
-import numpy as np
-import torch
-from torch.utils.data import Dataset, DataLoader, Subset
-from sklearn.model_selection import train_test_split
-import pickle
-from pathlib import Path
-
-
-class ECGDataset(Dataset):
-    """PyTorch Dataset for ECG signals"""
-
-    def __init__(self, X, y):
-        self.X = torch.FloatTensor(X)
-        self.y = torch.LongTensor(y)
-
-    def __len__(self):
-        return len(self.y)
-
-    def __getitem__(self, idx):
-        return self.X[idx], self.y[idx]
-
-
-def dirichlet_split(labels: np.ndarray, num_clients: int, alpha: float = 0.5, seed: int = 42):
-    """
-    Split data indices using Dirichlet distribution for non-IID partitioning.
-
-    Args:
-        labels: Array of labels (0 or 1 for binary classification)
-        num_clients: Number of clients to split data across
-        alpha: Dirichlet concentration parameter
-               - Lower alpha (e.g., 0.1) = more non-IID (heterogeneous)
-               - Higher alpha (e.g., 10.0) = more IID (homogeneous)
-        seed: Random seed for reproducibility
-
-    Returns:
-        client_indices: List of indices for each client
-    """
-    np.random.seed(seed)
-    num_classes = len(np.unique(labels))
-
-    # Dirichlet distribution for each class
-    label_distribution = np.random.dirichlet([alpha] * num_clients, num_classes)
-
-    client_indices = [[] for _ in range(num_clients)]
-
-    for k in range(num_classes):
-        # Get indices for class k
-        idx_k = np.where(labels == k)[0]
-        np.random.shuffle(idx_k)
-
-        # Split according to Dirichlet proportions
-        proportions = label_distribution[k]
-        splits = (np.cumsum(proportions) * len(idx_k)).astype(int)[:-1]
-        idx_splits = np.split(idx_k, splits)
-
-        # Assign to clients
-        for i, idx in enumerate(idx_splits):
-            client_indices[i].extend(idx)
-
-    # Shuffle each client's data
-    for i in range(num_clients):
-        np.random.shuffle(client_indices[i])
-
-    return client_indices
-
-
-def get_or_create_split(
-        X: np.ndarray,
-        y: np.ndarray,
-        num_clients: int,
-        alpha: float,
-        data_fraction: float,
-        test_size: float = 0.2,
-        seed: int = 42
-):
-    """
-    Get existing data split or create a new one.
-    This ensures all clients use the SAME split.
-
-    Args:
-        X: Feature array (samples, features)
-        y: Label array (samples,)
-        num_clients: Total number of clients
-        alpha: Dirichlet parameter for non-IID split
-        data_fraction: Fraction of data to use (1.0 = full dataset)
-        test_size: Fraction of data for test set
-        seed: Random seed
-
-    Returns:
-        X_train, X_test, y_train, y_test: Train/test splits
-        client_indices_list: List of indices for each client
-    """
-    # Create cache directory
-    cache_dir = Path("./data_splits")
-    cache_dir.mkdir(exist_ok=True)
-
-    # Create unique filename based on configuration
-    split_file = cache_dir / f"ecg_clients{num_clients}_alpha{alpha}_frac{data_fraction}_seed{seed}.pkl"
-
-    # Convert y to integer if needed
-    y = y.astype(int)
-
-    if split_file.exists():
-        # Load existing split
-        print(f"Loading existing data split from {split_file}")
-        with open(split_file, 'rb') as f:
-            split_data = pickle.load(f)
-            X_train = split_data['X_train']
-            X_test = split_data['X_test']
-            y_train = split_data['y_train']
-            y_test = split_data['y_test']
-            client_indices_list = split_data['client_indices']
-    else:
-        # Create new split
-        print(f"Creating new data split and saving to {split_file}")
-
-        # 1. First split into train/test
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=seed, stratify=y
-        )
-
-        # 2. Use only fraction of training data if specified
-        if data_fraction < 1.0:
-            num_samples = int(len(X_train) * data_fraction)
-            indices = np.random.RandomState(seed).permutation(len(X_train))[:num_samples]
-            X_train = X_train[indices]
-            y_train = y_train[indices]
-            print(f"Using {data_fraction * 100}% of training data: {num_samples} samples")
-
-        # 3. Split training data across clients using Dirichlet
-        client_indices_list = dirichlet_split(y_train, num_clients, alpha, seed)
-
-        # 4. Save the split
-        split_data = {
-            'X_train': X_train,
-            'X_test': X_test,
-            'y_train': y_train,
-            'y_test': y_test,
-            'client_indices': client_indices_list
-        }
-        with open(split_file, 'wb') as f:
-            pickle.dump(split_data, f)
-
-        # Print distribution
-        print(f"\nData distribution across {num_clients} clients:")
-        for i, indices in enumerate(client_indices_list):
-            client_labels = y_train[indices]
-            print(f"  Client {i}: {len(indices)} samples "
-                  f"(Normal: {np.sum(client_labels == 0)}, "
-                  f"Abnormal: {np.sum(client_labels == 1)})")
-
-        print(f"\nTest set: {len(X_test)} samples "
-              f"(Normal: {np.sum(y_test == 0)}, "
-              f"Abnormal: {np.sum(y_test == 1)})")
-
-    return X_train, X_test, y_train, y_test, client_indices_list
-
-
-def get_ecg_loaders(
-        X: np.ndarray,
-        y: np.ndarray,
-        client_id: int,
-        num_clients: int,
-        batch_size_train: int = 128,
-        batch_size_test: int = 128,
-        data_fraction: float = 1.0,
-        alpha: float = 0.5,
-        test_size: float = 0.2,
-        num_workers: int = 4,
-        seed: int = 42
-):
-    """
-    Prepares DataLoaders for a specific client in federated learning.
-
-    Args:
-        X: Full ECG feature array (n_samples, n_features)
-        y: Full label array (n_samples,)
-        client_id: Client ID (0 to num_clients-1)
-        num_clients: Total number of clients
-        batch_size_train: Batch size for training
-        batch_size_test: Batch size for testing
-        data_fraction: Fraction of data to use (1.0 = full dataset)
-        alpha: Dirichlet parameter (lower = more non-IID)
-        test_size: Fraction for test set
-        num_workers: Number of workers for data loading
-        seed: Random seed
-
-    Returns:
-        train_loader: DataLoader for client's training data
-        test_loader: DataLoader for test data (shared across all clients)
-        data_info: Dictionary with data statistics
-    """
-    # Get or create consistent split
-    X_train, X_test, y_train, y_test, client_indices_list = get_or_create_split(
-        X=X,
-        y=y,
-        num_clients=num_clients,
-        alpha=alpha,
-        data_fraction=data_fraction,
-        test_size=test_size,
-        seed=seed
-    )
-
-    # Get this client's training data
-    client_indices = client_indices_list[client_id]
-    X_client = X_train[client_indices]
-    y_client = y_train[client_indices]
-
-    # Create datasets
-    train_dataset = ECGDataset(X_client, y_client)
-    test_dataset = ECGDataset(X_test, y_test)
-
-    # Create DataLoaders
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size_train,
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=torch.cuda.is_available()
-    )
-
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=batch_size_test,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=torch.cuda.is_available()
-    )
-
-    # Collect data info
-    data_info = {
-        'client_id': client_id,
-        'num_clients': num_clients,
-        'train_samples': len(train_dataset),
-        'test_samples': len(test_dataset),
-        'train_normal': int(np.sum(y_client == 0)),
-        'train_abnormal': int(np.sum(y_client == 1)),
-        'test_normal': int(np.sum(y_test == 0)),
-        'test_abnormal': int(np.sum(y_test == 1)),
-        'input_dim': X.shape[1],
-        'alpha': alpha,
-        'data_fraction': data_fraction
-    }
-
-    print(f"\n{'=' * 60}")
-    print(f"CLIENT {client_id} DATA LOADED")
-    print(f"{'=' * 60}")
-    print(f"Training samples: {data_info['train_samples']}")
-    print(f"  - Normal: {data_info['train_normal']}")
-    print(f"  - Abnormal: {data_info['train_abnormal']}")
-    print(f"Test samples: {data_info['test_samples']}")
-    print(f"  - Normal: {data_info['test_normal']}")
-    print(f"  - Abnormal: {data_info['test_abnormal']}")
-    print(f"Input dimension: {data_info['input_dim']}")
-    print(f"{'=' * 60}\n")
-
-    return train_loader, test_loader, data_info
-
-
-def get_test_loader(
-        X: np.ndarray,
-        y: np.ndarray,
-        num_clients: int,
-        batch_size: int = 128,
-        alpha: float = 0.5,
-        data_fraction: float = 1.0,
-        test_size: float = 0.2,
-        num_workers: int = 4,
-        seed: int = 42
-):
-    """
-    Get test DataLoader without client partitioning.
-    Used by the server for global evaluation.
-
-    Args:
-        X: Full ECG feature array
-        y: Full label array
-        num_clients: Number of clients (needed for cache consistency)
-        batch_size: Batch size for testing
-        alpha: Dirichlet parameter (for cache consistency)
-        data_fraction: Data fraction (for cache consistency)
-        test_size: Fraction for test set
-        num_workers: Number of workers
-        seed: Random seed
-
-    Returns:
-        test_loader: DataLoader for test data
-        data_info: Dictionary with test data statistics
-    """
-    # Get split (will use cached version if available)
-    X_train, X_test, y_train, y_test, _ = get_or_create_split(
-        X=X,
-        y=y,
-        num_clients=num_clients,
-        alpha=alpha,
-        data_fraction=data_fraction,
-        test_size=test_size,
-        seed=seed
-    )
-
-    # Create test dataset
-    test_dataset = ECGDataset(X_test, y_test)
-
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=torch.cuda.is_available()
-    )
-
-    data_info = {
-        'test_samples': len(test_dataset),
-        'test_normal': int(np.sum(y_test == 0)),
-        'test_abnormal': int(np.sum(y_test == 1)),
-        'input_dim': X.shape[1]
-    }
-
-    return test_loader, data_info
-
-
-# Example usage and testing
-if __name__ == "__main__":
-    print("Testing ECG Data Loader...")
-
-    # Create dummy ECG data for testing
-    np.random.seed(42)
-    n_samples = 1000
-    n_features = 140
-
-    X_dummy = np.random.randn(n_samples, n_features).astype(np.float32)
-    y_dummy = np.random.randint(0, 2, n_samples).astype(np.int64)
-
-    print(f"Dummy data shape: X={X_dummy.shape}, y={y_dummy.shape}")
-    print(f"Label distribution: {np.bincount(y_dummy)}\n")
-
-    # Test with 3 clients
-    num_clients = 3
-
-    for client_id in range(num_clients):
-        train_loader, test_loader, info = get_ecg_loaders(
-            X=X_dummy,
-            y=y_dummy,
-            client_id=client_id,
-            num_clients=num_clients,
-            batch_size_train=32,
-            batch_size_test=32,
-            alpha=0.5,
-            num_workers=0  # Set to 0 for testing
-        )
-
-        # Test iteration
-        for batch_X, batch_y in train_loader:
-            print(f"Client {client_id} - Batch shape: X={batch_X.shape}, y={batch_y.shape}")
-            break
-
-    print("\n✓ Data loader test completed successfully!")
+```py
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_central/model.py
+File: framework/examples/ecg_decomfl_central/model.py
 ================================================================================
 
+```py
 # =============================================================================
 # model.py - ECG Classification Model
 # =============================================================================
@@ -9970,11 +8955,13 @@ def create_model(input_dim: int, hidden_dim: int = 64, num_classes: int = 2, dev
     model = ECGModel(input_dim, hidden_dim, num_classes)
     model = model.to(device)
     return model
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_central/run_client.py
+File: framework/examples/ecg_decomfl_central/run_client.py
 ================================================================================
 
+```py
 # =============================================================================
 # run_client.py - DeComFL Client Implementation (Algorithm 4)
 # =============================================================================
@@ -10093,8 +9080,8 @@ class DeComFLClient:
         P = self.config.NUM_PERTURBATIONS
         eta = self.config.LEARNING_RATE
 
-        # Algorithm 4, Line 23: Store initial model for revert
-        x_initial = self.x_current.clone()
+        # Track total perturbation for in-place revert to avoid OOM
+        total_perturbation = torch.zeros_like(self.x_current)
 
         gradient_scalars = []
         data_iter = iter(self.train_loader)
@@ -10130,12 +9117,14 @@ class DeComFLClient:
                 delta += g * z
 
             # Algorithm 4, Line 21: Update model
-            self.x_current = self.x_current - (eta / P) * delta
+            step_update = (eta / P) * delta
+            self.x_current -= step_update
+            total_perturbation -= step_update
 
             gradient_scalars.append(k_gradient_scalars)
 
-        # Algorithm 4, Line 23: CRITICAL - Revert model back to initial state
-        self.x_current = x_initial
+        # SECURE: Revert by mathematically reversing the exact perturbation in-place
+        self.x_current -= total_perturbation
         self.model.set_flat_params(self.x_current)
 
         # Algorithm 4, Line 24: Return gradient scalars
@@ -10180,11 +9169,13 @@ def run_client_round(
     gradient_scalars = client.local_update(seeds, round_idx=0)
 
     return gradient_scalars
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_central/run_server.py
+File: framework/examples/ecg_decomfl_central/run_server.py
 ================================================================================
 
+```py
 # =============================================================================
 # run_server.py - DeComFL Server Implementation (Algorithm 3)
 # =============================================================================
@@ -10498,11 +9489,13 @@ def run_centralized_training():
 
 if __name__ == "__main__":
     server = run_centralized_training()
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_framework_integration/config.py
+File: framework/examples/ecg_decomfl_framework_integration/config.py
 ================================================================================
 
+```py
 # examples/decomfl/config.py
 """
 Configuration for DeComFL Federated Learning - ECG Classification
@@ -10613,11 +9606,13 @@ class Config:
         print("\nServer Configuration:")
         print(f"  Server address: {cls.SERVER_ADDRESS}")
         print("=" * 70 + "\n")
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_framework_integration/data.py
+File: framework/examples/ecg_decomfl_framework_integration/data.py
 ================================================================================
 
+```py
 # =============================================================================
 # data.py - ECG Data Loading for Federated Learning
 # =============================================================================
@@ -10659,18 +9654,18 @@ def dirichlet_split(labels: np.ndarray, num_clients: int, alpha: float = 0.5, se
     Returns:
         client_indices: List of indices for each client
     """
-    np.random.seed(seed)
+    rng = np.random.default_rng(seed)
     num_classes = len(np.unique(labels))
 
     # Dirichlet distribution for each class
-    label_distribution = np.random.dirichlet([alpha] * num_clients, num_classes)
+    label_distribution = rng.dirichlet([alpha] * num_clients, num_classes)
 
     client_indices = [[] for _ in range(num_clients)]
 
     for k in range(num_classes):
         # Get indices for class k
         idx_k = np.where(labels == k)[0]
-        np.random.shuffle(idx_k)
+        rng.shuffle(idx_k)
 
         # Split according to Dirichlet proportions
         proportions = label_distribution[k]
@@ -10683,7 +9678,7 @@ def dirichlet_split(labels: np.ndarray, num_clients: int, alpha: float = 0.5, se
 
     # Shuffle each client's data
     for i in range(num_clients):
-        np.random.shuffle(client_indices[i])
+        rng.shuffle(client_indices[i])
 
     return client_indices
 
@@ -10790,7 +9785,8 @@ def get_ecg_loaders(
         data_fraction: float = 1.0,
         alpha: float = 0.5,
         test_size: float = 0.2,
-        num_workers: int = 4,
+        # OPTIMIZED: Default to 0 for Docker/Edge compatibility. Override only on high-RAM servers.
+        num_workers: int = 0,
         seed: int = 42
 ):
     """
@@ -10889,7 +9885,7 @@ def get_test_loader(
         alpha: float = 0.5,
         data_fraction: float = 1.0,
         test_size: float = 0.2,
-        num_workers: int = 4,
+        num_workers: int = 0,
         seed: int = 42
 ):
     """
@@ -10979,11 +9975,13 @@ if __name__ == "__main__":
             break
 
     print("\n✓ Data loader test completed successfully!")
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_framework_integration/model.py
+File: framework/examples/ecg_decomfl_framework_integration/model.py
 ================================================================================
 
+```py
 # examples/decomfl/model.py
 """
 Neural Network Model for ECG Classification
@@ -11068,11 +10066,13 @@ def create_model(input_dim: int, hidden_dim: int = 64, num_classes: int = 2, dev
     model = ECGModel(input_dim, hidden_dim, num_classes)
     model = model.to(device)
     return model
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_framework_integration/run_client.py
+File: framework/examples/ecg_decomfl_framework_integration/run_client.py
 ================================================================================
 
+```py
 # examples/decomfl/run_client.py
 """
 DeComFL Client Example - ECG Classification
@@ -11081,7 +10081,6 @@ Run federated learning client using DeComFL (zeroth-order optimization).
 
 import sys
 import os
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import argparse
 import torch
 import numpy as np
@@ -11187,11 +10186,13 @@ def main():
 
 if __name__ == "__main__":
     main()
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/examples/ecg_decomfl_framework_integration/run_server.py
+File: framework/examples/ecg_decomfl_framework_integration/run_server.py
 ================================================================================
 
+```py
 # examples/decomfl/run_server.py
 """
 DeComFL Server Example - ECG Classification
@@ -11200,7 +10201,6 @@ Run federated learning server using DeComFL strategy.
 
 import sys
 import os
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import torch
 import numpy as np
 import pandas as pd
@@ -11487,11 +10487,13 @@ def main():
 
 if __name__ == "__main__":
     main()
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/__init__.py
+File: framework/src/fedlearn/__init__.py
 ================================================================================
 
+```py
 # src/fedlearn/__init__.py
 
 # Expose the main entry points for server and client
@@ -11507,71 +10509,26 @@ from .server.strategy import Strategy, FedAvg
 # Expose the DeComFL components
 from .client.decomfl_client import DeComFLClient
 from .server.decomfl_strategy import DeComFL
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/core/aggregator.py
+File: framework/src/fedlearn/server/__init__.py
 ================================================================================
 
-# from abc import ABC, abstractmethod
-# from collections import OrderedDict
-# import torch
-#
-#
-# class Aggregator(ABC):
-#     @abstractmethod
-#     def aggregate(self, updates: list[tuple[OrderedDict[str, torch.Tensor], int]]) -> OrderedDict[str, torch.Tensor]:
-#         """Aggregate model updates from clients."""
-#         pass
-#
-#
-# class FedAvg(Aggregator):
-#     def aggregate(self, updates: list[tuple[OrderedDict[str, torch.Tensor], int]]) -> OrderedDict[str, torch.Tensor]:
-#         """
-#         Federated Averaging (FedAvg) implementation.
-#         """
-#         if not updates:
-#             raise ValueError("Cannot aggregate an empty list of updates.")
-#
-#         # Calculate the total number of examples from all client updates
-#         total_examples = sum(num_examples for _, num_examples in updates)
-#
-#         if total_examples == 0:
-#             # If no examples were trained on, return the first model's parameters as a default
-#             return updates[0][0]
-#
-#         # Get the state_dict from the first client to use as a template for the new global model
-#         template_params = updates[0][0]
-#
-#         # Create a new OrderedDict to store the aggregated parameters, initialized with zeros
-#         aggregated_params = OrderedDict([
-#             (key, torch.zeros_like(tensor, dtype=torch.float32)) for key, tensor in template_params.items()
-#         ])
-#
-#         # Perform the weighted average
-#         for params, num_examples in updates:
-#             weight = num_examples / total_examples
-#             for key in aggregated_params:
-#                 if key in params:
-#                     # Ensure tensors are float for accumulation
-#                     aggregated_params[key] += params[key].float() * weight
-#
-#         return aggregated_params
-
-================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/server/__init__.py
-================================================================================
-
+```py
 ﻿# src/fedlearn/server/__init__.py
 
 from .server import start_server, ServerConfig
 
 # DeComFL components
 from .decomfl_strategy import DeComFL
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/server/async_coordinator.py
+File: framework/src/fedlearn/server/async_coordinator.py
 ================================================================================
 
+```py
 import logging
 import threading
 import json
@@ -11730,12 +10687,13 @@ class ResultConsumer(threading.Thread):
     def stop(self):
         """Gracefully stops the consumer thread."""
         self._stop_event.set()
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/server/coordinator.py
+File: framework/src/fedlearn/server/coordinator.py
 ================================================================================
 
+```py
 import threading
 from collections import OrderedDict
 import torch
@@ -12033,11 +10991,13 @@ class FLCoordinator:
                 avg_gradients[k][p] /= num_clients
 
         return avg_gradients
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/server/decomfl_strategy.py
+File: framework/src/fedlearn/server/decomfl_strategy.py
 ================================================================================
 
+```py
 # src/fedlearn/server/decomfl_strategy.py
 """
 DeComFL Strategy implementing Algorithm 3 from the paper.
@@ -12265,11 +11225,13 @@ class DeComFL(Strategy):
         loss, metrics = self.evaluate_fn(server_round, parameters)
         print(f"[DeComFL] Evaluation (Round {server_round}): Loss={loss:.4f}, Metrics={metrics}")
         return loss, metrics
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/server/grpc_servicer.py
+File: framework/src/fedlearn/server/grpc_servicer.py
 ================================================================================
 
+```py
 import logging
 from typing import List, Dict
 
@@ -12674,12 +11636,13 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         for local_step in proto.local_steps:
             gradients.append(list(local_step.scalars))
         return gradients
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/server/server.py
+File: framework/src/fedlearn/server/server.py
 ================================================================================
 
+```py
 from concurrent import futures
 import grpc
 import time
@@ -12748,8 +11711,10 @@ def start_server(
 
     coordinator.set_initial_parameters(strategy.initial_parameters)
     # Create gRPC server with proper options
+    max_expected_clients = int(os.environ.get('MAX_CLIENTS', 50))
+    optimal_workers = (max_expected_clients * 2) + 10
     grpc_server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=10),
+        futures.ThreadPoolExecutor(max_workers=optimal_workers),
         options=[
             # Keepalive settings for long-running clients
             ('grpc.keepalive_time_ms', 120000),  # 120 seconds
@@ -12833,12 +11798,13 @@ def start_server(
         grpc_server.stop(grace=5)
         logging.info("gRPC server stopped")
 
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/server/strategy.py
+File: framework/src/fedlearn/server/strategy.py
 ================================================================================
 
+```py
 from abc import ABC, abstractmethod
 from typing import Optional, Callable, Tuple
 from collections import OrderedDict
@@ -12966,26 +11932,37 @@ class FedAvgAggregator:
             weight = num_examples / total_examples
             for key in aggregated_params:
                 if key in params:
-                    aggregated_params[key] += params[key].to(device).float() * weight
+                    torch.add(
+                        aggregated_params[key], 
+                        params[key].to(device).float(), 
+                        alpha=weight, 
+                        out=aggregated_params[key]
+                    )
+            
+            # Aggressively free client memory buffer
+            params.clear()
 
         return aggregated_params
 
 
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/estimators/__init__.py
+File: framework/src/fedlearn/estimators/__init__.py
 ================================================================================
 
+```py
 # src/fedlearn/estimators/__init__.py
 from .zeroth_order import ZerothOrderEstimator
 
 __all__ = ['ZerothOrderEstimator']
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/estimators/zeroth_order.py
+File: framework/src/fedlearn/estimators/zeroth_order.py
 ================================================================================
 
+```py
 # src/fedlearn/estimators/zeroth_order.py
 """
 Zeroth-order gradient estimation for DeComFL.
@@ -13117,17 +12094,20 @@ class ZerothOrderEstimator:
     def get_num_params(model: nn.Module) -> int:
         """Get total number of trainable parameters."""
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/communication/__init__.py
+File: framework/src/fedlearn/communication/__init__.py
 ================================================================================
 
-
+```py
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/communication/serializer.py
+File: framework/src/fedlearn/communication/serializer.py
 ================================================================================
 
+```py
 import numpy as np
 import torch
 from collections import OrderedDict
@@ -13281,17 +12261,20 @@ def chunks_to_parameters(chunks_data: bytes, compressed: bool = USE_COMPRESSION)
         import traceback
         traceback.print_exc()
         raise
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/communication/generated/__init__.py
+File: framework/src/fedlearn/communication/generated/__init__.py
 ================================================================================
 
-
+```py
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/communication/generated/fedlearn_pb2.py
+File: framework/src/fedlearn/communication/generated/fedlearn_pb2.py
 ================================================================================
 
+```py
 # -*- coding: utf-8 -*-
 # Generated by the protocol buffer compiler.  DO NOT EDIT!
 # source: fedlearn.proto
@@ -13387,12 +12370,13 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_FEDERATEDLEARNINGSERVICE']._serialized_start=2784
   _globals['_FEDERATEDLEARNINGSERVICE']._serialized_end=3656
 # @@protoc_insertion_point(module_scope)
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/communication/generated/fedlearn_pb2_grpc.py
+File: framework/src/fedlearn/communication/generated/fedlearn_pb2_grpc.py
 ================================================================================
 
+```py
 # Generated by the gRPC Python protocol compiler plugin. DO NOT EDIT!
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
@@ -13735,12 +12719,13 @@ class FederatedLearningService(object):
             fedlearn__pb2.SubmitGradientScalarsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/client/__init__.py
+File: framework/src/fedlearn/client/__init__.py
 ================================================================================
 
+```py
 # src/fedlearn/client/__init__.py
 """
 Client-side components for federated learning
@@ -13758,11 +12743,13 @@ __all__ = [
     'DeComFLClient',
     'start_decomfl_client',
 ]
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/client/client.py
+File: framework/src/fedlearn/client/client.py
 ================================================================================
 
+```py
 # src/fedlearn/client/client.py
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -13885,12 +12872,13 @@ def start_client(server_address: str, client: Client, client_id: str):
         comm_client.close()
         print(f"[{client_id}] Shutdown complete.")
 
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/client/decomfl_client.py
+File: framework/src/fedlearn/client/decomfl_client.py
 ================================================================================
 
+```py
 # src/fedlearn/client/decomfl_client.py
 """
 DeComFL Client implementing Algorithm 4 from the paper.
@@ -14030,8 +13018,8 @@ class DeComFLClient(Client):
 
         print(f"[DeComFLClient] Starting local training: K={K}, P={P}")
 
-        # Store initial model for revert (Algorithm 4, Line 23)
-        x_initial = self.x_current.clone()
+        # Track total perturbation for in-place revert to avoid OOM
+        total_perturbation = torch.zeros_like(self.x_current)
 
         gradient_scalars = []
         data_iter = iter(self.train_loader)
@@ -14092,15 +13080,17 @@ class DeComFLClient(Client):
                 delta += g * z
 
             # Algorithm 4, Line 21: Update model
-            self.x_current = self.x_current - (eta / P) * delta
+            step_update = (eta / P) * delta
+            self.x_current -= step_update
+            total_perturbation -= step_update
 
             gradient_scalars.append(k_gradient_scalars)
 
             if (k + 1) % max(1, K // 5) == 0:
                 print(f"[DeComFLClient] Completed local step {k + 1}/{K}")
 
-        # Algorithm 4, Revert model back to initial state
-        self.x_current = x_initial
+        # SECURE: Revert by mathematically reversing the exact perturbation in-place
+        self.x_current -= total_perturbation
         self.zo_estimator._set_flat_params(self.model, self.x_current)
 
         # Count training examples
@@ -14111,11 +13101,13 @@ class DeComFLClient(Client):
 
         # Algorithm 4, Line 24: Return gradient scalars
         return gradient_scalars, num_examples
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/client/decomfl_start.py
+File: framework/src/fedlearn/client/decomfl_start.py
 ================================================================================
 
+```py
 # src/fedlearn/client/decomfl_start.py
 """
 Start function for DeComFL clients.
@@ -14227,11 +13219,13 @@ def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: 
         comm_client.stop_heartbeat()
         comm_client.close()
         print(f"[{client_id}] Shutdown complete.")
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn/client/grpc_client.py
+File: framework/src/fedlearn/client/grpc_client.py
 ================================================================================
 
+```py
 import grpc
 from collections import OrderedDict
 import torch
@@ -14646,11 +13640,13 @@ class GrpcClient:
         except grpc.RpcError as e:
             print(f"[{self.client_id}] RPC error in submit_gradient_scalars: {e.details()}")
             return False
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn.egg-info/SOURCES.txt
+File: framework/src/fedlearn.egg-info/SOURCES.txt
 ================================================================================
 
+```txt
 README.md
 pyproject.toml
 setup.py
@@ -14680,18 +13676,21 @@ src/fedlearn/server/decomfl_strategy.py
 src/fedlearn/server/grpc_servicer.py
 src/fedlearn/server/server.py
 src/fedlearn/server/strategy.py
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn.egg-info/dependency_links.txt
+File: framework/src/fedlearn.egg-info/dependency_links.txt
 ================================================================================
 
+```txt
 
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn.egg-info/requires.txt
+File: framework/src/fedlearn.egg-info/requires.txt
 ================================================================================
 
+```txt
 torch>=1.12.0
 numpy>=1.21.0
 grpcio>=1.48.0
@@ -14705,12 +13704,13 @@ pytest
 black
 isort
 mypy
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/framework/src/fedlearn.egg-info/top_level.txt
+File: framework/src/fedlearn.egg-info/top_level.txt
 ================================================================================
 
+```txt
 fedlearn
-
+```
 

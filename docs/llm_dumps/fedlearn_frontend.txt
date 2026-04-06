@@ -1,7 +1,8 @@
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/FIXES_APPLIED.md
+File: frontend/FIXES_APPLIED.md
 ================================================================================
 
+```md
 # Detailed List of All Fixes Applied
 
 ## Security Vulnerabilities Fixed
@@ -341,12 +342,13 @@ If updating from the original codebase:
 **Total Issues Fixed**: 68 ✅
 
 **Status**: Production-ready after adding CSS files
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/README.md
+File: frontend/README.md
 ================================================================================
 
+```md
 # FedLearn Platform - Fixed Frontend
 
 This is a **completely refactored and security-hardened** version of the FedLearn platform frontend. All critical security vulnerabilities and code quality issues have been addressed.
@@ -627,12 +629,13 @@ This refactored version addresses all issues identified in the original codebase
 ---
 
 **Note**: This is a production-ready codebase with all identified security vulnerabilities and bugs fixed. However, always perform your own security audit before deploying to production.
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/package.json
+File: frontend/package.json
 ================================================================================
 
+```json
 {
   "name": "fedlearn-frontend",
   "private": true,
@@ -665,12 +668,13 @@ File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/package
     "vite": "^6.3.1"
   }
 }
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/vite.config.ts
+File: frontend/vite.config.ts
 ================================================================================
 
+```ts
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -690,12 +694,13 @@ export default defineConfig({
     host: true,
   },
 });
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/App.tsx
+File: frontend/src/App.tsx
 ================================================================================
 
+```tsx
 import React, { useEffect } from 'react';
 import { Routes, Route, Link, Navigate } from 'react-router-dom';
 import HomePage from './pages/HomePage';
@@ -772,12 +777,13 @@ function App() {
 }
 
 export default App;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/main.tsx
+File: frontend/src/main.tsx
 ================================================================================
 
+```tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
@@ -804,12 +810,13 @@ ReactDOM.createRoot(rootElement).render(
         </BrowserRouter>
     </React.StrictMode>
 );
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/context/AuthContext.tsx
+File: frontend/src/context/AuthContext.tsx
 ================================================================================
 
+```tsx
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 
 interface User {
@@ -907,12 +914,13 @@ export const useAuth = (): AuthContextType => {
     }
     return context;
 };
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/components/CopyIcon.tsx
+File: frontend/src/components/CopyIcon.tsx
 ================================================================================
 
+```tsx
 import React, { useState } from 'react';
 import '../styles/CopyIcon.css';
 
@@ -959,12 +967,13 @@ const CopyIcon: React.FC<CopyIconProps> = ({ textToCopy }) => {
 };
 
 export default CopyIcon;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/components/CreateProjectModal.tsx
+File: frontend/src/components/CreateProjectModal.tsx
 ================================================================================
 
+```tsx
 import React, { useState, useEffect } from 'react';
 import '../styles/CreateProjectModal.css';
 
@@ -1120,12 +1129,13 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ onSubmit, onCan
 };
 
 export default CreateProjectModal;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/components/DiskLoader.tsx
+File: frontend/src/components/DiskLoader.tsx
 ================================================================================
 
+```tsx
 import React from 'react';
 import '../styles/DiskLoader.css';
 
@@ -1147,12 +1157,13 @@ const DiskLoader: React.FC<DiskLoaderProps> = ({ message = "Loading..." }) => {
 };
 
 export default DiskLoader;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/components/Layout.tsx
+File: frontend/src/components/Layout.tsx
 ================================================================================
 
+```tsx
 import React, { useEffect, useState } from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -1197,12 +1208,13 @@ const Layout: React.FC = () => {
 };
 
 export default Layout;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/components/LogViewer.tsx
+File: frontend/src/components/LogViewer.tsx
 ================================================================================
 
+```tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Client, StompSubscription } from '@stomp/stompjs';
 import '../styles/LogViewer.css';
@@ -1364,12 +1376,13 @@ const LogViewer: React.FC<LogViewerProps> = ({ projectId, serverUrl, onClose }) 
 };
 
 export default LogViewer;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/components/ModelCard.tsx
+File: frontend/src/components/ModelCard.tsx
 ================================================================================
 
+```tsx
 import React from 'react';
 import '../styles/ModelCard.css';
 
@@ -1402,12 +1415,13 @@ const ModelCard: React.FC<ModelCardProps> = ({ model }) => {
 };
 
 export default ModelCard;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/components/ProjectCard.tsx
+File: frontend/src/components/ProjectCard.tsx
 ================================================================================
 
+```tsx
 import React, { useState, useEffect } from 'react';
 import '../styles/ProjectCard.css';
 import * as api from '../services/apiServices';
@@ -1670,12 +1684,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 };
 
 export default ProjectCard;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/components/ProtectedRoute.tsx
+File: frontend/src/components/ProtectedRoute.tsx
 ================================================================================
 
+```tsx
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -1696,12 +1711,13 @@ const ProtectedRoute: React.FC = () => {
 };
 
 export default ProtectedRoute;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/components/ResultsModal.tsx
+File: frontend/src/components/ResultsModal.tsx
 ================================================================================
 
+```tsx
 import React from 'react';
 import '../styles/ResultsModal.css';
 
@@ -1780,38 +1796,20 @@ const ResultsModal: React.FC<ResultsModalProps> = ({ results, projectName, onCan
 };
 
 export default ResultsModal;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/api/axiosConfig.ts
+File: frontend/src/api/axiosConfig.ts
 ================================================================================
 
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
+```ts
+import axios, { AxiosError } from 'axios';
 
 const api = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    },
-    timeout: 10000,
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api',
+    withCredentials: true // Forces browser to use secure HttpOnly cookies
 });
 
-// Request interceptor - adds JWT token to all requests
-api.interceptors.request.use(
-    (config: InternalAxiosRequestConfig) => {
-        const token = localStorage.getItem('jwtToken');
-        if (token) {
-            config.headers['Authorization'] = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error: AxiosError) => {
-        return Promise.reject(error);
-    }
-);
 
 // Response interceptor - handles auth errors globally
 api.interceptors.response.use(
@@ -1827,12 +1825,13 @@ api.interceptors.response.use(
 );
 
 export default api;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/pages/DashboardPage.tsx
+File: frontend/src/pages/DashboardPage.tsx
 ================================================================================
 
+```tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as api from '../services/apiServices';
 import { Client, StompSubscription } from '@stomp/stompjs';
@@ -2049,12 +2048,13 @@ const DashboardPage: React.FC = () => {
 };
 
 export default DashboardPage;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/pages/HomePage.tsx
+File: frontend/src/pages/HomePage.tsx
 ================================================================================
 
+```tsx
 import React from 'react';
 
 const HomePage: React.FC = () => {
@@ -2067,12 +2067,13 @@ const HomePage: React.FC = () => {
 };
 
 export default HomePage;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/pages/LandingPage.tsx
+File: frontend/src/pages/LandingPage.tsx
 ================================================================================
 
+```tsx
 import React from 'react';
 import { Link } from 'react-router-dom';
 import '../styles/LandingPage.css';
@@ -2169,12 +2170,13 @@ const LandingPage: React.FC = () => {
 };
 
 export default LandingPage;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/pages/LoginPage.tsx
+File: frontend/src/pages/LoginPage.tsx
 ================================================================================
 
+```tsx
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -2282,12 +2284,13 @@ const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/pages/ModelsPage.tsx
+File: frontend/src/pages/ModelsPage.tsx
 ================================================================================
 
+```tsx
 import React from 'react';
 
 const ModelsPage: React.FC = () => {
@@ -2300,12 +2303,13 @@ const ModelsPage: React.FC = () => {
 };
 
 export default ModelsPage;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/pages/RegisterPage.tsx
+File: frontend/src/pages/RegisterPage.tsx
 ================================================================================
 
+```tsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import '../styles/AuthStyles.css';
@@ -2486,12 +2490,13 @@ const RegisterPage: React.FC = () => {
 };
 
 export default RegisterPage;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/pages/SettingsPage.tsx
+File: frontend/src/pages/SettingsPage.tsx
 ================================================================================
 
+```tsx
 import React from 'react';
 
 const SettingsPage: React.FC = () => {
@@ -2504,12 +2509,13 @@ const SettingsPage: React.FC = () => {
 };
 
 export default SettingsPage;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/pages/TrainingPage.tsx
+File: frontend/src/pages/TrainingPage.tsx
 ================================================================================
 
+```tsx
 import React from 'react';
 
 const TrainingPage: React.FC = () => {
@@ -2522,12 +2528,13 @@ const TrainingPage: React.FC = () => {
 };
 
 export default TrainingPage;
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/frontend/src/services/apiServices.ts
+File: frontend/src/services/apiServices.ts
 ================================================================================
 
+```ts
 import api from '../api/axiosConfig';
 import { AxiosResponse } from 'axios';
 
@@ -2622,5 +2629,5 @@ export const fetchProjectResults = (projectId: string): Promise<AxiosResponse<Pr
 export const deleteProject = (projectId: string): Promise<AxiosResponse<string>> => {
     return api.post<string>(`/projects/${projectId}/delete`);
 };
-
+```
 

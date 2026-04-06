@@ -1,7 +1,8 @@
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/client-docker/DEPLOYMENT_GUIDE.md
+File: client-docker/DEPLOYMENT_GUIDE.md
 ================================================================================
 
+```md
 # FedLearn Client — Deployment Guide
 
 > **Audience**: Developers deploying the FedLearn client on edge devices (NVIDIA Jetson) or local machines (Mac/Linux).
@@ -452,12 +453,13 @@ cd backend/fl-platform-api
 ./gradlew clean bootRun
 # Then start a project from http://localhost:5173
 ```
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/client-docker/Dockerfile
+File: client-docker/Dockerfile
 ================================================================================
 
+```text
 # =============================================================================
 # FedLearn Edge Client — Docker Image
 # =============================================================================
@@ -495,12 +497,13 @@ ENV PYTHONPATH=/app:${PYTHONPATH}
 WORKDIR /app/scripts
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD []
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/client-docker/README.md
+File: client-docker/README.md
 ================================================================================
 
+```md
 # FedLearn Client - Docker Package
 
 Pre-packaged Docker image for federated learning clients. This containerized solution includes the FedLearn framework and client scripts, allowing users to participate in FL training without installing dependencies locally.
@@ -1170,11 +1173,13 @@ docker-compose up
 # Export
 docker save fedlearn-client:latest -o fedlearn-client.tar
 ```
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/client-docker/entrypoint.sh
+File: client-docker/entrypoint.sh
 ================================================================================
 
+```sh
 #!/bin/bash
 set -e
 
@@ -1200,34 +1205,13 @@ exec python3 -u client.py \
     --server-address "$SERVER_ADDRESS" \
     --partition-id "$PARTITION_ID" \
     "$@"
-
-
-================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/client-docker/main.py
-================================================================================
-
-# This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
-
-
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/client-docker/requirements.txt
+File: client-docker/requirements.txt
 ================================================================================
 
+```txt
 # =============================================================================
 # FL Client Requirements — Jetson AGX (Python 3.8, aarch64, CUDA 11.4)
 # =============================================================================
@@ -1309,17 +1293,20 @@ idna>=3.4
 urllib3>=1.26.0
 packaging>=23.0
 typing_extensions>=4.8
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/client-docker/run-client.sh
+File: client-docker/run-client.sh
 ================================================================================
 
-
+```sh
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/client-docker/test_docker_build.sh
+File: client-docker/test_docker_build.sh
 ================================================================================
 
+```sh
 #!/bin/bash
 # =============================================================================
 # FedLearn Platform — Docker Build & Validation Test Suite
@@ -1392,12 +1379,13 @@ echo -e "${GREEN}======================================================${NC}"
 
 # Optionally clean up the tagging (we leave the layers cached)
 docker rmi "$IMAGE_NAME" >/dev/null 2>&1 || true
-
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/client-docker/scripts/client.py
+File: client-docker/scripts/client.py
 ================================================================================
 
+```py
 from __future__ import annotations
 
 import logging
@@ -1971,11 +1959,13 @@ def main():
 
 if __name__ == "__main__":
     main()
+```
 
 ================================================================================
-File: /Users/anurag/codebase/personalProjects/FedLearn-Platform/client-docker/scripts/models.py
+File: client-docker/scripts/models.py
 ================================================================================
 
+```py
 from __future__ import annotations
 
 # File: models.py
@@ -2002,4 +1992,5 @@ class CnnNet(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
+```
 

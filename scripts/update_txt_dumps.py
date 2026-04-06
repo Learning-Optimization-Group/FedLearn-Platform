@@ -29,15 +29,22 @@ def build_txt(target_dir, output_file):
                 # Allow files that either have a matching extension or match an allowed exact filename
                 if ext in allowed_extensions or file in allowed_files:
                     file_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(file_path, PROJECT_ROOT)
+                    fence = ext[1:] if len(ext) > 1 else 'text'
                     out.write("="*80 + "\n")
-                    out.write(f"File: {file_path}\n")
+                    out.write(f"File: {rel_path}\n")
                     out.write("="*80 + "\n\n")
+                    out.write(f"```{fence}\n")
                     try:
                         with open(file_path, "r", encoding="utf-8") as f:
-                            out.write(f.read())
-                            out.write("\n\n")
+                            content = f.read()
+                            # Ensure trailing newline prevents mangled backtick fences
+                            if content and not content.endswith('\n'):
+                                content += '\n'
+                            out.write(content)
                     except Exception as e:
-                        out.write(f"# Error reading file: {e}\n\n")
+                        out.write(f"# Error reading file: {e}\n")
+                    out.write("```\n\n")
 
 if __name__ == "__main__":
     for target_dir, output_file in mappings.items():
