@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -109,13 +111,21 @@ public class AuthController {
 
             System.out.println("AUTH_CTRL_LOGIN_FETCH_SUCCESS: User entity fetched: Username='" + appUser.getUsername() + "', Email='" + appUser.getEmail() + "'");
 
+            ResponseCookie jwtCookie = ResponseCookie.from("jwtToken", jwt)
+                    .httpOnly(true)
+                    .secure(true) // Enforces HTTPS
+                    .path("/")
+                    .maxAge(24 * 60 * 60) // 24 hours
+                    .sameSite("Strict") // Prevents CSRF
+                    .build();
+
             Map<String, Object> responseBody = new HashMap<>();
-            responseBody.put("accessToken", jwt);
-            responseBody.put("tokenType", "Bearer");
             responseBody.put("username", appUser.getUsername());
             responseBody.put("email", appUser.getEmail());
 
-            return ResponseEntity.ok(responseBody);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                    .body(responseBody);
 
         } catch (AuthenticationException e) {
             System.err.println("AUTH_CTRL_LOGIN_FAILURE: AuthenticationException: " + e.getMessage() + " for identifier: " + loginRequest.getUsername());

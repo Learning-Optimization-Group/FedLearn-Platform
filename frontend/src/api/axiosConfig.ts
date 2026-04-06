@@ -1,29 +1,10 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
+import axios, { AxiosError } from 'axios';
 
 const api = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    },
-    timeout: 10000,
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api',
+    withCredentials: true // Forces browser to use secure HttpOnly cookies
 });
 
-// Request interceptor - adds JWT token to all requests
-api.interceptors.request.use(
-    (config: InternalAxiosRequestConfig) => {
-        const token = localStorage.getItem('jwtToken');
-        if (token) {
-            config.headers['Authorization'] = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error: AxiosError) => {
-        return Promise.reject(error);
-    }
-);
 
 // Response interceptor - handles auth errors globally
 api.interceptors.response.use(
