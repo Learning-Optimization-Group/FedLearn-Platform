@@ -41,13 +41,13 @@ FedLearn Platform is an **open-source**, end-to-end solution for federated learn
 
 ### System Components
 
-| Component | Technology | Purpose | Deployment |
-|-----------|------------|---------|------------|
-| **Frontend** | React 19 + Vite | Web dashboard, real-time logs | Vercel |
-| **Backend API** | Spring Boot 3 | REST API, authentication, orchestration | AWS EC2 |
-| **Database** | PostgreSQL | User data, projects, results | AWS EC2 |
-| **FL Framework** | Python 3.10 + PyTorch | Custom federated learning server | AWS EC2 (spawned) |
-| **FL Clients** | Docker + Python | Containerized training clients | Distributed |
+| Component              | Technology            | Purpose                                 | Deployment        |
+| ---------------------- | --------------------- | --------------------------------------- | ----------------- |
+| **Frontend**     | React 19 + Vite       | Web dashboard, real-time logs           | Vercel            |
+| **Backend API**  | Spring Boot 3         | REST API, authentication, orchestration | AWS EC2           |
+| **Database**     | PostgreSQL            | User data, projects, results            | AWS EC2           |
+| **FL Framework** | Python 3.10 + PyTorch | Custom federated learning server        | AWS EC2 (spawned) |
+| **FL Clients**   | Docker + Python       | Containerized training clients          | Distributed       |
 
 ### Data Flow
 
@@ -82,6 +82,7 @@ FedLearn Platform is an **open-source**, end-to-end solution for federated learn
 Built entirely from scratch without relying on existing FL frameworks like Flower.
 
 **Capabilities**:
+
 - FedAvg (Federated Averaging) aggregation
 - DeComFL (Decomposed Federated Learning) with Byzantine robustness
 - Support for CNNs, Transformers, and LLMs
@@ -108,6 +109,7 @@ if model_size > 300_000_000:  # 300MB threshold
 ```
 
 **Benefits**:
+
 - Supports large language models (OPT-125M, GPT-2, etc.)
 - Memory-efficient transmission
 - Transparent to end users
@@ -130,6 +132,7 @@ Stub 1 (Training):          Stub 2 (Heartbeat):
 ```
 
 **Implementation**:
+
 ```python
 # Training stub (blocking during fit)
 training_stub.get_parameters()  # Blocked for minutes
@@ -141,6 +144,7 @@ while training:
 ```
 
 **Benefits**:
+
 - Prevents false timeouts
 - Supports long training sessions (hours)
 - Maintains connection stability
@@ -159,6 +163,7 @@ client.subscribe(`/topic/logs/${projectId}`, (message) => {
 ```
 
 **Backend streams Python process output**:
+
 ```java
 // Spring Boot captures Python stdout
 BufferedReader reader = new BufferedReader(
@@ -177,6 +182,7 @@ while ((line = reader.readLine()) != null) {
 Pre-packaged Docker images with framework + dependencies.
 
 **User workflow**:
+
 ```bash
 # 1. Pull Docker image
 docker pull your-registry/fedlearn-client:latest
@@ -189,6 +195,7 @@ docker run -v /data:/data \
 ```
 
 **Benefits**:
+
 - No Python/PyTorch installation required
 - Consistent environment across clients
 - Easy distribution to non-technical users
@@ -202,6 +209,7 @@ docker run -v /data:/data \
 Secure REST API with Spring Security + JWT tokens.
 
 **Flow**:
+
 ```
 1. User logs in → Spring Boot validates credentials
 2. JWT token generated and returned
@@ -216,6 +224,7 @@ Secure REST API with Spring Security + JWT tokens.
 ## 📊 Technology Stack
 
 ### Frontend
+
 - **React 19** - Modern UI library
 - **Vite 6** - Fast build tool
 - **React Router v7** - Client-side routing
@@ -225,6 +234,7 @@ Secure REST API with Spring Security + JWT tokens.
 - **Deployment**: Vercel
 
 ### Backend
+
 - **Spring Boot 3** - Java framework
 - **Spring Security** - Authentication/authorization
 - **JWT** - Token-based auth
@@ -234,6 +244,7 @@ Secure REST API with Spring Security + JWT tokens.
 - **Deployment**: AWS EC2 (Ubuntu)
 
 ### FL Framework
+
 - **Python 3.10+** - Programming language
 - **PyTorch 2.0+** - Deep learning framework
 - **gRPC** - RPC framework
@@ -242,6 +253,7 @@ Secure REST API with Spring Security + JWT tokens.
 - **Transformers** - HuggingFace library (for LLMs)
 
 ### DevOps
+
 - **Docker** - Containerization
 - **Docker Compose** - Multi-container orchestration
 - **AWS EC2** - Cloud hosting
@@ -367,12 +379,12 @@ docker run -v /data:/data \
 
 Comprehensive documentation for each component:
 
-| Component | Documentation |
-|-----------|---------------|
-| **FL Framework** | [`framework/README.md`](framework/README.md) |
-| **Frontend** | [`frontend/README.md`](frontend/README.md) |
-| **Backend API** | [`backend/fl-platform-api/README.md`](backend/fl-platform-api/README.md) |
-| **Docker Client** | [`client-docker/README.md`](client-docker/README.md) |
+| Component               | Documentation                                                           |
+| ----------------------- | ----------------------------------------------------------------------- |
+| **FL Framework**  | [`framework/README.md`](framework/README.md)                             |
+| **Frontend**      | [`frontend/README.md`](frontend/README.md)                               |
+| **Backend API**   | [`backend/fl-platform-api/README.md`](backend/fl-platform-api/README.md) |
+| **Docker Client** | [`client-docker/README.md`](client-docker/README.md)                     |
 
 ### Developer Guides
 
@@ -387,6 +399,7 @@ Comprehensive documentation for each component:
 This platform implements algorithms from:
 
 **DeComFL: Decomposed Federated Learning with Byzantine-Robust Aggregation**
+
 - Authors: Haibo Yang, et al.
 - Institution: Rochester Institute of Technology
 - Implementation: [`framework/src/fedlearn/estimators/`](framework/src/fedlearn/estimators/)
@@ -410,21 +423,25 @@ If you use FedLearn Platform in your research, please cite:
 ## 🎯 Use Cases
 
 ### 1. Healthcare
+
 - Train medical diagnosis models across hospitals
 - Preserve patient privacy
 - Aggregate knowledge without sharing sensitive data
 
 ### 2. Finance
+
 - Fraud detection across banks
 - Credit risk modeling
 - Regulatory compliance (GDPR, HIPAA)
 
 ### 3. IoT & Edge Computing
+
 - Distributed sensor networks
 - Mobile device training (smartphones)
 - Low-bandwidth environments
 
 ### 4. Research
+
 - Academic federated learning experiments
 - Algorithm benchmarking
 - Privacy-preserving ML research
@@ -434,17 +451,20 @@ If you use FedLearn Platform in your research, please cite:
 ## 🛡️ Security & Privacy
 
 ### Data Privacy
+
 - ✅ Raw data never leaves client devices
 - ✅ Only model updates transmitted
 - ✅ Differential privacy support (optional)
 - ✅ Secure aggregation algorithms
 
 ### Authentication
+
 - ✅ JWT-based user authentication
 - ✅ Project-level access control
 - ✅ Secure WebSocket connections
 
 ### Network Security
+
 - ✅ TLS/SSL for gRPC (configurable)
 - ✅ CORS configuration
 - ✅ Input validation & sanitization
@@ -471,16 +491,19 @@ python run_client.py --id 0  # Client
 ### Production (AWS EC2)
 
 **Backend + FL Server**:
+
 - AWS EC2 instance (Ubuntu 22.04)
 - PostgreSQL installed locally
 - Spring Boot as systemd service
 - Python FL servers spawned dynamically
 
 **Frontend**:
+
 - Deployed on Vercel
 - Automatic deployments from `main` branch
 
 **Configuration**:
+
 ```bash
 # Backend environment variables
 DATABASE_URL=jdbc:postgresql://localhost:5432/fedlearn_db
@@ -505,6 +528,7 @@ We welcome contributions! This is an open-source project under Apache 2.0 licens
 ### Development Setup
 
 See individual component documentation:
+
 - Framework: [`framework/CONTRIBUTING.md`](framework/CONTRIBUTING.md)
 - Frontend: [`frontend/DEVELOPMENT.md`](frontend/DEVELOPMENT.md)
 - Backend: [`backend/fl-platform-api/DEVELOPMENT.md`](backend/fl-platform-api/DEVELOPMENT.md)
@@ -542,8 +566,8 @@ limitations under the License.
 
 ## 👥 Team
 
-**Principal Investigator**: Professor Haibo Yang  
-**Institution**: Rochester Institute of Technology  
+**Principal Investigator**: Professor Haibo Yang
+**Institution**: Rochester Institute of Technology
 **Research Group**: Learning Optimization Group
 
 **Developer**: Chinmay (MS Computer Science, RIT)
