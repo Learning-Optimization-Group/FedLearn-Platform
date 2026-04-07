@@ -1,5 +1,6 @@
 
 import os
+import sklearn  # Pre-load sklearn to fix ARM64 static TLS block memory allocation issues with libgomp
 
 import argparse
 import torch
