@@ -1,4 +1,39 @@
 ================================================================================
+File: backend/fl-platform-api/.env.example
+================================================================================
+
+```example
+# =============================================================================
+# FedLearn Platform API — Environment Variables Template
+# =============================================================================
+# Copy this file to .env and populate with real values.
+#   cp .env.example .env
+#
+# NEVER commit the .env file to version control.
+# =============================================================================
+
+# --- AWS / Infrastructure ---
+AWS_HOST="127.0.0.1"
+
+# --- PostgreSQL Datasource ---
+SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/federated_platform_db"
+SPRING_DATASOURCE_USERNAME="postgres"
+SPRING_DATASOURCE_PASSWORD="change_me"
+
+# --- JWT Authentication ---
+# Generate a secure random 512-bit key:
+#   openssl rand -hex 64
+APP_JWT_SECRET="generate_a_secure_random_base64_string_here"
+APP_JWT_EXPIRATION_MS="3600000"
+
+# --- Python Script Paths (relative to Spring Boot working dir) ---
+PYTHON_EXECUTABLE_PATH="src/main/resources/scripts/run_init_model.sh"
+PYTHON_FLBAT_PATH="src/main/resources/scripts/run_fl_server.sh"
+PYTHON_SCRIPT_INIT_MODEL_PATH="src/main/resources/scripts/init_model.py"
+PYTHON_SCRIPT_FL_SERVER_PATH="src/main/resources/scripts/run_fl_server.sh"
+```
+
+================================================================================
 File: backend/fl-platform-api/DEVELOPMENT.md
 ================================================================================
 
@@ -1685,144 +1720,295 @@ When modifying the backend:
 ```
 
 ================================================================================
-File: backend/fl-platform-api/pom.xml
+File: backend/fl-platform-api/fly.toml
 ================================================================================
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.4.5</version>
-		<relativePath/> <!-- lookup parent from repository -->
-	</parent>
-	<groupId>com.federated</groupId>
-	<artifactId>fl-platform-api</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name>fl-platform-api</name>
-	<description>Backend API for Federated AI Platform</description>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
-	<properties>
-		<java.version>21</java.version>
-		<maven.compiler.source>23</maven.compiler.source>
-		<maven.compiler.target>23</maven.compiler.target>
-	</properties>
-	<dependencies>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-jpa</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-security</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-validation</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.postgresql</groupId>
-			<artifactId>postgresql</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.projectlombok</groupId>
-			<artifactId>lombok</artifactId>
-			<optional>true</optional>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.security</groupId>
-			<artifactId>spring-security-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>io.jsonwebtoken</groupId>
-			<artifactId>jjwt-api</artifactId>
-			<version>0.12.5</version>
-		</dependency>
-		<dependency>
-			<groupId>io.jsonwebtoken</groupId>
-			<artifactId>jjwt-impl</artifactId>
-			<version>0.12.5</version>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
-			<groupId>io.jsonwebtoken</groupId>
-			<artifactId>jjwt-jackson</artifactId>
-			<version>0.12.5</version>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-actuator</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>com.h2database</groupId>
-			<artifactId>h2</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-websocket</artifactId>
-		</dependency>
+```toml
+# fly.toml app configuration file generated for fl-platform-api on 2025-06-08T20:55:49+05:30
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-	</dependencies>
+app = 'fl-platform-api'
+primary_region = 'bom'
+
+[build]
+
+[http_service]
+  internal_port = 8081
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
 
 
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<configuration>
-					<annotationProcessorPaths>
-						<path>
-							<groupId>org.projectlombok</groupId>
-							<artifactId>lombok</artifactId>
-						</path>
-					</annotationProcessorPaths>
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-				<configuration>
-					<excludes>
-						<exclude>
-							<groupId>org.projectlombok</groupId>
-							<artifactId>lombok</artifactId>
-						</exclude>
-					</excludes>
-				</configuration>
-			</plugin>
-		</plugins>
-	</build>
+[env]
+  LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY="DEBUG"
+  LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB_FILTER_CORSFILTER="TRACE"
+  PYTHON_EXECUTABLE_PATH="/app/scripts/run_init_model.sh"
+  PYTHON_SCRIPT_FL_SERVER_PATH="/app/scripts/run_fl_server.sh"
 
-</project>
+```
+
+================================================================================
+File: backend/fl-platform-api/gradlew
+================================================================================
+
+```text
+#!/bin/sh
+
+#
+# Copyright © 2015 the original authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+##############################################################################
+#
+#   Gradle start up script for POSIX generated by Gradle.
+#
+#   Important for running:
+#
+#   (1) You need a POSIX-compliant shell to run this script. If your /bin/sh is
+#       noncompliant, but you have some other compliant shell such as ksh or
+#       bash, then to run this script, type that shell name before the whole
+#       command line, like:
+#
+#           ksh Gradle
+#
+#       Busybox and similar reduced shells will NOT work, because this script
+#       requires all of these POSIX shell features:
+#         * functions;
+#         * expansions «$var», «${var}», «${var:-default}», «${var+SET}»,
+#           «${var#prefix}», «${var%suffix}», and «$( cmd )»;
+#         * compound commands having a testable exit status, especially «case»;
+#         * various built-in commands including «command», «set», and «ulimit».
+#
+#   Important for patching:
+#
+#   (2) This script targets any POSIX shell, so it avoids extensions provided
+#       by Bash, Ksh, etc; in particular arrays are avoided.
+#
+#       The "traditional" practice of packing multiple parameters into a
+#       space-separated string is a well documented source of bugs and security
+#       problems, so this is (mostly) avoided, by progressively accumulating
+#       options in "$@", and eventually passing that to Java.
+#
+#       Where the inherited environment variables (DEFAULT_JVM_OPTS, JAVA_OPTS,
+#       and GRADLE_OPTS) rely on word-splitting, this is performed explicitly;
+#       see the in-line comments for details.
+#
+#       There are tweaks for specific operating systems such as AIX, CygWin,
+#       Darwin, MinGW, and NonStop.
+#
+#   (3) This script is generated from the Groovy template
+#       https://github.com/gradle/gradle/blob/2d6327017519d23b96af35865dc997fcb544fb40/platforms/jvm/plugins-application/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
+#       within the Gradle project.
+#
+#       You can find Gradle at https://github.com/gradle/gradle/.
+#
+##############################################################################
+
+# Attempt to set APP_HOME
+
+# Resolve links: $0 may be a link
+app_path=$0
+
+# Need this for daisy-chained symlinks.
+while
+    APP_HOME=${app_path%"${app_path##*/}"}  # leaves a trailing /; empty if no leading path
+    [ -h "$app_path" ]
+do
+    ls=$( ls -ld "$app_path" )
+    link=${ls#*' -> '}
+    case $link in             #(
+      /*)   app_path=$link ;; #(
+      *)    app_path=$APP_HOME$link ;;
+    esac
+done
+
+# This is normally unused
+# shellcheck disable=SC2034
+APP_BASE_NAME=${0##*/}
+# Discard cd standard output in case $CDPATH is set (https://github.com/gradle/gradle/issues/25036)
+APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s\n' "$PWD" ) || exit
+
+# Use the maximum available, or set MAX_FD != -1 to use that value.
+MAX_FD=maximum
+
+warn () {
+    echo "$*"
+} >&2
+
+die () {
+    echo
+    echo "$*"
+    echo
+    exit 1
+} >&2
+
+# OS specific support (must be 'true' or 'false').
+cygwin=false
+msys=false
+darwin=false
+nonstop=false
+case "$( uname )" in                #(
+  CYGWIN* )         cygwin=true  ;; #(
+  Darwin* )         darwin=true  ;; #(
+  MSYS* | MINGW* )  msys=true    ;; #(
+  NONSTOP* )        nonstop=true ;;
+esac
+
+
+
+# Determine the Java command to use to start the JVM.
+if [ -n "$JAVA_HOME" ] ; then
+    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
+        # IBM's JDK on AIX uses strange locations for the executables
+        JAVACMD=$JAVA_HOME/jre/sh/java
+    else
+        JAVACMD=$JAVA_HOME/bin/java
+    fi
+    if [ ! -x "$JAVACMD" ] ; then
+        die "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation."
+    fi
+else
+    JAVACMD=java
+    if ! command -v java >/dev/null 2>&1
+    then
+        die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation."
+    fi
+fi
+
+# Increase the maximum file descriptors if we can.
+if ! "$cygwin" && ! "$darwin" && ! "$nonstop" ; then
+    case $MAX_FD in #(
+      max*)
+        # In POSIX sh, ulimit -H is undefined. That's why the result is checked to see if it worked.
+        # shellcheck disable=SC2039,SC3045
+        MAX_FD=$( ulimit -H -n ) ||
+            warn "Could not query maximum file descriptor limit"
+    esac
+    case $MAX_FD in  #(
+      '' | soft) :;; #(
+      *)
+        # In POSIX sh, ulimit -n is undefined. That's why the result is checked to see if it worked.
+        # shellcheck disable=SC2039,SC3045
+        ulimit -n "$MAX_FD" ||
+            warn "Could not set maximum file descriptor limit to $MAX_FD"
+    esac
+fi
+
+# Collect all arguments for the java command, stacking in reverse order:
+#   * args from the command line
+#   * the main class name
+#   * -classpath
+#   * -D...appname settings
+#   * --module-path (only if needed)
+#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and GRADLE_OPTS environment variables.
+
+# For Cygwin or MSYS, switch paths to Windows format before running java
+if "$cygwin" || "$msys" ; then
+    APP_HOME=$( cygpath --path --mixed "$APP_HOME" )
+
+    JAVACMD=$( cygpath --unix "$JAVACMD" )
+
+    # Now convert the arguments - kludge to limit ourselves to /bin/sh
+    for arg do
+        if
+            case $arg in                                #(
+              -*)   false ;;                            # don't mess with options #(
+              /?*)  t=${arg#/} t=/${t%%/*}              # looks like a POSIX filepath
+                    [ -e "$t" ] ;;                      #(
+              *)    false ;;
+            esac
+        then
+            arg=$( cygpath --path --ignore --mixed "$arg" )
+        fi
+        # Roll the args list around exactly as many times as the number of
+        # args, so each arg winds up back in the position where it started, but
+        # possibly modified.
+        #
+        # NB: a `for` loop captures its iteration list before it begins, so
+        # changing the positional parameters here affects neither the number of
+        # iterations, nor the values presented in `arg`.
+        shift                   # remove old arg
+        set -- "$@" "$arg"      # push replacement arg
+    done
+fi
+
+
+# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
+DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
+
+# Collect all arguments for the java command:
+#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and optsEnvironmentVar are not allowed to contain shell fragments,
+#     and any embedded shellness will be escaped.
+#   * For example: A user cannot expect ${Hostname} to be expanded, as it is an environment variable and will be
+#     treated as '${Hostname}' itself on the command line.
+
+set -- \
+        "-Dorg.gradle.appname=$APP_BASE_NAME" \
+        -jar "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" \
+        "$@"
+
+# Stop when "xargs" is not available.
+if ! command -v xargs >/dev/null 2>&1
+then
+    die "xargs is not available"
+fi
+
+# Use "xargs" to parse quoted args.
+#
+# With -n1 it outputs one arg per line, with the quotes and backslashes removed.
+#
+# In Bash we could simply go:
+#
+#   readarray ARGS < <( xargs -n1 <<<"$var" ) &&
+#   set -- "${ARGS[@]}" "$@"
+#
+# but POSIX shell has neither arrays nor command substitution, so instead we
+# post-process each arg (as a line of input to sed) to backslash-escape any
+# character that might be a shell metacharacter, then use eval to reverse
+# that process (while maintaining the separation between arguments), and wrap
+# the whole thing up as a single "set" statement.
+#
+# This will of course break if any of these variables contains a newline or
+# an unmatched quote.
+#
+
+eval "set -- $(
+        printf '%s\n' "$DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS" |
+        xargs -n1 |
+        sed ' s~[^-[:alnum:]+,./:=@_]~\\&~g; ' |
+        tr '\n' ' '
+    )" '"$@"'
+
+exec "$JAVACMD" "$@"
 ```
 
 ================================================================================
@@ -1945,6 +2131,14 @@ zipp==3.23.0
 ```
 
 ================================================================================
+File: backend/fl-platform-api/queries/projects.sql
+================================================================================
+
+```sql
+select * from projects
+```
+
+================================================================================
 File: backend/fl-platform-api/.github/workflows/fly-deploy.yml
 ================================================================================
 
@@ -1979,7 +2173,10 @@ package com.federated.fl_platform_api;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import org.springframework.test.context.ActiveProfiles;
+
 @SpringBootTest
+@ActiveProfiles("test")
 class FlPlatformApiApplicationTests {
 
 	@Test
@@ -2294,6 +2491,7 @@ File: backend/fl-platform-api/src/main/resources/scripts/client.py
 ```py
 
 import os
+import sklearn  # Pre-load sklearn to fix ARM64 static TLS block memory allocation issues with libgomp
 
 import argparse
 import torch
@@ -2338,6 +2536,7 @@ USE_MLP = False  # NEW: Flag for MLP/ECG
 # --- Configuration ---
 NUM_PARTITIONS = 10
 BATCH_SIZE = 32
+# TODO: Use torch.backends.mps.is_available() for Mac (MPS) and torch.cuda.is_available() for Nvidia (CUDA) directly in the future instead of hardcoding CPU.
 # DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DEVICE = "cpu"
 MODEL_NAME = "facebook/opt-125m"
@@ -2860,20 +3059,21 @@ class ZOSLClient(fl.Client):
             print(f"{'='*60}")
             print(f"Total parameters: {len(parameters)}")
 
-            if 'score.weight' in parameters:
-                print(f"✅ score.weight: {parameters['score.weight'].shape}")
-                if parameters['score.weight'].shape[0] != 3:
-                    print(f"❌ WRONG! Expected [3, 768], got {parameters['score.weight'].shape}")
+            if USE_LLM:
+                if 'score.weight' in parameters:
+                    print(f"✅ score.weight: {parameters['score.weight'].shape}")
+                    if parameters['score.weight'].shape[0] != 3:
+                        print(f"❌ WRONG! Expected [3, 768], got {parameters['score.weight'].shape}")
+                    else:
+                        print(f"✅ Correct shape [3, 768]")
                 else:
-                    print(f"✅ Correct shape [3, 768]")
-            else:
-                print(f"❌ score.weight MISSING!")
+                    print(f"❌ score.weight MISSING!")
 
-            # Bias might not exist
-            if 'score.bias' in parameters:
-                print(f"✅ score.bias: {parameters['score.bias'].shape}")
-            else:
-                print(f"ℹ️  score.bias not present (expected for OPT)")
+                # Bias might not exist
+                if 'score.bias' in parameters:
+                    print(f"✅ score.bias: {parameters['score.bias'].shape}")
+                else:
+                    print(f"ℹ️  score.bias not present (expected for OPT)")
 
             print(f"{'='*60}\n")
 
@@ -2890,26 +3090,27 @@ class ZOSLClient(fl.Client):
         # RIGHT AFTER: self.net.load_state_dict(parameters)
 
         # Verify parameters were actually loaded
-        loaded_embed = self.net.model.decoder.embed_tokens.weight
-        loaded_score = self.net.score.weight
+        if USE_LLM:
+            loaded_embed = self.net.model.decoder.embed_tokens.weight
+            loaded_score = self.net.score.weight
 
-        print(f"\n[VERIFY LOAD] After load_state_dict:")
-        print(f"  embed_tokens mean: {loaded_embed.mean().item():.6f}")
-        print(f"  embed_tokens std: {loaded_embed.std().item():.6f}")
-        print(f"  score.weight mean: {loaded_score.mean().item():.6f}")
-        print(f"  score.weight std: {loaded_score.std().item():.6f}")
+            print(f"\n[VERIFY LOAD] After load_state_dict:")
+            print(f"  embed_tokens mean: {loaded_embed.mean().item():.6f}")
+            print(f"  embed_tokens std: {loaded_embed.std().item():.6f}")
+            print(f"  score.weight mean: {loaded_score.mean().item():.6f}")
+            print(f"  score.weight std: {loaded_score.std().item():.6f}")
 
-        # Compare with what was sent
-        if 'model.decoder.embed_tokens.weight' in parameters:
-            sent_embed = parameters['model.decoder.embed_tokens.weight']
-            print(f"\n[VERIFY LOAD] What was sent by server:")
-            print(f"  embed_tokens mean: {sent_embed.mean().item():.6f}")
-            print(f"  embed_tokens std: {sent_embed.std().item():.6f}")
+            # Compare with what was sent
+            if 'model.decoder.embed_tokens.weight' in parameters:
+                sent_embed = parameters['model.decoder.embed_tokens.weight']
+                print(f"\n[VERIFY LOAD] What was sent by server:")
+                print(f"  embed_tokens mean: {sent_embed.mean().item():.6f}")
+                print(f"  embed_tokens std: {sent_embed.std().item():.6f}")
 
-            if torch.allclose(loaded_embed, sent_embed):
-                print(f"  ✅ MATCH: Parameters loaded correctly")
-            else:
-                print(f"  ❌ MISMATCH: Parameters NOT loaded correctly!")
+                if torch.allclose(loaded_embed, sent_embed):
+                    print(f"  ✅ MATCH: Parameters loaded correctly")
+                else:
+                    print(f"  ❌ MISMATCH: Parameters NOT loaded correctly!")
 
         # Get local epochs from config or use dataset default
         if USE_LLM:
@@ -2971,22 +3172,23 @@ class ZOSLClient(fl.Client):
         print(f"  Total batches trained: {len(self.trainloader)}")
 
         # Check if model actually learned
-        final_score_weight = self.net.score.weight
-        print(f"  Final score.weight mean: {final_score_weight.mean().item():.6f}")
-        print(f"  Final score.weight std: {final_score_weight.std().item():.6f}")
+        if USE_LLM:
+            final_score_weight = self.net.score.weight
+            print(f"  Final score.weight mean: {final_score_weight.mean().item():.6f}")
+            print(f"  Final score.weight std: {final_score_weight.std().item():.6f}")
 
-        # Most importantly - did the model's predictions change?
-        self.net.eval()
-        with torch.no_grad():
-            first_batch = next(iter(self.trainloader))
-            batch = {k: v.to(DEVICE) for k, v in first_batch.items()}
-            outputs = self.net(**batch)
-            predictions = torch.argmax(outputs.logits, dim=-1)
-            print(f"  Sample predictions after training: {predictions[:8]}")
-            print(f"  Sample labels: {batch['labels'][:8]}")
-            accuracy_on_batch = (predictions == batch['labels']).float().mean().item()*100
-            print(f"  Accuracy on first training batch: {accuracy_on_batch:.2f}%")
-        self.net.train()
+            # Most importantly - did the model's predictions change?
+            self.net.eval()
+            with torch.no_grad():
+                first_batch = next(iter(self.trainloader))
+                batch = {k: v.to(DEVICE) for k, v in first_batch.items()}
+                outputs = self.net(**batch)
+                predictions = torch.argmax(outputs.logits, dim=-1)
+                print(f"  Sample predictions after training: {predictions[:8]}")
+                print(f"  Sample labels: {batch['labels'][:8]}")
+                accuracy_on_batch = (predictions == batch['labels']).float().mean().item()*100
+                print(f"  Accuracy on first training batch: {accuracy_on_batch:.2f}%")
+            self.net.train()
         # === END ADD ===
 
         return self.net.state_dict(), len(self.trainloader.dataset)
@@ -4414,7 +4616,7 @@ DATASET="cb"
 STRATEGY="FedAvg"
 
 # Number of clients to launch
-NUM_CLIENTS=2
+NUM_CLIENTS=1
 
 # Dynamically resolve the path relative to where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -5634,6 +5836,25 @@ public class RoundResultDto {
 ```
 
 ================================================================================
+File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/ServerLogDto.java
+================================================================================
+
+```java
+package com.federated.fl_platform_api.dto;
+
+import lombok.Data;
+import java.time.Instant;
+
+@Data
+public class ServerLogDto {
+    private String level;
+    private String message;
+    private String stackTrace;
+    private Instant timestamp;
+}
+```
+
+================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/StartProject.java
 ================================================================================
 
@@ -6028,13 +6249,11 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 
 import javax.crypto.spec.SecretKeySpec;
-import java.security.Key;
 import java.util.Base64;
 import java.util.Date;
 import java.util.function.Function;
 
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.SignatureAlgorithm;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import io.jsonwebtoken.Jwts;
@@ -6050,13 +6269,12 @@ public class JwtTokenProvider {
     @Value("${app.jwt.expiration-ms}")
     private long jwtExpirationInMs;
 
-    private Key jwtSecretKey;
-
+    private javax.crypto.SecretKey jwtSecretKey;
 
     @PostConstruct
     public void init() {
         byte[] keyBytes = Decoders.BASE64.decode(jwtSecretString);
-        this.jwtSecretKey = Keys.hmacShaKeyFor(jwtSecretString.getBytes());
+        this.jwtSecretKey = Keys.hmacShaKeyFor(keyBytes);
     }
 
     public String generateToken(Authentication authentication) {
@@ -6066,10 +6284,10 @@ public class JwtTokenProvider {
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
 
         return Jwts.builder()
-                .setSubject(userPrincipal.getUsername())
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(jwtSecretKey, SignatureAlgorithm.HS512)
+                .subject(userPrincipal.getUsername())
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(jwtSecretKey)
                 .compact();
     }
 
@@ -6100,10 +6318,10 @@ public class JwtTokenProvider {
 
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
-                .setSigningKey(jwtSecretKey)
+                .verifyWith(jwtSecretKey)
                 .build()
-                .parseClaimsJws(token)
-                .getBody();
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
 }
@@ -6598,6 +6816,12 @@ public class ProjectController {
     public ResponseEntity<List<RoundResultDto>> getProjectResults(@PathVariable UUID projectId) {
         List<RoundResultDto> resultDtos = projectService.getResultsForProject(projectId);
         return ResponseEntity.ok(resultDtos);
+    }
+
+    @GetMapping("/{projectId}/logs")
+    public ResponseEntity<List<com.federated.fl_platform_api.dto.ServerLogDto>> getProjectLogs(@PathVariable UUID projectId) {
+        List<com.federated.fl_platform_api.dto.ServerLogDto> logs = projectService.getLogsForProject(projectId);
+        return ResponseEntity.ok(logs);
     }
 
     @PostMapping("/{projectId}/delete")
@@ -7242,6 +7466,8 @@ public class ProjectService {
     private RoundResultRepository roundResultRepository;
     @Autowired
     private WebSocketService webSocketService;
+    @Autowired
+    private com.federated.fl_platform_api.repository.ServerLogRepository serverLogRepository;
 
 
     private RoundResultDto convertToDto(RoundResult result) {
@@ -7443,6 +7669,20 @@ public class ProjectService {
     public void deleteProject(UUID projectId){
         projectRepository.deleteById(projectId);
         System.out.println("...Success! Project deleted.");
+    }
+
+    public List<ServerLogDto> getLogsForProject(UUID projectId) {
+        return serverLogRepository.findByProjectIdOrderByTimestampAsc(projectId)
+            .stream()
+            .map(log -> {
+                ServerLogDto dto = new ServerLogDto();
+                dto.setLevel(log.getLevel());
+                dto.setMessage(log.getMessage());
+                dto.setStackTrace(log.getStackTrace());
+                dto.setTimestamp(log.getTimestamp());
+                return dto;
+            })
+            .collect(Collectors.toList());
     }
 }
 ```

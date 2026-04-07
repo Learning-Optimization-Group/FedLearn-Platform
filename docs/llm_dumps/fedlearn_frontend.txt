@@ -671,6 +671,78 @@ File: frontend/package.json
 ```
 
 ================================================================================
+File: frontend/tsconfig.json
+================================================================================
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
+```
+
+================================================================================
+File: frontend/tsconfig.node.json
+================================================================================
+
+```json
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "strict": true
+  },
+  "include": ["vite.config.ts"]
+}
+```
+
+================================================================================
+File: frontend/vercel.json
+================================================================================
+
+```json
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+```
+
+================================================================================
 File: frontend/vite.config.ts
 ================================================================================
 
@@ -1243,6 +1315,24 @@ const LogViewer: React.FC<LogViewerProps> = ({ projectId, serverUrl, onClose }) 
 
     useEffect(() => {
         if (!projectId) return;
+
+        // Fetch existing historical logs first
+        import('../services/apiServices').then(api => {
+            api.fetchProjectLogs(projectId).then(response => {
+                if (response.data && response.data.length > 0) {
+                    const formattedLogs = response.data.map((log: any) => ({
+                        level: log.level,
+                        message: log.message,
+                        timestamp: log.timestamp,
+                        stackTrace: log.stackTrace
+                    }));
+                    // Set historical logs, limiting to MAX_LOGS
+                    setLogs(formattedLogs.slice(-MAX_LOGS));
+                }
+            }).catch(err => {
+                console.error("Failed to fetch historical logs:", err);
+            });
+        });
 
         const brokerURL = serverUrl.replace(/^http/, 'ws') + '/ws-logs';
         const stompClient = new Client({
@@ -2624,6 +2714,10 @@ export const updateProject = (projectId: string, updateData: Partial<Project>): 
 
 export const fetchProjectResults = (projectId: string): Promise<AxiosResponse<ProjectResult[]>> => {
     return api.get<ProjectResult[]>(`/projects/${projectId}/results`);
+};
+
+export const fetchProjectLogs = (projectId: string): Promise<AxiosResponse<any[]>> => {
+    return api.get<any[]>(`/projects/${projectId}/logs`);
 };
 
 export const deleteProject = (projectId: string): Promise<AxiosResponse<string>> => {
