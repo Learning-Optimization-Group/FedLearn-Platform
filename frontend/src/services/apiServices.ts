@@ -89,6 +89,10 @@ export const fetchProjectResults = (projectId: string): Promise<AxiosResponse<Pr
     return api.get<ProjectResult[]>(`/projects/${projectId}/results`);
 };
 
+export const fetchProjectLogs = (projectId: string): Promise<AxiosResponse<any[]>> => {
+    return api.get<any[]>(`/projects/${projectId}/logs`);
+};
+
 export const deleteProject = (projectId: string): Promise<AxiosResponse<string>> => {
     return api.post<string>(`/projects/${projectId}/delete`);
 };

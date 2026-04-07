@@ -27,6 +27,24 @@ const LogViewer: React.FC<LogViewerProps> = ({ projectId, serverUrl, onClose }) 
     useEffect(() => {
         if (!projectId) return;
 
+        // Fetch existing historical logs first
+        import('../services/apiServices').then(api => {
+            api.fetchProjectLogs(projectId).then(response => {
+                if (response.data && response.data.length > 0) {
+                    const formattedLogs = response.data.map((log: any) => ({
+                        level: log.level,
+                        message: log.message,
+                        timestamp: log.timestamp,
+                        stackTrace: log.stackTrace
+                    }));
+                    // Set historical logs, limiting to MAX_LOGS
+                    setLogs(formattedLogs.slice(-MAX_LOGS));
+                }
+            }).catch(err => {
+                console.error("Failed to fetch historical logs:", err);
+            });
+        });
+
         const brokerURL = serverUrl.replace(/^http/, 'ws') + '/ws-logs';
         const stompClient = new Client({
             brokerURL: brokerURL,

@@ -37,6 +37,8 @@ public class ProjectService {
     private RoundResultRepository roundResultRepository;
     @Autowired
     private WebSocketService webSocketService;
+    @Autowired
+    private com.federated.fl_platform_api.repository.ServerLogRepository serverLogRepository;
 
 
     private RoundResultDto convertToDto(RoundResult result) {
@@ -238,5 +240,19 @@ public class ProjectService {
     public void deleteProject(UUID projectId){
         projectRepository.deleteById(projectId);
         System.out.println("...Success! Project deleted.");
+    }
+
+    public List<ServerLogDto> getLogsForProject(UUID projectId) {
+        return serverLogRepository.findByProjectIdOrderByTimestampAsc(projectId)
+            .stream()
+            .map(log -> {
+                ServerLogDto dto = new ServerLogDto();
+                dto.setLevel(log.getLevel());
+                dto.setMessage(log.getMessage());
+                dto.setStackTrace(log.getStackTrace());
+                dto.setTimestamp(log.getTimestamp());
+                return dto;
+            })
+            .collect(Collectors.toList());
     }
 }

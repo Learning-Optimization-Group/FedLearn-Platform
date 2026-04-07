@@ -96,6 +96,12 @@ public class ProjectController {
         return ResponseEntity.ok(resultDtos);
     }
 
+    @GetMapping("/{projectId}/logs")
+    public ResponseEntity<List<com.federated.fl_platform_api.dto.ServerLogDto>> getProjectLogs(@PathVariable UUID projectId) {
+        List<com.federated.fl_platform_api.dto.ServerLogDto> logs = projectService.getLogsForProject(projectId);
+        return ResponseEntity.ok(logs);
+    }
+
     @PostMapping("/{projectId}/delete")
     public ResponseEntity<String> deleteProject(@PathVariable UUID projectId) {
         projectService.deleteProject(projectId);
