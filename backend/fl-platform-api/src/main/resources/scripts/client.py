@@ -44,6 +44,7 @@ USE_MLP = False  # NEW: Flag for MLP/ECG
 # --- Configuration ---
 NUM_PARTITIONS = 10
 BATCH_SIZE = 32
+# TODO: Use torch.backends.mps.is_available() for Mac (MPS) and torch.cuda.is_available() for Nvidia (CUDA) directly in the future instead of hardcoding CPU.
 # DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DEVICE = "cpu"
 MODEL_NAME = "facebook/opt-125m"
