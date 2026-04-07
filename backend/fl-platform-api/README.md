@@ -485,11 +485,10 @@ JWT-based authentication.
 
 ### CORS Configuration
 
-Configured in `SecurityConfig.java` to allow frontend origins.
+Configured in `SecurityConfig.java` to dynamically allow frontend origins based on deployment architecture.
 
 **Allowed Origins**:
-- `http://localhost:5173` (development)
-- Your production frontend URL
+Origins are resolved dynamically via environment variables (e.g. `FRONTEND_URL`) to seamlessly support LAN deployments and AWS integration, strictly avoiding hardcoded bindings to `http://localhost:5173` in production.
 
 ---
 

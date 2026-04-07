@@ -567,20 +567,21 @@ class ZOSLClient(fl.Client):
             print(f"{'='*60}")
             print(f"Total parameters: {len(parameters)}")
 
-            if 'score.weight' in parameters:
-                print(f"✅ score.weight: {parameters['score.weight'].shape}")
-                if parameters['score.weight'].shape[0] != 3:
-                    print(f"❌ WRONG! Expected [3, 768], got {parameters['score.weight'].shape}")
+            if USE_LLM:
+                if 'score.weight' in parameters:
+                    print(f"✅ score.weight: {parameters['score.weight'].shape}")
+                    if parameters['score.weight'].shape[0] != 3:
+                        print(f"❌ WRONG! Expected [3, 768], got {parameters['score.weight'].shape}")
+                    else:
+                        print(f"✅ Correct shape [3, 768]")
                 else:
-                    print(f"✅ Correct shape [3, 768]")
-            else:
-                print(f"❌ score.weight MISSING!")
+                    print(f"❌ score.weight MISSING!")
 
-            # Bias might not exist
-            if 'score.bias' in parameters:
-                print(f"✅ score.bias: {parameters['score.bias'].shape}")
-            else:
-                print(f"ℹ️  score.bias not present (expected for OPT)")
+                # Bias might not exist
+                if 'score.bias' in parameters:
+                    print(f"✅ score.bias: {parameters['score.bias'].shape}")
+                else:
+                    print(f"ℹ️  score.bias not present (expected for OPT)")
 
             print(f"{'='*60}\n")
 
@@ -597,26 +598,27 @@ class ZOSLClient(fl.Client):
         # RIGHT AFTER: self.net.load_state_dict(parameters)
 
         # Verify parameters were actually loaded
-        loaded_embed = self.net.model.decoder.embed_tokens.weight
-        loaded_score = self.net.score.weight
+        if USE_LLM:
+            loaded_embed = self.net.model.decoder.embed_tokens.weight
+            loaded_score = self.net.score.weight
 
-        print(f"\n[VERIFY LOAD] After load_state_dict:")
-        print(f"  embed_tokens mean: {loaded_embed.mean().item():.6f}")
-        print(f"  embed_tokens std: {loaded_embed.std().item():.6f}")
-        print(f"  score.weight mean: {loaded_score.mean().item():.6f}")
-        print(f"  score.weight std: {loaded_score.std().item():.6f}")
+            print(f"\n[VERIFY LOAD] After load_state_dict:")
+            print(f"  embed_tokens mean: {loaded_embed.mean().item():.6f}")
+            print(f"  embed_tokens std: {loaded_embed.std().item():.6f}")
+            print(f"  score.weight mean: {loaded_score.mean().item():.6f}")
+            print(f"  score.weight std: {loaded_score.std().item():.6f}")
 
-        # Compare with what was sent
-        if 'model.decoder.embed_tokens.weight' in parameters:
-            sent_embed = parameters['model.decoder.embed_tokens.weight']
-            print(f"\n[VERIFY LOAD] What was sent by server:")
-            print(f"  embed_tokens mean: {sent_embed.mean().item():.6f}")
-            print(f"  embed_tokens std: {sent_embed.std().item():.6f}")
+            # Compare with what was sent
+            if 'model.decoder.embed_tokens.weight' in parameters:
+                sent_embed = parameters['model.decoder.embed_tokens.weight']
+                print(f"\n[VERIFY LOAD] What was sent by server:")
+                print(f"  embed_tokens mean: {sent_embed.mean().item():.6f}")
+                print(f"  embed_tokens std: {sent_embed.std().item():.6f}")
 
-            if torch.allclose(loaded_embed, sent_embed):
-                print(f"  ✅ MATCH: Parameters loaded correctly")
-            else:
-                print(f"  ❌ MISMATCH: Parameters NOT loaded correctly!")
+                if torch.allclose(loaded_embed, sent_embed):
+                    print(f"  ✅ MATCH: Parameters loaded correctly")
+                else:
+                    print(f"  ❌ MISMATCH: Parameters NOT loaded correctly!")
 
         # Get local epochs from config or use dataset default
         if USE_LLM:
@@ -678,22 +680,23 @@ class ZOSLClient(fl.Client):
         print(f"  Total batches trained: {len(self.trainloader)}")
 
         # Check if model actually learned
-        final_score_weight = self.net.score.weight
-        print(f"  Final score.weight mean: {final_score_weight.mean().item():.6f}")
-        print(f"  Final score.weight std: {final_score_weight.std().item():.6f}")
+        if USE_LLM:
+            final_score_weight = self.net.score.weight
+            print(f"  Final score.weight mean: {final_score_weight.mean().item():.6f}")
+            print(f"  Final score.weight std: {final_score_weight.std().item():.6f}")
 
-        # Most importantly - did the model's predictions change?
-        self.net.eval()
-        with torch.no_grad():
-            first_batch = next(iter(self.trainloader))
-            batch = {k: v.to(DEVICE) for k, v in first_batch.items()}
-            outputs = self.net(**batch)
-            predictions = torch.argmax(outputs.logits, dim=-1)
-            print(f"  Sample predictions after training: {predictions[:8]}")
-            print(f"  Sample labels: {batch['labels'][:8]}")
-            accuracy_on_batch = (predictions == batch['labels']).float().mean().item()*100
-            print(f"  Accuracy on first training batch: {accuracy_on_batch:.2f}%")
-        self.net.train()
+            # Most importantly - did the model's predictions change?
+            self.net.eval()
+            with torch.no_grad():
+                first_batch = next(iter(self.trainloader))
+                batch = {k: v.to(DEVICE) for k, v in first_batch.items()}
+                outputs = self.net(**batch)
+                predictions = torch.argmax(outputs.logits, dim=-1)
+                print(f"  Sample predictions after training: {predictions[:8]}")
+                print(f"  Sample labels: {batch['labels'][:8]}")
+                accuracy_on_batch = (predictions == batch['labels']).float().mean().item()*100
+                print(f"  Accuracy on first training batch: {accuracy_on_batch:.2f}%")
+            self.net.train()
         # === END ADD ===
 
         return self.net.state_dict(), len(self.trainloader.dataset)
