@@ -13,7 +13,7 @@ echo "[WRAPPER-SH] Environment activated. Executing init_model.py..."
 
 # Change to script directory and execute init_model.py with absolute path
 cd "$SCRIPT_DIR"
-python3 init_model.py "$@"
+/home/anurag/codebase/Projects/FedLearn-Platform/venv/bin/python3 init_model.py "$@"
 
 EXIT_CODE=$?
 echo "[WRAPPER-SH] Python script finished with exit code: $EXIT_CODE"

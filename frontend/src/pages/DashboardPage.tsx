@@ -7,7 +7,7 @@ import CreateProjectModal from '../components/CreateProjectModal';
 import '../styles/Dashboard.css';
 import DiskLoader from '../components/DiskLoader';
 
-const SERVER_ROOT_URL = import.meta.env.VITE_SERVER_ROOT_URL || 'http://localhost:8081';
+const SERVER_ROOT_URL = import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
 const WEBSOCKET_URL_BASE = SERVER_ROOT_URL.replace(/^http/, 'ws');
 
 interface Project {

@@ -14,7 +14,7 @@ const RegisterPage: React.FC = () => {
     const [successMessage, setSuccessMessage] = useState('');
     const navigate = useNavigate();
 
-    const API_SERVER_ROOT = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
+    const API_SERVER_ROOT = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8081/api`;
     const endpointPath = '/auth/register';
     const fullApiUrl = `${API_SERVER_ROOT}${endpointPath}`;
 
@@ -72,6 +72,7 @@ const RegisterPage: React.FC = () => {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                 },
+                credentials: 'include',
                 body: JSON.stringify(registrationData),
             });
 

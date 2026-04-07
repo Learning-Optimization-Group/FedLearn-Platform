@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api',
+    baseURL: import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8081/api`,
     withCredentials: true // Forces browser to use secure HttpOnly cookies
 });
 

@@ -37,7 +37,8 @@ public class ProjectController {
             ProjectResponseDto newProject = projectService.createProject(request);
             return ResponseEntity.ok(newProject);
         } catch (Exception e) {
-            // It's better to have a proper exception handler, but for now this is ok
+            System.err.println("=== ERROR IN CREATE PROJECT ===");
+            e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
     }

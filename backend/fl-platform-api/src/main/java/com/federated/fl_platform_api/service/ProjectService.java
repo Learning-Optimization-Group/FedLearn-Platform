@@ -71,8 +71,9 @@ public class ProjectService {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String currentUsername = authentication.getName();
+        System.out.println("PROJECT_SERVICE: Looking up user by currentUsername: '" + currentUsername + "' (Length: " + (currentUsername != null ? currentUsername.length() : "NULL") + ")");
         User currentUser = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new UsernameNotFoundException("Authenticated user not found in database"));
+                .orElseThrow(() -> new UsernameNotFoundException("Authenticated user not found in database for username: " + currentUsername));
 
         // --- Step 1: Initial Database Entry ---
         System.out.println("\n[1/3] Persisting initial project state to database...");
@@ -88,6 +89,9 @@ public class ProjectService {
 
         // --- Step 2: Model Initialization (The "Loader" Part) ---
         File modelFile = new File("models/" + savedProject.getId().toString() + ".npz");
+        if (!modelFile.getParentFile().exists()) {
+            modelFile.getParentFile().mkdirs();
+        }
         String absoluteModelPath = modelFile.getAbsolutePath();
         savedProject.setModelPath(absoluteModelPath);
         System.out.println("Saving model at - "+absoluteModelPath);

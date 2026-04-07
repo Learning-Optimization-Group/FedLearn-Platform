@@ -113,10 +113,10 @@ public class AuthController {
 
             ResponseCookie jwtCookie = ResponseCookie.from("jwtToken", jwt)
                     .httpOnly(true)
-                    .secure(true) // Enforces HTTPS
+                    .secure(false) // Allow HTTP since we are on local network
                     .path("/")
                     .maxAge(24 * 60 * 60) // 24 hours
-                    .sameSite("Strict") // Prevents CSRF
+                    .sameSite("Lax")
                     .build();
 
             Map<String, Object> responseBody = new HashMap<>();

@@ -20,7 +20,7 @@ echo "[WRAPPER-FL-SH] Executing fl_server.py with output to both console and log
 
 # Change to script directory and execute fl_server.py
 cd "$SCRIPT_DIR"
-python3 fl_server.py "$@" 2>&1 | tee -a "$LOG_FILE"
+/home/anurag/codebase/Projects/FedLearn-Platform/venv/bin/python3 fl_server.py "$@" 2>&1 | tee -a "$LOG_FILE"
 
 EXIT_CODE=${PIPESTATUS[0]}  # Get exit code of python3, not tee
 echo "[WRAPPER-FL-SH] Python script finished with exit code: $EXIT_CODE" | tee -a "$LOG_FILE"
