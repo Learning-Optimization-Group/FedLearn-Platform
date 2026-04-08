@@ -1896,7 +1896,7 @@ File: frontend/src/api/axiosConfig.ts
 import axios, { AxiosError } from 'axios';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api',
+    baseURL: import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8081/api`,
     withCredentials: true // Forces browser to use secure HttpOnly cookies
 });
 
@@ -1931,7 +1931,7 @@ import CreateProjectModal from '../components/CreateProjectModal';
 import '../styles/Dashboard.css';
 import DiskLoader from '../components/DiskLoader';
 
-const SERVER_ROOT_URL = import.meta.env.VITE_SERVER_ROOT_URL || 'http://localhost:8081';
+const SERVER_ROOT_URL = import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
 const WEBSOCKET_URL_BASE = SERVER_ROOT_URL.replace(/^http/, 'ws');
 
 interface Project {
@@ -2281,7 +2281,7 @@ const LoginPage: React.FC = () => {
     const location = useLocation();
     const auth = useAuth();
 
-    const API_SERVER_ROOT = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
+    const API_SERVER_ROOT = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8081/api`;
     const endpointPath = '/auth/login';
     const fullApiUrl = `${API_SERVER_ROOT}${endpointPath}`;
 
@@ -2309,6 +2309,7 @@ const LoginPage: React.FC = () => {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                 },
+                credentials: 'include',
                 body: JSON.stringify(loginData)
             });
 
@@ -2416,7 +2417,7 @@ const RegisterPage: React.FC = () => {
     const [successMessage, setSuccessMessage] = useState('');
     const navigate = useNavigate();
 
-    const API_SERVER_ROOT = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
+    const API_SERVER_ROOT = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8081/api`;
     const endpointPath = '/auth/register';
     const fullApiUrl = `${API_SERVER_ROOT}${endpointPath}`;
 
@@ -2474,6 +2475,7 @@ const RegisterPage: React.FC = () => {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                 },
+                credentials: 'include',
                 body: JSON.stringify(registrationData),
             });
 

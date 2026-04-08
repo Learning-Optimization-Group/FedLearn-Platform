@@ -2,6 +2,7 @@ import os
 import argparse
 import logging
 from typing import Set, Dict, Tuple
+import re
 
 # Setup default logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -20,7 +21,8 @@ MAPPINGS: Dict[str, str] = {
 
 ALLOWED_EXTENSIONS: Set[str] = {
     ".py", ".java", ".js", ".jsx", ".ts", ".tsx", ".sh", ".md", ".txt", 
-    ".yaml", ".yml", ".toml", ".json", ".sql"
+    ".yaml", ".yml", ".toml", ".json", ".sql", ".proto", ".properties", 
+    ".gradle", ".xml", ".env"
 }
 
 ALLOWED_FILES: Set[str] = {
@@ -32,8 +34,56 @@ ALLOWED_FILES: Set[str] = {
 SKIP_DIRS: Set[str] = {
     ".git", "__pycache__", "venv", ".venv", "node_modules", "target", "build", 
     "dist", ".pytest_cache", "egg-info", "FedLearn.egg-info", ".idea", ".vscode",
-    "apache-maven-3.9.6", "gradle-8.7"
+    ".gradle", "apache-maven-3.9.6", "gradle-8.7"
 }
+
+# Explicitly ignore production/local env files even if they match extensions
+BLACKLIST_FILES: Set[str] = {
+    ".env", ".env.local", ".env.production", ".env.development",
+    "application-production.properties", "application-test.properties"
+}
+
+# Keywords that trigger masking in .env and .properties files
+SENSITIVE_KEYWORDS: Set[str] = {
+    'secret', 'password', 'key', 'token', 'auth', 'credential',
+    'private', 'aws', 'api', 'url', 'address', 'ip'
+}
+
+def mask_secrets(content: str, filename: str) -> str:
+    """Masks values for sensitive keys in env, properties, and yaml files."""
+    ext = os.path.splitext(filename)[1].lower()
+    is_env = filename.startswith('.env')
+    if ext not in ('.properties', '.yaml', '.yml') and not is_env:
+        return content
+
+    lines = content.splitlines()
+    masked_lines = []
+    for line in lines:
+        stripped = line.strip()
+        # Skip comments or empty lines
+        if not stripped or stripped.startswith('#') or stripped.startswith('!') or stripped.startswith('//'):
+            masked_lines.append(line)
+            continue
+            
+        # Match key=value or key: value
+        match = re.match(r'^([^=: ]+)\s*[=:]\s*(.*)$', stripped)
+        if match:
+            key, value = match.groups()
+            # Check if key contains any sensitive keyword (case-insensitive)
+            if any(kw in key.lower() for kw in SENSITIVE_KEYWORDS):
+                # Only mask if value is present and not a dynamic variable ${...}
+                if value.strip() and not value.strip().startswith('${'):
+                    # Replace the value part while preserving the assignment operator
+                    # We look for the first occurrence of = or : to split
+                    if '=' in line:
+                        prefix, rest = line.split('=', 1)
+                        line = f"{prefix}=[REDACTED]"
+                    elif ':' in line:
+                        prefix, rest = line.split(':', 1)
+                        line = f"{prefix}: [REDACTED]"
+        masked_lines.append(line)
+    
+    return "\n".join(masked_lines) + ("\n" if content.endswith('\n') else "")
 
 def build_txt(target_dir: str, output_file: str) -> Tuple[int, int]:
     """
@@ -54,9 +104,9 @@ def build_txt(target_dir: str, output_file: str) -> Tuple[int, int]:
                 ext = os.path.splitext(file)[1].lower()
                 
                 # Check if it's an allowed file
-                if ext in ALLOWED_EXTENSIONS or file in ALLOWED_FILES:
-                    # Explicit exclusion for lock files
-                    if file in ("package-lock.json", "yarn.lock"):
+                if ext in ALLOWED_EXTENSIONS or file in ALLOWED_FILES or file.startswith('.env'):
+                    # Explicit exclusion for lock files and sensitive files
+                    if file in ("package-lock.json", "yarn.lock") or file in BLACKLIST_FILES:
                         continue
                         
                     file_path = os.path.join(root, file)
@@ -77,6 +127,10 @@ def build_txt(target_dir: str, output_file: str) -> Tuple[int, int]:
                             total_lines += len(lines)
                             
                             content = "".join(lines)
+                            
+                            # Mask secrets if applicable
+                            content = mask_secrets(content, file)
+
                             # Ensure trailing newline prevents mangled backtick fences
                             if content and not content.endswith('\n'):
                                 content += '\n'

@@ -13,24 +13,24 @@ File: backend/fl-platform-api/.env.example
 # =============================================================================
 
 # --- AWS / Infrastructure ---
-AWS_HOST="127.0.0.1"
+AWS_HOST=[REDACTED]
 
 # --- PostgreSQL Datasource ---
-SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/federated_platform_db"
+SPRING_DATASOURCE_URL=[REDACTED]
 SPRING_DATASOURCE_USERNAME="postgres"
-SPRING_DATASOURCE_PASSWORD="change_me"
+SPRING_DATASOURCE_PASSWORD=[REDACTED]
 
 # --- JWT Authentication ---
 # Generate a secure random 512-bit key:
 #   openssl rand -hex 64
-APP_JWT_SECRET="generate_a_secure_random_base64_string_here"
+APP_JWT_SECRET=[REDACTED]
 APP_JWT_EXPIRATION_MS="3600000"
 
 # --- Python Script Paths (relative to Spring Boot working dir) ---
 PYTHON_EXECUTABLE_PATH="src/main/resources/scripts/run_init_model.sh"
 PYTHON_FLBAT_PATH="src/main/resources/scripts/run_fl_server.sh"
-PYTHON_SCRIPT_INIT_MODEL_PATH="src/main/resources/scripts/init_model.py"
-PYTHON_SCRIPT_FL_SERVER_PATH="src/main/resources/scripts/run_fl_server.sh"
+PYTHON_SCRIPT_INIT_MODEL_PATH=[REDACTED]
+PYTHON_SCRIPT_FL_SERVER_PATH=[REDACTED]
 ```
 
 ================================================================================
@@ -1720,6 +1720,64 @@ When modifying the backend:
 ```
 
 ================================================================================
+File: backend/fl-platform-api/build.gradle
+================================================================================
+
+```gradle
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.4.5'
+    id 'io.spring.dependency-management' version '1.1.4'
+}
+
+group = 'com.federated'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    
+    // JWT
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
+
+    compileOnly 'org.projectlombok:lombok'
+    runtimeOnly 'org.postgresql:postgresql'
+    
+    annotationProcessor 'org.projectlombok:lombok'
+    
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testRuntimeOnly 'com.h2database:h2'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+```
+
+================================================================================
 File: backend/fl-platform-api/fly.toml
 ================================================================================
 
@@ -1764,7 +1822,7 @@ File: backend/fl-platform-api/gradlew
 #!/bin/sh
 
 #
-# Copyright © 2015 the original authors.
+# Copyright © 2015-2021 the original authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1777,8 +1835,6 @@ File: backend/fl-platform-api/gradlew
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# SPDX-License-Identifier: Apache-2.0
 #
 
 ##############################################################################
@@ -1820,7 +1876,7 @@ File: backend/fl-platform-api/gradlew
 #       Darwin, MinGW, and NonStop.
 #
 #   (3) This script is generated from the Groovy template
-#       https://github.com/gradle/gradle/blob/2d6327017519d23b96af35865dc997fcb544fb40/platforms/jvm/plugins-application/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
+#       https://github.com/gradle/gradle/blob/HEAD/subprojects/plugins/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
 #       within the Gradle project.
 #
 #       You can find Gradle at https://github.com/gradle/gradle/.
@@ -1849,7 +1905,7 @@ done
 # shellcheck disable=SC2034
 APP_BASE_NAME=${0##*/}
 # Discard cd standard output in case $CDPATH is set (https://github.com/gradle/gradle/issues/25036)
-APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s\n' "$PWD" ) || exit
+APP_HOME=$( cd "${APP_HOME:-./}" > /dev/null && pwd -P ) || exit
 
 # Use the maximum available, or set MAX_FD != -1 to use that value.
 MAX_FD=maximum
@@ -1877,6 +1933,7 @@ case "$( uname )" in                #(
   NONSTOP* )        nonstop=true ;;
 esac
 
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
 
 # Determine the Java command to use to start the JVM.
@@ -1934,6 +1991,7 @@ fi
 # For Cygwin or MSYS, switch paths to Windows format before running java
 if "$cygwin" || "$msys" ; then
     APP_HOME=$( cygpath --path --mixed "$APP_HOME" )
+    CLASSPATH=$( cygpath --path --mixed "$CLASSPATH" )
 
     JAVACMD=$( cygpath --unix "$JAVACMD" )
 
@@ -1966,14 +2024,15 @@ fi
 DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
 
 # Collect all arguments for the java command:
-#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and optsEnvironmentVar are not allowed to contain shell fragments,
+#   * DEFAULT_JVM_OPTS, JAVA_OPTS, JAVA_OPTS, and optsEnvironmentVar are not allowed to contain shell fragments,
 #     and any embedded shellness will be escaped.
 #   * For example: A user cannot expect ${Hostname} to be expanded, as it is an environment variable and will be
 #     treated as '${Hostname}' itself on the command line.
 
 set -- \
         "-Dorg.gradle.appname=$APP_BASE_NAME" \
-        -jar "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" \
+        -classpath "$CLASSPATH" \
+        org.gradle.wrapper.GradleWrapperMain \
         "$@"
 
 # Stop when "xargs" is not available.
@@ -2131,11 +2190,36 @@ zipp==3.23.0
 ```
 
 ================================================================================
+File: backend/fl-platform-api/settings.gradle
+================================================================================
+
+```gradle
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.9.0'
+}
+rootProject.name = 'fl-platform-api'
+```
+
+================================================================================
 File: backend/fl-platform-api/queries/projects.sql
 ================================================================================
 
 ```sql
 select * from projects
+```
+
+================================================================================
+File: backend/fl-platform-api/gradle/wrapper/gradle-wrapper.properties
+================================================================================
+
+```properties
+distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+distributionUrl=[REDACTED]
+networkTimeout=10000
+validateDistributionUrl=[REDACTED]
+zipStoreBase=[REDACTED]
+zipStorePath=[REDACTED]
 ```
 
 ================================================================================
@@ -2440,15 +2524,14 @@ File: backend/fl-platform-api/src/main/resources/application.properties
 ```properties
 spring.application.name=fl-platform-api
 server.port=8081
-server.address=0.0.0.0
+server.address=[REDACTED]
 # ===============================
 # DATASOURCE
 # ===============================
 #    spring.datasource.url=jdbc:${DATABASE_URL}
-spring.datasource.url=${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/federated_platform_db}
-spring.datasource.username=${SPRING_DATASOURCE_USERNAME}
-# App will fail to boot if this variable is not provided by the host environment
-spring.datasource.password=${SPRING_DATASOURCE_PASSWORD}
+spring.datasource.url=[REDACTED]
+spring.datasource.username=federated_user
+spring.datasource.password=[REDACTED]
 spring.datasource.driver-class-name=org.postgresql.Driver
 
 # ===============================
@@ -2472,7 +2555,7 @@ logging.level.org.springframework.web.cors=TRACE
 # JWT Configuration
 # ===============================
 # App will fail to boot if this variable is not provided by the host environment
-app.jwt.secret=${APP_JWT_SECRET}
+app.jwt.secret=[REDACTED]
 app.jwt.expiration-ms=${APP_JWT_EXPIRATION_MS:3600000}
 management.endpoints.web.exposure.include=health
 management.endpoint.health.show-details=always
@@ -4799,7 +4882,7 @@ echo "[WRAPPER-FL-SH] Executing fl_server.py with output to both console and log
 
 # Change to script directory and execute fl_server.py
 cd "$SCRIPT_DIR"
-python3 fl_server.py "$@" 2>&1 | tee -a "$LOG_FILE"
+/home/anurag/codebase/Projects/FedLearn-Platform/venv/bin/python3 fl_server.py "$@" 2>&1 | tee -a "$LOG_FILE"
 
 EXIT_CODE=${PIPESTATUS[0]}  # Get exit code of python3, not tee
 echo "[WRAPPER-FL-SH] Python script finished with exit code: $EXIT_CODE" | tee -a "$LOG_FILE"
@@ -4828,7 +4911,7 @@ echo "[WRAPPER-SH] Environment activated. Executing init_model.py..."
 
 # Change to script directory and execute init_model.py with absolute path
 cd "$SCRIPT_DIR"
-python3 init_model.py "$@"
+/home/anurag/codebase/Projects/FedLearn-Platform/venv/bin/python3 init_model.py "$@"
 
 EXIT_CODE=$?
 echo "[WRAPPER-SH] Python script finished with exit code: $EXIT_CODE"
@@ -5470,7 +5553,7 @@ public class CreateProjectRequest {
 
     @NotNull(message = "pretrainEpochs must be provided")
     @Min(value = 0, message = "pretrainEpochs cannot be negative")
-    private Integer preTrainEpocs;
+    private Integer pretrainEpochs;
 
 
     public String getName() {
@@ -5498,11 +5581,11 @@ public class CreateProjectRequest {
     }
 
     public Integer getPretrainEpochs() {
-        return preTrainEpocs;
+        return pretrainEpochs;
     }
 
-    public void setPretrainEpochs(Integer preTrainEpocs) {
-        this.preTrainEpocs = preTrainEpocs;
+    public void setPretrainEpochs(Integer pretrainEpochs) {
+        this.pretrainEpochs = pretrainEpochs;
     }
 
     public void setModelName(String modelName) {
@@ -6072,14 +6155,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(
-                "http://localhost:5173",
-                "http://127.0.0.1:5173",
-                "http://10.1.60.59:5173",
-                "https://federated-learning-platform-ui.vercel.app",
-                "https://zo-sl.vercel.app",
-                "https://2f156910653b.ngrok-free.app"
-        ));
+        configuration.setAllowedOriginPatterns(List.of("*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
@@ -6203,33 +6279,49 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     )throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String username;
+        String authHeader = request.getHeader("Authorization");
+        String jwt = null;
+        String username = null;
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            jwt = authHeader.substring(7);
+        } else if (request.getCookies() != null) {
+            for (jakarta.servlet.http.Cookie cookie : request.getCookies()) {
+                if ("jwtToken".equals(cookie.getName())) {
+                    jwt = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        if (jwt == null) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        jwt = authHeader.substring(7);
-        username = jwtTokenProvider.getUsernameFromToken(jwt);
+        try {
+            username = jwtTokenProvider.getUsernameFromToken(jwt);
 
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
 
-            if(jwtTokenProvider.validateToken(jwt, userDetails)) {
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities()
-                );
-                authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
+                if(jwtTokenProvider.validateToken(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities()
+                    );
+                    authToken.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request)
+                    );
 
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
-
+        } catch (Exception e) {
+            // Log the error specifically but continue the filter chain so Spring
+            // Security can correctly return 401 Unauthorized instead of a 500 Exception
+            System.err.println("JWT Token validation failed: " + e.getMessage());
         }
+
         filterChain.doFilter(request, response);
     }
 }
@@ -6637,10 +6729,10 @@ public class AuthController {
 
             ResponseCookie jwtCookie = ResponseCookie.from("jwtToken", jwt)
                     .httpOnly(true)
-                    .secure(true) // Enforces HTTPS
+                    .secure(false) // Allow HTTP since we are on local network
                     .path("/")
                     .maxAge(24 * 60 * 60) // 24 hours
-                    .sameSite("Strict") // Prevents CSRF
+                    .sameSite("Lax")
                     .build();
 
             Map<String, Object> responseBody = new HashMap<>();
@@ -6759,7 +6851,8 @@ public class ProjectController {
             ProjectResponseDto newProject = projectService.createProject(request);
             return ResponseEntity.ok(newProject);
         } catch (Exception e) {
-            // It's better to have a proper exception handler, but for now this is ok
+            System.err.println("=== ERROR IN CREATE PROJECT ===");
+            e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
     }
@@ -7500,8 +7593,9 @@ public class ProjectService {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String currentUsername = authentication.getName();
+        System.out.println("PROJECT_SERVICE: Looking up user by currentUsername: '" + currentUsername + "' (Length: " + (currentUsername != null ? currentUsername.length() : "NULL") + ")");
         User currentUser = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new UsernameNotFoundException("Authenticated user not found in database"));
+                .orElseThrow(() -> new UsernameNotFoundException("Authenticated user not found in database for username: " + currentUsername));
 
         // --- Step 1: Initial Database Entry ---
         System.out.println("\n[1/3] Persisting initial project state to database...");
@@ -7517,6 +7611,9 @@ public class ProjectService {
 
         // --- Step 2: Model Initialization (The "Loader" Part) ---
         File modelFile = new File("models/" + savedProject.getId().toString() + ".npz");
+        if (!modelFile.getParentFile().exists()) {
+            modelFile.getParentFile().mkdirs();
+        }
         String absoluteModelPath = modelFile.getAbsolutePath();
         savedProject.setModelPath(absoluteModelPath);
         System.out.println("Saving model at - "+absoluteModelPath);
