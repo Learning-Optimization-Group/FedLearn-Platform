@@ -102,6 +102,13 @@ class NativeFedLearnCoreTurboModule : public TurboModule {
           self.impl_.setZOConfig(args[0].asString(rt).utf8(rt));
           return jsi::Value::undefined();
         }};
+
+    methodMap_["getRecentLogs"] = MethodMetadata{
+        0, [](jsi::Runtime& rt, TurboModule& tm,
+              const jsi::Value*, size_t) -> jsi::Value {
+          auto& self = static_cast<NativeFedLearnCoreTurboModule&>(tm);
+          return jsi::String::createFromUtf8(rt, self.impl_.getRecentLogs());
+        }};
   }
 
   fedlearn::NativeFedLearnCoreImpl impl_;

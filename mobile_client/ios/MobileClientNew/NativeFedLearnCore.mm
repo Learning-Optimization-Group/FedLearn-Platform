@@ -99,4 +99,10 @@ RCT_EXPORT_METHOD(setZOConfig:(NSString *)configJson) {
   _impl->setZOConfig([configJson UTF8String]);
 }
 
+RCT_EXPORT_METHOD(getRecentLogs:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+  std::string logs = _impl->getRecentLogs();
+  resolve([NSString stringWithUTF8String:logs.c_str()]);
+}
+
 @end

@@ -1,4 +1,6 @@
 # examples/simple_federation/run_client.py
+from data import get_mnist_loader
+import fedlearn as fl
 import argparse
 import importlib
 import sys
@@ -6,10 +8,9 @@ import os
 from collections import OrderedDict
 import torch
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src')))
+sys.path.insert(0, os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '../../src')))
 
-import fedlearn as fl
-from data import get_mnist_loader
 
 MODEL_REGISTRY = {
     "simple_cnn": ("model", "SimpleCNN"),
@@ -33,8 +34,10 @@ class MnistClient(fl.Client):
         loader = get_mnist_loader(client_id, num_clients=10)
         if max_samples > 0:
             from torch.utils.data import Subset, DataLoader
-            sub = Subset(loader.dataset, list(range(min(max_samples, len(loader.dataset)))))
-            self.trainloader = DataLoader(sub, batch_size=loader.batch_size, shuffle=True)
+            sub = Subset(loader.dataset, list(
+                range(min(max_samples, len(loader.dataset)))))
+            self.trainloader = DataLoader(
+                sub, batch_size=loader.batch_size, shuffle=True)
         else:
             self.trainloader = loader
 
@@ -60,7 +63,8 @@ class MnistClient(fl.Client):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="FedLearn Client")
-    parser.add_argument("--server_address", type=str, default="localhost:50051", help="Server address")
+    parser.add_argument("--server_address", type=str,
+                        default="localhost:50051", help="Server address")
     parser.add_argument("--id", type=int, required=True, help="Client ID")
     parser.add_argument("--model", type=str, default="simple_cnn",
                         choices=list(MODEL_REGISTRY.keys()),
@@ -72,7 +76,8 @@ if __name__ == "__main__":
     model_cls = load_model_class(args.model)
     print(f"Using model: {args.model}")
 
-    client = MnistClient(client_id=args.id, model_cls=model_cls, max_samples=args.max_samples)
+    client = MnistClient(
+        client_id=args.id, model_cls=model_cls, max_samples=args.max_samples)
 
     fl.client.start_client(
         server_address=args.server_address,

@@ -20,3 +20,25 @@ results/
 
 # Native binaries
 *.so
+
+# Log files
+*.log
+
+# Markdown files (except SETUP_AND_USAGE.md)
+# Use: git add -f SETUP_AND_USAGE.md if needed
+mobile_client/FEDLEARN_INTEGRATION.md
+mobile_client/NATIVE_INTEGRATION.md
+mobile_client/README.md
+
+# Expo
+mobile_client/.expo/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Assets (if auto-generated)
+mobile_client/assets/
+
+# XML dumps
+*.xml

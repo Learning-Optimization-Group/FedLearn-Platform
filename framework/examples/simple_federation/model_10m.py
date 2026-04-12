@@ -5,7 +5,8 @@ import torch.nn.functional as F
 class BasicBlock(nn.Module):
     def __init__(self, in_ch, out_ch, stride=1):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_ch, out_ch, 3, stride=stride, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(
+            in_ch, out_ch, 3, stride=stride, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(out_ch)
         self.conv2 = nn.Conv2d(out_ch, out_ch, 3, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(out_ch)

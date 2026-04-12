@@ -56,6 +56,7 @@ class FedLearnClient {
   // Connection management
   void close();
   bool isConnected() const { return connected_; }
+  bool waitForConnected(int timeout_seconds = 5);
 
  private:
   void heartbeatLoop();

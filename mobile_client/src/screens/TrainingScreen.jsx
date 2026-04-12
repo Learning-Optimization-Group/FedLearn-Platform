@@ -46,6 +46,7 @@ const TrainingScreen = () => {
   const [trainingMode, setTrainingMode] = useState('fedavg');
   const [errorMsg, setErrorMsg] = useState('');
   const statusPollRef = useRef(null);
+  const logPollRef = useRef(null);
   const modelPathRef = useRef(null);
   const modelInfoRef = useRef(null);
   const lastSavedRoundRef = useRef(-1);
@@ -123,11 +124,29 @@ const TrainingScreen = () => {
 
     return () => {
       if (statusPollRef.current) clearInterval(statusPollRef.current);
+      if (logPollRef.current) clearInterval(logPollRef.current);
     };
+  }, [addLog]);
+
+  const drainNativeLogs = useCallback(async () => {
+    if (!NativeFedLearnCore?.getRecentLogs) return;
+    try {
+      const logsJson = await NativeFedLearnCore.getRecentLogs();
+      const entries = JSON.parse(logsJson);
+      for (const entry of entries) {
+        console.log('[Native]', entry);
+        addLog(entry);
+      }
+    } catch {
+      // ignore parse errors
+    }
   }, [addLog]);
 
   const startStatusPolling = useCallback(() => {
     if (statusPollRef.current) clearInterval(statusPollRef.current);
+    if (logPollRef.current) clearInterval(logPollRef.current);
+
+    logPollRef.current = setInterval(drainNativeLogs, 1500);
 
     statusPollRef.current = setInterval(async () => {
       try {
@@ -145,25 +164,26 @@ const TrainingScreen = () => {
         }
         if (status.error) setErrorMsg(status.error);
 
-        // Save model to library whenever a new round completes
         if (status.round > 0 && status.round !== lastSavedRoundRef.current) {
           lastSavedRoundRef.current = status.round;
           await saveModelToLibrary(status.round, status.accuracy, status.loss);
         }
 
         if (status.phase === 'stopped' || status.phase === 'error') {
-          // Final save with latest metrics on completion
           if (status.round > 0) {
             await saveModelToLibrary(status.round, status.accuracy, status.loss);
           }
           clearInterval(statusPollRef.current);
           statusPollRef.current = null;
+          clearInterval(logPollRef.current);
+          logPollRef.current = null;
+          await drainNativeLogs();
         }
       } catch {
         // polling error, ignore
       }
     }, 2000);
-  }, []);
+  }, [drainNativeLogs]);
 
   const handleConnect = async () => {
     if (!NativeFedLearnCore) {
@@ -175,16 +195,19 @@ const TrainingScreen = () => {
       addLog(`Connecting to ${serverAddress}...`);
       setTrainingStatus('connecting');
       const success = await NativeFedLearnCore.connect(serverAddress, clientId);
+      await drainNativeLogs();
       if (success) {
         setIsConnected(true);
         setTrainingStatus('connected');
-        addLog('Connected via native gRPC');
+        addLog('Connected and registered via native gRPC');
       } else {
         setTrainingStatus('error');
-        addLog('Connection failed');
-        Alert.alert('Connection Failed', 'Could not connect to server.');
+        addLog('Connection failed - check server address and that server is running');
+        Alert.alert('Connection Failed',
+          'Could not connect to server. Verify the IP:port is correct and the server is running.');
       }
     } catch (error) {
+      await drainNativeLogs();
       setTrainingStatus('error');
       addLog(`Connection error: ${error.message}`);
     }
@@ -195,6 +218,10 @@ const TrainingScreen = () => {
       if (statusPollRef.current) {
         clearInterval(statusPollRef.current);
         statusPollRef.current = null;
+      }
+      if (logPollRef.current) {
+        clearInterval(logPollRef.current);
+        logPollRef.current = null;
       }
       await NativeFedLearnCore.disconnect();
       setIsConnected(false);
@@ -269,6 +296,11 @@ const TrainingScreen = () => {
         clearInterval(statusPollRef.current);
         statusPollRef.current = null;
       }
+      if (logPollRef.current) {
+        clearInterval(logPollRef.current);
+        logPollRef.current = null;
+      }
+      await drainNativeLogs();
       setTrainingStatus('stopped');
       addLog('Training stopped');
     } catch (error) {

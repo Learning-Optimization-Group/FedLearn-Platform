@@ -22,6 +22,9 @@ export interface Spec extends TurboModule {
 
   // ZO config (Phase 8)
   setZOConfig(configJson: string): void;
+
+  // Log retrieval
+  getRecentLogs(): string;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('NativeFedLearnCore');

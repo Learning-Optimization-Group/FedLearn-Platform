@@ -338,6 +338,18 @@ bool FedLearnClient::submitGradientScalars(
   return res.received();
 }
 
+bool FedLearnClient::waitForConnected(int timeout_seconds) {
+  auto deadline = std::chrono::system_clock::now() +
+                  std::chrono::seconds(timeout_seconds);
+  bool ok = channel_->WaitForConnected(deadline);
+  if (!ok) {
+    log("FedLearnClient", "Channel failed to connect within " +
+        std::to_string(timeout_seconds) + "s");
+    connected_ = false;
+  }
+  return ok;
+}
+
 void FedLearnClient::close() {
   stopHeartbeat();
   connected_ = false;

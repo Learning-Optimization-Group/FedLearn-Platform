@@ -47,6 +47,9 @@ class NativeFedLearnCoreImpl {
   // ZO config
   void setZOConfig(const std::string& configJson);
 
+  // Log retrieval for JS-side display
+  std::string getRecentLogs();
+
  private:
   std::unique_ptr<ModelManager> model_mgr_;
   std::unique_ptr<FedLearnClient> grpc_client_;

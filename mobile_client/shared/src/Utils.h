@@ -12,6 +12,7 @@
 #include <iostream>
 #include <functional>
 #include <chrono>
+#include <deque>
 #ifdef ANDROID
 #include <android/log.h>
 #endif
@@ -37,11 +38,41 @@ struct TrainingConfig {
   Seeds2D seeds;
 };
 
+class LogBuffer {
+ public:
+  static LogBuffer& instance() {
+    static LogBuffer buf;
+    return buf;
+  }
+
+  void append(const std::string& entry) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    entries_.push_back(entry);
+    if (entries_.size() > kMaxEntries) {
+      entries_.pop_front();
+    }
+  }
+
+  std::vector<std::string> drain() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<std::string> out(entries_.begin(), entries_.end());
+    entries_.clear();
+    return out;
+  }
+
+ private:
+  LogBuffer() = default;
+  std::mutex mutex_;
+  std::deque<std::string> entries_;
+  static constexpr size_t kMaxEntries = 200;
+};
+
 inline void log(const std::string& tag, const std::string& msg) {
 #ifdef ANDROID
   __android_log_print(ANDROID_LOG_INFO, tag.c_str(), "%s", msg.c_str());
 #endif
   std::cout << "[" << tag << "] " << msg << std::endl;
+  LogBuffer::instance().append("[" + tag + "] " + msg);
 }
 
 inline torch::Tensor getFlatParams(FedLearnModule& model) {

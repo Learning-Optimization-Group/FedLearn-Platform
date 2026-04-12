@@ -56,23 +56,29 @@ def make_evaluate_fn(model_cls):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="FedLearn Server")
     parser.add_argument("--port", type=int, default=50051, help="Server port")
-    parser.add_argument("--num_rounds", type=int, default=5, help="Number of training rounds")
+    parser.add_argument("--num_rounds", type=int, default=5,
+                        help="Number of training rounds")
     parser.add_argument("--model", type=str, default="simple_cnn",
                         choices=list(MODEL_REGISTRY.keys()),
                         help="Model to use (simple_cnn, 1m, 10m, 100m)")
+    parser.add_argument("--min_clients", type=int, default=2,
+                        help="Minimum clients required per round for aggregation (default: 2)")
     args = parser.parse_args()
 
     model_cls = load_model_class(args.model)
     net = model_cls()
     n_params = sum(p.numel() for p in net.parameters())
-    print(f"Model: {args.model} ({n_params:,} params, {n_params * 4 / 1e6:.1f} MB)")
+    print(
+        f"Model: {args.model} ({n_params:,} params, {n_params * 4 / 1e6:.1f} MB)")
+    print(f"Clients per round: {args.min_clients}")
 
     initial_parameters = net.state_dict()
 
     strategy = fl.FedAvg(
         initial_parameters=initial_parameters,
         evaluate_fn=make_evaluate_fn(model_cls),
-        min_fit_clients=2,
+        min_fit_clients=args.min_clients,
+        clients_per_round=args.min_clients,
     )
 
     fl.server.start_server(

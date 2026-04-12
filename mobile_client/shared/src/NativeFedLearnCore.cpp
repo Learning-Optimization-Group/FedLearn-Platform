@@ -91,10 +91,28 @@ bool NativeFedLearnCoreImpl::connect(const std::string& serverAddress,
   try {
     grpc_client_ =
         std::make_unique<FedLearnClient>(serverAddress, clientId);
+
+    if (!grpc_client_->waitForConnected(5)) {
+      log("NativeFedLearnCore",
+          "Connection to " + serverAddress + " timed out after 5s");
+      grpc_client_.reset();
+      return false;
+    }
+
+    if (!grpc_client_->registerClient()) {
+      log("NativeFedLearnCore",
+          "Server rejected registration for " + clientId);
+      grpc_client_.reset();
+      return false;
+    }
+
+    log("NativeFedLearnCore",
+        "Connected and registered as " + clientId + " at " + serverAddress);
     return true;
   } catch (const std::exception& e) {
     log("NativeFedLearnCore",
         std::string("Connect failed: ") + e.what());
+    grpc_client_.reset();
     return false;
   }
 }
@@ -223,6 +241,19 @@ void NativeFedLearnCoreImpl::setZOConfig(const std::string& configJson) {
   log("NativeFedLearnCore",
       "ZO config: mu=" + std::to_string(zo_mu_) +
           " numPert=" + std::to_string(zo_num_pert_));
+}
+
+std::string NativeFedLearnCoreImpl::getRecentLogs() {
+  auto entries = LogBuffer::instance().drain();
+  if (entries.empty()) return "[]";
+
+  std::string json = "[";
+  for (size_t i = 0; i < entries.size(); ++i) {
+    if (i > 0) json += ",";
+    json += "\"" + jsonEscape(entries[i]) + "\"";
+  }
+  json += "]";
+  return json;
 }
 
 }  // namespace fedlearn
