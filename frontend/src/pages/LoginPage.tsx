@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../api/axiosConfig';
 import '../styles/AuthStyles.css';
+
+interface LoginResponse {
+    username: string;
+    email?: string;
+    accessToken: string;
+}
 
 const LoginPage: React.FC = () => {
     const [identifier, setIdentifier] = useState('');
@@ -11,10 +18,6 @@ const LoginPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const auth = useAuth();
-
-    const API_SERVER_ROOT = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8081/api`;
-    const endpointPath = '/auth/login';
-    const fullApiUrl = `${API_SERVER_ROOT}${endpointPath}`;
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -28,37 +31,30 @@ const LoginPage: React.FC = () => {
             return;
         }
 
-        const loginData = {
-            username: identifier,
-            password: password,
-        };
-
         try {
-            const response = await fetch(fullApiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify(loginData)
+            const response = await api.post<LoginResponse>('/auth/login', {
+                username: identifier,
+                password: password,
             });
 
-            if (response.ok) {
-                const responseData = await response.json();
+            const { accessToken, username, email } = response.data;
 
-                localStorage.setItem('jwtToken', responseData.accessToken);
-                auth.login({ username: responseData.username }, responseData.accessToken);
-
-                const from = (location.state as any)?.from?.pathname || "/dashboard";
-                navigate(from, { replace: true });
-            } else {
-                const responseData = await response.json();
-                setError(responseData.error || responseData.message || `Login failed: ${response.statusText}`);
+            if (!accessToken) {
+                setError('Login response is missing the access token. Please contact support.');
+                return;
             }
-        } catch (err) {
-            console.error('Login API call failed:', err);
-            setError('An error occurred during login. Please try again later.');
+
+            auth.login({ username, email }, accessToken);
+
+            const from = (location.state as any)?.from?.pathname || '/dashboard';
+            navigate(from, { replace: true });
+        } catch (err: any) {
+            const responseData = err?.response?.data;
+            setError(
+                responseData?.error ||
+                    responseData?.message ||
+                    'An error occurred during login. Please try again later.'
+            );
         } finally {
             setIsLoading(false);
         }
