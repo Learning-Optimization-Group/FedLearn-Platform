@@ -1,199 +1,81 @@
 ================================================================================
-File: fedlearn-desktop/README.md
+FedLearn Platform — LLM context dump: fedlearn-desktop
 ================================================================================
+Component path : fedlearn-desktop
+Generated at   : 2026-04-14 17:41 UTC
+Git branch     : feature/fedlearn-desktop-and-aws-orchestration
+Git commit     : 89b2cf5 (uncommitted changes present)
+Files included : 21 (config=3, source=16, tests=0, docs=2)
+Total lines    : 3,207
+Total size     : 91.6 KB
 
-```md
-# FedLearn Desktop
-
-> Docker-based Federated Learning Orchestrator for edge devices and GPU workstations.
-
-FedLearn Desktop is an Electron application that acts as a **system orchestrator** — it does not bundle PyTorch, CUDA, or the Python runtime. Instead, it controls the host's pre-installed Docker daemon to spin up `fedlearn-client` training containers with hardware-aware device mappings.
-
----
-
-## Prerequisites
-
-| Requirement | Notes |
-|---|---|
-| **Node.js** ≥ 18.x | For building and running the Electron app |
-| **Docker Engine** | Must be installed and running on the host |
-| **NVIDIA Container Toolkit** | Required for `discrete` GPU profile only |
-| **FedLearn Client Docker Image** | `fedlearn-client:latest` must be built/pulled locally |
-| **FedLearn Backend** | Spring Boot API running at `http://localhost:8081` (default) |
-
-### Building the Client Docker Image
-
-From the repository root:
-
-```bash
-docker build -t fedlearn-client:latest -f client-docker/Dockerfile .
-```
-
-For NVIDIA Jetson, use the L4T base image:
-
-```bash
-docker build -t fedlearn-client:latest \
-  --build-arg BASE_IMAGE=nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3 \
-  -f client-docker/Dockerfile .
-```
-
----
-
-## Development Setup
-
-```bash
-# 1. Install dependencies
-cd fedlearn-desktop
-npm install
-
-# 2. Start the dev environment (renderer + main + preload, concurrent)
-npm run dev
-
-# 3. In a separate terminal, launch Electron
-npm run dev:electron
-```
-
-The renderer dev server runs on `http://localhost:9000` with HMR. The Electron main process loads from this URL in development mode.
-
-### Environment Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `FEDLEARN_API_URL` | `http://localhost:8081/api` | Backend API base URL |
-| `NODE_ENV` | — | Set to `production` for packaged builds |
-
----
-
-## Production Build
-
-```bash
-# Build all three webpack targets (main + preload + renderer)
-npm run build
-
-# Package for current platform
-npm run package
-
-# Package for specific platforms
-npm run package:mac    # macOS (.dmg)
-npm run package:linux  # Linux (.deb + .rpm)
-npm run package:win    # Windows (.exe via NSIS)
-```
-
-### What the Production Build Does
-
-1. **Webpack** compiles Main, Preload, and Renderer bundles in production mode
-2. **TerserPlugin** with `drop_console: true` strips all `console.*` calls from Renderer + Preload bundles (prevents JWT/path leakage to DevTools)
-3. **electron-builder** packages the app with `asar` compression
-
----
-
-## Hardware Profile Guide
-
-The Electron app supports three hardware profiles that control how Docker containers access GPU resources:
-
-### Discrete GPU (`discrete`)
-
-For standard Linux/Windows workstations with NVIDIA GPUs (e.g., RTX 3090, A100).
-
-- **Docker flag**: `--gpus all` (via `DeviceRequests`)
-- **Requires**: NVIDIA Container Toolkit installed on the host
-- **Typical use**: Lab workstations, cloud VMs with GPU passthrough
-
-### Jetson SoC (`jetson`)
-
-For NVIDIA Jetson edge devices (Orin, Xavier, Nano) with integrated Tegra GPUs.
-
-- **Docker flag**: Direct device mounts (`/dev/nvhost-ctrl`, `/dev/nvhost-ctrl-gpu`, etc.)
-- **Critical**: The standard `--runtime nvidia` flag is **PROHIBITED** on Jetson — it searches for PCIe discrete GPU metadata in the kernel device tree and **hangs indefinitely**
-- **Requires**: L4T-based Docker image built with `BASE_IMAGE=nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3`
-- **Typical use**: Edge inference nodes, IoT deployments
-
-### CPU Only (`cpu`)
-
-For machines without GPU acceleration.
-
-- **Docker flag**: None (no GPU configuration)
-- **Typical use**: Development testing, non-GPU nodes, ARM devices
-
----
-
-## Security Architecture
-
-### Non-Negotiable Security Settings
-
-| Setting | Value | Enforced In |
-|---|---|---|
-| `nodeIntegration` | `false` | `main.ts` |
-| `contextIsolation` | `true` | `main.ts` |
-| `sandbox` | `true` | `main.ts` |
-| `remote` module | **Not used** | Project-wide |
-| CSP Headers | Set on every window | `main.ts` (session-level) |
-
-### IPC Security Model
-
-1. **Renderer** calls `window.fedLearnAPI.*` (exposed via `contextBridge`)
-2. **Preload** validates all inputs against explicit allowlists before forwarding
-3. **Main Process** re-validates inputs (defense-in-depth) before executing
-4. **Rejections** are logged via `electron-log`
-
-### JWT Containment
-
-- JWT is extracted from the backend's `Set-Cookie` header in Main Process
-- Encrypted using `safeStorage` (OS keychain) and stored via `electron-store`
-- Renderer **never** receives the token — only `{ success: boolean }` responses
-- `AuthService.getAuthHeader()` is available only to Main Process services
-
-### Console Stripping
-
-- TerserPlugin with `drop_console: true` is applied to Renderer + Preload bundles
-- Prevents accidental JWT, path, or config leakage to DevTools in production
-- Main Process retains `electron-log` transport for operational logging
-
----
-
-## Project Structure
-
-```
+Notes for the reader:
+  * Everything below is verbatim from this repo at the commit above.
+  * Generated protobuf stubs, build artefacts, lockfiles, and binaries are excluded.
+  * Markdown docs are included but may lag behind code — trust the source sections.
+  * Sensitive values in env/properties files are shown as [REDACTED].
+================================================================================
+-- TREE ------------------------------------------------------------------------
 fedlearn-desktop/
-├── src/
-│   ├── main/
-│   │   ├── main.ts               # BrowserWindow + CSP + app lifecycle
-│   │   ├── ipc.handlers.ts       # All ipcMain.handle registrations
-│   │   ├── docker.service.ts     # DockerService using dockerode
-│   │   └── auth.service.ts       # JWT storage + backend API calls
-│   ├── preload/
-│   │   └── preload.ts            # contextBridge API + input validation
-│   └── renderer/
-│       ├── App.tsx               # Main application layout
-│       ├── index.tsx             # React 18 entry point
-│       ├── index.html            # HTML template
-│       ├── styles.css            # Design system + global styles
-│       └── components/
-│           ├── HardwareSelector.tsx   # Hardware profile cards + config
-│           ├── LogPanel.tsx           # Plain-text log viewer
-│           ├── StatusIndicator.tsx    # Container status badge
-│           └── AuthModal.tsx          # Login modal
-├── webpack.main.config.js        # Webpack: electron-main
-├── webpack.renderer.config.js    # Webpack: renderer (web target)
-├── webpack.preload.config.js     # Webpack: electron-preload
-├── webpack.prod.config.js        # Webpack: production multi-config
-├── electron-builder.yml          # Cross-platform packaging
-├── tsconfig.json
-└── package.json
-```
+    CLAUDE.md
+    README.md
+    electron-builder.yml
+    package.json
+    tsconfig.json
+    webpack.main.config.js
+    webpack.preload.config.js
+    webpack.prod.config.js
+    webpack.renderer.config.js
+  src/main/
+      auth.service.ts
+      docker.service.ts
+      ipc.handlers.ts
+      main.ts
+  src/preload/
+      preload.ts
+  src/renderer/
+      App.tsx
+      index.tsx
+      styles.css
+  src/renderer/components/
+        AuthModal.tsx
+        HardwareSelector.tsx
+        LogPanel.tsx
+        StatusIndicator.tsx
 
----
+-- MANIFEST --------------------------------------------------------------------
+path                                                                        bytes   lines  section
+fedlearn-desktop/CLAUDE.md                                                    810      15  docs
+fedlearn-desktop/README.md                                                   6444     184  docs
+fedlearn-desktop/electron-builder.yml                                        1052      62  config
+fedlearn-desktop/package.json                                                2054      49  config
+fedlearn-desktop/src/main/auth.service.ts                                    6756     205  source
+fedlearn-desktop/src/main/docker.service.ts                                 11458     323  source
+fedlearn-desktop/src/main/ipc.handlers.ts                                    6958     177  source
+fedlearn-desktop/src/main/main.ts                                            5185     153  source
+fedlearn-desktop/src/preload/preload.ts                                      6335     190  source
+fedlearn-desktop/src/renderer/App.tsx                                        6615     209  source
+fedlearn-desktop/src/renderer/components/AuthModal.tsx                       4159     133  source
+fedlearn-desktop/src/renderer/components/HardwareSelector.tsx                6497     211  source
+fedlearn-desktop/src/renderer/components/LogPanel.tsx                        2537      74  source
+fedlearn-desktop/src/renderer/components/StatusIndicator.tsx                 1718      40  source
+fedlearn-desktop/src/renderer/index.tsx                                       595      20  source
+fedlearn-desktop/src/renderer/styles.css                                    16457     814  source
+fedlearn-desktop/tsconfig.json                                                792      35  config
+fedlearn-desktop/webpack.main.config.js                                       729      34  source
+fedlearn-desktop/webpack.preload.config.js                                    585      31  source
+fedlearn-desktop/webpack.prod.config.js                                      4503     188  source
+fedlearn-desktop/webpack.renderer.config.js                                  1531      60  source
 
-## License
-
-See the root [LICENSE](../LICENSE) file.
-```
+################################################################################
+# CONFIG & BUILD
+################################################################################
 
 ================================================================================
 File: fedlearn-desktop/electron-builder.yml
+Size: 1052 bytes | Lines: 62 | Section: config
 ================================================================================
-
-```yml
+```yaml
 appId: com.fedlearn.desktop
 productName: FedLearn Desktop
 copyright: Copyright © 2024 FedLearn Team
@@ -258,10 +140,11 @@ nsis:
   artifactName: "${productName}-${version}-Setup.exe"
 ```
 
+
 ================================================================================
 File: fedlearn-desktop/package.json
+Size: 2054 bytes | Lines: 49 | Section: config
 ================================================================================
-
 ```json
 {
   "name": "fedlearn-desktop",
@@ -314,10 +197,11 @@ File: fedlearn-desktop/package.json
 }
 ```
 
+
 ================================================================================
 File: fedlearn-desktop/tsconfig.json
+Size: 792 bytes | Lines: 35 | Section: config
 ================================================================================
-
 ```json
 {
   "compilerOptions": {
@@ -356,1081 +240,16 @@ File: fedlearn-desktop/tsconfig.json
 }
 ```
 
-================================================================================
-File: fedlearn-desktop/webpack.main.config.js
-================================================================================
 
-```js
-const path = require('path');
-
-module.exports = {
-  mode: 'development',
-  target: 'electron-main',
-  entry: './src/main/main.ts',
-  output: {
-    path: path.resolve(__dirname, 'dist/main'),
-    filename: 'main.js',
-  },
-  resolve: {
-    extensions: ['.ts', '.js', '.json'],
-  },
-  module: {
-    rules: [
-      {
-        test: /\.ts$/,
-        use: 'ts-loader',
-        exclude: /node_modules/,
-      },
-    ],
-  },
-  externals: {
-    // dockerode uses native bindings; keep as external require
-    dockerode: 'commonjs dockerode',
-    'electron-store': 'commonjs electron-store',
-    'electron-log': 'commonjs electron-log',
-    electron: 'commonjs electron',
-  },
-  node: {
-    __dirname: false,
-    __filename: false,
-  },
-};
-```
-
-================================================================================
-File: fedlearn-desktop/webpack.preload.config.js
-================================================================================
-
-```js
-const path = require('path');
-
-module.exports = {
-  mode: 'development',
-  target: 'electron-preload',
-  entry: './src/preload/preload.ts',
-  output: {
-    path: path.resolve(__dirname, 'dist/preload'),
-    filename: 'preload.js',
-  },
-  resolve: {
-    extensions: ['.ts', '.js'],
-  },
-  module: {
-    rules: [
-      {
-        test: /\.ts$/,
-        use: 'ts-loader',
-        exclude: /node_modules/,
-      },
-    ],
-  },
-  externals: {
-    electron: 'commonjs electron',
-    'electron-log': 'commonjs electron-log',
-  },
-  node: {
-    __dirname: false,
-    __filename: false,
-  },
-};
-```
-
-================================================================================
-File: fedlearn-desktop/webpack.prod.config.js
-================================================================================
-
-```js
-// Bypass Node 22+ SecurityError for html-webpack-plugin
-Object.defineProperty(global, 'localStorage', {
-  value: { getItem() {}, setItem() {}, removeItem() {} },
-  writable: true,
-});
-
-const path = require('path');
-const TerserPlugin = require('terser-webpack-plugin');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
-
-// =============================================================================
-// FedLearn Desktop — Production Webpack Configuration
-// =============================================================================
-// Builds all three Electron targets (main, preload, renderer) in production mode.
-// TerserPlugin with drop_console is applied to the Renderer and Preload bundles
-// to strip all console.* calls from the production binary, preventing JWT/path
-// leakage to Chromium DevTools (Section 5.3 of the deployment guide).
-// =============================================================================
-
-const terserWithConsoleStrip = new TerserPlugin({
-  terserOptions: {
-    compress: {
-      drop_console: true,
-      drop_debugger: true,
-      pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn'],
-    },
-    output: {
-      comments: false,
-    },
-  },
-  extractComments: false,
-});
-
-const terserMainProcess = new TerserPlugin({
-  terserOptions: {
-    compress: {
-      drop_debugger: true,
-      // Main process retains electron-log calls; console.* is NOT stripped
-      // because electron-log may internally use console as a transport fallback.
-    },
-    output: {
-      comments: false,
-    },
-  },
-  extractComments: false,
-});
-
-// --- Main Process ---
-const mainConfig = {
-  name: 'main',
-  mode: 'production',
-  target: 'electron-main',
-  entry: './src/main/main.ts',
-  output: {
-    path: path.resolve(__dirname, 'dist/main'),
-    filename: 'main.js',
-  },
-  resolve: {
-    extensions: ['.ts', '.js', '.json'],
-  },
-  module: {
-    rules: [
-      {
-        test: /\.ts$/,
-        use: 'ts-loader',
-        exclude: /node_modules/,
-      },
-    ],
-  },
-  externals: {
-    dockerode: 'commonjs dockerode',
-    'electron-store': 'commonjs electron-store',
-    'electron-log': 'commonjs electron-log',
-    electron: 'commonjs electron',
-  },
-  node: {
-    __dirname: false,
-    __filename: false,
-  },
-  optimization: {
-    minimize: true,
-    minimizer: [terserMainProcess],
-  },
-  devtool: false,
-};
-
-// --- Preload Script ---
-const preloadConfig = {
-  name: 'preload',
-  mode: 'production',
-  target: 'electron-preload',
-  entry: './src/preload/preload.ts',
-  output: {
-    path: path.resolve(__dirname, 'dist/preload'),
-    filename: 'preload.js',
-  },
-  resolve: {
-    extensions: ['.ts', '.js'],
-  },
-  module: {
-    rules: [
-      {
-        test: /\.ts$/,
-        use: 'ts-loader',
-        exclude: /node_modules/,
-      },
-    ],
-  },
-  externals: {
-    electron: 'commonjs electron',
-    'electron-log': 'commonjs electron-log',
-  },
-  node: {
-    __dirname: false,
-    __filename: false,
-  },
-  optimization: {
-    minimize: true,
-    minimizer: [terserWithConsoleStrip],
-  },
-  devtool: false,
-};
-
-// --- Renderer Process ---
-const rendererConfig = {
-  name: 'renderer',
-  mode: 'production',
-  target: 'web',
-  entry: './src/renderer/index.tsx',
-  output: {
-    path: path.resolve(__dirname, 'dist/renderer'),
-    filename: 'renderer.[contenthash].js',
-    publicPath: './',
-    clean: true,
-  },
-  resolve: {
-    extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
-  },
-  module: {
-    rules: [
-      {
-        test: /\.tsx?$/,
-        use: 'ts-loader',
-        exclude: /node_modules/,
-      },
-      {
-        test: /\.css$/,
-        use: ['style-loader', 'css-loader'],
-      },
-      {
-        test: /\.(png|svg|jpg|jpeg|gif|ico)$/i,
-        type: 'asset/resource',
-      },
-      {
-        test: /\.(woff|woff2|eot|ttf|otf)$/i,
-        type: 'asset/resource',
-      },
-    ],
-  },
-  plugins: [
-    new HtmlWebpackPlugin({
-      template: './src/renderer/index.html',
-      filename: 'index.html',
-      minify: {
-        collapseWhitespace: true,
-        removeComments: true,
-        removeRedundantAttributes: true,
-      },
-    }),
-  ],
-  optimization: {
-    minimize: true,
-    minimizer: [terserWithConsoleStrip],
-    splitChunks: {
-      chunks: 'all',
-      cacheGroups: {
-        vendor: {
-          test: /[\\/]node_modules[\\/]/,
-          name: 'vendor',
-          chunks: 'all',
-        },
-      },
-    },
-  },
-  devtool: false,
-};
-
-module.exports = [mainConfig, preloadConfig, rendererConfig];
-```
-
-================================================================================
-File: fedlearn-desktop/webpack.renderer.config.js
-================================================================================
-
-```js
-// Bypass Node 22+ SecurityError for html-webpack-plugin
-Object.defineProperty(global, 'localStorage', {
-  value: { getItem() {}, setItem() {}, removeItem() {} },
-  writable: true,
-});
-
-const path = require('path');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
-
-module.exports = {
-  mode: 'development',
-  target: 'web',
-  entry: './src/renderer/index.tsx',
-  output: {
-    path: path.resolve(__dirname, 'dist/renderer'),
-    filename: 'renderer.js',
-    publicPath: '/',
-  },
-  resolve: {
-    extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
-  },
-  module: {
-    rules: [
-      {
-        test: /\.tsx?$/,
-        use: 'ts-loader',
-        exclude: /node_modules/,
-      },
-      {
-        test: /\.css$/,
-        use: ['style-loader', 'css-loader'],
-      },
-      {
-        test: /\.(png|svg|jpg|jpeg|gif|ico)$/i,
-        type: 'asset/resource',
-      },
-      {
-        test: /\.(woff|woff2|eot|ttf|otf)$/i,
-        type: 'asset/resource',
-      },
-    ],
-  },
-  plugins: [
-    new HtmlWebpackPlugin({
-      template: './src/renderer/index.html',
-      filename: 'index.html',
-    }),
-  ],
-  devServer: {
-    port: 9000,
-    hot: true,
-    static: {
-      directory: path.resolve(__dirname, 'dist/renderer'),
-    },
-    headers: {
-      'Content-Security-Policy':
-        "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws://localhost:9000 http://localhost:9000;",
-    },
-  },
-};
-```
-
-================================================================================
-File: fedlearn-desktop/src/renderer/App.tsx
-================================================================================
-
-```tsx
-// =============================================================================
-// FedLearn Desktop — Main Application Component
-// =============================================================================
-
-import React, { useState, useEffect, useCallback } from 'react';
-import AuthModal from './components/AuthModal';
-import HardwareSelector from './components/HardwareSelector';
-import LogPanel from './components/LogPanel';
-import StatusIndicator from './components/StatusIndicator';
-import './styles.css';
-
-// Type declaration for the secure preload API
-declare global {
-  interface Window {
-    fedLearnAPI: {
-      startTraining: (config: {
-        hardwareProfile: string;
-        projectId: string;
-        serverAddress: string;
-        partitionId: string;
-      }) => Promise<{ success: boolean; error?: string }>;
-      stopTraining: () => Promise<{ success: boolean; error?: string }>;
-      getDockerStatus: () => Promise<{ success: boolean; status?: string }>;
-      login: (username: string, password: string) => Promise<{ success: boolean }>;
-      logout: () => Promise<{ success: boolean }>;
-      checkAuth: () => Promise<{ success: boolean; authenticated?: boolean }>;
-      onTrainingLog: (callback: (logLine: string) => void) => void;
-      removeTrainingLogListener: () => void;
-    };
-  }
-}
-
-export type ContainerStatus = 'idle' | 'pulling' | 'running' | 'completed' | 'error' | 'restarting' | 'paused' | 'stopped';
-
-const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const [containerStatus, setContainerStatus] = useState<ContainerStatus>('idle');
-  const [logs, setLogs] = useState<string[]>([]);
-
-  // Check authentication on mount
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const result = await window.fedLearnAPI.checkAuth();
-        setIsAuthenticated(result.authenticated === true);
-      } catch {
-        setIsAuthenticated(false);
-      } finally {
-        setIsAuthChecking(false);
-      }
-    };
-    checkAuth();
-  }, []);
-
-  // Subscribe to container logs
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    window.fedLearnAPI.onTrainingLog((logLine: string) => {
-      setLogs((prev) => [...prev, logLine]);
-    });
-
-    return () => {
-      window.fedLearnAPI.removeTrainingLogListener();
-    };
-  }, [isAuthenticated]);
-
-  // Poll container status
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const pollStatus = async () => {
-      try {
-        const result = await window.fedLearnAPI.getDockerStatus();
-        if (result.success && result.status) {
-          setContainerStatus(result.status as ContainerStatus);
-        }
-      } catch {
-        // Silently handle polling failures
-      }
-    };
-
-    pollStatus();
-    const interval = setInterval(pollStatus, 3000);
-    return () => clearInterval(interval);
-  }, [isAuthenticated]);
-
-  const handleLogin = useCallback(() => {
-    setIsAuthenticated(true);
-  }, []);
-
-  const handleLogout = useCallback(async () => {
-    await window.fedLearnAPI.logout();
-    setIsAuthenticated(false);
-    setLogs([]);
-    setContainerStatus('idle');
-  }, []);
-
-  const handleStartTraining = useCallback(
-    async (config: {
-      hardwareProfile: string;
-      projectId: string;
-      serverAddress: string;
-      partitionId: string;
-    }) => {
-      setLogs([]);
-      setContainerStatus('pulling');
-      setLogs((prev) => [...prev, '[System] Starting training container...\n']);
-
-      const result = await window.fedLearnAPI.startTraining(config);
-
-      if (!result.success) {
-        setContainerStatus('error');
-        setLogs((prev) => [...prev, `[System] Failed to start: ${result.error || 'Unknown error'}\n`]);
-      }
-    },
-    [],
-  );
-
-  const handleStopTraining = useCallback(async () => {
-    setLogs((prev) => [...prev, '[System] Stopping training container...\n']);
-    const result = await window.fedLearnAPI.stopTraining();
-
-    if (result.success) {
-      setContainerStatus('idle');
-      setLogs((prev) => [...prev, '[System] Container stopped.\n']);
-    } else {
-      setLogs((prev) => [...prev, `[System] Failed to stop: ${result.error || 'Unknown error'}\n`]);
-    }
-  }, []);
-
-  // Loading state
-  if (isAuthChecking) {
-    return (
-      <div className="app-container">
-        <div className="loading-screen">
-          <div className="loading-spinner" />
-          <p className="loading-text">Initializing FedLearn Desktop...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Auth gate
-  if (!isAuthenticated) {
-    return (
-      <div className="app-container">
-        <AuthModal onLoginSuccess={handleLogin} />
-      </div>
-    );
-  }
-
-  // Main dashboard
-  return (
-    <div className="app-container">
-      {/* Header */}
-      <header className="app-header">
-        <div className="header-left">
-          <div className="app-logo">
-            <span className="logo-icon">◆</span>
-            <h1 className="app-title">FedLearn Desktop</h1>
-          </div>
-          <StatusIndicator status={containerStatus} />
-        </div>
-        <div className="header-right">
-          <button className="btn btn-ghost" onClick={handleLogout} id="logout-button">
-            Sign Out
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="app-main">
-        <div className="main-grid">
-          {/* Left Panel: Configuration */}
-          <section className="panel config-panel">
-            <div className="panel-header">
-              <h2 className="panel-title">Training Configuration</h2>
-              <span className="panel-badge">Docker Orchestration</span>
-            </div>
-            <HardwareSelector
-              onStart={handleStartTraining}
-              onStop={handleStopTraining}
-              isRunning={containerStatus === 'running' || containerStatus === 'pulling'}
-            />
-          </section>
-
-          {/* Right Panel: Logs */}
-          <section className="panel log-panel-container">
-            <div className="panel-header">
-              <h2 className="panel-title">Container Output</h2>
-              <span className="log-count">{logs.length} lines</span>
-            </div>
-            <LogPanel logs={logs} />
-          </section>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="app-footer">
-        <span className="footer-text">FedLearn Platform — Privacy-Preserving Federated Learning</span>
-        <span className="footer-version">v1.0.0</span>
-      </footer>
-    </div>
-  );
-};
-
-export default App;
-```
-
-================================================================================
-File: fedlearn-desktop/src/renderer/index.tsx
-================================================================================
-
-```tsx
-// =============================================================================
-// FedLearn Desktop — Renderer Entry Point
-// =============================================================================
-
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './App';
-
-const rootElement = document.getElementById('root');
-
-if (!rootElement) {
-  throw new Error('Failed to find root element. Ensure index.html contains <div id="root"></div>');
-}
-
-const root = createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
-```
-
-================================================================================
-File: fedlearn-desktop/src/renderer/components/AuthModal.tsx
-================================================================================
-
-```tsx
-// =============================================================================
-// FedLearn Desktop — AuthModal Component
-// =============================================================================
-// Login form that calls window.fedLearnAPI.login().
-// JWT is confined to Main Process — this component only receives { success }.
-// =============================================================================
-
-import React, { useState, useCallback } from 'react';
-
-interface AuthModalProps {
-  onLoginSuccess: () => void;
-}
-
-const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      setError('');
-
-      if (!username.trim() || !password.trim()) {
-        setError('Please enter both username and password.');
-        return;
-      }
-
-      setIsLoading(true);
-
-      try {
-        const result = await window.fedLearnAPI.login(username, password);
-
-        if (result.success) {
-          onLoginSuccess();
-        } else {
-          setError('Invalid credentials. Please try again.');
-        }
-      } catch {
-        setError('Connection failed. Is the backend running?');
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [username, password, onLoginSuccess],
-  );
-
-  return (
-    <div className="auth-overlay">
-      <div className="auth-modal">
-        {/* Decorative background elements */}
-        <div className="auth-glow auth-glow-1" />
-        <div className="auth-glow auth-glow-2" />
-
-        <div className="auth-content">
-          {/* Logo */}
-          <div className="auth-logo">
-            <span className="auth-logo-icon">◆</span>
-            <h1 className="auth-title">FedLearn</h1>
-            <p className="auth-subtitle">Privacy-Preserving Federated Learning</p>
-          </div>
-
-          {/* Login Form */}
-          <form className="auth-form" onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label className="form-label" htmlFor="auth-username">
-                Username
-              </label>
-              <input
-                id="auth-username"
-                className="form-input"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
-                autoComplete="username"
-                disabled={isLoading}
-                maxLength={256}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="auth-password">
-                Password
-              </label>
-              <input
-                id="auth-password"
-                className="form-input"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                autoComplete="current-password"
-                disabled={isLoading}
-                maxLength={256}
-              />
-            </div>
-
-            {error && (
-              <div className="auth-error" role="alert">
-                <span className="error-icon">⚠</span>
-                {error}
-              </div>
-            )}
-
-            <button
-              id="auth-submit"
-              className="btn btn-primary btn-full"
-              type="submit"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <span className="btn-loading">
-                  <span className="loading-spinner-sm" />
-                  Authenticating...
-                </span>
-              ) : (
-                'Sign In'
-              )}
-            </button>
-          </form>
-
-          <p className="auth-footer-text">
-            Secure authentication via encrypted IPC bridge
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default AuthModal;
-```
-
-================================================================================
-File: fedlearn-desktop/src/renderer/components/HardwareSelector.tsx
-================================================================================
-
-```tsx
-// =============================================================================
-// FedLearn Desktop — HardwareSelector Component
-// =============================================================================
-// Card-based hardware profile selector with input fields for training config.
-// The three profiles (discrete, jetson, cpu) map directly to the Docker
-// runtime configurations specified in Section 4.2 of the deployment guide.
-// =============================================================================
-
-import React, { useState, useCallback } from 'react';
-
-interface HardwareSelectorProps {
-  onStart: (config: {
-    hardwareProfile: string;
-    projectId: string;
-    serverAddress: string;
-    partitionId: string;
-  }) => void;
-  onStop: () => void;
-  isRunning: boolean;
-}
-
-interface HardwareProfileOption {
-  id: string;
-  label: string;
-  description: string;
-  icon: string;
-  dockerConfig: string;
-}
-
-const HARDWARE_PROFILES: HardwareProfileOption[] = [
-  {
-    id: 'discrete',
-    label: 'Discrete GPU',
-    description: 'NVIDIA workstation with dedicated PCIe GPU. Uses --gpus all via DeviceRequests.',
-    icon: '🖥️',
-    dockerConfig: 'DeviceRequests: --gpus all',
-  },
-  {
-    id: 'jetson',
-    label: 'Jetson SoC',
-    description: 'NVIDIA Jetson edge device with integrated Tegra GPU. Uses direct /dev/nvhost-* mounts.',
-    icon: '🔧',
-    dockerConfig: 'Devices: /dev/nvhost-ctrl, nvhost-ctrl-gpu, ...',
-  },
-  {
-    id: 'cpu',
-    label: 'CPU Only',
-    description: 'Standard CPU training without GPU acceleration. Compatible with any hardware.',
-    icon: '💻',
-    dockerConfig: 'No GPU configuration',
-  },
-];
-
-const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, isRunning }) => {
-  const [selectedProfile, setSelectedProfile] = useState('discrete');
-  const [projectId, setProjectId] = useState('');
-  const [serverAddress, setServerAddress] = useState('');
-  const [partitionId, setPartitionId] = useState('0');
-  const [validationError, setValidationError] = useState('');
-
-  const handleStart = useCallback(() => {
-    setValidationError('');
-
-    if (!projectId.trim()) {
-      setValidationError('Project ID is required.');
-      return;
-    }
-
-    if (!serverAddress.trim()) {
-      setValidationError('Server address is required.');
-      return;
-    }
-
-    if (!partitionId.trim()) {
-      setValidationError('Partition ID is required.');
-      return;
-    }
-
-    // Pattern validation (matches preload allowlists)
-    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(projectId)) {
-      setValidationError('Project ID must be alphanumeric (max 128 chars).');
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9._:/-]{1,256}$/.test(serverAddress)) {
-      setValidationError('Invalid server address format.');
-      return;
-    }
-
-    if (!/^[0-9]{1,10}$/.test(partitionId)) {
-      setValidationError('Partition ID must be a number.');
-      return;
-    }
-
-    onStart({
-      hardwareProfile: selectedProfile,
-      projectId: projectId.trim(),
-      serverAddress: serverAddress.trim(),
-      partitionId: partitionId.trim(),
-    });
-  }, [selectedProfile, projectId, serverAddress, partitionId, onStart]);
-
-  return (
-    <div className="hardware-selector">
-      {/* Hardware Profile Cards */}
-      <div className="profile-cards">
-        {HARDWARE_PROFILES.map((profile) => (
-          <button
-            key={profile.id}
-            id={`profile-${profile.id}`}
-            className={`profile-card ${selectedProfile === profile.id ? 'profile-card-active' : ''}`}
-            onClick={() => setSelectedProfile(profile.id)}
-            disabled={isRunning}
-            type="button"
-          >
-            <span className="profile-icon">{profile.icon}</span>
-            <span className="profile-label">{profile.label}</span>
-            <span className="profile-desc">{profile.description}</span>
-            <span className="profile-docker">{profile.dockerConfig}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Configuration Inputs */}
-      <div className="config-inputs">
-        <div className="form-group">
-          <label className="form-label" htmlFor="config-project-id">
-            Project ID
-          </label>
-          <input
-            id="config-project-id"
-            className="form-input"
-            type="text"
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            placeholder="e.g., cardiac-ecg-001"
-            disabled={isRunning}
-            maxLength={128}
-          />
-        </div>
-
-        <div className="form-group">
-          <label className="form-label" htmlFor="config-server-address">
-            Server Address
-          </label>
-          <input
-            id="config-server-address"
-            className="form-input"
-            type="text"
-            value={serverAddress}
-            onChange={(e) => setServerAddress(e.target.value)}
-            placeholder="e.g., 192.168.1.100:8080"
-            disabled={isRunning}
-            maxLength={256}
-          />
-        </div>
-
-        <div className="form-group">
-          <label className="form-label" htmlFor="config-partition-id">
-            Partition ID
-          </label>
-          <input
-            id="config-partition-id"
-            className="form-input"
-            type="text"
-            value={partitionId}
-            onChange={(e) => setPartitionId(e.target.value)}
-            placeholder="e.g., 0"
-            disabled={isRunning}
-            maxLength={10}
-          />
-        </div>
-      </div>
-
-      {/* Validation Error */}
-      {validationError && (
-        <div className="validation-error" role="alert">
-          <span className="error-icon">⚠</span>
-          {validationError}
-        </div>
-      )}
-
-      {/* Action Buttons */}
-      <div className="action-buttons">
-        {!isRunning ? (
-          <button
-            id="start-training-button"
-            className="btn btn-primary btn-full"
-            onClick={handleStart}
-            type="button"
-          >
-            <span className="btn-icon">▶</span>
-            Start Training
-          </button>
-        ) : (
-          <button
-            id="stop-training-button"
-            className="btn btn-danger btn-full"
-            onClick={onStop}
-            type="button"
-          >
-            <span className="btn-icon">■</span>
-            Stop Training
-          </button>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default HardwareSelector;
-```
-
-================================================================================
-File: fedlearn-desktop/src/renderer/components/LogPanel.tsx
-================================================================================
-
-```tsx
-// =============================================================================
-// FedLearn Desktop — LogPanel Component
-// =============================================================================
-// SECURITY: Renders plain text only — no HTML from container output.
-// No dangerouslySetInnerHTML. No innerHTML. All log lines are rendered
-// as React text nodes inside <pre> elements to guarantee XSS safety.
-// =============================================================================
-
-import React, { useEffect, useRef } from 'react';
-
-interface LogPanelProps {
-  logs: string[];
-}
-
-const LogPanel: React.FC<LogPanelProps> = ({ logs }) => {
-  const logEndRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isAutoScrollRef = useRef(true);
-
-  // Detect if user has scrolled up (disable auto-scroll)
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      // User is "at bottom" if within 50px of the end
-      isAutoScrollRef.current = scrollHeight - scrollTop - clientHeight < 50;
-    };
-
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  // Auto-scroll to bottom when new logs arrive (only if user hasn't scrolled up)
-  useEffect(() => {
-    if (isAutoScrollRef.current && logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [logs]);
-
-  if (logs.length === 0) {
-    return (
-      <div className="log-panel log-panel-empty" ref={containerRef}>
-        <div className="log-empty-state">
-          <span className="log-empty-icon">📋</span>
-          <p className="log-empty-text">
-            No container output yet. Start a training session to see real-time logs.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="log-panel" ref={containerRef}>
-      <pre className="log-content">
-        {/*
-          SECURITY: Each log line is rendered as a plain text node.
-          React's default behavior escapes all content — no HTML is interpreted.
-          This prevents any XSS payload from container output from executing.
-        */}
-        {logs.map((line, index) => (
-          <span key={index} className="log-line">
-            {line}
-          </span>
-        ))}
-      </pre>
-      <div ref={logEndRef} />
-    </div>
-  );
-};
-
-export default LogPanel;
-```
-
-================================================================================
-File: fedlearn-desktop/src/renderer/components/StatusIndicator.tsx
-================================================================================
-
-```tsx
-// =============================================================================
-// FedLearn Desktop — StatusIndicator Component
-// =============================================================================
-// Visual status badge showing the current Docker container state.
-// Animated pulse for active states (running, pulling).
-// =============================================================================
-
-import React from 'react';
-import { ContainerStatus } from '../App';
-
-interface StatusIndicatorProps {
-  status: ContainerStatus;
-}
-
-const STATUS_CONFIG: Record<
-  ContainerStatus,
-  { label: string; colorClass: string; animate: boolean }
-> = {
-  idle: { label: 'Idle', colorClass: 'status-idle', animate: false },
-  pulling: { label: 'Pulling Image', colorClass: 'status-pulling', animate: true },
-  running: { label: 'Training', colorClass: 'status-running', animate: true },
-  completed: { label: 'Completed', colorClass: 'status-completed', animate: false },
-  error: { label: 'Error', colorClass: 'status-error', animate: false },
-  restarting: { label: 'Restarting', colorClass: 'status-pulling', animate: true },
-  paused: { label: 'Paused', colorClass: 'status-idle', animate: false },
-  stopped: { label: 'Stopped', colorClass: 'status-idle', animate: false },
-};
-
-const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status }) => {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.idle;
-
-  return (
-    <div className={`status-indicator ${config.colorClass}`} id="status-indicator">
-      <span className={`status-dot ${config.animate ? 'status-dot-pulse' : ''}`} />
-      <span className="status-label">{config.label}</span>
-    </div>
-  );
-};
-
-export default StatusIndicator;
-```
+################################################################################
+# SOURCE
+################################################################################
 
 ================================================================================
 File: fedlearn-desktop/src/main/auth.service.ts
+Size: 6756 bytes | Lines: 205 | Section: source
 ================================================================================
-
-```ts
+```typescript
 // =============================================================================
 // FedLearn Desktop — Auth Service
 // =============================================================================
@@ -1638,11 +457,12 @@ export class AuthService {
 }
 ```
 
+
 ================================================================================
 File: fedlearn-desktop/src/main/docker.service.ts
+Size: 11458 bytes | Lines: 323 | Section: source
 ================================================================================
-
-```ts
+```typescript
 // =============================================================================
 // FedLearn Desktop — Docker Service
 // =============================================================================
@@ -1679,7 +499,9 @@ const JETSON_DEVICE_MOUNTS: Docker.DeviceMapping[] = [
 ];
 
 const CONTAINER_NAME = 'fedlearn-training-client';
-const DOCKER_IMAGE = 'fedlearn-client:latest';
+// Pin to an explicit version tag for reproducibility; override per-environment with FEDLEARN_CLIENT_IMAGE.
+const DEFAULT_DOCKER_IMAGE = 'fedlearn-client:0.1.0';
+const DOCKER_IMAGE = process.env.FEDLEARN_CLIENT_IMAGE || DEFAULT_DOCKER_IMAGE;
 
 export class DockerService {
   private docker: Docker;
@@ -1966,11 +788,12 @@ export class DockerService {
 }
 ```
 
+
 ================================================================================
 File: fedlearn-desktop/src/main/ipc.handlers.ts
+Size: 6958 bytes | Lines: 177 | Section: source
 ================================================================================
-
-```ts
+```typescript
 // =============================================================================
 // FedLearn Desktop — IPC Handler Registrations
 // =============================================================================
@@ -2150,11 +973,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 }
 ```
 
+
 ================================================================================
 File: fedlearn-desktop/src/main/main.ts
+Size: 5185 bytes | Lines: 153 | Section: source
 ================================================================================
-
-```ts
+```typescript
 // =============================================================================
 // FedLearn Desktop — Main Process Entry Point
 // =============================================================================
@@ -2210,6 +1034,19 @@ function createWindow(): void {
   // ========== Content Security Policy ==========
   // Applied to every response via session-level header injection.
   // This is a defense-in-depth layer on top of contextIsolation.
+  //
+  // connect-src must explicitly list backend API origins. Under a packaged file:// origin,
+  // 'self' does NOT resolve to the API host, so without these entries every XHR/fetch/WebSocket
+  // to the backend is blocked. FEDLEARN_API_ORIGINS can override at runtime (comma-separated).
+  const apiOriginsFromEnv = (process.env.FEDLEARN_API_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const defaultApiOrigins = isDev
+    ? ['http://localhost:8081', 'ws://localhost:8081', 'http://localhost:9000', 'ws://localhost:9000']
+    : [];
+  const apiConnectSrc = [...defaultApiOrigins, ...apiOriginsFromEnv].join(' ');
+
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
@@ -2221,7 +1058,7 @@ function createWindow(): void {
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "font-src 'self' https://fonts.gstatic.com",
             "img-src 'self' data:",
-            "connect-src 'self'",
+            `connect-src 'self' ${apiConnectSrc}`.trim(),
             "frame-src 'none'",
             "object-src 'none'",
             "base-uri 'self'",
@@ -2297,11 +1134,12 @@ app.on('web-contents-created', (_event, contents) => {
 app.disableHardwareAcceleration();
 ```
 
+
 ================================================================================
 File: fedlearn-desktop/src/preload/preload.ts
+Size: 6335 bytes | Lines: 190 | Section: source
 ================================================================================
-
-```ts
+```typescript
 // =============================================================================
 // FedLearn Desktop — Preload Script (contextBridge)
 // =============================================================================
@@ -2492,5 +1330,2126 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
     ipcRenderer.removeAllListeners('docker:training-log');
   },
 });
+```
+
+
+================================================================================
+File: fedlearn-desktop/src/renderer/App.tsx
+Size: 6615 bytes | Lines: 209 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Desktop — Main Application Component
+// =============================================================================
+
+import React, { useState, useEffect, useCallback } from 'react';
+import AuthModal from './components/AuthModal';
+import HardwareSelector from './components/HardwareSelector';
+import LogPanel from './components/LogPanel';
+import StatusIndicator from './components/StatusIndicator';
+import './styles.css';
+
+// Type declaration for the secure preload API
+declare global {
+  interface Window {
+    fedLearnAPI: {
+      startTraining: (config: {
+        hardwareProfile: string;
+        projectId: string;
+        serverAddress: string;
+        partitionId: string;
+      }) => Promise<{ success: boolean; error?: string }>;
+      stopTraining: () => Promise<{ success: boolean; error?: string }>;
+      getDockerStatus: () => Promise<{ success: boolean; status?: string }>;
+      login: (username: string, password: string) => Promise<{ success: boolean }>;
+      logout: () => Promise<{ success: boolean }>;
+      checkAuth: () => Promise<{ success: boolean; authenticated?: boolean }>;
+      onTrainingLog: (callback: (logLine: string) => void) => void;
+      removeTrainingLogListener: () => void;
+    };
+  }
+}
+
+export type ContainerStatus = 'idle' | 'pulling' | 'running' | 'completed' | 'error' | 'restarting' | 'paused' | 'stopped';
+
+const App: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [containerStatus, setContainerStatus] = useState<ContainerStatus>('idle');
+  const [logs, setLogs] = useState<string[]>([]);
+
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const result = await window.fedLearnAPI.checkAuth();
+        setIsAuthenticated(result.authenticated === true);
+      } catch {
+        setIsAuthenticated(false);
+      } finally {
+        setIsAuthChecking(false);
+      }
+    };
+    checkAuth();
+  }, []);
+
+  // Subscribe to container logs
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    window.fedLearnAPI.onTrainingLog((logLine: string) => {
+      setLogs((prev) => [...prev, logLine]);
+    });
+
+    return () => {
+      window.fedLearnAPI.removeTrainingLogListener();
+    };
+  }, [isAuthenticated]);
+
+  // Poll container status
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const pollStatus = async () => {
+      try {
+        const result = await window.fedLearnAPI.getDockerStatus();
+        if (result.success && result.status) {
+          setContainerStatus(result.status as ContainerStatus);
+        }
+      } catch {
+        // Silently handle polling failures
+      }
+    };
+
+    pollStatus();
+    const interval = setInterval(pollStatus, 3000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
+  const handleLogin = useCallback(() => {
+    setIsAuthenticated(true);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    await window.fedLearnAPI.logout();
+    setIsAuthenticated(false);
+    setLogs([]);
+    setContainerStatus('idle');
+  }, []);
+
+  const handleStartTraining = useCallback(
+    async (config: {
+      hardwareProfile: string;
+      projectId: string;
+      serverAddress: string;
+      partitionId: string;
+    }) => {
+      setLogs([]);
+      setContainerStatus('pulling');
+      setLogs((prev) => [...prev, '[System] Starting training container...\n']);
+
+      const result = await window.fedLearnAPI.startTraining(config);
+
+      if (!result.success) {
+        setContainerStatus('error');
+        setLogs((prev) => [...prev, `[System] Failed to start: ${result.error || 'Unknown error'}\n`]);
+      }
+    },
+    [],
+  );
+
+  const handleStopTraining = useCallback(async () => {
+    setLogs((prev) => [...prev, '[System] Stopping training container...\n']);
+    const result = await window.fedLearnAPI.stopTraining();
+
+    if (result.success) {
+      setContainerStatus('idle');
+      setLogs((prev) => [...prev, '[System] Container stopped.\n']);
+    } else {
+      setLogs((prev) => [...prev, `[System] Failed to stop: ${result.error || 'Unknown error'}\n`]);
+    }
+  }, []);
+
+  // Loading state
+  if (isAuthChecking) {
+    return (
+      <div className="app-container">
+        <div className="loading-screen">
+          <div className="loading-spinner" />
+          <p className="loading-text">Initializing FedLearn Desktop...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Auth gate
+  if (!isAuthenticated) {
+    return (
+      <div className="app-container">
+        <AuthModal onLoginSuccess={handleLogin} />
+      </div>
+    );
+  }
+
+  // Main dashboard
+  return (
+    <div className="app-container">
+      {/* Header */}
+      <header className="app-header">
+        <div className="header-left">
+          <div className="app-logo">
+            <span className="logo-icon">◆</span>
+            <h1 className="app-title">FedLearn Desktop</h1>
+          </div>
+          <StatusIndicator status={containerStatus} />
+        </div>
+        <div className="header-right">
+          <button className="btn btn-ghost" onClick={handleLogout} id="logout-button">
+            Sign Out
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="app-main">
+        <div className="main-grid">
+          {/* Left Panel: Configuration */}
+          <section className="panel config-panel">
+            <div className="panel-header">
+              <h2 className="panel-title">Training Configuration</h2>
+              <span className="panel-badge">Docker Orchestration</span>
+            </div>
+            <HardwareSelector
+              onStart={handleStartTraining}
+              onStop={handleStopTraining}
+              isRunning={containerStatus === 'running' || containerStatus === 'pulling'}
+            />
+          </section>
+
+          {/* Right Panel: Logs */}
+          <section className="panel log-panel-container">
+            <div className="panel-header">
+              <h2 className="panel-title">Container Output</h2>
+              <span className="log-count">{logs.length} lines</span>
+            </div>
+            <LogPanel logs={logs} />
+          </section>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="app-footer">
+        <span className="footer-text">FedLearn Platform — Privacy-Preserving Federated Learning</span>
+        <span className="footer-version">v1.0.0</span>
+      </footer>
+    </div>
+  );
+};
+
+export default App;
+```
+
+
+================================================================================
+File: fedlearn-desktop/src/renderer/components/AuthModal.tsx
+Size: 4159 bytes | Lines: 133 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Desktop — AuthModal Component
+// =============================================================================
+// Login form that calls window.fedLearnAPI.login().
+// JWT is confined to Main Process — this component only receives { success }.
+// =============================================================================
+
+import React, { useState, useCallback } from 'react';
+
+interface AuthModalProps {
+  onLoginSuccess: () => void;
+}
+
+const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      setError('');
+
+      if (!username.trim() || !password.trim()) {
+        setError('Please enter both username and password.');
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const result = await window.fedLearnAPI.login(username, password);
+
+        if (result.success) {
+          onLoginSuccess();
+        } else {
+          setError('Invalid credentials. Please try again.');
+        }
+      } catch {
+        setError('Connection failed. Is the backend running?');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [username, password, onLoginSuccess],
+  );
+
+  return (
+    <div className="auth-overlay">
+      <div className="auth-modal">
+        {/* Decorative background elements */}
+        <div className="auth-glow auth-glow-1" />
+        <div className="auth-glow auth-glow-2" />
+
+        <div className="auth-content">
+          {/* Logo */}
+          <div className="auth-logo">
+            <span className="auth-logo-icon">◆</span>
+            <h1 className="auth-title">FedLearn</h1>
+            <p className="auth-subtitle">Privacy-Preserving Federated Learning</p>
+          </div>
+
+          {/* Login Form */}
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="auth-username">
+                Username
+              </label>
+              <input
+                id="auth-username"
+                className="form-input"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your username"
+                autoComplete="username"
+                disabled={isLoading}
+                maxLength={256}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="auth-password">
+                Password
+              </label>
+              <input
+                id="auth-password"
+                className="form-input"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                disabled={isLoading}
+                maxLength={256}
+              />
+            </div>
+
+            {error && (
+              <div className="auth-error" role="alert">
+                <span className="error-icon">⚠</span>
+                {error}
+              </div>
+            )}
+
+            <button
+              id="auth-submit"
+              className="btn btn-primary btn-full"
+              type="submit"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <span className="btn-loading">
+                  <span className="loading-spinner-sm" />
+                  Authenticating...
+                </span>
+              ) : (
+                'Sign In'
+              )}
+            </button>
+          </form>
+
+          <p className="auth-footer-text">
+            Secure authentication via encrypted IPC bridge
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AuthModal;
+```
+
+
+================================================================================
+File: fedlearn-desktop/src/renderer/components/HardwareSelector.tsx
+Size: 6497 bytes | Lines: 211 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Desktop — HardwareSelector Component
+// =============================================================================
+// Card-based hardware profile selector with input fields for training config.
+// The three profiles (discrete, jetson, cpu) map directly to the Docker
+// runtime configurations specified in Section 4.2 of the deployment guide.
+// =============================================================================
+
+import React, { useState, useCallback } from 'react';
+
+interface HardwareSelectorProps {
+  onStart: (config: {
+    hardwareProfile: string;
+    projectId: string;
+    serverAddress: string;
+    partitionId: string;
+  }) => void;
+  onStop: () => void;
+  isRunning: boolean;
+}
+
+interface HardwareProfileOption {
+  id: string;
+  label: string;
+  description: string;
+  icon: string;
+  dockerConfig: string;
+}
+
+const HARDWARE_PROFILES: HardwareProfileOption[] = [
+  {
+    id: 'discrete',
+    label: 'Discrete GPU',
+    description: 'NVIDIA workstation with dedicated PCIe GPU. Uses --gpus all via DeviceRequests.',
+    icon: '🖥️',
+    dockerConfig: 'DeviceRequests: --gpus all',
+  },
+  {
+    id: 'jetson',
+    label: 'Jetson SoC',
+    description: 'NVIDIA Jetson edge device with integrated Tegra GPU. Uses direct /dev/nvhost-* mounts.',
+    icon: '🔧',
+    dockerConfig: 'Devices: /dev/nvhost-ctrl, nvhost-ctrl-gpu, ...',
+  },
+  {
+    id: 'cpu',
+    label: 'CPU Only',
+    description: 'Standard CPU training without GPU acceleration. Compatible with any hardware.',
+    icon: '💻',
+    dockerConfig: 'No GPU configuration',
+  },
+];
+
+const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, isRunning }) => {
+  const [selectedProfile, setSelectedProfile] = useState('discrete');
+  const [projectId, setProjectId] = useState('');
+  const [serverAddress, setServerAddress] = useState('');
+  const [partitionId, setPartitionId] = useState('0');
+  const [validationError, setValidationError] = useState('');
+
+  const handleStart = useCallback(() => {
+    setValidationError('');
+
+    if (!projectId.trim()) {
+      setValidationError('Project ID is required.');
+      return;
+    }
+
+    if (!serverAddress.trim()) {
+      setValidationError('Server address is required.');
+      return;
+    }
+
+    if (!partitionId.trim()) {
+      setValidationError('Partition ID is required.');
+      return;
+    }
+
+    // Pattern validation (matches preload allowlists)
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(projectId)) {
+      setValidationError('Project ID must be alphanumeric (max 128 chars).');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9._:/-]{1,256}$/.test(serverAddress)) {
+      setValidationError('Invalid server address format.');
+      return;
+    }
+
+    if (!/^[0-9]{1,10}$/.test(partitionId)) {
+      setValidationError('Partition ID must be a number.');
+      return;
+    }
+
+    onStart({
+      hardwareProfile: selectedProfile,
+      projectId: projectId.trim(),
+      serverAddress: serverAddress.trim(),
+      partitionId: partitionId.trim(),
+    });
+  }, [selectedProfile, projectId, serverAddress, partitionId, onStart]);
+
+  return (
+    <div className="hardware-selector">
+      {/* Hardware Profile Cards */}
+      <div className="profile-cards">
+        {HARDWARE_PROFILES.map((profile) => (
+          <button
+            key={profile.id}
+            id={`profile-${profile.id}`}
+            className={`profile-card ${selectedProfile === profile.id ? 'profile-card-active' : ''}`}
+            onClick={() => setSelectedProfile(profile.id)}
+            disabled={isRunning}
+            type="button"
+          >
+            <span className="profile-icon">{profile.icon}</span>
+            <span className="profile-label">{profile.label}</span>
+            <span className="profile-desc">{profile.description}</span>
+            <span className="profile-docker">{profile.dockerConfig}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Configuration Inputs */}
+      <div className="config-inputs">
+        <div className="form-group">
+          <label className="form-label" htmlFor="config-project-id">
+            Project ID
+          </label>
+          <input
+            id="config-project-id"
+            className="form-input"
+            type="text"
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
+            placeholder="e.g., cardiac-ecg-001"
+            disabled={isRunning}
+            maxLength={128}
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label" htmlFor="config-server-address">
+            Server Address
+          </label>
+          <input
+            id="config-server-address"
+            className="form-input"
+            type="text"
+            value={serverAddress}
+            onChange={(e) => setServerAddress(e.target.value)}
+            placeholder="e.g., 192.168.1.100:8080"
+            disabled={isRunning}
+            maxLength={256}
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label" htmlFor="config-partition-id">
+            Partition ID
+          </label>
+          <input
+            id="config-partition-id"
+            className="form-input"
+            type="text"
+            value={partitionId}
+            onChange={(e) => setPartitionId(e.target.value)}
+            placeholder="e.g., 0"
+            disabled={isRunning}
+            maxLength={10}
+          />
+        </div>
+      </div>
+
+      {/* Validation Error */}
+      {validationError && (
+        <div className="validation-error" role="alert">
+          <span className="error-icon">⚠</span>
+          {validationError}
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="action-buttons">
+        {!isRunning ? (
+          <button
+            id="start-training-button"
+            className="btn btn-primary btn-full"
+            onClick={handleStart}
+            type="button"
+          >
+            <span className="btn-icon">▶</span>
+            Start Training
+          </button>
+        ) : (
+          <button
+            id="stop-training-button"
+            className="btn btn-danger btn-full"
+            onClick={onStop}
+            type="button"
+          >
+            <span className="btn-icon">■</span>
+            Stop Training
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default HardwareSelector;
+```
+
+
+================================================================================
+File: fedlearn-desktop/src/renderer/components/LogPanel.tsx
+Size: 2537 bytes | Lines: 74 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Desktop — LogPanel Component
+// =============================================================================
+// SECURITY: Renders plain text only — no HTML from container output.
+// No dangerouslySetInnerHTML. No innerHTML. All log lines are rendered
+// as React text nodes inside <pre> elements to guarantee XSS safety.
+// =============================================================================
+
+import React, { useEffect, useRef } from 'react';
+
+interface LogPanelProps {
+  logs: string[];
+}
+
+const LogPanel: React.FC<LogPanelProps> = ({ logs }) => {
+  const logEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isAutoScrollRef = useRef(true);
+
+  // Detect if user has scrolled up (disable auto-scroll)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      // User is "at bottom" if within 50px of the end
+      isAutoScrollRef.current = scrollHeight - scrollTop - clientHeight < 50;
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Auto-scroll to bottom when new logs arrive (only if user hasn't scrolled up)
+  useEffect(() => {
+    if (isAutoScrollRef.current && logEndRef.current) {
+      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs]);
+
+  if (logs.length === 0) {
+    return (
+      <div className="log-panel log-panel-empty" ref={containerRef}>
+        <div className="log-empty-state">
+          <span className="log-empty-icon">📋</span>
+          <p className="log-empty-text">
+            No container output yet. Start a training session to see real-time logs.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="log-panel" ref={containerRef}>
+      <pre className="log-content">
+        {/*
+          SECURITY: Each log line is rendered as a plain text node.
+          React's default behavior escapes all content — no HTML is interpreted.
+          This prevents any XSS payload from container output from executing.
+        */}
+        {logs.map((line, index) => (
+          <span key={index} className="log-line">
+            {line}
+          </span>
+        ))}
+      </pre>
+      <div ref={logEndRef} />
+    </div>
+  );
+};
+
+export default LogPanel;
+```
+
+
+================================================================================
+File: fedlearn-desktop/src/renderer/components/StatusIndicator.tsx
+Size: 1718 bytes | Lines: 40 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Desktop — StatusIndicator Component
+// =============================================================================
+// Visual status badge showing the current Docker container state.
+// Animated pulse for active states (running, pulling).
+// =============================================================================
+
+import React from 'react';
+import { ContainerStatus } from '../App';
+
+interface StatusIndicatorProps {
+  status: ContainerStatus;
+}
+
+const STATUS_CONFIG: Record<
+  ContainerStatus,
+  { label: string; colorClass: string; animate: boolean }
+> = {
+  idle: { label: 'Idle', colorClass: 'status-idle', animate: false },
+  pulling: { label: 'Pulling Image', colorClass: 'status-pulling', animate: true },
+  running: { label: 'Training', colorClass: 'status-running', animate: true },
+  completed: { label: 'Completed', colorClass: 'status-completed', animate: false },
+  error: { label: 'Error', colorClass: 'status-error', animate: false },
+  restarting: { label: 'Restarting', colorClass: 'status-pulling', animate: true },
+  paused: { label: 'Paused', colorClass: 'status-idle', animate: false },
+  stopped: { label: 'Stopped', colorClass: 'status-idle', animate: false },
+};
+
+const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status }) => {
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.idle;
+
+  return (
+    <div className={`status-indicator ${config.colorClass}`} id="status-indicator">
+      <span className={`status-dot ${config.animate ? 'status-dot-pulse' : ''}`} />
+      <span className="status-label">{config.label}</span>
+    </div>
+  );
+};
+
+export default StatusIndicator;
+```
+
+
+================================================================================
+File: fedlearn-desktop/src/renderer/index.tsx
+Size: 595 bytes | Lines: 20 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Desktop — Renderer Entry Point
+// =============================================================================
+
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
+
+const rootElement = document.getElementById('root');
+
+if (!rootElement) {
+  throw new Error('Failed to find root element. Ensure index.html contains <div id="root"></div>');
+}
+
+const root = createRoot(rootElement);
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);
+```
+
+
+================================================================================
+File: fedlearn-desktop/src/renderer/styles.css
+Size: 16457 bytes | Lines: 814 | Section: source
+================================================================================
+```text
+/* =============================================================================
+   FedLearn Desktop — Design System & Global Styles
+   =============================================================================
+   Premium dark theme with glassmorphism, smooth gradients, and micro-animations.
+   Typography: Inter (UI) + JetBrains Mono (code/logs).
+   ============================================================================= */
+
+/* ========== CSS Custom Properties (Design Tokens) ========== */
+
+:root {
+  /* Surface Colors */
+  --color-bg-primary: #08080d;
+  --color-bg-secondary: #0d0d14;
+  --color-bg-tertiary: #12121c;
+  --color-bg-elevated: #181825;
+  --color-bg-hover: #1e1e2e;
+
+  /* Glass */
+  --glass-bg: rgba(18, 18, 28, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-border-hover: rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+  /* Brand */
+  --color-accent: #7c5cfc;
+  --color-accent-hover: #9278ff;
+  --color-accent-glow: rgba(124, 92, 252, 0.3);
+  --color-accent-subtle: rgba(124, 92, 252, 0.1);
+
+  /* Semantic */
+  --color-success: #34d399;
+  --color-success-bg: rgba(52, 211, 153, 0.1);
+  --color-warning: #fbbf24;
+  --color-warning-bg: rgba(251, 191, 36, 0.1);
+  --color-danger: #f87171;
+  --color-danger-bg: rgba(248, 113, 113, 0.1);
+  --color-info: #60a5fa;
+  --color-info-bg: rgba(96, 165, 250, 0.1);
+
+  /* Text */
+  --color-text-primary: #e4e4ef;
+  --color-text-secondary: #9494a8;
+  --color-text-muted: #5a5a72;
+  --color-text-inverse: #08080d;
+
+  /* Borders */
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border-strong: rgba(255, 255, 255, 0.12);
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========== Reset & Base ========== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#root {
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ========== App Container ========== */
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background: var(--color-bg-primary);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle animated gradient background */
+.app-container::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+      ellipse at 20% 50%,
+      rgba(124, 92, 252, 0.04) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 80% 20%,
+      rgba(52, 211, 153, 0.03) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 60% 80%,
+      rgba(96, 165, 250, 0.03) 0%,
+      transparent 50%
+    );
+  animation: bgShift 30s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes bgShift {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(2%, -1%) rotate(1deg); }
+  66% { transform: translate(-1%, 2%) rotate(-1deg); }
+}
+
+/* ========== Header ========== */
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-xl);
+  background: var(--glass-bg);
+  border-bottom: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 10;
+  position: relative;
+  /* macOS traffic lights */
+  -webkit-app-region: drag;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  -webkit-app-region: no-drag;
+}
+
+.header-right {
+  -webkit-app-region: no-drag;
+}
+
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.logo-icon {
+  font-size: 1.4rem;
+  color: var(--color-accent);
+  filter: drop-shadow(0 0 8px var(--color-accent-glow));
+}
+
+.app-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+/* ========== Status Indicator ========== */
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transition: all var(--transition-normal);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: background-color var(--transition-normal);
+}
+
+.status-dot-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.status-idle {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-muted);
+}
+.status-idle .status-dot {
+  background-color: var(--color-text-muted);
+}
+
+.status-pulling {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+.status-pulling .status-dot {
+  background-color: var(--color-info);
+}
+
+.status-running {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+.status-running .status-dot {
+  background-color: var(--color-success);
+}
+
+.status-completed {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+}
+.status-completed .status-dot {
+  background-color: var(--color-accent);
+}
+
+.status-error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+.status-error .status-dot {
+  background-color: var(--color-danger);
+}
+
+/* ========== Main Content ========== */
+
+.app-main {
+  flex: 1;
+  padding: var(--space-lg);
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: var(--space-lg);
+  height: 100%;
+}
+
+/* ========== Panels ========== */
+
+.panel {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: border-color var(--transition-normal);
+}
+
+.panel:hover {
+  border-color: var(--glass-border-hover);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.panel-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+.panel-badge {
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+.log-count {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ========== Config Panel ========== */
+
+.config-panel {
+  overflow-y: auto;
+}
+
+/* ========== Hardware Selector ========== */
+
+.hardware-selector {
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.profile-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  text-align: left;
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+}
+
+.profile-card:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-strong);
+  transform: translateY(-1px);
+}
+
+.profile-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.profile-card-active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  box-shadow: 0 0 0 1px var(--color-accent), 0 4px 20px var(--color-accent-glow);
+}
+
+.profile-card-active:hover:not(:disabled) {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-accent);
+}
+
+.profile-icon {
+  font-size: 1.5rem;
+  margin-bottom: var(--space-xs);
+}
+
+.profile-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.profile-desc {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.profile-docker {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  margin-top: var(--space-xs);
+}
+
+/* ========== Config Inputs ========== */
+
+.config-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ========== Form Elements ========== */
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.form-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.form-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* ========== Buttons ========== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  outline: none;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-accent), #6246ea);
+  color: white;
+  box-shadow: 0 4px 16px var(--color-accent-glow);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--color-accent-hover), #7358f0);
+  box-shadow: 0 6px 24px var(--color-accent-glow);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, var(--color-danger), #dc3545);
+  color: white;
+  box-shadow: 0 4px 16px rgba(248, 113, 113, 0.3);
+}
+
+.btn-danger:hover:not(:disabled) {
+  box-shadow: 0 6px 24px rgba(248, 113, 113, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  padding: 8px 16px;
+  font-size: 0.8rem;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-strong);
+}
+
+.btn-full {
+  width: 100%;
+}
+
+.btn-icon {
+  font-size: 0.75rem;
+}
+
+.btn-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* ========== Validation / Auth Errors ========== */
+
+.validation-error,
+.auth-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-danger-bg);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--color-danger);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.error-icon {
+  flex-shrink: 0;
+}
+
+/* ========== Log Panel ========== */
+
+.log-panel-container {
+  min-height: 0;
+}
+
+.log-panel {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-md);
+  min-height: 0;
+}
+
+.log-panel-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.log-empty-state {
+  text-align: center;
+  padding: var(--space-2xl);
+}
+
+.log-empty-icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: var(--space-md);
+  opacity: 0.4;
+}
+
+.log-empty-text {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  max-width: 280px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.log-content {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+}
+
+.log-line {
+  display: block;
+}
+
+/* Custom scrollbar for log panel */
+.log-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.log-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.log-panel::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 3px;
+}
+
+.log-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ========== Auth Modal ========== */
+
+.auth-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--color-bg-primary);
+  position: relative;
+}
+
+.auth-modal {
+  position: relative;
+  width: 440px;
+  padding: var(--space-2xl);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: var(--glass-shadow);
+  overflow: hidden;
+  z-index: 1;
+}
+
+/* Decorative glows behind the modal */
+.auth-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.auth-glow-1 {
+  width: 300px;
+  height: 300px;
+  background: var(--color-accent-glow);
+  top: -100px;
+  right: -80px;
+}
+
+.auth-glow-2 {
+  width: 250px;
+  height: 250px;
+  background: rgba(52, 211, 153, 0.15);
+  bottom: -80px;
+  left: -60px;
+}
+
+.auth-content {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-logo {
+  text-align: center;
+  margin-bottom: var(--space-xl);
+}
+
+.auth-logo-icon {
+  font-size: 2.5rem;
+  color: var(--color-accent);
+  filter: drop-shadow(0 0 16px var(--color-accent-glow));
+  display: block;
+  margin-bottom: var(--space-md);
+}
+
+.auth-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: var(--space-xs);
+}
+
+.auth-subtitle {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.auth-footer-text {
+  text-align: center;
+  margin-top: var(--space-lg);
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* ========== Loading Screen ========== */
+
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--space-lg);
+}
+
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-spinner-sm {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+/* ========== Footer ========== */
+
+.app-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-xl);
+  background: var(--glass-bg);
+  border-top: 1px solid var(--glass-border);
+  z-index: 10;
+  position: relative;
+}
+
+.footer-text {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+.footer-version {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+}
+
+/* ========== Action Buttons Spacing ========== */
+
+.action-buttons {
+  margin-top: var(--space-sm);
+}
+
+/* ========== Responsive ========== */
+
+@media (max-width: 900px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+}
+```
+
+
+================================================================================
+File: fedlearn-desktop/webpack.main.config.js
+Size: 729 bytes | Lines: 34 | Section: source
+================================================================================
+```javascript
+const path = require('path');
+
+module.exports = {
+  mode: 'development',
+  target: 'electron-main',
+  entry: './src/main/main.ts',
+  output: {
+    path: path.resolve(__dirname, 'dist/main'),
+    filename: 'main.js',
+  },
+  resolve: {
+    extensions: ['.ts', '.js', '.json'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        use: 'ts-loader',
+        exclude: /node_modules/,
+      },
+    ],
+  },
+  externals: {
+    // dockerode uses native bindings; keep as external require
+    dockerode: 'commonjs dockerode',
+    'electron-store': 'commonjs electron-store',
+    'electron-log': 'commonjs electron-log',
+    electron: 'commonjs electron',
+  },
+  node: {
+    __dirname: false,
+    __filename: false,
+  },
+};
+```
+
+
+================================================================================
+File: fedlearn-desktop/webpack.preload.config.js
+Size: 585 bytes | Lines: 31 | Section: source
+================================================================================
+```javascript
+const path = require('path');
+
+module.exports = {
+  mode: 'development',
+  target: 'electron-preload',
+  entry: './src/preload/preload.ts',
+  output: {
+    path: path.resolve(__dirname, 'dist/preload'),
+    filename: 'preload.js',
+  },
+  resolve: {
+    extensions: ['.ts', '.js'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        use: 'ts-loader',
+        exclude: /node_modules/,
+      },
+    ],
+  },
+  externals: {
+    electron: 'commonjs electron',
+    'electron-log': 'commonjs electron-log',
+  },
+  node: {
+    __dirname: false,
+    __filename: false,
+  },
+};
+```
+
+
+================================================================================
+File: fedlearn-desktop/webpack.prod.config.js
+Size: 4503 bytes | Lines: 188 | Section: source
+================================================================================
+```javascript
+// Bypass Node 22+ SecurityError for html-webpack-plugin
+Object.defineProperty(global, 'localStorage', {
+  value: { getItem() {}, setItem() {}, removeItem() {} },
+  writable: true,
+});
+
+const path = require('path');
+const TerserPlugin = require('terser-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+
+// =============================================================================
+// FedLearn Desktop — Production Webpack Configuration
+// =============================================================================
+// Builds all three Electron targets (main, preload, renderer) in production mode.
+// TerserPlugin with drop_console is applied to the Renderer and Preload bundles
+// to strip all console.* calls from the production binary, preventing JWT/path
+// leakage to Chromium DevTools (Section 5.3 of the deployment guide).
+// =============================================================================
+
+const terserWithConsoleStrip = new TerserPlugin({
+  terserOptions: {
+    compress: {
+      drop_console: true,
+      drop_debugger: true,
+      pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn'],
+    },
+    output: {
+      comments: false,
+    },
+  },
+  extractComments: false,
+});
+
+const terserMainProcess = new TerserPlugin({
+  terserOptions: {
+    compress: {
+      drop_debugger: true,
+      // Main process retains electron-log calls; console.* is NOT stripped
+      // because electron-log may internally use console as a transport fallback.
+    },
+    output: {
+      comments: false,
+    },
+  },
+  extractComments: false,
+});
+
+// --- Main Process ---
+const mainConfig = {
+  name: 'main',
+  mode: 'production',
+  target: 'electron-main',
+  entry: './src/main/main.ts',
+  output: {
+    path: path.resolve(__dirname, 'dist/main'),
+    filename: 'main.js',
+  },
+  resolve: {
+    extensions: ['.ts', '.js', '.json'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        use: 'ts-loader',
+        exclude: /node_modules/,
+      },
+    ],
+  },
+  externals: {
+    dockerode: 'commonjs dockerode',
+    'electron-store': 'commonjs electron-store',
+    'electron-log': 'commonjs electron-log',
+    electron: 'commonjs electron',
+  },
+  node: {
+    __dirname: false,
+    __filename: false,
+  },
+  optimization: {
+    minimize: true,
+    minimizer: [terserMainProcess],
+  },
+  devtool: false,
+};
+
+// --- Preload Script ---
+const preloadConfig = {
+  name: 'preload',
+  mode: 'production',
+  target: 'electron-preload',
+  entry: './src/preload/preload.ts',
+  output: {
+    path: path.resolve(__dirname, 'dist/preload'),
+    filename: 'preload.js',
+  },
+  resolve: {
+    extensions: ['.ts', '.js'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        use: 'ts-loader',
+        exclude: /node_modules/,
+      },
+    ],
+  },
+  externals: {
+    electron: 'commonjs electron',
+    'electron-log': 'commonjs electron-log',
+  },
+  node: {
+    __dirname: false,
+    __filename: false,
+  },
+  optimization: {
+    minimize: true,
+    minimizer: [terserWithConsoleStrip],
+  },
+  devtool: false,
+};
+
+// --- Renderer Process ---
+const rendererConfig = {
+  name: 'renderer',
+  mode: 'production',
+  target: 'web',
+  entry: './src/renderer/index.tsx',
+  output: {
+    path: path.resolve(__dirname, 'dist/renderer'),
+    filename: 'renderer.[contenthash].js',
+    publicPath: './',
+    clean: true,
+  },
+  resolve: {
+    extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        use: 'ts-loader',
+        exclude: /node_modules/,
+      },
+      {
+        test: /\.css$/,
+        use: ['style-loader', 'css-loader'],
+      },
+      {
+        test: /\.(png|svg|jpg|jpeg|gif|ico)$/i,
+        type: 'asset/resource',
+      },
+      {
+        test: /\.(woff|woff2|eot|ttf|otf)$/i,
+        type: 'asset/resource',
+      },
+    ],
+  },
+  plugins: [
+    new HtmlWebpackPlugin({
+      template: './src/renderer/index.html',
+      filename: 'index.html',
+      minify: {
+        collapseWhitespace: true,
+        removeComments: true,
+        removeRedundantAttributes: true,
+      },
+    }),
+  ],
+  optimization: {
+    minimize: true,
+    minimizer: [terserWithConsoleStrip],
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendor',
+          chunks: 'all',
+        },
+      },
+    },
+  },
+  devtool: false,
+};
+
+module.exports = [mainConfig, preloadConfig, rendererConfig];
+```
+
+
+================================================================================
+File: fedlearn-desktop/webpack.renderer.config.js
+Size: 1531 bytes | Lines: 60 | Section: source
+================================================================================
+```javascript
+// Bypass Node 22+ SecurityError for html-webpack-plugin
+Object.defineProperty(global, 'localStorage', {
+  value: { getItem() {}, setItem() {}, removeItem() {} },
+  writable: true,
+});
+
+const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+
+module.exports = {
+  mode: 'development',
+  target: 'web',
+  entry: './src/renderer/index.tsx',
+  output: {
+    path: path.resolve(__dirname, 'dist/renderer'),
+    filename: 'renderer.js',
+    publicPath: '/',
+  },
+  resolve: {
+    extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        use: 'ts-loader',
+        exclude: /node_modules/,
+      },
+      {
+        test: /\.css$/,
+        use: ['style-loader', 'css-loader'],
+      },
+      {
+        test: /\.(png|svg|jpg|jpeg|gif|ico)$/i,
+        type: 'asset/resource',
+      },
+      {
+        test: /\.(woff|woff2|eot|ttf|otf)$/i,
+        type: 'asset/resource',
+      },
+    ],
+  },
+  plugins: [
+    new HtmlWebpackPlugin({
+      template: './src/renderer/index.html',
+      filename: 'index.html',
+    }),
+  ],
+  devServer: {
+    port: 9000,
+    hot: true,
+    static: {
+      directory: path.resolve(__dirname, 'dist/renderer'),
+    },
+    headers: {
+      'Content-Security-Policy':
+        "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws://localhost:9000 http://localhost:9000;",
+    },
+  },
+};
+```
+
+
+################################################################################
+# DOCS (may lag behind code)
+################################################################################
+
+================================================================================
+File: fedlearn-desktop/CLAUDE.md
+Size: 810 bytes | Lines: 15 | Section: docs
+================================================================================
+```markdown
+# FedLearn Desktop Orchestrator Guidelines
+
+Please act as the Senior Electron/Node.js Engineer and Systems Integrator.
+
+## Technical Focus
+
+* **Tech Stack:** Electron, Node.js, Docker CLI.
+* **Core Responsibilities:** This app is a system orchestrator that controls the host's Docker daemon to spin up `fedlearn-client` containers. It does *not* bundle PyTorch itself.
+* **Security & IPC:** Maintain strict separation between the Main and Renderer processes. Ensure JWTs never leak to the renderer.
+
+## Execution Directives
+
+* Write robust child-process execution code for Docker commands.
+* Ensure hardware-aware device mapping (e.g., NVIDIA Container Toolkit profiles) is handled gracefully depending on the host OS.
+* Provide direct, complete code for IPC handlers and main-process security configurations.
+```
+
+
+================================================================================
+File: fedlearn-desktop/README.md
+Size: 6444 bytes | Lines: 184 | Section: docs
+================================================================================
+```markdown
+# FedLearn Desktop
+
+> Docker-based Federated Learning Orchestrator for edge devices and GPU workstations.
+
+FedLearn Desktop is an Electron application that acts as a **system orchestrator** — it does not bundle PyTorch, CUDA, or the Python runtime. Instead, it controls the host's pre-installed Docker daemon to spin up `fedlearn-client` training containers with hardware-aware device mappings.
+
+---
+
+## Prerequisites
+
+| Requirement | Notes |
+|---|---|
+| **Node.js** ≥ 18.x | For building and running the Electron app |
+| **Docker Engine** | Must be installed and running on the host |
+| **NVIDIA Container Toolkit** | Required for `discrete` GPU profile only |
+| **FedLearn Client Docker Image** | `fedlearn-client:latest` must be built/pulled locally |
+| **FedLearn Backend** | Spring Boot API running at `http://localhost:8081` (default) |
+
+### Building the Client Docker Image
+
+From the repository root:
+
+```bash
+docker build -t fedlearn-client:latest -f client-docker/Dockerfile .
+```
+
+For NVIDIA Jetson, use the L4T base image:
+
+```bash
+docker build -t fedlearn-client:latest \
+  --build-arg BASE_IMAGE=nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3 \
+  -f client-docker/Dockerfile .
+```
+
+---
+
+## Development Setup
+
+```bash
+# 1. Install dependencies
+cd fedlearn-desktop
+npm install
+
+# 2. Start the dev environment (renderer + main + preload, concurrent)
+npm run dev
+
+# 3. In a separate terminal, launch Electron
+npm run dev:electron
+```
+
+The renderer dev server runs on `http://localhost:9000` with HMR. The Electron main process loads from this URL in development mode.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `FEDLEARN_API_URL` | `http://localhost:8081/api` | Backend API base URL |
+| `NODE_ENV` | — | Set to `production` for packaged builds |
+
+---
+
+## Production Build
+
+```bash
+# Build all three webpack targets (main + preload + renderer)
+npm run build
+
+# Package for current platform
+npm run package
+
+# Package for specific platforms
+npm run package:mac    # macOS (.dmg)
+npm run package:linux  # Linux (.deb + .rpm)
+npm run package:win    # Windows (.exe via NSIS)
+```
+
+### What the Production Build Does
+
+1. **Webpack** compiles Main, Preload, and Renderer bundles in production mode
+2. **TerserPlugin** with `drop_console: true` strips all `console.*` calls from Renderer + Preload bundles (prevents JWT/path leakage to DevTools)
+3. **electron-builder** packages the app with `asar` compression
+
+---
+
+## Hardware Profile Guide
+
+The Electron app supports three hardware profiles that control how Docker containers access GPU resources:
+
+### Discrete GPU (`discrete`)
+
+For standard Linux/Windows workstations with NVIDIA GPUs (e.g., RTX 3090, A100).
+
+- **Docker flag**: `--gpus all` (via `DeviceRequests`)
+- **Requires**: NVIDIA Container Toolkit installed on the host
+- **Typical use**: Lab workstations, cloud VMs with GPU passthrough
+
+### Jetson SoC (`jetson`)
+
+For NVIDIA Jetson edge devices (Orin, Xavier, Nano) with integrated Tegra GPUs.
+
+- **Docker flag**: Direct device mounts (`/dev/nvhost-ctrl`, `/dev/nvhost-ctrl-gpu`, etc.)
+- **Critical**: The standard `--runtime nvidia` flag is **PROHIBITED** on Jetson — it searches for PCIe discrete GPU metadata in the kernel device tree and **hangs indefinitely**
+- **Requires**: L4T-based Docker image built with `BASE_IMAGE=nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3`
+- **Typical use**: Edge inference nodes, IoT deployments
+
+### CPU Only (`cpu`)
+
+For machines without GPU acceleration.
+
+- **Docker flag**: None (no GPU configuration)
+- **Typical use**: Development testing, non-GPU nodes, ARM devices
+
+---
+
+## Security Architecture
+
+### Non-Negotiable Security Settings
+
+| Setting | Value | Enforced In |
+|---|---|---|
+| `nodeIntegration` | `false` | `main.ts` |
+| `contextIsolation` | `true` | `main.ts` |
+| `sandbox` | `true` | `main.ts` |
+| `remote` module | **Not used** | Project-wide |
+| CSP Headers | Set on every window | `main.ts` (session-level) |
+
+### IPC Security Model
+
+1. **Renderer** calls `window.fedLearnAPI.*` (exposed via `contextBridge`)
+2. **Preload** validates all inputs against explicit allowlists before forwarding
+3. **Main Process** re-validates inputs (defense-in-depth) before executing
+4. **Rejections** are logged via `electron-log`
+
+### JWT Containment
+
+- JWT is extracted from the backend's `Set-Cookie` header in Main Process
+- Encrypted using `safeStorage` (OS keychain) and stored via `electron-store`
+- Renderer **never** receives the token — only `{ success: boolean }` responses
+- `AuthService.getAuthHeader()` is available only to Main Process services
+
+### Console Stripping
+
+- TerserPlugin with `drop_console: true` is applied to Renderer + Preload bundles
+- Prevents accidental JWT, path, or config leakage to DevTools in production
+- Main Process retains `electron-log` transport for operational logging
+
+---
+
+## Project Structure
+
+```
+fedlearn-desktop/
+├── src/
+│   ├── main/
+│   │   ├── main.ts               # BrowserWindow + CSP + app lifecycle
+│   │   ├── ipc.handlers.ts       # All ipcMain.handle registrations
+│   │   ├── docker.service.ts     # DockerService using dockerode
+│   │   └── auth.service.ts       # JWT storage + backend API calls
+│   ├── preload/
+│   │   └── preload.ts            # contextBridge API + input validation
+│   └── renderer/
+│       ├── App.tsx               # Main application layout
+│       ├── index.tsx             # React 18 entry point
+│       ├── index.html            # HTML template
+│       ├── styles.css            # Design system + global styles
+│       └── components/
+│           ├── HardwareSelector.tsx   # Hardware profile cards + config
+│           ├── LogPanel.tsx           # Plain-text log viewer
+│           ├── StatusIndicator.tsx    # Container status badge
+│           └── AuthModal.tsx          # Login modal
+├── webpack.main.config.js        # Webpack: electron-main
+├── webpack.renderer.config.js    # Webpack: renderer (web target)
+├── webpack.preload.config.js     # Webpack: electron-preload
+├── webpack.prod.config.js        # Webpack: production multi-config
+├── electron-builder.yml          # Cross-platform packaging
+├── tsconfig.json
+└── package.json
+```
+
+---
+
+## License
+
+See the root [LICENSE](../LICENSE) file.
 ```
 

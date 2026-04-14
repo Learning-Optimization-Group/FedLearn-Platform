@@ -1,8 +1,954 @@
 ================================================================================
-File: client-docker/DEPLOYMENT_GUIDE.md
+FedLearn Platform — LLM context dump: client-docker
 ================================================================================
+Component path : client-docker
+Generated at   : 2026-04-14 17:41 UTC
+Git branch     : feature/fedlearn-desktop-and-aws-orchestration
+Git commit     : 89b2cf5 (uncommitted changes present)
+Files included : 10 (config=3, source=4, tests=0, docs=3)
+Total lines    : 1,943
+Total size     : 62.7 KB
 
-```md
+Notes for the reader:
+  * Everything below is verbatim from this repo at the commit above.
+  * Generated protobuf stubs, build artefacts, lockfiles, and binaries are excluded.
+  * Markdown docs are included but may lag behind code — trust the source sections.
+  * Sensitive values in env/properties files are shown as [REDACTED].
+================================================================================
+-- TREE ------------------------------------------------------------------------
+client-docker/
+    CLAUDE.md
+    DEPLOYMENT_GUIDE.md
+    Dockerfile
+    README.md
+    entrypoint.sh
+    requirements.txt
+    run-client.sh
+    test_docker_build.sh
+  scripts/
+    client.py
+    models.py
+
+-- MANIFEST --------------------------------------------------------------------
+path                                                                        bytes   lines  section
+client-docker/CLAUDE.md                                                         0       0  docs
+client-docker/DEPLOYMENT_GUIDE.md                                           18320     450  docs
+client-docker/Dockerfile                                                     1921      47  config
+client-docker/README.md                                                     14995     669  docs
+client-docker/entrypoint.sh                                                   917      25  config
+client-docker/requirements.txt                                               2953      81  config
+client-docker/run-client.sh                                                     0       0  source
+client-docker/scripts/client.py                                             21419     573  source
+client-docker/scripts/models.py                                               781      26  source
+client-docker/test_docker_build.sh                                           2862      72  source
+
+################################################################################
+# CONFIG & BUILD
+################################################################################
+
+================================================================================
+File: client-docker/Dockerfile
+Size: 1921 bytes | Lines: 47 | Section: config
+================================================================================
+```dockerfile
+# =============================================================================
+# FedLearn Edge Client — Docker Image
+# =============================================================================
+# Default: standard x86 PyTorch image (CUDA 11.7).
+# Override per target:
+#   Jetson:           --build-arg BASE_IMAGE=nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3
+#   Newer CUDA hosts: --build-arg BASE_IMAGE=pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+# =============================================================================
+ARG BASE_IMAGE=pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
+FROM ${BASE_IMAGE}
+
+ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-venv python3-dev python3-pip build-essential git wget curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m pip install --upgrade pip setuptools wheel
+
+WORKDIR /app
+
+# 1. Copy the core framework (Single Source of Truth)
+COPY framework/ /app/framework/
+
+# 2. Install the framework as a standard Python library
+RUN pip3 install --no-cache-dir /app/framework/
+
+# 3. Copy client-specific execution scripts and requirements
+COPY client-docker/requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
+COPY client-docker/scripts/ /app/scripts/
+COPY client-docker/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Create an unprivileged user and own the working tree.
+# GPU access via --gpus / device mounts does not require root inside the container.
+ARG APP_UID=10001
+ARG APP_GID=10001
+RUN groupadd --system --gid ${APP_GID} fedlearn \
+    && useradd --system --uid ${APP_UID} --gid ${APP_GID} --no-create-home --shell /usr/sbin/nologin fedlearn \
+    && chown -R fedlearn:fedlearn /app
+
+ENV PYTHONPATH=/app:${PYTHONPATH}
+WORKDIR /app/scripts
+USER fedlearn
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD []
+```
+
+
+================================================================================
+File: client-docker/entrypoint.sh
+Size: 917 bytes | Lines: 25 | Section: config
+================================================================================
+```bash
+#!/bin/bash
+set -e
+
+echo "[entrypoint] Container started successfully."
+echo "[entrypoint] PROJECT_ID=$PROJECT_ID"
+echo "[entrypoint] SERVER_ADDRESS=$SERVER_ADDRESS"
+echo "[entrypoint] PARTITION_ID=$PARTITION_ID"
+
+if [ -z "$PROJECT_ID" ] || [ -z "$SERVER_ADDRESS" ] || [ -z "$PARTITION_ID" ]; then
+    echo "[entrypoint] Error: Missing required environment variables"
+    echo "Usage: docker run -e PROJECT_ID=<id> -e SERVER_ADDRESS=<address> -e PARTITION_ID=<id> <image> [--use-llm] [--dataset cb|sst2]"
+    exit 1
+fi
+
+# Disable all proxies (fixes 'Failed parsing HTTP/2' when VPN/lab proxies intercept gRPC)
+unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY
+export no_proxy="*"
+export GRPC_ENABLE_FORK_SUPPORT=0
+
+echo "[entrypoint] Launching python3 client.py ..."
+exec python3 -u client.py \
+    --project-id "$PROJECT_ID" \
+    --server-address "$SERVER_ADDRESS" \
+    --partition-id "$PARTITION_ID" \
+    "$@"
+```
+
+
+================================================================================
+File: client-docker/requirements.txt
+Size: 2953 bytes | Lines: 81 | Section: config
+================================================================================
+```text
+# =============================================================================
+# FL Client Requirements — Jetson AGX (Python 3.8, aarch64, CUDA 11.4)
+# =============================================================================
+# ALL versions verified for cp38-aarch64 binary wheel availability on PyPI.
+# PyTorch 2.0 is pre-installed in the L4T base image — do NOT add it here.
+
+# -----------------------------------------------------------------------------
+# Federated Learning Framework
+# -----------------------------------------------------------------------------
+flwr-datasets>=0.3.0
+
+# -----------------------------------------------------------------------------
+# Transformers and NLP (capped for Python 3.8 + aarch64 binary wheels)
+# -----------------------------------------------------------------------------
+transformers>=4.30.0
+datasets>=2.14.0
+tokenizers>=0.13.0
+accelerate>=0.20.0
+safetensors>=0.3.1
+huggingface-hub>=0.20
+
+# -----------------------------------------------------------------------------
+# Data Processing
+# NOTE: pyarrow is deliberately UNCAPPED because flwr-datasets 0.3.0
+#       requires pyarrow==16.1.0 (exact pin). Capping it causes a conflict.
+#       pyarrow 16.1.0 has a pre-built cp38-aarch64 wheel on PyPI.
+# -----------------------------------------------------------------------------
+numpy>=1.21.0,<2.0.0
+pandas>=1.5.0
+
+# -----------------------------------------------------------------------------
+# gRPC and Networking
+# -----------------------------------------------------------------------------
+protobuf>=4.21.0,<6.0.0
+grpcio>=1.60.0
+grpcio-tools>=1.60.0
+grpcio-health-checking>=1.60.0
+googleapis-common-protos>=1.60.0
+
+# -----------------------------------------------------------------------------
+# HTTP and Async
+# -----------------------------------------------------------------------------
+aiohttp>=3.8.0
+aiohttp-cors>=0.7.0
+requests>=2.28.0
+
+# -----------------------------------------------------------------------------
+# GPU Monitoring
+# -----------------------------------------------------------------------------
+nvidia-ml-py>=12.535.0
+pynvml>=11.5.0
+psutil>=5.9
+
+# -----------------------------------------------------------------------------
+# CLI and Utilities
+# -----------------------------------------------------------------------------
+click>=8.0.0
+typer>=0.9.0
+rich>=13.0.0
+tqdm>=4.65.0
+colorama>=0.4.6
+
+# -----------------------------------------------------------------------------
+# Image and Serialization
+# -----------------------------------------------------------------------------
+pillow>=9.5.0
+msgpack>=1.0
+dill>=0.3.6
+PyYAML>=6.0
+filelock>=3.12
+fsspec>=2023.6,<2024.3
+
+# -----------------------------------------------------------------------------
+# Standard Dependencies
+# -----------------------------------------------------------------------------
+certifi>=2023.0
+charset-normalizer>=3.0
+idna>=3.4
+urllib3>=1.26.0
+packaging>=23.0
+typing_extensions>=4.8
+```
+
+
+################################################################################
+# SOURCE
+################################################################################
+
+================================================================================
+File: client-docker/run-client.sh
+Size: 0 bytes | Lines: 0 | Section: source
+================================================================================
+```bash
+
+```
+
+
+================================================================================
+File: client-docker/scripts/client.py
+Size: 21419 bytes | Lines: 573 | Section: source
+================================================================================
+```python
+from __future__ import annotations
+
+import logging
+import sys
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - [ClientID: %(client_id)s] - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+
+class ClientLogAdapter(logging.LoggerAdapter):
+    def process(self, msg, kwargs):
+        return msg, {**kwargs, 'extra': {'client_id': self.extra.get('client_id', 'BOOTING')}}
+
+base_logger = logging.getLogger("FedLearn-EdgeClient")
+logger = ClientLogAdapter(base_logger, {'client_id': 'BOOTING'})
+
+import time as _time
+
+logger.info("=" * 60)
+logger.info("FedLearn Client — Starting up...")
+logger.info(f"Python: {sys.version}")
+logger.info("=" * 60)
+
+_t0 = _time.time()
+
+logger.info("[BOOT] Importing argparse...")
+import argparse
+
+logger.info(f"[BOOT] Importing torch... (this can take 1-3 min on Jetson)")
+import torch
+logger.info(f"[BOOT] ✓ torch {torch.__version__} loaded in {_time.time()-_t0:.1f}s | CUDA: {torch.cuda.is_available()}")
+
+import time
+import threading
+
+logger.info("[BOOT] Importing numpy...")
+import numpy as np
+logger.info(f"[BOOT] ✓ numpy {np.__version__}")
+
+from collections import OrderedDict
+from typing import List, Tuple
+from torch import nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import CosineAnnealingLR
+
+logger.info("[BOOT] Importing psutil...")
+import psutil
+
+logger.info("[BOOT] Importing fedlearn...")
+import fedlearn as fl
+logger.info("[BOOT] ✓ fedlearn loaded")
+
+logger.info("[BOOT] Importing flwr_datasets...")
+from flwr_datasets import FederatedDataset
+logger.info("[BOOT] ✓ flwr_datasets loaded")
+
+logger.info("[BOOT] Importing torchvision...")
+import torchvision.transforms as transforms
+logger.info("[BOOT] ✓ torchvision loaded")
+
+logger.info("[BOOT] Importing HuggingFace datasets...")
+from datasets import load_dataset
+logger.info("[BOOT] ✓ datasets loaded")
+
+logger.info("[BOOT] Importing transformers (slowest on ARM)...")
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
+logger.info(f"[BOOT] ✓ transformers loaded")
+
+logger.info("[BOOT] Importing models...")
+from models import CnnNet
+logger.info(f"[BOOT] ✓ All imports complete in {_time.time()-_t0:.1f}s")
+
+
+try:
+    import pynvml
+    logger.info(f'[BOOT] ✓ pynvml {pynvml.__version__}')
+    PYNVML_AVAILABLE = True
+    pynvml.nvmlInit()
+    GPU_HANDLE = pynvml.nvmlDeviceGetHandleByIndex(0)
+except Exception:
+    PYNVML_AVAILABLE = False
+
+
+utilization_log = []
+
+# --- !! MANUAL FLAG TO SWITCH BETWEEN MODELS !! ---
+USE_LLM = True
+# --------------------------------------------------
+
+# --- Configuration ---
+NUM_PARTITIONS = 10
+BATCH_SIZE = 32 if not USE_LLM else 1
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+MODEL_NAME = "facebook/opt-125m"
+
+# Dataset configurations (matching DeComFL paper)
+DATASET_CONFIGS = {
+    "cb": {
+        "num_classes": 3,
+        "learning_rate": 1e-6,
+        "local_epochs": 1,
+        "max_length": 256,
+        "dataset_key": "super_glue",
+        "dataset_name": "cb",
+        "text_column": "premise",
+        "text2_column": "hypothesis",
+        "label_column": "label",
+    },
+    "sst2": {
+        "num_classes": 2,
+        "learning_rate": 1e-5,
+        "local_epochs": 1,
+        "max_length": 128,
+        "dataset_key": "glue",
+        "dataset_name": "sst2",
+        "text_column": "sentence",
+        "text2_column": None,
+        "label_column": "label",
+    }
+}
+
+# Training hyperparameters
+LLM_WEIGHT_DECAY = 0.1
+LLM_MAX_GRAD_NORM = 1.0  # Standard value for transformers
+LLM_WARMUP_RATIO = 0.1  # 10% of steps for warmup
+CNN_LEARNING_RATE = 1e-3
+
+# Global dataset selection (will be set via argparse)
+DATASET_NAME = "sst2"
+
+logger.info(f"Client operating on {DEVICE}")
+logger.info(f"--- RUNNING EXPERIMENT: {'LLM (OPT-125M)' if USE_LLM else 'CNN (CIFAR-10)'} ---")
+
+
+# ==============================================================================
+# --- Memory Logging ---
+# ==============================================================================
+def log_processing_usage(step_tag=""):
+    process = psutil.Process()
+    cpu_ram = process.memory_info().rss / 1024**2
+
+    timestamp = time.time()
+
+    entry = {
+        "timestamp": timestamp,
+        "step": step_tag,
+        "cpu_ram_mb": cpu_ram,
+        "gpu_alloc_mb": None,
+        "gpu_reserved_mb": None,
+        "gpu_util_percent": None,
+    }
+
+    if torch.cuda.is_available():
+        entry["gpu_alloc_mb"] = torch.cuda.memory_allocated() / 1024**2
+        entry["gpu_reserved_mb"] = torch.cuda.memory_reserved() / 1024**2
+
+        if PYNVML_AVAILABLE:
+            util = pynvml.nvmlDeviceGetUtilizationRates(GPU_HANDLE)
+            entry["gpu_util_percent"] = util.gpu
+
+    utilization_log.append(entry)
+
+    # Optional live print
+    logger.info(f"[Usage] {step_tag} CPU RAM {cpu_ram:.2f} MB "
+          f"GPU alloc {entry['gpu_alloc_mb']} MB "
+          f"GPU util {entry['gpu_util_percent']}")
+
+
+# ==============================================================================
+# --- Data and Training Logic ---
+# ==============================================================================
+def load_data(partition_id: int, dataset_name: str):
+    """
+    Load data for either CNN (CIFAR-10) or LLM (CB/SST-2).
+
+    Args:
+        partition_id: Client partition ID
+        dataset_name: "cb" or "sst2" for LLM, ignored for CNN
+    """
+    if USE_LLM:
+        config = DATASET_CONFIGS[dataset_name]
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+
+        # Load dataset based on configuration
+        if dataset_name == "cb":
+            raw_dataset = load_dataset(config["dataset_key"], config["dataset_name"], split="train")
+        else:  # sst2
+            raw_dataset = load_dataset(config["dataset_key"], config["dataset_name"], split="train")
+
+        logger.info(f"Dataset {dataset_name} loaded: {len(raw_dataset)} samples")
+
+        # Partition data across clients
+        num_samples = len(raw_dataset)
+        samples_per_client = num_samples // NUM_PARTITIONS
+        start = partition_id * samples_per_client
+        end = (partition_id + 1) * samples_per_client if partition_id < NUM_PARTITIONS - 1 else num_samples
+        partition = raw_dataset.select(range(start, end))
+
+        logger.info(f"Client {partition_id} partition: {len(partition)} samples (indices {start}-{end})")
+
+        def tokenize_function(examples):
+            """Tokenize based on dataset type (single or pair)."""
+            if config["text2_column"]:  # CB: premise + hypothesis
+                return tokenizer(
+                    examples[config["text_column"]],
+                    examples[config["text2_column"]],
+                    padding="max_length",
+                    truncation=True,
+                    max_length=config["max_length"]
+                )
+            else:  # SST-2: single sentence
+                return tokenizer(
+                    examples[config["text_column"]],
+                    padding="max_length",
+                    truncation=True,
+                    max_length=config["max_length"]
+                )
+
+        # Tokenize and preserve labels
+        tokenized_partition = partition.map(
+            tokenize_function,
+            batched=True,
+            num_proc=1,
+            remove_columns=[col for col in partition.column_names if col != config["label_column"]]
+        ).rename_column(config["label_column"], "labels").with_format("torch")
+
+        # Split into train/test
+        trainloader = DataLoader(tokenized_partition, shuffle=True, batch_size=BATCH_SIZE)
+        return trainloader, trainloader
+    else:
+        # CNN: CIFAR-10 (unchanged)
+        fds = FederatedDataset(dataset="cifar10", partitioners={"train": NUM_PARTITIONS})
+        partition = fds.load_partition(partition_id)
+        partition_train_test = partition.train_test_split(test_size=0.2, seed=42)
+        pytorch_transforms = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ])
+
+        def apply_transforms(batch):
+            batch["img"] = [pytorch_transforms(img) for img in batch["img"]]
+            return batch
+
+        partition_train_test = partition_train_test.with_transform(apply_transforms)
+        return (
+            DataLoader(partition_train_test["train"], batch_size=BATCH_SIZE, shuffle=True, num_workers=0),
+            DataLoader(partition_train_test["test"], batch_size=BATCH_SIZE, num_workers=0)
+        )
+
+
+def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=None):
+    """
+    Train the model with dataset-specific hyperparameters.
+
+    Args:
+        net: Neural network model
+        trainloader: Training data loader
+        epochs: Number of epochs (K=1 for LLM as per paper)
+        dataset_name: "cb" or "sst2" for LLM
+        progress_callback: Optional callback function(current_step, total_steps)
+    """
+
+    trainable = sum(p.numel() for p in net.parameters() if p.requires_grad)
+    frozen = sum(p.numel() for p in net.parameters() if not p.requires_grad)
+    logger.info(f"   [Training] Trainable params: {trainable:,}")
+    logger.info(f"   [Training] Frozen params: {frozen:,}")
+
+    if trainable == 0:
+        raise ValueError("ERROR: All model parameters are frozen!")
+
+    # Get dataset-specific configuration
+    if USE_LLM:
+        config = DATASET_CONFIGS[dataset_name]
+        learning_rate = config["learning_rate"]
+    else:
+        learning_rate = CNN_LEARNING_RATE
+
+    # Setup optimizer based on model type
+    if USE_LLM:
+        optimizer = torch.optim.AdamW(
+            net.parameters(),
+            lr=learning_rate,
+            weight_decay=LLM_WEIGHT_DECAY,
+            betas=(0.9, 0.999),
+            eps=1e-8
+        )
+    else:
+        optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
+
+    criterion = torch.nn.CrossEntropyLoss()
+    net.train()
+
+    total_steps = len(trainloader) * epochs
+    current_step = 0
+
+    # Setup learning rate scheduler for LLM
+    if USE_LLM:
+        num_warmup_steps = int(total_steps * LLM_WARMUP_RATIO)
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=num_warmup_steps,
+            num_training_steps=total_steps
+        )
+        logger.info(f"   [Training] Using warmup for {num_warmup_steps} steps")
+
+    logger.info(f"   [Training] Starting {total_steps} steps for {epochs} epoch(s)...")
+    logger.info(f"   [Training] Learning rate: {learning_rate}")
+    if USE_LLM:
+        logger.info(f"   [Training] Dataset: {dataset_name}")
+
+    # Save initial parameters (OUTSIDE epoch loop)
+    first_epoch_params = None
+
+    for epoch in range(epochs):
+        epoch_loss = 0.0
+        epoch_steps = 0
+
+        # Save parameters at START of first epoch
+        if epoch == 0:
+            first_epoch_params = {name: param.clone().detach() for name, param in net.named_parameters()}
+            logger.info(f"   [Training] Saved initial parameters for comparison")
+
+        for i, batch in enumerate(trainloader):
+            optimizer.zero_grad()
+
+            if USE_LLM:
+                # Move batch to device
+                batch = {k: v.to(DEVICE) for k, v in batch.items()}
+
+                # Forward pass with labels
+                outputs = net(**batch)
+                loss = outputs.loss
+
+                if current_step == 0:  # First batch only
+                    logger.info(f"   [DEBUG] First batch check:")
+                    logger.info(f"   [DEBUG] Loss raw value: {loss}")
+                    logger.info(f"   [DEBUG] Loss item: {loss.item()}")
+                    logger.info(f"   [DEBUG] Loss requires_grad: {loss.requires_grad}")
+                    logger.info(f"   [DEBUG] Batch has labels: {'labels' in batch}")
+                    logger.info(
+                        f"   [DEBUG] Model trainable params: {sum(p.numel() for p in net.parameters() if p.requires_grad):,}")
+            else:
+                images, labels = batch["img"].to(DEVICE), batch["label"].to(DEVICE)
+                outputs = net(images)
+                loss = criterion(outputs, labels)
+
+            # Check for NaN or exploding loss
+            if torch.isnan(loss) or torch.isinf(loss):
+                logger.info(f"   [Training] WARNING: Invalid loss detected (NaN/Inf), skipping batch")
+                continue
+
+            if loss.item() > 100.0:
+                logger.info(f"   [Training] WARNING: Extremely high loss ({loss.item():.2f}), skipping batch")
+                continue
+
+            loss.backward()
+
+            if current_step % 10 == 0:
+                log_processing_usage(f"batch {current_step}")
+
+            # Gradient clipping for LLM to prevent explosion
+            if USE_LLM:
+                torch.nn.utils.clip_grad_norm_(net.parameters(), LLM_MAX_GRAD_NORM)
+
+            optimizer.step()
+
+            # Step scheduler for LLM
+            if USE_LLM:
+                scheduler.step()
+
+            current_step += 1
+            epoch_loss += loss.item()
+            epoch_steps += 1
+
+            # Update progress for heartbeat
+            if progress_callback:
+                progress_callback(current_step, total_steps)
+
+            # Log progress every 10 steps
+            if (current_step % 10) == 0:
+                avg_loss = epoch_loss / epoch_steps
+                current_lr = scheduler.get_last_lr()[0] if USE_LLM else optimizer.param_groups[0]['lr']
+                logger.info(f"   [Training] Epoch {epoch + 1}/{epochs}, "
+                      f"Step {current_step}/{total_steps}: "
+                      f"Loss = {loss.item():.6f}, "
+                      f"Avg Loss = {avg_loss:.6f}, "
+                      f"LR = {current_lr:.2e}")
+
+        # Epoch summary
+        avg_epoch_loss = epoch_loss / epoch_steps if epoch_steps > 0 else 0.0
+        logger.info(f"   [Training] Epoch {epoch + 1} complete. Average loss: {avg_epoch_loss:.6f}")
+
+        # Compare parameters at END of last epoch
+        if epoch == epochs - 1 and first_epoch_params is not None:
+            param_changes = []
+            for name, param in net.named_parameters():
+                if name in first_epoch_params:
+                    diff = (param - first_epoch_params[name]).abs().mean().item()
+                    param_changes.append(diff)
+
+            if param_changes:
+                avg_change = sum(param_changes) / len(param_changes)
+                max_change = max(param_changes)
+                logger.info(f"   [Training] Parameter changes from start:")
+                logger.info(f"   [Training]   Average change: {avg_change:.6e}")
+                logger.info(f"   [Training]   Maximum change: {max_change:.6e}")
+
+                if avg_change < 1e-10:
+                    logger.info("   [Training] ⚠️  WARNING: Parameters barely changed!")
+                else:
+                    logger.info(f"   [Training] ✓ Parameters updated successfully")
+
+    log_processing_usage("after training finished")
+
+
+# ==============================================================================
+# --- Custom Client Class for FedLearn with Heartbeat Support ---
+# ==============================================================================
+class ZOSLClient(fl.Client):
+    def __init__(self, partition_id: int, dataset_name: str = "sst2"):
+        self.partition_id = partition_id
+        self.dataset_name = dataset_name
+        self.grpc_client = None  # Will be set by start_client
+
+        if USE_LLM:
+            config = DATASET_CONFIGS[dataset_name]
+            self.net = AutoModelForSequenceClassification.from_pretrained(
+                MODEL_NAME,
+                num_labels=config["num_classes"],
+                use_safetensors=True
+            )
+            self.net.to(DEVICE)
+            logger.info(f"Loaded {MODEL_NAME} for {dataset_name} ({config['num_classes']} classes)")
+            self.trainloader, _ = load_data(
+                partition_id=self.partition_id,
+                dataset_name=dataset_name
+            )
+        else:
+            self.net = CnnNet().to(DEVICE)
+            logger.info("Loaded CNN for CIFAR-10")
+
+            self.trainloader, self.valloader = load_data(
+                partition_id=self.partition_id,
+                dataset_name=dataset_name
+            )
+
+        log_processing_usage("after model init")
+
+
+        logger.info(f"Data loaded successfully for client {partition_id}.")
+
+    def set_grpc_client(self, grpc_client):
+        """Set the gRPC client for heartbeat updates."""
+        self.grpc_client = grpc_client
+        logger.info(f"[Client] gRPC client configured for heartbeat updates.")
+
+    def get_parameters(self) -> OrderedDict[str, torch.Tensor]:
+        return self.net.state_dict()
+
+    def fit(
+            self,
+            parameters: OrderedDict[str, torch.Tensor],
+            config: dict
+    ) -> Tuple[OrderedDict[str, torch.Tensor], int]:
+        # Load parameters
+        parameters = OrderedDict({k: v.to(DEVICE) for k, v in parameters.items()})
+        self.net.load_state_dict(parameters)
+
+        # Get local epochs from config or use dataset default
+        if USE_LLM:
+            local_epochs = config.get("local_epochs", DATASET_CONFIGS[self.dataset_name]["local_epochs"])
+            logger.info('self.dataset_name - ',self.dataset_name)
+            logger.info('Client Class epochs - ',local_epochs)
+        else:
+            local_epochs = config.get("local_epochs", 1)
+
+        # Define progress callback to update heartbeat status
+        def progress_callback(current_step, total_steps):
+            if self.grpc_client:
+                self.grpc_client.update_status("training", current_step, total_steps)
+
+        import gc
+        gc.collect()
+
+        # Train with progress updates
+        train(
+            self.net,
+            self.trainloader,
+            epochs=local_epochs,
+            dataset_name=self.dataset_name,
+            progress_callback=progress_callback
+        )
+
+        # Logging after training
+        log_processing_usage("after training finished")
+
+        return self.net.state_dict(), len(self.trainloader.dataset)
+
+
+# ==============================================================================
+# --- Main Execution Block ---
+# ==============================================================================
+def main():
+    global USE_LLM, DATASET_NAME, BATCH_SIZE
+
+    parser = argparse.ArgumentParser(description="FedLearn gRPC Client with Heartbeat")
+    parser.add_argument("--project-id", type=str, required=True, help="Project ID")
+    parser.add_argument("--server-address", type=str, required=True, help="gRPC server address (e.g., localhost:50051)")
+    parser.add_argument("--partition-id", type=int, required=True, choices=range(0, NUM_PARTITIONS), help="Client partition ID")
+    parser.add_argument("--use-llm", action="store_true", help="Use LLM model instead of CNN")
+    parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2"], help="Dataset for LLM (cb or sst2)")
+    args = parser.parse_args()
+
+    # Update global configuration
+    global logger
+    logger = ClientLogAdapter(base_logger, {'client_id': f'project_{args.project_id}_client_{args.partition_id}'})
+    USE_LLM = args.use_llm
+    DATASET_NAME = args.dataset
+    BATCH_SIZE = 1 if USE_LLM else 32
+
+    logger.info(f"\n{'='*60}")
+    logger.info(f"Starting FedLearn Client")
+    logger.info(f"{'='*60}")
+    logger.info(f"Configuration:")
+    logger.info(f"  Project ID: {args.project_id}")
+    logger.info(f"  Partition ID: {args.partition_id}")
+    logger.info(f"  Model: {'LLM (OPT-125M)' if USE_LLM else 'CNN (CIFAR-10)'}")
+    if USE_LLM:
+        logger.info(f"  Dataset: {args.dataset.upper()}")
+        logger.info(f"  Num classes: {DATASET_CONFIGS[args.dataset]['num_classes']}")
+        logger.info(f"  Learning rate: {DATASET_CONFIGS[args.dataset]['learning_rate']}")
+        logger.info(f"  Local epochs: {DATASET_CONFIGS[args.dataset]['local_epochs']}")
+    logger.info(f"  Device: {DEVICE}")
+    logger.info(f"  Server: {args.server_address}")
+    logger.info(f"{'='*60}\n")
+
+    client = ZOSLClient(partition_id=args.partition_id, dataset_name=args.dataset)
+    client_id = f"project_{args.project_id}_client_{args.partition_id}"
+
+    logger.info(f"Connecting to gRPC server at {args.server_address}...")
+
+    try:
+        # Start the client
+        fl.client.start_client(
+            server_address=args.server_address,
+            client=client,
+            client_id=client_id
+        )
+
+    except KeyboardInterrupt:
+        logger.info(f"\n[{client_id}] Interrupted by user. Shutting down...")
+    except Exception as e:
+        logger.info(f"[{client_id}] Error: {e}")
+        raise
+    finally:
+        logger.info("\n=== Utilization Summary ===")
+        logger.info(f"{'Step':25} {'CPU RAM (MB)':15} {'GPU Alloc (MB)':15} {'GPU Reserved (MB)':18} {'GPU Util (%)':12}")
+
+        for entry in utilization_log:
+            logger.info(f"{entry['step']:25}"
+                  f"{entry['cpu_ram_mb']:<15.2f}"
+                  f"{(entry['gpu_alloc_mb'] or 0):<15.2f}"
+                  f"{(entry['gpu_reserved_mb'] or 0):<18.2f}"
+                  f"{(entry['gpu_util_percent'] or 0):<12}")
+
+        logger.info(f"[{client_id}] Client disconnected.")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+
+================================================================================
+File: client-docker/scripts/models.py
+Size: 781 bytes | Lines: 26 | Section: source
+================================================================================
+```python
+from __future__ import annotations
+
+# File: models.py
+import torch
+from torch import nn
+import torch.nn.functional as F
+
+class CnnNet(nn.Module):
+    """A simple CNN for CIFAR-10."""
+    def __init__(self) -> None:
+        super(CnnNet, self).__init__()
+        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 10)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = x.view(-1, 16 * 5 * 5)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+```
+
+
+================================================================================
+File: client-docker/test_docker_build.sh
+Size: 2862 bytes | Lines: 72 | Section: source
+================================================================================
+```bash
+#!/bin/bash
+# =============================================================================
+# FedLearn Platform — Docker Build & Validation Test Suite
+# Tests the full client-docker image with the heavy PyTorch runtime.
+# =============================================================================
+
+# Exit immediately if a command exits with a non-zero status
+set -e
+
+# ANSI Color Codes
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Determine project root (script is in client-docker/)
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$( cd "${SCRIPT_DIR}/.." && pwd )"
+
+IMAGE_NAME="fedlearn-client:integration-test"
+
+echo -e "${YELLOW}======================================================${NC}"
+echo -e "${YELLOW} Docker Client Validation Suite (${IMAGE_NAME})${NC}"
+echo -e "${YELLOW}======================================================${NC}"
+
+# Check if Docker is installed
+if ! command -v docker &> /dev/null; then
+    echo -e "${RED}[ERROR] Docker is not installed or not in PATH.${NC}"
+    exit 1
+fi
+
+echo -e "\n${YELLOW}[1/4] Building Docker Image from Project Root...${NC}"
+echo "Context: $PROJECT_ROOT"
+cd "$PROJECT_ROOT" || exit 1
+docker build -t "$IMAGE_NAME" -f client-docker/Dockerfile .
+echo -e "${GREEN}[✔] Build Succeeded.${NC}"
+
+echo -e "\n${YELLOW}[2/4] Verifying Framework Pip Installation...${NC}"
+# We override the entrypoint to run python and import the library natively installed via pip
+docker run --rm --entrypoint python3 "$IMAGE_NAME" -c "
+import sys
+try:
+    import fedlearn
+    print('FedLearn framework successfully imported from:', fedlearn.__file__)
+except ImportError as e:
+    print('Failed to import fedlearn framework!', file=sys.stderr)
+    sys.exit(1)
+"
+echo -e "${GREEN}[✔] Framework Installed and Importable.${NC}"
+
+echo -e "\n${YELLOW}[3/4] Verifying File Structure & Dependencies...${NC}"
+# Check if entrypoint and scripts were successfully created/copied
+docker run --rm --entrypoint /bin/bash "$IMAGE_NAME" -c "
+if [ ! -f /app/entrypoint.sh ]; then echo 'Missing entrypoint.sh!'; exit 1; fi
+if [ ! -d /app/scripts ]; then echo 'Missing scripts directory!'; exit 1; fi
+echo 'All critical paths exist.'
+"
+echo -e "${GREEN}[✔] Directory Structure Valid.${NC}"
+
+echo -e "\n${YELLOW}[4/4] Verifying PyTorch Environment...${NC}"
+docker run --rm --entrypoint python3 "$IMAGE_NAME" -c "
+import torch
+print(f'PyTorch Version: {torch.__version__}')
+"
+echo -e "${GREEN}[✔] PyTorch Functional.${NC}"
+
+echo -e "\n${GREEN}======================================================${NC}"
+echo -e "${GREEN} All Tests Passed! The refactored Dockerfile is solid.${NC}"
+echo -e "${GREEN}======================================================${NC}"
+
+# Optionally clean up the tagging (we leave the layers cached)
+docker rmi "$IMAGE_NAME" >/dev/null 2>&1 || true
+```
+
+
+################################################################################
+# DOCS (may lag behind code)
+################################################################################
+
+================================================================================
+File: client-docker/CLAUDE.md
+Size: 0 bytes | Lines: 0 | Section: docs
+================================================================================
+```markdown
+
+```
+
+
+================================================================================
+File: client-docker/DEPLOYMENT_GUIDE.md
+Size: 18320 bytes | Lines: 450 | Section: docs
+================================================================================
+```markdown
 # FedLearn Client — Deployment Guide
 
 > **Audience**: Developers deploying the FedLearn client on edge devices (NVIDIA Jetson) or local machines (Mac/Linux).
@@ -455,55 +1401,12 @@ cd backend/fl-platform-api
 ```
 ```
 
-================================================================================
-File: client-docker/Dockerfile
-================================================================================
-
-```text
-# =============================================================================
-# FedLearn Edge Client — Docker Image
-# =============================================================================
-# Default: standard x86 PyTorch image.
-# Override for Jetson:
-#   docker build --build-arg BASE_IMAGE=nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3 .
-# =============================================================================
-ARG BASE_IMAGE=pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
-FROM ${BASE_IMAGE}
-
-ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3-venv python3-dev python3-pip build-essential git wget curl ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN python3 -m pip install --upgrade pip setuptools wheel
-
-WORKDIR /app
-
-# 1. Copy the core framework (Single Source of Truth)
-COPY framework/ /app/framework/
-
-# 2. Install the framework as a standard Python library
-RUN pip3 install --no-cache-dir /app/framework/
-
-# 3. Copy client-specific execution scripts and requirements
-COPY client-docker/requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
-COPY client-docker/scripts/ /app/scripts/
-COPY client-docker/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
-ENV PYTHONPATH=/app:${PYTHONPATH}
-WORKDIR /app/scripts
-ENTRYPOINT ["/app/entrypoint.sh"]
-CMD []
-```
 
 ================================================================================
 File: client-docker/README.md
+Size: 14995 bytes | Lines: 669 | Section: docs
 ================================================================================
-
-```md
+```markdown
 # FedLearn Client - Docker Package
 
 Pre-packaged Docker image for federated learning clients. This containerized solution includes the FedLearn framework and client scripts, allowing users to participate in FL training without installing dependencies locally.
@@ -1173,824 +2076,5 @@ docker-compose up
 # Export
 docker save fedlearn-client:latest -o fedlearn-client.tar
 ```
-```
-
-================================================================================
-File: client-docker/entrypoint.sh
-================================================================================
-
-```sh
-#!/bin/bash
-set -e
-
-echo "[entrypoint] Container started successfully."
-echo "[entrypoint] PROJECT_ID=$PROJECT_ID"
-echo "[entrypoint] SERVER_ADDRESS=$SERVER_ADDRESS"
-echo "[entrypoint] PARTITION_ID=$PARTITION_ID"
-
-if [ -z "$PROJECT_ID" ] || [ -z "$SERVER_ADDRESS" ] || [ -z "$PARTITION_ID" ]; then
-    echo "[entrypoint] Error: Missing required environment variables"
-    echo "Usage: docker run -e PROJECT_ID=<id> -e SERVER_ADDRESS=<address> -e PARTITION_ID=<id> <image> [--use-llm] [--dataset cb|sst2]"
-    exit 1
-fi
-
-# Disable all proxies (fixes 'Failed parsing HTTP/2' when VPN/lab proxies intercept gRPC)
-unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY
-export no_proxy="*"
-export GRPC_ENABLE_FORK_SUPPORT=0
-
-echo "[entrypoint] Launching python3 client.py ..."
-exec python3 -u client.py \
-    --project-id "$PROJECT_ID" \
-    --server-address "$SERVER_ADDRESS" \
-    --partition-id "$PARTITION_ID" \
-    "$@"
-```
-
-================================================================================
-File: client-docker/requirements.txt
-================================================================================
-
-```txt
-# =============================================================================
-# FL Client Requirements — Jetson AGX (Python 3.8, aarch64, CUDA 11.4)
-# =============================================================================
-# ALL versions verified for cp38-aarch64 binary wheel availability on PyPI.
-# PyTorch 2.0 is pre-installed in the L4T base image — do NOT add it here.
-
-# -----------------------------------------------------------------------------
-# Federated Learning Framework
-# -----------------------------------------------------------------------------
-flwr-datasets>=0.3.0
-
-# -----------------------------------------------------------------------------
-# Transformers and NLP (capped for Python 3.8 + aarch64 binary wheels)
-# -----------------------------------------------------------------------------
-transformers>=4.30.0
-datasets>=2.14.0
-tokenizers>=0.13.0
-accelerate>=0.20.0
-safetensors>=0.3.1
-huggingface-hub>=0.20
-
-# -----------------------------------------------------------------------------
-# Data Processing
-# NOTE: pyarrow is deliberately UNCAPPED because flwr-datasets 0.3.0
-#       requires pyarrow==16.1.0 (exact pin). Capping it causes a conflict.
-#       pyarrow 16.1.0 has a pre-built cp38-aarch64 wheel on PyPI.
-# -----------------------------------------------------------------------------
-numpy>=1.21.0,<2.0.0
-pandas>=1.5.0
-
-# -----------------------------------------------------------------------------
-# gRPC and Networking
-# -----------------------------------------------------------------------------
-protobuf>=4.21.0,<6.0.0
-grpcio>=1.60.0
-grpcio-tools>=1.60.0
-grpcio-health-checking>=1.60.0
-googleapis-common-protos>=1.60.0
-
-# -----------------------------------------------------------------------------
-# HTTP and Async
-# -----------------------------------------------------------------------------
-aiohttp>=3.8.0
-aiohttp-cors>=0.7.0
-requests>=2.28.0
-
-# -----------------------------------------------------------------------------
-# GPU Monitoring
-# -----------------------------------------------------------------------------
-nvidia-ml-py>=12.535.0
-pynvml>=11.5.0
-psutil>=5.9
-
-# -----------------------------------------------------------------------------
-# CLI and Utilities
-# -----------------------------------------------------------------------------
-click>=8.0.0
-typer>=0.9.0
-rich>=13.0.0
-tqdm>=4.65.0
-colorama>=0.4.6
-
-# -----------------------------------------------------------------------------
-# Image and Serialization
-# -----------------------------------------------------------------------------
-pillow>=9.5.0
-msgpack>=1.0
-dill>=0.3.6
-PyYAML>=6.0
-filelock>=3.12
-fsspec>=2023.6,<2024.3
-
-# -----------------------------------------------------------------------------
-# Standard Dependencies
-# -----------------------------------------------------------------------------
-certifi>=2023.0
-charset-normalizer>=3.0
-idna>=3.4
-urllib3>=1.26.0
-packaging>=23.0
-typing_extensions>=4.8
-```
-
-================================================================================
-File: client-docker/run-client.sh
-================================================================================
-
-```sh
-```
-
-================================================================================
-File: client-docker/test_docker_build.sh
-================================================================================
-
-```sh
-#!/bin/bash
-# =============================================================================
-# FedLearn Platform — Docker Build & Validation Test Suite
-# Tests the full client-docker image with the heavy PyTorch runtime.
-# =============================================================================
-
-# Exit immediately if a command exits with a non-zero status
-set -e
-
-# ANSI Color Codes
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
-# Determine project root (script is in client-docker/)
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PROJECT_ROOT="$( cd "${SCRIPT_DIR}/.." && pwd )"
-
-IMAGE_NAME="fedlearn-client:integration-test"
-
-echo -e "${YELLOW}======================================================${NC}"
-echo -e "${YELLOW} Docker Client Validation Suite (${IMAGE_NAME})${NC}"
-echo -e "${YELLOW}======================================================${NC}"
-
-# Check if Docker is installed
-if ! command -v docker &> /dev/null; then
-    echo -e "${RED}[ERROR] Docker is not installed or not in PATH.${NC}"
-    exit 1
-fi
-
-echo -e "\n${YELLOW}[1/4] Building Docker Image from Project Root...${NC}"
-echo "Context: $PROJECT_ROOT"
-cd "$PROJECT_ROOT" || exit 1
-docker build -t "$IMAGE_NAME" -f client-docker/Dockerfile .
-echo -e "${GREEN}[✔] Build Succeeded.${NC}"
-
-echo -e "\n${YELLOW}[2/4] Verifying Framework Pip Installation...${NC}"
-# We override the entrypoint to run python and import the library natively installed via pip
-docker run --rm --entrypoint python3 "$IMAGE_NAME" -c "
-import sys
-try:
-    import fedlearn
-    print('FedLearn framework successfully imported from:', fedlearn.__file__)
-except ImportError as e:
-    print('Failed to import fedlearn framework!', file=sys.stderr)
-    sys.exit(1)
-"
-echo -e "${GREEN}[✔] Framework Installed and Importable.${NC}"
-
-echo -e "\n${YELLOW}[3/4] Verifying File Structure & Dependencies...${NC}"
-# Check if entrypoint and scripts were successfully created/copied
-docker run --rm --entrypoint /bin/bash "$IMAGE_NAME" -c "
-if [ ! -f /app/entrypoint.sh ]; then echo 'Missing entrypoint.sh!'; exit 1; fi
-if [ ! -d /app/scripts ]; then echo 'Missing scripts directory!'; exit 1; fi
-echo 'All critical paths exist.'
-"
-echo -e "${GREEN}[✔] Directory Structure Valid.${NC}"
-
-echo -e "\n${YELLOW}[4/4] Verifying PyTorch Environment...${NC}"
-docker run --rm --entrypoint python3 "$IMAGE_NAME" -c "
-import torch
-print(f'PyTorch Version: {torch.__version__}')
-"
-echo -e "${GREEN}[✔] PyTorch Functional.${NC}"
-
-echo -e "\n${GREEN}======================================================${NC}"
-echo -e "${GREEN} All Tests Passed! The refactored Dockerfile is solid.${NC}"
-echo -e "${GREEN}======================================================${NC}"
-
-# Optionally clean up the tagging (we leave the layers cached)
-docker rmi "$IMAGE_NAME" >/dev/null 2>&1 || true
-```
-
-================================================================================
-File: client-docker/scripts/client.py
-================================================================================
-
-```py
-from __future__ import annotations
-
-import logging
-import sys
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - [ClientID: %(client_id)s] - %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
-
-class ClientLogAdapter(logging.LoggerAdapter):
-    def process(self, msg, kwargs):
-        return msg, {**kwargs, 'extra': {'client_id': self.extra.get('client_id', 'BOOTING')}}
-
-base_logger = logging.getLogger("FedLearn-EdgeClient")
-logger = ClientLogAdapter(base_logger, {'client_id': 'BOOTING'})
-
-import time as _time
-
-logger.info("=" * 60)
-logger.info("FedLearn Client — Starting up...")
-logger.info(f"Python: {sys.version}")
-logger.info("=" * 60)
-
-_t0 = _time.time()
-
-logger.info("[BOOT] Importing argparse...")
-import argparse
-
-logger.info(f"[BOOT] Importing torch... (this can take 1-3 min on Jetson)")
-import torch
-logger.info(f"[BOOT] ✓ torch {torch.__version__} loaded in {_time.time()-_t0:.1f}s | CUDA: {torch.cuda.is_available()}")
-
-import time
-import threading
-
-logger.info("[BOOT] Importing numpy...")
-import numpy as np
-logger.info(f"[BOOT] ✓ numpy {np.__version__}")
-
-from collections import OrderedDict
-from typing import List, Tuple
-from torch import nn
-import torch.nn.functional as F
-from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import CosineAnnealingLR
-
-logger.info("[BOOT] Importing psutil...")
-import psutil
-
-logger.info("[BOOT] Importing fedlearn...")
-import fedlearn as fl
-logger.info("[BOOT] ✓ fedlearn loaded")
-
-logger.info("[BOOT] Importing flwr_datasets...")
-from flwr_datasets import FederatedDataset
-logger.info("[BOOT] ✓ flwr_datasets loaded")
-
-logger.info("[BOOT] Importing torchvision...")
-import torchvision.transforms as transforms
-logger.info("[BOOT] ✓ torchvision loaded")
-
-logger.info("[BOOT] Importing HuggingFace datasets...")
-from datasets import load_dataset
-logger.info("[BOOT] ✓ datasets loaded")
-
-logger.info("[BOOT] Importing transformers (slowest on ARM)...")
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
-logger.info(f"[BOOT] ✓ transformers loaded")
-
-logger.info("[BOOT] Importing models...")
-from models import CnnNet
-logger.info(f"[BOOT] ✓ All imports complete in {_time.time()-_t0:.1f}s")
-
-
-try:
-    import pynvml
-    logger.info(f'[BOOT] ✓ pynvml {pynvml.__version__}')
-    PYNVML_AVAILABLE = True
-    pynvml.nvmlInit()
-    GPU_HANDLE = pynvml.nvmlDeviceGetHandleByIndex(0)
-except Exception:
-    PYNVML_AVAILABLE = False
-
-
-utilization_log = []
-
-# --- !! MANUAL FLAG TO SWITCH BETWEEN MODELS !! ---
-USE_LLM = True
-# --------------------------------------------------
-
-# --- Configuration ---
-NUM_PARTITIONS = 10
-BATCH_SIZE = 32 if not USE_LLM else 1
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-MODEL_NAME = "facebook/opt-125m"
-
-# Dataset configurations (matching DeComFL paper)
-DATASET_CONFIGS = {
-    "cb": {
-        "num_classes": 3,
-        "learning_rate": 1e-6,
-        "local_epochs": 1,
-        "max_length": 256,
-        "dataset_key": "super_glue",
-        "dataset_name": "cb",
-        "text_column": "premise",
-        "text2_column": "hypothesis",
-        "label_column": "label",
-    },
-    "sst2": {
-        "num_classes": 2,
-        "learning_rate": 1e-5,
-        "local_epochs": 1,
-        "max_length": 128,
-        "dataset_key": "glue",
-        "dataset_name": "sst2",
-        "text_column": "sentence",
-        "text2_column": None,
-        "label_column": "label",
-    }
-}
-
-# Training hyperparameters
-LLM_WEIGHT_DECAY = 0.1
-LLM_MAX_GRAD_NORM = 1.0  # Standard value for transformers
-LLM_WARMUP_RATIO = 0.1  # 10% of steps for warmup
-CNN_LEARNING_RATE = 1e-3
-
-# Global dataset selection (will be set via argparse)
-DATASET_NAME = "sst2"
-
-logger.info(f"Client operating on {DEVICE}")
-logger.info(f"--- RUNNING EXPERIMENT: {'LLM (OPT-125M)' if USE_LLM else 'CNN (CIFAR-10)'} ---")
-
-
-# ==============================================================================
-# --- Memory Logging ---
-# ==============================================================================
-def log_processing_usage(step_tag=""):
-    process = psutil.Process()
-    cpu_ram = process.memory_info().rss / 1024**2
-
-    timestamp = time.time()
-
-    entry = {
-        "timestamp": timestamp,
-        "step": step_tag,
-        "cpu_ram_mb": cpu_ram,
-        "gpu_alloc_mb": None,
-        "gpu_reserved_mb": None,
-        "gpu_util_percent": None,
-    }
-
-    if torch.cuda.is_available():
-        entry["gpu_alloc_mb"] = torch.cuda.memory_allocated() / 1024**2
-        entry["gpu_reserved_mb"] = torch.cuda.memory_reserved() / 1024**2
-
-        if PYNVML_AVAILABLE:
-            util = pynvml.nvmlDeviceGetUtilizationRates(GPU_HANDLE)
-            entry["gpu_util_percent"] = util.gpu
-
-    utilization_log.append(entry)
-
-    # Optional live print
-    logger.info(f"[Usage] {step_tag} CPU RAM {cpu_ram:.2f} MB "
-          f"GPU alloc {entry['gpu_alloc_mb']} MB "
-          f"GPU util {entry['gpu_util_percent']}")
-
-
-# ==============================================================================
-# --- Data and Training Logic ---
-# ==============================================================================
-def load_data(partition_id: int, dataset_name: str):
-    """
-    Load data for either CNN (CIFAR-10) or LLM (CB/SST-2).
-
-    Args:
-        partition_id: Client partition ID
-        dataset_name: "cb" or "sst2" for LLM, ignored for CNN
-    """
-    if USE_LLM:
-        config = DATASET_CONFIGS[dataset_name]
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-
-        # Load dataset based on configuration
-        if dataset_name == "cb":
-            raw_dataset = load_dataset(config["dataset_key"], config["dataset_name"], split="train")
-        else:  # sst2
-            raw_dataset = load_dataset(config["dataset_key"], config["dataset_name"], split="train")
-
-        logger.info(f"Dataset {dataset_name} loaded: {len(raw_dataset)} samples")
-
-        # Partition data across clients
-        num_samples = len(raw_dataset)
-        samples_per_client = num_samples // NUM_PARTITIONS
-        start = partition_id * samples_per_client
-        end = (partition_id + 1) * samples_per_client if partition_id < NUM_PARTITIONS - 1 else num_samples
-        partition = raw_dataset.select(range(start, end))
-
-        logger.info(f"Client {partition_id} partition: {len(partition)} samples (indices {start}-{end})")
-
-        def tokenize_function(examples):
-            """Tokenize based on dataset type (single or pair)."""
-            if config["text2_column"]:  # CB: premise + hypothesis
-                return tokenizer(
-                    examples[config["text_column"]],
-                    examples[config["text2_column"]],
-                    padding="max_length",
-                    truncation=True,
-                    max_length=config["max_length"]
-                )
-            else:  # SST-2: single sentence
-                return tokenizer(
-                    examples[config["text_column"]],
-                    padding="max_length",
-                    truncation=True,
-                    max_length=config["max_length"]
-                )
-
-        # Tokenize and preserve labels
-        tokenized_partition = partition.map(
-            tokenize_function,
-            batched=True,
-            num_proc=1,
-            remove_columns=[col for col in partition.column_names if col != config["label_column"]]
-        ).rename_column(config["label_column"], "labels").with_format("torch")
-
-        # Split into train/test
-        trainloader = DataLoader(tokenized_partition, shuffle=True, batch_size=BATCH_SIZE)
-        return trainloader, trainloader
-    else:
-        # CNN: CIFAR-10 (unchanged)
-        fds = FederatedDataset(dataset="cifar10", partitioners={"train": NUM_PARTITIONS})
-        partition = fds.load_partition(partition_id)
-        partition_train_test = partition.train_test_split(test_size=0.2, seed=42)
-        pytorch_transforms = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ])
-
-        def apply_transforms(batch):
-            batch["img"] = [pytorch_transforms(img) for img in batch["img"]]
-            return batch
-
-        partition_train_test = partition_train_test.with_transform(apply_transforms)
-        return (
-            DataLoader(partition_train_test["train"], batch_size=BATCH_SIZE, shuffle=True, num_workers=0),
-            DataLoader(partition_train_test["test"], batch_size=BATCH_SIZE, num_workers=0)
-        )
-
-
-def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=None):
-    """
-    Train the model with dataset-specific hyperparameters.
-
-    Args:
-        net: Neural network model
-        trainloader: Training data loader
-        epochs: Number of epochs (K=1 for LLM as per paper)
-        dataset_name: "cb" or "sst2" for LLM
-        progress_callback: Optional callback function(current_step, total_steps)
-    """
-
-    trainable = sum(p.numel() for p in net.parameters() if p.requires_grad)
-    frozen = sum(p.numel() for p in net.parameters() if not p.requires_grad)
-    logger.info(f"   [Training] Trainable params: {trainable:,}")
-    logger.info(f"   [Training] Frozen params: {frozen:,}")
-
-    if trainable == 0:
-        raise ValueError("ERROR: All model parameters are frozen!")
-
-    # Get dataset-specific configuration
-    if USE_LLM:
-        config = DATASET_CONFIGS[dataset_name]
-        learning_rate = config["learning_rate"]
-    else:
-        learning_rate = CNN_LEARNING_RATE
-
-    # Setup optimizer based on model type
-    if USE_LLM:
-        optimizer = torch.optim.AdamW(
-            net.parameters(),
-            lr=learning_rate,
-            weight_decay=LLM_WEIGHT_DECAY,
-            betas=(0.9, 0.999),
-            eps=1e-8
-        )
-    else:
-        optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
-
-    criterion = torch.nn.CrossEntropyLoss()
-    net.train()
-
-    total_steps = len(trainloader) * epochs
-    current_step = 0
-
-    # Setup learning rate scheduler for LLM
-    if USE_LLM:
-        num_warmup_steps = int(total_steps * LLM_WARMUP_RATIO)
-        scheduler = get_linear_schedule_with_warmup(
-            optimizer,
-            num_warmup_steps=num_warmup_steps,
-            num_training_steps=total_steps
-        )
-        logger.info(f"   [Training] Using warmup for {num_warmup_steps} steps")
-
-    logger.info(f"   [Training] Starting {total_steps} steps for {epochs} epoch(s)...")
-    logger.info(f"   [Training] Learning rate: {learning_rate}")
-    if USE_LLM:
-        logger.info(f"   [Training] Dataset: {dataset_name}")
-
-    # Save initial parameters (OUTSIDE epoch loop)
-    first_epoch_params = None
-
-    for epoch in range(epochs):
-        epoch_loss = 0.0
-        epoch_steps = 0
-
-        # Save parameters at START of first epoch
-        if epoch == 0:
-            first_epoch_params = {name: param.clone().detach() for name, param in net.named_parameters()}
-            logger.info(f"   [Training] Saved initial parameters for comparison")
-
-        for i, batch in enumerate(trainloader):
-            optimizer.zero_grad()
-
-            if USE_LLM:
-                # Move batch to device
-                batch = {k: v.to(DEVICE) for k, v in batch.items()}
-
-                # Forward pass with labels
-                outputs = net(**batch)
-                loss = outputs.loss
-
-                if current_step == 0:  # First batch only
-                    logger.info(f"   [DEBUG] First batch check:")
-                    logger.info(f"   [DEBUG] Loss raw value: {loss}")
-                    logger.info(f"   [DEBUG] Loss item: {loss.item()}")
-                    logger.info(f"   [DEBUG] Loss requires_grad: {loss.requires_grad}")
-                    logger.info(f"   [DEBUG] Batch has labels: {'labels' in batch}")
-                    logger.info(
-                        f"   [DEBUG] Model trainable params: {sum(p.numel() for p in net.parameters() if p.requires_grad):,}")
-            else:
-                images, labels = batch["img"].to(DEVICE), batch["label"].to(DEVICE)
-                outputs = net(images)
-                loss = criterion(outputs, labels)
-
-            # Check for NaN or exploding loss
-            if torch.isnan(loss) or torch.isinf(loss):
-                logger.info(f"   [Training] WARNING: Invalid loss detected (NaN/Inf), skipping batch")
-                continue
-
-            if loss.item() > 100.0:
-                logger.info(f"   [Training] WARNING: Extremely high loss ({loss.item():.2f}), skipping batch")
-                continue
-
-            loss.backward()
-
-            if current_step % 10 == 0:
-                log_processing_usage(f"batch {current_step}")
-
-            # Gradient clipping for LLM to prevent explosion
-            if USE_LLM:
-                torch.nn.utils.clip_grad_norm_(net.parameters(), LLM_MAX_GRAD_NORM)
-
-            optimizer.step()
-
-            # Step scheduler for LLM
-            if USE_LLM:
-                scheduler.step()
-
-            current_step += 1
-            epoch_loss += loss.item()
-            epoch_steps += 1
-
-            # Update progress for heartbeat
-            if progress_callback:
-                progress_callback(current_step, total_steps)
-
-            # Log progress every 10 steps
-            if (current_step % 10) == 0:
-                avg_loss = epoch_loss / epoch_steps
-                current_lr = scheduler.get_last_lr()[0] if USE_LLM else optimizer.param_groups[0]['lr']
-                logger.info(f"   [Training] Epoch {epoch + 1}/{epochs}, "
-                      f"Step {current_step}/{total_steps}: "
-                      f"Loss = {loss.item():.6f}, "
-                      f"Avg Loss = {avg_loss:.6f}, "
-                      f"LR = {current_lr:.2e}")
-
-        # Epoch summary
-        avg_epoch_loss = epoch_loss / epoch_steps if epoch_steps > 0 else 0.0
-        logger.info(f"   [Training] Epoch {epoch + 1} complete. Average loss: {avg_epoch_loss:.6f}")
-
-        # Compare parameters at END of last epoch
-        if epoch == epochs - 1 and first_epoch_params is not None:
-            param_changes = []
-            for name, param in net.named_parameters():
-                if name in first_epoch_params:
-                    diff = (param - first_epoch_params[name]).abs().mean().item()
-                    param_changes.append(diff)
-
-            if param_changes:
-                avg_change = sum(param_changes) / len(param_changes)
-                max_change = max(param_changes)
-                logger.info(f"   [Training] Parameter changes from start:")
-                logger.info(f"   [Training]   Average change: {avg_change:.6e}")
-                logger.info(f"   [Training]   Maximum change: {max_change:.6e}")
-
-                if avg_change < 1e-10:
-                    logger.info("   [Training] ⚠️  WARNING: Parameters barely changed!")
-                else:
-                    logger.info(f"   [Training] ✓ Parameters updated successfully")
-
-    log_processing_usage("after training finished")
-
-
-# ==============================================================================
-# --- Custom Client Class for FedLearn with Heartbeat Support ---
-# ==============================================================================
-class ZOSLClient(fl.Client):
-    def __init__(self, partition_id: int, dataset_name: str = "sst2"):
-        self.partition_id = partition_id
-        self.dataset_name = dataset_name
-        self.grpc_client = None  # Will be set by start_client
-
-        if USE_LLM:
-            config = DATASET_CONFIGS[dataset_name]
-            self.net = AutoModelForSequenceClassification.from_pretrained(
-                MODEL_NAME,
-                num_labels=config["num_classes"],
-                use_safetensors=True
-            )
-            self.net.to(DEVICE)
-            logger.info(f"Loaded {MODEL_NAME} for {dataset_name} ({config['num_classes']} classes)")
-            self.trainloader, _ = load_data(
-                partition_id=self.partition_id,
-                dataset_name=dataset_name
-            )
-        else:
-            self.net = CnnNet().to(DEVICE)
-            logger.info("Loaded CNN for CIFAR-10")
-
-            self.trainloader, self.valloader = load_data(
-                partition_id=self.partition_id,
-                dataset_name=dataset_name
-            )
-
-        log_processing_usage("after model init")
-
-
-        logger.info(f"Data loaded successfully for client {partition_id}.")
-
-    def set_grpc_client(self, grpc_client):
-        """Set the gRPC client for heartbeat updates."""
-        self.grpc_client = grpc_client
-        logger.info(f"[Client] gRPC client configured for heartbeat updates.")
-
-    def get_parameters(self) -> OrderedDict[str, torch.Tensor]:
-        return self.net.state_dict()
-
-    def fit(
-            self,
-            parameters: OrderedDict[str, torch.Tensor],
-            config: dict
-    ) -> Tuple[OrderedDict[str, torch.Tensor], int]:
-        # Load parameters
-        parameters = OrderedDict({k: v.to(DEVICE) for k, v in parameters.items()})
-        self.net.load_state_dict(parameters)
-
-        # Get local epochs from config or use dataset default
-        if USE_LLM:
-            local_epochs = config.get("local_epochs", DATASET_CONFIGS[self.dataset_name]["local_epochs"])
-            logger.info('self.dataset_name - ',self.dataset_name)
-            logger.info('Client Class epochs - ',local_epochs)
-        else:
-            local_epochs = config.get("local_epochs", 1)
-
-        # Define progress callback to update heartbeat status
-        def progress_callback(current_step, total_steps):
-            if self.grpc_client:
-                self.grpc_client.update_status("training", current_step, total_steps)
-
-        import gc
-        gc.collect()
-
-        # Train with progress updates
-        train(
-            self.net,
-            self.trainloader,
-            epochs=local_epochs,
-            dataset_name=self.dataset_name,
-            progress_callback=progress_callback
-        )
-
-        # Logging after training
-        log_processing_usage("after training finished")
-
-        return self.net.state_dict(), len(self.trainloader.dataset)
-
-
-# ==============================================================================
-# --- Main Execution Block ---
-# ==============================================================================
-def main():
-    global USE_LLM, DATASET_NAME, BATCH_SIZE
-
-    parser = argparse.ArgumentParser(description="FedLearn gRPC Client with Heartbeat")
-    parser.add_argument("--project-id", type=str, required=True, help="Project ID")
-    parser.add_argument("--server-address", type=str, required=True, help="gRPC server address (e.g., localhost:50051)")
-    parser.add_argument("--partition-id", type=int, required=True, choices=range(0, NUM_PARTITIONS), help="Client partition ID")
-    parser.add_argument("--use-llm", action="store_true", help="Use LLM model instead of CNN")
-    parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2"], help="Dataset for LLM (cb or sst2)")
-    args = parser.parse_args()
-
-    # Update global configuration
-    global logger
-    logger = ClientLogAdapter(base_logger, {'client_id': f'project_{args.project_id}_client_{args.partition_id}'})
-    USE_LLM = args.use_llm
-    DATASET_NAME = args.dataset
-    BATCH_SIZE = 1 if USE_LLM else 32
-
-    logger.info(f"\n{'='*60}")
-    logger.info(f"Starting FedLearn Client")
-    logger.info(f"{'='*60}")
-    logger.info(f"Configuration:")
-    logger.info(f"  Project ID: {args.project_id}")
-    logger.info(f"  Partition ID: {args.partition_id}")
-    logger.info(f"  Model: {'LLM (OPT-125M)' if USE_LLM else 'CNN (CIFAR-10)'}")
-    if USE_LLM:
-        logger.info(f"  Dataset: {args.dataset.upper()}")
-        logger.info(f"  Num classes: {DATASET_CONFIGS[args.dataset]['num_classes']}")
-        logger.info(f"  Learning rate: {DATASET_CONFIGS[args.dataset]['learning_rate']}")
-        logger.info(f"  Local epochs: {DATASET_CONFIGS[args.dataset]['local_epochs']}")
-    logger.info(f"  Device: {DEVICE}")
-    logger.info(f"  Server: {args.server_address}")
-    logger.info(f"{'='*60}\n")
-
-    client = ZOSLClient(partition_id=args.partition_id, dataset_name=args.dataset)
-    client_id = f"project_{args.project_id}_client_{args.partition_id}"
-
-    logger.info(f"Connecting to gRPC server at {args.server_address}...")
-
-    try:
-        # Start the client
-        fl.client.start_client(
-            server_address=args.server_address,
-            client=client,
-            client_id=client_id
-        )
-
-    except KeyboardInterrupt:
-        logger.info(f"\n[{client_id}] Interrupted by user. Shutting down...")
-    except Exception as e:
-        logger.info(f"[{client_id}] Error: {e}")
-        raise
-    finally:
-        logger.info("\n=== Utilization Summary ===")
-        logger.info(f"{'Step':25} {'CPU RAM (MB)':15} {'GPU Alloc (MB)':15} {'GPU Reserved (MB)':18} {'GPU Util (%)':12}")
-
-        for entry in utilization_log:
-            logger.info(f"{entry['step']:25}"
-                  f"{entry['cpu_ram_mb']:<15.2f}"
-                  f"{(entry['gpu_alloc_mb'] or 0):<15.2f}"
-                  f"{(entry['gpu_reserved_mb'] or 0):<18.2f}"
-                  f"{(entry['gpu_util_percent'] or 0):<12}")
-
-        logger.info(f"[{client_id}] Client disconnected.")
-
-
-if __name__ == "__main__":
-    main()
-```
-
-================================================================================
-File: client-docker/scripts/models.py
-================================================================================
-
-```py
-from __future__ import annotations
-
-# File: models.py
-import torch
-from torch import nn
-import torch.nn.functional as F
-
-class CnnNet(nn.Module):
-    """A simple CNN for CIFAR-10."""
-    def __init__(self) -> None:
-        super(CnnNet, self).__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 5 * 5)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
 ```
 

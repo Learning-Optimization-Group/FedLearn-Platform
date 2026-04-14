@@ -1,8 +1,3991 @@
 ================================================================================
-File: frontend/FIXES_APPLIED.md
+FedLearn Platform — LLM context dump: frontend
 ================================================================================
+Component path : frontend
+Generated at   : 2026-04-14 17:41 UTC
+Git branch     : feature/fedlearn-desktop-and-aws-orchestration
+Git commit     : 89b2cf5 (uncommitted changes present)
+Files included : 43 (config=3, source=37, tests=0, docs=3)
+Total lines    : 4,151
+Total size     : 116.2 KB
 
-```md
+Notes for the reader:
+  * Everything below is verbatim from this repo at the commit above.
+  * Generated protobuf stubs, build artefacts, lockfiles, and binaries are excluded.
+  * Markdown docs are included but may lag behind code — trust the source sections.
+  * Sensitive values in env/properties files are shown as [REDACTED].
+================================================================================
+-- TREE ------------------------------------------------------------------------
+frontend/
+    CLAUDE.md
+    FIXES_APPLIED.md
+    README.md
+    package.json
+    tsconfig.json
+    tsconfig.node.json
+    vercel.json
+    vite.config.ts
+  src/
+    App.css
+    App.tsx
+    index.css
+    main.tsx
+  src/api/
+      axiosConfig.ts
+  src/components/
+      CopyIcon.tsx
+      CreateProjectModal.tsx
+      DiskLoader.tsx
+      Layout.tsx
+      LogViewer.tsx
+      ModelCard.tsx
+      ProjectCard.tsx
+      ProtectedRoute.tsx
+      ResultsModal.tsx
+  src/context/
+      AuthContext.tsx
+  src/pages/
+      DashboardPage.tsx
+      HomePage.tsx
+      LandingPage.tsx
+      LoginPage.tsx
+      ModelsPage.tsx
+      RegisterPage.tsx
+      SettingsPage.tsx
+      TrainingPage.tsx
+  src/services/
+      apiServices.ts
+  src/styles/
+      AuthStyles.css
+      CopyIcon.css
+      CreateProjectModal.css
+      Dashboard.css
+      DiskLoader.css
+      LandingPage.css
+      Layout.css
+      LogViewer.css
+      ModelCard.css
+      ProjectCard.css
+      ResultsModal.css
+
+-- MANIFEST --------------------------------------------------------------------
+path                                                                        bytes   lines  section
+frontend/CLAUDE.md                                                            806      15  docs
+frontend/FIXES_APPLIED.md                                                    8425     339  docs
+frontend/README.md                                                           8922     280  docs
+frontend/package.json                                                         768      32  config
+frontend/src/App.css                                                            0       0  source
+frontend/src/App.tsx                                                         2648      76  source
+frontend/src/api/axiosConfig.ts                                              1354      44  source
+frontend/src/components/CopyIcon.tsx                                         1441      46  source
+frontend/src/components/CreateProjectModal.tsx                               5800     155  source
+frontend/src/components/DiskLoader.tsx                                        608      21  source
+frontend/src/components/Layout.tsx                                           1489      44  source
+frontend/src/components/LogViewer.tsx                                        6551     179  source
+frontend/src/components/ModelCard.tsx                                         860      32  source
+frontend/src/components/ProjectCard.tsx                                     11236     262  source
+frontend/src/components/ProtectedRoute.tsx                                    496      20  source
+frontend/src/components/ResultsModal.tsx                                     2693      78  source
+frontend/src/context/AuthContext.tsx                                         2720      97  source
+frontend/src/index.css                                                       1717      64  source
+frontend/src/main.tsx                                                         640      26  source
+frontend/src/pages/DashboardPage.tsx                                         7427     216  source
+frontend/src/pages/HomePage.tsx                                               234      12  source
+frontend/src/pages/LandingPage.tsx                                           4730      96  source
+frontend/src/pages/LoginPage.tsx                                             3458     104  source
+frontend/src/pages/ModelsPage.tsx                                             233      12  source
+frontend/src/pages/RegisterPage.tsx                                          6617     181  source
+frontend/src/pages/SettingsPage.tsx                                           248      12  source
+frontend/src/pages/TrainingPage.tsx                                           238      12  source
+frontend/src/services/apiServices.ts                                         2823      98  source
+frontend/src/styles/AuthStyles.css                                           2616     106  source
+frontend/src/styles/CopyIcon.css                                              247      14  source
+frontend/src/styles/CreateProjectModal.css                                   1492      92  source
+frontend/src/styles/Dashboard.css                                            4112     189  source
+frontend/src/styles/DiskLoader.css                                           1081      66  source
+frontend/src/styles/LandingPage.css                                          4639     231  source
+frontend/src/styles/Layout.css                                               6523     275  source
+frontend/src/styles/LogViewer.css                                            1655      90  source
+frontend/src/styles/ModelCard.css                                            1031      57  source
+frontend/src/styles/ProjectCard.css                                          7337     322  source
+frontend/src/styles/ResultsModal.css                                         1600      86  source
+frontend/tsconfig.json                                                        824      32  config
+frontend/tsconfig.node.json                                                   233      11  source
+frontend/vercel.json                                                           96       8  source
+frontend/vite.config.ts                                                       333      19  config
+
+################################################################################
+# CONFIG & BUILD
+################################################################################
+
+================================================================================
+File: frontend/package.json
+Size: 768 bytes | Lines: 32 | Section: config
+================================================================================
+```json
+{
+  "name": "fedlearn-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@stomp/stompjs": "^7.1.1",
+    "axios": "^1.11.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-icons": "^5.5.0",
+    "react-router-dom": "^7.5.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.22.0",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.22.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^16.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.3.1"
+  }
+}
+```
+
+
+================================================================================
+File: frontend/tsconfig.json
+Size: 824 bytes | Lines: 32 | Section: config
+================================================================================
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
+```
+
+
+================================================================================
+File: frontend/vite.config.ts
+Size: 333 bytes | Lines: 19 | Section: config
+================================================================================
+```typescript
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react()],
+  define: {
+    'global': {},
+  },
+  build: {
+    minify: 'esbuild',
+    sourcemap: true,
+  },
+  server: {
+    port: 5173,
+    strictPort: false,
+    host: true,
+  },
+});
+```
+
+
+################################################################################
+# SOURCE
+################################################################################
+
+================================================================================
+File: frontend/src/App.css
+Size: 0 bytes | Lines: 0 | Section: source
+================================================================================
+```text
+
+```
+
+
+================================================================================
+File: frontend/src/App.tsx
+Size: 2648 bytes | Lines: 76 | Section: source
+================================================================================
+```tsx
+import React, { useEffect } from 'react';
+import { Routes, Route, Link, Navigate } from 'react-router-dom';
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import DashboardPage from './pages/DashboardPage';
+import ModelsPage from './pages/ModelsPage';
+import TrainingPage from './pages/TrainingPage';
+import SettingsPage from './pages/SettingsPage';
+import './App.css';
+import Layout from './components/Layout';
+import { useAuth } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import LandingPage from './pages/LandingPage';
+import DiskLoader from './components/DiskLoader';
+
+const AppLoading: React.FC = () => (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <DiskLoader message="Loading Application..." />
+    </div>
+);
+
+const NotFoundPage: React.FC = () => (
+    <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <h2>404 - Page Not Found</h2>
+        <p>The page you're looking for doesn't exist.</p>
+        <Link to="/">Go Home</Link>
+    </div>
+);
+
+function App() {
+    const { currentUser, logout, isLoading } = useAuth();
+
+    useEffect(() => {
+        const handleAuthError = () => {
+            logout();
+        };
+        window.addEventListener('authError', handleAuthError);
+        return () => {
+            window.removeEventListener('authError', handleAuthError);
+        };
+    }, [logout]);
+
+    if (isLoading) {
+        return <AppLoading />;
+    }
+
+    return (
+        <div className="App">
+            <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route
+                    path="/login"
+                    element={currentUser ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+                />
+                <Route
+                    path="/register"
+                    element={currentUser ? <Navigate to="/dashboard" replace /> : <RegisterPage />}
+                />
+
+                <Route element={<ProtectedRoute />}>
+                    <Route element={<Layout />}>
+                        <Route path="/dashboard" element={<DashboardPage />} />
+                        <Route path="/models" element={<ModelsPage />} />
+                        <Route path="/training" element={<TrainingPage />} />
+                        <Route path="/settings" element={<SettingsPage />} />
+                    </Route>
+                </Route>
+
+                <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+        </div>
+    );
+}
+
+export default App;
+```
+
+
+================================================================================
+File: frontend/src/api/axiosConfig.ts
+Size: 1354 bytes | Lines: 44 | Section: source
+================================================================================
+```typescript
+import axios, { AxiosError } from 'axios';
+
+const envBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+if (import.meta.env.PROD && !envBaseUrl) {
+    throw new Error('VITE_API_BASE_URL must be set for production builds');
+}
+
+const baseURL =
+    envBaseUrl ||
+    (typeof window !== 'undefined'
+        ? `http://${window.location.hostname}:8081/api`
+        : 'http://localhost:8081/api');
+
+const api = axios.create({
+    baseURL,
+    withCredentials: true, // Uses HttpOnly cookie for session auth
+});
+
+// Attach the access token as a Bearer header when available (Electron / LAN fallback).
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('jwtToken');
+    if (token) {
+        config.headers = config.headers ?? {};
+        (config.headers as Record<string, string>).Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
+// Response interceptor - handles auth errors globally
+api.interceptors.response.use(
+    (response) => response,
+    (error: AxiosError) => {
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+            localStorage.removeItem('jwtToken');
+            window.dispatchEvent(new Event('authError'));
+            window.location.href = '/login';
+        }
+        return Promise.reject(error);
+    }
+);
+
+export default api;
+export { baseURL };
+```
+
+
+================================================================================
+File: frontend/src/components/CopyIcon.tsx
+Size: 1441 bytes | Lines: 46 | Section: source
+================================================================================
+```tsx
+import React, { useState } from 'react';
+import '../styles/CopyIcon.css';
+
+const IconCopy: React.FC = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>
+);
+
+const IconCheck: React.FC = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#28a745" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+);
+
+interface CopyIconProps {
+    textToCopy: string;
+}
+
+const CopyIcon: React.FC<CopyIconProps> = ({ textToCopy }) => {
+    const [isCopied, setIsCopied] = useState(false);
+
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(textToCopy);
+            setIsCopied(true);
+            setTimeout(() => setIsCopied(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy text:', err);
+        }
+    };
+
+    return (
+        <button
+            onClick={handleCopy}
+            className="copy-icon-btn"
+            title="Copy to clipboard"
+            aria-label="Copy to clipboard"
+        >
+            {isCopied ? <IconCheck /> : <IconCopy />}
+        </button>
+    );
+};
+
+export default CopyIcon;
+```
+
+
+================================================================================
+File: frontend/src/components/CreateProjectModal.tsx
+Size: 5800 bytes | Lines: 155 | Section: source
+================================================================================
+```tsx
+import React, { useState, useEffect } from 'react';
+import '../styles/CreateProjectModal.css';
+
+const modelOptions = {
+    CNN: {
+        models: ["net", "ResNet", "VGGNet", "AlexNet"],
+        optimizers: ["Adam", "SGD", "RMSprop", "AdamW"]
+    },
+    Transformer: {
+        models: ["opt-125m", "bert-tiny"],
+        optimizers: ["AdamW", "Adam"]
+    }
+};
+
+type ModelType = keyof typeof modelOptions;
+
+interface CreateProjectModalProps {
+    onSubmit: (projectData: {
+        name: string;
+        modelType: string;
+        modelName: string;
+        optimizer: string;
+        pretrainEpochs: number;
+    }) => void;
+    onCancel: () => void;
+    isLoading?: boolean;
+}
+
+const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ onSubmit, onCancel, isLoading = false }) => {
+    const [name, setName] = useState('');
+    const [modelType, setModelType] = useState<ModelType>('CNN');
+    const [modelName, setModelName] = useState(modelOptions.CNN.models[0]);
+    const [optimizer, setOptimizer] = useState(modelOptions.CNN.optimizers[0]);
+    const [pretrainEpochs, setPretrainEpochs] = useState(0);
+
+    useEffect(() => {
+        setModelName(modelOptions[modelType].models[0]);
+        setOptimizer(modelOptions[modelType].optimizers[0]);
+    }, [modelType]);
+
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        onSubmit({
+            name,
+            modelType,
+            modelName,
+            optimizer,
+            pretrainEpochs: Number(pretrainEpochs)
+        });
+    };
+
+    const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (e.target === e.currentTarget) {
+            onCancel();
+        }
+    };
+
+    const handleEscapeKey = (e: React.KeyboardEvent) => {
+        if (e.key === 'Escape') {
+            onCancel();
+        }
+    };
+
+    return (
+        <div
+            className="modal-backdrop"
+            onClick={handleBackdropClick}
+            onKeyDown={handleEscapeKey}
+            role="dialog"
+            aria-labelledby="modal-title"
+            aria-modal="true"
+        >
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <h2 id="modal-title">Create New Project</h2>
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label htmlFor="project-name">Project Name</label>
+                        <input
+                            id="project-name"
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            required
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="model-type">Model Architecture</label>
+                        <select
+                            id="model-type"
+                            value={modelType}
+                            onChange={(e) => setModelType(e.target.value as ModelType)}
+                        >
+                            {Object.keys(modelOptions).map(type => (
+                                <option key={type} value={type}>{type}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="model-name">Model Name</label>
+                        <select
+                            id="model-name"
+                            value={modelName}
+                            onChange={(e) => setModelName(e.target.value)}
+                        >
+                            {modelOptions[modelType].models.map(name => (
+                                <option key={name} value={name}>{name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="optimizer">Optimizer</label>
+                        <select
+                            id="optimizer"
+                            value={optimizer}
+                            onChange={(e) => setOptimizer(e.target.value)}
+                        >
+                            {modelOptions[modelType].optimizers.map(opt => (
+                                <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="pretrain-epochs">Pre-train Epochs</label>
+                        <input
+                            id="pretrain-epochs"
+                            type="number"
+                            value={pretrainEpochs}
+                            onChange={(e) => setPretrainEpochs(Number(e.target.value))}
+                            min="0"
+                        />
+                    </div>
+                    <div className="modal-actions">
+                        <button
+                            type="button"
+                            className="btn-cancel"
+                            onClick={onCancel}
+                            disabled={isLoading}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            className="btn-submit"
+                            disabled={isLoading}
+                        >
+                            {isLoading ? 'Creating...' : 'Create Project'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+export default CreateProjectModal;
+```
+
+
+================================================================================
+File: frontend/src/components/DiskLoader.tsx
+Size: 608 bytes | Lines: 21 | Section: source
+================================================================================
+```tsx
+import React from 'react';
+import '../styles/DiskLoader.css';
+
+interface DiskLoaderProps {
+    message?: string;
+}
+
+const DiskLoader: React.FC<DiskLoaderProps> = ({ message = "Loading..." }) => {
+    return (
+        <div className="disk-loader-container" role="status" aria-live="polite">
+            <div className="disk-loader">
+                <div className="disk"></div>
+                <div className="disk"></div>
+                <div className="disk"></div>
+            </div>
+            {message && <p className="loader-message">{message}</p>}
+        </div>
+    );
+};
+
+export default DiskLoader;
+```
+
+
+================================================================================
+File: frontend/src/components/Layout.tsx
+Size: 1489 bytes | Lines: 44 | Section: source
+================================================================================
+```tsx
+import React, { useEffect, useState } from 'react';
+import { Outlet, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import '../styles/Layout.css';
+
+const Layout: React.FC = () => {
+    const [userName, setUserName] = useState('');
+    const { currentUser, logout } = useAuth();
+
+    useEffect(() => {
+        if (currentUser) {
+            setUserName(currentUser.username);
+        }
+    }, [currentUser]); // Fixed: Added currentUser as dependency
+
+    return (
+        <div className="layout-container">
+            <header className="app-header">
+                <Link to="/" className="logo-link">
+                    <div className="logo">
+                        <span>FedLearn Platform</span>
+                    </div>
+                </Link>
+                <nav className="app-nav">
+                    <Link to="/dashboard">Dashboard</Link>
+                    <Link to="/models">Models</Link>
+                </nav>
+                <div className="user-profile">
+                    {userName && (
+                        <span className="welcome-text">Welcome, {userName}!</span>
+                    )}
+                    <button onClick={logout} className="logout-button" aria-label="Logout">
+                        Logout
+                    </button>
+                </div>
+            </header>
+            <main className="app-content">
+                <Outlet />
+            </main>
+        </div>
+    );
+};
+
+export default Layout;
+```
+
+
+================================================================================
+File: frontend/src/components/LogViewer.tsx
+Size: 6551 bytes | Lines: 179 | Section: source
+================================================================================
+```tsx
+import React, { useState, useEffect, useRef } from 'react';
+import { Client, StompSubscription } from '@stomp/stompjs';
+import '../styles/LogViewer.css';
+
+interface LogEntry {
+    level: string;
+    message: string;
+    timestamp?: string;
+    stackTrace?: string;
+}
+
+interface LogViewerProps {
+    projectId: string;
+    serverUrl: string;
+    onClose: () => void;
+}
+
+const MAX_LOGS = 1000; // Prevent memory issues
+
+const LogViewer: React.FC<LogViewerProps> = ({ projectId, serverUrl, onClose }) => {
+    const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [isConnected, setIsConnected] = useState(false);
+    const logContainerRef = useRef<HTMLDivElement>(null);
+    const subscriptionRef = useRef<StompSubscription | null>(null);
+    const clientRef = useRef<Client | null>(null);
+
+    useEffect(() => {
+        if (!projectId) return;
+
+        // Fetch existing historical logs first
+        import('../services/apiServices').then(api => {
+            api.fetchProjectLogs(projectId).then(response => {
+                if (response.data && response.data.length > 0) {
+                    const formattedLogs = response.data.map((log: any) => ({
+                        level: log.level,
+                        message: log.message,
+                        timestamp: log.timestamp,
+                        stackTrace: log.stackTrace
+                    }));
+                    // Set historical logs, limiting to MAX_LOGS
+                    setLogs(formattedLogs.slice(-MAX_LOGS));
+                }
+            }).catch(err => {
+                console.error("Failed to fetch historical logs:", err);
+            });
+        });
+
+        const brokerURL = serverUrl.replace(/^http/, 'ws') + '/ws-logs';
+        const stompClient = new Client({
+            brokerURL: brokerURL,
+            connectHeaders: {},
+            reconnectDelay: 5000,
+        });
+
+        stompClient.onConnect = () => {
+            setIsConnected(true);
+            setLogs(prev => [
+                ...prev.slice(-MAX_LOGS + 1),
+                {
+                    level: 'INFO',
+                    message: '--- WebSocket Connection Established ---',
+                    timestamp: new Date().toISOString()
+                }
+            ]);
+
+            // Store subscription reference for cleanup
+            const subscription = stompClient.subscribe(`/topic/logs/${projectId}`, (message) => {
+                try {
+                    const logObj: LogEntry = JSON.parse(message.body);
+                    setLogs(prevLogs => [...prevLogs.slice(-MAX_LOGS + 1), logObj]);
+                } catch (e) {
+                    setLogs(prevLogs => [
+                        ...prevLogs.slice(-MAX_LOGS + 1),
+                        { level: 'INFO', message: message.body }
+                    ]);
+                }
+            });
+
+            subscriptionRef.current = subscription;
+        };
+
+        stompClient.onDisconnect = () => {
+            setIsConnected(false);
+            setLogs(prev => [
+                ...prev.slice(-MAX_LOGS + 1),
+                {
+                    level: 'ERROR',
+                    message: '--- WebSocket Connection Lost ---',
+                    timestamp: new Date().toISOString()
+                }
+            ]);
+        };
+
+        stompClient.onStompError = (frame) => {
+            console.error('Broker reported error:', frame.headers['message']);
+            setIsConnected(false);
+        };
+
+        stompClient.activate();
+        clientRef.current = stompClient;
+
+        return () => {
+            if (subscriptionRef.current) {
+                subscriptionRef.current.unsubscribe();
+            }
+            if (clientRef.current?.active) {
+                clientRef.current.deactivate();
+            }
+        };
+    }, [projectId, serverUrl]);
+
+    useEffect(() => {
+        if (logContainerRef.current) {
+            logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+        }
+    }, [logs]);
+
+    const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (e.target === e.currentTarget) {
+            onClose();
+        }
+    };
+
+    const handleClearLogs = () => {
+        setLogs([]);
+    };
+
+    return (
+        <div className="log-viewer-backdrop" onClick={handleBackdropClick}>
+            <div className="log-viewer" onClick={e => e.stopPropagation()}>
+                <div className="log-header">
+                    <h4>Live Server Logs</h4>
+                    <div className="header-controls">
+                        <button
+                            onClick={handleClearLogs}
+                            className="clear-btn"
+                            title="Clear logs"
+                        >
+                            Clear
+                        </button>
+                        <div className={`connection-status ${isConnected ? 'connected' : ''}`}>
+                            {isConnected ? '● Connected' : '○ Disconnected'}
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="close-btn"
+                            title="Close log viewer"
+                            aria-label="Close"
+                        >
+                            &times;
+                        </button>
+                    </div>
+                </div>
+                <div className="logs-container" ref={logContainerRef}>
+                    {logs.length > 0 ? (
+                        logs.map((log, i) => (
+                            <div key={i} className={`log-entry log-${log.level?.toLowerCase()}`}>
+                                <span className="log-timestamp">{log.timestamp}</span>
+                                <span className={`log-level level-${log.level?.toLowerCase()}`}>
+                                    [{log.level}]
+                                </span>
+                                <span className="log-message">{log.message}</span>
+                                {log.stackTrace && (
+                                    <pre className="log-stacktrace">{log.stackTrace}</pre>
+                                )}
+                            </div>
+                        ))
+                    ) : (
+                        <div className="log-entry log-info">
+                            <span className="log-message">Waiting for server logs...</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default LogViewer;
+```
+
+
+================================================================================
+File: frontend/src/components/ModelCard.tsx
+Size: 860 bytes | Lines: 32 | Section: source
+================================================================================
+```tsx
+import React from 'react';
+import '../styles/ModelCard.css';
+
+interface Model {
+    name: string;
+    type: string;
+    version: string;
+    status: string;
+}
+
+interface ModelCardProps {
+    model: Model;
+}
+
+const ModelCard: React.FC<ModelCardProps> = ({ model }) => {
+    const statusClass = model.status === 'Training' ? 'status-training' : 'status-available';
+
+    return (
+        <div className="model-card">
+            <div className="card-content">
+                <h4 className="model-name">{model.name}</h4>
+                <p className="model-type">{model.type}</p>
+                <p className="model-version">{model.version}</p>
+            </div>
+            <div className="card-footer">
+                <span className={`status-badge ${statusClass}`}>{model.status}</span>
+            </div>
+        </div>
+    );
+};
+
+export default ModelCard;
+```
+
+
+================================================================================
+File: frontend/src/components/ProjectCard.tsx
+Size: 11236 bytes | Lines: 262 | Section: source
+================================================================================
+```tsx
+import React, { useState, useEffect } from 'react';
+import '../styles/ProjectCard.css';
+import * as api from '../services/apiServices';
+import ResultsModal from './ResultsModal';
+import CopyIcon from './CopyIcon';
+
+const EditIcon: React.FC = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+    </svg>
+);
+
+const TrashIcon: React.FC = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+    </svg>
+);
+
+interface Project {
+    id: string;
+    name: string;
+    modelType: string;
+    modelName: string;
+    optimizer: string;
+    status: 'RUNNING' | 'STOPPED' | 'COMPLETED' | 'FAILED';
+    serverPort?: number;
+}
+
+interface ProjectCardProps {
+    project: Project;
+    onToggleServer: (project: Project, isCurrentlyRunning: boolean, startData: any) => void;
+    onUpdateOptimizer: (projectId: string, newOptimizer: string) => void;
+    onShowLogs: (projectId: string) => void;
+    onDeleteProject: (projectId: string) => void;
+}
+
+const ProjectCard: React.FC<ProjectCardProps> = ({
+    project,
+    onToggleServer,
+    onUpdateOptimizer,
+    onShowLogs,
+    onDeleteProject
+}) => {
+    const isServerRunning = project.status === "RUNNING";
+    const statusText = project.status;
+    const statusClassName = project.status?.toLowerCase();
+
+    const [isEditingOptimizer, setIsEditingOptimizer] = useState(false);
+    const [optimizer, setOptimizer] = useState(project.optimizer);
+    const [strategy, setStrategy] = useState('FedAvg');
+    const [numRounds, setNumRounds] = useState(5);
+    const [minClients, setMinClients] = useState(2);
+
+    const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
+    const [results, setResults] = useState<any[]>([]);
+    const [isLoadingResults, setIsLoadingResults] = useState(false);
+    const [error, setError] = useState('');
+
+    // Sync local state with prop changes
+    useEffect(() => {
+        setOptimizer(project.optimizer);
+    }, [project.optimizer]);
+
+    const handleOptimizerSave = () => {
+        onUpdateOptimizer(project.id, optimizer);
+        setIsEditingOptimizer(false);
+    };
+
+    const handleToggleClick = () => {
+        if (isServerRunning) {
+            onToggleServer(project, true, null);
+        } else {
+            const startData = {
+                strategy,
+                numRounds: Number(numRounds),
+                minClients: Number(minClients)
+            };
+            onToggleServer(project, false, startData);
+        }
+    };
+
+    const handleViewResultsClick = async () => {
+        setIsLoadingResults(true);
+        setError('');
+        try {
+            const response = await api.fetchProjectResults(project.id);
+            setResults(response.data);
+            setIsResultsModalOpen(true);
+        } catch (err) {
+            setError('Could not fetch results.');
+            console.error(err);
+        } finally {
+            setIsLoadingResults(false);
+        }
+    };
+
+    const optimizerOptions = ["Adam", "AdamW", "SGD", "RMSprop"];
+
+    return (
+        <>
+            <div className={`project-card ${statusClassName}`}>
+                <div className="card-header">
+                    <h3>{project.name}</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div className={`status-indicator ${statusClassName}`}>
+                            {statusText}
+                        </div>
+                        <button
+                            className="icon-btn delete-btn"
+                            onClick={() => onDeleteProject(project.id)}
+                            title="Delete Project"
+                            aria-label="Delete Project"
+                            style={{ color: '#ff4d4f' }}
+                        >
+                            <TrashIcon />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="card-body">
+                    <div className="project-id-display">
+                        <strong>Project ID:</strong>
+                        <code>{project.id}</code>
+                        <CopyIcon textToCopy={project.id} />
+                    </div>
+                    <div className="details-grid">
+                        <p><strong>Type:</strong> {project.modelType}</p>
+                        <p><strong>Model:</strong> {project.modelName}</p>
+                        <div className="optimizer-section">
+                            <strong>Optimizer:</strong>
+                            {isEditingOptimizer ? (
+                                <div className="edit-optimizer">
+                                    <select
+                                        value={optimizer}
+                                        onChange={(e) => setOptimizer(e.target.value)}
+                                        aria-label="Select optimizer"
+                                    >
+                                        {optimizerOptions.map(opt => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        className="save-btn"
+                                        onClick={handleOptimizerSave}
+                                        aria-label="Save optimizer"
+                                    >
+                                        ✓
+                                    </button>
+                                    <button
+                                        className="cancel-btn"
+                                        onClick={() => setIsEditingOptimizer(false)}
+                                        aria-label="Cancel editing"
+                                    >
+                                        ✗
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="display-optimizer">
+                                    <span className="optimizer-value">{project.optimizer}</span>
+                                    <button
+                                        className="edit-btn icon-btn"
+                                        onClick={() => setIsEditingOptimizer(true)}
+                                        aria-label="Edit optimizer"
+                                    >
+                                        <EditIcon />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {isServerRunning && project.serverPort && (
+                        <div className="port-info">
+                            <span>Listening on Port: <strong>{project.serverPort}</strong></span>
+                            <CopyIcon textToCopy={String(project.serverPort)} />
+                        </div>
+                    )}
+
+                    {!isServerRunning && (
+                        <div className="start-config-section">
+                            <h4>Run Configuration</h4>
+                            <div className="config-grid">
+                                <label htmlFor={`strategy-${project.id}`}>Strategy:</label>
+                                <select
+                                    id={`strategy-${project.id}`}
+                                    value={strategy}
+                                    onChange={(e) => setStrategy(e.target.value)}
+                                >
+                                    <option value="FedAvg">FedAvg</option>
+                                    <option value="FedAdam">FedAdam</option>
+                                    <option value="FedAdagrad">FedAdagrad</option>
+                                </select>
+                                <label htmlFor={`rounds-${project.id}`}>Rounds:</label>
+                                <input
+                                    id={`rounds-${project.id}`}
+                                    type="number"
+                                    min="1"
+                                    value={numRounds}
+                                    onChange={(e) => setNumRounds(Number(e.target.value))}
+                                />
+                                <label htmlFor={`min-clients-${project.id}`}>Minimum clients:</label>
+                                <input
+                                    id={`min-clients-${project.id}`}
+                                    type="number"
+                                    min="2"
+                                    value={minClients}
+                                    onChange={(e) => setMinClients(Number(e.target.value))}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="card-actions">
+                    <button
+                        className="action-btn results-btn"
+                        onClick={handleViewResultsClick}
+                        disabled={isLoadingResults}
+                    >
+                        {isLoadingResults ? 'Loading...' : 'View Results'}
+                    </button>
+                    <button
+                        className="action-btn logs-btn"
+                        onClick={() => onShowLogs(project.id)}
+                        disabled={!isServerRunning}
+                        title={isServerRunning ? "Show live server logs" : "Start server to view logs"}
+                    >
+                        Show Live Logs
+                    </button>
+                </div>
+
+                <div className="card-footer">
+                    <span>Toggle Server</span>
+                    <label className="toggle-switch">
+                        <input
+                            type="checkbox"
+                            checked={isServerRunning}
+                            onChange={handleToggleClick}
+                            disabled={project.status === 'FAILED'}
+                            aria-label="Toggle server"
+                        />
+                        <span className="slider round"></span>
+                    </label>
+                </div>
+
+                {error && <p className="error-message">{error}</p>}
+            </div>
+
+            {isResultsModalOpen && (
+                <ResultsModal
+                    results={results}
+                    projectName={project.name}
+                    onCancel={() => setIsResultsModalOpen(false)}
+                />
+            )}
+        </>
+    );
+};
+
+export default ProjectCard;
+```
+
+
+================================================================================
+File: frontend/src/components/ProtectedRoute.tsx
+Size: 496 bytes | Lines: 20 | Section: source
+================================================================================
+```tsx
+import React from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import DiskLoader from './DiskLoader';
+
+const ProtectedRoute: React.FC = () => {
+    const { currentUser, isLoading } = useAuth();
+
+    if (isLoading) {
+        return <DiskLoader message="Checking authentication..." />;
+    }
+
+    if (!currentUser) {
+        return <Navigate to="/login" replace />;
+    }
+
+    return <Outlet />;
+};
+
+export default ProtectedRoute;
+```
+
+
+================================================================================
+File: frontend/src/components/ResultsModal.tsx
+Size: 2693 bytes | Lines: 78 | Section: source
+================================================================================
+```tsx
+import React from 'react';
+import '../styles/ResultsModal.css';
+
+interface ProjectResult {
+    id: string;
+    serverRound: number;
+    loss: number;
+    accuracy: number;
+    gpuUtilization?: number;
+}
+
+interface ResultsModalProps {
+    results: ProjectResult[];
+    projectName: string;
+    onCancel: () => void;
+}
+
+const ResultsModal: React.FC<ResultsModalProps> = ({ results, projectName, onCancel }) => {
+    const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (e.target === e.currentTarget) {
+            onCancel();
+        }
+    };
+
+    const handleEscapeKey = (e: React.KeyboardEvent) => {
+        if (e.key === 'Escape') {
+            onCancel();
+        }
+    };
+
+    return (
+        <div
+            className="modal-backdrop"
+            onClick={handleBackdropClick}
+            onKeyDown={handleEscapeKey}
+            role="dialog"
+            aria-labelledby="results-modal-title"
+            aria-modal="true"
+        >
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <h2 id="results-modal-title">Training Results for "{projectName}"</h2>
+
+                {(!results || results.length === 0) ? (
+                    <p>No training results are available for this project yet.</p>
+                ) : (
+                    <div className="results-table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Round</th>
+                                    <th>Loss</th>
+                                    <th>Accuracy</th>
+                                    <th>GPU Usage (MB)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {results.map(result => (
+                                    <tr key={result.id}>
+                                        <td>{result.serverRound}</td>
+                                        <td>{result.loss ? result.loss.toFixed(4) : 'N/A'}</td>
+                                        <td>{result.accuracy ? (result.accuracy * 100).toFixed(2) + '%' : 'N/A'}</td>
+                                        <td>{result.gpuUtilization || 'N/A'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                <div className="modal-actions">
+                    <button className="btn-close" onClick={onCancel}>Close</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default ResultsModal;
+```
+
+
+================================================================================
+File: frontend/src/context/AuthContext.tsx
+Size: 2720 bytes | Lines: 97 | Section: source
+================================================================================
+```tsx
+import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+
+interface User {
+    username: string;
+    email?: string;
+    sub?: string;
+    [key: string]: any;
+}
+
+interface AuthContextType {
+    currentUser: User | null;
+    isLoading: boolean;
+    login: (userData: User, token: string) => void;
+    logout: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+// Helper function to decode JWT (client-side only, no signature verification)
+const decodeJWT = (token: string): any | null => {
+    try {
+        const base64Url = token.split('.')[1];
+        if (!base64Url) return null;
+
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+            atob(base64)
+                .split('')
+                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+        );
+        const decoded = JSON.parse(jsonPayload);
+
+        // Check token expiration
+        if (decoded.exp && decoded.exp * 1000 < Date.now()) {
+            return null; // Token expired
+        }
+
+        return decoded;
+    } catch (error) {
+        console.error('Failed to decode JWT:', error);
+        return null;
+    }
+};
+
+interface AuthProviderProps {
+    children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+    const [user, setUser] = useState<User | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const token = localStorage.getItem('jwtToken');
+        if (token) {
+            const decoded = decodeJWT(token);
+
+            if (decoded) {
+                setUser({
+                    username: decoded.sub || decoded.username || decoded.email || 'User',
+                    ...decoded
+                });
+            } else {
+                // Token is invalid or expired, remove it
+                localStorage.removeItem('jwtToken');
+            }
+        }
+        setIsLoading(false);
+    }, []);
+
+    const login = (userData: User, token: string) => {
+        localStorage.setItem('jwtToken', token);
+        setUser(userData);
+    };
+
+    const logout = () => {
+        localStorage.removeItem('jwtToken');
+        setUser(null);
+    };
+
+    const value: AuthContextType = { currentUser: user, isLoading, login, logout };
+
+    return (
+        <AuthContext.Provider value={value}>
+            {children}
+        </AuthContext.Provider>
+    );
+};
+
+export const useAuth = (): AuthContextType => {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
+};
+```
+
+
+================================================================================
+File: frontend/src/index.css
+Size: 1717 bytes | Lines: 64 | Section: source
+================================================================================
+```text
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+
+/* :root typically defaults to light theme */
+:root {
+  --background-primary: #FFFFFF; /* White */
+  --background-secondary: #F8F9FA; /* Very light gray */
+  --background-card: #FFFFFF; 
+  --text-primary: #212529; /* Dark gray/Black */
+  --text-secondary: #6C757D; /* Medium gray */
+  --accent-primary: #007BFF; /* Standard blue */
+  --accent-secondary: #58A6FF; /* Lighter blue */
+  --border-color: #DEE2E6; 
+
+  --font-family-sans: 'Inter', sans-serif;
+  /* Add more colors as needed (success, error, warning) */
+  --success: #28A745; 
+  --error: #DC3545; 
+  --training: #FFFF00;
+}
+
+
+/* Dark theme overrides */
+html.dark {
+  --background-primary: #0D1117; /* Very dark blue/gray */
+  --background-secondary: #161B22; /* Darker gray */
+  --background-card: #161B22; 
+  --text-primary: #C9D1D9; /* Light gray */
+  --text-secondary: #8B949E; /* Medium-dark gray */
+  --accent-primary: #58A6FF; /* Lighter blue (more visible on dark) */
+  --accent-secondary: #80BFFF; /* Even lighter blue */
+  --border-color: #30363D; /* Dark border */
+  --success: #238636; 
+  --error: #DA3633;
+  --training: #FFFF00;
+}
+
+body {
+  background-color: var(--background-primary);
+  color: var(--text-primary);
+  font-family: var(--font-family-sans); 
+  margin: 0;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+}
+
+body::-webkit-scrollbar {
+  display: none; /* Hides the scrollbar */
+}
+
+/* Example usage for other elements */
+h1, h2, h3 {
+  color: var(--text-primary); 
+}
+
+p {
+  color: var(--text-secondary);
+}
+
+a {
+   color: var(--accent-primary);
+}
+```
+
+
+================================================================================
+File: frontend/src/main.tsx
+Size: 640 bytes | Lines: 26 | Section: source
+================================================================================
+```tsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App';
+import './index.css';
+import { AuthProvider } from './context/AuthContext';
+
+if (typeof window !== 'undefined') {
+    (window as any).global = window;
+}
+
+const rootElement = document.getElementById('root');
+
+if (!rootElement) {
+    throw new Error('Root element not found');
+}
+
+ReactDOM.createRoot(rootElement).render(
+    <React.StrictMode>
+        <BrowserRouter>
+            <AuthProvider>
+                <App />
+            </AuthProvider>
+        </BrowserRouter>
+    </React.StrictMode>
+);
+```
+
+
+================================================================================
+File: frontend/src/pages/DashboardPage.tsx
+Size: 7427 bytes | Lines: 216 | Section: source
+================================================================================
+```tsx
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import * as api from '../services/apiServices';
+import { Client, StompSubscription } from '@stomp/stompjs';
+import ProjectCard from '../components/ProjectCard';
+import LogViewer from '../components/LogViewer';
+import CreateProjectModal from '../components/CreateProjectModal';
+import '../styles/Dashboard.css';
+import DiskLoader from '../components/DiskLoader';
+
+const SERVER_ROOT_URL = import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
+const WEBSOCKET_URL_BASE = SERVER_ROOT_URL.replace(/^http/, 'ws');
+
+interface Project {
+    id: string;
+    name: string;
+    modelType: string;
+    modelName: string;
+    optimizer: string;
+    status: 'RUNNING' | 'STOPPED' | 'COMPLETED' | 'FAILED';
+    serverPort?: number;
+}
+
+interface StatusUpdate {
+    projectId: string;
+    newStatus: string;
+    serverPort?: number;
+}
+
+const DashboardPage: React.FC = () => {
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingProjectCard, setIsLoadingProjectCard] = useState(false);
+    const [error, setError] = useState('');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [logViewProjectId, setLogViewProjectId] = useState<string | null>(null);
+
+    const stompClientRef = useRef<Client | null>(null);
+    const subscriptionRef = useRef<StompSubscription | null>(null);
+
+    const handleShowLogs = (projectId: string) => {
+        setLogViewProjectId(projectId);
+    };
+
+    const loadProjects = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const response = await api.fetchProjects();
+            const projectsData = Array.isArray(response.data) ? response.data : [];
+            setProjects(projectsData);
+            setError('');
+        } catch (err) {
+            setError('Failed to fetch projects. Please try again.');
+            console.error(err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadProjects();
+    }, [loadProjects]);
+
+    useEffect(() => {
+        const client = new Client({
+            brokerURL: `${WEBSOCKET_URL_BASE}/ws-logs`,
+            reconnectDelay: 5000,
+        });
+
+        client.onConnect = () => {
+            const subscription = client.subscribe('/topic/status/*', (message) => {
+                try {
+                    const statusUpdate: StatusUpdate = JSON.parse(message.body);
+                    setProjects(currentProjects =>
+                        currentProjects.map(p =>
+                            p.id === statusUpdate.projectId
+                                ? {
+                                    ...p,
+                                    status: statusUpdate.newStatus as Project['status'],
+                                    serverPort: statusUpdate.serverPort
+                                }
+                                : p
+                        )
+                    );
+                } catch (err) {
+                    console.error('Error parsing status update:', err);
+                }
+            });
+
+            subscriptionRef.current = subscription;
+        };
+
+        client.activate();
+        stompClientRef.current = client;
+
+        return () => {
+            if (subscriptionRef.current) {
+                subscriptionRef.current.unsubscribe();
+            }
+            if (stompClientRef.current?.active) {
+                stompClientRef.current.deactivate();
+            }
+        };
+    }, []);
+
+    const handleCreateProject = async (projectData: any) => {
+        try {
+            await api.createProject(projectData);
+            setIsModalOpen(false);
+            loadProjects();
+        } catch (err) {
+            setError('Failed to create project.');
+            console.error(err);
+        }
+    };
+
+    const handleToggleServer = async (
+        project: Project,
+        isCurrentlyRunning: boolean,
+        startData: any
+    ) => {
+        try {
+            setIsLoadingProjectCard(true);
+            let updatedProject: Project;
+
+            if (isCurrentlyRunning) {
+                const response = await api.stopProjectServer(project.id);
+                updatedProject = response.data;
+            } else {
+                const response = await api.startProjectServer(project.id, startData);
+                updatedProject = response.data;
+            }
+
+            setProjects(currentProjects =>
+                currentProjects.map(p =>
+                    p.id === updatedProject.id ? updatedProject : p
+                )
+            );
+        } catch (err) {
+            setError(`Failed to ${isCurrentlyRunning ? 'stop' : 'start'} server.`);
+            console.error(err);
+        } finally {
+            setIsLoadingProjectCard(false);
+        }
+    };
+
+    const handleUpdateOptimizer = async (projectId: string, newOptimizer: string) => {
+        // Implement this when backend endpoint is ready
+        console.info(`Updating optimizer for ${projectId} to ${newOptimizer}`);
+    };
+
+    const handleDeleteProject = async (projectId: string) => {
+        if (!window.confirm("Are you sure you want to delete this project?")) return;
+        try {
+            await api.deleteProject(projectId);
+            setProjects(currentProjects => currentProjects.filter(p => p.id !== projectId));
+        } catch (err) {
+            setError('Failed to delete project.');
+            console.error(err);
+        }
+    };
+
+    if ((isLoading && projects.length === 0) || isLoadingProjectCard) {
+        return <DiskLoader message="Loading Dashboard..." />;
+    }
+
+    return (
+        <div className="dashboard">
+            <header className="dashboard-header">
+                <h1>Available Projects</h1>
+                <button
+                    className="create-project-btn"
+                    onClick={() => setIsModalOpen(true)}
+                    aria-label="Create new project"
+                >
+                    + Create New Project
+                </button>
+            </header>
+
+            {isModalOpen && (
+                <CreateProjectModal
+                    onSubmit={handleCreateProject}
+                    onCancel={() => setIsModalOpen(false)}
+                />
+            )}
+
+            {error && <div className="error-message" role="alert">{error}</div>}
+
+            <div className="project-grid">
+                {projects.length > 0 ? (
+                    projects.map(project => (
+                        <ProjectCard
+                            key={project.id}
+                            project={project}
+                            onToggleServer={handleToggleServer}
+                            onUpdateOptimizer={handleUpdateOptimizer}
+                            onShowLogs={handleShowLogs}
+                            onDeleteProject={handleDeleteProject}
+                        />
+                    ))
+                ) : (
+                    !isLoading && <p>No projects found. Create one to get started!</p>
+                )}
+            </div>
+
+            {logViewProjectId && (
+                <LogViewer
+                    projectId={logViewProjectId}
+                    serverUrl={SERVER_ROOT_URL}
+                    onClose={() => setLogViewProjectId(null)}
+                />
+            )}
+        </div>
+    );
+};
+
+export default DashboardPage;
+```
+
+
+================================================================================
+File: frontend/src/pages/HomePage.tsx
+Size: 234 bytes | Lines: 12 | Section: source
+================================================================================
+```tsx
+import React from 'react';
+
+const HomePage: React.FC = () => {
+    return (
+        <div>
+            <h1>Home Page</h1>
+            <p>Welcome to the Federated Learning Platform</p>
+        </div>
+    );
+};
+
+export default HomePage;
+```
+
+
+================================================================================
+File: frontend/src/pages/LandingPage.tsx
+Size: 4730 bytes | Lines: 96 | Section: source
+================================================================================
+```tsx
+import React from 'react';
+import { Link } from 'react-router-dom';
+import '../styles/LandingPage.css';
+
+const LandingPage: React.FC = () => {
+    return (
+        <div className="landing-container">
+            <header className="landing-header">
+                <Link to="/" className="logo-link">
+                    <div className="logo">
+                        <span>FedLearn Platform</span>
+                    </div>
+                </Link>
+                <nav className="landing-nav">
+                    <a href="#services">Core Services</a>
+                    <a href="#features">Upcoming Features</a>
+                    <a href="#about">About</a>
+                </nav>
+                <div className="auth-buttons">
+                    <Link to="/login" className="btn btn-secondary">Sign In</Link>
+                    <Link to="/register" className="btn btn-primary">Sign Up</Link>
+                </div>
+            </header>
+
+            <main className="hero-section">
+                <h1 className="hero-title">Unlock Insights from Distributed Data. Securely.</h1>
+                <p className="hero-subtitle">
+                    Our platform provides the essential toolkit to build, train, and deploy privacy-preserving AI models using Federated Learning.
+                </p>
+
+                <div className="services-grid" id="services">
+                    <div className="service-card">
+                        <h3>Federated Training as a Service</h3>
+                        <p>Orchestrate complex training and aggregation across decentralized clients with robust algorithms.</p>
+                    </div>
+                    <div className="service-card">
+                        <h3>On-Demand FL Compute Server</h3>
+                        <p>Dynamically launch isolated and secure gRPC server instances for each of your training jobs.</p>
+                    </div>
+                    <div className="service-card">
+                        <h3>Model Initialization & Pre-training</h3>
+                        <p>Start with a random baseline or leverage a powerful pre-trained model to accelerate learning.</p>
+                    </div>
+                    <div className="service-card">
+                        <h3>Secure API Control Plane</h3>
+                        <p>Manage the entire platform lifecycle through a secure, authenticated REST API.</p>
+                    </div>
+                </div>
+
+                <Link to="/login" className="btn-launch">
+                    Launch Platform
+                </Link>
+            </main>
+
+            <section className="features-section" id="features">
+                <h2 className="section-title">Upcoming Features & Roadmap</h2>
+                <div className="features-category">
+                    <h3>Platform & MLOps</h3>
+                    <div className="features-grid">
+                        <div className="feature-card">
+                            <h4>Experimental Tracking</h4>
+                            <p>Live metrics, charts, and results history for training runs.</p>
+                        </div>
+                        <div className="feature-card">
+                            <h4>Model Hub & Registry</h4>
+                            <p>A central place to version, manage, and download trained models.</p>
+                        </div>
+                        <div className="feature-card">
+                            <h4>Model Serving API</h4>
+                            <p>Deploy your trained models as live inference endpoints with a single click.</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="features-category">
+                    <h3>Generative AI & LLM Services</h3>
+                    <div className="features-grid">
+                        <div className="feature-card">
+                            <h4>Federated LLM Fine-Tuning</h4>
+                            <p>Adapt foundation models like Llama and OPT on private, distributed data.</p>
+                        </div>
+                        <div className="feature-card">
+                            <h4>Private LLM Inference</h4>
+                            <p>Serve fine-tuned models for tasks like Q&A and summarization via a secure API.</p>
+                        </div>
+                        <div className="feature-card">
+                            <h4>Domain-Specific AI Agents</h4>
+                            <p>Productize your fine-tuned LLMs as specialized agents (e.g., "Legal Assistant").</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    );
+};
+
+export default LandingPage;
+```
+
+
+================================================================================
+File: frontend/src/pages/LoginPage.tsx
+Size: 3458 bytes | Lines: 104 | Section: source
+================================================================================
+```tsx
+import React, { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import api from '../api/axiosConfig';
+import '../styles/AuthStyles.css';
+
+interface LoginResponse {
+    username: string;
+    email?: string;
+    accessToken: string;
+}
+
+const LoginPage: React.FC = () => {
+    const [identifier, setIdentifier] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const navigate = useNavigate();
+    const location = useLocation();
+    const auth = useAuth();
+
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        setError('');
+        setIsLoading(true);
+
+        if (!identifier || !password) {
+            setError('Email/Username and Password are required.');
+            setIsLoading(false);
+            return;
+        }
+
+        try {
+            const response = await api.post<LoginResponse>('/auth/login', {
+                username: identifier,
+                password: password,
+            });
+
+            const { accessToken, username, email } = response.data;
+
+            if (!accessToken) {
+                setError('Login response is missing the access token. Please contact support.');
+                return;
+            }
+
+            auth.login({ username, email }, accessToken);
+
+            const from = (location.state as any)?.from?.pathname || '/dashboard';
+            navigate(from, { replace: true });
+        } catch (err: any) {
+            const responseData = err?.response?.data;
+            setError(
+                responseData?.error ||
+                    responseData?.message ||
+                    'An error occurred during login. Please try again later.'
+            );
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="auth-container">
+            <h2>Login</h2>
+            <form onSubmit={handleSubmit}>
+                <div className="form-group">
+                    <label htmlFor="identifier">Email or Username</label>
+                    <input
+                        type="text"
+                        id="identifier"
+                        value={identifier}
+                        onChange={(e) => setIdentifier(e.target.value)}
+                        required
+                        autoComplete="username"
+                    />
+                </div>
+
+                <div className="form-group">
+                    <label htmlFor="password">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        autoComplete="current-password"
+                    />
+                </div>
+
+                {error && <p className="error-message">{error}</p>}
+
+                <button type="submit" disabled={isLoading} className="auth-button">
+                    {isLoading ? 'Logging in...' : 'Login'}
+                </button>
+            </form>
+            <p className="auth-switch">
+                Don't have an account? <Link to="/register">Register here</Link>
+            </p>
+        </div>
+    );
+};
+
+export default LoginPage;
+```
+
+
+================================================================================
+File: frontend/src/pages/ModelsPage.tsx
+Size: 233 bytes | Lines: 12 | Section: source
+================================================================================
+```tsx
+import React from 'react';
+
+const ModelsPage: React.FC = () => {
+    return (
+        <div>
+            <h1>Models Page</h1>
+            <p>View and manage your trained models</p>
+        </div>
+    );
+};
+
+export default ModelsPage;
+```
+
+
+================================================================================
+File: frontend/src/pages/RegisterPage.tsx
+Size: 6617 bytes | Lines: 181 | Section: source
+================================================================================
+```tsx
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import '../styles/AuthStyles.css';
+
+const MIN_PASSWORD_LENGTH = 8;
+
+const RegisterPage: React.FC = () => {
+    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
+    const navigate = useNavigate();
+
+    const API_SERVER_ROOT = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8081/api`;
+    const endpointPath = '/auth/register';
+    const fullApiUrl = `${API_SERVER_ROOT}${endpointPath}`;
+
+    const validatePassword = (password: string): string | null => {
+        if (password.length < MIN_PASSWORD_LENGTH) {
+            return `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`;
+        }
+        if (!/[A-Z]/.test(password)) {
+            return 'Password must contain at least one uppercase letter';
+        }
+        if (!/[a-z]/.test(password)) {
+            return 'Password must contain at least one lowercase letter';
+        }
+        if (!/[0-9]/.test(password)) {
+            return 'Password must contain at least one number';
+        }
+        return null;
+    };
+
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setSuccessMessage('');
+        setError('');
+        setIsLoading(true);
+
+        if (!username || !email || !password || !confirmPassword) {
+            setError('All fields are mandatory');
+            setIsLoading(false);
+            return;
+        }
+
+        const passwordError = validatePassword(password);
+        if (passwordError) {
+            setError(passwordError);
+            setIsLoading(false);
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            setError('Passwords do not match!');
+            setIsLoading(false);
+            return;
+        }
+
+        const registrationData = {
+            username,
+            email,
+            password
+        };
+
+        try {
+            const response = await fetch(fullApiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify(registrationData),
+            });
+
+            const responseData = await response.json();
+
+            if (response.ok) {
+                setSuccessMessage(responseData.message || 'Registration successful! Please login.');
+
+                setUsername('');
+                setEmail('');
+                setPassword('');
+                setConfirmPassword('');
+
+                setTimeout(() => {
+                    navigate('/login');
+                }, 2000);
+            } else {
+                let displayError = `Registration failed: ${response.statusText}`;
+                if (responseData.message) {
+                    displayError = responseData.message;
+                }
+                if (responseData.errors) {
+                    const fieldErrors = Object.values(responseData.errors).join(', ');
+                    displayError = `Validation failed: ${fieldErrors}`;
+                } else if (responseData.error && responseData.message) {
+                    displayError = responseData.message;
+                }
+                setError(displayError);
+            }
+        } catch (err) {
+            console.error('Registration API call failed:', err);
+            setError('An error occurred during registration. Please try again later.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="auth-container">
+            <h2>Register</h2>
+            <form onSubmit={handleSubmit}>
+                <div className="form-group">
+                    <label htmlFor="username">Username</label>
+                    <input
+                        type="text"
+                        id="username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        required
+                        autoComplete="username"
+                    />
+                </div>
+
+                <div className="form-group">
+                    <label htmlFor="email">Email</label>
+                    <input
+                        type="email"
+                        id="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        autoComplete="email"
+                    />
+                </div>
+
+                <div className="form-group">
+                    <label htmlFor="password">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        autoComplete="new-password"
+                        minLength={MIN_PASSWORD_LENGTH}
+                    />
+                    <small>Minimum {MIN_PASSWORD_LENGTH} characters with uppercase, lowercase, and number</small>
+                </div>
+
+                <div className="form-group">
+                    <label htmlFor="confirmPassword">Confirm Password</label>
+                    <input
+                        type="password"
+                        id="confirmPassword"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        autoComplete="new-password"
+                    />
+                </div>
+
+                {error && <p className="error-message" role="alert">{error}</p>}
+                {successMessage && <p className="success-message" role="status">{successMessage}</p>}
+
+                <button type="submit" disabled={isLoading} className="auth-button">
+                    {isLoading ? 'Registering...' : 'Register'}
+                </button>
+            </form>
+            <p className="auth-switch">
+                Already have an account? <Link to="/login">Login here</Link>
+            </p>
+        </div>
+    );
+};
+
+export default RegisterPage;
+```
+
+
+================================================================================
+File: frontend/src/pages/SettingsPage.tsx
+Size: 248 bytes | Lines: 12 | Section: source
+================================================================================
+```tsx
+import React from 'react';
+
+const SettingsPage: React.FC = () => {
+    return (
+        <div>
+            <h1>Settings Page</h1>
+            <p>Manage your account settings and preferences</p>
+        </div>
+    );
+};
+
+export default SettingsPage;
+```
+
+
+================================================================================
+File: frontend/src/pages/TrainingPage.tsx
+Size: 238 bytes | Lines: 12 | Section: source
+================================================================================
+```tsx
+import React from 'react';
+
+const TrainingPage: React.FC = () => {
+    return (
+        <div>
+            <h1>Training Page</h1>
+            <p>View training progress and metrics</p>
+        </div>
+    );
+};
+
+export default TrainingPage;
+```
+
+
+================================================================================
+File: frontend/src/services/apiServices.ts
+Size: 2823 bytes | Lines: 98 | Section: source
+================================================================================
+```typescript
+import api from '../api/axiosConfig';
+import { AxiosResponse } from 'axios';
+
+// Type definitions
+export interface LoginCredentials {
+    username: string;
+    password: string;
+}
+
+export interface RegisterData {
+    username: string;
+    email: string;
+    password: string;
+}
+
+export interface ProjectData {
+    name: string;
+    modelType: string;
+    modelName: string;
+    optimizer: string;
+    pretrainEpochs: number;
+}
+
+export interface StartServerData {
+    strategy?: string;
+    numRounds?: number;
+    minClients?: number;
+}
+
+export interface Project {
+    id: string;
+    name: string;
+    modelType: string;
+    modelName: string;
+    optimizer: string;
+    status: 'RUNNING' | 'STOPPED' | 'COMPLETED' | 'FAILED';
+    serverPort?: number;
+}
+
+export interface ProjectResult {
+    id: string;
+    serverRound: number;
+    loss: number;
+    accuracy: number;
+    gpuUtilization?: number;
+}
+
+// Authentication Endpoints
+export const loginUser = (credentials: LoginCredentials): Promise<AxiosResponse> => {
+    return api.post('/auth/login', credentials);
+};
+
+export const registerUser = (userData: RegisterData): Promise<AxiosResponse> => {
+    return api.post('/auth/register', userData);
+};
+
+// Project Management Endpoints
+export const fetchProjects = async (): Promise<AxiosResponse<Project[]>> => {
+    return api.get<Project[]>('/projects');
+};
+
+export const createProject = (projectData: ProjectData): Promise<AxiosResponse<Project>> => {
+    return api.post<Project>('/projects', projectData);
+};
+
+export const startProjectServer = (projectId: string, startData: StartServerData): Promise<AxiosResponse<Project>> => {
+    const body: StartServerData = {};
+    if (startData?.strategy) {
+        body.strategy = startData.strategy;
+    }
+    if (startData?.numRounds) {
+        body.numRounds = startData.numRounds;
+    }
+    if (startData?.minClients) {
+        body.minClients = startData.minClients;
+    }
+    return api.post<Project>(`/projects/${projectId}/start`, body);
+};
+
+export const stopProjectServer = (projectId: string): Promise<AxiosResponse<Project>> => {
+    return api.post<Project>(`/projects/${projectId}/stop`, {});
+};
+
+export const updateProject = (projectId: string, updateData: Partial<Project>): Promise<AxiosResponse<Project>> => {
+    return api.put<Project>(`/projects/${projectId}`, updateData);
+};
+
+export const fetchProjectResults = (projectId: string): Promise<AxiosResponse<ProjectResult[]>> => {
+    return api.get<ProjectResult[]>(`/projects/${projectId}/results`);
+};
+
+export const fetchProjectLogs = (projectId: string): Promise<AxiosResponse<any[]>> => {
+    return api.get<any[]>(`/projects/${projectId}/logs`);
+};
+
+export const deleteProject = (projectId: string): Promise<AxiosResponse<string>> => {
+    return api.post<string>(`/projects/${projectId}/delete`);
+};
+```
+
+
+================================================================================
+File: frontend/src/styles/AuthStyles.css
+Size: 2616 bytes | Lines: 106 | Section: source
+================================================================================
+```text
+/* Example AuthStyles.css */
+.auth-container {
+    max-width: 400px;
+    margin: 40px auto;
+    padding: 30px;
+    background-color: var(--background-secondary);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    border: 1px solid var(--border-color);
+  }
+  
+  .auth-container h2 {
+    text-align: center;
+    margin-bottom: 25px;
+    color: var(--text-primary);
+  }
+  
+  .form-group {
+    margin-bottom: 20px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.9em;
+  }
+  
+  .form-group input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background-color: var(--background-primary);
+    color: var(--text-primary);
+    font-size: 1em;
+    box-sizing: border-box; /* Include padding/border in width */
+  }
+   .form-group input:focus {
+       outline: none;
+       border-color: var(--accent-primary);
+       box-shadow: 0 0 0 2px rgba(var(--accent-primary-rgb, 88, 166, 255), 0.3); /* Requires defining --accent-primary-rgb */
+   }
+  
+  
+  .auth-button {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--accent-primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  
+  .auth-button:hover:not(:disabled) {
+    opacity: 0.9; /* Slight fade on hover */
+  }
+  
+  .auth-button:disabled {
+    background-color: var(--text-secondary);
+    cursor: not-allowed;
+  }
+  
+  .error-message {
+    color: var(--error, #DC3545); /* Use error color variable */
+    background-color: rgba(var(--error-rgb, 220, 53, 69), 0.1); /* Requires defining --error-rgb */
+    border: 1px solid var(--error, #DC3545);
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 0.9em;
+  }
+  
+  .auth-switch {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.9em;
+    color: var(--text-secondary);
+  }
+  
+  .auth-switch a {
+    color: var(--accent-primary);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  
+  .auth-switch a:hover {
+    text-decoration: underline;
+  }
+
+  .success-message {
+    color: var(--success, #28a745); /* Use success color variable */
+    background-color: rgba(var(--success-rgb, 40, 167, 69), 0.1); /* Requires defining --success-rgb */
+    border: 1px solid var(--success, #28a745);
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 0.9em;
+  }
+```
+
+
+================================================================================
+File: frontend/src/styles/CopyIcon.css
+Size: 247 bytes | Lines: 14 | Section: source
+================================================================================
+```text
+.copy-icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  margin-left: 0.5rem;
+  color: #555;
+  transition: color 0.2s;
+  display: inline-flex;
+  align-items: center;
+}
+.copy-icon-btn:hover {
+  color: #007bff;
+}
+```
+
+
+================================================================================
+File: frontend/src/styles/CreateProjectModal.css
+Size: 1492 bytes | Lines: 92 | Section: source
+================================================================================
+```text
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 500px;
+  animation: slide-down 0.3s ease-out;
+}
+
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  color: #333;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #555;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+  box-sizing: border-box; /* Important for consistent sizing */
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.modal-actions button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-cancel {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.btn-submit {
+  background-color: #007bff; /* Primary blue */
+  color: white;
+}
+
+.btn-submit:disabled {
+    background-color: #a0a0a0;
+    cursor: not-allowed;
+}
+```
+
+
+================================================================================
+File: frontend/src/styles/Dashboard.css
+Size: 4112 bytes | Lines: 189 | Section: source
+================================================================================
+```text
+.welcome-message h1{
+    color:var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.welcome-message .tagline{
+    color:var(--accent-primary);
+    font-weight:500;
+    font-size:1.5rem;
+    margin-top:0;
+    margin-bottom:2rem;
+}
+
+.section-title {
+    color: var(--text-secondary); /* Subtler color for section titles */
+    font-weight: 500;
+    margin-bottom: 1em;
+    text-transform: uppercase; /* Optional styling */
+    font-size: 0.9em; /* Optional styling */
+    letter-spacing: 0.5px; /* Optional styling */
+  }
+
+
+  .dashboard {
+  padding: 2rem;
+  background-color: #f4f7f6; /* Light gray background for the page */
+  min-height: 100vh;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #d1d9e6;
+}
+
+.dashboard-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  color: #333;
+}
+
+.create-project-btn {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background-color: #007bff; /* Primary blue */
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.create-project-btn:hover {
+  background-color: #0056b3; /* Darker blue */
+}
+
+.project-grid {
+  display: grid;
+  /* Create a responsive grid that shows as many cards as fit */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 1200px) {
+  .project-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+
+@media (max-width: 768px) {
+  .project-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.loading-fullscreen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-size: 1.5rem;
+  color: #555;
+}
+  
+  .dashboard-section {
+    margin-bottom: 2.5em; /* Spacing between sections */
+    /* Add background/padding ONLY if you want distinct blocks */
+    /* background-color: var(--background-card); */
+    /* padding: 1.5em; */
+    /* border-radius: 8px; */
+  }
+  
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive grid */
+    gap: 2em; /* Spacing between grid items */
+  }
+
+  .model-card-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fit,minmax(250px,1fr));
+    gap: 1.5rem;
+  }
+
+  /* Example styles for the table */
+.table-container {
+  overflow-x: auto; /* Allow horizontal scroll if needed */
+}
+
+.sessions-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1em;
+}
+
+.sessions-table th,
+.sessions-table td {
+  padding: 12px 15px; /* Adjust padding */
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap; /* Prevent text wrapping */
+}
+
+.sessions-table th {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 0.85em;
+  text-transform: uppercase;
+}
+
+.sessions-table td {
+  color: var(--text-primary);
+  font-size: 0.95em;
+}
+
+.sessions-table tbody tr:hover {
+   background-color: var(--background-card); /* Subtle hover for rows */
+}
+
+.progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Space between text and bar */
+}
+
+.progress-cell span {
+   min-width: 40px; /* Ensure space for text */
+   text-align: right;
+}
+
+.progress-bar-container {
+  flex-grow: 1;
+  height: 8px;
+  background-color: var(--background-secondary); /* Darker background for the track */
+  border-radius: 4px;
+  overflow: hidden; /* Hide overflow from inner bar */
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: var(--accent-primary); /* Blue progress */
+  border-radius: 4px;
+  transition: width 0.3s ease-in-out;
+}
+
+/* Example styles for the chart placeholder */
+.chart-placeholder-container {
+  min-height: 250px; /* Example height */
+  background-color: var(--background-card); /* Match card background */
+  border-radius: 8px; /* Match card border radius */
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border-color); /* Optional: Dashed border */
+}
+
+.chart-placeholder-container p {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+```
+
+
+================================================================================
+File: frontend/src/styles/DiskLoader.css
+Size: 1081 bytes | Lines: 66 | Section: source
+================================================================================
+```text
+/* src/components/DiskLoader.css */
+.disk-loader-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    min-height: 200px;
+    background: transparent;
+}
+
+.disk-loader {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+}
+
+.disk {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #007bff;
+    animation: diskBounce 1.4s infinite ease-in-out both;
+}
+
+.disk:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.disk:nth-child(2) {
+    animation-delay: -0.16s;
+}
+
+.disk:nth-child(3) {
+    animation-delay: 0s;
+}
+
+@keyframes diskBounce {
+    0%, 80%, 100% {
+        transform: scale(0);
+        opacity: 0.5;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.loader-message {
+    margin-top: 20px;
+    color: #007bff;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+```
+
+
+================================================================================
+File: frontend/src/styles/LandingPage.css
+Size: 4639 bytes | Lines: 231 | Section: source
+================================================================================
+```text
+/* General body styling for the landing page */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.landing-container {
+  /* --- NEW BLUE GRADIENT BACKGROUND --- */
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  color: #e2e8f0; /* Lighter text for contrast */
+  min-height: 100vh;
+}
+
+/* --- Header Section --- */
+.landing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 3rem;
+  background-color: rgba(15, 23, 42, 0.5); /* Semi-transparent dark blue */
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #334155;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo span {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.landing-nav a {
+  color: #cbd5e1;
+  text-decoration: none;
+  margin: 0 1rem;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.landing-nav a:hover {
+  color: #63b3ed; /* Light Blue on hover */
+}
+
+.auth-buttons .btn {
+  margin-left: 1rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  border: 2px solid #63b3ed;
+  color: #63b3ed;
+}
+
+.btn-secondary:hover {
+  background-color: #63b3ed;
+  color: #0f172a;
+}
+
+.btn-primary {
+  background-color: #63b3ed;
+  border: 2px solid #63b3ed;
+  color: #0f172a;
+}
+
+.btn-primary:hover {
+  background-color: #4299e1;
+  border-color: #4299e1;
+}
+
+/* --- Hero Section (Main Content) --- */
+.hero-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6rem 1.5rem;
+  text-align: center;
+}
+
+.hero-title {
+  font-size: 3.8rem;
+  font-weight: 800;
+  color: #ffffff;
+  max-width: 850px;
+  margin-bottom: 1.5rem;
+  line-height: 1.2;
+}
+
+.hero-subtitle {
+  font-size: 1.3rem;
+  color: #94a3b8; /* Softer gray */
+  max-width: 700px;
+  margin: 0 auto 4rem auto;
+  line-height: 1.7;
+}
+
+/* --- Service Cards --- */
+.services-grid {
+  display: grid;
+  /* Allow 4 columns if there's space */
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  max-width: 1200px;
+  margin-bottom: 4rem;
+}
+
+.service-card {
+  background: rgba(45, 55, 72, 0.5); /* Semi-transparent card */
+  padding: 2rem;
+  border-radius: 12px;
+  border: 1px solid #4a5568;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.service-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.service-card h3 {
+  font-size: 1.3rem;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #ffffff;
+}
+
+.service-card p {
+  font-size: 1rem;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+/* --- Launch Button --- */
+.btn-launch {
+  background-color: #4299e1; /* Primary blue */
+  color: #ffffff;
+  padding: 1rem 3rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  border-radius: 50px;
+  text-decoration: none;
+  border: none;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.btn-launch:hover {
+  background-color: #3182ce;
+  transform: scale(1.05);
+}
+
+/* --- Upcoming Features Section --- */
+.features-section {
+  padding: 5rem 2rem;
+  background-color: rgba(15, 23, 42, 0.7); /* Slightly darker, semi-transparent section */
+}
+
+.section-title {
+  font-size: 2.8rem;
+  font-weight: 700;
+  margin-bottom: 3rem;
+  text-align: center;
+}
+
+.features-category {
+  max-width: 1200px;
+  margin: 0 auto 3rem auto;
+}
+
+.features-category h3 {
+  font-size: 1.8rem;
+  color: #63b3ed; /* Highlight category titles */
+  margin-bottom: 2rem;
+  text-align: left;
+  border-bottom: 2px solid #334155;
+  padding-bottom: 0.5rem;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.feature-card {
+  background-color: #1e293b; /* Match the darker gradient color */
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.feature-card h4 {
+  font-size: 1.2rem;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #ffffff;
+}
+
+.feature-card p {
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.logo-link {
+  text-decoration: none; /* Removes the underline */
+  color: inherit; /* Makes the text color inherit from the parent */
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem; /* Adds space between the image and the text */
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+}
+
+/* Style for the logo image itself */
+.logo-image {
+  height: 100px; /* Adjust the height as needed */
+  width: auto;  /* Let the width adjust automatically to maintain aspect ratio */
+}
+```
+
+
+================================================================================
+File: frontend/src/styles/Layout.css
+Size: 6523 bytes | Lines: 275 | Section: source
+================================================================================
+```text
+/* Example Layout.css */
+.app-layout {
+    display: flex;
+    min-height: 100vh; /* Ensure layout takes full height */
+  }
+  
+.title-text{
+  font-size: largeer;
+  font-weight: 500;
+  padding-left: 1rem;
+}
+ /* Example Layout.css updates */
+.sidebar {
+    /* width is now set by expanded/collapsed states */
+    flex-shrink: 0;
+    background-color: var(--background-secondary);
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    padding: 20px 0; /* Adjust padding maybe */
+    /*transition: width 0.5s ease; /* Smooth transition for width */
+    color: var(--text-primary);
+    overflow-x: hidden; /* Hide content that overflows horizontally when collapsing */
+  }
+  
+  .sidebar.expanded {
+    width: 260px;
+    padding: 10px 10px;
+  }
+  
+  .sidebar.collapsed {
+    width: 80px; /* Adjust as needed */
+    /* Potentially different padding for collapsed */
+    padding: 108px 10px; 
+  }
+  
+  .sidebar-toggle-btn {
+    /* Basic styling - position as needed */
+    display: block; /* Or inline-block */
+    margin: 0 auto 20px auto; /* Example positioning */
+    padding: 8px;
+    background-color: transparent;
+    border: none;/* Or another distinct color */
+    color: var(--text-primary);
+    justify-items: right;
+    /* border: 1px solid var(--border-color); */
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  /* Align button to the right when sidebar is expanded */
+.sidebar.expanded .sidebar-toggle-btn {
+  display: block; /* Or inline-block */
+  margin-left: auto; /* Pushes the button to the right */
+  margin-right: 15px; /* Add some margin from the edge */
+  /* Reset centering margins */
+  margin-top: 20px; /* Keep vertical margin consistent if desired */
+  margin-bottom: 20px;
+}
+  /* Style adjustments might be needed for main content based on sidebar state too,
+     but let's keep it simple for now */
+  .main-content {
+     flex-grow: 1;
+     background-color: var(--background-primary);
+     padding: 24px 48px;
+     overflow-y: auto;
+   }
+
+   /* Example Layout.css additions */
+.sidebar-nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-nav li {
+  margin-bottom: 8px; /* Spacing between links */
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px; /* Adjust padding */
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--text-secondary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.nav-link:hover {
+  background-color: var(--background-primary); /* Or a slightly different hover */
+  color: var(--text-primary);
+}
+
+.nav-link.active {
+  background-color: var(--accent-primary); /* Use accent for active */
+  color: #fff; /* White text on active blue background */
+  font-weight: 500;
+}
+.nav-link.active .nav-icon {
+   color: #fff; /* Ensure icon matches text */
+}
+.nav-link.active:hover{
+    color: #fff; /* Ensure text stays white on hover */
+}
+
+.nav-icon {
+  font-size: 1.2em; /* Adjust icon size */
+  min-width: 30px; /* Ensure space even when text is hidden */
+  color: var(--text-secondary); /* Match link text */
+   transition: color 0.2s ease;
+}
+
+/* Adjustments when expanded */
+.sidebar.expanded .nav-icon {
+  margin-right: 15px;
+}
+
+/* Adjustments when collapsed */
+.sidebar.collapsed .nav-link {
+  justify-content: center; /* Center icon */
+  padding: 10px;
+}
+ .sidebar.collapsed .nav-text {
+   display: none; /* Hide text */
+ }
+
+ /* Example Layout.css additions */
+
+.main-content {
+  flex-grow: 1;
+  background-color: var(--background-primary);
+  /* Remove padding from main-content if header/page-content have their own */
+  /* padding: 24px 48px; */
+  overflow-y: auto;
+  display: flex; /* Use flex column for header/content stacking */
+  flex-direction: column;
+  
+}
+
+.main-content-header {
+  display: flex;
+  justify-content: flex-end; /* Push content (user button) to the right */
+  padding: 16px 10px; /* Padding for the header area */
+  border-bottom: 1px solid var(--border-color); /* Optional separator */
+  background-color: var(--background-primary); /* Ensure consistent bg */
+}
+
+.user-profile-button {
+  background-color: var(--background-secondary); /* Subtle background */
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 50%; /* Make it circular */
+  width: 40px; /* Fixed size */
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.2em; /* Adjust icon size */
+  transition: background-color 0.2s ease;
+}
+
+.user-profile-button:hover {
+  background-color: var(--background-card); /* Slightly different hover */
+}
+
+.page-content {
+  padding: 24px 48px; /* Add padding back for the actual page content */
+  flex-grow: 1; /* Allow page content to take remaining space */
+}
+
+.user-controls{
+  display: flex;
+  width: 150px;
+  justify-content: space-between;
+
+}
+
+.logout-button{
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    border-radius: 6px;
+    text-decoration: none;
+    background-color: var(--accent-primary);
+    color: #fff;
+    font-weight: 500;
+    border: 0;
+    cursor: pointer;
+    
+    
+}
+
+.logout-button:hover {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    border: 1px solid var(--accent-primary);
+    border-radius: 6px ;
+    text-decoration: none;
+    color: var(--accent-primary);
+    background-color: #fff;
+    font-weight: 500;
+    border: 0;
+    cursor: pointer;
+
+
+}
+.layout-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0rem 2rem;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.app-nav a {
+  margin: 0 1rem;
+  text-decoration: none;
+  color: #555;
+  font-weight: 500;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.welcome-text {
+  color: #333;
+  font-weight: 500;
+}
+
+
+
+.app-content {
+  flex-grow: 1;
+  background-color: #f4f7f6;
+}
+
+.logo-link {
+  text-decoration: none; /* Removes the underline */
+  color: inherit; /* Makes the text color inherit from the parent */
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem; /* Adds space between the image and the text */
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+}
+
+/* Style for the logo image itself */
+.logo-image {
+  height: 100px; /* Adjust the height as needed */
+  width: auto;  /* Let the width adjust automatically to maintain aspect ratio */
+}
+```
+
+
+================================================================================
+File: frontend/src/styles/LogViewer.css
+Size: 1655 bytes | Lines: 90 | Section: source
+================================================================================
+```text
+.log-viewer-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1050;
+    backdrop-filter: blur(4px);
+}
+
+.log-viewer {
+    width: 80%;
+    max-width: 900px;
+    height: 70vh;
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    font-family: 'Courier New', Courier, monospace;
+    border-radius: 8px;
+    border: 1px solid #333;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    animation: fade-in 0.3s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #333;
+    padding: 0.5rem 1rem;
+    flex-shrink: 0;
+}
+
+.log-header h4 {
+    margin: 0;
+    font-size: 1rem;
+    font-family: sans-serif;
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.connection-status {
+    font-size: 0.8rem;
+    font-family: sans-serif;
+    color: #aaa;
+}
+
+.connection-status.connected {
+    color: #4caf50; /* Green */
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 1.75rem;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 0.5rem;
+}
+
+.close-btn:hover {
+    color: #fff;
+}
+
+.log-container {
+    padding: 1rem;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin: 0;
+    flex-grow: 1;
+    font-size: 0.85rem;
+}
+```
+
+
+================================================================================
+File: frontend/src/styles/ModelCard.css
+Size: 1031 bytes | Lines: 57 | Section: source
+================================================================================
+```text
+.model-card{
+    display: flex;
+    justify-content: space-between;
+    padding: 18px 18px;
+    border: 1px solid var(--border-color);
+    background-color: var(--background-primary);
+    border-radius: 1rem;
+    cursor: pointer;
+    
+}
+
+.model-card:hover {
+    background-color: var(--background-secondary); /* Slightly different hover */
+}
+
+.model-name{
+    color: var(--text-primary);
+    font-weight: 900;
+    font-size: 1rem;
+}
+
+
+.model-type{
+    color: var(--text-secondary);
+    font-weight: 300;
+    font-size: 0.9rem;
+}
+
+
+.model-version{
+    color: var(--text-secondary);
+    font-weight: 300;
+    font-size: 0.8rem;
+}
+
+.status-badge{
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 10px;
+    padding: 5px 5px;
+    border: 1px solid var(--border-color);
+    background-color: var(--background-primary);
+    border-radius: 1rem;
+    cursor: pointer;
+}
+
+.status-badge.status-training{
+    background-color: var(--training);
+}
+
+.status-badge.status-available{
+    background-color: var(--success);
+}
+```
+
+
+================================================================================
+File: frontend/src/styles/ProjectCard.css
+Size: 7337 bytes | Lines: 322 | Section: source
+================================================================================
+```text
+/* ==========================================================================
+   Base Card Layout
+   ========================================================================== */
+.project-card {
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+.project-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* ==========================================================================
+   Card Header
+   ========================================================================== */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #2c3e50; /* Dark blue-gray text */
+}
+
+.status-indicator {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-indicator.running {
+  background-color: #d4edda; /* Light green */
+  color: #155724; /* Dark green */
+}
+
+.status-indicator.stopped {
+  background-color: #f8d7da; /* Light red */
+  color: #721c24; /* Dark red */
+}
+
+.status-indicator.completed {
+  background-color: #eef0ae;
+  color: #99951a;
+}
+
+/* ==========================================================================
+   Card Body
+   ========================================================================== */
+.card-body {
+  padding: 1.5rem;
+  flex-grow: 1;
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.75rem 1rem;
+    align-items: center;
+}
+
+.details-grid p, .details-grid .optimizer-section { 
+    margin: 0; 
+}
+
+.details-grid strong { 
+    color: #333; 
+}
+
+.optimizer-section { 
+    grid-column: 1 / -1; /* Make optimizer span both columns */
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.display-optimizer, .edit-optimizer { 
+    display: flex; 
+    align-items: center; 
+    gap: 0.5rem; 
+}
+
+.optimizer-value {
+    background-color: #e9ecef;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: #555;
+    transition: color 0.2s;
+}
+.icon-btn:hover { color: #007bff; }
+
+.edit-optimizer select { padding: 0.25rem; border-radius: 4px; border: 1px solid #ccc; }
+
+.save-btn, .cancel-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1rem;
+}
+.save-btn { color: #28a745; }
+.cancel-btn { color: #dc3545; }
+
+.port-info {
+    font-size: 0.9rem;
+    color: #333; /* Change color for better contrast */
+    font-weight: 500;
+    margin-top: 1rem;
+    background-color: #e7f5ff; /* Light blue background */
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    display: flex; /* <-- Add this */
+    justify-content: space-between; /* <-- Add this */
+    align-items: center; /* <-- Add this */
+}
+
+.port-info strong {
+  color: #0056b3;
+}
+
+.project-id-display {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 0.5rem 0.5rem 0.5rem 0.75rem; 
+  margin-bottom: 1.5rem;
+  font-size: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  word-break: break-all;
+}
+
+.project-id-display strong {
+  margin-right: 0.5rem;
+  color: #495057;
+}
+
+.project-id-display code {
+  font-family: 'Courier New', Courier, monospace;
+  color: #333;
+  flex-grow: 1;
+  text-align: left; 
+}
+/* ==========================================================================
+   Start Configuration Section
+   ========================================================================== */
+.start-config-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #f0f0f0;
+}
+
+.start-config-section h4 { 
+    margin-top: 0; 
+    margin-bottom: 1rem; 
+    color: #333; 
+}
+
+.config-grid { 
+    display: grid; 
+    grid-template-columns: auto 1fr; 
+    gap: 0.75rem; 
+    align-items: center; 
+}
+
+.config-grid label { 
+    font-weight: 500; 
+}
+
+.config-grid select, .config-grid input { 
+    padding: 0.5rem; 
+    border-radius: 6px; 
+    border: 1px solid #ccc; 
+    width: 100%; 
+    box-sizing: border-box; 
+}
+
+/* ==========================================================================
+   Metrics and Actions
+   ========================================================================== */
+.metrics-section { 
+    padding: 0 1.5rem 1rem 1.5rem; 
+}
+
+.metrics-toggle { 
+    width: 100%; 
+    padding: 0.6rem; 
+    background-color: #6c757d; 
+    color: white; 
+    border: none; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    font-weight: 500; 
+}
+.metrics-toggle:hover { background-color: #5a6268; }
+
+.metrics-content { 
+    max-height: 0; 
+    overflow-y: auto; 
+    transition: max-height 0.4s ease-in-out; 
+}
+.metrics-content.expanded { 
+    max-height: 200px; /* Animate to this height */
+    margin-top: 1rem; 
+}
+.metrics-content table { 
+    width: 100%; 
+    border-collapse: collapse; 
+}
+.metrics-content th, .metrics-content td { 
+    border: 1px solid #ddd; 
+    padding: 0.5rem; 
+    text-align: left; 
+}
+.metrics-content th { background-color: #f8f9fa; }
+
+/* ==========================================================================
+   Card Footer and Toggle Switch
+   ========================================================================== */
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background-color: #f8f9fa;
+  border-top: 1px solid #f0f0f0;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.toggle-switch { 
+    position: relative; 
+    display: inline-block; 
+    width: 50px; 
+    height: 28px; 
+}
+.toggle-switch input { 
+    opacity: 0; 
+    width: 0; 
+    height: 0; 
+}
+.slider { 
+    position: absolute; 
+    cursor: pointer; 
+    top: 0; left: 0; right: 0; bottom: 0; 
+    background-color: #ccc; 
+    transition: .4s; 
+}
+.slider:before { 
+    position: absolute; 
+    content: ""; 
+    height: 20px; 
+    width: 20px; 
+    left: 4px; 
+    bottom: 4px; 
+    background-color: white; 
+    transition: .4s; 
+}
+input:checked + .slider { background-color: #28a745; }
+input:checked + .slider:before { transform: translateX(22px); }
+.slider.round { border-radius: 34px; }
+.slider.round:before { border-radius: 50%; }
+
+
+.card-actions {
+    padding: 0 1.5rem 1rem 1.5rem;
+    display: flex; /* <-- Use flexbox to place buttons side-by-side */
+    gap: 1rem; /* <-- Add space between the buttons */
+}
+
+.action-btn {
+    flex: 1; /* <-- Make both buttons share the space equally */
+    padding: 0.6rem;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s, opacity 0.2s;
+}
+
+.results-btn {
+    background-color: #6c757d; /* Gray */
+}
+.results-btn:hover {
+    background-color: #5a6268;
+}
+
+.logs-btn {
+    background-color: #17a2b8; /* Info blue/teal */
+}
+.logs-btn:hover {
+    background-color: #138496;
+}
+
+/* Style for when the button is disabled */
+.action-btn:disabled {
+    background-color: #a0aec0;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+```
+
+
+================================================================================
+File: frontend/src/styles/ResultsModal.css
+Size: 1600 bytes | Lines: 86 | Section: source
+================================================================================
+```text
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 1.5rem 2rem;
+  border-radius: 12px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 800px;
+  animation: fade-in 0.3s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.results-table-container {
+  max-height: 60vh; /* Make the table scrollable on long results */
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.results-table-container table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.results-table-container th, .results-table-container td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.results-table-container th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #555;
+  position: sticky;
+  top: 0;
+}
+
+.results-table-container tr:last-child td {
+  border-bottom: none;
+}
+
+.results-table-container tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.btn-close {
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #333;
+  background-color: #e9ecef;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+}
+```
+
+
+================================================================================
+File: frontend/tsconfig.node.json
+Size: 233 bytes | Lines: 11 | Section: source
+================================================================================
+```json
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "strict": true
+  },
+  "include": ["vite.config.ts"]
+}
+```
+
+
+================================================================================
+File: frontend/vercel.json
+Size: 96 bytes | Lines: 8 | Section: source
+================================================================================
+```json
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+```
+
+
+################################################################################
+# DOCS (may lag behind code)
+################################################################################
+
+================================================================================
+File: frontend/CLAUDE.md
+Size: 806 bytes | Lines: 15 | Section: docs
+================================================================================
+```markdown
+# FedLearn Frontend Guidelines
+
+Please act as the Lead React Security Engineer and Frontend Architect.
+
+## Technical Focus
+
+* **Tech Stack:** React, TypeScript, Axios.
+* **Security Strictness:** The backend utilizes stateless JWTs. Ensure strict validation, standardize token storage strictly as `jwtToken` in `localStorage`, and ensure tokens are *never* exposed in console logs.
+* **Data Handling:** Defensively render training logs from the orchestrator to prevent XSS. Keep UI components cleanly decoupled from Axios API logic.
+
+## Execution Directives
+
+* Write strict TypeScript interfaces for all component props and API responses.
+* Provide clean, modular functional components using modern React hooks.
+* Point out any potential state-management race conditions or insecure data handling directly.
+```
+
+
+================================================================================
+File: frontend/FIXES_APPLIED.md
+Size: 8425 bytes | Lines: 339 | Section: docs
+================================================================================
+```markdown
 # Detailed List of All Fixes Applied
 
 ## Security Vulnerabilities Fixed
@@ -344,11 +4327,12 @@ If updating from the original codebase:
 **Status**: Production-ready after adding CSS files
 ```
 
+
 ================================================================================
 File: frontend/README.md
+Size: 8922 bytes | Lines: 280 | Section: docs
 ================================================================================
-
-```md
+```markdown
 # FedLearn Platform - Fixed Frontend
 
 This is a **completely refactored and security-hardened** version of the FedLearn platform frontend. All critical security vulnerabilities and code quality issues have been addressed.
@@ -629,2101 +4613,5 @@ This refactored version addresses all issues identified in the original codebase
 ---
 
 **Note**: This is a production-ready codebase with all identified security vulnerabilities and bugs fixed. However, always perform your own security audit before deploying to production.
-```
-
-================================================================================
-File: frontend/package.json
-================================================================================
-
-```json
-{
-  "name": "fedlearn-frontend",
-  "private": true,
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@stomp/stompjs": "^7.1.1",
-    "axios": "^1.11.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-icons": "^5.5.0",
-    "react-router-dom": "^7.5.2"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.22.0",
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
-    "@vitejs/plugin-react": "^4.3.4",
-    "eslint": "^9.22.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.19",
-    "globals": "^16.0.0",
-    "typescript": "^5.7.2",
-    "vite": "^6.3.1"
-  }
-}
-```
-
-================================================================================
-File: frontend/tsconfig.json
-================================================================================
-
-```json
-{
-  "compilerOptions": {
-    "target": "ES2020",
-    "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "skipLibCheck": true,
-
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "jsx": "react-jsx",
-
-    /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
-    "noImplicitThis": true,
-    "alwaysStrict": true
-  },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
-}
-```
-
-================================================================================
-File: frontend/tsconfig.node.json
-================================================================================
-
-```json
-{
-  "compilerOptions": {
-    "composite": true,
-    "skipLibCheck": true,
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true,
-    "strict": true
-  },
-  "include": ["vite.config.ts"]
-}
-```
-
-================================================================================
-File: frontend/vercel.json
-================================================================================
-
-```json
-{
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
-}
-```
-
-================================================================================
-File: frontend/vite.config.ts
-================================================================================
-
-```ts
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-
-// https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react()],
-  define: {
-    'global': {},
-  },
-  build: {
-    minify: 'esbuild',
-    sourcemap: true,
-  },
-  server: {
-    port: 5173,
-    strictPort: false,
-    host: true,
-  },
-});
-```
-
-================================================================================
-File: frontend/src/App.tsx
-================================================================================
-
-```tsx
-import React, { useEffect } from 'react';
-import { Routes, Route, Link, Navigate } from 'react-router-dom';
-import HomePage from './pages/HomePage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
-import ModelsPage from './pages/ModelsPage';
-import TrainingPage from './pages/TrainingPage';
-import SettingsPage from './pages/SettingsPage';
-import './App.css';
-import Layout from './components/Layout';
-import { useAuth } from './context/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import LandingPage from './pages/LandingPage';
-import DiskLoader from './components/DiskLoader';
-
-const AppLoading: React.FC = () => (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <DiskLoader message="Loading Application..." />
-    </div>
-);
-
-const NotFoundPage: React.FC = () => (
-    <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <h2>404 - Page Not Found</h2>
-        <p>The page you're looking for doesn't exist.</p>
-        <Link to="/">Go Home</Link>
-    </div>
-);
-
-function App() {
-    const { currentUser, logout, isLoading } = useAuth();
-
-    useEffect(() => {
-        const handleAuthError = () => {
-            logout();
-        };
-        window.addEventListener('authError', handleAuthError);
-        return () => {
-            window.removeEventListener('authError', handleAuthError);
-        };
-    }, [logout]);
-
-    if (isLoading) {
-        return <AppLoading />;
-    }
-
-    return (
-        <div className="App">
-            <Routes>
-                <Route path="/" element={<LandingPage />} />
-                <Route
-                    path="/login"
-                    element={currentUser ? <Navigate to="/dashboard" replace /> : <LoginPage />}
-                />
-                <Route
-                    path="/register"
-                    element={currentUser ? <Navigate to="/dashboard" replace /> : <RegisterPage />}
-                />
-
-                <Route element={<ProtectedRoute />}>
-                    <Route element={<Layout />}>
-                        <Route path="/dashboard" element={<DashboardPage />} />
-                        <Route path="/models" element={<ModelsPage />} />
-                        <Route path="/training" element={<TrainingPage />} />
-                        <Route path="/settings" element={<SettingsPage />} />
-                    </Route>
-                </Route>
-
-                <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-        </div>
-    );
-}
-
-export default App;
-```
-
-================================================================================
-File: frontend/src/main.tsx
-================================================================================
-
-```tsx
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import App from './App';
-import './index.css';
-import { AuthProvider } from './context/AuthContext';
-
-if (typeof window !== 'undefined') {
-    (window as any).global = window;
-}
-
-const rootElement = document.getElementById('root');
-
-if (!rootElement) {
-    throw new Error('Root element not found');
-}
-
-ReactDOM.createRoot(rootElement).render(
-    <React.StrictMode>
-        <BrowserRouter>
-            <AuthProvider>
-                <App />
-            </AuthProvider>
-        </BrowserRouter>
-    </React.StrictMode>
-);
-```
-
-================================================================================
-File: frontend/src/context/AuthContext.tsx
-================================================================================
-
-```tsx
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-
-interface User {
-    username: string;
-    email?: string;
-    sub?: string;
-    [key: string]: any;
-}
-
-interface AuthContextType {
-    currentUser: User | null;
-    isLoading: boolean;
-    login: (userData: User, token: string) => void;
-    logout: () => void;
-}
-
-const AuthContext = createContext<AuthContextType | null>(null);
-
-// Helper function to decode JWT (client-side only, no signature verification)
-const decodeJWT = (token: string): any | null => {
-    try {
-        const base64Url = token.split('.')[1];
-        if (!base64Url) return null;
-
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(
-            atob(base64)
-                .split('')
-                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-                .join('')
-        );
-        const decoded = JSON.parse(jsonPayload);
-
-        // Check token expiration
-        if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-            return null; // Token expired
-        }
-
-        return decoded;
-    } catch (error) {
-        console.error('Failed to decode JWT:', error);
-        return null;
-    }
-};
-
-interface AuthProviderProps {
-    children: ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        const token = localStorage.getItem('jwtToken');
-        if (token) {
-            const decoded = decodeJWT(token);
-
-            if (decoded) {
-                setUser({
-                    username: decoded.sub || decoded.username || decoded.email || 'User',
-                    ...decoded
-                });
-            } else {
-                // Token is invalid or expired, remove it
-                localStorage.removeItem('jwtToken');
-            }
-        }
-        setIsLoading(false);
-    }, []);
-
-    const login = (userData: User, token: string) => {
-        localStorage.setItem('jwtToken', token);
-        setUser(userData);
-    };
-
-    const logout = () => {
-        localStorage.removeItem('jwtToken');
-        setUser(null);
-    };
-
-    const value: AuthContextType = { currentUser: user, isLoading, login, logout };
-
-    return (
-        <AuthContext.Provider value={value}>
-            {children}
-        </AuthContext.Provider>
-    );
-};
-
-export const useAuth = (): AuthContextType => {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
-};
-```
-
-================================================================================
-File: frontend/src/components/CopyIcon.tsx
-================================================================================
-
-```tsx
-import React, { useState } from 'react';
-import '../styles/CopyIcon.css';
-
-const IconCopy: React.FC = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-    </svg>
-);
-
-const IconCheck: React.FC = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#28a745" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="20 6 9 17 4 12"></polyline>
-    </svg>
-);
-
-interface CopyIconProps {
-    textToCopy: string;
-}
-
-const CopyIcon: React.FC<CopyIconProps> = ({ textToCopy }) => {
-    const [isCopied, setIsCopied] = useState(false);
-
-    const handleCopy = async () => {
-        try {
-            await navigator.clipboard.writeText(textToCopy);
-            setIsCopied(true);
-            setTimeout(() => setIsCopied(false), 2000);
-        } catch (err) {
-            console.error('Failed to copy text:', err);
-        }
-    };
-
-    return (
-        <button
-            onClick={handleCopy}
-            className="copy-icon-btn"
-            title="Copy to clipboard"
-            aria-label="Copy to clipboard"
-        >
-            {isCopied ? <IconCheck /> : <IconCopy />}
-        </button>
-    );
-};
-
-export default CopyIcon;
-```
-
-================================================================================
-File: frontend/src/components/CreateProjectModal.tsx
-================================================================================
-
-```tsx
-import React, { useState, useEffect } from 'react';
-import '../styles/CreateProjectModal.css';
-
-const modelOptions = {
-    CNN: {
-        models: ["net", "ResNet", "VGGNet", "AlexNet"],
-        optimizers: ["Adam", "SGD", "RMSprop", "AdamW"]
-    },
-    Transformer: {
-        models: ["opt-125m", "bert-tiny"],
-        optimizers: ["AdamW", "Adam"]
-    }
-};
-
-type ModelType = keyof typeof modelOptions;
-
-interface CreateProjectModalProps {
-    onSubmit: (projectData: {
-        name: string;
-        modelType: string;
-        modelName: string;
-        optimizer: string;
-        pretrainEpochs: number;
-    }) => void;
-    onCancel: () => void;
-    isLoading?: boolean;
-}
-
-const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ onSubmit, onCancel, isLoading = false }) => {
-    const [name, setName] = useState('');
-    const [modelType, setModelType] = useState<ModelType>('CNN');
-    const [modelName, setModelName] = useState(modelOptions.CNN.models[0]);
-    const [optimizer, setOptimizer] = useState(modelOptions.CNN.optimizers[0]);
-    const [pretrainEpochs, setPretrainEpochs] = useState(0);
-
-    useEffect(() => {
-        setModelName(modelOptions[modelType].models[0]);
-        setOptimizer(modelOptions[modelType].optimizers[0]);
-    }, [modelType]);
-
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        onSubmit({
-            name,
-            modelType,
-            modelName,
-            optimizer,
-            pretrainEpochs: Number(pretrainEpochs)
-        });
-    };
-
-    const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (e.target === e.currentTarget) {
-            onCancel();
-        }
-    };
-
-    const handleEscapeKey = (e: React.KeyboardEvent) => {
-        if (e.key === 'Escape') {
-            onCancel();
-        }
-    };
-
-    return (
-        <div
-            className="modal-backdrop"
-            onClick={handleBackdropClick}
-            onKeyDown={handleEscapeKey}
-            role="dialog"
-            aria-labelledby="modal-title"
-            aria-modal="true"
-        >
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <h2 id="modal-title">Create New Project</h2>
-                <form onSubmit={handleSubmit}>
-                    <div className="form-group">
-                        <label htmlFor="project-name">Project Name</label>
-                        <input
-                            id="project-name"
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            required
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="model-type">Model Architecture</label>
-                        <select
-                            id="model-type"
-                            value={modelType}
-                            onChange={(e) => setModelType(e.target.value as ModelType)}
-                        >
-                            {Object.keys(modelOptions).map(type => (
-                                <option key={type} value={type}>{type}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="model-name">Model Name</label>
-                        <select
-                            id="model-name"
-                            value={modelName}
-                            onChange={(e) => setModelName(e.target.value)}
-                        >
-                            {modelOptions[modelType].models.map(name => (
-                                <option key={name} value={name}>{name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="optimizer">Optimizer</label>
-                        <select
-                            id="optimizer"
-                            value={optimizer}
-                            onChange={(e) => setOptimizer(e.target.value)}
-                        >
-                            {modelOptions[modelType].optimizers.map(opt => (
-                                <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="pretrain-epochs">Pre-train Epochs</label>
-                        <input
-                            id="pretrain-epochs"
-                            type="number"
-                            value={pretrainEpochs}
-                            onChange={(e) => setPretrainEpochs(Number(e.target.value))}
-                            min="0"
-                        />
-                    </div>
-                    <div className="modal-actions">
-                        <button
-                            type="button"
-                            className="btn-cancel"
-                            onClick={onCancel}
-                            disabled={isLoading}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            className="btn-submit"
-                            disabled={isLoading}
-                        >
-                            {isLoading ? 'Creating...' : 'Create Project'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-};
-
-export default CreateProjectModal;
-```
-
-================================================================================
-File: frontend/src/components/DiskLoader.tsx
-================================================================================
-
-```tsx
-import React from 'react';
-import '../styles/DiskLoader.css';
-
-interface DiskLoaderProps {
-    message?: string;
-}
-
-const DiskLoader: React.FC<DiskLoaderProps> = ({ message = "Loading..." }) => {
-    return (
-        <div className="disk-loader-container" role="status" aria-live="polite">
-            <div className="disk-loader">
-                <div className="disk"></div>
-                <div className="disk"></div>
-                <div className="disk"></div>
-            </div>
-            {message && <p className="loader-message">{message}</p>}
-        </div>
-    );
-};
-
-export default DiskLoader;
-```
-
-================================================================================
-File: frontend/src/components/Layout.tsx
-================================================================================
-
-```tsx
-import React, { useEffect, useState } from 'react';
-import { Outlet, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import '../styles/Layout.css';
-
-const Layout: React.FC = () => {
-    const [userName, setUserName] = useState('');
-    const { currentUser, logout } = useAuth();
-
-    useEffect(() => {
-        if (currentUser) {
-            setUserName(currentUser.username);
-        }
-    }, [currentUser]); // Fixed: Added currentUser as dependency
-
-    return (
-        <div className="layout-container">
-            <header className="app-header">
-                <Link to="/" className="logo-link">
-                    <div className="logo">
-                        <span>FedLearn Platform</span>
-                    </div>
-                </Link>
-                <nav className="app-nav">
-                    <Link to="/dashboard">Dashboard</Link>
-                    <Link to="/models">Models</Link>
-                </nav>
-                <div className="user-profile">
-                    {userName && (
-                        <span className="welcome-text">Welcome, {userName}!</span>
-                    )}
-                    <button onClick={logout} className="logout-button" aria-label="Logout">
-                        Logout
-                    </button>
-                </div>
-            </header>
-            <main className="app-content">
-                <Outlet />
-            </main>
-        </div>
-    );
-};
-
-export default Layout;
-```
-
-================================================================================
-File: frontend/src/components/LogViewer.tsx
-================================================================================
-
-```tsx
-import React, { useState, useEffect, useRef } from 'react';
-import { Client, StompSubscription } from '@stomp/stompjs';
-import '../styles/LogViewer.css';
-
-interface LogEntry {
-    level: string;
-    message: string;
-    timestamp?: string;
-    stackTrace?: string;
-}
-
-interface LogViewerProps {
-    projectId: string;
-    serverUrl: string;
-    onClose: () => void;
-}
-
-const MAX_LOGS = 1000; // Prevent memory issues
-
-const LogViewer: React.FC<LogViewerProps> = ({ projectId, serverUrl, onClose }) => {
-    const [logs, setLogs] = useState<LogEntry[]>([]);
-    const [isConnected, setIsConnected] = useState(false);
-    const logContainerRef = useRef<HTMLDivElement>(null);
-    const subscriptionRef = useRef<StompSubscription | null>(null);
-    const clientRef = useRef<Client | null>(null);
-
-    useEffect(() => {
-        if (!projectId) return;
-
-        // Fetch existing historical logs first
-        import('../services/apiServices').then(api => {
-            api.fetchProjectLogs(projectId).then(response => {
-                if (response.data && response.data.length > 0) {
-                    const formattedLogs = response.data.map((log: any) => ({
-                        level: log.level,
-                        message: log.message,
-                        timestamp: log.timestamp,
-                        stackTrace: log.stackTrace
-                    }));
-                    // Set historical logs, limiting to MAX_LOGS
-                    setLogs(formattedLogs.slice(-MAX_LOGS));
-                }
-            }).catch(err => {
-                console.error("Failed to fetch historical logs:", err);
-            });
-        });
-
-        const brokerURL = serverUrl.replace(/^http/, 'ws') + '/ws-logs';
-        const stompClient = new Client({
-            brokerURL: brokerURL,
-            connectHeaders: {},
-            reconnectDelay: 5000,
-        });
-
-        stompClient.onConnect = () => {
-            setIsConnected(true);
-            setLogs(prev => [
-                ...prev.slice(-MAX_LOGS + 1),
-                {
-                    level: 'INFO',
-                    message: '--- WebSocket Connection Established ---',
-                    timestamp: new Date().toISOString()
-                }
-            ]);
-
-            // Store subscription reference for cleanup
-            const subscription = stompClient.subscribe(`/topic/logs/${projectId}`, (message) => {
-                try {
-                    const logObj: LogEntry = JSON.parse(message.body);
-                    setLogs(prevLogs => [...prevLogs.slice(-MAX_LOGS + 1), logObj]);
-                } catch (e) {
-                    setLogs(prevLogs => [
-                        ...prevLogs.slice(-MAX_LOGS + 1),
-                        { level: 'INFO', message: message.body }
-                    ]);
-                }
-            });
-
-            subscriptionRef.current = subscription;
-        };
-
-        stompClient.onDisconnect = () => {
-            setIsConnected(false);
-            setLogs(prev => [
-                ...prev.slice(-MAX_LOGS + 1),
-                {
-                    level: 'ERROR',
-                    message: '--- WebSocket Connection Lost ---',
-                    timestamp: new Date().toISOString()
-                }
-            ]);
-        };
-
-        stompClient.onStompError = (frame) => {
-            console.error('Broker reported error:', frame.headers['message']);
-            setIsConnected(false);
-        };
-
-        stompClient.activate();
-        clientRef.current = stompClient;
-
-        return () => {
-            if (subscriptionRef.current) {
-                subscriptionRef.current.unsubscribe();
-            }
-            if (clientRef.current?.active) {
-                clientRef.current.deactivate();
-            }
-        };
-    }, [projectId, serverUrl]);
-
-    useEffect(() => {
-        if (logContainerRef.current) {
-            logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
-        }
-    }, [logs]);
-
-    const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (e.target === e.currentTarget) {
-            onClose();
-        }
-    };
-
-    const handleClearLogs = () => {
-        setLogs([]);
-    };
-
-    return (
-        <div className="log-viewer-backdrop" onClick={handleBackdropClick}>
-            <div className="log-viewer" onClick={e => e.stopPropagation()}>
-                <div className="log-header">
-                    <h4>Live Server Logs</h4>
-                    <div className="header-controls">
-                        <button
-                            onClick={handleClearLogs}
-                            className="clear-btn"
-                            title="Clear logs"
-                        >
-                            Clear
-                        </button>
-                        <div className={`connection-status ${isConnected ? 'connected' : ''}`}>
-                            {isConnected ? '● Connected' : '○ Disconnected'}
-                        </div>
-                        <button
-                            onClick={onClose}
-                            className="close-btn"
-                            title="Close log viewer"
-                            aria-label="Close"
-                        >
-                            &times;
-                        </button>
-                    </div>
-                </div>
-                <div className="logs-container" ref={logContainerRef}>
-                    {logs.length > 0 ? (
-                        logs.map((log, i) => (
-                            <div key={i} className={`log-entry log-${log.level?.toLowerCase()}`}>
-                                <span className="log-timestamp">{log.timestamp}</span>
-                                <span className={`log-level level-${log.level?.toLowerCase()}`}>
-                                    [{log.level}]
-                                </span>
-                                <span className="log-message">{log.message}</span>
-                                {log.stackTrace && (
-                                    <pre className="log-stacktrace">{log.stackTrace}</pre>
-                                )}
-                            </div>
-                        ))
-                    ) : (
-                        <div className="log-entry log-info">
-                            <span className="log-message">Waiting for server logs...</span>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export default LogViewer;
-```
-
-================================================================================
-File: frontend/src/components/ModelCard.tsx
-================================================================================
-
-```tsx
-import React from 'react';
-import '../styles/ModelCard.css';
-
-interface Model {
-    name: string;
-    type: string;
-    version: string;
-    status: string;
-}
-
-interface ModelCardProps {
-    model: Model;
-}
-
-const ModelCard: React.FC<ModelCardProps> = ({ model }) => {
-    const statusClass = model.status === 'Training' ? 'status-training' : 'status-available';
-
-    return (
-        <div className="model-card">
-            <div className="card-content">
-                <h4 className="model-name">{model.name}</h4>
-                <p className="model-type">{model.type}</p>
-                <p className="model-version">{model.version}</p>
-            </div>
-            <div className="card-footer">
-                <span className={`status-badge ${statusClass}`}>{model.status}</span>
-            </div>
-        </div>
-    );
-};
-
-export default ModelCard;
-```
-
-================================================================================
-File: frontend/src/components/ProjectCard.tsx
-================================================================================
-
-```tsx
-import React, { useState, useEffect } from 'react';
-import '../styles/ProjectCard.css';
-import * as api from '../services/apiServices';
-import ResultsModal from './ResultsModal';
-import CopyIcon from './CopyIcon';
-
-const EditIcon: React.FC = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-    </svg>
-);
-
-const TrashIcon: React.FC = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="3 6 5 6 21 6"></polyline>
-        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-    </svg>
-);
-
-interface Project {
-    id: string;
-    name: string;
-    modelType: string;
-    modelName: string;
-    optimizer: string;
-    status: 'RUNNING' | 'STOPPED' | 'COMPLETED' | 'FAILED';
-    serverPort?: number;
-}
-
-interface ProjectCardProps {
-    project: Project;
-    onToggleServer: (project: Project, isCurrentlyRunning: boolean, startData: any) => void;
-    onUpdateOptimizer: (projectId: string, newOptimizer: string) => void;
-    onShowLogs: (projectId: string) => void;
-    onDeleteProject: (projectId: string) => void;
-}
-
-const ProjectCard: React.FC<ProjectCardProps> = ({
-    project,
-    onToggleServer,
-    onUpdateOptimizer,
-    onShowLogs,
-    onDeleteProject
-}) => {
-    const isServerRunning = project.status === "RUNNING";
-    const statusText = project.status;
-    const statusClassName = project.status?.toLowerCase();
-
-    const [isEditingOptimizer, setIsEditingOptimizer] = useState(false);
-    const [optimizer, setOptimizer] = useState(project.optimizer);
-    const [strategy, setStrategy] = useState('FedAvg');
-    const [numRounds, setNumRounds] = useState(5);
-    const [minClients, setMinClients] = useState(2);
-
-    const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
-    const [results, setResults] = useState<any[]>([]);
-    const [isLoadingResults, setIsLoadingResults] = useState(false);
-    const [error, setError] = useState('');
-
-    // Sync local state with prop changes
-    useEffect(() => {
-        setOptimizer(project.optimizer);
-    }, [project.optimizer]);
-
-    const handleOptimizerSave = () => {
-        onUpdateOptimizer(project.id, optimizer);
-        setIsEditingOptimizer(false);
-    };
-
-    const handleToggleClick = () => {
-        if (isServerRunning) {
-            onToggleServer(project, true, null);
-        } else {
-            const startData = {
-                strategy,
-                numRounds: Number(numRounds),
-                minClients: Number(minClients)
-            };
-            onToggleServer(project, false, startData);
-        }
-    };
-
-    const handleViewResultsClick = async () => {
-        setIsLoadingResults(true);
-        setError('');
-        try {
-            const response = await api.fetchProjectResults(project.id);
-            setResults(response.data);
-            setIsResultsModalOpen(true);
-        } catch (err) {
-            setError('Could not fetch results.');
-            console.error(err);
-        } finally {
-            setIsLoadingResults(false);
-        }
-    };
-
-    const optimizerOptions = ["Adam", "AdamW", "SGD", "RMSprop"];
-
-    return (
-        <>
-            <div className={`project-card ${statusClassName}`}>
-                <div className="card-header">
-                    <h3>{project.name}</h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div className={`status-indicator ${statusClassName}`}>
-                            {statusText}
-                        </div>
-                        <button
-                            className="icon-btn delete-btn"
-                            onClick={() => onDeleteProject(project.id)}
-                            title="Delete Project"
-                            aria-label="Delete Project"
-                            style={{ color: '#ff4d4f' }}
-                        >
-                            <TrashIcon />
-                        </button>
-                    </div>
-                </div>
-
-                <div className="card-body">
-                    <div className="project-id-display">
-                        <strong>Project ID:</strong>
-                        <code>{project.id}</code>
-                        <CopyIcon textToCopy={project.id} />
-                    </div>
-                    <div className="details-grid">
-                        <p><strong>Type:</strong> {project.modelType}</p>
-                        <p><strong>Model:</strong> {project.modelName}</p>
-                        <div className="optimizer-section">
-                            <strong>Optimizer:</strong>
-                            {isEditingOptimizer ? (
-                                <div className="edit-optimizer">
-                                    <select
-                                        value={optimizer}
-                                        onChange={(e) => setOptimizer(e.target.value)}
-                                        aria-label="Select optimizer"
-                                    >
-                                        {optimizerOptions.map(opt => (
-                                            <option key={opt} value={opt}>{opt}</option>
-                                        ))}
-                                    </select>
-                                    <button
-                                        className="save-btn"
-                                        onClick={handleOptimizerSave}
-                                        aria-label="Save optimizer"
-                                    >
-                                        ✓
-                                    </button>
-                                    <button
-                                        className="cancel-btn"
-                                        onClick={() => setIsEditingOptimizer(false)}
-                                        aria-label="Cancel editing"
-                                    >
-                                        ✗
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="display-optimizer">
-                                    <span className="optimizer-value">{project.optimizer}</span>
-                                    <button
-                                        className="edit-btn icon-btn"
-                                        onClick={() => setIsEditingOptimizer(true)}
-                                        aria-label="Edit optimizer"
-                                    >
-                                        <EditIcon />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {isServerRunning && project.serverPort && (
-                        <div className="port-info">
-                            <span>Listening on Port: <strong>{project.serverPort}</strong></span>
-                            <CopyIcon textToCopy={String(project.serverPort)} />
-                        </div>
-                    )}
-
-                    {!isServerRunning && (
-                        <div className="start-config-section">
-                            <h4>Run Configuration</h4>
-                            <div className="config-grid">
-                                <label htmlFor={`strategy-${project.id}`}>Strategy:</label>
-                                <select
-                                    id={`strategy-${project.id}`}
-                                    value={strategy}
-                                    onChange={(e) => setStrategy(e.target.value)}
-                                >
-                                    <option value="FedAvg">FedAvg</option>
-                                    <option value="FedAdam">FedAdam</option>
-                                    <option value="FedAdagrad">FedAdagrad</option>
-                                </select>
-                                <label htmlFor={`rounds-${project.id}`}>Rounds:</label>
-                                <input
-                                    id={`rounds-${project.id}`}
-                                    type="number"
-                                    min="1"
-                                    value={numRounds}
-                                    onChange={(e) => setNumRounds(Number(e.target.value))}
-                                />
-                                <label htmlFor={`min-clients-${project.id}`}>Minimum clients:</label>
-                                <input
-                                    id={`min-clients-${project.id}`}
-                                    type="number"
-                                    min="2"
-                                    value={minClients}
-                                    onChange={(e) => setMinClients(Number(e.target.value))}
-                                />
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="card-actions">
-                    <button
-                        className="action-btn results-btn"
-                        onClick={handleViewResultsClick}
-                        disabled={isLoadingResults}
-                    >
-                        {isLoadingResults ? 'Loading...' : 'View Results'}
-                    </button>
-                    <button
-                        className="action-btn logs-btn"
-                        onClick={() => onShowLogs(project.id)}
-                        disabled={!isServerRunning}
-                        title={isServerRunning ? "Show live server logs" : "Start server to view logs"}
-                    >
-                        Show Live Logs
-                    </button>
-                </div>
-
-                <div className="card-footer">
-                    <span>Toggle Server</span>
-                    <label className="toggle-switch">
-                        <input
-                            type="checkbox"
-                            checked={isServerRunning}
-                            onChange={handleToggleClick}
-                            disabled={project.status === 'FAILED'}
-                            aria-label="Toggle server"
-                        />
-                        <span className="slider round"></span>
-                    </label>
-                </div>
-
-                {error && <p className="error-message">{error}</p>}
-            </div>
-
-            {isResultsModalOpen && (
-                <ResultsModal
-                    results={results}
-                    projectName={project.name}
-                    onCancel={() => setIsResultsModalOpen(false)}
-                />
-            )}
-        </>
-    );
-};
-
-export default ProjectCard;
-```
-
-================================================================================
-File: frontend/src/components/ProtectedRoute.tsx
-================================================================================
-
-```tsx
-import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import DiskLoader from './DiskLoader';
-
-const ProtectedRoute: React.FC = () => {
-    const { currentUser, isLoading } = useAuth();
-
-    if (isLoading) {
-        return <DiskLoader message="Checking authentication..." />;
-    }
-
-    if (!currentUser) {
-        return <Navigate to="/login" replace />;
-    }
-
-    return <Outlet />;
-};
-
-export default ProtectedRoute;
-```
-
-================================================================================
-File: frontend/src/components/ResultsModal.tsx
-================================================================================
-
-```tsx
-import React from 'react';
-import '../styles/ResultsModal.css';
-
-interface ProjectResult {
-    id: string;
-    serverRound: number;
-    loss: number;
-    accuracy: number;
-    gpuUtilization?: number;
-}
-
-interface ResultsModalProps {
-    results: ProjectResult[];
-    projectName: string;
-    onCancel: () => void;
-}
-
-const ResultsModal: React.FC<ResultsModalProps> = ({ results, projectName, onCancel }) => {
-    const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (e.target === e.currentTarget) {
-            onCancel();
-        }
-    };
-
-    const handleEscapeKey = (e: React.KeyboardEvent) => {
-        if (e.key === 'Escape') {
-            onCancel();
-        }
-    };
-
-    return (
-        <div
-            className="modal-backdrop"
-            onClick={handleBackdropClick}
-            onKeyDown={handleEscapeKey}
-            role="dialog"
-            aria-labelledby="results-modal-title"
-            aria-modal="true"
-        >
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <h2 id="results-modal-title">Training Results for "{projectName}"</h2>
-
-                {(!results || results.length === 0) ? (
-                    <p>No training results are available for this project yet.</p>
-                ) : (
-                    <div className="results-table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Round</th>
-                                    <th>Loss</th>
-                                    <th>Accuracy</th>
-                                    <th>GPU Usage (MB)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {results.map(result => (
-                                    <tr key={result.id}>
-                                        <td>{result.serverRound}</td>
-                                        <td>{result.loss ? result.loss.toFixed(4) : 'N/A'}</td>
-                                        <td>{result.accuracy ? (result.accuracy * 100).toFixed(2) + '%' : 'N/A'}</td>
-                                        <td>{result.gpuUtilization || 'N/A'}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-
-                <div className="modal-actions">
-                    <button className="btn-close" onClick={onCancel}>Close</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export default ResultsModal;
-```
-
-================================================================================
-File: frontend/src/api/axiosConfig.ts
-================================================================================
-
-```ts
-import axios, { AxiosError } from 'axios';
-
-const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8081/api`,
-    withCredentials: true // Forces browser to use secure HttpOnly cookies
-});
-
-
-// Response interceptor - handles auth errors globally
-api.interceptors.response.use(
-    (response) => response,
-    (error: AxiosError) => {
-        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-            localStorage.removeItem('jwtToken');
-            window.dispatchEvent(new Event('authError'));
-            window.location.href = '/login';
-        }
-        return Promise.reject(error);
-    }
-);
-
-export default api;
-```
-
-================================================================================
-File: frontend/src/pages/DashboardPage.tsx
-================================================================================
-
-```tsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import * as api from '../services/apiServices';
-import { Client, StompSubscription } from '@stomp/stompjs';
-import ProjectCard from '../components/ProjectCard';
-import LogViewer from '../components/LogViewer';
-import CreateProjectModal from '../components/CreateProjectModal';
-import '../styles/Dashboard.css';
-import DiskLoader from '../components/DiskLoader';
-
-const SERVER_ROOT_URL = import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
-const WEBSOCKET_URL_BASE = SERVER_ROOT_URL.replace(/^http/, 'ws');
-
-interface Project {
-    id: string;
-    name: string;
-    modelType: string;
-    modelName: string;
-    optimizer: string;
-    status: 'RUNNING' | 'STOPPED' | 'COMPLETED' | 'FAILED';
-    serverPort?: number;
-}
-
-interface StatusUpdate {
-    projectId: string;
-    newStatus: string;
-    serverPort?: number;
-}
-
-const DashboardPage: React.FC = () => {
-    const [projects, setProjects] = useState<Project[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isLoadingProjectCard, setIsLoadingProjectCard] = useState(false);
-    const [error, setError] = useState('');
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [logViewProjectId, setLogViewProjectId] = useState<string | null>(null);
-
-    const stompClientRef = useRef<Client | null>(null);
-    const subscriptionRef = useRef<StompSubscription | null>(null);
-
-    const handleShowLogs = (projectId: string) => {
-        setLogViewProjectId(projectId);
-    };
-
-    const loadProjects = useCallback(async () => {
-        try {
-            setIsLoading(true);
-            const response = await api.fetchProjects();
-            const projectsData = Array.isArray(response.data) ? response.data : [];
-            setProjects(projectsData);
-            setError('');
-        } catch (err) {
-            setError('Failed to fetch projects. Please try again.');
-            console.error(err);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        loadProjects();
-    }, [loadProjects]);
-
-    useEffect(() => {
-        const client = new Client({
-            brokerURL: `${WEBSOCKET_URL_BASE}/ws-logs`,
-            reconnectDelay: 5000,
-        });
-
-        client.onConnect = () => {
-            const subscription = client.subscribe('/topic/status/*', (message) => {
-                try {
-                    const statusUpdate: StatusUpdate = JSON.parse(message.body);
-                    setProjects(currentProjects =>
-                        currentProjects.map(p =>
-                            p.id === statusUpdate.projectId
-                                ? {
-                                    ...p,
-                                    status: statusUpdate.newStatus as Project['status'],
-                                    serverPort: statusUpdate.serverPort
-                                }
-                                : p
-                        )
-                    );
-                } catch (err) {
-                    console.error('Error parsing status update:', err);
-                }
-            });
-
-            subscriptionRef.current = subscription;
-        };
-
-        client.activate();
-        stompClientRef.current = client;
-
-        return () => {
-            if (subscriptionRef.current) {
-                subscriptionRef.current.unsubscribe();
-            }
-            if (stompClientRef.current?.active) {
-                stompClientRef.current.deactivate();
-            }
-        };
-    }, []);
-
-    const handleCreateProject = async (projectData: any) => {
-        try {
-            await api.createProject(projectData);
-            setIsModalOpen(false);
-            loadProjects();
-        } catch (err) {
-            setError('Failed to create project.');
-            console.error(err);
-        }
-    };
-
-    const handleToggleServer = async (
-        project: Project,
-        isCurrentlyRunning: boolean,
-        startData: any
-    ) => {
-        try {
-            setIsLoadingProjectCard(true);
-            let updatedProject: Project;
-
-            if (isCurrentlyRunning) {
-                const response = await api.stopProjectServer(project.id);
-                updatedProject = response.data;
-            } else {
-                const response = await api.startProjectServer(project.id, startData);
-                updatedProject = response.data;
-            }
-
-            setProjects(currentProjects =>
-                currentProjects.map(p =>
-                    p.id === updatedProject.id ? updatedProject : p
-                )
-            );
-        } catch (err) {
-            setError(`Failed to ${isCurrentlyRunning ? 'stop' : 'start'} server.`);
-            console.error(err);
-        } finally {
-            setIsLoadingProjectCard(false);
-        }
-    };
-
-    const handleUpdateOptimizer = async (projectId: string, newOptimizer: string) => {
-        // Implement this when backend endpoint is ready
-        console.info(`Updating optimizer for ${projectId} to ${newOptimizer}`);
-    };
-
-    const handleDeleteProject = async (projectId: string) => {
-        if (!window.confirm("Are you sure you want to delete this project?")) return;
-        try {
-            await api.deleteProject(projectId);
-            setProjects(currentProjects => currentProjects.filter(p => p.id !== projectId));
-        } catch (err) {
-            setError('Failed to delete project.');
-            console.error(err);
-        }
-    };
-
-    if ((isLoading && projects.length === 0) || isLoadingProjectCard) {
-        return <DiskLoader message="Loading Dashboard..." />;
-    }
-
-    return (
-        <div className="dashboard">
-            <header className="dashboard-header">
-                <h1>Available Projects</h1>
-                <button
-                    className="create-project-btn"
-                    onClick={() => setIsModalOpen(true)}
-                    aria-label="Create new project"
-                >
-                    + Create New Project
-                </button>
-            </header>
-
-            {isModalOpen && (
-                <CreateProjectModal
-                    onSubmit={handleCreateProject}
-                    onCancel={() => setIsModalOpen(false)}
-                />
-            )}
-
-            {error && <div className="error-message" role="alert">{error}</div>}
-
-            <div className="project-grid">
-                {projects.length > 0 ? (
-                    projects.map(project => (
-                        <ProjectCard
-                            key={project.id}
-                            project={project}
-                            onToggleServer={handleToggleServer}
-                            onUpdateOptimizer={handleUpdateOptimizer}
-                            onShowLogs={handleShowLogs}
-                            onDeleteProject={handleDeleteProject}
-                        />
-                    ))
-                ) : (
-                    !isLoading && <p>No projects found. Create one to get started!</p>
-                )}
-            </div>
-
-            {logViewProjectId && (
-                <LogViewer
-                    projectId={logViewProjectId}
-                    serverUrl={SERVER_ROOT_URL}
-                    onClose={() => setLogViewProjectId(null)}
-                />
-            )}
-        </div>
-    );
-};
-
-export default DashboardPage;
-```
-
-================================================================================
-File: frontend/src/pages/HomePage.tsx
-================================================================================
-
-```tsx
-import React from 'react';
-
-const HomePage: React.FC = () => {
-    return (
-        <div>
-            <h1>Home Page</h1>
-            <p>Welcome to the Federated Learning Platform</p>
-        </div>
-    );
-};
-
-export default HomePage;
-```
-
-================================================================================
-File: frontend/src/pages/LandingPage.tsx
-================================================================================
-
-```tsx
-import React from 'react';
-import { Link } from 'react-router-dom';
-import '../styles/LandingPage.css';
-
-const LandingPage: React.FC = () => {
-    return (
-        <div className="landing-container">
-            <header className="landing-header">
-                <Link to="/" className="logo-link">
-                    <div className="logo">
-                        <span>FedLearn Platform</span>
-                    </div>
-                </Link>
-                <nav className="landing-nav">
-                    <a href="#services">Core Services</a>
-                    <a href="#features">Upcoming Features</a>
-                    <a href="#about">About</a>
-                </nav>
-                <div className="auth-buttons">
-                    <Link to="/login" className="btn btn-secondary">Sign In</Link>
-                    <Link to="/register" className="btn btn-primary">Sign Up</Link>
-                </div>
-            </header>
-
-            <main className="hero-section">
-                <h1 className="hero-title">Unlock Insights from Distributed Data. Securely.</h1>
-                <p className="hero-subtitle">
-                    Our platform provides the essential toolkit to build, train, and deploy privacy-preserving AI models using Federated Learning.
-                </p>
-
-                <div className="services-grid" id="services">
-                    <div className="service-card">
-                        <h3>Federated Training as a Service</h3>
-                        <p>Orchestrate complex training and aggregation across decentralized clients with robust algorithms.</p>
-                    </div>
-                    <div className="service-card">
-                        <h3>On-Demand FL Compute Server</h3>
-                        <p>Dynamically launch isolated and secure gRPC server instances for each of your training jobs.</p>
-                    </div>
-                    <div className="service-card">
-                        <h3>Model Initialization & Pre-training</h3>
-                        <p>Start with a random baseline or leverage a powerful pre-trained model to accelerate learning.</p>
-                    </div>
-                    <div className="service-card">
-                        <h3>Secure API Control Plane</h3>
-                        <p>Manage the entire platform lifecycle through a secure, authenticated REST API.</p>
-                    </div>
-                </div>
-
-                <Link to="/login" className="btn-launch">
-                    Launch Platform
-                </Link>
-            </main>
-
-            <section className="features-section" id="features">
-                <h2 className="section-title">Upcoming Features & Roadmap</h2>
-                <div className="features-category">
-                    <h3>Platform & MLOps</h3>
-                    <div className="features-grid">
-                        <div className="feature-card">
-                            <h4>Experimental Tracking</h4>
-                            <p>Live metrics, charts, and results history for training runs.</p>
-                        </div>
-                        <div className="feature-card">
-                            <h4>Model Hub & Registry</h4>
-                            <p>A central place to version, manage, and download trained models.</p>
-                        </div>
-                        <div className="feature-card">
-                            <h4>Model Serving API</h4>
-                            <p>Deploy your trained models as live inference endpoints with a single click.</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="features-category">
-                    <h3>Generative AI & LLM Services</h3>
-                    <div className="features-grid">
-                        <div className="feature-card">
-                            <h4>Federated LLM Fine-Tuning</h4>
-                            <p>Adapt foundation models like Llama and OPT on private, distributed data.</p>
-                        </div>
-                        <div className="feature-card">
-                            <h4>Private LLM Inference</h4>
-                            <p>Serve fine-tuned models for tasks like Q&A and summarization via a secure API.</p>
-                        </div>
-                        <div className="feature-card">
-                            <h4>Domain-Specific AI Agents</h4>
-                            <p>Productize your fine-tuned LLMs as specialized agents (e.g., "Legal Assistant").</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </div>
-    );
-};
-
-export default LandingPage;
-```
-
-================================================================================
-File: frontend/src/pages/LoginPage.tsx
-================================================================================
-
-```tsx
-import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import '../styles/AuthStyles.css';
-
-const LoginPage: React.FC = () => {
-    const [identifier, setIdentifier] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const navigate = useNavigate();
-    const location = useLocation();
-    const auth = useAuth();
-
-    const API_SERVER_ROOT = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8081/api`;
-    const endpointPath = '/auth/login';
-    const fullApiUrl = `${API_SERVER_ROOT}${endpointPath}`;
-
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-
-        setError('');
-        setIsLoading(true);
-
-        if (!identifier || !password) {
-            setError('Email/Username and Password are required.');
-            setIsLoading(false);
-            return;
-        }
-
-        const loginData = {
-            username: identifier,
-            password: password,
-        };
-
-        try {
-            const response = await fetch(fullApiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify(loginData)
-            });
-
-            if (response.ok) {
-                const responseData = await response.json();
-
-                localStorage.setItem('jwtToken', responseData.accessToken);
-                auth.login({ username: responseData.username }, responseData.accessToken);
-
-                const from = (location.state as any)?.from?.pathname || "/dashboard";
-                navigate(from, { replace: true });
-            } else {
-                const responseData = await response.json();
-                setError(responseData.error || responseData.message || `Login failed: ${response.statusText}`);
-            }
-        } catch (err) {
-            console.error('Login API call failed:', err);
-            setError('An error occurred during login. Please try again later.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <div className="auth-container">
-            <h2>Login</h2>
-            <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                    <label htmlFor="identifier">Email or Username</label>
-                    <input
-                        type="text"
-                        id="identifier"
-                        value={identifier}
-                        onChange={(e) => setIdentifier(e.target.value)}
-                        required
-                        autoComplete="username"
-                    />
-                </div>
-
-                <div className="form-group">
-                    <label htmlFor="password">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        autoComplete="current-password"
-                    />
-                </div>
-
-                {error && <p className="error-message">{error}</p>}
-
-                <button type="submit" disabled={isLoading} className="auth-button">
-                    {isLoading ? 'Logging in...' : 'Login'}
-                </button>
-            </form>
-            <p className="auth-switch">
-                Don't have an account? <Link to="/register">Register here</Link>
-            </p>
-        </div>
-    );
-};
-
-export default LoginPage;
-```
-
-================================================================================
-File: frontend/src/pages/ModelsPage.tsx
-================================================================================
-
-```tsx
-import React from 'react';
-
-const ModelsPage: React.FC = () => {
-    return (
-        <div>
-            <h1>Models Page</h1>
-            <p>View and manage your trained models</p>
-        </div>
-    );
-};
-
-export default ModelsPage;
-```
-
-================================================================================
-File: frontend/src/pages/RegisterPage.tsx
-================================================================================
-
-```tsx
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import '../styles/AuthStyles.css';
-
-const MIN_PASSWORD_LENGTH = 8;
-
-const RegisterPage: React.FC = () => {
-    const [username, setUsername] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [successMessage, setSuccessMessage] = useState('');
-    const navigate = useNavigate();
-
-    const API_SERVER_ROOT = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8081/api`;
-    const endpointPath = '/auth/register';
-    const fullApiUrl = `${API_SERVER_ROOT}${endpointPath}`;
-
-    const validatePassword = (password: string): string | null => {
-        if (password.length < MIN_PASSWORD_LENGTH) {
-            return `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`;
-        }
-        if (!/[A-Z]/.test(password)) {
-            return 'Password must contain at least one uppercase letter';
-        }
-        if (!/[a-z]/.test(password)) {
-            return 'Password must contain at least one lowercase letter';
-        }
-        if (!/[0-9]/.test(password)) {
-            return 'Password must contain at least one number';
-        }
-        return null;
-    };
-
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        setSuccessMessage('');
-        setError('');
-        setIsLoading(true);
-
-        if (!username || !email || !password || !confirmPassword) {
-            setError('All fields are mandatory');
-            setIsLoading(false);
-            return;
-        }
-
-        const passwordError = validatePassword(password);
-        if (passwordError) {
-            setError(passwordError);
-            setIsLoading(false);
-            return;
-        }
-
-        if (password !== confirmPassword) {
-            setError('Passwords do not match!');
-            setIsLoading(false);
-            return;
-        }
-
-        const registrationData = {
-            username,
-            email,
-            password
-        };
-
-        try {
-            const response = await fetch(fullApiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify(registrationData),
-            });
-
-            const responseData = await response.json();
-
-            if (response.ok) {
-                setSuccessMessage(responseData.message || 'Registration successful! Please login.');
-
-                setUsername('');
-                setEmail('');
-                setPassword('');
-                setConfirmPassword('');
-
-                setTimeout(() => {
-                    navigate('/login');
-                }, 2000);
-            } else {
-                let displayError = `Registration failed: ${response.statusText}`;
-                if (responseData.message) {
-                    displayError = responseData.message;
-                }
-                if (responseData.errors) {
-                    const fieldErrors = Object.values(responseData.errors).join(', ');
-                    displayError = `Validation failed: ${fieldErrors}`;
-                } else if (responseData.error && responseData.message) {
-                    displayError = responseData.message;
-                }
-                setError(displayError);
-            }
-        } catch (err) {
-            console.error('Registration API call failed:', err);
-            setError('An error occurred during registration. Please try again later.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <div className="auth-container">
-            <h2>Register</h2>
-            <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                    <label htmlFor="username">Username</label>
-                    <input
-                        type="text"
-                        id="username"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        required
-                        autoComplete="username"
-                    />
-                </div>
-
-                <div className="form-group">
-                    <label htmlFor="email">Email</label>
-                    <input
-                        type="email"
-                        id="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        autoComplete="email"
-                    />
-                </div>
-
-                <div className="form-group">
-                    <label htmlFor="password">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        autoComplete="new-password"
-                        minLength={MIN_PASSWORD_LENGTH}
-                    />
-                    <small>Minimum {MIN_PASSWORD_LENGTH} characters with uppercase, lowercase, and number</small>
-                </div>
-
-                <div className="form-group">
-                    <label htmlFor="confirmPassword">Confirm Password</label>
-                    <input
-                        type="password"
-                        id="confirmPassword"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                        autoComplete="new-password"
-                    />
-                </div>
-
-                {error && <p className="error-message" role="alert">{error}</p>}
-                {successMessage && <p className="success-message" role="status">{successMessage}</p>}
-
-                <button type="submit" disabled={isLoading} className="auth-button">
-                    {isLoading ? 'Registering...' : 'Register'}
-                </button>
-            </form>
-            <p className="auth-switch">
-                Already have an account? <Link to="/login">Login here</Link>
-            </p>
-        </div>
-    );
-};
-
-export default RegisterPage;
-```
-
-================================================================================
-File: frontend/src/pages/SettingsPage.tsx
-================================================================================
-
-```tsx
-import React from 'react';
-
-const SettingsPage: React.FC = () => {
-    return (
-        <div>
-            <h1>Settings Page</h1>
-            <p>Manage your account settings and preferences</p>
-        </div>
-    );
-};
-
-export default SettingsPage;
-```
-
-================================================================================
-File: frontend/src/pages/TrainingPage.tsx
-================================================================================
-
-```tsx
-import React from 'react';
-
-const TrainingPage: React.FC = () => {
-    return (
-        <div>
-            <h1>Training Page</h1>
-            <p>View training progress and metrics</p>
-        </div>
-    );
-};
-
-export default TrainingPage;
-```
-
-================================================================================
-File: frontend/src/services/apiServices.ts
-================================================================================
-
-```ts
-import api from '../api/axiosConfig';
-import { AxiosResponse } from 'axios';
-
-// Type definitions
-export interface LoginCredentials {
-    username: string;
-    password: string;
-}
-
-export interface RegisterData {
-    username: string;
-    email: string;
-    password: string;
-}
-
-export interface ProjectData {
-    name: string;
-    modelType: string;
-    modelName: string;
-    optimizer: string;
-    pretrainEpochs: number;
-}
-
-export interface StartServerData {
-    strategy?: string;
-    numRounds?: number;
-    minClients?: number;
-}
-
-export interface Project {
-    id: string;
-    name: string;
-    modelType: string;
-    modelName: string;
-    optimizer: string;
-    status: 'RUNNING' | 'STOPPED' | 'COMPLETED' | 'FAILED';
-    serverPort?: number;
-}
-
-export interface ProjectResult {
-    id: string;
-    serverRound: number;
-    loss: number;
-    accuracy: number;
-    gpuUtilization?: number;
-}
-
-// Authentication Endpoints
-export const loginUser = (credentials: LoginCredentials): Promise<AxiosResponse> => {
-    return api.post('/auth/login', credentials);
-};
-
-export const registerUser = (userData: RegisterData): Promise<AxiosResponse> => {
-    return api.post('/auth/register', userData);
-};
-
-// Project Management Endpoints
-export const fetchProjects = async (): Promise<AxiosResponse<Project[]>> => {
-    return api.get<Project[]>('/projects');
-};
-
-export const createProject = (projectData: ProjectData): Promise<AxiosResponse<Project>> => {
-    return api.post<Project>('/projects', projectData);
-};
-
-export const startProjectServer = (projectId: string, startData: StartServerData): Promise<AxiosResponse<Project>> => {
-    const body: StartServerData = {};
-    if (startData?.strategy) {
-        body.strategy = startData.strategy;
-    }
-    if (startData?.numRounds) {
-        body.numRounds = startData.numRounds;
-    }
-    if (startData?.minClients) {
-        body.minClients = startData.minClients;
-    }
-    return api.post<Project>(`/projects/${projectId}/start`, body);
-};
-
-export const stopProjectServer = (projectId: string): Promise<AxiosResponse<Project>> => {
-    return api.post<Project>(`/projects/${projectId}/stop`, {});
-};
-
-export const updateProject = (projectId: string, updateData: Partial<Project>): Promise<AxiosResponse<Project>> => {
-    return api.put<Project>(`/projects/${projectId}`, updateData);
-};
-
-export const fetchProjectResults = (projectId: string): Promise<AxiosResponse<ProjectResult[]>> => {
-    return api.get<ProjectResult[]>(`/projects/${projectId}/results`);
-};
-
-export const fetchProjectLogs = (projectId: string): Promise<AxiosResponse<any[]>> => {
-    return api.get<any[]>(`/projects/${projectId}/logs`);
-};
-
-export const deleteProject = (projectId: string): Promise<AxiosResponse<string>> => {
-    return api.post<string>(`/projects/${projectId}/delete`);
-};
 ```
 
