@@ -16,7 +16,8 @@
 // =============================================================================
 
 import { contextBridge, ipcRenderer } from 'electron';
-import log from 'electron-log';
+// NOTE: electron-log cannot be used in sandboxed preload scripts.
+// console.error is forwarded to the main process console automatically.
 
 // ========== Validation Constants ==========
 
@@ -30,59 +31,59 @@ const MAX_STRING_LENGTH = 256;
 
 function isValidHardwareProfile(profile: unknown): boolean {
   if (typeof profile !== 'string') {
-    log.error(`[Preload:Validation] Hardware profile is not a string: ${typeof profile}`);
+    console.error(`[Preload:Validation] Hardware profile is not a string: ${typeof profile}`);
     return false;
   }
   const valid = (ALLOWED_HARDWARE_PROFILES as readonly string[]).includes(profile);
   if (!valid) {
-    log.error(`[Preload:Validation] Rejected hardware profile not in allowlist: "${profile}"`);
+    console.error(`[Preload:Validation] Rejected hardware profile not in allowlist: "${profile}"`);
   }
   return valid;
 }
 
 function isValidProjectId(id: unknown): boolean {
   if (typeof id !== 'string') {
-    log.error(`[Preload:Validation] Project ID is not a string: ${typeof id}`);
+    console.error(`[Preload:Validation] Project ID is not a string: ${typeof id}`);
     return false;
   }
   const valid = PROJECT_ID_PATTERN.test(id);
   if (!valid) {
-    log.error(`[Preload:Validation] Rejected project ID failing pattern: "${id}"`);
+    console.error(`[Preload:Validation] Rejected project ID failing pattern: "${id}"`);
   }
   return valid;
 }
 
 function isValidPartitionId(id: unknown): boolean {
   if (typeof id !== 'string') {
-    log.error(`[Preload:Validation] Partition ID is not a string: ${typeof id}`);
+    console.error(`[Preload:Validation] Partition ID is not a string: ${typeof id}`);
     return false;
   }
   const valid = PARTITION_ID_PATTERN.test(id);
   if (!valid) {
-    log.error(`[Preload:Validation] Rejected partition ID failing pattern: "${id}"`);
+    console.error(`[Preload:Validation] Rejected partition ID failing pattern: "${id}"`);
   }
   return valid;
 }
 
 function isValidServerAddress(addr: unknown): boolean {
   if (typeof addr !== 'string') {
-    log.error(`[Preload:Validation] Server address is not a string: ${typeof addr}`);
+    console.error(`[Preload:Validation] Server address is not a string: ${typeof addr}`);
     return false;
   }
   const valid = SERVER_ADDRESS_PATTERN.test(addr);
   if (!valid) {
-    log.error(`[Preload:Validation] Rejected server address failing pattern: "${addr}"`);
+    console.error(`[Preload:Validation] Rejected server address failing pattern: "${addr}"`);
   }
   return valid;
 }
 
 function isValidStringInput(val: unknown, fieldName: string): boolean {
   if (typeof val !== 'string') {
-    log.error(`[Preload:Validation] ${fieldName} is not a string: ${typeof val}`);
+    console.error(`[Preload:Validation] ${fieldName} is not a string: ${typeof val}`);
     return false;
   }
   if (val.length === 0 || val.length > MAX_STRING_LENGTH) {
-    log.error(`[Preload:Validation] ${fieldName} length out of bounds: ${val.length}`);
+    console.error(`[Preload:Validation] ${fieldName} length out of bounds: ${val.length}`);
     return false;
   }
   return true;

@@ -72,17 +72,27 @@ export class AuthService {
         return false;
       }
 
-      // Extract JWT from Set-Cookie header
-      // Backend sets: ResponseCookie.from("jwtToken", jwt).httpOnly(true)...
+      // Extract JWT — prefer the accessToken in the response body (always
+      // available), fall back to parsing the Set-Cookie header.
       let jwt: string | null = null;
 
-      const setCookieHeaders = response.headers['set-cookie'];
-      if (setCookieHeaders) {
-        for (const cookie of setCookieHeaders) {
-          const match = cookie.match(/jwtToken=([^;]+)/);
-          if (match) {
-            jwt = match[1];
-            break;
+      // 1. Check response body (backend returns { accessToken, username, email })
+      if (response.data && typeof response.data.accessToken === 'string') {
+        jwt = response.data.accessToken;
+        log.info('[AuthService] JWT extracted from response body');
+      }
+
+      // 2. Fallback: Set-Cookie header
+      if (!jwt) {
+        const setCookieHeaders = response.headers['set-cookie'];
+        if (setCookieHeaders) {
+          for (const cookie of setCookieHeaders) {
+            const match = cookie.match(/jwtToken=([^;]+)/);
+            if (match) {
+              jwt = match[1];
+              log.info('[AuthService] JWT extracted from Set-Cookie header');
+              break;
+            }
           }
         }
       }

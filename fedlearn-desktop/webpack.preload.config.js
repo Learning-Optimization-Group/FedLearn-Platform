@@ -22,7 +22,6 @@ module.exports = {
   },
   externals: {
     electron: 'commonjs electron',
-    'electron-log': 'commonjs electron-log',
   },
   node: {
     __dirname: false,

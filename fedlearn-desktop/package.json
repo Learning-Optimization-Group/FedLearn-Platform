@@ -10,7 +10,7 @@
     "dev:main": "webpack --config webpack.main.config.js --mode development --watch",
     "dev:preload": "webpack --config webpack.preload.config.js --mode development --watch",
     "dev:electron": "electron dist/main/main.js",
-    "dev": "concurrently --kill-others \"npm run dev:preload\" \"npm run dev:main\" \"npm run dev:renderer\"",
+    "dev": "concurrently --kill-others \"npm run dev:preload\" \"npm run dev:main\" \"npm run dev:renderer\" \"sleep 3 && npm run dev:electron\"",
     "build:main": "webpack --config webpack.main.config.js --mode production",
     "build:preload": "webpack --config webpack.preload.config.js --mode production",
     "build:renderer": "webpack --config webpack.renderer.config.js --mode production",
@@ -24,7 +24,7 @@
     "axios": "1.7.9",
     "dockerode": "4.0.4",
     "electron-log": "5.3.0",
-    "electron-store": "10.0.0",
+    "electron-store": "8.2.0",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },

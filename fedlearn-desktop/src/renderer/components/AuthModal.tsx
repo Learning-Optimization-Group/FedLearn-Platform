@@ -37,8 +37,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
         } else {
           setError('Invalid credentials. Please try again.');
         }
-      } catch {
-        setError('Connection failed. Is the backend running?');
+      } catch (err) {
+        console.error('[AuthModal] Login error:', err);
+        const message = err instanceof Error ? err.message : String(err);
+        setError(`Connection failed: ${message}`);
       } finally {
         setIsLoading(false);
       }
