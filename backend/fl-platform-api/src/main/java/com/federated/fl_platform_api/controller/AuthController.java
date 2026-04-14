@@ -57,6 +57,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @SuppressWarnings("null")
     public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
         try {
             User newUser = new User();
@@ -89,6 +90,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @SuppressWarnings("null")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         try {
             Authentication authentication = authenticationManager.authenticate(

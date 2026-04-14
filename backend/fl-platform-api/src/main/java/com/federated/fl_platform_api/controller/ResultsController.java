@@ -10,6 +10,7 @@ import com.federated.fl_platform_api.service.ProjectService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.lang.NonNull;
 
 import java.util.UUID;
 
@@ -27,7 +28,7 @@ public class ResultsController {
     private ProjectService projectService;
 
     @PostMapping("/{projectId}")
-    public ResponseEntity<Void> reportRoundResult(@PathVariable UUID projectId, @RequestBody RoundResultDto resultDto) {
+    public ResponseEntity<Void> reportRoundResult(@PathVariable @NonNull UUID projectId, @RequestBody RoundResultDto resultDto) {
         Project project = projectRepository.findById(projectId).orElse(null);
         if (project == null) {
             return ResponseEntity.notFound().build();
@@ -44,7 +45,7 @@ public class ResultsController {
     }
 
     @PostMapping("/{projectId}/finished")
-    public ResponseEntity<Void> markProjectAsFinished(@PathVariable UUID projectId) {
+    public ResponseEntity<Void> markProjectAsFinished(@PathVariable @NonNull UUID projectId) {
         projectService.markProjectAsCompleted(projectId);
         return ResponseEntity.ok().build();
     }

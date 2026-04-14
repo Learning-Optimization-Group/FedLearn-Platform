@@ -1,8 +1,10 @@
 package com.federated.fl_platform_api.flower;
 
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.service.WebSocketService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.ecs.EcsClient;
@@ -17,10 +19,18 @@ import software.amazon.awssdk.services.ecs.model.RunTaskRequest;
 import software.amazon.awssdk.services.ecs.model.RunTaskResponse;
 import software.amazon.awssdk.services.ecs.model.TaskOverride;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class FlowerServerManager {
@@ -45,25 +55,31 @@ public class FlowerServerManager {
     @Value("${ecs.container-name:fl-server-container}")
     private String ecsContainerName;
 
-    /** Shared secret the FL-server task must send as X-Internal-Key on /api/internal/** calls. */
     @Value("${app.internal.api-key:}")
     private String internalApiKey;
 
-    /**
-     * URL the FL-server task uses to call back into this backend (round results,
-     * finished notifications). Use an internal, VPC-reachable URL in production
-     * (ALB, Cloud Map DNS) — not the public domain. Optional in dev.
-     */
     @Value("${app.backend.internal-url:}")
     private String backendInternalUrl;
 
-    /**
-     * Dispatches a Flower FL server task on AWS ECS Fargate for the given project.
-     * Returns 0 on success; callers resolve the task endpoint via Cloud Map / Service Connect.
-     * Throws IllegalStateException if ECS config is missing or if task launch fails.
-     */
+    @Value("${python.script.fl-server.path:src/main/resources/scripts/run_fl_server.sh}")
+    private String flServerWrapperPath;
+
+    @Autowired
+    private WebSocketService logBroadcaster;
+
+    private final Map<UUID, Process> runningServers = new ConcurrentHashMap<>();
+
     public int startServerForProject(Project project, boolean isPretrained, String strategy,
                                      Integer numRounds, Integer minClients) {
+        if (!isBlank(ecsClusterName)) {
+            return startEcsFargateServer(project, isPretrained, strategy, numRounds, minClients);
+        } else {
+            return startLocalServer(project, isPretrained, strategy, numRounds);
+        }
+    }
+
+    private int startEcsFargateServer(Project project, boolean isPretrained, String strategy,
+                                      Integer numRounds, Integer minClients) {
         validateEcsConfig();
         if (isBlank(internalApiKey)) {
             throw new IllegalStateException(
@@ -109,13 +125,120 @@ public class FlowerServerManager {
         }
     }
 
+    private int startLocalServer(Project project, boolean isPretrained, String strategy, Integer numRounds) {
+        try {
+            stopServerForProject(project.getId());
+            Thread.sleep(2000);
+
+            int freePort = findFreePort();
+            File scriptFile = new File(flServerWrapperPath);
+            String absoluteScriptPath = scriptFile.getAbsolutePath();
+            ProcessBuilder pb;
+            System.out.println("absoluteScriptPath - " + absoluteScriptPath);
+            List<String> command = new ArrayList<>();
+            String os = System.getProperty("os.name").toLowerCase();
+
+            if (!os.contains("win")) {
+                command.add("bash");
+            }
+
+            command.add(absoluteScriptPath);
+            command.add("--project-id");
+            command.add(project.getId().toString());
+            command.add("--model-path");
+            command.add(project.getModelPath());
+            command.add("--port");
+            command.add(String.valueOf(freePort));
+            command.add("--strategy");
+            command.add(strategy);
+            command.add("--num-rounds");
+            command.add(String.valueOf(numRounds));
+            command.add("--model-type");
+            command.add(project.getModelType());
+            command.add("--model-name");
+            command.add(project.getModelName());
+
+            pb = new ProcessBuilder(command);
+
+            if (!isPretrained) {
+                pb.command().add("--pretrain");
+            }
+
+            System.out.println("--- Preparing to Start Flower Server ---");
+            System.out.println("Executing command: " + String.join(" ", pb.command()));
+
+            pb.redirectErrorStream(true);
+            pb.directory(new File("."));
+
+            Process process = pb.start();
+            runningServers.put(project.getId(), process);
+
+            final StringBuilder startupOutput = new StringBuilder();
+            final boolean[] errorOccurred = {false};
+
+            Thread outputReaderThread = new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println("[FL_SERVER_LOG " + project.getId() + "] " + line);
+                        if (logBroadcaster != null) {
+                            logBroadcaster.sendLogs(project.getId(), line);
+                        }
+                        startupOutput.append(line).append("\n");
+                    }
+                } catch (IOException e) {
+                    System.err.println("Error reading output from Flower server for project " + project.getId());
+                    errorOccurred[0] = true;
+                    if (logBroadcaster != null) {
+                        logBroadcaster.sendLogs(project.getId(), "ERROR: " + e);
+                    }
+                    e.printStackTrace();
+                }
+            });
+            outputReaderThread.setDaemon(true);
+            outputReaderThread.start();
+
+            boolean exited = process.waitFor(3, TimeUnit.SECONDS);
+
+            if (exited || errorOccurred[0]) {
+                outputReaderThread.join(1000);
+                throw new RuntimeException("Flower server process failed to start. Exit code: " + process.exitValue() +
+                        "\nFull Output:\n" + startupOutput);
+            }
+
+            System.out.println("Started Flower server for project " + project.getName() + " on port " + freePort);
+            return freePort;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to start local server process", e);
+        }
+    }
+
     public boolean stopServerForProject(UUID projectId) {
-        log.info("ECS task termination for project {} is managed out-of-band via the ECS StopTask API.", projectId);
-        return true;
+        Process process = runningServers.get(projectId);
+        if (process != null && process.isAlive()) {
+            System.out.println("Stopping Flower server for project: " + projectId);
+            process.destroyForcibly();
+            runningServers.remove(projectId);
+            return true;
+        }
+        System.out.println("No running server found for project: " + projectId);
+        return false;
     }
 
     public boolean isServerRunning(UUID projectId) {
-        return false;
+        Process p = runningServers.get(projectId);
+        return (p != null && p.isAlive());
+    }
+
+    private int findFreePort() {
+        try (ServerSocket serverSocket = new ServerSocket(0)) {
+            if (serverSocket != null) {
+                return serverSocket.getLocalPort();
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not find a free TCP/IP port", e);
+        }
+        throw new IllegalStateException("Could not find a free TCP/IP port");
     }
 
     private void validateEcsConfig() {
@@ -141,7 +264,6 @@ public class FlowerServerManager {
             envVars.add(kv("PRETRAIN", "true"));
         }
 
-        // Service-to-service auth + callback URL for /api/internal/** endpoints.
         envVars.add(kv("FEDLEARN_INTERNAL_API_KEY", internalApiKey));
         if (!isBlank(backendInternalUrl)) {
             envVars.add(kv("FEDLEARN_BACKEND_URL", backendInternalUrl));
