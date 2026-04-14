@@ -13,7 +13,7 @@ DATASET="cb"
 STRATEGY="FedAvg"
 
 # Number of clients to launch
-NUM_CLIENTS=1
+NUM_CLIENTS=3
 
 # Dynamically resolve the path relative to where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"

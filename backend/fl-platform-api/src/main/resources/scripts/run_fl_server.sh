@@ -19,8 +19,10 @@ echo "[WRAPPER-FL-SH] Environment activated."
 echo "[WRAPPER-FL-SH] Executing fl_server.py with output to both console and log file"
 
 # Change to script directory and execute fl_server.py
+PROJECT_ROOT="$( cd "${SCRIPT_DIR}/../../../../../.." && pwd )"
+VENV_PATH="${PROJECT_ROOT}/venv"
 cd "$SCRIPT_DIR"
-/home/anurag/codebase/Projects/FedLearn-Platform/venv/bin/python3 fl_server.py "$@" 2>&1 | tee -a "$LOG_FILE"
+"$VENV_PATH/bin/python3" fl_server.py "$@" 2>&1 | tee -a "$LOG_FILE"
 
 EXIT_CODE=${PIPESTATUS[0]}  # Get exit code of python3, not tee
 echo "[WRAPPER-FL-SH] Python script finished with exit code: $EXIT_CODE" | tee -a "$LOG_FILE"
