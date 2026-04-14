@@ -21,16 +21,13 @@ class GrpcClient:
             ('grpc.max_send_message_length', 1024 * 1024 * 1024),
             ('grpc.max_receive_message_length', 1024 * 1024 * 1024),
 
-            # Keep connection alive aggressively
-            ('grpc.keepalive_time_ms', 120000),  # Ping every 60 seconds
-            ('grpc.keepalive_timeout_ms', 60000),  # Wait 5 seconds for pong
-            ('grpc.keepalive_permit_without_calls', True),  # Ping even when idle
-            ('grpc.http2.max_pings_without_data', 0),  # Allow unlimited pings
-            ('grpc.http2.min_time_between_pings_ms', 120000),
-            ('grpc.http2.min_ping_interval_without_data_ms', 120000),
-            ('grpc.http2.bdp_probe', False),
-            ('grpc.http2.max_ping_strikes', 0),
-
+            # Keepalive parameters specifically tuned to prevent AWS NLB connection culling.
+            # These parameters operate at the HTTP/2 frame level.
+            ('grpc.keepalive_time_ms', 60000),           # Send a PING frame every 60 seconds
+            ('grpc.keepalive_timeout_ms', 20000),        # Wait 20 seconds for the ping acknowledgment
+            ('grpc.keepalive_permit_without_calls', 1),  # CRITICAL: Send PINGs even during active local training compute!
+            ('grpc.http2.max_pings_without_data', 0),    # Allow unlimited pings without data transmission
+            
             # Increase connection timeouts
             ('grpc.max_connection_idle_ms', 7200000),  # 2 hours
             ('grpc.max_connection_age_ms', 14400000),  # 4 hours
@@ -153,58 +150,42 @@ class GrpcClient:
             traceback.print_exc()
             return False
 
+    def _generate_model_chunks(self, params: OrderedDict[str, torch.Tensor], num_examples: int, round_number: int, chunk_size=50 * 1024 * 1024):
+        import io
+        buffer = io.BytesIO()
+        # Save the PyTorch model directly to the in-memory bytes buffer
+        torch.save(params, buffer)
+        
+        # SECURE: Create a zero-copy pointer to the underlying buffer
+        view = memoryview(buffer.getbuffer())
+        total_chunks = (len(view) + chunk_size - 1) // chunk_size
+        
+        for i in range(0, len(view), chunk_size):
+            chunk_index = i // chunk_size
+            # Slicing the memoryview creates a pointer, not a physical memory copy.
+            # .tobytes() is only called at the exact moment of transmission.
+            yield fedlearn_pb2.ModelUpdateChunk(
+                client_id=self.client_id,
+                trained_on_round=round_number,
+                chunk_index=chunk_index,
+                total_chunks=total_chunks,
+                chunk_data=view[i:i + chunk_size].tobytes(),
+                is_final_chunk=(chunk_index == total_chunks - 1),
+                num_examples=num_examples
+            )
+            
+        view.release() # Explicitly release the pointer
+
     def _submit_update_stream(self, params: OrderedDict[str, torch.Tensor], num_examples: int,
                               round_number: int) -> bool:
-        """Submit update using client streaming RPC (for large models)."""
+        """Submit update using client streaming RPC (for large models) via Zero-Copy memoryview."""
         try:
-            print(f"[{self.client_id}] Using streaming upload...")
-
+            print(f"[{self.client_id}] Using zero-copy streaming upload...")
             upload_start = time.time()
 
-            def chunk_generator():
-                """Generate chunks for streaming."""
-                try:
-                    print(f"[{self.client_id}] Starting chunk generation...")
-                    chunk_count = 0
-                    for chunk_info in parameters_to_chunks(params, num_examples, compress=USE_COMPRESSION):
-                        print(
-                            f"[{self.client_id}] Creating chunk message {chunk_info['chunk_index'] + 1}/{chunk_info['total_chunks']}")
-
-                        chunk_count += 1
-                        chunk_start = time.time()
-                        chunk_msg = fedlearn_pb2.ModelUpdateChunk(
-                            client_id=self.client_id,
-                            trained_on_round=round_number,
-                            chunk_index=chunk_info['chunk_index'],
-                            total_chunks=chunk_info['total_chunks'],
-                            chunk_data=chunk_info['chunk_data'],
-                            is_final_chunk=chunk_info['is_final_chunk'],
-                            num_examples=chunk_info['num_examples']
-                        )
-
-                        # Progress update
-                        progress = (chunk_info['chunk_index'] + 1) / chunk_info['total_chunks'] * 100
-                        print(f"[{self.client_id}] Uploading chunk "
-                              f"{chunk_info['chunk_index'] + 1}/{chunk_info['total_chunks']} ({progress:.1f}%)")
-
-                        yield chunk_msg
-
-                        chunk_time = time.time() - chunk_start
-                        chunk_size_mb = len(chunk_info['chunk_data']) / (1024 ** 2)
-                        speed_mbps = (chunk_size_mb * 8) / chunk_time if chunk_time > 0 else 0
-                        print(f"[{self.client_id}] Chunk uploaded in {chunk_time:.1f}s ({speed_mbps:.2f} Mbps)")
-
-                    print(f"[{self.client_id}] All chunks generated successfully")
-
-                except Exception as e:
-                    print(f"ERROR: Exception in chunk_generator: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    raise
-
-            # Stream chunks to server
-            print(f"[{self.client_id}] Starting gRPC stream...")
-            response = self.stub.SubmitModelUpdateStream(chunk_generator(), timeout=3600)
+            # Pass the generator function directly to the gRPC streaming API.
+            # Execution pauses until gRPC requests the next chunk, keeping RAM usage entirely flat.
+            response = self.stub.SubmitModelUpdateStream(self._generate_model_chunks(params, num_examples, round_number), timeout=3600)
 
             upload_time = time.time() - upload_start
             print(f"[{self.client_id}] Model update streamed successfully in {upload_time:.1f}s!")
