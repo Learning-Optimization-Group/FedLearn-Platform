@@ -74,6 +74,7 @@ backend/Logs.txt
 *.swo
 *~
 .DS_Store
+CLAUDE.md
 
 # ========================
 # Native / Compiled
