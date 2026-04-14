@@ -53,6 +53,19 @@ function createWindow(): void {
   // ========== Content Security Policy ==========
   // Applied to every response via session-level header injection.
   // This is a defense-in-depth layer on top of contextIsolation.
+  //
+  // connect-src must explicitly list backend API origins. Under a packaged file:// origin,
+  // 'self' does NOT resolve to the API host, so without these entries every XHR/fetch/WebSocket
+  // to the backend is blocked. FEDLEARN_API_ORIGINS can override at runtime (comma-separated).
+  const apiOriginsFromEnv = (process.env.FEDLEARN_API_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const defaultApiOrigins = isDev
+    ? ['http://localhost:8081', 'ws://localhost:8081', 'http://localhost:9000', 'ws://localhost:9000']
+    : [];
+  const apiConnectSrc = [...defaultApiOrigins, ...apiOriginsFromEnv].join(' ');
+
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
@@ -64,7 +77,7 @@ function createWindow(): void {
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "font-src 'self' https://fonts.gstatic.com",
             "img-src 'self' data:",
-            "connect-src 'self'",
+            `connect-src 'self' ${apiConnectSrc}`.trim(),
             "frame-src 'none'",
             "object-src 'none'",
             "base-uri 'self'",

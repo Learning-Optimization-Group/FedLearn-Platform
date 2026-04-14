@@ -34,7 +34,9 @@ const JETSON_DEVICE_MOUNTS: Docker.DeviceMapping[] = [
 ];
 
 const CONTAINER_NAME = 'fedlearn-training-client';
-const DOCKER_IMAGE = 'fedlearn-client:latest';
+// Pin to an explicit version tag for reproducibility; override per-environment with FEDLEARN_CLIENT_IMAGE.
+const DEFAULT_DOCKER_IMAGE = 'fedlearn-client:0.1.0';
+const DOCKER_IMAGE = process.env.FEDLEARN_CLIENT_IMAGE || DEFAULT_DOCKER_IMAGE;
 
 export class DockerService {
   private docker: Docker;
