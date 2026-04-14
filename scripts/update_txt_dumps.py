@@ -16,7 +16,8 @@ MAPPINGS: Dict[str, str] = {
     os.path.join(PROJECT_ROOT, "backend"): "fedlearn_backend.txt",
     os.path.join(PROJECT_ROOT, "client-docker"): "fedlearn_client_docker.txt",
     os.path.join(PROJECT_ROOT, "framework"): "fedlearn_framework.txt",
-    os.path.join(PROJECT_ROOT, "frontend"): "fedlearn_frontend.txt"
+    os.path.join(PROJECT_ROOT, "frontend"): "fedlearn_frontend.txt",
+    os.path.join(PROJECT_ROOT, "fedlearn-desktop"): "fedlearn_desktop.txt"
 }
 
 ALLOWED_EXTENSIONS: Set[str] = {
