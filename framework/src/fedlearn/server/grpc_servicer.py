@@ -125,7 +125,7 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             logging.error(f"RPC failed for client {request.client_id}", exc_info=True)
             context.abort(grpc.StatusCode.INTERNAL, "An internal server error occurred.")
 
-    def SubmitModelUpdate(self, request: fedlearn_pb2.SubmitModelUpdateReque, context):
+    def SubmitModelUpdate(self, request: fedlearn_pb2.SubmitModelUpdateRequest, context):
         """Handle standard unary model update (for small models)."""
         client_id = "UNKNOWN"
         trained_on_round = -1

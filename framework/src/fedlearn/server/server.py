@@ -98,8 +98,33 @@ def start_server(
         grpc_server
     )
 
-    # Bind address
-    grpc_server.add_insecure_port(server_address)
+    # Bind address. Uses TLS when FEDLEARN_GRPC_USE_TLS=1.
+    use_tls = os.environ.get("FEDLEARN_GRPC_USE_TLS", "0") == "1"
+    if use_tls:
+        server_key_path = os.environ["FEDLEARN_GRPC_SERVER_KEY"]
+        server_cert_path = os.environ["FEDLEARN_GRPC_SERVER_CERT"]
+        root_cert_path = os.environ.get("FEDLEARN_GRPC_ROOT_CERT")
+        require_client_auth = os.environ.get("FEDLEARN_GRPC_REQUIRE_CLIENT_AUTH", "0") == "1"
+
+        with open(server_key_path, "rb") as f:
+            server_key = f.read()
+        with open(server_cert_path, "rb") as f:
+            server_cert = f.read()
+        root_cert = None
+        if root_cert_path:
+            with open(root_cert_path, "rb") as f:
+                root_cert = f.read()
+
+        server_credentials = grpc.ssl_server_credentials(
+            [(server_key, server_cert)],
+            root_certificates=root_cert,
+            require_client_auth=require_client_auth,
+        )
+        grpc_server.add_secure_port(server_address, server_credentials)
+        logging.info("gRPC TLS enabled (require_client_auth=%s)", require_client_auth)
+    else:
+        grpc_server.add_insecure_port(server_address)
+        logging.warning("gRPC server running without TLS. Set FEDLEARN_GRPC_USE_TLS=1 for production.")
 
     # Start server
     grpc_server.start()

@@ -1,5 +1,7 @@
-package com.federated.fl_platform_api.exception; // Or a general 'advice' or 'handler' package
+package com.federated.fl_platform_api.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -12,10 +14,13 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @ControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+  private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
   @Override
   protected ResponseEntity<Object> handleMethodArgumentNotValid(
@@ -58,15 +63,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
   }
 
-  // A generic handler for other unexpected exceptions
+  // A generic handler for other unexpected exceptions.
+  // Full trace is logged server-side; only a correlation ID is returned to the client.
   @ExceptionHandler(Exception.class)
   public ResponseEntity<Object> handleGenericException(Exception ex, WebRequest request) {
+    String correlationId = UUID.randomUUID().toString();
+    log.error("Unhandled exception [correlationId={}]", correlationId, ex);
+
     Map<String, Object> body = new HashMap<>();
     body.put("timestamp", System.currentTimeMillis());
     body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
     body.put("error", "Internal Server Error");
-    body.put("message", "An unexpected error occurred: " + ex.getMessage());
-    ex.printStackTrace(); // Log the full stack trace
+    body.put("message", "An unexpected error occurred. Please reference this ID when reporting the issue.");
+    body.put("correlationId", correlationId);
     return new ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 }
