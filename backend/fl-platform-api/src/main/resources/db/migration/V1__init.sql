@@ -7,8 +7,8 @@ CREATE TABLE users (
     username      VARCHAR(50)  NOT NULL UNIQUE,
     email         VARCHAR(100) NOT NULL UNIQUE,
     password      VARCHAR(255) NOT NULL,
-    created_at    TIMESTAMPTZ  NOT NULL,
-    updated_at    TIMESTAMPTZ  NOT NULL
+    created_at    TIMESTAMP WITH TIME ZONE  NOT NULL,
+    updated_at    TIMESTAMP WITH TIME ZONE  NOT NULL
 );
 
 CREATE TABLE projects (
@@ -42,7 +42,7 @@ CREATE TABLE server_logs (
     level       VARCHAR(16) NOT NULL,
     message     TEXT        NOT NULL,
     stack_trace TEXT,
-    timestamp   TIMESTAMPTZ NOT NULL
+    timestamp   TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 CREATE INDEX idx_server_logs_project_id ON server_logs(project_id);

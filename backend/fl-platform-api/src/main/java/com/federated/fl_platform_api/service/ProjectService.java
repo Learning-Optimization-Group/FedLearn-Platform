@@ -18,8 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
+import org.springframework.lang.NonNull;
 import java.util.stream.Collectors;
 
 @Service
@@ -120,9 +120,8 @@ public class ProjectService {
         return convertToDto(finalProject);
     }
 
-    public ProjectResponseDto startServerForProject(UUID projectId, StartProject request) throws IOException, InterruptedException {
+    public ProjectResponseDto startServerForProject(@NonNull UUID projectId, StartProject request) throws IOException, InterruptedException {
 
-        Optional<Project> savedProject = projectRepository.findById(projectId);
         System.out.println("\n[1/4] Finding project with ID: " + projectId);
 
         Project project = projectRepository.findById(projectId).orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectId));
@@ -136,8 +135,8 @@ public class ProjectService {
                 : 1;
 
         // --- THIS IS THE NEW LOGIC FOR NUMBER OF ROUNDS ---
-        System.out.println("request.getNumRounds() - "+request.getNumRounds());
-        System.out.println(("Minclients = "+request.getMinClients()));
+        System.out.println("request.getNumRounds() - " + (request != null ? request.getNumRounds() : "null"));
+        System.out.println(("Minclients = " + (request != null ? request.getMinClients() : "null")));
         Integer numRoundsToUse;
         if (request != null && request.getNumRounds() != null && request.getNumRounds() > 0) {
             // 1. Use the user's value if provided and valid
@@ -181,7 +180,7 @@ public class ProjectService {
     }
 
     @Transactional
-    public ProjectResponseDto stopServerForProject(UUID projectId) {
+    public ProjectResponseDto stopServerForProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectId));
 
@@ -218,7 +217,7 @@ public class ProjectService {
                 .collect(Collectors.toList());
     }
 
-    public List<RoundResultDto> getResultsForProject(UUID projectId) {
+    public List<RoundResultDto> getResultsForProject(@NonNull UUID projectId) {
         List<RoundResult> results = roundResultRepository.findByProjectIdOrderByServerRoundAsc(projectId);
 
         // Convert the list of entities to a list of DTOs
@@ -227,7 +226,7 @@ public class ProjectService {
                 .collect(Collectors.toList());
     }
 
-    public void markProjectAsCompleted(UUID projectId){
+    public void markProjectAsCompleted(@NonNull UUID projectId){
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectId));
 
@@ -241,7 +240,7 @@ public class ProjectService {
 
     }
 
-    public void deleteProject(UUID projectId){
+    public void deleteProject(@NonNull UUID projectId){
         projectRepository.deleteById(projectId);
         System.out.println("...Success! Project deleted.");
     }
