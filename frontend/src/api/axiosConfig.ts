@@ -32,9 +32,12 @@ api.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-            localStorage.removeItem('jwtToken');
-            window.dispatchEvent(new Event('authError'));
-            window.location.href = '/login';
+            // Do not force a page reload if the user is explicitly trying to log in
+            if (error.config && !error.config.url?.includes('/auth/login')) {
+                localStorage.removeItem('jwtToken');
+                window.dispatchEvent(new Event('authError'));
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }

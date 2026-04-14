@@ -1,0 +1,495 @@
+Last login: Tue Apr 14 18:44:13 on ttys001
+cd '/Users/anurag/codebase/personalProjects/FedLearn-Platform/backend/fl-platform-api' && export APP_JWT_SECRET='MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=' && export APP_INTERNAL_API_KEY='local_default_internal_api_key_12345' && echo '--- [1] Spring Boot Backend ---' && ./gradlew bootRun
+anurag@Anurags-MacBook-Pro-2 ~ % cd '/Users/anurag/codebase/personalProjects/FedLearn-Platform/backend/fl-platform-api' && export APP_JWT_SECRET='MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=' && export APP_INTERNAL_API_KEY='local_default_internal_api_key_12345' && echo '--- [1] Spring Boot Backend ---' && ./gradlew bootRun
+--- [1] Spring Boot Backend ---
+
+> Task :bootRun
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.4.5)
+
+2026-04-14T18:44:16.744-04:00  INFO 15461 --- [fl-platform-api] [           main] c.f.f.FlPlatformApiApplication           : Starting FlPlatformApiApplication using Java 21.0.10 with PID 15461 (/Users/anurag/codebase/personalProjects/FedLearn-Platform/backend/fl-platform-api/build/classes/java/main started by anurag in /Users/anurag/codebase/personalProjects/FedLearn-Platform/backend/fl-platform-api)
+2026-04-14T18:44:16.746-04:00  INFO 15461 --- [fl-platform-api] [           main] c.f.f.FlPlatformApiApplication           : No active profile set, falling back to 1 default profile: "default"
+2026-04-14T18:44:17.540-04:00  INFO 15461 --- [fl-platform-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-04-14T18:44:17.593-04:00  INFO 15461 --- [fl-platform-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 45 ms. Found 4 JPA repository interfaces.
+2026-04-14T18:44:18.110-04:00  INFO 15461 --- [fl-platform-api] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8081 (http)
+2026-04-14T18:44:18.117-04:00  INFO 15461 --- [fl-platform-api] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-04-14T18:44:18.118-04:00  INFO 15461 --- [fl-platform-api] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.40]
+2026-04-14T18:44:18.156-04:00  INFO 15461 --- [fl-platform-api] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-04-14T18:44:18.157-04:00  INFO 15461 --- [fl-platform-api] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1382 ms
+2026-04-14T18:44:18.458-04:00  INFO 15461 --- [fl-platform-api] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-04-14T18:44:18.590-04:00  INFO 15461 --- [fl-platform-api] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection conn1: url=jdbc:h2:file:./data/federated_platform_db user=SA
+2026-04-14T18:44:18.591-04:00  INFO 15461 --- [fl-platform-api] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-04-14T18:44:18.604-04:00  INFO 15461 --- [fl-platform-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:h2:file:./data/federated_platform_db (H2 2.3)
+2026-04-14T18:44:18.606-04:00  WARN 15461 --- [fl-platform-api] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: H2 2.3.232 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.224.
+2026-04-14T18:44:18.616-04:00  INFO 15461 --- [fl-platform-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 1 migration (execution time 00:00.007s)
+2026-04-14T18:44:18.620-04:00  INFO 15461 --- [fl-platform-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "PUBLIC": 1
+2026-04-14T18:44:18.621-04:00  INFO 15461 --- [fl-platform-api] [           main] o.f.core.internal.command.DbMigrate      : Schema "PUBLIC" is up to date. No migration necessary.
+2026-04-14T18:44:18.659-04:00  INFO 15461 --- [fl-platform-api] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-04-14T18:44:18.679-04:00  INFO 15461 --- [fl-platform-api] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.6.13.Final
+2026-04-14T18:44:18.691-04:00  INFO 15461 --- [fl-platform-api] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-04-14T18:44:18.811-04:00  INFO 15461 --- [fl-platform-api] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-04-14T18:44:18.829-04:00  WARN 15461 --- [fl-platform-api] [           main] org.hibernate.orm.deprecation            : HHH90000025: H2Dialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-04-14T18:44:18.833-04:00  INFO 15461 --- [fl-platform-api] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+        Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+        Database driver: undefined/unknown
+        Database version: 2.3.232
+        Autocommit mode: undefined/unknown
+        Isolation level: undefined/unknown
+        Minimum pool size: undefined/unknown
+        Maximum pool size: undefined/unknown
+2026-04-14T18:44:19.163-04:00  INFO 15461 --- [fl-platform-api] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-04-14T18:44:19.169-04:00  INFO 15461 --- [fl-platform-api] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-04-14T18:44:19.334-04:00  INFO 15461 --- [fl-platform-api] [           main] eAuthenticationProviderManagerConfigurer : Global AuthenticationManager configured with AuthenticationProvider bean with name authenticationProvider
+2026-04-14T18:44:19.334-04:00  WARN 15461 --- [fl-platform-api] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with an AuthenticationProvider bean. UserDetailsService beans will not be used by Spring Security for automatically configuring username/password login. Consider removing the AuthenticationProvider bean. Alternatively, consider using the UserDetailsService in a manually instantiated DaoAuthenticationProvider. If the current configuration is intentional, to turn off this warning, increase the logging level of 'org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer' to ERROR
+2026-04-14T18:44:19.430-04:00  WARN 15461 --- [fl-platform-api] [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-04-14T18:44:19.573-04:00  INFO 15461 --- [fl-platform-api] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 1 endpoint beneath base path '/actuator'
+2026-04-14T18:44:19.733-04:00  INFO 15461 --- [fl-platform-api] [           main] o.s.b.a.h2.H2ConsoleAutoConfiguration    : H2 console available at '/h2-console'. Database available at 'jdbc:h2:file:./data/federated_platform_db'
+2026-04-14T18:44:19.761-04:00  INFO 15461 --- [fl-platform-api] [           main] o.s.m.s.b.SimpleBrokerMessageHandler     : Starting...
+2026-04-14T18:44:19.761-04:00  INFO 15461 --- [fl-platform-api] [           main] o.s.m.s.b.SimpleBrokerMessageHandler     : BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@32fa7ff0]]
+2026-04-14T18:44:19.761-04:00  INFO 15461 --- [fl-platform-api] [           main] o.s.m.s.b.SimpleBrokerMessageHandler     : Started.
+2026-04-14T18:44:19.769-04:00  INFO 15461 --- [fl-platform-api] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8081 (http) with context path '/'
+2026-04-14T18:44:19.775-04:00  INFO 15461 --- [fl-platform-api] [           main] c.f.f.FlPlatformApiApplication           : Started FlPlatformApiApplication in 3.323 seconds (process running for 3.559)
+2026-04-14T18:44:21.347-04:00  INFO 15461 --- [fl-platform-api] [0.0-8081-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-04-14T18:44:21.348-04:00  INFO 15461 --- [fl-platform-api] [0.0-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-04-14T18:44:21.348-04:00  INFO 15461 --- [fl-platform-api] [0.0-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms
+LOAD_USER_BY_USERNAME: Input identifier: 'test'
+LOAD_USER_BY_USERNAME: Found by username: 'test' (Email: 'test@test.com')
+LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: 'test' (Length: 4
+LOAD_USER_BY_USERNAME: Input identifier: 'test'
+LOAD_USER_BY_USERNAME: Found by username: 'test' (Email: 'test@test.com')
+LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: 'test' (Length: 4)
+LOAD_USER_BY_USERNAME: Input identifier: 'test'
+LOAD_USER_BY_USERNAME: Found by username: 'test' (Email: 'test@test.com')
+LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: 'test' (Length: 4)
+2026-04-14T18:45:19.755-04:00  INFO 15461 --- [fl-platform-api] [MessageBroker-1] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[3 current WS(3)-HttpStream(0)-HttpPoll(0), 3 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(3)-CONNECTED(3)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 18, active threads = 0, queued tasks = 0, completed tasks = 18], outboundChannel[pool size = 3, active threads = 0, queued tasks = 0, completed tasks = 3], sockJsScheduler[pool size = 1, active threads = 1, queued tasks = 0, completed tasks = 0]
+LOAD_USER_BY_USERNAME: Input identifier: 'test'
+LOAD_USER_BY_USERNAME: Found by username: 'test' (Email: 'test@test.com')
+LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: 'test' (Length: 4)
+LOAD_USER_BY_USERNAME: Input identifier: 'test'
+LOAD_USER_BY_USERNAME: Found by username: 'test' (Email: 'test@test.com')
+LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: 'test' (Length: 4)
+LOAD_USER_BY_USERNAME: Input identifier: 'test'
+LOAD_USER_BY_USERNAME: Found by username: 'test' (Email: 'test@test.com')
+LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: 'test' (Length: 4)
+LOAD_USER_BY_USERNAME: Input identifier: 'test'
+LOAD_USER_BY_USERNAME: Found by username: 'test' (Email: 'test@test.com')
+LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: 'test' (Length: 4)
+LOAD_USER_BY_USERNAME: Input identifier: 'test'
+LOAD_USER_BY_USERNAME: Found by username: 'test' (Email: 'test@test.com')
+LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: 'test' (Length: 4)
+LOAD_USER_BY_USERNAME: Input identifier: 'test'
+LOAD_USER_BY_USERNAME: Found by username: 'test' (Email: 'test@test.com')
+LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: 'test' (Length: 4)
+LOAD_USER_BY_USERNAME: Input identifier: 'test'
+LOAD_USER_BY_USERNAME: Found by username: 'test' (Email: 'test@test.com')
+LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: 'test' (Length: 4)
+=== REQUEST DEBUG ===
+Content-Type: application/json
+Request object: StartProject{strategy='FedAvg', numRounds=5, minClients=2}
+Strategy: FedAvg
+NumRounds: 5
+MinClients:2
+NumRounds is null: false
+===================
+
+[1/4] Finding project with ID: dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9
+request.getNumRounds() - 5
+Minclients = 2
+...User specified number of rounds: 5
+
+[2/4] Starting dedicated Flower server process...
+No running server found for project: dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9
+absoluteScriptPath - /Users/anurag/codebase/personalProjects/FedLearn-Platform/backend/fl-platform-api/src/main/resources/scripts/run_fl_server.sh
+--- Preparing to Start Flower Server ---
+Executing command: bash /Users/anurag/codebase/personalProjects/FedLearn-Platform/backend/fl-platform-api/src/main/resources/scripts/run_fl_server.sh --project-id dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9 --model-path /Users/anurag/codebase/personalProjects/FedLearn-Platform/backend/fl-platform-api/models/dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9.npz --port 53319 --strategy FedAvg --num-rounds 5 --model-type CNN --model-name net
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [WRAPPER-FL-SH] Script started.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [WRAPPER-FL-SH] Activating Python virtual environment...
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [WRAPPER-FL-SH] Environment activated.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [WRAPPER-FL-SH] Executing fl_server.py with output to both console and log file
+Started Flower server for project Demo on port 53319
+...Success! Flower server started on port: 53319
+
+[3/4] Updating project with server details...
+...Success! Project is fully configured and ready.
+
+[4/4] Starting dedicated Flower server process...
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.209684Z", "level": "INFO", "message": "PyTorch version 2.5.1 available."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.667643Z", "level": "INFO", "message": "[NETWORK] Local environment detected. Clients should target: localhost"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.667677Z", "level": "INFO", "message": "[NETWORK] gRPC Server universally binding to: [::]"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.667692Z", "level": "INFO", "message": "[NETWORK] Backend callbacks will target: http://localhost:8081"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.668381Z", "level": "INFO", "message": "--- Starting gRPC FedLearn Server for Project: dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9 ---"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.668409Z", "level": "INFO", "message": "Server is configured to use device: cpu"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Loading model: CNN / net
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.678942Z", "level": "INFO", "message": "Model parameters loaded successfully with correct layer names."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.678972Z", "level": "INFO", "message": "\n============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.678988Z", "level": "INFO", "message": "LOADED PARAMETERS FROM .NPZ FILE"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679001Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679013Z", "level": "INFO", "message": "Total parameters loaded: 10"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679027Z", "level": "ERROR", "message": "\u274c score.weight NOT FOUND!"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679039Z", "level": "ERROR", "message": "\u274c score.bias NOT FOUND!"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679049Z", "level": "INFO", "message": "\nFirst 10 parameter keys:"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679070Z", "level": "INFO", "message": "  1. conv1.weight: torch.Size([6, 3, 5, 5])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679084Z", "level": "INFO", "message": "  2. conv1.bias: torch.Size([6])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679096Z", "level": "INFO", "message": "  3. conv2.weight: torch.Size([16, 6, 5, 5])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679107Z", "level": "INFO", "message": "  4. conv2.bias: torch.Size([16])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679118Z", "level": "INFO", "message": "  5. fc1.weight: torch.Size([120, 400])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679129Z", "level": "INFO", "message": "  6. fc1.bias: torch.Size([120])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679139Z", "level": "INFO", "message": "  7. fc2.weight: torch.Size([84, 120])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679149Z", "level": "INFO", "message": "  8. fc2.bias: torch.Size([84])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679159Z", "level": "INFO", "message": "  9. fc3.weight: torch.Size([10, 84])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679170Z", "level": "INFO", "message": "  10. fc3.bias: torch.Size([10])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679180Z", "level": "INFO", "message": "\nLast 5 parameter keys:"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679191Z", "level": "INFO", "message": "  1. fc1.bias: torch.Size([120])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679203Z", "level": "INFO", "message": "  2. fc2.weight: torch.Size([84, 120])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679213Z", "level": "INFO", "message": "  3. fc2.bias: torch.Size([84])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679223Z", "level": "INFO", "message": "  4. fc3.weight: torch.Size([10, 84])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679234Z", "level": "INFO", "message": "  5. fc3.bias: torch.Size([10])"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:49.679244Z", "level": "INFO", "message": "============================================================\n"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Files already downloaded and verified
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:50.139415Z", "level": "INFO", "message": "Using FedAvg strategy"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:50.139451Z", "level": "INFO", "message": "Starting FedLearn gRPC server on [::]:53319..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:50.139468Z", "level": "INFO", "message": "Starting FedLearn server on [::]:53319"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:50.145769Z", "level": "WARNING", "message": "gRPC server running without TLS. Set FEDLEARN_GRPC_USE_TLS=1 for production."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:50.147076Z", "level": "INFO", "message": "gRPC server started and listening on [::]:53319"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:50.147099Z", "level": "INFO", "message": "[Server] Starting round 1/5"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:45:50.147114Z", "level": "INFO", "message": "[Server] Waiting for 1 clients to submit updates..."}
+LOAD_USER_BY_USERNAME: Input identifier: 'test'
+LOAD_USER_BY_USERNAME: Found by username: 'test' (Email: 'test@test.com')
+LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: 'test' (Length: 4)
+LOAD_USER_BY_USERNAME: Input identifier: 'test'
+LOAD_USER_BY_USERNAME: Found by username: 'test' (Email: 'test@test.com')
+LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: 'test' (Length: 4)
+LOAD_USER_BY_USERNAME: Input identifier: 'test'
+LOAD_USER_BY_USERNAME: Found by username: 'test' (Email: 'test@test.com')
+LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: 'test' (Length: 4)
+LOAD_USER_BY_USERNAME: Input identifier: 'test'
+LOAD_USER_BY_USERNAME: Found by username: 'test' (Email: 'test@test.com')
+LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: 'test' (Length: 4)
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Heartbeat] project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_0: idle - Round 0, Step 0/0 (0.0%)
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:13.192641Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_0 for round 1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:13.198708Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:13.199194Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:13.200690Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:13.479615Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1 for round 1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Heartbeat] project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1: idle - Round 0, Step 0/0 (0.0%)
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:13.480558Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:13.480637Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:13.481198Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.476341Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.476397Z", "level": "INFO", "message": "[Server] SubmitModelUpdate START"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.476423Z", "level": "INFO", "message": "[Server] Client: project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_0"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.476446Z", "level": "INFO", "message": "[Server] Round: 1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.476470Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.476493Z", "level": "INFO", "message": "[Server] Step 1: Deserializing parameters..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.478740Z", "level": "INFO", "message": "[Server] Deserialized 10 parameters"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.478845Z", "level": "INFO", "message": "[Server] Num examples: 4000"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.478879Z", "level": "INFO", "message": "[Server] Step 2: Submitting to coordinator..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Received update from 'project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_0' for round 1.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.478926Z", "level": "INFO", "message": "[Server] Coordinator accepted update"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.478953Z", "level": "INFO", "message": "[Server] SubmitModelUpdate SUCCESS"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.478979Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.480430Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_0 for round 1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.481350Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.481469Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.482395Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.780674Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.780704Z", "level": "INFO", "message": "[Server] SubmitModelUpdate START"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.780719Z", "level": "INFO", "message": "[Server] Client: project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.780730Z", "level": "INFO", "message": "[Server] Round: 1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.780739Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.780748Z", "level": "INFO", "message": "[Server] Step 1: Deserializing parameters..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.781079Z", "level": "INFO", "message": "[Server] Deserialized 10 parameters"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.781103Z", "level": "INFO", "message": "[Server] Num examples: 4000"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.781120Z", "level": "INFO", "message": "[Server] Step 2: Submitting to coordinator..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Received update from 'project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1' for round 1.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Client updates received 2.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Clients per round 2
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Triggering aggregation
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Aggregating 2 updates for round 1...
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] 
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Round 1 - Server-side Evaluation
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.789657Z", "level": "INFO", "message": "[EVAL DEBUG] First test batch:"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.789689Z", "level": "INFO", "message": "[Debug] Batch type: <class 'list'>"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:14.789704Z", "level": "INFO", "message": "  Batch keys: N/A"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Results:
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9]   Loss: 1.9547
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9]   Accuracy: 27.83% (2783/10000)
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] 
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Strategy Evaluation (Round 1): Loss=1.9547, Metrics={'accuracy': 27.83}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:15.443466Z", "level": "INFO", "message": "[Server] Coordinator accepted update"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:15.443500Z", "level": "INFO", "message": "[Server] SubmitModelUpdate SUCCESS"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:15.443515Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:15.443613Z", "level": "INFO", "message": "[Server] Round 1 complete. Metrics: {'loss': 1.9547492265701294, 'accuracy': 27.83}"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:15.443644Z", "level": "INFO", "message": "[Server] Starting round 2/5"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:15.443668Z", "level": "INFO", "message": "[Server] Waiting for 1 clients to submit updates..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:15.444320Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1 for round 2"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:15.444687Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:15.444724Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:15.444960Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:15.445015Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2 for round 2"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Heartbeat] project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2: idle - Round 0, Step 0/0 (0.0%)
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:15.445511Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:15.445547Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:15.445735Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.882775Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.882828Z", "level": "INFO", "message": "[Server] SubmitModelUpdate START"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.882855Z", "level": "INFO", "message": "[Server] Client: project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.882878Z", "level": "INFO", "message": "[Server] Round: 2"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.882901Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.882923Z", "level": "INFO", "message": "[Server] Step 1: Deserializing parameters..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.883349Z", "level": "INFO", "message": "[Server] Deserialized 10 parameters"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.883394Z", "level": "INFO", "message": "[Server] Num examples: 4000"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.883419Z", "level": "INFO", "message": "[Server] Step 2: Submitting to coordinator..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Received update from 'project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1' for round 2.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.883448Z", "level": "INFO", "message": "[Server] Coordinator accepted update"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.883469Z", "level": "INFO", "message": "[Server] SubmitModelUpdate SUCCESS"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.883489Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.886056Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1 for round 2"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.887314Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.887394Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:16.889262Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.062780Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.062813Z", "level": "INFO", "message": "[Server] SubmitModelUpdate START"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.062827Z", "level": "INFO", "message": "[Server] Client: project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.062838Z", "level": "INFO", "message": "[Server] Round: 2"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.062850Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.062859Z", "level": "INFO", "message": "[Server] Step 1: Deserializing parameters..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.063081Z", "level": "INFO", "message": "[Server] Deserialized 10 parameters"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.063096Z", "level": "INFO", "message": "[Server] Num examples: 4000"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.063106Z", "level": "INFO", "message": "[Server] Step 2: Submitting to coordinator..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Received update from 'project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2' for round 2.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Client updates received 2.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Clients per round 2
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Triggering aggregation
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Aggregating 2 updates for round 2...
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] 
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Round 2 - Server-side Evaluation
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.069181Z", "level": "INFO", "message": "[EVAL DEBUG] First test batch:"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.069210Z", "level": "INFO", "message": "[Debug] Batch type: <class 'list'>"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.069224Z", "level": "INFO", "message": "  Batch keys: N/A"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Results:
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9]   Loss: 1.7599
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9]   Accuracy: 34.85% (3485/10000)
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] 
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Strategy Evaluation (Round 2): Loss=1.7599, Metrics={'accuracy': 34.85}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.710249Z", "level": "INFO", "message": "[Server] Coordinator accepted update"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.710284Z", "level": "INFO", "message": "[Server] SubmitModelUpdate SUCCESS"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.710300Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.710393Z", "level": "INFO", "message": "[Server] Round 2 complete. Metrics: {'loss': 1.7598653714868087, 'accuracy': 34.85}"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.710494Z", "level": "INFO", "message": "[Server] Starting round 3/5"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.710528Z", "level": "INFO", "message": "[Server] Waiting for 1 clients to submit updates..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.711360Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2 for round 3"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.711707Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.711739Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:17.711913Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Heartbeat] project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_0: waiting - Round 1, Step 0/0 (0.0%)
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Heartbeat] project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1: waiting - Round 2, Step 0/0 (0.0%)
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.556588Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.556644Z", "level": "INFO", "message": "[Server] SubmitModelUpdate START"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.556670Z", "level": "INFO", "message": "[Server] Client: project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.556694Z", "level": "INFO", "message": "[Server] Round: 3"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.556715Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.556735Z", "level": "INFO", "message": "[Server] Step 1: Deserializing parameters..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.559356Z", "level": "INFO", "message": "[Server] Deserialized 10 parameters"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.559515Z", "level": "INFO", "message": "[Server] Num examples: 4000"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.559635Z", "level": "INFO", "message": "[Server] Step 2: Submitting to coordinator..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Received update from 'project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2' for round 3.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.559824Z", "level": "INFO", "message": "[Server] Coordinator accepted update"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.559901Z", "level": "INFO", "message": "[Server] SubmitModelUpdate SUCCESS"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.559960Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.562339Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2 for round 3"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.563965Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.564046Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:18.565512Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:19.485287Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_0 for round 3"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:19.486964Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:19.487136Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:19.489626Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.266047Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.266100Z", "level": "INFO", "message": "[Server] SubmitModelUpdate START"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.266124Z", "level": "INFO", "message": "[Server] Client: project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_0"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.266146Z", "level": "INFO", "message": "[Server] Round: 3"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.266168Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.266188Z", "level": "INFO", "message": "[Server] Step 1: Deserializing parameters..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.267721Z", "level": "INFO", "message": "[Server] Deserialized 10 parameters"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.267787Z", "level": "INFO", "message": "[Server] Num examples: 4000"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.267825Z", "level": "INFO", "message": "[Server] Step 2: Submitting to coordinator..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Received update from 'project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_0' for round 3.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Client updates received 2.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Clients per round 2
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Triggering aggregation
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Aggregating 2 updates for round 3...
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] 
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Round 3 - Server-side Evaluation
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.288412Z", "level": "INFO", "message": "[EVAL DEBUG] First test batch:"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.288473Z", "level": "INFO", "message": "[Debug] Batch type: <class 'list'>"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.288499Z", "level": "INFO", "message": "  Batch keys: N/A"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Heartbeat] project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2: waiting - Round 3, Step 0/0 (0.0%)
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Results:
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9]   Loss: 1.6538
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9]   Accuracy: 39.35% (3935/10000)
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] 
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Strategy Evaluation (Round 3): Loss=1.6538, Metrics={'accuracy': 39.35}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.938320Z", "level": "INFO", "message": "[Server] Coordinator accepted update"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.938361Z", "level": "INFO", "message": "[Server] SubmitModelUpdate SUCCESS"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.938383Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.938466Z", "level": "INFO", "message": "[Server] Round 3 complete. Metrics: {'loss': 1.6537618682354311, 'accuracy': 39.35}"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.938498Z", "level": "INFO", "message": "[Server] Starting round 4/5"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.938533Z", "level": "INFO", "message": "[Server] Waiting for 1 clients to submit updates..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.939289Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_0 for round 4"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.939618Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.939650Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:20.939818Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.724001Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.724054Z", "level": "INFO", "message": "[Server] SubmitModelUpdate START"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.724079Z", "level": "INFO", "message": "[Server] Client: project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_0"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.724103Z", "level": "INFO", "message": "[Server] Round: 4"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.724125Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.724146Z", "level": "INFO", "message": "[Server] Step 1: Deserializing parameters..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.725096Z", "level": "INFO", "message": "[Server] Deserialized 10 parameters"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.725329Z", "level": "INFO", "message": "[Server] Num examples: 4000"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.725399Z", "level": "INFO", "message": "[Server] Step 2: Submitting to coordinator..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Received update from 'project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_0' for round 4.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.725577Z", "level": "INFO", "message": "[Server] Coordinator accepted update"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.726002Z", "level": "INFO", "message": "[Server] SubmitModelUpdate SUCCESS"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.726103Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.728439Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_0 for round 4"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.729290Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.729369Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.730310Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.895582Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1 for round 4"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.895930Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.895965Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:21.896141Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:22.702741Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:22.702818Z", "level": "INFO", "message": "[Server] SubmitModelUpdate START"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:22.702849Z", "level": "INFO", "message": "[Server] Client: project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:22.702873Z", "level": "INFO", "message": "[Server] Round: 4"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:22.702933Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:22.702975Z", "level": "INFO", "message": "[Server] Step 1: Deserializing parameters..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:22.703703Z", "level": "INFO", "message": "[Server] Deserialized 10 parameters"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:22.703790Z", "level": "INFO", "message": "[Server] Num examples: 4000"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:22.703863Z", "level": "INFO", "message": "[Server] Step 2: Submitting to coordinator..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Received update from 'project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1' for round 4.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Client updates received 2.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Clients per round 2
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Triggering aggregation
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Aggregating 2 updates for round 4...
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] 
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Round 4 - Server-side Evaluation
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:22.727661Z", "level": "INFO", "message": "[EVAL DEBUG] First test batch:"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:22.727728Z", "level": "INFO", "message": "[Debug] Batch type: <class 'list'>"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:22.727754Z", "level": "INFO", "message": "  Batch keys: N/A"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Heartbeat] project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_0: waiting - Round 4, Step 0/0 (0.0%)
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Results:
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9]   Loss: 1.5664
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9]   Accuracy: 43.03% (4303/10000)
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] 
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Strategy Evaluation (Round 4): Loss=1.5664, Metrics={'accuracy': 43.03}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:23.386899Z", "level": "INFO", "message": "[Server] Coordinator accepted update"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:23.386933Z", "level": "INFO", "message": "[Server] SubmitModelUpdate SUCCESS"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:23.386948Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:23.387008Z", "level": "INFO", "message": "[Server] Round 4 complete. Metrics: {'loss': 1.5664016279993178, 'accuracy': 43.03}"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:23.387034Z", "level": "INFO", "message": "[Server] Starting round 5/5"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:23.387047Z", "level": "INFO", "message": "[Server] Waiting for 1 clients to submit updates..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:23.387839Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1 for round 5"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:23.388159Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:23.388191Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:23.388359Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:23.567420Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2 for round 5"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:23.567796Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:23.567834Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:23.568016Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.707277Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.707333Z", "level": "INFO", "message": "[Server] SubmitModelUpdate START"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.707359Z", "level": "INFO", "message": "[Server] Client: project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.707383Z", "level": "INFO", "message": "[Server] Round: 5"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.707404Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.707427Z", "level": "INFO", "message": "[Server] Step 1: Deserializing parameters..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.707984Z", "level": "INFO", "message": "[Server] Deserialized 10 parameters"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.708019Z", "level": "INFO", "message": "[Server] Num examples: 4000"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.708039Z", "level": "INFO", "message": "[Server] Step 2: Submitting to coordinator..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Received update from 'project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1' for round 5.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.708066Z", "level": "INFO", "message": "[Server] Coordinator accepted update"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.708130Z", "level": "INFO", "message": "[Server] SubmitModelUpdate SUCCESS"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.708176Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.709891Z", "level": "INFO", "message": "[Server] Streaming global model to project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_1 for round 5"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.710610Z", "level": "INFO", "message": "[Server] Sending 1 chunk(s) (0.24 MB)"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.710676Z", "level": "INFO", "message": "[Server] Sending chunk 1/1"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:24.711806Z", "level": "INFO", "message": "[Server] Model stream complete"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.021096Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.021123Z", "level": "INFO", "message": "[Server] SubmitModelUpdate START"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.021136Z", "level": "INFO", "message": "[Server] Client: project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.021146Z", "level": "INFO", "message": "[Server] Round: 5"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.021157Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.021165Z", "level": "INFO", "message": "[Server] Step 1: Deserializing parameters..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.021472Z", "level": "INFO", "message": "[Server] Deserialized 10 parameters"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.021497Z", "level": "INFO", "message": "[Server] Num examples: 4000"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.021512Z", "level": "INFO", "message": "[Server] Step 2: Submitting to coordinator..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Received update from 'project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2' for round 5.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Client updates received 2.
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Clients per round 2
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Triggering aggregation
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Coordinator] Aggregating 2 updates for round 5...
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] 
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Round 5 - Server-side Evaluation
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.027480Z", "level": "INFO", "message": "[EVAL DEBUG] First test batch:"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.027504Z", "level": "INFO", "message": "[Debug] Batch type: <class 'list'>"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.027516Z", "level": "INFO", "message": "  Batch keys: N/A"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [Heartbeat] project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2: submitting_update - Round 5, Step 0/0 (0.0%)
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Results:
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9]   Loss: 1.5693
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9]   Accuracy: 43.83% (4383/10000)
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] 
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Strategy Evaluation (Round 5): Loss=1.5693, Metrics={'accuracy': 43.83}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.672883Z", "level": "INFO", "message": "[Server] Coordinator accepted update"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.672919Z", "level": "INFO", "message": "[Server] SubmitModelUpdate SUCCESS"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.672936Z", "level": "INFO", "message": "============================================================"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.673020Z", "level": "INFO", "message": "[Server] Round 5 complete. Metrics: {'loss': 1.569251507143431, 'accuracy': 43.83}"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.673053Z", "level": "INFO", "message": "Federated learning complete. Stopping server..."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.673276Z", "level": "INFO", "message": "gRPC server stopped"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.673310Z", "level": "INFO", "message": "--- Federated Learning session complete. ---"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] 
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9]                     Training Summary
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] | Round | Accuracy     | Loss         |
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] |-------|--------------|--------------|
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] | 1     | 27.830000    | 1.954749     |
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] | 2     | 34.850000    | 1.759865     |
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] | 3     | 39.350000    | 1.653762     |
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] | 4     | 43.030000    | 1.566402     |
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] | 5     | 43.830000    | 1.569252     |
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] ============================================================
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] 
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] Final Results (Round 5):
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9]   Accuracy: 43.83%
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.673357Z", "level": "INFO", "message": "--- Saving final global model to .npz format... ---"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.674028Z", "level": "INFO", "message": "Final model weights successfully saved to: /Users/anurag/codebase/personalProjects/FedLearn-Platform/backend/fl-platform-api/models/dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9.npz"}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] {"timestamp": "2026-04-14T22:51:25.674215Z", "level": "ERROR", "message": "Cannot report round results: FEDLEARN_INTERNAL_API_KEY is not set; refusing to call backend /api/internal/** without a shared secret."}
+[FL_SERVER_LOG dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9] [WRAPPER-FL-SH] Python script finished with exit code: 0
+<==========---> 80% EXECUTING [17m 34s]
+> :bootRun
+
