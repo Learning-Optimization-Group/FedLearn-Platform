@@ -1,9 +1,10 @@
 # =============================================================================
 # FedLearn Edge Client — Docker Image
 # =============================================================================
-# Default: standard x86 PyTorch image.
-# Override for Jetson:
-#   docker build --build-arg BASE_IMAGE=nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3 .
+# Default: standard x86 PyTorch image (CUDA 11.7).
+# Override per target:
+#   Jetson:           --build-arg BASE_IMAGE=nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3
+#   Newer CUDA hosts: --build-arg BASE_IMAGE=pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 # =============================================================================
 ARG BASE_IMAGE=pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
 FROM ${BASE_IMAGE}
@@ -31,7 +32,16 @@ COPY client-docker/scripts/ /app/scripts/
 COPY client-docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
+# Create an unprivileged user and own the working tree.
+# GPU access via --gpus / device mounts does not require root inside the container.
+ARG APP_UID=10001
+ARG APP_GID=10001
+RUN groupadd --system --gid ${APP_GID} fedlearn \
+    && useradd --system --uid ${APP_UID} --gid ${APP_GID} --no-create-home --shell /usr/sbin/nologin fedlearn \
+    && chown -R fedlearn:fedlearn /app
+
 ENV PYTHONPATH=/app:${PYTHONPATH}
 WORKDIR /app/scripts
+USER fedlearn
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD []

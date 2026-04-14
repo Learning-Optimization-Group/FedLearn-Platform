@@ -40,6 +40,29 @@ target_ip = os.environ.get('SERVER_HOST') or os.environ.get('AWS_HOST') or 'loca
 base_url = target_ip  # Preserved to ensure downstream REST logs don't break
 bind_address = "[::]"
 
+# Backend URL used for service-to-service callbacks (round results, project-finished
+# notifications). Prefer FEDLEARN_BACKEND_URL when set — e.g. the internal ALB or
+# service-discovery DNS inside the VPC. Falls back to http://<base_url>:8081 for
+# local dev where everything runs on the same host.
+BACKEND_URL = os.environ.get('FEDLEARN_BACKEND_URL', f"http://{base_url}:8081").rstrip('/')
+
+# Shared secret that gates /api/internal/** on the backend. Set by the orchestrator
+# (FlowerServerManager propagates it into the Fargate task env, or the dev runner
+# exports it). We deliberately do NOT default this — missing key means no callback
+# will succeed, and the task should surface that loudly.
+INTERNAL_API_KEY = os.environ.get('FEDLEARN_INTERNAL_API_KEY', '').strip()
+
+
+def _internal_headers() -> dict:
+    """Headers for /api/internal/** callbacks. Raises if no key is configured."""
+    if not INTERNAL_API_KEY:
+        raise RuntimeError(
+            "FEDLEARN_INTERNAL_API_KEY is not set; refusing to call backend /api/internal/** "
+            "without a shared secret."
+        )
+    return {"X-Internal-Key": INTERNAL_API_KEY, "Content-Type": "application/json"}
+
+
 if os.environ.get('AWS_HOST'):
     logging.info(f"[NETWORK] Cloud deployment detected. Clients should target AWS Elastic IP: {target_ip}")
 elif os.environ.get('SERVER_HOST'):
@@ -48,6 +71,7 @@ else:
     logging.info(f"[NETWORK] Local environment detected. Clients should target: {target_ip}")
 
 logging.info(f"[NETWORK] gRPC Server universally binding to: {bind_address}")
+logging.info(f"[NETWORK] Backend callbacks will target: {BACKEND_URL}")
 
 
 # ==============================================================================
@@ -524,34 +548,40 @@ def main():
         logging.warning("--- No final model parameters to save. ---")
 
 
-    # Report results
-    results_url = "http://"+base_url+":8081"+"/api/internal/results/"+args.project_id
-    if history:
+    # Report results via the internal callback endpoint (guarded by X-Internal-Key).
+    results_url = f"{BACKEND_URL}/api/internal/results/{args.project_id}"
+    try:
+        headers = _internal_headers()
+    except RuntimeError as e:
+        logging.error("Cannot report round results: %s", e)
+        headers = None
+
+    if history and headers is not None:
         for r, metrics in history:
             result_payload = {
                 "serverRound": r,
                 "loss": float(metrics.get("loss", 0.0)),
                 "accuracy": float(metrics.get("accuracy", 0.0)),
-                "gpuUtilization": 0.0
+                "gpuUtilization": 0.0,
             }
             try:
-                res = requests.post(results_url, json=result_payload)
+                res = requests.post(results_url, json=result_payload, headers=headers, timeout=30)
                 res.raise_for_status()
                 logging.info(f"Successfully reported results for round {r}")
             except Exception as e:
                 logging.error(f"Failed to report results for round {r}: {e}")
 
-    # Mark Project as completed
-    project_complete_url = "http://"+base_url+":8081"+"/api/projects/"+args.project_id+"/stop"
-
-
-    try:
-        response = requests.post(project_complete_url)
-        response.raise_for_status()
-        print(f"POST request successful. Status Code: {response.status_code}")
-        print(f"Response content: {response.text}")
-    except requests.exceptions.RequestException as e:
-        print(f"An error occurred: {e}")
+    # Mark project as completed. Uses the internal endpoint
+    # (POST /api/internal/results/{id}/finished) so the FL-server task does not
+    # need a user JWT.
+    project_complete_url = f"{BACKEND_URL}/api/internal/results/{args.project_id}/finished"
+    if headers is not None:
+        try:
+            response = requests.post(project_complete_url, headers=headers, timeout=30)
+            response.raise_for_status()
+            logging.info("Project marked as finished (status=%s)", response.status_code)
+        except requests.exceptions.RequestException as e:
+            logging.error("Failed to mark project as finished: %s", e)
 
 
 if __name__ == "__main__":

@@ -39,6 +39,10 @@ dependencies {
     // AWS ECS SDK for Fargate orchestration
     implementation 'software.amazon.awssdk:ecs:2.25.11'
 
+    // Flyway schema migrations (PostgreSQL dialect needed for Flyway 10+)
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'org.postgresql:postgresql'
     

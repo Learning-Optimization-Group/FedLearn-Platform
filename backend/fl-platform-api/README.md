@@ -17,8 +17,8 @@ Spring Boot REST API for managing federated learning projects, authentication, a
 - **Database**: PostgreSQL with Hibernate/JPA
 - **Security**: Spring Security + JWT
 - **WebSocket**: STOMP over WebSocket
-- **Build Tool**: Maven/Gradle
-- **Java Version**: 17+
+- **Build Tool**: Gradle (wrapper committed)
+- **Java Version**: 21
 
 ## Project Structure
 
@@ -98,10 +98,10 @@ backend/fl-platform-api/
 
 ### Prerequisites
 
-- Java 17+
+- Java 21
 - PostgreSQL 12+
-- Python 3.10+ (for FL servers)
-- Maven or Gradle
+- Python 3.10+ (only if you run the legacy local FL-server scripts; production
+  uses the ECS Fargate FL-server launched via `FlowerServerManager`)
 
 ### Installation
 
@@ -109,21 +109,17 @@ backend/fl-platform-api/
 # Navigate to backend directory
 cd backend/fl-platform-api
 
-# Configure database
-# Edit src/main/resources/application.properties
+# Copy and edit the env template
+cp .env.example .env
 
-# Build the project
-mvn clean install
-# or
-gradle build
+# Build the project (uses the committed Gradle wrapper)
+./gradlew build
 
 # Run the application
-mvn spring-boot:run
-# or
-gradle bootRun
+./gradlew bootRun
 ```
 
-The API will be available at `http://localhost:8080`
+The API will be available at `http://localhost:8081`
 
 ## Configuration
 
