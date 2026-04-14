@@ -61,6 +61,7 @@ logs/
 *.log
 backend/Logs.txt
 **/*.csv
+data/
 
 # ========================
 # IDE / Editor

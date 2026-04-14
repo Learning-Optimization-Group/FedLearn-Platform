@@ -1,13 +1,10 @@
 package com.federated.fl_platform_api.security;
 
-import com.federated.fl_platform_api.model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.io.Decoders;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 
-import javax.crypto.spec.SecretKeySpec;
-import java.util.Base64;
 import java.util.Date;
 import java.util.function.Function;
 

@@ -83,9 +83,10 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
+                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/**", "/ws-logs/**", "/error").permitAll()
+                        .requestMatchers("/api/auth/**", "/ws-logs/**", "/error", "/h2-console/**", "/actuator/health").permitAll()
                         // Service-to-service callbacks from FL-server tasks. The chain is permitAll
                         // here because InternalApiKeyFilter (added below) rejects any request without
                         // a valid X-Internal-Key header before Spring Security sees it.
