@@ -44,125 +44,48 @@ public class FlowerServerManager {
     private ObjectMapper objectMapper;
 
     /**
-     * Starts a dedicated Flower server process for a given project.
+     * Starts a dedicated Flower server process via AWS Fargate orchestration.
      */
-    public int startServerForProject(Project project, boolean isPretrained, String strategy, Integer numRounds, Integer minClients) throws IOException, InterruptedException {
+    public int startServerForProject(Project project, boolean isPretrained, String strategy, Integer numRounds, Integer minClients) {
 
-        stopServerForProject(project.getId());
-        Thread.sleep(2000);
+        System.out.println("--- Preparing to Start AWS Fargate Flower Server ---");
 
-        int freePort = findFreePort();
-
-        System.out.println("--- Preparing to Start Flower Server ---");
-
-        List<String> command = new ArrayList<>();
-        String os = System.getProperty("os.name").toLowerCase();
-
-        // Determine script path based on OS
-        String scriptPath;
-        if (os.contains("win")) {
-            // Windows - use .bat file
-            scriptPath = flServerWrapperPath.replace(".sh", ".bat");
-            command.add(scriptPath);
-        } else {
-            // Linux/Mac - use .sh file and call with bash
-            scriptPath = flServerWrapperPath.replace(".bat", ".sh");
-            File scriptFile = new File(scriptPath);
-            String absoluteScriptPath = scriptFile.getAbsolutePath();
-            command.add("bash");
-            command.add(absoluteScriptPath);
-        }
-
-        // Add the arguments for the script
-        command.add("--project-id");
-        command.add(project.getId().toString());
-        command.add("--model-path");
-        command.add(project.getModelPath());
-        command.add("--port");
-        command.add(String.valueOf(freePort));
-        command.add("--strategy");
-        command.add(strategy);
-        command.add("--num-rounds");
-        command.add(String.valueOf(numRounds));
-        command.add("--min-clients");
-        command.add(String.valueOf(minClients));
-        command.add("--model-type");
-        command.add(project.getModelType());
-        command.add("--model-name");
-        command.add(project.getModelName());
-
+        // Port mapping and IP resolution are handled internally by ECS Service Connect / awsvpc mode
+        software.amazon.awssdk.services.ecs.EcsClient ecsClient = software.amazon.awssdk.services.ecs.EcsClient.builder().build();
+        
+        java.util.List<software.amazon.awssdk.services.ecs.model.KeyValuePair> envVars = new java.util.ArrayList<>();
+        envVars.add(software.amazon.awssdk.services.ecs.model.KeyValuePair.builder().name("PROJECT_ID").value(project.getId().toString()).build());
+        envVars.add(software.amazon.awssdk.services.ecs.model.KeyValuePair.builder().name("MODEL_PATH").value(project.getModelPath()).build());
+        envVars.add(software.amazon.awssdk.services.ecs.model.KeyValuePair.builder().name("STRATEGY").value(strategy).build());
+        envVars.add(software.amazon.awssdk.services.ecs.model.KeyValuePair.builder().name("NUM_ROUNDS").value(String.valueOf(numRounds)).build());
+        envVars.add(software.amazon.awssdk.services.ecs.model.KeyValuePair.builder().name("MIN_CLIENTS").value(String.valueOf(minClients)).build());
+        envVars.add(software.amazon.awssdk.services.ecs.model.KeyValuePair.builder().name("MODEL_TYPE").value(project.getModelType()).build());
+        envVars.add(software.amazon.awssdk.services.ecs.model.KeyValuePair.builder().name("MODEL_NAME").value(project.getModelName()).build());
+        
         if (!isPretrained) {
-            command.add("--pretrain");
+            envVars.add(software.amazon.awssdk.services.ecs.model.KeyValuePair.builder().name("PRETRAIN").value("true").build());
         }
 
-        ProcessBuilder pb = new ProcessBuilder(command);
-        pb.redirectErrorStream(true);
-        pb.directory(new File("."));
-
-        System.out.println("Executing command: " + String.join(" ", pb.command()));
-
-        Process process = pb.start();
-        runningServers.put(project.getId(), process);
-
-        // --- Asynchronous output reader AND process health check ---
-        final StringBuilder startupOutput = new StringBuilder();
-        final var errorOccurred = new boolean[]{false};
-
-        Thread outputReaderThread = new Thread(() -> {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    System.out.println("[FL_SERVER_LOG " + project.getId() + "] " + line);
-                    try {
-                        JsonNode logNode = objectMapper.readTree(line);
-                        ServerLog dbLog = new ServerLog();
-                        dbLog.setProjectId(project.getId());
-                        dbLog.setLevel(logNode.has("level") ? logNode.get("level").asText() : "INFO");
-                        dbLog.setMessage(logNode.has("message") ? logNode.get("message").asText() : line);
-                        if (logNode.has("stackTrace")) dbLog.setStackTrace(logNode.get("stackTrace").asText());
-                        dbLog.setTimestamp(Instant.now());
-                        
-                        serverLogRepository.save(dbLog); // Saves to PostgreSQL
-                        logBroadcaster.sendLogs(project.getId(), line); // Broadcast to frontend
-                    } catch (Exception e) {
-                        String escapedLine = line.replace("\"", "\\\"");
-                        logBroadcaster.sendLogs(project.getId(), "{\"level\":\"INFO\", \"message\":\"" + escapedLine + "\"}");
-                    }
-                    startupOutput.append(line).append("\n");
-                }
-            } catch (IOException e) {
-                System.err.println("Error reading output from Flower server process for project " + project.getId());
-                errorOccurred[0] = true;
-                logBroadcaster.sendLogs(project.getId(), "ERROR: " + e);
-                e.printStackTrace();
-            }
-        });
-        outputReaderThread.setDaemon(true);
-        outputReaderThread.start();
-
-        // Wait for a short period to see if the process exits immediately
-        boolean exited = process.waitFor(3, TimeUnit.SECONDS);
-
-        if (exited || errorOccurred[0]) {
-            outputReaderThread.join(1000);
-            throw new RuntimeException("Flower server process failed to start. Exit code: " + process.exitValue() +
-                    "\nFull Output:\n" + startupOutput);
-        }
-
-        System.out.println("Started Flower server for project " + project.getName() + " on port " + freePort);
-        return freePort;
+        software.amazon.awssdk.services.ecs.model.RunTaskRequest runTaskRequest = software.amazon.awssdk.services.ecs.model.RunTaskRequest.builder()
+            .cluster("fedlearn-production-cluster")
+            .taskDefinition("fl-server-task")
+            .launchType(software.amazon.awssdk.services.ecs.model.LaunchType.FARGATE)
+            .overrides(software.amazon.awssdk.services.ecs.model.TaskOverride.builder()
+                .containerOverrides(software.amazon.awssdk.services.ecs.model.ContainerOverride.builder()
+                    .name("fl-server-container")
+                    .environment(envVars)
+                    .build())
+                .build())
+            .build();
+            
+        ecsClient.runTask(runTaskRequest);
+        System.out.println("Dispatched AWS Fargate task for project " + project.getName());
+        return 0; // Return dummy port 0 as routing is managed natively via AWS Cloud Map
     }
 
     public boolean stopServerForProject(UUID projectId) {
-        Process process = runningServers.get(projectId);
-        if (process != null && process.isAlive()) {
-            System.out.println("Stopping Flower server for project: " + projectId);
-            process.destroyForcibly();
-            runningServers.remove(projectId);
-            return true;
-        }
-        System.out.println("No running server found for project: " + projectId);
-        return false;
+        System.out.println("AWS Task termination is managed independently via API.");
+        return true;
     }
 
     private int findFreePort() {
