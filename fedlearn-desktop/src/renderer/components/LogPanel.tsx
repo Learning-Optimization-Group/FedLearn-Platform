@@ -28,7 +28,7 @@ const LogPanel: React.FC<LogPanelProps> = ({ logs }) => {
       isAutoScrollRef.current = scrollHeight - scrollTop - clientHeight < 50;
     };
 
-    container.addEventListener('scroll', handleScroll);
+    container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -41,7 +41,11 @@ const LogPanel: React.FC<LogPanelProps> = ({ logs }) => {
 
   if (logs.length === 0) {
     return (
-      <div className="log-panel log-panel-empty" ref={containerRef}>
+      <div 
+        className="log-panel log-panel-empty" 
+        ref={containerRef}
+        style={{ overflowY: 'auto', height: '400px' }}
+      >
         <div className="log-empty-state">
           <span className="log-empty-icon">📋</span>
           <p className="log-empty-text">
@@ -53,18 +57,21 @@ const LogPanel: React.FC<LogPanelProps> = ({ logs }) => {
   }
 
   return (
-    <div className="log-panel" ref={containerRef}>
+    <div 
+      className="log-panel" 
+      ref={containerRef}
+      style={{ overflowY: 'auto', height: '400px' }}
+    >
       <pre className="log-content">
         {/*
           SECURITY: Each log line is rendered as a plain text node.
           React's default behavior escapes all content — no HTML is interpreted.
           This prevents any XSS payload from container output from executing.
+          
+          PERFORMANCE: Using a single join to prevent DOM explosion from mapping 
+          thousands of spans, eliminating lag and scroll thrashing.
         */}
-        {logs.map((line, index) => (
-          <span key={index} className="log-line">
-            {line}
-          </span>
-        ))}
+        {logs.join('')}
       </pre>
       <div ref={logEndRef} />
     </div>
