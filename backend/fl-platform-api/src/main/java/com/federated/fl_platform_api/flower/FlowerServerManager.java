@@ -164,6 +164,12 @@ public class FlowerServerManager {
                 pb.command().add("--pretrain");
             }
 
+            Map<String, String> env = pb.environment();
+            env.put("FEDLEARN_INTERNAL_API_KEY", internalApiKey == null ? "" : internalApiKey);
+            if (backendInternalUrl != null && !backendInternalUrl.trim().isEmpty()) {
+                env.put("FEDLEARN_BACKEND_URL", backendInternalUrl);
+            }
+
             System.out.println("--- Preparing to Start Flower Server ---");
             System.out.println("Executing command: " + String.join(" ", pb.command()));
 

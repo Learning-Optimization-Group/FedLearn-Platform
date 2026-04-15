@@ -409,6 +409,16 @@ def main():
         print(f"  Loss: {avg_loss:.4f}")
         print(f"  Accuracy: {accuracy:.2f}% ({correct}/{total})")
 
+        # Emit JSON structure for frontend LogViewer.tsx telemetry over WebSocket
+        import json
+        print(json.dumps({
+            "level": "INFO",
+            "serverRound": server_round,
+            "loss": avg_loss,
+            "accuracy": accuracy / 100.0,
+            "message": f"[Telemetry] Round {server_round} Aggregation Complete: Loss {avg_loss:.4f}, Acc {accuracy/100.0:.4f}"
+        }))
+
         # Compare to target for different datasets
         if is_llm:
             if args.dataset == "cb":
@@ -558,10 +568,15 @@ def main():
 
     if history and headers is not None:
         for r, metrics in history:
+            acc_metric = float(metrics.get("accuracy", 0.0))
+            # The evaluate_fn returns accuracy as a percentage (e.g. 52.74)
+            # The database / frontend expects a decimal for precision (e.g. 0.5274)
+            decimal_accuracy = acc_metric / 100.0 if acc_metric > 1.0 else acc_metric
+
             result_payload = {
                 "serverRound": r,
                 "loss": float(metrics.get("loss", 0.0)),
-                "accuracy": float(metrics.get("accuracy", 0.0)),
+                "accuracy": decimal_accuracy,
                 "gpuUtilization": 0.0,
             }
             try:
