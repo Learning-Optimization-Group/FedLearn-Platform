@@ -4,7 +4,9 @@ import { Client, StompSubscription } from '@stomp/stompjs';
 import ProjectCard from '../components/ProjectCard';
 import LogViewer from '../components/LogViewer';
 import CreateProjectModal from '../components/CreateProjectModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import '../styles/Dashboard.css';
+import '../styles/ClientsPage.css';
 import DiskLoader from '../components/DiskLoader';
 
 const SERVER_ROOT_URL = import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
@@ -33,6 +35,7 @@ const DashboardPage: React.FC = () => {
     const [error, setError] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [logViewProjectId, setLogViewProjectId] = useState<string | null>(null);
+    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
     const stompClientRef = useRef<Client | null>(null);
     const subscriptionRef = useRef<StompSubscription | null>(null);
@@ -144,12 +147,24 @@ const DashboardPage: React.FC = () => {
     };
 
     const handleUpdateOptimizer = async (projectId: string, newOptimizer: string) => {
-        // Implement this when backend endpoint is ready
-        console.info(`Updating optimizer for ${projectId} to ${newOptimizer}`);
+        try {
+            const response = await api.updateProject(projectId, { optimizer: newOptimizer });
+            const updated = response.data;
+            setProjects(current => current.map(p => (p.id === updated.id ? updated : p)));
+        } catch (err) {
+            setError('Failed to update optimizer.');
+            console.error(err);
+        }
     };
 
-    const handleDeleteProject = async (projectId: string) => {
-        if (!window.confirm("Are you sure you want to delete this project?")) return;
+    const handleDeleteProject = (projectId: string) => {
+        setPendingDeleteId(projectId);
+    };
+
+    const confirmDelete = async () => {
+        if (!pendingDeleteId) return;
+        const projectId = pendingDeleteId;
+        setPendingDeleteId(null);
         try {
             await api.deleteProject(projectId);
             setProjects(currentProjects => currentProjects.filter(p => p.id !== projectId));
@@ -183,7 +198,19 @@ const DashboardPage: React.FC = () => {
                 />
             )}
 
-            {error && <div className="error-message" role="alert">{error}</div>}
+            {error && (
+                <div className="error-message" role="alert">
+                    {error}
+                    <button
+                        type="button"
+                        className="dismiss-btn"
+                        aria-label="Dismiss error"
+                        onClick={() => setError('')}
+                    >
+                        ×
+                    </button>
+                </div>
+            )}
 
             <div className="project-grid">
                 {projects.length > 0 ? (
@@ -207,6 +234,17 @@ const DashboardPage: React.FC = () => {
                     projectId={logViewProjectId}
                     serverUrl={SERVER_ROOT_URL}
                     onClose={() => setLogViewProjectId(null)}
+                />
+            )}
+
+            {pendingDeleteId && (
+                <ConfirmDialog
+                    title="Delete project?"
+                    message="This stops any running server and removes the project permanently. Previous training results and logs will be lost."
+                    confirmLabel="Delete"
+                    danger
+                    onConfirm={confirmDelete}
+                    onCancel={() => setPendingDeleteId(null)}
                 />
             )}
         </div>

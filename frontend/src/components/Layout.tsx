@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Layout.css';
 
@@ -11,7 +11,7 @@ const Layout: React.FC = () => {
         if (currentUser) {
             setUserName(currentUser.username);
         }
-    }, [currentUser]); // Fixed: Added currentUser as dependency
+    }, [currentUser]);
 
     return (
         <div className="layout-container">
@@ -22,10 +22,26 @@ const Layout: React.FC = () => {
                     </div>
                 </Link>
                 <nav className="app-nav">
-                    <Link to="/dashboard">Dashboard</Link>
-                    <Link to="/models">Models</Link>
+                    <NavLink to="/dashboard" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        Dashboard
+                    </NavLink>
+                    <NavLink to="/clients" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        Clients
+                    </NavLink>
+                    <NavLink to="/models" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        Models
+                    </NavLink>
+                    <NavLink to="/training" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        Training
+                    </NavLink>
+                    <NavLink to="/settings" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        Settings
+                    </NavLink>
                 </nav>
                 <div className="user-profile">
+                    <Link to="/v2" className="v2-link" title="Switch to the redesigned UI">
+                        Try V2 UI →
+                    </Link>
                     {userName && (
                         <span className="welcome-text">Welcome, {userName}!</span>
                     )}

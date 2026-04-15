@@ -19,16 +19,17 @@ interface ResultsModalProps {
 export function ResultsModalV2({ isOpen, onClose, projectName, results }: ResultsModalProps) {
   const [activeTab, setActiveTab] = useState<'chart' | 'table'>('chart');
 
-  if (!isOpen || results.length === 0) return null;
+  if (!isOpen) return null;
 
+  const hasResults = results.length > 0;
   const chartData = results.map((r) => ({
     round: r.serverRound,
     loss: r.loss,
     accuracy: r.accuracy,
   }));
 
-  const bestAccuracy = Math.max(...results.map((r) => r.accuracy));
-  const finalLoss = results[results.length - 1].loss;
+  const bestAccuracy = hasResults ? Math.max(...results.map((r) => r.accuracy)) : 0;
+  const finalLoss = hasResults ? results[results.length - 1].loss : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-black/40 backdrop-blur-xl font-sans">
@@ -39,7 +40,7 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
           <div>
             <h2 className="text-[28px] font-semibold tracking-tight">{projectName} — Results</h2>
             <p className="text-[15px] text-[#86868b] mt-1 tracking-tight">
-              {results.length} rounds completed.
+              {hasResults ? `${results.length} rounds completed.` : 'No training rounds recorded yet.'}
             </p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-[#86868b] bg-[#3a3a3c] hover:bg-[rgba(255,255,255,0.3)] rounded-full transition-colors">
@@ -49,6 +50,28 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-8 pb-8 flex flex-col gap-6 scroll-smooth">
+
+          {!hasResults && (
+            <div className="flex flex-col items-center justify-center flex-1 text-center gap-3 py-16">
+              <div className="w-14 h-14 rounded-full bg-[#2c2c2e] flex items-center justify-center">
+                <ChartIcon className="w-6 h-6 text-[#86868b]" />
+              </div>
+              <h3 className="text-[20px] font-semibold tracking-tight">No results yet</h3>
+              <p className="text-[15px] text-[#86868b] max-w-md tracking-tight">
+                Results appear here once the project has completed at least one
+                federated training round. Start the server and connect clients
+                to produce data.
+              </p>
+              <button
+                onClick={onClose}
+                className="mt-4 bg-[#f5f5f7] text-black hover:bg-white px-6 py-2.5 rounded-full text-[15px] font-medium tracking-tight transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          )}
+
+          {hasResults && <>
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -164,6 +187,7 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
               </div>
             )}
           </div>
+          </>}
         </div>
       </div>
     </div>
