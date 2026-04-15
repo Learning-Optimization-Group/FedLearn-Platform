@@ -16,18 +16,29 @@ files:
 asar: true
 compression: maximum
 
+# Disable auto-publish — GitHub Release is handled by the CI workflow
+publish: null
+
 mac:
   category: public.app-category.developer-tools
   target:
     - target: dmg
       arch:
-        - x64
         - arm64
-  hardenedRuntime: true
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  # Only enable hardenedRuntime when code signing is configured.
+  # Without a valid identity, this corrupts the DMG (error 3840).
+  hardenedRuntime: false
   gatekeeperAssess: false
+  identity: null
 
 dmg:
   artifactName: "${productName}-${version}-${arch}.dmg"
+  sign: false
 
 linux:
   category: Development
