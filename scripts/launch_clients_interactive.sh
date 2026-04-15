@@ -111,7 +111,7 @@ printf "\n"
 # ── 4. Launch function ────────────────────────────────────────────────────────
 launch_client() {
   local pid=$1
-  local CLIENT_CMD="source '${VENV_PATH}/bin/activate' && cd '${CLIENT_SCRIPT_DIR}' && python client.py --project-id ${PROJECT_ID} --server-address ${SERVER_ADDRESS} --partition-id ${pid} --model-type ${MODEL_TYPE} --model-name ${MODEL_NAME} --dataset ${DATASET} --strategy ${STRATEGY}; echo ''; echo '--- Client ${pid} finished. Press Enter to close ---'; read"
+  local CLIENT_CMD="source '${VENV_PATH}/bin/activate' && cd '${CLIENT_SCRIPT_DIR}' && export FLWR_LOG_FORMAT=console && export FLWR_LOG_LEVEL=INFO && python client.py --project-id ${PROJECT_ID} --server-address ${SERVER_ADDRESS} --partition-id ${pid} --model-type ${MODEL_TYPE} --model-name ${MODEL_NAME} --dataset ${DATASET} --strategy ${STRATEGY}; echo ''; echo '--- Client ${pid} finished. Press Enter to close ---'; read"
 
   osascript -e 'tell application "Terminal"' \
             -e 'activate' \
@@ -148,7 +148,8 @@ printf "    3. Fill the form with ${DIM}exactly${NC} these values:\n"
 printf "         Project ID      →  ${CYAN}$PROJECT_ID${NC}\n"
 printf "         Server Address  →  ${CYAN}$SERVER_ADDRESS${NC}\n"
 printf "         Partition ID    →  ${CYAN}$ELECTRON_PARTITION${NC}\n"
-printf "    4. Click ${BOLD}Start Training${NC}\n\n"
+printf "    4. Select your local Dataset Path via the Browse button\n"
+printf "    5. Click ${BOLD}Start Training${NC}\n\n"
 printf "${BOLD}What to watch:${NC}\n"
 printf "  • Terminal client windows — 'Connected to server' then training logs\n"
 printf "  • Electron app log panel  — Docker container stdout for partition $ELECTRON_PARTITION\n"
