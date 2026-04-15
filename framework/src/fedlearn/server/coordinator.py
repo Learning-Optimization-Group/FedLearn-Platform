@@ -79,7 +79,13 @@ class FLCoordinator:
                 self._trigger_aggregation_and_evaluation()
 
     def _trigger_aggregation_and_evaluation(self):
-        """This is the core logic for advancing a round."""
+        """Aggregate client updates and advance the round counter.
+
+        THREADING CONTRACT: This method MUST only be called while self._lock
+        is held (by submit_client_update). The round counter mutation and
+        event signal are therefore atomic with respect to concurrent RPC
+        threads calling submit_client_update or get_global_model_for_client.
+        """
         print(
             f"[Coordinator] Aggregating {len(self._client_updates_received)} updates for round {self.current_round}...")
 
@@ -96,7 +102,8 @@ class FLCoordinator:
             print(f"WARNING: Aggregation for round {self.current_round} failed.")
             self.latest_metrics = None
 
-        # Advance to the next round and signal completion
+        # Advance round and signal LAST — state is consistent before any
+        # waiting thread wakes up, because we are still inside _lock.
         self.current_round += 1
         self._round_complete_event.set()
 
@@ -225,9 +232,11 @@ class FLCoordinator:
                 self._trigger_decomfl_aggregation_and_evaluation()
 
     def _trigger_decomfl_aggregation_and_evaluation(self):
-        """
-        Aggregation logic for DeComFL.
-        Similar to _trigger_aggregation_and_evaluation but handles gradient scalars.
+        """Aggregate DeComFL gradient scalar submissions and advance the round.
+
+        THREADING CONTRACT: This method MUST only be called while self._lock
+        is held (by submit_decomfl_update). See _trigger_aggregation_and_evaluation
+        for the full rationale.
         """
         print(f"[Coordinator] Aggregating {len(self._client_updates_received)} "
               f"DeComFL updates for round {self.current_round}...")
@@ -257,7 +266,7 @@ class FLCoordinator:
             print(f"WARNING: DeComFL aggregation for round {self.current_round} failed.")
             self.latest_metrics = None
 
-        # Advance to the next round and signal completion
+        # Advance round and signal LAST — see _trigger_aggregation_and_evaluation.
         self.current_round += 1
         self._round_complete_event.set()
 

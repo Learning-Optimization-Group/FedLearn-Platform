@@ -125,7 +125,11 @@ class GrpcClient:
             self.update_status("downloading_model", 0, 0)
             log.info("[%s] Downloading model via streaming", self.client_id)
 
-            chunks: List[bytes] = []
+            # Stream chunks directly into a buffer to avoid 3x memory duplication.
+            # Previously: chunks.append() + b''.join(chunks) + BytesIO(full_data)
+            # allocated the payload three times. For large models (e.g. 14GB LLaMA-7B)
+            # this caused OOM on edge devices like Jetson Orin.
+            buffer = io.BytesIO()
             current_round = 0
             config: Dict[str, str] = {}
             total_chunks = 0
@@ -139,7 +143,7 @@ class GrpcClient:
                     log.info("[%s] Receiving %d chunk(s) for round %d",
                              self.client_id, total_chunks, current_round)
 
-                chunks.append(chunk.chunk_data)
+                buffer.write(chunk.chunk_data)
                 if (chunk.chunk_index + 1) % 2 == 0 or chunk.is_final_chunk:
                     progress = (chunk.chunk_index + 1) / chunk.total_chunks * 100
                     log.debug("[%s] Chunk %d/%d (%.1f%%)",
@@ -147,9 +151,9 @@ class GrpcClient:
 
             log.info("[%s] Download complete in %.1fs", self.client_id, time.time() - download_start)
 
-            full_data = b''.join(chunks)
-            with io.BytesIO(full_data) as buffer:
-                model_data = torch.load(buffer, map_location='cpu', weights_only=True)
+            buffer.seek(0)
+            model_data = torch.load(buffer, map_location='cpu', weights_only=True)
+            buffer.close()
 
             params = model_data['parameters']
             self.current_round = current_round

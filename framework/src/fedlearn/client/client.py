@@ -89,12 +89,13 @@ def start_client(server_address: str, client: Client, client_id: str):
                     else:
                         print(f"[{client_id}] Failed to submit update for round {server_round}.")
                         comm_client.update_status("error", 0, 0)
-                else:
                     # The server is still in the same round, waiting for other clients.
-                    # We should wait before polling again.
+                    # TODO: Replace polling with a WaitForNextRound server-streaming RPC
+                    # that blocks until the Coordinator fires _round_complete_event,
+                    # instantly pushing new round metadata to connected clients.
                     print(f"[{client_id}] Server is still in round {server_round}. Waiting...")
                     comm_client.update_status("waiting", 0, 0)
-                    time.sleep(5)  # Wait for 5 seconds before checking again
+                    time.sleep(2)  # Reduced from 5s for faster round detection
 
             except grpc.RpcError as e:
                 if e.code() == grpc.StatusCode.UNAVAILABLE:

@@ -163,6 +163,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         """
         Handle streamed model updates for large models.
 
+        Uses direct BytesIO streaming to avoid 3x memory duplication from
+        chunks.append() + b''.join(). See grpc_client.py for the same fix.
+
         Args:
             request_iterator: Iterator of ModelUpdateChunk messages
             context: gRPC context
@@ -171,15 +174,16 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             SubmitModelUpdateResponse
         """
         try:
-            chunks = []
+            buffer = io.BytesIO()
             client_id = None
             round_num = None
             num_examples = 0
             total_chunks = 0
+            chunks_received = 0
 
             logging.info(f"[Server] Receiving streamed model update...")
 
-            # Receive all chunks
+            # Stream chunks directly into buffer
             for chunk in request_iterator:
                 if client_id is None:
                     client_id = chunk.client_id
@@ -187,20 +191,23 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                     total_chunks = chunk.total_chunks
                     logging.info(f"[Server] Receiving {total_chunks} chunk(s) from {client_id} for round {round_num}")
 
-                chunks.append(chunk.chunk_data)
+                buffer.write(chunk.chunk_data)
+                chunks_received += 1
 
                 # Progress update
-                progress = len(chunks) / total_chunks * 100
-                logging.info(f"[Server] Received chunk {len(chunks)}/{total_chunks} ({progress:.1f}%)")
+                progress = chunks_received / total_chunks * 100
+                logging.info(f"[Server] Received chunk {chunks_received}/{total_chunks} ({progress:.1f}%)")
 
                 if chunk.is_final_chunk:
                     num_examples = chunk.num_examples
                     break
 
-            logging.info(f"[Server] Received all {len(chunks)} chunk(s) from {client_id}")
+            logging.info(f"[Server] Received all {chunks_received} chunk(s) from {client_id}")
 
-            # Reconstruct parameters
-            full_data = b''.join(chunks)
+            # Reconstruct parameters from the streamed buffer
+            buffer.seek(0)
+            full_data = buffer.read()
+            buffer.close()
             logging.info(f"[Server] Reconstructing model from {len(full_data) / (1024 ** 2):.2f} MB of data...")
 
             parameters, num_examples = chunks_to_parameters(full_data, compressed=USE_COMPRESSION)
