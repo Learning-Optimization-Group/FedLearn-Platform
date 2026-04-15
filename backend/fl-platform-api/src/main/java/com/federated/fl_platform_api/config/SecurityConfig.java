@@ -69,7 +69,10 @@ public class SecurityConfig {
         if (origins.isEmpty()) {
             throw new IllegalStateException("CORS_ALLOWED_ORIGINS must be set to an explicit, non-empty allowlist");
         }
-        configuration.setAllowedOrigins(origins);
+        // Use allowedOriginPatterns (not allowedOrigins) so entries may contain wildcards
+        // (e.g. "http://localhost:*") while still permitting credentials. With credentials
+        // enabled, Spring requires patterns instead of a literal "*" origin.
+        configuration.setAllowedOriginPatterns(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
         configuration.setAllowCredentials(true);
