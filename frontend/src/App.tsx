@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Link, Navigate } from 'react-router-dom';
-import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
@@ -13,6 +12,8 @@ import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import DiskLoader from './components/DiskLoader';
+import { LayoutV2 } from './components/redesign/LayoutV2';
+import { DashboardV2 } from './components/redesign/DashboardV2';
 
 const AppLoading: React.FC = () => (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -59,11 +60,21 @@ function App() {
                 />
 
                 <Route element={<ProtectedRoute />}>
+                    {/* Original UI */}
                     <Route element={<Layout />}>
                         <Route path="/dashboard" element={<DashboardPage />} />
                         <Route path="/models" element={<ModelsPage />} />
                         <Route path="/training" element={<TrainingPage />} />
                         <Route path="/settings" element={<SettingsPage />} />
+                    </Route>
+
+                    {/* Redesigned UI (v2) — Apple-inspired dark theme */}
+                    <Route element={<LayoutV2 />}>
+                        <Route path="/v2" element={<DashboardV2 />} />
+                        <Route path="/v2/nodes" element={<div className="flex-1 flex items-center justify-center text-[#86868b]">Node Network — Coming Soon</div>} />
+                        <Route path="/v2/models" element={<div className="flex-1 flex items-center justify-center text-[#86868b]">Models — Coming Soon</div>} />
+                        <Route path="/v2/datasets" element={<div className="flex-1 flex items-center justify-center text-[#86868b]">Datasets — Coming Soon</div>} />
+                        <Route path="/v2/settings" element={<div className="flex-1 flex items-center justify-center text-[#86868b]">Settings — Coming Soon</div>} />
                     </Route>
                 </Route>
 
