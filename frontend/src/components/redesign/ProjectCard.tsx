@@ -1,11 +1,11 @@
 // =============================================================================
-// FedLearn Frontend — Redesigned ProjectCard
+// FedLearn Frontend — Redesigned ProjectCard (Apple-inspired)
 // =============================================================================
-// Displays project with circular progress ring + accuracy sparkline.
-// Wired to real Project type from apiServices.
+// Full feature parity: delete, copy ID, copy port, start/stop, results, logs.
 
+import { useState } from 'react';
 import { ResponsiveContainer, LineChart, Line, YAxis } from 'recharts';
-import { Activity, Server } from 'lucide-react';
+import { Activity, Server, Trash2, Copy, Check, MoreHorizontal } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { Project, ProjectResult } from '../../services/apiServices';
 
@@ -15,6 +15,39 @@ interface ProjectCardProps {
   onOpenResults: () => void;
   onOpenLogs: () => void;
   onToggleServer: () => void;
+  onDeleteProject: () => void;
+}
+
+function CopyButton({ text, label }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1.5 text-[#86868b] hover:text-[#f5f5f7] transition-colors group/copy"
+      title={`Copy ${label || text}`}
+    >
+      {label && <span className="text-[12px] font-medium">{label}:</span>}
+      <code className="text-[12px] font-mono bg-[#2c2c2e] px-2 py-0.5 rounded-md text-[#f5f5f7] max-w-[120px] truncate">
+        {text}
+      </code>
+      {copied ? (
+        <Check className="w-3.5 h-3.5 text-[#32d74b]" />
+      ) : (
+        <Copy className="w-3.5 h-3.5 opacity-0 group-hover/copy:opacity-100 transition-opacity" />
+      )}
+    </button>
+  );
 }
 
 export function ProjectCard({
@@ -23,7 +56,11 @@ export function ProjectCard({
   onOpenResults,
   onOpenLogs,
   onToggleServer,
+  onDeleteProject,
 }: ProjectCardProps) {
+  const [showMenu, setShowMenu] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   const isRunning = project.status === 'RUNNING';
   const isCompleted = project.status === 'COMPLETED';
   const isFailed = project.status === 'FAILED';
@@ -34,9 +71,9 @@ export function ProjectCard({
     accuracy: r.accuracy,
   }));
 
-  // Progress calculation — use latest round from results if available
+  // Progress calculation
   const latestRound = results.length > 0 ? results[results.length - 1].serverRound : 0;
-  const totalRounds = 100; // Default — will be dynamic when backend exposes it
+  const totalRounds = 100;
   const progress = Math.min((latestRound / totalRounds) * 100, 100);
 
   // Circular progress ring
@@ -58,10 +95,22 @@ export function ProjectCard({
       ? 'text-[#32d74b]'
       : 'text-[#ff453a]';
 
+  const handleDelete = () => {
+    if (confirmDelete) {
+      onDeleteProject();
+      setConfirmDelete(false);
+      setShowMenu(false);
+    } else {
+      setConfirmDelete(true);
+      setTimeout(() => setConfirmDelete(false), 3000); // Reset after 3s
+    }
+  };
+
   return (
-    <div className="bg-[#1c1c1e] rounded-[24px] p-6 flex flex-col gap-6 text-[#f5f5f7] w-full font-sans transition-all hover:bg-[#2c2c2e]/60 duration-300 group">
+    <div className="bg-[#1c1c1e] rounded-[24px] p-6 flex flex-col gap-5 text-[#f5f5f7] w-full font-sans transition-all hover:bg-[#2c2c2e]/60 duration-300 group relative">
+      {/* Header Row */}
       <div className="flex justify-between items-start">
-        <div>
+        <div className="flex-1 min-w-0">
           <h3 className="text-[20px] font-semibold tracking-tight">{project.name}</h3>
           <div className="flex items-center gap-2 mt-1">
             <span className={cn("inline-flex items-center gap-[6px] text-[13px] font-medium tracking-tight", statusColor)}>
@@ -77,8 +126,37 @@ export function ProjectCard({
           </div>
         </div>
 
+        {/* Actions Menu */}
+        <div className="relative">
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#3a3a3c] text-[#86868b] hover:text-[#f5f5f7] transition-colors"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+          {showMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => { setShowMenu(false); setConfirmDelete(false); }} />
+              <div className="absolute right-0 top-10 z-20 bg-[#2c2c2e] border border-[rgba(255,255,255,0.1)] rounded-2xl py-2 w-48 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                <button
+                  onClick={handleDelete}
+                  className={cn(
+                    "w-full px-4 py-2.5 text-left text-[14px] font-medium transition-colors flex items-center gap-2",
+                    confirmDelete
+                      ? "text-[#ff453a] bg-[#ff453a]/10"
+                      : "text-[#ff453a] hover:bg-[rgba(255,255,255,0.05)]"
+                  )}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {confirmDelete ? 'Confirm Delete?' : 'Delete Project'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
         {/* Circular Progress Ring */}
-        <div className="relative flex items-center justify-center w-14 h-14">
+        <div className="relative flex items-center justify-center w-14 h-14 ml-2">
           <svg className="w-full h-full transform -rotate-90">
             <circle cx="28" cy="28" r={radius} stroke="currentColor" strokeWidth="4.5" fill="transparent" className="text-[#2c2c2e]" />
             <circle
@@ -93,6 +171,15 @@ export function ProjectCard({
         </div>
       </div>
 
+      {/* Project ID & Port — Copyable */}
+      <div className="flex flex-wrap items-center gap-3">
+        <CopyButton text={project.id} label="ID" />
+        {isRunning && project.serverPort && (
+          <CopyButton text={String(project.serverPort)} label="Port" />
+        )}
+      </div>
+
+      {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-4">
         {/* Model Info */}
         <div className="bg-[#2c2c2e]/40 rounded-2xl p-4 flex flex-col justify-between gap-3">
@@ -108,7 +195,7 @@ export function ProjectCard({
           </div>
         </div>
 
-        {/* Global Accuracy Sparkline */}
+        {/* Accuracy Sparkline */}
         <div className="bg-[#2c2c2e]/40 rounded-2xl p-4 flex flex-col justify-between gap-2 relative overflow-hidden">
           <div className="flex items-center justify-between text-[#86868b]">
             <div className="flex items-center gap-1.5">
@@ -138,7 +225,8 @@ export function ProjectCard({
         </div>
       </div>
 
-      <div className="flex gap-3 mt-2">
+      {/* Action Buttons */}
+      <div className="flex gap-3 mt-1">
         <button onClick={onOpenResults} className="flex-1 bg-[#2c2c2e] hover:bg-[#3a3a3c] text-[#f5f5f7] py-[11px] px-4 rounded-full text-[15px] font-medium tracking-tight transition-colors">
           View Results
         </button>
@@ -148,11 +236,13 @@ export function ProjectCard({
         )}>
           Logs
         </button>
-        <button onClick={onToggleServer} className={cn(
+        <button onClick={onToggleServer} disabled={isFailed} className={cn(
           "py-[11px] px-5 rounded-full text-[15px] font-medium tracking-tight transition-all",
-          isRunning
-            ? "bg-[#ff453a]/20 text-[#ff453a] hover:bg-[#ff453a]/30"
-            : "bg-[#32d74b]/20 text-[#32d74b] hover:bg-[#32d74b]/30"
+          isFailed
+            ? "bg-[#3a3a3c]/30 text-[#86868b] cursor-not-allowed"
+            : isRunning
+              ? "bg-[#ff453a]/20 text-[#ff453a] hover:bg-[#ff453a]/30"
+              : "bg-[#32d74b]/20 text-[#32d74b] hover:bg-[#32d74b]/30"
         )}>
           {isRunning ? 'Stop' : 'Start'}
         </button>

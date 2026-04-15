@@ -9,6 +9,7 @@ import { Client as StompClient, StompSubscription } from '@stomp/stompjs';
 import { ProjectCard } from './ProjectCard';
 import { LogViewerV2 } from './LogViewer';
 import { ResultsModalV2 } from './ResultsModal';
+import { CreateProjectModalV2 } from './CreateProjectModal';
 import { Plus, Search, Filter } from 'lucide-react';
 import type { Project, ProjectResult } from '../../services/apiServices';
 
@@ -29,6 +30,8 @@ export function DashboardV2() {
   const [logViewProjectId, setLogViewProjectId] = useState<string | null>(null);
   const [resultsProject, setResultsProject] = useState<{ id: string; name: string } | null>(null);
   const [results, setResults] = useState<ProjectResult[]>([]);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   const stompClientRef = useRef<StompClient | null>(null);
   const subscriptionRef = useRef<StompSubscription | null>(null);
@@ -80,6 +83,20 @@ export function DashboardV2() {
     };
   }, []);
 
+  const handleCreateProject = async (projectData: any) => {
+    try {
+      setIsCreating(true);
+      await api.createProject(projectData);
+      setIsCreateModalOpen(false);
+      loadProjects();
+    } catch (err) {
+      setError('Failed to create project.');
+      console.error(err);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const handleToggleServer = async (project: Project) => {
     try {
       if (project.status === 'RUNNING') {
@@ -91,6 +108,15 @@ export function DashboardV2() {
       }
     } catch {
       setError(`Failed to ${project.status === 'RUNNING' ? 'stop' : 'start'} server.`);
+    }
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      await api.deleteProject(projectId);
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    } catch (err) {
+      setError('Failed to delete project.');
     }
   };
 
@@ -132,7 +158,7 @@ export function DashboardV2() {
           </button>
           <div className="w-px h-6 bg-[#2c2c2e] mx-2" />
           <button
-            onClick={() => { /* TODO: Open create project modal */ }}
+            onClick={() => setIsCreateModalOpen(true)}
             className="flex items-center gap-2 bg-[#f5f5f7] text-black hover:bg-white px-5 py-2.5 rounded-full text-[15px] font-medium transition-all duration-200 transform active:scale-95 shadow-[0_2px_10px_rgba(255,255,255,0.1)]"
           >
             <Plus className="w-[18px] h-[18px]" />
@@ -162,6 +188,7 @@ export function DashboardV2() {
                 onOpenLogs={() => setLogViewProjectId(project.id)}
                 onOpenResults={() => handleOpenResults(project)}
                 onToggleServer={() => handleToggleServer(project)}
+                onDeleteProject={() => handleDeleteProject(project.id)}
               />
             ))}
           </div>
@@ -174,6 +201,12 @@ export function DashboardV2() {
       </div>
 
       {/* Modals */}
+      <CreateProjectModalV2
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateProject}
+        isLoading={isCreating}
+      />
       {logViewProjectId && (
         <LogViewerV2
           projectId={logViewProjectId}
