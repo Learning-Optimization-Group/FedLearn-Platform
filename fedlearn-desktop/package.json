@@ -5,6 +5,10 @@
   "main": "dist/main/main.js",
   "author": "FedLearn Team",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anurag2796/FedLearn-Platform.git"
+  },
   "scripts": {
     "dev:renderer": "webpack serve --config webpack.renderer.config.js --mode development",
     "dev:main": "webpack --config webpack.main.config.js --mode development --watch",
