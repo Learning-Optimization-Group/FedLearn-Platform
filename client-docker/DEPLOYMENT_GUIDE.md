@@ -54,11 +54,22 @@
 # Clone or copy the client-docker/ directory to the Jetson
 cd ~/codebase/client-docker
 
-# Build (use --no-cache on first build or after dependency changes)
-sudo docker build --no-cache -t fedlearn-client .
+# Build (use --no-cache on first build or after dependency changes).
+# Always tag BOTH :latest (default resolved by the Electron orchestrator)
+# AND a version tag (consumed via FEDLEARN_CLIENT_IMAGE overrides).
+sudo docker build --no-cache \
+  -t fedlearn-client:latest \
+  -t fedlearn-client:0.1.0 \
+  .
 ```
 
 **Expected build time**: ~10-15 minutes (first build downloads ~2GB of dependencies).
+
+> **Why two tags?** `fedlearn-desktop` (`src/main/docker.service.ts`) resolves
+> `fedlearn-client:latest` by default. Pinning a specific release
+> (`fedlearn-client:0.1.0`) lets you override per-environment with
+> `FEDLEARN_CLIENT_IMAGE=fedlearn-client:0.1.0 npm run dev`. Bump the version
+> tag every release; `:latest` moves with it.
 
 ### 2.3 Run the Client Container
 
