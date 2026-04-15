@@ -73,17 +73,9 @@ jobs:
       - name: Package Electron app
         working-directory: fedlearn-desktop
         env:
-          # Disable macOS code signing auto-discovery when no certs are provided.
-          # Without this, electron-builder tries to sign with a non-existent identity.
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CERTS != '' }}
-          # macOS code signing (optional — set these secrets in your repo)
-          CSC_LINK: ${{ secrets.MAC_CERTS }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
-          # Apple notarization (optional)
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # GitHub token for auto-publishing
+          # Disable macOS code signing — no developer certificate configured.
+          # Remove this line and set MAC_CERTS secret to enable signing.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ "${{ matrix.platform }}" = "mac" ]; then

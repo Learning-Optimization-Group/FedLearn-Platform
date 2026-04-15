@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "description": "FedLearn Desktop Client — Docker-based Federated Learning Orchestrator",
   "main": "dist/main/main.js",
-  "author": "FedLearn Team",
+  "author": {
+    "name": "FedLearn Team",
+    "email": "anuragpandey2796@gmail.com"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
