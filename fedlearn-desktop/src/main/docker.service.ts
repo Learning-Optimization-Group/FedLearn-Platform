@@ -20,6 +20,8 @@ export interface TrainingConfig {
   projectId: string;
   serverAddress: string;
   partitionId: string;
+  modelType: string;
+  datasetPath: string;
 }
 
 // Full list of Jetson SoC device nodes required for GPU access inside containers.
@@ -70,6 +72,7 @@ export class DockerService {
     const hostConfig: Docker.HostConfig = {
       // Do NOT mount the Docker socket into the training container — principle of least privilege
       AutoRemove: false,
+      Binds: [`${config.datasetPath}:/data`],
     };
 
     // ========== Hardware Profile Routing (Section 4.2) ==========
@@ -104,6 +107,8 @@ export class DockerService {
       `PROJECT_ID=${config.projectId}`,
       `SERVER_ADDRESS=${config.serverAddress}`,
       `PARTITION_ID=${config.partitionId}`,
+      `MODEL_TYPE=${config.modelType}`,
+      `DATASET_PATH=/data`,
     ];
 
     log.info(`[DockerService] Creating container: image=${DOCKER_IMAGE}, project=${config.projectId}`);

@@ -6,7 +6,7 @@
 // preload.ts performs primary allowlist validation.
 // =============================================================================
 
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, dialog } from 'electron';
 import log from 'electron-log';
 import { DockerService, TrainingConfig, HardwareProfile } from './docker.service';
 import { AuthService } from './auth.service';
@@ -43,6 +43,24 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   dockerService = new DockerService(mainWindow);
   authService = new AuthService();
 
+  // ===================== File Dialogs =====================
+  ipcMain.handle('dialog:open-directory', async () => {
+    try {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openDirectory', 'createDirectory'],
+        title: 'Select Dataset Directory'
+      });
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, error: 'User canceled.' };
+      }
+      return { success: true, path: result.filePaths[0] };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:dialog:open-directory] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
   // ===================== Docker Channels =====================
 
   ipcMain.handle('docker:start-training', async (_event, config: unknown) => {
@@ -75,14 +93,26 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         return { success: false, error: 'Invalid partition ID' };
       }
 
+      if (typeof cfg.modelType !== 'string' || !/^[a-zA-Z0-9_\-\.]{1,128}$/.test(cfg.modelType)) {
+        log.error(`[IPC:docker:start-training] Rejected invalid model type: ${String(cfg.modelType)}`);
+        return { success: false, error: 'Invalid model type' };
+      }
+
+      if (typeof cfg.datasetPath !== 'string' || cfg.datasetPath.length === 0 || cfg.datasetPath.length > 2048) {
+        log.error(`[IPC:docker:start-training] Rejected invalid dataset path: ${String(cfg.datasetPath)}`);
+        return { success: false, error: 'Invalid dataset path' };
+      }
+
       const validConfig: TrainingConfig = {
         hardwareProfile: cfg.hardwareProfile as HardwareProfile,
         projectId: cfg.projectId as string,
         serverAddress: cfg.serverAddress as string,
         partitionId: cfg.partitionId as string,
+        modelType: cfg.modelType as string,
+        datasetPath: cfg.datasetPath as string,
       };
 
-      log.info(`[IPC:docker:start-training] Starting training with profile=${validConfig.hardwareProfile}, project=${validConfig.projectId}`);
+      log.info(`[IPC:docker:start-training] Starting training with profile=${validConfig.hardwareProfile}, project=${validConfig.projectId}, model=${validConfig.modelType}`);
       await dockerService.startTraining(validConfig);
       return { success: true };
     } catch (err: unknown) {
@@ -208,5 +238,5 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url');
+  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory');
 }

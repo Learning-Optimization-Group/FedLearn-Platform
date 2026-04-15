@@ -14,6 +14,8 @@ interface HardwareSelectorProps {
     projectId: string;
     serverAddress: string;
     partitionId: string;
+    modelType: string;
+    datasetPath: string;
   }) => void;
   onStop: () => void;
   isRunning: boolean;
@@ -56,7 +58,23 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
   const [projectId, setProjectId] = useState('');
   const [serverAddress, setServerAddress] = useState('');
   const [partitionId, setPartitionId] = useState('0');
+  const [modelType, setModelType] = useState('CNN');
+  const [datasetPath, setDatasetPath] = useState('');
   const [validationError, setValidationError] = useState('');
+
+  const handleSelectDataset = async () => {
+    try {
+      const result = await window.fedLearnAPI.selectDatasetPath();
+      if (result.success && result.path) {
+        setDatasetPath(result.path);
+        setValidationError('');
+      } else if (result.error) {
+        setValidationError(`Dataset selection failed: ${result.error}`);
+      }
+    } catch (err: any) {
+      setValidationError(`Error opening dialog: ${err.message}`);
+    }
+  };
 
   const handleStart = useCallback(() => {
     setValidationError('');
@@ -92,13 +110,25 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
       return;
     }
 
+    if (!modelType.trim()) {
+      setValidationError('Model Architecture is required.');
+      return;
+    }
+
+    if (!datasetPath.trim()) {
+      setValidationError('Local Dataset Path is required.');
+      return;
+    }
+
     onStart({
       hardwareProfile: selectedProfile,
       projectId: projectId.trim(),
       serverAddress: serverAddress.trim(),
       partitionId: partitionId.trim(),
+      modelType: modelType.trim(),
+      datasetPath: datasetPath.trim(),
     });
-  }, [selectedProfile, projectId, serverAddress, partitionId, onStart]);
+  }, [selectedProfile, projectId, serverAddress, partitionId, modelType, datasetPath, onStart]);
 
   return (
     <div className="hardware-selector">
@@ -169,6 +199,49 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
             disabled={isRunning}
             maxLength={10}
           />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label" htmlFor="config-model-type">
+            Model Architecture
+          </label>
+          <select
+            id="config-model-type"
+            className="form-input"
+            value={modelType}
+            onChange={(e) => setModelType(e.target.value)}
+            disabled={isRunning}
+          >
+            <option value="CNN">CNN</option>
+            <option value="OPT-125M">OPT-125M</option>
+            <option value="Transformer">Transformer</option>
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label" htmlFor="config-dataset-path">
+            Local Dataset Path
+          </label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              id="config-dataset-path"
+              className="form-input"
+              type="text"
+              value={datasetPath}
+              readOnly
+              placeholder="Select the local folder containing your training data. E.g., C:/Datasets/CIFAR10"
+              disabled={isRunning}
+            />
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={handleSelectDataset}
+              disabled={isRunning}
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              Browse...
+            </button>
+          </div>
         </div>
       </div>
 

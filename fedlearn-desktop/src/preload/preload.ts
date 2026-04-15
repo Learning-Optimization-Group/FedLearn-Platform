@@ -65,6 +65,30 @@ function isValidPartitionId(id: unknown): boolean {
   return valid;
 }
 
+function isValidModelType(val: unknown): boolean {
+  if (typeof val !== 'string') {
+    console.error(`[Preload:Validation] Model type is not a string: ${typeof val}`);
+    return false;
+  }
+  const valid = /^[a-zA-Z0-9_\-\.]{1,128}$/.test(val);
+  if (!valid) {
+    console.error(`[Preload:Validation] Rejected model type failing pattern: "${val}"`);
+  }
+  return valid;
+}
+
+function isValidDatasetPath(val: unknown): boolean {
+  if (typeof val !== 'string') {
+    console.error(`[Preload:Validation] Dataset path is not a string: ${typeof val}`);
+    return false;
+  }
+  if (val.length === 0 || val.length > 2048) {
+    console.error(`[Preload:Validation] Dataset path length out of bounds: ${val.length}`);
+    return false;
+  }
+  return true;
+}
+
 function isValidServerAddress(addr: unknown): boolean {
   if (typeof addr !== 'string') {
     console.error(`[Preload:Validation] Server address is not a string: ${typeof addr}`);
@@ -96,6 +120,8 @@ export interface TrainingConfigInput {
   projectId: string;
   serverAddress: string;
   partitionId: string;
+  modelType: string;
+  datasetPath: string;
 }
 
 contextBridge.exposeInMainWorld('fedLearnAPI', {
@@ -117,12 +143,20 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
     if (!isValidPartitionId(config.partitionId)) {
       return { success: false, error: 'Invalid partition ID' };
     }
+    if (!isValidModelType(config.modelType)) {
+      return { success: false, error: 'Invalid model type' };
+    }
+    if (!isValidDatasetPath(config.datasetPath)) {
+      return { success: false, error: 'Invalid dataset path' };
+    }
 
     return ipcRenderer.invoke('docker:start-training', {
       hardwareProfile: config.hardwareProfile,
       projectId: config.projectId,
       serverAddress: config.serverAddress,
       partitionId: config.partitionId,
+      modelType: config.modelType,
+      datasetPath: config.datasetPath,
     });
   },
 
@@ -205,5 +239,12 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
    */
   getServerUrl: async (): Promise<{ success: boolean; url?: string }> => {
     return ipcRenderer.invoke('auth:get-server-url');
+  },
+
+  /**
+   * Trigger native system file dialog to select a dataset path securely.
+   */
+  selectDatasetPath: async (): Promise<{ success: boolean; path?: string; error?: string }> => {
+    return ipcRenderer.invoke('dialog:open-directory');
   },
 });
