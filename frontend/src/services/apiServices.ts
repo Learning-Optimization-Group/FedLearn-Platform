@@ -96,3 +96,23 @@ export const fetchProjectLogs = (projectId: string): Promise<AxiosResponse<any[]
 export const deleteProject = (projectId: string): Promise<AxiosResponse<string>> => {
     return api.post<string>(`/projects/${projectId}/delete`);
 };
+
+// User / Client Management Endpoints
+export interface User {
+    id: number;
+    username: string;
+    email: string;
+    createdAt?: string;
+}
+
+export const fetchUsers = (): Promise<AxiosResponse<User[]>> => {
+    return api.get<User[]>('/users');
+};
+
+export const createUser = (userData: RegisterData): Promise<AxiosResponse<User>> => {
+    return api.post<User>('/users', userData);
+};
+
+export const deleteUser = (userId: number): Promise<AxiosResponse<any>> => {
+    return api.delete(`/users/${userId}`);
+};
