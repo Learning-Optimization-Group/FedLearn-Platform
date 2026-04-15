@@ -7,6 +7,7 @@ import AuthModal from './components/AuthModal';
 import HardwareSelector from './components/HardwareSelector';
 import LogPanel from './components/LogPanel';
 import StatusIndicator from './components/StatusIndicator';
+import SettingsModal from './components/SettingsModal';
 import './styles.css';
 
 // Type declaration for the secure preload API
@@ -18,6 +19,8 @@ declare global {
         projectId: string;
         serverAddress: string;
         partitionId: string;
+        modelType: string;
+        datasetPath: string;
       }) => Promise<{ success: boolean; error?: string }>;
       stopTraining: () => Promise<{ success: boolean; error?: string }>;
       getDockerStatus: () => Promise<{ success: boolean; status?: string }>;
@@ -28,6 +31,7 @@ declare global {
       removeTrainingLogListener: () => void;
       setServerUrl: (url: string) => Promise<{ success: boolean; url?: string; error?: string }>;
       getServerUrl: () => Promise<{ success: boolean; url?: string }>;
+      selectDatasetPath: () => Promise<{ success: boolean; path?: string; error?: string }>;
     };
   }
 }
@@ -39,6 +43,7 @@ const App: React.FC = () => {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [containerStatus, setContainerStatus] = useState<ContainerStatus>('idle');
   const [logs, setLogs] = useState<string[]>([]);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Check authentication on mount
   useEffect(() => {
@@ -105,6 +110,8 @@ const App: React.FC = () => {
       projectId: string;
       serverAddress: string;
       partitionId: string;
+      modelType: string;
+      datasetPath: string;
     }) => {
       setLogs([]);
       setContainerStatus('pulling');
@@ -165,7 +172,10 @@ const App: React.FC = () => {
           </div>
           <StatusIndicator status={containerStatus} />
         </div>
-        <div className="header-right">
+        <div className="header-right" style={{ display: 'flex', gap: '12px' }}>
+          <button className="btn btn-ghost" onClick={() => setShowSettings(true)} id="settings-button">
+            <span>⚙️ Settings</span>
+          </button>
           <button className="btn btn-ghost" onClick={handleLogout} id="logout-button">
             Sign Out
           </button>
@@ -204,6 +214,9 @@ const App: React.FC = () => {
         <span className="footer-text">FedLearn Platform — Privacy-Preserving Federated Learning</span>
         <span className="footer-version">v1.0.0</span>
       </footer>
+
+      {/* Settings Modal Layer */}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   );
 };
