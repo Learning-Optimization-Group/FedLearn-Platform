@@ -2,12 +2,12 @@
 FedLearn Platform — LLM context dump: framework
 ================================================================================
 Component path : framework
-Generated at   : 2026-04-14 17:41 UTC
-Git branch     : feature/fedlearn-desktop-and-aws-orchestration
-Git commit     : 89b2cf5 (uncommitted changes present)
-Files included : 69 (config=3, source=50, tests=0, docs=16)
-Total lines    : 12,924
-Total size     : 451.5 KB
+Generated at   : 2026-04-15 05:56 UTC
+Git branch     : audit-remediation
+Git commit     : d53fc44 (uncommitted changes present)
+Files included : 70 (config=3, source=51, tests=0, docs=16)
+Total lines    : 12,950
+Total size     : 452.8 KB
 
 Notes for the reader:
   * Everything below is verbatim from this repo at the commit above.
@@ -21,6 +21,7 @@ framework/
     CONTRIBUTING.md
     README.md
     pyproject.toml
+    pyrightconfig.json
     requirements.txt
     run_full_test_suite.py
     run_local_test.py
@@ -151,6 +152,7 @@ framework/examples/simple_federation/run_client.py                           267
 framework/examples/simple_federation/run_server.py                           2075      64  source
 framework/examples/simple_federation/run_server_debug.py                     2525      76  source
 framework/pyproject.toml                                                       88       4  config
+framework/pyrightconfig.json                                                   61       5  source
 framework/requirements.txt                                                   2100     110  config
 framework/run_full_test_suite.py                                            30857     732  source
 framework/run_local_test.py                                                 21424     484  source
@@ -158,10 +160,10 @@ framework/run_platform_e2e_test.py                                           887
 framework/setup.py                                                           3562     107  config
 framework/src/fedlearn/__init__.py                                            453      15  source
 framework/src/fedlearn/client/__init__.py                                     371      17  source
-framework/src/fedlearn/client/client.py                                      5159     122  source
+framework/src/fedlearn/client/client.py                                      5335     123  source
 framework/src/fedlearn/client/decomfl_client.py                              7731     222  source
 framework/src/fedlearn/client/decomfl_start.py                               4662     111  source
-framework/src/fedlearn/client/grpc_client.py                                15536     374  source
+framework/src/fedlearn/client/grpc_client.py                                15807     378  source
 framework/src/fedlearn/communication/__init__.py                                0       0  source
 framework/src/fedlearn/communication/generated/__init__.py                      0       0  source
 framework/src/fedlearn/communication/protos/fedlearn.proto                   4921     181  source
@@ -170,9 +172,9 @@ framework/src/fedlearn/estimators/__init__.py                                 12
 framework/src/fedlearn/estimators/zeroth_order.py                            4235     131  source
 framework/src/fedlearn/server/__init__.py                                     144       6  source
 framework/src/fedlearn/server/async_coordinator.py                           6568     158  source
-framework/src/fedlearn/server/coordinator.py                                12118     297  source
+framework/src/fedlearn/server/coordinator.py                                12691     306  source
 framework/src/fedlearn/server/decomfl_strategy.py                            8173     227  source
-framework/src/fedlearn/server/grpc_servicer.py                              17203     404  source
+framework/src/fedlearn/server/grpc_servicer.py                              17535     411  source
 framework/src/fedlearn/server/server.py                                      6519     180  source
 framework/src/fedlearn/server/strategy.py                                    4779     140  source
 
@@ -4875,6 +4877,19 @@ if __name__ == "__main__":
 
 
 ================================================================================
+File: framework/pyrightconfig.json
+Size: 61 bytes | Lines: 5 | Section: source
+================================================================================
+```json
+{
+  "extraPaths": [
+    "examples/ecg_decomfl_central"
+  ]
+}
+```
+
+
+================================================================================
 File: framework/run_full_test_suite.py
 Size: 30857 bytes | Lines: 732 | Section: source
 ================================================================================
@@ -6401,7 +6416,7 @@ __all__ = [
 
 ================================================================================
 File: framework/src/fedlearn/client/client.py
-Size: 5159 bytes | Lines: 122 | Section: source
+Size: 5335 bytes | Lines: 123 | Section: source
 ================================================================================
 ```python
 # src/fedlearn/client/client.py
@@ -6495,12 +6510,13 @@ def start_client(server_address: str, client: Client, client_id: str):
                     else:
                         print(f"[{client_id}] Failed to submit update for round {server_round}.")
                         comm_client.update_status("error", 0, 0)
-                else:
                     # The server is still in the same round, waiting for other clients.
-                    # We should wait before polling again.
+                    # TODO: Replace polling with a WaitForNextRound server-streaming RPC
+                    # that blocks until the Coordinator fires _round_complete_event,
+                    # instantly pushing new round metadata to connected clients.
                     print(f"[{client_id}] Server is still in round {server_round}. Waiting...")
                     comm_client.update_status("waiting", 0, 0)
-                    time.sleep(5)  # Wait for 5 seconds before checking again
+                    time.sleep(2)  # Reduced from 5s for faster round detection
 
             except grpc.RpcError as e:
                 if e.code() == grpc.StatusCode.UNAVAILABLE:
@@ -6879,7 +6895,7 @@ def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: 
 
 ================================================================================
 File: framework/src/fedlearn/client/grpc_client.py
-Size: 15536 bytes | Lines: 374 | Section: source
+Size: 15807 bytes | Lines: 378 | Section: source
 ================================================================================
 ```python
 import io
@@ -7009,7 +7025,11 @@ class GrpcClient:
             self.update_status("downloading_model", 0, 0)
             log.info("[%s] Downloading model via streaming", self.client_id)
 
-            chunks: List[bytes] = []
+            # Stream chunks directly into a buffer to avoid 3x memory duplication.
+            # Previously: chunks.append() + b''.join(chunks) + BytesIO(full_data)
+            # allocated the payload three times. For large models (e.g. 14GB LLaMA-7B)
+            # this caused OOM on edge devices like Jetson Orin.
+            buffer = io.BytesIO()
             current_round = 0
             config: Dict[str, str] = {}
             total_chunks = 0
@@ -7023,7 +7043,7 @@ class GrpcClient:
                     log.info("[%s] Receiving %d chunk(s) for round %d",
                              self.client_id, total_chunks, current_round)
 
-                chunks.append(chunk.chunk_data)
+                buffer.write(chunk.chunk_data)
                 if (chunk.chunk_index + 1) % 2 == 0 or chunk.is_final_chunk:
                     progress = (chunk.chunk_index + 1) / chunk.total_chunks * 100
                     log.debug("[%s] Chunk %d/%d (%.1f%%)",
@@ -7031,9 +7051,9 @@ class GrpcClient:
 
             log.info("[%s] Download complete in %.1fs", self.client_id, time.time() - download_start)
 
-            full_data = b''.join(chunks)
-            with io.BytesIO(full_data) as buffer:
-                model_data = torch.load(buffer, map_location='cpu', weights_only=True)
+            buffer.seek(0)
+            model_data = torch.load(buffer, map_location='cpu', weights_only=True)
+            buffer.close()
 
             params = model_data['parameters']
             self.current_round = current_round
@@ -7968,7 +7988,7 @@ class ResultConsumer(threading.Thread):
 
 ================================================================================
 File: framework/src/fedlearn/server/coordinator.py
-Size: 12118 bytes | Lines: 297 | Section: source
+Size: 12691 bytes | Lines: 306 | Section: source
 ================================================================================
 ```python
 import threading
@@ -8052,7 +8072,13 @@ class FLCoordinator:
                 self._trigger_aggregation_and_evaluation()
 
     def _trigger_aggregation_and_evaluation(self):
-        """This is the core logic for advancing a round."""
+        """Aggregate client updates and advance the round counter.
+
+        THREADING CONTRACT: This method MUST only be called while self._lock
+        is held (by submit_client_update). The round counter mutation and
+        event signal are therefore atomic with respect to concurrent RPC
+        threads calling submit_client_update or get_global_model_for_client.
+        """
         print(
             f"[Coordinator] Aggregating {len(self._client_updates_received)} updates for round {self.current_round}...")
 
@@ -8069,7 +8095,8 @@ class FLCoordinator:
             print(f"WARNING: Aggregation for round {self.current_round} failed.")
             self.latest_metrics = None
 
-        # Advance to the next round and signal completion
+        # Advance round and signal LAST — state is consistent before any
+        # waiting thread wakes up, because we are still inside _lock.
         self.current_round += 1
         self._round_complete_event.set()
 
@@ -8198,9 +8225,11 @@ class FLCoordinator:
                 self._trigger_decomfl_aggregation_and_evaluation()
 
     def _trigger_decomfl_aggregation_and_evaluation(self):
-        """
-        Aggregation logic for DeComFL.
-        Similar to _trigger_aggregation_and_evaluation but handles gradient scalars.
+        """Aggregate DeComFL gradient scalar submissions and advance the round.
+
+        THREADING CONTRACT: This method MUST only be called while self._lock
+        is held (by submit_decomfl_update). See _trigger_aggregation_and_evaluation
+        for the full rationale.
         """
         print(f"[Coordinator] Aggregating {len(self._client_updates_received)} "
               f"DeComFL updates for round {self.current_round}...")
@@ -8230,7 +8259,7 @@ class FLCoordinator:
             print(f"WARNING: DeComFL aggregation for round {self.current_round} failed.")
             self.latest_metrics = None
 
-        # Advance to the next round and signal completion
+        # Advance round and signal LAST — see _trigger_aggregation_and_evaluation.
         self.current_round += 1
         self._round_complete_event.set()
 
@@ -8508,7 +8537,7 @@ class DeComFL(Strategy):
 
 ================================================================================
 File: framework/src/fedlearn/server/grpc_servicer.py
-Size: 17203 bytes | Lines: 404 | Section: source
+Size: 17535 bytes | Lines: 411 | Section: source
 ================================================================================
 ```python
 import logging
@@ -8676,6 +8705,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         """
         Handle streamed model updates for large models.
 
+        Uses direct BytesIO streaming to avoid 3x memory duplication from
+        chunks.append() + b''.join(). See grpc_client.py for the same fix.
+
         Args:
             request_iterator: Iterator of ModelUpdateChunk messages
             context: gRPC context
@@ -8684,15 +8716,16 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             SubmitModelUpdateResponse
         """
         try:
-            chunks = []
+            buffer = io.BytesIO()
             client_id = None
             round_num = None
             num_examples = 0
             total_chunks = 0
+            chunks_received = 0
 
             logging.info(f"[Server] Receiving streamed model update...")
 
-            # Receive all chunks
+            # Stream chunks directly into buffer
             for chunk in request_iterator:
                 if client_id is None:
                     client_id = chunk.client_id
@@ -8700,20 +8733,23 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                     total_chunks = chunk.total_chunks
                     logging.info(f"[Server] Receiving {total_chunks} chunk(s) from {client_id} for round {round_num}")
 
-                chunks.append(chunk.chunk_data)
+                buffer.write(chunk.chunk_data)
+                chunks_received += 1
 
                 # Progress update
-                progress = len(chunks) / total_chunks * 100
-                logging.info(f"[Server] Received chunk {len(chunks)}/{total_chunks} ({progress:.1f}%)")
+                progress = chunks_received / total_chunks * 100
+                logging.info(f"[Server] Received chunk {chunks_received}/{total_chunks} ({progress:.1f}%)")
 
                 if chunk.is_final_chunk:
                     num_examples = chunk.num_examples
                     break
 
-            logging.info(f"[Server] Received all {len(chunks)} chunk(s) from {client_id}")
+            logging.info(f"[Server] Received all {chunks_received} chunk(s) from {client_id}")
 
-            # Reconstruct parameters
-            full_data = b''.join(chunks)
+            # Reconstruct parameters from the streamed buffer
+            buffer.seek(0)
+            full_data = buffer.read()
+            buffer.close()
             logging.info(f"[Server] Reconstructing model from {len(full_data) / (1024 ** 2):.2f} MB of data...")
 
             parameters, num_examples = chunks_to_parameters(full_data, compressed=USE_COMPRESSION)

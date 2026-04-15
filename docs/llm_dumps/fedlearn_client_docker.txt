@@ -2,9 +2,9 @@
 FedLearn Platform — LLM context dump: client-docker
 ================================================================================
 Component path : client-docker
-Generated at   : 2026-04-14 17:41 UTC
-Git branch     : feature/fedlearn-desktop-and-aws-orchestration
-Git commit     : 89b2cf5 (uncommitted changes present)
+Generated at   : 2026-04-15 05:56 UTC
+Git branch     : audit-remediation
+Git commit     : d53fc44 (uncommitted changes present)
 Files included : 10 (config=3, source=4, tests=0, docs=3)
 Total lines    : 1,943
 Total size     : 62.7 KB

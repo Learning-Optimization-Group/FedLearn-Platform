@@ -2,12 +2,12 @@
 FedLearn Platform — LLM context dump: backend
 ================================================================================
 Component path : backend
-Generated at   : 2026-04-14 17:41 UTC
-Git branch     : feature/fedlearn-desktop-and-aws-orchestration
-Git commit     : 89b2cf5 (uncommitted changes present)
-Files included : 67 (config=9, source=52, tests=4, docs=2)
-Total lines    : 6,574
-Total size     : 227.7 KB
+Generated at   : 2026-04-15 05:56 UTC
+Git branch     : audit-remediation
+Git commit     : d53fc44 (uncommitted changes present)
+Files included : 68 (config=9, source=53, tests=4, docs=2)
+Total lines    : 6,819
+Total size     : 238.4 KB
 
 Notes for the reader:
   * Everything below is verbatim from this repo at the commit above.
@@ -40,6 +40,7 @@ backend/
                   HomeController.java
                   ProjectController.java
                   ResultsController.java
+                  UserController.java
   fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/
                   ApiResponse.java
                   CreateProjectRequest.java
@@ -112,50 +113,51 @@ backend/fl-platform-api/.env.example                                         207
 backend/fl-platform-api/CLAUDE.md                                             853      15  docs
 backend/fl-platform-api/Dockerfile                                           1990      64  config
 backend/fl-platform-api/README.md                                           18169     622  docs
-backend/fl-platform-api/build.gradle                                         1703      58  config
+backend/fl-platform-api/build.gradle                                         1699      58  config
 backend/fl-platform-api/fly.toml                                              724      30  config
 backend/fl-platform-api/gradle/wrapper/gradle-wrapper.properties              253       7  config
 backend/fl-platform-api/queries/projects.sql                                   22       1  source
 backend/fl-platform-api/requirements.txt                                     2188     112  config
 backend/fl-platform-api/settings.gradle                                       123       4  config
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/FlPlatformApiApplication.java        336      13  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/config/SecurityConfig.java       4826     102  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/config/WebSocketConfig.java       1853      39  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/controller/AuthController.java       5956     134  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/config/SecurityConfig.java       5219     106  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/config/WebSocketConfig.java       1912      40  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/controller/AuthController.java       6016     136  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/controller/HomeController.java        328      13  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/controller/ProjectController.java       4577     112  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/controller/ResultsController.java       1796      54  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/controller/ProjectController.java       5781     133  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/controller/ResultsController.java       1855      55  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/controller/UserController.java       2080      57  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/ApiResponse.java        441      19  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/CreateProjectRequest.java       1404      62  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/LoginRequest.java        769      35  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/ProjectResponseDto.java       1334      70  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/ProjectStatusUpdateDto.java        892      42  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/RegisterRequest.java       2519      86  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/RoundResultDto.java       1027      54  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/RoundResultDto.java       1006      52  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/ServerLogDto.java        243      12  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/StartProject.java        901      44  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/exception/GlobalExceptionHandler.java       3572      81  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/exception/GlobalExceptionHandler.java       3649      82  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/exception/UserAlreadyExistsException.java        205       7  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/flower/FlowerServerManager.java       7157     166  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/model/Project.java       2039     109  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/model/RoundResult.java       1406      74  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/flower/FlowerServerManager.java      12034     288  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/model/Project.java       1987     107  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/model/RoundResult.java       1385      72  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/model/ServerLog.java        672      28  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/model/User.java       3707     133  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/model/User.java       3775     135  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/repository/ProjectRepository.java        335      12  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/repository/RoundResultRepository.java        378      12  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/repository/ServerLogRepository.java        366      10  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/repository/UserRepository.java       1330      43  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/security/InternalApiKeyFilter.java       2916      73  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/security/JwtAuthenticationFilter.java       3336      85  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/security/JwtTokenProvider.java       2532      85  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/CustomUserDetailsService.java       2638      51  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/security/InternalApiKeyFilter.java       2984      74  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/security/JwtAuthenticationFilter.java       3315      84  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/security/JwtTokenProvider.java       2418      82  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/CustomUserDetailsService.java       2589      50  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/ModelInitializer.java       3404      91  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/ProjectService.java      12281     262  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/ProjectService.java      12322     261  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/UserService.java       2242      60  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/WebSocketService.java       1445      38  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/WebSocketService.java       3374      82  source
 backend/fl-platform-api/src/main/resources/application-production.properties       2488      69  config
-backend/fl-platform-api/src/main/resources/application.properties            3455      81  config
-backend/fl-platform-api/src/main/resources/db/migration/V1__init.sql         1678      49  source
+backend/fl-platform-api/src/main/resources/application.properties            4595     100  config
+backend/fl-platform-api/src/main/resources/db/migration/V1__init.sql         1717      49  source
 backend/fl-platform-api/src/main/resources/scripts/architecture/cnn/net.py        684      22  source
 backend/fl-platform-api/src/main/resources/scripts/client.py                37914     985  source
 backend/fl-platform-api/src/main/resources/scripts/config.py                 5351     183  source
@@ -169,11 +171,11 @@ backend/fl-platform-api/src/main/resources/scripts/models.py                  74
 backend/fl-platform-api/src/main/resources/scripts/models/__init__.py        1044      36  source
 backend/fl-platform-api/src/main/resources/scripts/models/ecg_mlp.py         2237      85  source
 backend/fl-platform-api/src/main/resources/scripts/run_clients.sh            6746     169  source
-backend/fl-platform-api/src/main/resources/scripts/run_fl_server.sh          1037      29  source
-backend/fl-platform-api/src/main/resources/scripts/run_init_model.sh          768      23  source
+backend/fl-platform-api/src/main/resources/scripts/run_fl_server.sh          1093      31  source
+backend/fl-platform-api/src/main/resources/scripts/run_init_model.sh          824      25  source
 backend/fl-platform-api/src/test/java/com/federated/fl_platform_api/FlPlatformApiApplicationTests.java        309      16  tests
-backend/fl-platform-api/src/test/java/com/federated/fl_platform_api/ProjectControllerTest.java       3674      82  tests
-backend/fl-platform-api/src/test/java/com/federated/fl_platform_api/ProjectServiceTest.java       5430     151  tests
+backend/fl-platform-api/src/test/java/com/federated/fl_platform_api/ProjectControllerTest.java       2621      59  tests
+backend/fl-platform-api/src/test/java/com/federated/fl_platform_api/ProjectServiceTest.java       5456     152  tests
 backend/fl-platform-api/src/test/resources/application-test.properties        596      14  tests
 
 ################################################################################
@@ -311,7 +313,7 @@ ENTRYPOINT ["/app/entrypoint.sh"]
 
 ================================================================================
 File: backend/fl-platform-api/build.gradle
-Size: 1703 bytes | Lines: 58 | Section: config
+Size: 1699 bytes | Lines: 58 | Section: config
 ================================================================================
 ```groovy
 plugins {
@@ -366,7 +368,7 @@ dependencies {
     
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
-    testRuntimeOnly 'com.h2database:h2'
+    runtimeOnly 'com.h2database:h2'
 }
 
 tasks.named('test') {
@@ -638,7 +640,7 @@ ecs.container-name=${ECS_CONTAINER_NAME:fl-server-container}
 
 ================================================================================
 File: backend/fl-platform-api/src/main/resources/application.properties
-Size: 3455 bytes | Lines: 81 | Section: config
+Size: 4595 bytes | Lines: 100 | Section: config
 ================================================================================
 ```properties
 spring.application.name=fl-platform-api
@@ -648,10 +650,19 @@ server.address=0.0.0.0
 # ===============================
 # DATASOURCE
 # ===============================
-spring.datasource.url=${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/federated_platform_db}
-spring.datasource.username=${SPRING_DATASOURCE_USERNAME:federated_user}
-spring.datasource.password=${SPRING_DATASOURCE_PASSWORD}
-spring.datasource.driver-class-name=org.postgresql.Driver
+# spring.datasource.url=${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/federated_platform_db}
+# spring.datasource.username=${SPRING_DATASOURCE_USERNAME:federated_user}
+# spring.datasource.password=${SPRING_DATASOURCE_PASSWORD:federated_password}
+# spring.datasource.driver-class-name=org.postgresql.Driver
+
+spring.datasource.url=jdbc:h2:file:./data/federated_platform_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;AUTO_SERVER=TRUE
+spring.datasource.driver-class-name=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=
+
+# Enable H2 console for debugging (http://localhost:8081/h2-console)
+spring.h2.console.enabled=true
+spring.h2.console.path=/h2-console
 
 # ===============================
 # JPA / HIBERNATE — schema owned by Flyway; Hibernate only validates.
@@ -659,7 +670,7 @@ spring.datasource.driver-class-name=org.postgresql.Driver
 spring.jpa.hibernate.ddl-auto=validate
 spring.jpa.show-sql=false
 spring.jpa.properties.hibernate.format_sql=true
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect
 
 # ===============================
 # Flyway — baseline-on-migrate lets us adopt existing (ddl-auto) dev DBs
@@ -678,19 +689,29 @@ logging.level.org.springframework.web.cors=INFO
 # JWT Configuration
 # ===============================
 # Fails fast if APP_JWT_SECRET is not set in the environment.
-app.jwt.secret=${APP_JWT_SECRET}
+app.jwt.secret=${APP_JWT_SECRET:MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=}
 app.jwt.expiration-ms=${APP_JWT_EXPIRATION_MS:3600000}
+
+# Cookie settings — secure=false and sameSite=Lax for local HTTP dev.
+# In production, override to secure=true and sameSite=Strict.
+app.auth.cookie.secure=${APP_AUTH_COOKIE_SECURE:false}
+app.auth.cookie.same-site=${APP_AUTH_COOKIE_SAME_SITE:Lax}
+app.auth.cookie.max-age-seconds=${APP_AUTH_COOKIE_MAX_AGE:86400}
 
 # ===============================
 # CORS
 # ===============================
-app.cors.allowed-origins=${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+# Default dev allowlist uses patterns (setAllowedOriginPatterns) so any localhost or
+# 127.0.0.1 port is accepted — Vite auto-bumps to 5174/5175/... when 5173 is in use,
+# Electron runs on file://, and tests may hit arbitrary ports. Production MUST override
+# CORS_ALLOWED_ORIGINS with an explicit comma-separated list of fully-qualified origins.
+app.cors.allowed-origins=${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*,http://[::1]:*,file://}
 
 # ===============================
 # Internal API key (required for /api/internal/** callbacks from FL-server tasks).
 # Empty in dev defaults so local runs fail fast if you forget to set it.
 # ===============================
-app.internal.api-key=${APP_INTERNAL_API_KEY:}
+app.internal.api-key=${APP_INTERNAL_API_KEY:local_default_internal_api_key_12345}
 
 # URL the FL-server Fargate task uses to reach THIS backend for callbacks.
 # In production this must be an internal (VPC-reachable) ALB or Cloud Map DNS name;
@@ -761,7 +782,7 @@ public class FlPlatformApiApplication {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/config/SecurityConfig.java
-Size: 4826 bytes | Lines: 102 | Section: source
+Size: 5219 bytes | Lines: 106 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.config;
@@ -835,7 +856,10 @@ public class SecurityConfig {
         if (origins.isEmpty()) {
             throw new IllegalStateException("CORS_ALLOWED_ORIGINS must be set to an explicit, non-empty allowlist");
         }
-        configuration.setAllowedOrigins(origins);
+        // Use allowedOriginPatterns (not allowedOrigins) so entries may contain wildcards
+        // (e.g. "http://localhost:*") while still permitting credentials. With credentials
+        // enabled, Spring requires patterns instead of a literal "*" origin.
+        configuration.setAllowedOriginPatterns(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
         configuration.setAllowCredentials(true);
@@ -849,9 +873,10 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
+                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/**", "/ws-logs/**", "/error").permitAll()
+                        .requestMatchers("/api/auth/**", "/ws-logs/**", "/error", "/h2-console/**", "/actuator/health").permitAll()
                         // Service-to-service callbacks from FL-server tasks. The chain is permitAll
                         // here because InternalApiKeyFilter (added below) rejects any request without
                         // a valid X-Internal-Key header before Spring Security sees it.
@@ -871,7 +896,7 @@ public class SecurityConfig {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/config/WebSocketConfig.java
-Size: 1853 bytes | Lines: 39 | Section: source
+Size: 1912 bytes | Lines: 40 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.config;
@@ -881,13 +906,14 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.lang.NonNull;
 
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
-    public void configureMessageBroker(MessageBrokerRegistry config) {
+    public void configureMessageBroker(@NonNull MessageBrokerRegistry config) {
         // This sets up a simple in-memory message broker.
         // The broker will send messages to clients who are subscribed to destinations
         // starting with "/topic".
@@ -899,7 +925,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     }
 
     @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) {
+    public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
         // This is the HTTP endpoint that clients will connect to to upgrade to a WebSocket connection.
         // We allow all origins for local development. In production, you'd restrict this.
         registry.addEndpoint("/ws-logs")
@@ -918,7 +944,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/controller/AuthController.java
-Size: 5956 bytes | Lines: 134 | Section: source
+Size: 6016 bytes | Lines: 136 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.controller;
@@ -980,6 +1006,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @SuppressWarnings("null")
     public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
         try {
             User newUser = new User();
@@ -1012,6 +1039,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @SuppressWarnings("null")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         try {
             Authentication authentication = authenticationManager.authenticate(
@@ -1080,7 +1108,7 @@ public class HomeController {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/controller/ProjectController.java
-Size: 4577 bytes | Lines: 112 | Section: source
+Size: 5781 bytes | Lines: 133 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.controller;
@@ -1090,10 +1118,8 @@ import com.federated.fl_platform_api.dto.CreateProjectRequest;
 import com.federated.fl_platform_api.dto.ProjectResponseDto;
 import com.federated.fl_platform_api.dto.RoundResultDto;
 import com.federated.fl_platform_api.dto.StartProject;
-import com.federated.fl_platform_api.model.Project;
-import com.federated.fl_platform_api.model.RoundResult;
-import com.federated.fl_platform_api.repository.RoundResultRepository;
 import com.federated.fl_platform_api.service.ProjectService;
+import org.springframework.lang.NonNull;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -1101,7 +1127,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -1111,9 +1136,6 @@ public class ProjectController {
 
     @Autowired
     private ProjectService projectService;
-
-    @Autowired
-    private RoundResultRepository roundResultRepository;
 
     @PostMapping
     public ResponseEntity<ProjectResponseDto> createProject(@Valid @RequestBody CreateProjectRequest request) {
@@ -1140,7 +1162,7 @@ public class ProjectController {
     }
 
     @PostMapping("/{projectId}/start")
-    public ResponseEntity<ProjectResponseDto> startProjectServer(@PathVariable UUID projectId,
+    public ResponseEntity<ProjectResponseDto> startProjectServer(@PathVariable @NonNull UUID projectId,
                                                                  @RequestBody StartProject request,
                                                                  HttpServletRequest httpRequest) {
 
@@ -1165,7 +1187,7 @@ public class ProjectController {
     }
 
     @PostMapping("/{projectId}/stop")
-    public ResponseEntity<ProjectResponseDto> stopProjectServer(@PathVariable UUID projectId) {
+    public ResponseEntity<ProjectResponseDto> stopProjectServer(@PathVariable @NonNull UUID projectId) {
         try {
             ProjectResponseDto stoppedProject = projectService.stopServerForProject(projectId);
             return ResponseEntity.ok(stoppedProject);
@@ -1177,19 +1199,46 @@ public class ProjectController {
 
 
     @GetMapping("/{projectId}/results")
-    public ResponseEntity<List<RoundResultDto>> getProjectResults(@PathVariable UUID projectId) {
+    public ResponseEntity<List<RoundResultDto>> getProjectResults(@PathVariable @NonNull UUID projectId) {
         List<RoundResultDto> resultDtos = projectService.getResultsForProject(projectId);
         return ResponseEntity.ok(resultDtos);
     }
 
     @GetMapping("/{projectId}/logs")
-    public ResponseEntity<List<com.federated.fl_platform_api.dto.ServerLogDto>> getProjectLogs(@PathVariable UUID projectId) {
+    public ResponseEntity<List<com.federated.fl_platform_api.dto.ServerLogDto>> getProjectLogs(@PathVariable @NonNull UUID projectId) {
         List<com.federated.fl_platform_api.dto.ServerLogDto> logs = projectService.getLogsForProject(projectId);
         return ResponseEntity.ok(logs);
     }
 
+    /**
+     * Export logs as a downloadable plain-text file for external review.
+     */
+    @GetMapping("/{projectId}/logs/export")
+    public ResponseEntity<String> exportProjectLogs(@PathVariable @NonNull UUID projectId) {
+        List<com.federated.fl_platform_api.dto.ServerLogDto> logs = projectService.getLogsForProject(projectId);
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== FedLearn Training Logs ===\n");
+        sb.append("Project ID: ").append(projectId).append("\n");
+        sb.append("Exported at: ").append(java.time.Instant.now()).append("\n");
+        sb.append("Total log entries: ").append(logs.size()).append("\n");
+        sb.append("=".repeat(60)).append("\n\n");
+
+        for (com.federated.fl_platform_api.dto.ServerLogDto log : logs) {
+            sb.append(String.format("[%s] [%s] %s\n", log.getTimestamp(), log.getLevel(), log.getMessage()));
+            if (log.getStackTrace() != null && !log.getStackTrace().isEmpty()) {
+                sb.append("  STACKTRACE: ").append(log.getStackTrace()).append("\n");
+            }
+        }
+
+        String filename = "fedlearn-logs-" + projectId + ".txt";
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+                .header("Content-Type", "text/plain; charset=UTF-8")
+                .body(sb.toString());
+    }
+
     @PostMapping("/{projectId}/delete")
-    public ResponseEntity<String> deleteProject(@PathVariable UUID projectId) {
+    public ResponseEntity<String> deleteProject(@PathVariable @NonNull UUID projectId) {
         projectService.deleteProject(projectId);
         String msg = projectId+"Project deleted successfully";
         return ResponseEntity.ok(msg);
@@ -1200,7 +1249,7 @@ public class ProjectController {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/controller/ResultsController.java
-Size: 1796 bytes | Lines: 54 | Section: source
+Size: 1855 bytes | Lines: 55 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.controller;
@@ -1215,6 +1264,7 @@ import com.federated.fl_platform_api.service.ProjectService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.lang.NonNull;
 
 import java.util.UUID;
 
@@ -1232,7 +1282,7 @@ public class ResultsController {
     private ProjectService projectService;
 
     @PostMapping("/{projectId}")
-    public ResponseEntity<Void> reportRoundResult(@PathVariable UUID projectId, @RequestBody RoundResultDto resultDto) {
+    public ResponseEntity<Void> reportRoundResult(@PathVariable @NonNull UUID projectId, @RequestBody RoundResultDto resultDto) {
         Project project = projectRepository.findById(projectId).orElse(null);
         if (project == null) {
             return ResponseEntity.notFound().build();
@@ -1249,13 +1299,78 @@ public class ResultsController {
     }
 
     @PostMapping("/{projectId}/finished")
-    public ResponseEntity<Void> markProjectAsFinished(@PathVariable UUID projectId) {
+    public ResponseEntity<Void> markProjectAsFinished(@PathVariable @NonNull UUID projectId) {
         projectService.markProjectAsCompleted(projectId);
         return ResponseEntity.ok().build();
     }
 
 
 
+}
+```
+
+
+================================================================================
+File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/controller/UserController.java
+Size: 2080 bytes | Lines: 57 | Section: source
+================================================================================
+```java
+package com.federated.fl_platform_api.controller;
+
+import com.federated.fl_platform_api.dto.RegisterRequest;
+import com.federated.fl_platform_api.model.User;
+import com.federated.fl_platform_api.repository.UserRepository;
+import com.federated.fl_platform_api.service.UserService;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
+
+    private final UserService userService;
+    private final UserRepository userRepository;
+
+    @Autowired
+    public UserController(UserService userService, UserRepository userRepository) {
+        this.userService = userService;
+        this.userRepository = userRepository;
+    }
+
+    @GetMapping
+    public ResponseEntity<List<User>> getAllUsers() {
+        return ResponseEntity.ok(userRepository.findAll());
+    }
+
+    @PostMapping
+    public ResponseEntity<?> createUser(@Valid @RequestBody RegisterRequest request) {
+        try {
+            User newUser = new User();
+            newUser.setUsername(request.getUsername());
+            newUser.setEmail(request.getEmail());
+            newUser.setPassword(request.getPassword());
+            
+            User savedUser = userService.registerUser(newUser);
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedUser);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteUser(@PathVariable Long id) {
+        if (!userRepository.existsById(id)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "User not found"));
+        }
+        userRepository.deleteById(id);
+        return ResponseEntity.ok().body(Map.of("message", "User deleted successfully"));
+    }
 }
 ```
 
@@ -1624,12 +1739,10 @@ public class RegisterRequest {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/RoundResultDto.java
-Size: 1027 bytes | Lines: 54 | Section: source
+Size: 1006 bytes | Lines: 52 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.dto;
-
-import lombok.Data;
 
 import java.util.UUID;
 
@@ -1758,7 +1871,7 @@ public class StartProject {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/exception/GlobalExceptionHandler.java
-Size: 3572 bytes | Lines: 81 | Section: source
+Size: 3649 bytes | Lines: 82 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.exception;
@@ -1774,6 +1887,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import org.springframework.lang.NonNull;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -1787,7 +1901,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   @Override
   protected ResponseEntity<Object> handleMethodArgumentNotValid(
-          MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+          @NonNull MethodArgumentNotValidException ex, @NonNull HttpHeaders headers, @NonNull HttpStatusCode status, @NonNull WebRequest request) {
 
     Map<String, Object> body = new HashMap<>();
     body.put("timestamp", System.currentTimeMillis());
@@ -1862,14 +1976,16 @@ public class UserAlreadyExistsException extends RuntimeException {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/flower/FlowerServerManager.java
-Size: 7157 bytes | Lines: 166 | Section: source
+Size: 12034 bytes | Lines: 288 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.flower;
 
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.service.WebSocketService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.ecs.EcsClient;
@@ -1884,10 +2000,18 @@ import software.amazon.awssdk.services.ecs.model.RunTaskRequest;
 import software.amazon.awssdk.services.ecs.model.RunTaskResponse;
 import software.amazon.awssdk.services.ecs.model.TaskOverride;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class FlowerServerManager {
@@ -1912,25 +2036,31 @@ public class FlowerServerManager {
     @Value("${ecs.container-name:fl-server-container}")
     private String ecsContainerName;
 
-    /** Shared secret the FL-server task must send as X-Internal-Key on /api/internal/** calls. */
     @Value("${app.internal.api-key:}")
     private String internalApiKey;
 
-    /**
-     * URL the FL-server task uses to call back into this backend (round results,
-     * finished notifications). Use an internal, VPC-reachable URL in production
-     * (ALB, Cloud Map DNS) — not the public domain. Optional in dev.
-     */
     @Value("${app.backend.internal-url:}")
     private String backendInternalUrl;
 
-    /**
-     * Dispatches a Flower FL server task on AWS ECS Fargate for the given project.
-     * Returns 0 on success; callers resolve the task endpoint via Cloud Map / Service Connect.
-     * Throws IllegalStateException if ECS config is missing or if task launch fails.
-     */
+    @Value("${python.script.fl-server.path:src/main/resources/scripts/run_fl_server.sh}")
+    private String flServerWrapperPath;
+
+    @Autowired
+    private WebSocketService logBroadcaster;
+
+    private final Map<UUID, Process> runningServers = new ConcurrentHashMap<>();
+
     public int startServerForProject(Project project, boolean isPretrained, String strategy,
                                      Integer numRounds, Integer minClients) {
+        if (!isBlank(ecsClusterName)) {
+            return startEcsFargateServer(project, isPretrained, strategy, numRounds, minClients);
+        } else {
+            return startLocalServer(project, isPretrained, strategy, numRounds);
+        }
+    }
+
+    private int startEcsFargateServer(Project project, boolean isPretrained, String strategy,
+                                      Integer numRounds, Integer minClients) {
         validateEcsConfig();
         if (isBlank(internalApiKey)) {
             throw new IllegalStateException(
@@ -1976,13 +2106,120 @@ public class FlowerServerManager {
         }
     }
 
+    private int startLocalServer(Project project, boolean isPretrained, String strategy, Integer numRounds) {
+        try {
+            stopServerForProject(project.getId());
+            Thread.sleep(2000);
+
+            int freePort = findFreePort();
+            File scriptFile = new File(flServerWrapperPath);
+            String absoluteScriptPath = scriptFile.getAbsolutePath();
+            ProcessBuilder pb;
+            System.out.println("absoluteScriptPath - " + absoluteScriptPath);
+            List<String> command = new ArrayList<>();
+            String os = System.getProperty("os.name").toLowerCase();
+
+            if (!os.contains("win")) {
+                command.add("bash");
+            }
+
+            command.add(absoluteScriptPath);
+            command.add("--project-id");
+            command.add(project.getId().toString());
+            command.add("--model-path");
+            command.add(project.getModelPath());
+            command.add("--port");
+            command.add(String.valueOf(freePort));
+            command.add("--strategy");
+            command.add(strategy);
+            command.add("--num-rounds");
+            command.add(String.valueOf(numRounds));
+            command.add("--model-type");
+            command.add(project.getModelType());
+            command.add("--model-name");
+            command.add(project.getModelName());
+
+            pb = new ProcessBuilder(command);
+
+            if (!isPretrained) {
+                pb.command().add("--pretrain");
+            }
+
+            System.out.println("--- Preparing to Start Flower Server ---");
+            System.out.println("Executing command: " + String.join(" ", pb.command()));
+
+            pb.redirectErrorStream(true);
+            pb.directory(new File("."));
+
+            Process process = pb.start();
+            runningServers.put(project.getId(), process);
+
+            final StringBuilder startupOutput = new StringBuilder();
+            final boolean[] errorOccurred = {false};
+
+            Thread outputReaderThread = new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println("[FL_SERVER_LOG " + project.getId() + "] " + line);
+                        if (logBroadcaster != null) {
+                            logBroadcaster.sendLogs(project.getId(), line);
+                        }
+                        startupOutput.append(line).append("\n");
+                    }
+                } catch (IOException e) {
+                    System.err.println("Error reading output from Flower server for project " + project.getId());
+                    errorOccurred[0] = true;
+                    if (logBroadcaster != null) {
+                        logBroadcaster.sendLogs(project.getId(), "ERROR: " + e);
+                    }
+                    e.printStackTrace();
+                }
+            });
+            outputReaderThread.setDaemon(true);
+            outputReaderThread.start();
+
+            boolean exited = process.waitFor(3, TimeUnit.SECONDS);
+
+            if (exited || errorOccurred[0]) {
+                outputReaderThread.join(1000);
+                throw new RuntimeException("Flower server process failed to start. Exit code: " + process.exitValue() +
+                        "\nFull Output:\n" + startupOutput);
+            }
+
+            System.out.println("Started Flower server for project " + project.getName() + " on port " + freePort);
+            return freePort;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to start local server process", e);
+        }
+    }
+
     public boolean stopServerForProject(UUID projectId) {
-        log.info("ECS task termination for project {} is managed out-of-band via the ECS StopTask API.", projectId);
-        return true;
+        Process process = runningServers.get(projectId);
+        if (process != null && process.isAlive()) {
+            System.out.println("Stopping Flower server for project: " + projectId);
+            process.destroyForcibly();
+            runningServers.remove(projectId);
+            return true;
+        }
+        System.out.println("No running server found for project: " + projectId);
+        return false;
     }
 
     public boolean isServerRunning(UUID projectId) {
-        return false;
+        Process p = runningServers.get(projectId);
+        return (p != null && p.isAlive());
+    }
+
+    private int findFreePort() {
+        try (ServerSocket serverSocket = new ServerSocket(0)) {
+            if (serverSocket != null) {
+                return serverSocket.getLocalPort();
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not find a free TCP/IP port", e);
+        }
+        throw new IllegalStateException("Could not find a free TCP/IP port");
     }
 
     private void validateEcsConfig() {
@@ -2008,7 +2245,6 @@ public class FlowerServerManager {
             envVars.add(kv("PRETRAIN", "true"));
         }
 
-        // Service-to-service auth + callback URL for /api/internal/** endpoints.
         envVars.add(kv("FEDLEARN_INTERNAL_API_KEY", internalApiKey));
         if (!isBlank(backendInternalUrl)) {
             envVars.add(kv("FEDLEARN_BACKEND_URL", backendInternalUrl));
@@ -2036,15 +2272,13 @@ public class FlowerServerManager {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/model/Project.java
-Size: 2039 bytes | Lines: 109 | Section: source
+Size: 1987 bytes | Lines: 107 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.model;
 
 
 import jakarta.persistence.*;
-import java.time.Instant;
-import java.util.Objects;
 
 
 import java.util.UUID;
@@ -2152,14 +2386,12 @@ public class Project {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/model/RoundResult.java
-Size: 1406 bytes | Lines: 74 | Section: source
+Size: 1385 bytes | Lines: 72 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
-
 import java.util.UUID;
 
 @Entity
@@ -2270,12 +2502,13 @@ public class ServerLog {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/model/User.java
-Size: 3707 bytes | Lines: 133 | Section: source
+Size: 3775 bytes | Lines: 135 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.model;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.Objects;
@@ -2294,6 +2527,7 @@ public class User {
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password; // This will store the HASHED password
 
@@ -2520,7 +2754,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/security/InternalApiKeyFilter.java
-Size: 2916 bytes | Lines: 73 | Section: source
+Size: 2984 bytes | Lines: 74 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.security;
@@ -2534,6 +2768,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.lang.NonNull;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -2561,9 +2796,9 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
+    protected void doFilterInternal(@NonNull HttpServletRequest request,
+                                    @NonNull HttpServletResponse response,
+                                    @NonNull FilterChain chain) throws ServletException, IOException {
 
         String path = request.getRequestURI();
         if (path == null || !path.startsWith(INTERNAL_PATH_PREFIX)) {
@@ -2601,7 +2836,7 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/security/JwtAuthenticationFilter.java
-Size: 3336 bytes | Lines: 85 | Section: source
+Size: 3315 bytes | Lines: 84 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.security;
@@ -2612,8 +2847,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -2694,19 +2928,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/security/JwtTokenProvider.java
-Size: 2532 bytes | Lines: 85 | Section: source
+Size: 2418 bytes | Lines: 82 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.security;
 
-import com.federated.fl_platform_api.model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.io.Decoders;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 
-import javax.crypto.spec.SecretKeySpec;
-import java.util.Base64;
 import java.util.Date;
 import java.util.function.Function;
 
@@ -2787,12 +3018,11 @@ public class JwtTokenProvider {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/CustomUserDetailsService.java
-Size: 2638 bytes | Lines: 51 | Section: source
+Size: 2589 bytes | Lines: 50 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.service;
 
-import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -2945,7 +3175,7 @@ public class ModelInitializer {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/ProjectService.java
-Size: 12281 bytes | Lines: 262 | Section: source
+Size: 12322 bytes | Lines: 261 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.service;
@@ -2968,8 +3198,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
+import org.springframework.lang.NonNull;
 import java.util.stream.Collectors;
 
 @Service
@@ -3070,9 +3300,8 @@ public class ProjectService {
         return convertToDto(finalProject);
     }
 
-    public ProjectResponseDto startServerForProject(UUID projectId, StartProject request) throws IOException, InterruptedException {
+    public ProjectResponseDto startServerForProject(@NonNull UUID projectId, StartProject request) throws IOException, InterruptedException {
 
-        Optional<Project> savedProject = projectRepository.findById(projectId);
         System.out.println("\n[1/4] Finding project with ID: " + projectId);
 
         Project project = projectRepository.findById(projectId).orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectId));
@@ -3086,8 +3315,8 @@ public class ProjectService {
                 : 1;
 
         // --- THIS IS THE NEW LOGIC FOR NUMBER OF ROUNDS ---
-        System.out.println("request.getNumRounds() - "+request.getNumRounds());
-        System.out.println(("Minclients = "+request.getMinClients()));
+        System.out.println("request.getNumRounds() - " + (request != null ? request.getNumRounds() : "null"));
+        System.out.println(("Minclients = " + (request != null ? request.getMinClients() : "null")));
         Integer numRoundsToUse;
         if (request != null && request.getNumRounds() != null && request.getNumRounds() > 0) {
             // 1. Use the user's value if provided and valid
@@ -3131,7 +3360,7 @@ public class ProjectService {
     }
 
     @Transactional
-    public ProjectResponseDto stopServerForProject(UUID projectId) {
+    public ProjectResponseDto stopServerForProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectId));
 
@@ -3168,7 +3397,7 @@ public class ProjectService {
                 .collect(Collectors.toList());
     }
 
-    public List<RoundResultDto> getResultsForProject(UUID projectId) {
+    public List<RoundResultDto> getResultsForProject(@NonNull UUID projectId) {
         List<RoundResult> results = roundResultRepository.findByProjectIdOrderByServerRoundAsc(projectId);
 
         // Convert the list of entities to a list of DTOs
@@ -3177,7 +3406,7 @@ public class ProjectService {
                 .collect(Collectors.toList());
     }
 
-    public void markProjectAsCompleted(UUID projectId){
+    public void markProjectAsCompleted(@NonNull UUID projectId){
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectId));
 
@@ -3191,7 +3420,7 @@ public class ProjectService {
 
     }
 
-    public void deleteProject(UUID projectId){
+    public void deleteProject(@NonNull UUID projectId){
         projectRepository.deleteById(projectId);
         System.out.println("...Success! Project deleted.");
     }
@@ -3283,17 +3512,21 @@ public class UserService {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/WebSocketService.java
-Size: 1445 bytes | Lines: 38 | Section: source
+Size: 3374 bytes | Lines: 82 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.service;
 
-import com.federated.fl_platform_api.dto.ProjectResponseDto;
 import com.federated.fl_platform_api.dto.ProjectStatusUpdateDto;
+import com.federated.fl_platform_api.model.ServerLog;
+import com.federated.fl_platform_api.repository.ServerLogRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -3303,8 +3536,14 @@ public class WebSocketService {
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
+    @Autowired
+    private ServerLogRepository serverLogRepository;
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     /**
-     * Sends a log message to a project-specific WebSocket topic.
+     * Sends a log message to a project-specific WebSocket topic AND persists it
+     * to the server_logs table for later retrieval / export.
      * @param projectId The ID of the project the log belongs to.
      * @param logMessage The log message string to send.
      */
@@ -3316,6 +3555,11 @@ public class WebSocketService {
         // The front-end will subscribe to this exact path.
         String destination = "/topic/logs/" + projectId.toString();
         messagingTemplate.convertAndSend(destination, logMessage);
+
+        // Persist the log line to the database.
+        // The FL server emits JSON-formatted log lines; extract level/message
+        // from the JSON structure when possible, falling back to the raw line.
+        persistLog(projectId, logMessage);
     }
 
     public void sendStatusUpdate(ProjectStatusUpdateDto statusUpdate) {
@@ -3323,13 +3567,42 @@ public class WebSocketService {
         String destination = "/topic/status/" + projectId.toString();
         messagingTemplate.convertAndSend(destination, statusUpdate);
     }
+
+    // ─── Private helpers ─────────────────────────────────────────────────────
+
+    private void persistLog(UUID projectId, String rawLine) {
+        ServerLog log = new ServerLog();
+        log.setProjectId(projectId);
+        log.setTimestamp(Instant.now());
+
+        try {
+            // FL server emits JSON: {"timestamp":"...","level":"INFO","message":"..."}
+            JsonNode node = objectMapper.readTree(rawLine);
+            log.setLevel(node.has("level") ? node.get("level").asText() : "INFO");
+            log.setMessage(node.has("message") ? node.get("message").asText() : rawLine);
+            if (node.has("stackTrace")) {
+                log.setStackTrace(node.get("stackTrace").asText());
+            }
+        } catch (Exception e) {
+            // Not JSON — store as a plain INFO message.
+            log.setLevel("INFO");
+            log.setMessage(rawLine);
+        }
+
+        try {
+            serverLogRepository.save(log);
+        } catch (Exception e) {
+            // Don't let a DB failure break the log stream.
+            System.err.println("[WebSocketService] Failed to persist log: " + e.getMessage());
+        }
+    }
 }
 ```
 
 
 ================================================================================
 File: backend/fl-platform-api/src/main/resources/db/migration/V1__init.sql
-Size: 1678 bytes | Lines: 49 | Section: source
+Size: 1717 bytes | Lines: 49 | Section: source
 ================================================================================
 ```sql
 -- Baseline schema for fl-platform-api.
@@ -3341,8 +3614,8 @@ CREATE TABLE users (
     username      VARCHAR(50)  NOT NULL UNIQUE,
     email         VARCHAR(100) NOT NULL UNIQUE,
     password      VARCHAR(255) NOT NULL,
-    created_at    TIMESTAMPTZ  NOT NULL,
-    updated_at    TIMESTAMPTZ  NOT NULL
+    created_at    TIMESTAMP WITH TIME ZONE  NOT NULL,
+    updated_at    TIMESTAMP WITH TIME ZONE  NOT NULL
 );
 
 CREATE TABLE projects (
@@ -3376,7 +3649,7 @@ CREATE TABLE server_logs (
     level       VARCHAR(16) NOT NULL,
     message     TEXT        NOT NULL,
     stack_trace TEXT,
-    timestamp   TIMESTAMPTZ NOT NULL
+    timestamp   TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 CREATE INDEX idx_server_logs_project_id ON server_logs(project_id);
@@ -6118,7 +6391,7 @@ DATASET="cb"
 STRATEGY="FedAvg"
 
 # Number of clients to launch
-NUM_CLIENTS=1
+NUM_CLIENTS=3
 
 # Dynamically resolve the path relative to where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -6277,7 +6550,7 @@ echo ""
 
 ================================================================================
 File: backend/fl-platform-api/src/main/resources/scripts/run_fl_server.sh
-Size: 1037 bytes | Lines: 29 | Section: source
+Size: 1093 bytes | Lines: 31 | Section: source
 ================================================================================
 ```bash
 #!/bin/bash
@@ -6301,8 +6574,10 @@ echo "[WRAPPER-FL-SH] Environment activated."
 echo "[WRAPPER-FL-SH] Executing fl_server.py with output to both console and log file"
 
 # Change to script directory and execute fl_server.py
+PROJECT_ROOT="$( cd "${SCRIPT_DIR}/../../../../../.." && pwd )"
+VENV_PATH="${PROJECT_ROOT}/venv"
 cd "$SCRIPT_DIR"
-/home/anurag/codebase/Projects/FedLearn-Platform/venv/bin/python3 fl_server.py "$@" 2>&1 | tee -a "$LOG_FILE"
+"$VENV_PATH/bin/python3" fl_server.py "$@" 2>&1 | tee -a "$LOG_FILE"
 
 EXIT_CODE=${PIPESTATUS[0]}  # Get exit code of python3, not tee
 echo "[WRAPPER-FL-SH] Python script finished with exit code: $EXIT_CODE" | tee -a "$LOG_FILE"
@@ -6314,7 +6589,7 @@ exit $EXIT_CODE
 
 ================================================================================
 File: backend/fl-platform-api/src/main/resources/scripts/run_init_model.sh
-Size: 768 bytes | Lines: 23 | Section: source
+Size: 824 bytes | Lines: 25 | Section: source
 ================================================================================
 ```bash
 #!/bin/bash
@@ -6331,8 +6606,10 @@ echo "[WRAPPER-SH] Activating Python virtual environment..."
 echo "[WRAPPER-SH] Environment activated. Executing init_model.py..."
 
 # Change to script directory and execute init_model.py with absolute path
+PROJECT_ROOT="$( cd "${SCRIPT_DIR}/../../../../../.." && pwd )"
+VENV_PATH="${PROJECT_ROOT}/venv"
 cd "$SCRIPT_DIR"
-/home/anurag/codebase/Projects/FedLearn-Platform/venv/bin/python3 init_model.py "$@"
+"$VENV_PATH/bin/python3" init_model.py "$@"
 
 EXIT_CODE=$?
 echo "[WRAPPER-SH] Python script finished with exit code: $EXIT_CODE"
@@ -6373,7 +6650,7 @@ class FlPlatformApiApplicationTests {
 
 ================================================================================
 File: backend/fl-platform-api/src/test/java/com/federated/fl_platform_api/ProjectControllerTest.java
-Size: 3674 bytes | Lines: 82 | Section: tests
+Size: 2621 bytes | Lines: 59 | Section: tests
 ================================================================================
 ```java
 package com.federated.fl_platform_api;
@@ -6381,38 +6658,15 @@ package com.federated.fl_platform_api;
 // Imports from your own project packages
 import com.federated.fl_platform_api.config.SecurityConfig; // Important: keep this import
 import com.federated.fl_platform_api.controller.ProjectController;
-import com.federated.fl_platform_api.model.Project;
-import com.federated.fl_platform_api.service.CustomUserDetailsService; // Important: import the class to be mocked
-import com.federated.fl_platform_api.service.ProjectService;
 
 // Imports from external libraries
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import; // Important: keep this import
-import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.ResultActions;
-
-import java.util.UUID;
-
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = ProjectController.class)
 @Import(SecurityConfig.class) // This is correct, we want to test with our real security rules.
 public class ProjectControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
 //
 //    // We already have this mock because the controller depends on it.
 //    @MockBean
@@ -6463,7 +6717,7 @@ public class ProjectControllerTest {
 
 ================================================================================
 File: backend/fl-platform-api/src/test/java/com/federated/fl_platform_api/ProjectServiceTest.java
-Size: 5430 bytes | Lines: 151 | Section: tests
+Size: 5456 bytes | Lines: 152 | Section: tests
 ================================================================================
 ```java
 package com.federated.fl_platform_api;
@@ -6501,6 +6755,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings("null")
 class ProjectServiceTest {
 
     @Mock

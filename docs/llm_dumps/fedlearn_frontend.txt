@@ -2,12 +2,12 @@
 FedLearn Platform — LLM context dump: frontend
 ================================================================================
 Component path : frontend
-Generated at   : 2026-04-14 17:41 UTC
-Git branch     : feature/fedlearn-desktop-and-aws-orchestration
-Git commit     : 89b2cf5 (uncommitted changes present)
-Files included : 43 (config=3, source=37, tests=0, docs=3)
-Total lines    : 4,151
-Total size     : 116.2 KB
+Generated at   : 2026-04-15 05:56 UTC
+Git branch     : audit-remediation
+Git commit     : d53fc44 (uncommitted changes present)
+Files included : 63 (config=3, source=57, tests=0, docs=3)
+Total lines    : 7,603
+Total size     : 242.6 KB
 
 Notes for the reader:
   * Everything below is verbatim from this repo at the commit above.
@@ -33,6 +33,7 @@ frontend/
   src/api/
       axiosConfig.ts
   src/components/
+      ConfirmDialog.tsx
       CopyIcon.tsx
       CreateProjectModal.tsx
       DiskLoader.tsx
@@ -42,9 +43,24 @@ frontend/
       ProjectCard.tsx
       ProtectedRoute.tsx
       ResultsModal.tsx
+  src/components/redesign/
+        CreateProjectModal.tsx
+        DashboardV2.tsx
+        DatasetsView.tsx
+        LayoutV2.tsx
+        LogViewer.tsx
+        ModelsView.tsx
+        NodeNetwork.tsx
+        ProjectCard.tsx
+        ResultsModal.tsx
+        SettingsView.tsx
+        Sidebar.tsx
   src/context/
       AuthContext.tsx
+  src/lib/
+      utils.ts
   src/pages/
+      ClientsPage.tsx
       DashboardPage.tsx
       HomePage.tsx
       LandingPage.tsx
@@ -55,8 +71,11 @@ frontend/
       TrainingPage.tsx
   src/services/
       apiServices.ts
+      logStore.ts
   src/styles/
       AuthStyles.css
+      ClientsPage.css
+      ConfirmDialog.css
       CopyIcon.css
       CreateProjectModal.css
       Dashboard.css
@@ -67,52 +86,75 @@ frontend/
       ModelCard.css
       ProjectCard.css
       ResultsModal.css
+      fonts.css
+      tailwind.css
+      theme.css
 
 -- MANIFEST --------------------------------------------------------------------
 path                                                                        bytes   lines  section
 frontend/CLAUDE.md                                                            806      15  docs
 frontend/FIXES_APPLIED.md                                                    8425     339  docs
 frontend/README.md                                                           8922     280  docs
-frontend/package.json                                                         768      32  config
+frontend/package.json                                                        1035      40  config
 frontend/src/App.css                                                            0       0  source
-frontend/src/App.tsx                                                         2648      76  source
-frontend/src/api/axiosConfig.ts                                              1354      44  source
+frontend/src/App.tsx                                                         3701      93  source
+frontend/src/api/axiosConfig.ts                                              1543      47  source
+frontend/src/components/ConfirmDialog.tsx                                    1985      68  source
 frontend/src/components/CopyIcon.tsx                                         1441      46  source
 frontend/src/components/CreateProjectModal.tsx                               5800     155  source
 frontend/src/components/DiskLoader.tsx                                        608      21  source
-frontend/src/components/Layout.tsx                                           1489      44  source
-frontend/src/components/LogViewer.tsx                                        6551     179  source
+frontend/src/components/Layout.tsx                                           2328      60  source
+frontend/src/components/LogViewer.tsx                                        7186     176  source
 frontend/src/components/ModelCard.tsx                                         860      32  source
 frontend/src/components/ProjectCard.tsx                                     11236     262  source
 frontend/src/components/ProtectedRoute.tsx                                    496      20  source
 frontend/src/components/ResultsModal.tsx                                     2693      78  source
+frontend/src/components/redesign/CreateProjectModal.tsx                      6746     165  source
+frontend/src/components/redesign/DashboardV2.tsx                             8711     226  source
+frontend/src/components/redesign/DatasetsView.tsx                            5442     138  source
+frontend/src/components/redesign/LayoutV2.tsx                                 484      14  source
+frontend/src/components/redesign/LogViewer.tsx                              13213     294  source
+frontend/src/components/redesign/ModelsView.tsx                              7217     179  source
+frontend/src/components/redesign/NodeNetwork.tsx                             9318     229  source
+frontend/src/components/redesign/ProjectCard.tsx                            10210     252  source
+frontend/src/components/redesign/ResultsModal.tsx                           10808     195  source
+frontend/src/components/redesign/SettingsView.tsx                            5199     134  source
+frontend/src/components/redesign/Sidebar.tsx                                 3432      84  source
 frontend/src/context/AuthContext.tsx                                         2720      97  source
-frontend/src/index.css                                                       1717      64  source
-frontend/src/main.tsx                                                         640      26  source
-frontend/src/pages/DashboardPage.tsx                                         7427     216  source
+frontend/src/index.css                                                       1693      63  source
+frontend/src/lib/utils.ts                                                     169       6  source
+frontend/src/main.tsx                                                         701      28  source
+frontend/src/pages/ClientsPage.tsx                                          10396     270  source
+frontend/src/pages/DashboardPage.tsx                                         8769     254  source
 frontend/src/pages/HomePage.tsx                                               234      12  source
 frontend/src/pages/LandingPage.tsx                                           4730      96  source
 frontend/src/pages/LoginPage.tsx                                             3458     104  source
-frontend/src/pages/ModelsPage.tsx                                             233      12  source
+frontend/src/pages/ModelsPage.tsx                                            4882     128  source
 frontend/src/pages/RegisterPage.tsx                                          6617     181  source
-frontend/src/pages/SettingsPage.tsx                                           248      12  source
-frontend/src/pages/TrainingPage.tsx                                           238      12  source
-frontend/src/services/apiServices.ts                                         2823      98  source
+frontend/src/pages/SettingsPage.tsx                                          4002      99  source
+frontend/src/pages/TrainingPage.tsx                                          4557     115  source
+frontend/src/services/apiServices.ts                                         3338     118  source
+frontend/src/services/logStore.ts                                            3995     112  source
 frontend/src/styles/AuthStyles.css                                           2616     106  source
+frontend/src/styles/ClientsPage.css                                          6609     383  source
+frontend/src/styles/ConfirmDialog.css                                        1598      81  source
 frontend/src/styles/CopyIcon.css                                              247      14  source
 frontend/src/styles/CreateProjectModal.css                                   1492      92  source
 frontend/src/styles/Dashboard.css                                            4112     189  source
 frontend/src/styles/DiskLoader.css                                           1081      66  source
 frontend/src/styles/LandingPage.css                                          4639     231  source
-frontend/src/styles/Layout.css                                               6523     275  source
+frontend/src/styles/Layout.css                                               7079     304  source
 frontend/src/styles/LogViewer.css                                            1655      90  source
 frontend/src/styles/ModelCard.css                                            1031      57  source
 frontend/src/styles/ProjectCard.css                                          7337     322  source
 frontend/src/styles/ResultsModal.css                                         1600      86  source
-frontend/tsconfig.json                                                        824      32  config
+frontend/src/styles/fonts.css                                                  88       1  source
+frontend/src/styles/tailwind.css                                               69       3  source
+frontend/src/styles/theme.css                                                5448     181  source
+frontend/tsconfig.json                                                        854      33  config
 frontend/tsconfig.node.json                                                   233      11  source
 frontend/vercel.json                                                           96       8  source
-frontend/vite.config.ts                                                       333      19  config
+frontend/vite.config.ts                                                       393      20  config
 
 ################################################################################
 # CONFIG & BUILD
@@ -120,7 +162,7 @@ frontend/vite.config.ts                                                       33
 
 ================================================================================
 File: frontend/package.json
-Size: 768 bytes | Lines: 32 | Section: config
+Size: 1035 bytes | Lines: 40 | Section: config
 ================================================================================
 ```json
 {
@@ -129,7 +171,7 @@ Size: 768 bytes | Lines: 32 | Section: config
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --open",
     "build": "tsc && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -137,13 +179,20 @@ Size: 768 bytes | Lines: 32 | Section: config
   "dependencies": {
     "@stomp/stompjs": "^7.1.1",
     "axios": "^1.11.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.487.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.5.0",
-    "react-router-dom": "^7.5.2"
+    "react-router-dom": "^7.5.2",
+    "recharts": "^2.15.2",
+    "tailwind-merge": "^3.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
+    "@tailwindcss/postcss": "^4.1.12",
+    "@tailwindcss/vite": "^4.1.12",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
@@ -151,6 +200,7 @@ Size: 768 bytes | Lines: 32 | Section: config
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
+    "tailwindcss": "^4.1.12",
     "typescript": "^5.7.2",
     "vite": "^6.3.1"
   }
@@ -160,7 +210,7 @@ Size: 768 bytes | Lines: 32 | Section: config
 
 ================================================================================
 File: frontend/tsconfig.json
-Size: 824 bytes | Lines: 32 | Section: config
+Size: 854 bytes | Lines: 33 | Section: config
 ================================================================================
 ```json
 {
@@ -180,6 +230,7 @@ Size: 824 bytes | Lines: 32 | Section: config
     "jsx": "react-jsx",
 
     /* Linting */
+    "types": ["vite/client"],
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -200,15 +251,16 @@ Size: 824 bytes | Lines: 32 | Section: config
 
 ================================================================================
 File: frontend/vite.config.ts
-Size: 333 bytes | Lines: 19 | Section: config
+Size: 393 bytes | Lines: 20 | Section: config
 ================================================================================
 ```typescript
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   define: {
     'global': {},
   },
@@ -240,24 +292,30 @@ Size: 0 bytes | Lines: 0 | Section: source
 
 ================================================================================
 File: frontend/src/App.tsx
-Size: 2648 bytes | Lines: 76 | Section: source
+Size: 3701 bytes | Lines: 93 | Section: source
 ================================================================================
 ```tsx
 import React, { useEffect } from 'react';
 import { Routes, Route, Link, Navigate } from 'react-router-dom';
-import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import ModelsPage from './pages/ModelsPage';
 import TrainingPage from './pages/TrainingPage';
 import SettingsPage from './pages/SettingsPage';
+import ClientsPage from './pages/ClientsPage';
 import './App.css';
 import Layout from './components/Layout';
 import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import DiskLoader from './components/DiskLoader';
+import { LayoutV2 } from './components/redesign/LayoutV2';
+import { DashboardV2 } from './components/redesign/DashboardV2';
+import { NodeNetwork } from './components/redesign/NodeNetwork';
+import { ModelsView } from './components/redesign/ModelsView';
+import { DatasetsView } from './components/redesign/DatasetsView';
+import { SettingsView } from './components/redesign/SettingsView';
 
 const AppLoading: React.FC = () => (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -304,11 +362,22 @@ function App() {
                 />
 
                 <Route element={<ProtectedRoute />}>
+                    {/* Original UI */}
                     <Route element={<Layout />}>
                         <Route path="/dashboard" element={<DashboardPage />} />
+                        <Route path="/clients" element={<ClientsPage />} />
                         <Route path="/models" element={<ModelsPage />} />
                         <Route path="/training" element={<TrainingPage />} />
                         <Route path="/settings" element={<SettingsPage />} />
+                    </Route>
+
+                    {/* Redesigned UI (v2) — Apple-inspired dark theme */}
+                    <Route element={<LayoutV2 />}>
+                        <Route path="/v2" element={<DashboardV2 />} />
+                        <Route path="/v2/nodes" element={<NodeNetwork />} />
+                        <Route path="/v2/models" element={<ModelsView />} />
+                        <Route path="/v2/datasets" element={<DatasetsView />} />
+                        <Route path="/v2/settings" element={<SettingsView />} />
                     </Route>
                 </Route>
 
@@ -324,7 +393,7 @@ export default App;
 
 ================================================================================
 File: frontend/src/api/axiosConfig.ts
-Size: 1354 bytes | Lines: 44 | Section: source
+Size: 1543 bytes | Lines: 47 | Section: source
 ================================================================================
 ```typescript
 import axios, { AxiosError } from 'axios';
@@ -361,9 +430,12 @@ api.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-            localStorage.removeItem('jwtToken');
-            window.dispatchEvent(new Event('authError'));
-            window.location.href = '/login';
+            // Do not force a page reload if the user is explicitly trying to log in
+            if (error.config && !error.config.url?.includes('/auth/login')) {
+                localStorage.removeItem('jwtToken');
+                window.dispatchEvent(new Event('authError'));
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }
@@ -371,6 +443,82 @@ api.interceptors.response.use(
 
 export default api;
 export { baseURL };
+```
+
+
+================================================================================
+File: frontend/src/components/ConfirmDialog.tsx
+Size: 1985 bytes | Lines: 68 | Section: source
+================================================================================
+```tsx
+import React, { useEffect, useRef } from 'react';
+import '../styles/ConfirmDialog.css';
+
+interface ConfirmDialogProps {
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    danger?: boolean;
+    onConfirm: () => void;
+    onCancel: () => void;
+}
+
+const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
+    title,
+    message,
+    confirmLabel = 'Confirm',
+    cancelLabel = 'Cancel',
+    danger = false,
+    onConfirm,
+    onCancel,
+}) => {
+    const confirmBtnRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+        confirmBtnRef.current?.focus();
+    }, []);
+
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onCancel();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [onCancel]);
+
+    return (
+        <div
+            className="confirm-dialog-backdrop"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-dialog-title"
+            onClick={(e) => {
+                if (e.target === e.currentTarget) onCancel();
+            }}
+        >
+            <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+                <h3 id="confirm-dialog-title">{title}</h3>
+                <p>{message}</p>
+                <div className="confirm-dialog-actions">
+                    <button type="button" className="btn-cancel" onClick={onCancel}>
+                        {cancelLabel}
+                    </button>
+                    <button
+                        ref={confirmBtnRef}
+                        type="button"
+                        className={danger ? 'btn-danger' : 'btn-primary'}
+                        onClick={onConfirm}
+                    >
+                        {confirmLabel}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default ConfirmDialog;
 ```
 
 
@@ -622,11 +770,11 @@ export default DiskLoader;
 
 ================================================================================
 File: frontend/src/components/Layout.tsx
-Size: 1489 bytes | Lines: 44 | Section: source
+Size: 2328 bytes | Lines: 60 | Section: source
 ================================================================================
 ```tsx
 import React, { useEffect, useState } from 'react';
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Layout.css';
 
@@ -638,7 +786,7 @@ const Layout: React.FC = () => {
         if (currentUser) {
             setUserName(currentUser.username);
         }
-    }, [currentUser]); // Fixed: Added currentUser as dependency
+    }, [currentUser]);
 
     return (
         <div className="layout-container">
@@ -649,10 +797,26 @@ const Layout: React.FC = () => {
                     </div>
                 </Link>
                 <nav className="app-nav">
-                    <Link to="/dashboard">Dashboard</Link>
-                    <Link to="/models">Models</Link>
+                    <NavLink to="/dashboard" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        Dashboard
+                    </NavLink>
+                    <NavLink to="/clients" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        Clients
+                    </NavLink>
+                    <NavLink to="/models" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        Models
+                    </NavLink>
+                    <NavLink to="/training" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        Training
+                    </NavLink>
+                    <NavLink to="/settings" className={({ isActive }) => (isActive ? 'active' : '')}>
+                        Settings
+                    </NavLink>
                 </nav>
                 <div className="user-profile">
+                    <Link to="/v2" className="v2-link" title="Switch to the redesigned UI">
+                        Try V2 UI →
+                    </Link>
                     {userName && (
                         <span className="welcome-text">Welcome, {userName}!</span>
                     )}
@@ -674,19 +838,14 @@ export default Layout;
 
 ================================================================================
 File: frontend/src/components/LogViewer.tsx
-Size: 6551 bytes | Lines: 179 | Section: source
+Size: 7186 bytes | Lines: 176 | Section: source
 ================================================================================
 ```tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Client, StompSubscription } from '@stomp/stompjs';
+import * as api from '../services/apiServices';
+import { logStore, StoredLogEntry } from '../services/logStore';
 import '../styles/LogViewer.css';
-
-interface LogEntry {
-    level: string;
-    message: string;
-    timestamp?: string;
-    stackTrace?: string;
-}
 
 interface LogViewerProps {
     projectId: string;
@@ -694,10 +853,8 @@ interface LogViewerProps {
     onClose: () => void;
 }
 
-const MAX_LOGS = 1000; // Prevent memory issues
-
 const LogViewer: React.FC<LogViewerProps> = ({ projectId, serverUrl, onClose }) => {
-    const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [logs, setLogs] = useState<StoredLogEntry[]>(() => logStore.get(projectId));
     const [isConnected, setIsConnected] = useState(false);
     const logContainerRef = useRef<HTMLDivElement>(null);
     const subscriptionRef = useRef<StompSubscription | null>(null);
@@ -706,68 +863,72 @@ const LogViewer: React.FC<LogViewerProps> = ({ projectId, serverUrl, onClose }) 
     useEffect(() => {
         if (!projectId) return;
 
-        // Fetch existing historical logs first
-        import('../services/apiServices').then(api => {
-            api.fetchProjectLogs(projectId).then(response => {
-                if (response.data && response.data.length > 0) {
-                    const formattedLogs = response.data.map((log: any) => ({
-                        level: log.level,
-                        message: log.message,
-                        timestamp: log.timestamp,
-                        stackTrace: log.stackTrace
-                    }));
-                    // Set historical logs, limiting to MAX_LOGS
-                    setLogs(formattedLogs.slice(-MAX_LOGS));
-                }
-            }).catch(err => {
-                console.error("Failed to fetch historical logs:", err);
-            });
-        });
+        // Hydrate from cache first so reopening never flashes an empty pane.
+        setLogs(logStore.get(projectId));
+
+        // Subscribe to store updates — this keeps the UI reactive when either
+        // the live STOMP subscription here or any other code path appends logs.
+        const unsubscribe = logStore.subscribe(projectId, (next) => setLogs(next));
+
+        // Fetch historical logs only once per project; on subsequent re-opens
+        // the cache already has them.
+        if (!logStore.hasLoadedHistorical(projectId)) {
+            api.fetchProjectLogs(projectId)
+                .then((response) => {
+                    if (Array.isArray(response.data) && response.data.length > 0) {
+                        const formatted: StoredLogEntry[] = response.data.map((log: any) => ({
+                            level: log.level,
+                            message: log.message,
+                            timestamp: log.timestamp,
+                            stackTrace: log.stackTrace,
+                        }));
+                        logStore.mergeHistorical(projectId, formatted);
+                    } else {
+                        logStore.markHistoricalLoaded(projectId);
+                    }
+                })
+                .catch((err) => {
+                    console.error('Failed to fetch historical logs:', err);
+                });
+        }
 
         const brokerURL = serverUrl.replace(/^http/, 'ws') + '/ws-logs';
         const stompClient = new Client({
-            brokerURL: brokerURL,
+            brokerURL,
             connectHeaders: {},
             reconnectDelay: 5000,
         });
 
         stompClient.onConnect = () => {
             setIsConnected(true);
-            setLogs(prev => [
-                ...prev.slice(-MAX_LOGS + 1),
-                {
-                    level: 'INFO',
-                    message: '--- WebSocket Connection Established ---',
-                    timestamp: new Date().toISOString()
-                }
-            ]);
-
-            // Store subscription reference for cleanup
-            const subscription = stompClient.subscribe(`/topic/logs/${projectId}`, (message) => {
-                try {
-                    const logObj: LogEntry = JSON.parse(message.body);
-                    setLogs(prevLogs => [...prevLogs.slice(-MAX_LOGS + 1), logObj]);
-                } catch (e) {
-                    setLogs(prevLogs => [
-                        ...prevLogs.slice(-MAX_LOGS + 1),
-                        { level: 'INFO', message: message.body }
-                    ]);
-                }
+            logStore.append(projectId, {
+                level: 'INFO',
+                message: '--- WebSocket Connection Established ---',
+                timestamp: new Date().toISOString(),
             });
 
-            subscriptionRef.current = subscription;
+            subscriptionRef.current = stompClient.subscribe(`/topic/logs/${projectId}`, (message) => {
+                try {
+                    const parsed = JSON.parse(message.body);
+                    logStore.append(projectId, {
+                        level: parsed.level ?? 'INFO',
+                        message: parsed.message ?? message.body,
+                        timestamp: parsed.timestamp,
+                        stackTrace: parsed.stackTrace,
+                    });
+                } catch {
+                    logStore.append(projectId, { level: 'INFO', message: message.body });
+                }
+            });
         };
 
         stompClient.onDisconnect = () => {
             setIsConnected(false);
-            setLogs(prev => [
-                ...prev.slice(-MAX_LOGS + 1),
-                {
-                    level: 'ERROR',
-                    message: '--- WebSocket Connection Lost ---',
-                    timestamp: new Date().toISOString()
-                }
-            ]);
+            logStore.append(projectId, {
+                level: 'WARN',
+                message: '--- WebSocket Connection Lost ---',
+                timestamp: new Date().toISOString(),
+            });
         };
 
         stompClient.onStompError = (frame) => {
@@ -779,12 +940,9 @@ const LogViewer: React.FC<LogViewerProps> = ({ projectId, serverUrl, onClose }) 
         clientRef.current = stompClient;
 
         return () => {
-            if (subscriptionRef.current) {
-                subscriptionRef.current.unsubscribe();
-            }
-            if (clientRef.current?.active) {
-                clientRef.current.deactivate();
-            }
+            unsubscribe();
+            if (subscriptionRef.current) subscriptionRef.current.unsubscribe();
+            if (clientRef.current?.active) clientRef.current.deactivate();
         };
     }, [projectId, serverUrl]);
 
@@ -794,27 +952,32 @@ const LogViewer: React.FC<LogViewerProps> = ({ projectId, serverUrl, onClose }) 
         }
     }, [logs]);
 
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [onClose]);
+
     const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (e.target === e.currentTarget) {
-            onClose();
-        }
+        if (e.target === e.currentTarget) onClose();
     };
 
     const handleClearLogs = () => {
-        setLogs([]);
+        logStore.clear(projectId);
     };
 
     return (
         <div className="log-viewer-backdrop" onClick={handleBackdropClick}>
-            <div className="log-viewer" onClick={e => e.stopPropagation()}>
+            <div className="log-viewer" onClick={(e) => e.stopPropagation()}>
                 <div className="log-header">
                     <h4>Live Server Logs</h4>
                     <div className="header-controls">
-                        <button
-                            onClick={handleClearLogs}
-                            className="clear-btn"
-                            title="Clear logs"
-                        >
+                        <span className="log-count" aria-label="Log entry count">
+                            {logs.length} entries
+                        </span>
+                        <button onClick={handleClearLogs} className="clear-btn" title="Clear cached logs">
                             Clear
                         </button>
                         <div className={`connection-status ${isConnected ? 'connected' : ''}`}>
@@ -833,15 +996,13 @@ const LogViewer: React.FC<LogViewerProps> = ({ projectId, serverUrl, onClose }) 
                 <div className="logs-container" ref={logContainerRef}>
                     {logs.length > 0 ? (
                         logs.map((log, i) => (
-                            <div key={i} className={`log-entry log-${log.level?.toLowerCase()}`}>
+                            <div key={i} className={`log-entry log-${log.level?.toLowerCase() ?? 'info'}`}>
                                 <span className="log-timestamp">{log.timestamp}</span>
-                                <span className={`log-level level-${log.level?.toLowerCase()}`}>
-                                    [{log.level}]
+                                <span className={`log-level level-${log.level?.toLowerCase() ?? 'info'}`}>
+                                    [{log.level ?? 'INFO'}]
                                 </span>
                                 <span className="log-message">{log.message}</span>
-                                {log.stackTrace && (
-                                    <pre className="log-stacktrace">{log.stackTrace}</pre>
-                                )}
+                                {log.stackTrace && <pre className="log-stacktrace">{log.stackTrace}</pre>}
                             </div>
                         ))
                     ) : (
@@ -1284,6 +1445,2004 @@ export default ResultsModal;
 
 
 ================================================================================
+File: frontend/src/components/redesign/CreateProjectModal.tsx
+Size: 6746 bytes | Lines: 165 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Frontend — CreateProjectModal V2 (Apple-inspired)
+// =============================================================================
+
+import { useState, useEffect } from 'react';
+import { X, Sparkles } from 'lucide-react';
+
+const modelOptions = {
+  CNN: {
+    models: ['net', 'ResNet', 'VGGNet', 'AlexNet'],
+    optimizers: ['Adam', 'SGD', 'RMSprop', 'AdamW'],
+  },
+  Transformer: {
+    models: ['opt-125m', 'bert-tiny'],
+    optimizers: ['AdamW', 'Adam'],
+  },
+};
+
+type ModelType = keyof typeof modelOptions;
+
+interface CreateProjectModalProps {
+  isOpen: boolean;
+  onSubmit: (data: {
+    name: string;
+    modelType: string;
+    modelName: string;
+    optimizer: string;
+    pretrainEpochs: number;
+  }) => void;
+  onClose: () => void;
+  isLoading?: boolean;
+}
+
+export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = false }: CreateProjectModalProps) {
+  const [name, setName] = useState('');
+  const [modelType, setModelType] = useState<ModelType>('CNN');
+  const [modelName, setModelName] = useState(modelOptions.CNN.models[0]);
+  const [optimizer, setOptimizer] = useState(modelOptions.CNN.optimizers[0]);
+  const [pretrainEpochs, setPretrainEpochs] = useState(0);
+
+  useEffect(() => {
+    setModelName(modelOptions[modelType].models[0]);
+    setOptimizer(modelOptions[modelType].optimizers[0]);
+  }, [modelType]);
+
+  // Reset on close
+  useEffect(() => {
+    if (!isOpen) {
+      setName('');
+      setModelType('CNN');
+      setPretrainEpochs(0);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({ name, modelType, modelName, optimizer, pretrainEpochs });
+  };
+
+  const selectClass =
+    "w-full bg-[#1c1c1e] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-[15px] text-[#f5f5f7] focus:outline-none focus:ring-[3px] focus:ring-[#0a84ff]/30 focus:border-[#0a84ff]/50 transition-all appearance-none cursor-pointer";
+
+  const inputClass =
+    "w-full bg-[#1c1c1e] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-[15px] text-[#f5f5f7] placeholder-[#86868b] focus:outline-none focus:ring-[3px] focus:ring-[#0a84ff]/30 focus:border-[#0a84ff]/50 transition-all";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl font-sans"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-[rgba(28,28,30,0.92)] border border-[rgba(255,255,255,0.1)] w-full max-w-lg rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden text-[#f5f5f7]">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 pb-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-[#0a84ff]" />
+            <h2 className="text-[22px] font-semibold tracking-tight">New Project</h2>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-[#86868b] bg-[#3a3a3c] hover:bg-[rgba(255,255,255,0.2)] rounded-full transition-colors">
+            <X className="w-[18px] h-[18px]" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="px-6 pb-6 flex flex-col gap-5">
+          {/* Project Name */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Project Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. ResNet50 Imaging"
+              className={inputClass}
+              required
+              autoFocus
+            />
+          </div>
+
+          {/* Model Architecture */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Architecture</label>
+            <select value={modelType} onChange={(e) => setModelType(e.target.value as ModelType)} className={selectClass}>
+              {Object.keys(modelOptions).map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Model + Optimizer row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Model</label>
+              <select value={modelName} onChange={(e) => setModelName(e.target.value)} className={selectClass}>
+                {modelOptions[modelType].models.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Optimizer</label>
+              <select value={optimizer} onChange={(e) => setOptimizer(e.target.value)} className={selectClass}>
+                {modelOptions[modelType].optimizers.map((o) => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Pre-train Epochs */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Pre-train Epochs</label>
+            <input
+              type="number"
+              value={pretrainEpochs}
+              onChange={(e) => setPretrainEpochs(Number(e.target.value))}
+              min="0"
+              className={inputClass}
+            />
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3 mt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+              className="flex-1 bg-[#2c2c2e] hover:bg-[#3a3a3c] text-[#f5f5f7] py-3 rounded-full text-[15px] font-medium tracking-tight transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading || !name.trim()}
+              className="flex-1 bg-[#f5f5f7] text-black hover:bg-white py-3 rounded-full text-[15px] font-medium tracking-tight transition-all duration-200 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? 'Creating...' : 'Create Project'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+```
+
+
+================================================================================
+File: frontend/src/components/redesign/DashboardV2.tsx
+Size: 8711 bytes | Lines: 226 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Frontend — DashboardV2 (Apple-inspired, real API)
+// =============================================================================
+// Wired to apiServices for real project data, WebSocket status updates.
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import * as api from '../../services/apiServices';
+import { Client as StompClient, StompSubscription } from '@stomp/stompjs';
+import { ProjectCard } from './ProjectCard';
+import { LogViewerV2 } from './LogViewer';
+import { ResultsModalV2 } from './ResultsModal';
+import { CreateProjectModalV2 } from './CreateProjectModal';
+import { Plus, Search, Filter } from 'lucide-react';
+import type { Project, ProjectResult } from '../../services/apiServices';
+
+const SERVER_ROOT_URL = import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
+const WEBSOCKET_URL_BASE = SERVER_ROOT_URL.replace(/^http/, 'ws');
+
+interface StatusUpdate {
+  projectId: string;
+  newStatus: string;
+  serverPort?: number;
+}
+
+export function DashboardV2() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [logViewProjectId, setLogViewProjectId] = useState<string | null>(null);
+  const [resultsProject, setResultsProject] = useState<{ id: string; name: string } | null>(null);
+  const [results, setResults] = useState<ProjectResult[]>([]);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const stompClientRef = useRef<StompClient | null>(null);
+  const subscriptionRef = useRef<StompSubscription | null>(null);
+
+  const loadProjects = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await api.fetchProjects();
+      setProjects(Array.isArray(response.data) ? response.data : []);
+      setError('');
+    } catch {
+      setError('Failed to fetch projects.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadProjects(); }, [loadProjects]);
+
+  // WebSocket status updates
+  useEffect(() => {
+    const client = new StompClient({
+      brokerURL: `${WEBSOCKET_URL_BASE}/ws-logs`,
+      reconnectDelay: 5000,
+    });
+
+    client.onConnect = () => {
+      const subscription = client.subscribe('/topic/status/*', (message) => {
+        try {
+          const update: StatusUpdate = JSON.parse(message.body);
+          setProjects((prev) =>
+            prev.map((p) =>
+              p.id === update.projectId
+                ? { ...p, status: update.newStatus as Project['status'], serverPort: update.serverPort }
+                : p
+            )
+          );
+        } catch { /* ignore parse errors */ }
+      });
+      subscriptionRef.current = subscription;
+    };
+
+    client.activate();
+    stompClientRef.current = client;
+
+    return () => {
+      subscriptionRef.current?.unsubscribe();
+      if (stompClientRef.current?.active) stompClientRef.current.deactivate();
+    };
+  }, []);
+
+  const handleCreateProject = async (projectData: any) => {
+    try {
+      setIsCreating(true);
+      await api.createProject(projectData);
+      setIsCreateModalOpen(false);
+      loadProjects();
+    } catch (err) {
+      setError('Failed to create project.');
+      console.error(err);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleToggleServer = async (project: Project) => {
+    try {
+      if (project.status === 'RUNNING') {
+        const res = await api.stopProjectServer(project.id);
+        setProjects((prev) => prev.map((p) => (p.id === res.data.id ? res.data : p)));
+      } else {
+        const res = await api.startProjectServer(project.id, { strategy: 'FedAvg', numRounds: 5, minClients: 2 });
+        setProjects((prev) => prev.map((p) => (p.id === res.data.id ? res.data : p)));
+      }
+    } catch {
+      setError(`Failed to ${project.status === 'RUNNING' ? 'stop' : 'start'} server.`);
+    }
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      await api.deleteProject(projectId);
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    } catch (err) {
+      setError('Failed to delete project.');
+    }
+  };
+
+  const handleOpenResults = async (project: Project) => {
+    try {
+      const res = await api.fetchProjectResults(project.id);
+      setResults(res.data);
+      setResultsProject({ id: project.id, name: project.name });
+    } catch {
+      setError('Could not fetch results.');
+    }
+  };
+
+  const filteredProjects = projects.filter((p) =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-black text-[#f5f5f7] font-sans selection:bg-[#0a84ff] selection:text-white">
+      {/* Header */}
+      <div className="h-24 flex items-center justify-between px-10 border-b border-[#2c2c2e] bg-[rgba(0,0,0,0.65)] backdrop-blur-3xl saturate-[1.8] sticky top-0 z-20">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-tight text-[#f5f5f7]">Active Projects</h1>
+          <p className="text-[15px] text-[#86868b] mt-0.5 tracking-tight">Manage and monitor federated tasks.</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search className="w-[18px] h-[18px] absolute left-4 top-1/2 -translate-y-1/2 text-[#86868b]" />
+            <input
+              type="text"
+              placeholder="Search projects"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-[#1c1c1e] pl-11 pr-4 py-2.5 rounded-full text-[15px] text-[#f5f5f7] placeholder-[#86868b] focus:outline-none focus:ring-[3px] focus:ring-[#0a84ff]/30 transition-all w-72 border border-transparent focus:border-[#0a84ff]/50"
+            />
+          </div>
+          <button className="w-10 h-10 flex items-center justify-center bg-[#1c1c1e] hover:bg-[#2c2c2e] rounded-full text-[#f5f5f7] transition-colors">
+            <Filter className="w-4 h-4" />
+          </button>
+          <div className="w-px h-6 bg-[#2c2c2e] mx-2" />
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2 bg-[#f5f5f7] text-black hover:bg-white px-5 py-2.5 rounded-full text-[15px] font-medium transition-all duration-200 transform active:scale-95 shadow-[0_2px_10px_rgba(255,255,255,0.1)]"
+          >
+            <Plus className="w-[18px] h-[18px]" />
+            New Project
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="flex-1 overflow-y-auto px-10 py-10 relative z-10 bg-black">
+        {error && (
+          <div className="mb-6 px-5 py-3 rounded-2xl bg-[#ff453a]/10 text-[#ff453a] text-[14px] font-medium">
+            {error}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64 text-[#86868b]">
+            Loading projects...
+          </div>
+        ) : filteredProjects.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-[1600px] mx-auto">
+            {filteredProjects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onOpenLogs={() => setLogViewProjectId(project.id)}
+                onOpenResults={() => handleOpenResults(project)}
+                onToggleServer={() => handleToggleServer(project)}
+                onDeleteProject={() => handleDeleteProject(project.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-64 text-[#86868b] gap-2">
+            <p className="text-[17px]">No projects found.</p>
+            <p className="text-[14px]">Create one to get started.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Modals */}
+      <CreateProjectModalV2
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateProject}
+        isLoading={isCreating}
+      />
+      {logViewProjectId && (
+        <LogViewerV2
+          projectId={logViewProjectId}
+          serverUrl={SERVER_ROOT_URL}
+          onClose={() => setLogViewProjectId(null)}
+        />
+      )}
+
+      <ResultsModalV2
+        isOpen={!!resultsProject}
+        onClose={() => setResultsProject(null)}
+        projectName={resultsProject?.name || ''}
+        results={results}
+      />
+    </div>
+  );
+}
+```
+
+
+================================================================================
+File: frontend/src/components/redesign/DatasetsView.tsx
+Size: 5442 bytes | Lines: 138 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Frontend — V2 Datasets View
+// =============================================================================
+// Aggregates dataset types (modelType) currently referenced by active projects.
+
+import { useEffect, useMemo, useState } from 'react';
+import { Database, Layers } from 'lucide-react';
+import * as api from '../../services/apiServices';
+import type { Project } from '../../services/apiServices';
+
+interface DatasetSummary {
+  modelType: string;
+  projectCount: number;
+  uniqueModels: number;
+  runningCount: number;
+}
+
+function summarize(projects: Project[]): DatasetSummary[] {
+  const byType = new Map<string, DatasetSummary & { models: Set<string> }>();
+  for (const p of projects) {
+    const existing = byType.get(p.modelType);
+    if (existing) {
+      existing.projectCount += 1;
+      existing.models.add(p.modelName);
+      if (p.status === 'RUNNING') existing.runningCount += 1;
+      existing.uniqueModels = existing.models.size;
+    } else {
+      byType.set(p.modelType, {
+        modelType: p.modelType,
+        projectCount: 1,
+        uniqueModels: 1,
+        runningCount: p.status === 'RUNNING' ? 1 : 0,
+        models: new Set([p.modelName]),
+      });
+    }
+  }
+  return Array.from(byType.values())
+    .map(({ models, ...rest }) => rest)
+    .sort((a, b) => b.projectCount - a.projectCount);
+}
+
+export function DatasetsView() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.fetchProjects();
+        setProjects(Array.isArray(res.data) ? res.data : []);
+      } catch {
+        setError('Failed to fetch datasets.');
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, []);
+
+  const summaries = useMemo(() => summarize(projects), [projects]);
+
+  return (
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-black text-[#f5f5f7] font-sans">
+      <div className="h-24 flex items-center justify-between px-10 border-b border-[#2c2c2e] bg-[rgba(0,0,0,0.65)] backdrop-blur-3xl saturate-[1.8] sticky top-0 z-20">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-tight">Datasets</h1>
+          <p className="text-[15px] text-[#86868b] mt-0.5 tracking-tight">
+            Data domains actively consumed by federated projects.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-10 py-10 bg-black">
+        {error && (
+          <div className="mb-6 px-5 py-3 rounded-2xl bg-[#ff453a]/10 text-[#ff453a] text-[14px] font-medium">
+            {error}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64 text-[#86868b]">
+            Loading datasets…
+          </div>
+        ) : summaries.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-[#86868b] gap-2">
+            <p className="text-[17px]">No dataset types registered.</p>
+            <p className="text-[14px]">
+              Create a project with a model type to start populating this view.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {summaries.map((s) => (
+              <div
+                key={s.modelType}
+                className="bg-[#1c1c1e] rounded-[24px] p-6 flex flex-col gap-4 border border-[rgba(255,255,255,0.05)] hover:bg-[#2c2c2e]/60 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#bf5af2]/10 text-[#bf5af2] flex items-center justify-center">
+                    <Database className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-[17px] font-semibold tracking-tight">{s.modelType}</h3>
+                    <p className="text-[13px] text-[#86868b] tracking-tight">
+                      {s.projectCount} project{s.projectCount > 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-[#2c2c2e]/40 rounded-xl p-3 flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-[#0a84ff]">
+                      <Layers className="w-3.5 h-3.5" />
+                      <span className="text-[10px] uppercase tracking-wider font-semibold">
+                        Unique Models
+                      </span>
+                    </div>
+                    <span className="text-[20px] font-semibold tracking-tight">
+                      {s.uniqueModels}
+                    </span>
+                  </div>
+                  <div className="bg-[#2c2c2e]/40 rounded-xl p-3 flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-[#32d74b]">
+                      Running
+                    </span>
+                    <span className="text-[20px] font-semibold tracking-tight">
+                      {s.runningCount}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+
+================================================================================
+File: frontend/src/components/redesign/LayoutV2.tsx
+Size: 484 bytes | Lines: 14 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Frontend — LayoutV2 (Sidebar + Outlet)
+// =============================================================================
+import { Outlet } from 'react-router-dom';
+import { Sidebar } from './Sidebar';
+
+export function LayoutV2() {
+  return (
+    <div className="flex h-screen w-screen bg-black text-[#f5f5f7] overflow-hidden font-sans">
+      <Sidebar />
+      <Outlet />
+    </div>
+  );
+}
+```
+
+
+================================================================================
+File: frontend/src/components/redesign/LogViewer.tsx
+Size: 13213 bytes | Lines: 294 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Frontend — Redesigned LogViewer (Live Telemetry Dashboard)
+// =============================================================================
+// Wired to real WebSocket log stream from the backend, backed by logStore so
+// closing & reopening the modal preserves prior session output.
+
+import { useState, useEffect, useRef } from 'react';
+import { Play, Pause, Filter, TerminalSquare, Trash2 } from 'lucide-react';
+import { ResponsiveContainer, LineChart, Line } from 'recharts';
+import { cn } from '../../lib/utils';
+import { Client as StompClient } from '@stomp/stompjs';
+import { Activity } from 'lucide-react';
+import * as api from '../../services/apiServices';
+import { logStore, StoredLogEntry } from '../../services/logStore';
+
+interface TelemetryEntry {
+  timestamp: string;
+  loss: number;
+  accuracy: number;
+}
+
+interface LogViewerProps {
+  projectId: string;
+  serverUrl: string;
+  onClose: () => void;
+}
+
+// Telemetry cache (parallel to logStore) — preserves loss/accuracy sparklines
+// across modal re-opens, keyed by projectId.
+const telemetryCache = new Map<string, TelemetryEntry[]>();
+
+function normalizeLevel(level?: string): 'INFO' | 'ERROR' | 'WARN' | 'DEBUG' {
+  const upper = (level ?? 'INFO').toUpperCase();
+  if (upper === 'ERROR' || upper === 'WARN' || upper === 'DEBUG') return upper;
+  return 'INFO';
+}
+
+export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
+  const [logs, setLogs] = useState<StoredLogEntry[]>(() => logStore.get(projectId));
+  const [telemetry, setTelemetry] = useState<TelemetryEntry[]>(
+    () => telemetryCache.get(projectId) ?? []
+  );
+  const [isPaused, setIsPaused] = useState(false);
+  const [filterError, setFilterError] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const pausedRef = useRef(isPaused);
+  pausedRef.current = isPaused;
+
+  // Hydrate + subscribe to the shared log cache.
+  useEffect(() => {
+    setLogs(logStore.get(projectId));
+    const unsubscribe = logStore.subscribe(projectId, (next) => setLogs(next));
+    return unsubscribe;
+  }, [projectId]);
+
+  // Fetch historical logs once per project.
+  useEffect(() => {
+    if (logStore.hasLoadedHistorical(projectId)) return;
+    api.fetchProjectLogs(projectId)
+      .then((response) => {
+        if (Array.isArray(response.data) && response.data.length > 0) {
+          const formatted: StoredLogEntry[] = response.data.map((log: any) => ({
+            level: log.level,
+            message: log.message,
+            timestamp: log.timestamp,
+            stackTrace: log.stackTrace,
+          }));
+          logStore.mergeHistorical(projectId, formatted);
+        } else {
+          logStore.markHistoricalLoaded(projectId);
+        }
+      })
+      .catch((err) => console.error('Failed to fetch historical logs:', err));
+  }, [projectId]);
+
+  // Live WebSocket stream.
+  useEffect(() => {
+    const wsUrl = serverUrl.replace(/^http/, 'ws');
+    const client = new StompClient({
+      brokerURL: `${wsUrl}/ws-logs`,
+      reconnectDelay: 5000,
+    });
+
+    client.onConnect = () => {
+      setIsConnected(true);
+      client.subscribe(`/topic/logs/${projectId}`, (message) => {
+        if (pausedRef.current) return;
+        try {
+          const parsed = JSON.parse(message.body);
+          const timeStr =
+            parsed.timestamp || new Date().toLocaleTimeString('en-US', { hour12: false });
+
+          logStore.append(projectId, {
+            level: normalizeLevel(parsed.level),
+            message: parsed.message ?? message.body,
+            timestamp: timeStr,
+            stackTrace: parsed.stackTrace,
+          });
+
+          if (parsed.loss !== undefined && parsed.accuracy !== undefined) {
+            const prev = telemetryCache.get(projectId) ?? [];
+            const next = [
+              ...prev.slice(-30),
+              { timestamp: timeStr, loss: parsed.loss, accuracy: parsed.accuracy },
+            ];
+            telemetryCache.set(projectId, next);
+            setTelemetry(next);
+          }
+        } catch {
+          logStore.append(projectId, {
+            level: 'INFO',
+            message: message.body,
+            timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+          });
+        }
+      });
+    };
+    client.onDisconnect = () => setIsConnected(false);
+
+    client.activate();
+    return () => {
+      if (client.active) client.deactivate();
+    };
+  }, [projectId, serverUrl]);
+
+  // Auto-scroll to newest entry (unless user paused).
+  useEffect(() => {
+    if (!isPaused && logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs, isPaused]);
+
+  const filteredLogs = filterError
+    ? logs.filter((l) => normalizeLevel(l.level) === 'ERROR')
+    : logs;
+
+  const handleClear = () => logStore.clear(projectId);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl font-sans">
+      <div className="bg-[rgba(28,28,30,0.85)] border border-[rgba(255,255,255,0.1)] w-full max-w-7xl h-[85vh] rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden text-[#f5f5f7]">
+
+        {/* Header */}
+        <div className="h-[60px] border-b border-[rgba(255,255,255,0.1)] flex items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <TerminalSquare className="w-[18px] h-[18px] text-[#86868b]" />
+            <h2 className="text-[17px] font-semibold tracking-tight text-[#f5f5f7]">Telemetry Dashboard</h2>
+            <div className="w-px h-[18px] bg-[rgba(255,255,255,0.1)] mx-2" />
+            <span className="flex h-2 w-2 relative">
+              <span className={cn(
+                "animate-ping absolute inline-flex h-2 w-2 rounded-full opacity-75",
+                isPaused ? "bg-[#ff9f0a]" : isConnected ? "bg-[#32d74b]" : "bg-[#ff453a]"
+              )} />
+              <span className={cn(
+                "relative inline-flex rounded-full h-2 w-2",
+                isPaused ? "bg-[#ff9f0a]" : isConnected ? "bg-[#32d74b]" : "bg-[#ff453a]"
+              )} />
+            </span>
+            <span className="text-[13px] text-[#86868b] font-medium tracking-tight">
+              {isPaused ? 'Paused' : isConnected ? 'Live Streaming' : 'Connecting…'}
+            </span>
+          </div>
+          <button onClick={onClose} className="text-[#86868b] hover:text-[#f5f5f7] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors">
+            Done
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 flex overflow-hidden">
+
+          {/* Logs Pane */}
+          <div className="flex-1 flex flex-col border-r border-[rgba(255,255,255,0.1)]">
+            {/* Toolbar */}
+            <div className="h-[52px] border-b border-[rgba(255,255,255,0.05)] flex items-center justify-between px-6">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setIsPaused(!isPaused)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors",
+                    isPaused ? "bg-[#0a84ff]/20 text-[#0a84ff]" : "bg-[rgba(255,255,255,0.05)] text-[#f5f5f7] hover:bg-[rgba(255,255,255,0.1)]"
+                  )}
+                >
+                  {isPaused ? <Play className="w-3.5 h-3.5 fill-current" /> : <Pause className="w-3.5 h-3.5 fill-current" />}
+                  {isPaused ? 'Resume' : 'Pause'}
+                </button>
+                <button
+                  onClick={() => setFilterError(!filterError)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors",
+                    filterError ? "bg-[#ff453a]/20 text-[#ff453a]" : "bg-[rgba(255,255,255,0.05)] text-[#f5f5f7] hover:bg-[rgba(255,255,255,0.1)]"
+                  )}
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  Errors Only
+                </button>
+                <button
+                  onClick={handleClear}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium bg-[rgba(255,255,255,0.05)] text-[#f5f5f7] hover:bg-[rgba(255,255,255,0.1)] transition-colors"
+                  title="Clear cached log entries"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Clear
+                </button>
+              </div>
+              <span className="text-[13px] text-[#86868b] font-mono tracking-tight">{logs.length} events</span>
+            </div>
+
+            {/* Terminal Window */}
+            <div className="flex-1 overflow-y-auto bg-black m-4 rounded-[20px] p-5 font-mono text-[13px] leading-relaxed relative scroll-smooth border border-[rgba(255,255,255,0.1)]">
+              {filteredLogs.length === 0 && (
+                <div className="flex items-center justify-center h-full text-[#86868b]">
+                  Waiting for logs from project {projectId}…
+                </div>
+              )}
+              {filteredLogs.map((log, idx) => {
+                const level = normalizeLevel(log.level);
+                return (
+                  <div key={idx} className="flex hover:bg-[rgba(255,255,255,0.05)] py-[2px] px-2 -mx-2 rounded-md transition-colors">
+                    <span className="text-[#86868b] w-[90px] shrink-0 select-none">{log.timestamp}</span>
+                    <span className={cn(
+                      "w-[60px] shrink-0 font-medium select-none",
+                      level === 'INFO' && "text-[#0a84ff]",
+                      level === 'ERROR' && "text-[#ff453a]",
+                      level === 'WARN' && "text-[#ff9f0a]",
+                      level === 'DEBUG' && "text-[#86868b]"
+                    )}>
+                      {level}
+                    </span>
+                    <span className={cn(
+                      "flex-1 break-words tracking-tight",
+                      level === 'ERROR' ? "text-[#ff453a]" : "text-[#f5f5f7]",
+                      level === 'WARN' && "text-[#ff9f0a]"
+                    )}>
+                      {log.message}
+                    </span>
+                  </div>
+                );
+              })}
+              <div ref={logsEndRef} />
+            </div>
+          </div>
+
+          {/* Telemetry Pane */}
+          <div className="w-[360px] flex flex-col shrink-0">
+            <div className="p-6 flex flex-col gap-6 h-full overflow-y-auto">
+              <div>
+                <h3 className="text-[11px] font-semibold uppercase tracking-widest text-[#86868b] mb-1">Live Metrics</h3>
+              </div>
+
+              <div className="bg-[rgba(0,0,0,0.3)] rounded-[20px] p-5 flex flex-col gap-4">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2 text-[#86868b]">
+                    <Activity className="w-4 h-4" />
+                    <span className="text-[13px] font-medium">Global Loss</span>
+                  </div>
+                  <span className="font-mono text-[20px] tracking-tighter font-semibold text-[#f5f5f7]">
+                    {telemetry.length > 0 ? telemetry[telemetry.length - 1].loss.toFixed(4) : '---'}
+                  </span>
+                </div>
+                <div className="h-[100px] w-full">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                    <LineChart data={telemetry}>
+                      <Line type="stepAfter" dataKey="loss" stroke="#bf5af2" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="bg-[rgba(0,0,0,0.3)] rounded-[20px] p-5 flex flex-col gap-4">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2 text-[#86868b]">
+                    <Activity className="w-4 h-4" />
+                    <span className="text-[13px] font-medium">Global Accuracy</span>
+                  </div>
+                  <span className="font-mono text-[20px] tracking-tighter font-semibold text-[#f5f5f7]">
+                    {telemetry.length > 0 ? (telemetry[telemetry.length - 1].accuracy * 100).toFixed(2) + '%' : '---'}
+                  </span>
+                </div>
+                <div className="h-[100px] w-full">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                    <LineChart data={telemetry}>
+                      <Line type="monotone" dataKey="accuracy" stroke="#32d74b" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+
+================================================================================
+File: frontend/src/components/redesign/ModelsView.tsx
+Size: 7217 bytes | Lines: 179 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Frontend — V2 Models View
+// =============================================================================
+// Aggregates model architectures currently in rotation across all projects.
+
+import { useEffect, useMemo, useState } from 'react';
+import { Boxes, Activity, Play, CheckCircle2, AlertCircle } from 'lucide-react';
+import * as api from '../../services/apiServices';
+import type { Project } from '../../services/apiServices';
+
+interface ModelSummary {
+  modelName: string;
+  modelType: string;
+  projectCount: number;
+  running: number;
+  completed: number;
+  failed: number;
+  optimizers: string[];
+}
+
+function summarize(projects: Project[]): ModelSummary[] {
+  const map = new Map<string, ModelSummary>();
+  for (const p of projects) {
+    const key = `${p.modelType}::${p.modelName}`;
+    const existing = map.get(key);
+    if (existing) {
+      existing.projectCount += 1;
+      if (p.status === 'RUNNING') existing.running += 1;
+      if (p.status === 'COMPLETED') existing.completed += 1;
+      if (p.status === 'FAILED') existing.failed += 1;
+      if (p.optimizer && !existing.optimizers.includes(p.optimizer)) {
+        existing.optimizers.push(p.optimizer);
+      }
+    } else {
+      map.set(key, {
+        modelName: p.modelName,
+        modelType: p.modelType,
+        projectCount: 1,
+        running: p.status === 'RUNNING' ? 1 : 0,
+        completed: p.status === 'COMPLETED' ? 1 : 0,
+        failed: p.status === 'FAILED' ? 1 : 0,
+        optimizers: p.optimizer ? [p.optimizer] : [],
+      });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => b.projectCount - a.projectCount);
+}
+
+export function ModelsView() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.fetchProjects();
+        setProjects(Array.isArray(res.data) ? res.data : []);
+      } catch {
+        setError('Failed to fetch models.');
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, []);
+
+  const summaries = useMemo(() => summarize(projects), [projects]);
+
+  return (
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-black text-[#f5f5f7] font-sans">
+      <div className="h-24 flex items-center justify-between px-10 border-b border-[#2c2c2e] bg-[rgba(0,0,0,0.65)] backdrop-blur-3xl saturate-[1.8] sticky top-0 z-20">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-tight">Models</h1>
+          <p className="text-[15px] text-[#86868b] mt-0.5 tracking-tight">
+            Architectures currently running across federated projects.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-10 py-10 bg-black">
+        {error && (
+          <div className="mb-6 px-5 py-3 rounded-2xl bg-[#ff453a]/10 text-[#ff453a] text-[14px] font-medium">
+            {error}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64 text-[#86868b]">
+            Loading models…
+          </div>
+        ) : summaries.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-[#86868b] gap-2">
+            <p className="text-[17px]">No models attached yet.</p>
+            <p className="text-[14px]">Create a project to start tracking a model here.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {summaries.map((m) => (
+              <div
+                key={`${m.modelType}-${m.modelName}`}
+                className="bg-[#1c1c1e] rounded-[24px] p-6 flex flex-col gap-4 border border-[rgba(255,255,255,0.05)] hover:bg-[#2c2c2e]/60 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#0a84ff]/10 text-[#0a84ff] flex items-center justify-center">
+                    <Boxes className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-[17px] font-semibold tracking-tight truncate">
+                      {m.modelName}
+                    </h3>
+                    <p className="text-[13px] text-[#86868b] tracking-tight">
+                      {m.modelType}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-[#2c2c2e]/40 rounded-xl p-3 flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-[#0a84ff]">
+                      <Activity className="w-3.5 h-3.5" />
+                      <span className="text-[10px] uppercase tracking-wider font-semibold">
+                        Total
+                      </span>
+                    </div>
+                    <span className="text-[20px] font-semibold tracking-tight">
+                      {m.projectCount}
+                    </span>
+                  </div>
+                  <div className="bg-[#2c2c2e]/40 rounded-xl p-3 flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-[#32d74b]">
+                      <Play className="w-3.5 h-3.5" />
+                      <span className="text-[10px] uppercase tracking-wider font-semibold">
+                        Running
+                      </span>
+                    </div>
+                    <span className="text-[20px] font-semibold tracking-tight">
+                      {m.running}
+                    </span>
+                  </div>
+                  <div className="bg-[#2c2c2e]/40 rounded-xl p-3 flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-[#bf5af2]">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span className="text-[10px] uppercase tracking-wider font-semibold">
+                        Done
+                      </span>
+                    </div>
+                    <span className="text-[20px] font-semibold tracking-tight">
+                      {m.completed}
+                    </span>
+                  </div>
+                </div>
+
+                {m.failed > 0 && (
+                  <div className="flex items-center gap-2 text-[#ff453a] text-[13px] font-medium">
+                    <AlertCircle className="w-4 h-4" />
+                    {m.failed} failed run{m.failed > 1 ? 's' : ''}
+                  </div>
+                )}
+
+                {m.optimizers.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {m.optimizers.map((o) => (
+                      <span
+                        key={o}
+                        className="text-[12px] font-medium px-2.5 py-1 rounded-full bg-[#2c2c2e] text-[#f5f5f7]"
+                      >
+                        {o}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+
+================================================================================
+File: frontend/src/components/redesign/NodeNetwork.tsx
+Size: 9318 bytes | Lines: 229 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Frontend — Node Network (Client Management)
+// =============================================================================
+// Allows tracking, creating, and deleting FL clients (users).
+
+import { useState, useEffect, useCallback } from 'react';
+import * as api from '../../services/apiServices';
+import { Plus, Trash2, Shield, Network, X } from 'lucide-react';
+import type { User, RegisterData } from '../../services/apiServices';
+
+interface CreateClientModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: RegisterData) => void;
+  isLoading?: boolean;
+}
+
+function CreateClientModal({ isOpen, onClose, onSubmit, isLoading }: CreateClientModalProps) {
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) {
+      setUsername('');
+      setEmail('');
+      setPassword('');
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({ username, email, password });
+  };
+
+  const inputClass =
+    "w-full bg-[#1c1c1e] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-[15px] text-[#f5f5f7] placeholder-[#86868b] focus:outline-none focus:ring-[3px] focus:ring-[#0a84ff]/30 focus:border-[#0a84ff]/50 transition-all";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl font-sans"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-[rgba(28,28,30,0.92)] border border-[rgba(255,255,255,0.1)] w-full max-w-md rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden text-[#f5f5f7]">
+        <div className="flex items-center justify-between p-6 pb-4">
+          <div className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-[#32d74b]" />
+            <h2 className="text-[22px] font-semibold tracking-tight">Create Client Node</h2>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-[#86868b] bg-[#3a3a3c] hover:bg-[rgba(255,255,255,0.2)] rounded-full transition-colors">
+            <X className="w-[18px] h-[18px]" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 pb-6 flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
+            <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Username</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="e.g. node-edge-01"
+              className={inputClass}
+              required
+              autoFocus
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="e.g. edge01@fedlearn.internal"
+              className={inputClass}
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className={inputClass}
+              required
+            />
+          </div>
+          <div className="flex gap-3 mt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+              className="flex-1 bg-[#2c2c2e] hover:bg-[#3a3a3c] text-[#f5f5f7] py-3 rounded-full text-[15px] font-medium tracking-tight transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading || !username || !email || !password}
+              className="flex-1 bg-[#f5f5f7] text-black hover:bg-white py-3 rounded-full text-[15px] font-medium tracking-tight transition-all duration-200 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? 'Creating...' : 'Create Client'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export function NodeNetwork() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const loadUsers = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await api.fetchUsers();
+      setUsers(Array.isArray(res.data) ? res.data : []);
+      setError('');
+    } catch {
+      setError('Failed to fetch clients network.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadUsers(); }, [loadUsers]);
+
+  const handleCreate = async (data: RegisterData) => {
+    try {
+      setIsCreating(true);
+      await api.createUser(data);
+      setIsModalOpen(false);
+      loadUsers();
+    } catch {
+      setError('Failed to create client.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this client?")) return;
+    try {
+      await api.deleteUser(id);
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+    } catch {
+      setError('Failed to delete client.');
+    }
+  };
+
+  return (
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-black text-[#f5f5f7] font-sans">
+      <div className="h-24 flex items-center justify-between px-10 border-b border-[#2c2c2e] bg-[rgba(0,0,0,0.65)] backdrop-blur-3xl saturate-[1.8] sticky top-0 z-20">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-tight text-[#f5f5f7]">Node Network</h1>
+          <p className="text-[15px] text-[#86868b] mt-0.5 tracking-tight">Manage edge devices and client credentials.</p>
+        </div>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 bg-[#f5f5f7] text-black hover:bg-white px-5 py-2.5 rounded-full text-[15px] font-medium transition-all duration-200 transform active:scale-95"
+        >
+          <Plus className="w-[18px] h-[18px]" />
+          Add Client
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-10 py-10 relative z-10 bg-black">
+        {error && (
+          <div className="mb-6 px-5 py-3 rounded-2xl bg-[#ff453a]/10 text-[#ff453a] text-[14px] font-medium">
+            {error}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64 text-[#86868b]">
+            Loading network data...
+          </div>
+        ) : users.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {users.map((user) => (
+              <div key={user.id} className="bg-[#1c1c1e] rounded-[24px] p-6 flex flex-col gap-4 border border-[rgba(255,255,255,0.05)] hover:bg-[#2c2c2e]/60 transition-all">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#32d74b]/10 text-[#32d74b] flex items-center justify-center">
+                      <Network className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-[17px] font-semibold tracking-tight">{user.username}</h3>
+                      <p className="text-[13px] text-[#86868b]">{user.email}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(user.id)}
+                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#ff453a]/20 text-[#86868b] hover:text-[#ff453a] transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="bg-[#2c2c2e]/40 rounded-xl p-3 flex justify-between items-center text-[13px]">
+                  <span className="text-[#86868b]">Node ID:</span>
+                  <span className="font-mono text-[#f5f5f7] tracking-wider">{user.id}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-64 text-[#86868b] gap-2">
+            <p className="text-[17px]">No clients found.</p>
+          </div>
+        )}
+      </div>
+
+      <CreateClientModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleCreate}
+        isLoading={isCreating}
+      />
+    </div>
+  );
+}
+```
+
+
+================================================================================
+File: frontend/src/components/redesign/ProjectCard.tsx
+Size: 10210 bytes | Lines: 252 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Frontend — Redesigned ProjectCard (Apple-inspired)
+// =============================================================================
+// Full feature parity: delete, copy ID, copy port, start/stop, results, logs.
+
+import { useState } from 'react';
+import { ResponsiveContainer, LineChart, Line, YAxis } from 'recharts';
+import { Activity, Server, Trash2, Copy, Check, MoreHorizontal } from 'lucide-react';
+import { cn } from '../../lib/utils';
+import type { Project, ProjectResult } from '../../services/apiServices';
+
+interface ProjectCardProps {
+  project: Project;
+  results?: ProjectResult[];
+  onOpenResults: () => void;
+  onOpenLogs: () => void;
+  onToggleServer: () => void;
+  onDeleteProject: () => void;
+}
+
+function CopyButton({ text, label }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1.5 text-[#86868b] hover:text-[#f5f5f7] transition-colors group/copy"
+      title={`Copy ${label || text}`}
+    >
+      {label && <span className="text-[12px] font-medium">{label}:</span>}
+      <code className="text-[12px] font-mono bg-[#2c2c2e] px-2 py-0.5 rounded-md text-[#f5f5f7] max-w-[120px] truncate">
+        {text}
+      </code>
+      {copied ? (
+        <Check className="w-3.5 h-3.5 text-[#32d74b]" />
+      ) : (
+        <Copy className="w-3.5 h-3.5 opacity-0 group-hover/copy:opacity-100 transition-opacity" />
+      )}
+    </button>
+  );
+}
+
+export function ProjectCard({
+  project,
+  results = [],
+  onOpenResults,
+  onOpenLogs,
+  onToggleServer,
+  onDeleteProject,
+}: ProjectCardProps) {
+  const [showMenu, setShowMenu] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const isRunning = project.status === 'RUNNING';
+  const isCompleted = project.status === 'COMPLETED';
+  const isFailed = project.status === 'FAILED';
+
+  // Build accuracy trend from real results
+  const accuracyTrend = results.slice(-10).map((r) => ({
+    round: r.serverRound,
+    accuracy: r.accuracy,
+  }));
+
+  // Progress calculation
+  const latestRound = results.length > 0 ? results[results.length - 1].serverRound : 0;
+  const totalRounds = 100;
+  const progress = Math.min((latestRound / totalRounds) * 100, 100);
+
+  // Circular progress ring
+  const radius = 26;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (progress / 100) * circumference;
+
+  const statusColor = isRunning
+    ? 'text-[#0a84ff]'
+    : isCompleted
+      ? 'text-[#32d74b]'
+      : isFailed
+        ? 'text-[#ff453a]'
+        : 'text-[#86868b]';
+
+  const ringColor = isRunning
+    ? 'text-[#0a84ff]'
+    : isCompleted
+      ? 'text-[#32d74b]'
+      : 'text-[#ff453a]';
+
+  const handleDelete = () => {
+    if (confirmDelete) {
+      onDeleteProject();
+      setConfirmDelete(false);
+      setShowMenu(false);
+    } else {
+      setConfirmDelete(true);
+      setTimeout(() => setConfirmDelete(false), 3000); // Reset after 3s
+    }
+  };
+
+  return (
+    <div className="bg-[#1c1c1e] rounded-[24px] p-6 flex flex-col gap-5 text-[#f5f5f7] w-full font-sans transition-all hover:bg-[#2c2c2e]/60 duration-300 group relative">
+      {/* Header Row */}
+      <div className="flex justify-between items-start">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-[20px] font-semibold tracking-tight">{project.name}</h3>
+          <div className="flex items-center gap-2 mt-1">
+            <span className={cn("inline-flex items-center gap-[6px] text-[13px] font-medium tracking-tight", statusColor)}>
+              <span className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                isRunning && "bg-[#0a84ff] animate-pulse",
+                isCompleted && "bg-[#32d74b]",
+                isFailed && "bg-[#ff453a]",
+                !isRunning && !isCompleted && !isFailed && "bg-[#86868b]"
+              )} />
+              {project.status}
+            </span>
+          </div>
+        </div>
+
+        {/* Actions Menu */}
+        <div className="relative">
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#3a3a3c] text-[#86868b] hover:text-[#f5f5f7] transition-colors"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+          {showMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => { setShowMenu(false); setConfirmDelete(false); }} />
+              <div className="absolute right-0 top-10 z-20 bg-[#2c2c2e] border border-[rgba(255,255,255,0.1)] rounded-2xl py-2 w-48 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                <button
+                  onClick={handleDelete}
+                  className={cn(
+                    "w-full px-4 py-2.5 text-left text-[14px] font-medium transition-colors flex items-center gap-2",
+                    confirmDelete
+                      ? "text-[#ff453a] bg-[#ff453a]/10"
+                      : "text-[#ff453a] hover:bg-[rgba(255,255,255,0.05)]"
+                  )}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {confirmDelete ? 'Confirm Delete?' : 'Delete Project'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Circular Progress Ring */}
+        <div className="relative flex items-center justify-center w-14 h-14 ml-2">
+          <svg className="w-full h-full transform -rotate-90">
+            <circle cx="28" cy="28" r={radius} stroke="currentColor" strokeWidth="4.5" fill="transparent" className="text-[#2c2c2e]" />
+            <circle
+              cx="28" cy="28" r={radius} stroke="currentColor" strokeWidth="4.5" fill="transparent"
+              strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round"
+              className={cn("transition-all duration-1000 ease-out", ringColor)}
+            />
+          </svg>
+          <div className="absolute flex flex-col items-center justify-center text-center">
+            <span className="text-[12px] font-bold tracking-tighter text-[#f5f5f7]">{Math.round(progress)}%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Project ID & Port — Copyable */}
+      <div className="flex flex-wrap items-center gap-3">
+        <CopyButton text={project.id} label="ID" />
+        {isRunning && project.serverPort && (
+          <CopyButton text={String(project.serverPort)} label="Port" />
+        )}
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Model Info */}
+        <div className="bg-[#2c2c2e]/40 rounded-2xl p-4 flex flex-col justify-between gap-3">
+          <div className="flex items-center text-[#86868b] gap-1.5">
+            <Server className="w-[14px] h-[14px]" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Model</span>
+          </div>
+          <div className="text-[14px] font-medium text-[#f5f5f7] tracking-tight truncate">
+            {project.modelName}
+          </div>
+          <div className="text-[12px] text-[#86868b] tracking-tight">
+            {project.modelType} · {project.optimizer}
+          </div>
+        </div>
+
+        {/* Accuracy Sparkline */}
+        <div className="bg-[#2c2c2e]/40 rounded-2xl p-4 flex flex-col justify-between gap-2 relative overflow-hidden">
+          <div className="flex items-center justify-between text-[#86868b]">
+            <div className="flex items-center gap-1.5">
+              <Activity className="w-[14px] h-[14px]" />
+              <span className="text-[11px] font-semibold uppercase tracking-wider">Accuracy</span>
+            </div>
+            {accuracyTrend.length > 0 && (
+              <span className="text-[13px] font-semibold tracking-tight text-[#f5f5f7]">
+                {(accuracyTrend[accuracyTrend.length - 1].accuracy * 100).toFixed(1)}%
+              </span>
+            )}
+          </div>
+          <div className="h-8 w-full mt-auto">
+            {accuracyTrend.length > 1 ? (
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                <LineChart data={accuracyTrend}>
+                  <YAxis domain={['auto', 'auto']} hide />
+                  <Line type="monotone" dataKey="accuracy" stroke="#0a84ff" strokeWidth={2.5} dot={false} isAnimationActive={true} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-[11px] text-[#86868b]">
+                No data yet
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-3 mt-1">
+        <button onClick={onOpenResults} className="flex-1 bg-[#2c2c2e] hover:bg-[#3a3a3c] text-[#f5f5f7] py-[11px] px-4 rounded-full text-[15px] font-medium tracking-tight transition-colors">
+          View Results
+        </button>
+        <button onClick={onOpenLogs} disabled={!isRunning} className={cn(
+          "flex-1 py-[11px] px-4 rounded-full text-[15px] font-medium tracking-tight transition-colors",
+          isRunning ? "bg-[#2c2c2e] hover:bg-[#3a3a3c] text-[#f5f5f7]" : "bg-[#2c2c2e]/50 text-[#86868b] cursor-not-allowed"
+        )}>
+          Logs
+        </button>
+        <button onClick={onToggleServer} disabled={isFailed} className={cn(
+          "py-[11px] px-5 rounded-full text-[15px] font-medium tracking-tight transition-all",
+          isFailed
+            ? "bg-[#3a3a3c]/30 text-[#86868b] cursor-not-allowed"
+            : isRunning
+              ? "bg-[#ff453a]/20 text-[#ff453a] hover:bg-[#ff453a]/30"
+              : "bg-[#32d74b]/20 text-[#32d74b] hover:bg-[#32d74b]/30"
+        )}>
+          {isRunning ? 'Stop' : 'Start'}
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+
+
+================================================================================
+File: frontend/src/components/redesign/ResultsModal.tsx
+Size: 10808 bytes | Lines: 195 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Frontend — Redesigned ResultsModal (Apple-inspired)
+// =============================================================================
+// Wired to real ProjectResult[] from apiServices.
+
+import { useState } from 'react';
+import { ResponsiveContainer, LineChart, Line, YAxis, XAxis, Tooltip, CartesianGrid } from 'recharts';
+import { X, Trophy, Timer, TrendingDown, Table, LineChart as ChartIcon } from 'lucide-react';
+import { cn } from '../../lib/utils';
+import type { ProjectResult } from '../../services/apiServices';
+
+interface ResultsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  projectName: string;
+  results: ProjectResult[];
+}
+
+export function ResultsModalV2({ isOpen, onClose, projectName, results }: ResultsModalProps) {
+  const [activeTab, setActiveTab] = useState<'chart' | 'table'>('chart');
+
+  if (!isOpen) return null;
+
+  const hasResults = results.length > 0;
+  const chartData = results.map((r) => ({
+    round: r.serverRound,
+    loss: r.loss,
+    accuracy: r.accuracy,
+  }));
+
+  const bestAccuracy = hasResults ? Math.max(...results.map((r) => r.accuracy)) : 0;
+  const finalLoss = hasResults ? results[results.length - 1].loss : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-black/40 backdrop-blur-xl font-sans">
+      <div className="bg-[rgba(28,28,30,0.85)] border border-[rgba(255,255,255,0.1)] w-full max-w-6xl h-full max-h-[90vh] rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden text-[#f5f5f7]">
+
+        {/* Header */}
+        <div className="flex items-center justify-between p-8 pb-6">
+          <div>
+            <h2 className="text-[28px] font-semibold tracking-tight">{projectName} — Results</h2>
+            <p className="text-[15px] text-[#86868b] mt-1 tracking-tight">
+              {hasResults ? `${results.length} rounds completed.` : 'No training rounds recorded yet.'}
+            </p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-[#86868b] bg-[#3a3a3c] hover:bg-[rgba(255,255,255,0.3)] rounded-full transition-colors">
+            <X className="w-[18px] h-[18px]" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-8 pb-8 flex flex-col gap-6 scroll-smooth">
+
+          {!hasResults && (
+            <div className="flex flex-col items-center justify-center flex-1 text-center gap-3 py-16">
+              <div className="w-14 h-14 rounded-full bg-[#2c2c2e] flex items-center justify-center">
+                <ChartIcon className="w-6 h-6 text-[#86868b]" />
+              </div>
+              <h3 className="text-[20px] font-semibold tracking-tight">No results yet</h3>
+              <p className="text-[15px] text-[#86868b] max-w-md tracking-tight">
+                Results appear here once the project has completed at least one
+                federated training round. Start the server and connect clients
+                to produce data.
+              </p>
+              <button
+                onClick={onClose}
+                className="mt-4 bg-[#f5f5f7] text-black hover:bg-white px-6 py-2.5 rounded-full text-[15px] font-medium tracking-tight transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          )}
+
+          {hasResults && <>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-[rgba(0,0,0,0.3)] rounded-[32px] p-8 border border-[rgba(255,255,255,0.05)]">
+              <div className="flex items-center gap-2 text-[#32d74b] mb-3">
+                <Trophy className="w-5 h-5" />
+                <span className="font-semibold tracking-wide uppercase text-[12px]">Best Accuracy</span>
+              </div>
+              <div className="text-[44px] font-semibold tracking-tighter text-[#f5f5f7]">
+                {(bestAccuracy * 100).toFixed(2)}%
+              </div>
+            </div>
+
+            <div className="bg-[rgba(0,0,0,0.3)] rounded-[32px] p-8 border border-[rgba(255,255,255,0.05)]">
+              <div className="flex items-center gap-2 text-[#bf5af2] mb-3">
+                <TrendingDown className="w-5 h-5" />
+                <span className="font-semibold tracking-wide uppercase text-[12px]">Final Loss</span>
+              </div>
+              <div className="text-[44px] font-semibold tracking-tighter text-[#f5f5f7]">
+                {finalLoss.toFixed(4)}
+              </div>
+            </div>
+
+            <div className="bg-[rgba(0,0,0,0.3)] rounded-[32px] p-8 border border-[rgba(255,255,255,0.05)]">
+              <div className="flex items-center gap-2 text-[#0a84ff] mb-3">
+                <Timer className="w-5 h-5" />
+                <span className="font-semibold tracking-wide uppercase text-[12px]">Total Rounds</span>
+              </div>
+              <div className="text-[44px] font-semibold tracking-tighter text-[#f5f5f7]">
+                {results.length}
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setActiveTab('chart')}
+              className={cn(
+                "flex items-center gap-2 px-5 py-2.5 rounded-full text-[14px] font-medium tracking-tight transition-all duration-200",
+                activeTab === 'chart' ? "bg-[#f5f5f7] text-black shadow-sm" : "bg-[rgba(255,255,255,0.05)] text-[#f5f5f7] hover:bg-[rgba(255,255,255,0.1)]"
+              )}
+            >
+              <ChartIcon className="w-4 h-4" />
+              Performance Chart
+            </button>
+            <button
+              onClick={() => setActiveTab('table')}
+              className={cn(
+                "flex items-center gap-2 px-5 py-2.5 rounded-full text-[14px] font-medium tracking-tight transition-all duration-200",
+                activeTab === 'table' ? "bg-[#f5f5f7] text-black shadow-sm" : "bg-[rgba(255,255,255,0.05)] text-[#f5f5f7] hover:bg-[rgba(255,255,255,0.1)]"
+              )}
+            >
+              <Table className="w-4 h-4" />
+              Raw Data
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          <div className="flex-1 bg-black rounded-[32px] p-8 min-h-[440px] border border-[rgba(255,255,255,0.05)]">
+            {activeTab === 'chart' ? (
+              <div className="h-full w-full flex flex-col gap-6">
+                <div className="flex items-center justify-end gap-6 text-[13px] font-medium tracking-tight">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#32d74b]" />
+                    <span className="text-[#86868b]">Accuracy (Right Axis)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#bf5af2]" />
+                    <span className="text-[#86868b]">Loss (Left Axis)</span>
+                  </div>
+                </div>
+                <div className="flex-1 min-h-[400px]">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                    <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="4 4" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                      <XAxis dataKey="round" stroke="rgba(255,255,255,0.2)" tick={{ fill: '#86868b', fontSize: 13 }} tickLine={false} axisLine={false} dy={10} />
+                      <YAxis yAxisId="left" stroke="rgba(255,255,255,0.2)" tick={{ fill: '#86868b', fontSize: 13 }} tickLine={false} axisLine={false} dx={-10} />
+                      <YAxis yAxisId="right" orientation="right" stroke="rgba(255,255,255,0.2)" tick={{ fill: '#86868b', fontSize: 13 }} tickLine={false} axisLine={false} dx={10} tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: 'rgba(28,28,30,0.85)', backdropFilter: 'blur(20px)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '16px', color: '#f5f5f7', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}
+                        itemStyle={{ fontWeight: 600, fontSize: '15px' }}
+                        labelStyle={{ color: '#86868b', marginBottom: '8px', fontSize: '13px' }}
+                        formatter={(value: number, name: string) => [name === 'accuracy' ? `${(value * 100).toFixed(2)}%` : value.toFixed(4), name.charAt(0).toUpperCase() + name.slice(1)]}
+                        labelFormatter={(label) => `Round ${label}`}
+                      />
+                      <Line yAxisId="left" type="monotone" dataKey="loss" stroke="#bf5af2" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 0, fill: '#bf5af2' }} />
+                      <Line yAxisId="right" type="monotone" dataKey="accuracy" stroke="#32d74b" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 0, fill: '#32d74b' }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : (
+              <div className="h-[450px] overflow-auto rounded-[20px]">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-[rgba(28,28,30,0.85)] sticky top-0 backdrop-blur-xl z-10">
+                    <tr>
+                      <th className="px-6 py-4 text-[12px] font-semibold uppercase tracking-wider text-[#86868b]">Round</th>
+                      <th className="px-6 py-4 text-[12px] font-semibold uppercase tracking-wider text-[#86868b]">Loss</th>
+                      <th className="px-6 py-4 text-[12px] font-semibold uppercase tracking-wider text-[#86868b]">Accuracy</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[rgba(255,255,255,0.05)] text-[14px] font-mono tracking-tight text-[#f5f5f7]">
+                    {results.slice().reverse().map((row) => (
+                      <tr key={row.serverRound} className="hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+                        <td className="px-6 py-4 text-[#86868b]">#{row.serverRound}</td>
+                        <td className="px-6 py-4 text-[#bf5af2]">{row.loss.toFixed(4)}</td>
+                        <td className="px-6 py-4 text-[#32d74b]">{(row.accuracy * 100).toFixed(2)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          </>}
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+
+================================================================================
+File: frontend/src/components/redesign/SettingsView.tsx
+Size: 5199 bytes | Lines: 134 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Frontend — V2 Settings View
+// =============================================================================
+// Session + orchestrator metadata, with a logout action.
+
+import { useEffect, useState } from 'react';
+import { LogOut, Copy, Check, User as UserIcon, Server, Info } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { cn } from '../../lib/utils';
+
+const SERVER_ROOT_URL =
+  import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
+
+function Row({
+  label,
+  value,
+  copyable,
+}: {
+  label: string;
+  value: string;
+  copyable?: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(t);
+  }, [copied]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+    } catch {
+      /* no-op */
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-4 py-3 border-b border-[rgba(255,255,255,0.05)] last:border-b-0">
+      <span className="text-[13px] uppercase tracking-wider font-semibold text-[#86868b]">
+        {label}
+      </span>
+      <div className="flex items-center gap-2 min-w-0">
+        <code className="font-mono text-[13px] text-[#f5f5f7] bg-[#2c2c2e] px-3 py-1 rounded-md truncate max-w-[340px]">
+          {value}
+        </code>
+        {copyable && (
+          <button
+            onClick={handleCopy}
+            className={cn(
+              'flex items-center gap-1 text-[12px] px-2 py-1 rounded-md transition-colors',
+              copied
+                ? 'text-[#32d74b] bg-[#32d74b]/10'
+                : 'text-[#86868b] hover:text-[#f5f5f7] hover:bg-[rgba(255,255,255,0.05)]'
+            )}
+            title="Copy value"
+          >
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function SettingsView() {
+  const { currentUser, logout } = useAuth();
+
+  return (
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-black text-[#f5f5f7] font-sans">
+      <div className="h-24 flex items-center justify-between px-10 border-b border-[#2c2c2e] bg-[rgba(0,0,0,0.65)] backdrop-blur-3xl saturate-[1.8] sticky top-0 z-20">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-tight">Settings</h1>
+          <p className="text-[15px] text-[#86868b] mt-0.5 tracking-tight">
+            Session and orchestrator preferences.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-10 py-10 bg-black">
+        <div className="max-w-3xl mx-auto flex flex-col gap-8">
+          {/* Account */}
+          <section className="bg-[#1c1c1e] rounded-[24px] p-6 border border-[rgba(255,255,255,0.05)]">
+            <div className="flex items-center gap-3 mb-2">
+              <UserIcon className="w-5 h-5 text-[#0a84ff]" />
+              <h2 className="text-[18px] font-semibold tracking-tight">Account</h2>
+            </div>
+            <Row label="Username" value={currentUser?.username || '—'} />
+            <Row label="Email" value={currentUser?.email || '—'} />
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={logout}
+                className="flex items-center gap-2 bg-[#ff453a]/10 text-[#ff453a] hover:bg-[#ff453a]/20 px-5 py-2.5 rounded-full text-[15px] font-medium transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                Log out
+              </button>
+            </div>
+          </section>
+
+          {/* Server */}
+          <section className="bg-[#1c1c1e] rounded-[24px] p-6 border border-[rgba(255,255,255,0.05)]">
+            <div className="flex items-center gap-3 mb-2">
+              <Server className="w-5 h-5 text-[#32d74b]" />
+              <h2 className="text-[18px] font-semibold tracking-tight">Orchestrator</h2>
+            </div>
+            <Row label="Server URL" value={SERVER_ROOT_URL} copyable />
+            <Row
+              label="Client bootstrap"
+              value={`--server ${SERVER_ROOT_URL}`}
+              copyable
+            />
+          </section>
+
+          {/* About */}
+          <section className="bg-[#1c1c1e] rounded-[24px] p-6 border border-[rgba(255,255,255,0.05)]">
+            <div className="flex items-center gap-3 mb-3">
+              <Info className="w-5 h-5 text-[#bf5af2]" />
+              <h2 className="text-[18px] font-semibold tracking-tight">About</h2>
+            </div>
+            <p className="text-[15px] leading-relaxed text-[#86868b]">
+              FedLearn-Platform coordinates federated training across heterogeneous edge
+              devices (Jetson ARM64, Apple Silicon, x86/CUDA). Provision client credentials
+              from the <span className="text-[#0a84ff] font-medium">Node Network</span> view.
+            </p>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+
+================================================================================
+File: frontend/src/components/redesign/Sidebar.tsx
+Size: 3432 bytes | Lines: 84 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Frontend — Redesigned Sidebar (Apple-inspired dark theme)
+// =============================================================================
+// Wired to existing AuthContext for user profile and logout.
+
+import { Brain, LayoutDashboard, Settings, Boxes, Network, Database, LogOut } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { cn } from '../../lib/utils';
+import { useAuth } from '../../context/AuthContext';
+
+const navItems = [
+  { icon: LayoutDashboard, label: 'Overview', path: '/v2' },
+  { icon: Network, label: 'Node Network', path: '/v2/nodes' },
+  { icon: Boxes, label: 'Models', path: '/v2/models' },
+  { icon: Database, label: 'Datasets', path: '/v2/datasets' },
+  { icon: Settings, label: 'Settings', path: '/v2/settings' },
+];
+
+export function Sidebar() {
+  const { currentUser, logout } = useAuth();
+
+  const initials = currentUser?.username
+    ? currentUser.username.slice(0, 2).toUpperCase()
+    : 'U';
+
+  return (
+    <div className="w-64 bg-black border-r border-[#2c2c2e] h-screen flex flex-col text-[#f5f5f7] font-sans flex-shrink-0 relative z-10 selection:bg-[#0a84ff] selection:text-white">
+      <div className="h-20 flex items-center gap-3 px-8">
+        <div className="w-8 h-8 rounded-xl bg-[#1c1c1e] border border-[#2c2c2e] flex items-center justify-center">
+          <Brain className="w-5 h-5 text-[#f5f5f7]" />
+        </div>
+        <span className="font-semibold text-lg tracking-tight text-[#f5f5f7]">FedLearn</span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto py-4 px-4 flex flex-col gap-1">
+        <div className="text-[11px] font-medium tracking-widest uppercase text-[#86868b] mb-2 px-4 mt-4">Menu</div>
+        {navItems.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            end={item.path === '/v2'}
+            className={({ isActive }) => cn(
+              "flex items-center gap-3 px-4 py-2.5 rounded-xl text-[15px] font-medium transition-all duration-200",
+              isActive
+                ? "bg-[#2c2c2e] text-[#f5f5f7]"
+                : "text-[#86868b] hover:bg-[#1c1c1e] hover:text-[#f5f5f7]"
+            )}
+          >
+            {({ isActive }) => (
+              <>
+                <item.icon className={cn(
+                  "w-[18px] h-[18px]",
+                  isActive ? "text-[#f5f5f7]" : "text-[#86868b]"
+                )} />
+                {item.label}
+              </>
+            )}
+          </NavLink>
+        ))}
+      </div>
+
+      <div className="p-4">
+        <div className="rounded-2xl p-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-[#2c2c2e] flex items-center justify-center text-sm font-medium text-[#f5f5f7]">
+            {initials}
+          </div>
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="text-[15px] font-medium text-[#f5f5f7] tracking-tight truncate">
+              {currentUser?.username || 'User'}
+            </span>
+            <span className="text-[13px] text-[#86868b]">Admin</span>
+          </div>
+          <button
+            onClick={logout}
+            className="text-[#86868b] hover:text-[#ff453a] transition-colors p-1"
+            title="Logout"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+
+================================================================================
 File: frontend/src/context/AuthContext.tsx
 Size: 2720 bytes | Lines: 97 | Section: source
 ================================================================================
@@ -1390,11 +3549,10 @@ export const useAuth = (): AuthContextType => {
 
 ================================================================================
 File: frontend/src/index.css
-Size: 1717 bytes | Lines: 64 | Section: source
+Size: 1693 bytes | Lines: 63 | Section: source
 ================================================================================
 ```text
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
+/* Fonts loaded via <link> in index.html for correct cascade ordering. */
 
 /* :root typically defaults to light theme */
 :root {
@@ -1461,8 +3619,22 @@ a {
 
 
 ================================================================================
+File: frontend/src/lib/utils.ts
+Size: 169 bytes | Lines: 6 | Section: source
+================================================================================
+```typescript
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+```
+
+
+================================================================================
 File: frontend/src/main.tsx
-Size: 640 bytes | Lines: 26 | Section: source
+Size: 701 bytes | Lines: 28 | Section: source
 ================================================================================
 ```tsx
 import React from 'react';
@@ -1470,6 +3642,8 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './index.css';
+import './styles/tailwind.css';
+import './styles/fonts.css';
 import { AuthProvider } from './context/AuthContext';
 
 if (typeof window !== 'undefined') {
@@ -1495,8 +3669,286 @@ ReactDOM.createRoot(rootElement).render(
 
 
 ================================================================================
+File: frontend/src/pages/ClientsPage.tsx
+Size: 10396 bytes | Lines: 270 | Section: source
+================================================================================
+```tsx
+import React, { useState, useEffect, useCallback } from 'react';
+import * as api from '../services/apiServices';
+import type { User, RegisterData } from '../services/apiServices';
+import DiskLoader from '../components/DiskLoader';
+import ConfirmDialog from '../components/ConfirmDialog';
+import '../styles/Dashboard.css';
+import '../styles/ClientsPage.css';
+
+interface CreateClientModalProps {
+    onSubmit: (data: RegisterData) => Promise<void> | void;
+    onCancel: () => void;
+    isSubmitting: boolean;
+}
+
+const CreateClientModal: React.FC<CreateClientModalProps> = ({ onSubmit, onCancel, isSubmitting }) => {
+    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        onSubmit({ username, email, password });
+    };
+
+    return (
+        <div
+            className="modal-backdrop"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-client-title"
+            onClick={(e) => {
+                if (e.target === e.currentTarget) onCancel();
+            }}
+        >
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <h2 id="create-client-title">Add Client</h2>
+                <p className="modal-subtitle">
+                    Creates a client account that edge devices will use to authenticate
+                    against this FedLearn server.
+                </p>
+                <form onSubmit={handleSubmit} className="client-form">
+                    <label htmlFor="client-username">Username</label>
+                    <input
+                        id="client-username"
+                        type="text"
+                        value={username}
+                        required
+                        autoFocus
+                        minLength={3}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="e.g. node-edge-01"
+                    />
+                    <label htmlFor="client-email">Email</label>
+                    <input
+                        id="client-email"
+                        type="email"
+                        value={email}
+                        required
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="e.g. edge01@fedlearn.internal"
+                    />
+                    <label htmlFor="client-password">Password</label>
+                    <input
+                        id="client-password"
+                        type="password"
+                        value={password}
+                        required
+                        minLength={8}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="At least 8 characters"
+                    />
+                    <div className="modal-actions">
+                        <button type="button" className="btn-close" onClick={onCancel} disabled={isSubmitting}>
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            className="create-project-btn"
+                            disabled={isSubmitting || !username || !email || password.length < 8}
+                        >
+                            {isSubmitting ? 'Creating…' : 'Create Client'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+const ClientsPage: React.FC = () => {
+    const [users, setUsers] = useState<User[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
+    const loadUsers = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const res = await api.fetchUsers();
+            setUsers(Array.isArray(res.data) ? res.data : []);
+            setError('');
+        } catch (err) {
+            console.error(err);
+            setError('Failed to fetch clients.');
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadUsers();
+    }, [loadUsers]);
+
+    // Auto-dismiss success banner.
+    useEffect(() => {
+        if (!success) return;
+        const t = setTimeout(() => setSuccess(''), 4000);
+        return () => clearTimeout(t);
+    }, [success]);
+
+    const handleCreate = async (data: RegisterData) => {
+        try {
+            setIsSubmitting(true);
+            await api.createUser(data);
+            setIsCreateOpen(false);
+            setSuccess(`Client "${data.username}" created.`);
+            loadUsers();
+        } catch (err: any) {
+            const message =
+                err?.response?.data?.message ||
+                err?.response?.data ||
+                'Failed to create client. The username or email may already exist.';
+            setError(typeof message === 'string' ? message : 'Failed to create client.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDelete = async (id: number) => {
+        try {
+            await api.deleteUser(id);
+            setUsers((prev) => prev.filter((u) => u.id !== id));
+            setSuccess('Client removed.');
+        } catch (err) {
+            console.error(err);
+            setError('Failed to delete client.');
+        } finally {
+            setConfirmDeleteId(null);
+        }
+    };
+
+    if (isLoading && users.length === 0) {
+        return <DiskLoader message="Loading Clients…" />;
+    }
+
+    const deleteTarget = users.find((u) => u.id === confirmDeleteId);
+
+    return (
+        <div className="dashboard">
+            <header className="dashboard-header">
+                <div>
+                    <h1>Client Management</h1>
+                    <p className="section-subtitle">
+                        Provision credentials for federated edge clients.
+                    </p>
+                </div>
+                <button
+                    className="create-project-btn"
+                    onClick={() => setIsCreateOpen(true)}
+                    aria-label="Add new client"
+                >
+                    + Add Client
+                </button>
+            </header>
+
+            {error && (
+                <div className="error-message" role="alert">
+                    {error}
+                    <button
+                        type="button"
+                        className="dismiss-btn"
+                        aria-label="Dismiss error"
+                        onClick={() => setError('')}
+                    >
+                        ×
+                    </button>
+                </div>
+            )}
+            {success && (
+                <div className="success-message" role="status">
+                    {success}
+                </div>
+            )}
+
+            {users.length === 0 ? (
+                <div className="empty-state">
+                    <p>No clients provisioned yet.</p>
+                    <p className="empty-sub">
+                        Add a client to hand credentials to an edge node so it can join a
+                        federated round.
+                    </p>
+                </div>
+            ) : (
+                <div className="client-grid">
+                    {users.map((user) => (
+                        <div className="client-card" key={user.id}>
+                            <div className="client-card-header">
+                                <div className="client-avatar" aria-hidden>
+                                    {user.username.slice(0, 2).toUpperCase()}
+                                </div>
+                                <div className="client-identity">
+                                    <h3>{user.username}</h3>
+                                    <span className="client-email">{user.email}</span>
+                                </div>
+                            </div>
+                            <dl className="client-meta">
+                                <div>
+                                    <dt>Node ID</dt>
+                                    <dd>
+                                        <code>{user.id}</code>
+                                    </dd>
+                                </div>
+                                {user.createdAt && (
+                                    <div>
+                                        <dt>Registered</dt>
+                                        <dd>{new Date(user.createdAt).toLocaleDateString()}</dd>
+                                    </div>
+                                )}
+                            </dl>
+                            <div className="client-actions">
+                                <button
+                                    type="button"
+                                    className="btn-danger"
+                                    onClick={() => setConfirmDeleteId(user.id)}
+                                    aria-label={`Delete client ${user.username}`}
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {isCreateOpen && (
+                <CreateClientModal
+                    onSubmit={handleCreate}
+                    onCancel={() => setIsCreateOpen(false)}
+                    isSubmitting={isSubmitting}
+                />
+            )}
+
+            {deleteTarget && (
+                <ConfirmDialog
+                    title="Delete client?"
+                    message={`Permanently remove "${deleteTarget.username}"? The client will lose the ability to authenticate.`}
+                    confirmLabel="Delete"
+                    danger
+                    onConfirm={() => handleDelete(deleteTarget.id)}
+                    onCancel={() => setConfirmDeleteId(null)}
+                />
+            )}
+        </div>
+    );
+};
+
+export default ClientsPage;
+```
+
+
+================================================================================
 File: frontend/src/pages/DashboardPage.tsx
-Size: 7427 bytes | Lines: 216 | Section: source
+Size: 8769 bytes | Lines: 254 | Section: source
 ================================================================================
 ```tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -1505,7 +3957,9 @@ import { Client, StompSubscription } from '@stomp/stompjs';
 import ProjectCard from '../components/ProjectCard';
 import LogViewer from '../components/LogViewer';
 import CreateProjectModal from '../components/CreateProjectModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import '../styles/Dashboard.css';
+import '../styles/ClientsPage.css';
 import DiskLoader from '../components/DiskLoader';
 
 const SERVER_ROOT_URL = import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
@@ -1534,6 +3988,7 @@ const DashboardPage: React.FC = () => {
     const [error, setError] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [logViewProjectId, setLogViewProjectId] = useState<string | null>(null);
+    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
     const stompClientRef = useRef<Client | null>(null);
     const subscriptionRef = useRef<StompSubscription | null>(null);
@@ -1645,12 +4100,24 @@ const DashboardPage: React.FC = () => {
     };
 
     const handleUpdateOptimizer = async (projectId: string, newOptimizer: string) => {
-        // Implement this when backend endpoint is ready
-        console.info(`Updating optimizer for ${projectId} to ${newOptimizer}`);
+        try {
+            const response = await api.updateProject(projectId, { optimizer: newOptimizer });
+            const updated = response.data;
+            setProjects(current => current.map(p => (p.id === updated.id ? updated : p)));
+        } catch (err) {
+            setError('Failed to update optimizer.');
+            console.error(err);
+        }
     };
 
-    const handleDeleteProject = async (projectId: string) => {
-        if (!window.confirm("Are you sure you want to delete this project?")) return;
+    const handleDeleteProject = (projectId: string) => {
+        setPendingDeleteId(projectId);
+    };
+
+    const confirmDelete = async () => {
+        if (!pendingDeleteId) return;
+        const projectId = pendingDeleteId;
+        setPendingDeleteId(null);
         try {
             await api.deleteProject(projectId);
             setProjects(currentProjects => currentProjects.filter(p => p.id !== projectId));
@@ -1684,7 +4151,19 @@ const DashboardPage: React.FC = () => {
                 />
             )}
 
-            {error && <div className="error-message" role="alert">{error}</div>}
+            {error && (
+                <div className="error-message" role="alert">
+                    {error}
+                    <button
+                        type="button"
+                        className="dismiss-btn"
+                        aria-label="Dismiss error"
+                        onClick={() => setError('')}
+                    >
+                        ×
+                    </button>
+                </div>
+            )}
 
             <div className="project-grid">
                 {projects.length > 0 ? (
@@ -1708,6 +4187,17 @@ const DashboardPage: React.FC = () => {
                     projectId={logViewProjectId}
                     serverUrl={SERVER_ROOT_URL}
                     onClose={() => setLogViewProjectId(null)}
+                />
+            )}
+
+            {pendingDeleteId && (
+                <ConfirmDialog
+                    title="Delete project?"
+                    message="This stops any running server and removes the project permanently. Previous training results and logs will be lost."
+                    confirmLabel="Delete"
+                    danger
+                    onConfirm={confirmDelete}
+                    onCancel={() => setPendingDeleteId(null)}
                 />
             )}
         </div>
@@ -1956,16 +4446,132 @@ export default LoginPage;
 
 ================================================================================
 File: frontend/src/pages/ModelsPage.tsx
-Size: 233 bytes | Lines: 12 | Section: source
+Size: 4882 bytes | Lines: 128 | Section: source
 ================================================================================
 ```tsx
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import * as api from '../services/apiServices';
+import type { Project } from '../services/apiServices';
+import DiskLoader from '../components/DiskLoader';
+import '../styles/Dashboard.css';
+import '../styles/ClientsPage.css';
+
+interface ModelSummary {
+    modelName: string;
+    modelType: string;
+    projectCount: number;
+    runningCount: number;
+    completedCount: number;
+    optimizers: string[];
+}
+
+function summarize(projects: Project[]): ModelSummary[] {
+    const byModel = new Map<string, ModelSummary>();
+    for (const p of projects) {
+        const key = `${p.modelType}::${p.modelName}`;
+        const existing = byModel.get(key);
+        if (existing) {
+            existing.projectCount += 1;
+            if (p.status === 'RUNNING') existing.runningCount += 1;
+            if (p.status === 'COMPLETED') existing.completedCount += 1;
+            if (p.optimizer && !existing.optimizers.includes(p.optimizer)) {
+                existing.optimizers.push(p.optimizer);
+            }
+        } else {
+            byModel.set(key, {
+                modelName: p.modelName,
+                modelType: p.modelType,
+                projectCount: 1,
+                runningCount: p.status === 'RUNNING' ? 1 : 0,
+                completedCount: p.status === 'COMPLETED' ? 1 : 0,
+                optimizers: p.optimizer ? [p.optimizer] : [],
+            });
+        }
+    }
+    return Array.from(byModel.values()).sort((a, b) => b.projectCount - a.projectCount);
+}
 
 const ModelsPage: React.FC = () => {
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        (async () => {
+            try {
+                setIsLoading(true);
+                const res = await api.fetchProjects();
+                setProjects(Array.isArray(res.data) ? res.data : []);
+            } catch (err) {
+                setError('Failed to load models.');
+                console.error(err);
+            } finally {
+                setIsLoading(false);
+            }
+        })();
+    }, []);
+
+    const summaries = useMemo(() => summarize(projects), [projects]);
+
+    if (isLoading) return <DiskLoader message="Loading Models…" />;
+
     return (
-        <div>
-            <h1>Models Page</h1>
-            <p>View and manage your trained models</p>
+        <div className="dashboard">
+            <header className="dashboard-header">
+                <div>
+                    <h1>Models</h1>
+                    <p className="section-subtitle">
+                        Model architectures currently in rotation across projects.
+                    </p>
+                </div>
+            </header>
+
+            {error && (
+                <div className="error-message" role="alert">
+                    {error}
+                </div>
+            )}
+
+            {summaries.length === 0 ? (
+                <div className="empty-state">
+                    <p>No model has been attached to a project yet.</p>
+                    <p className="empty-sub">Create a project to start tracking a model here.</p>
+                </div>
+            ) : (
+                <div className="client-grid">
+                    {summaries.map((m) => (
+                        <div className="client-card" key={`${m.modelType}-${m.modelName}`}>
+                            <div className="client-card-header">
+                                <div className="client-avatar" aria-hidden>
+                                    {m.modelName.slice(0, 2).toUpperCase()}
+                                </div>
+                                <div className="client-identity">
+                                    <h3>{m.modelName}</h3>
+                                    <span className="client-email">{m.modelType}</span>
+                                </div>
+                            </div>
+                            <dl className="client-meta">
+                                <div>
+                                    <dt>Projects</dt>
+                                    <dd>{m.projectCount}</dd>
+                                </div>
+                                <div>
+                                    <dt>Running</dt>
+                                    <dd>{m.runningCount}</dd>
+                                </div>
+                                <div>
+                                    <dt>Completed</dt>
+                                    <dd>{m.completedCount}</dd>
+                                </div>
+                                <div>
+                                    <dt>Optimizers</dt>
+                                    <dd>{m.optimizers.join(', ') || '—'}</dd>
+                                </div>
+                            </dl>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
@@ -2165,16 +4771,103 @@ export default RegisterPage;
 
 ================================================================================
 File: frontend/src/pages/SettingsPage.tsx
-Size: 248 bytes | Lines: 12 | Section: source
+Size: 4002 bytes | Lines: 99 | Section: source
 ================================================================================
 ```tsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import '../styles/Dashboard.css';
+import '../styles/ClientsPage.css';
+
+const SERVER_ROOT_URL =
+    import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
 
 const SettingsPage: React.FC = () => {
+    const { currentUser, logout } = useAuth();
+    const [copied, setCopied] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!copied) return;
+        const t = setTimeout(() => setCopied(null), 1500);
+        return () => clearTimeout(t);
+    }, [copied]);
+
+    const copy = async (label: string, value: string) => {
+        try {
+            await navigator.clipboard.writeText(value);
+            setCopied(label);
+        } catch {
+            /* no-op */
+        }
+    };
+
     return (
-        <div>
-            <h1>Settings Page</h1>
-            <p>Manage your account settings and preferences</p>
+        <div className="dashboard">
+            <header className="dashboard-header">
+                <div>
+                    <h1>Settings</h1>
+                    <p className="section-subtitle">Session and orchestrator details.</p>
+                </div>
+            </header>
+
+            <section className="settings-section">
+                <h2 className="section-title">Account</h2>
+                <div className="settings-card">
+                    <div className="settings-row">
+                        <span className="settings-label">Signed in as</span>
+                        <span className="settings-value">
+                            {currentUser?.username || '—'}
+                        </span>
+                    </div>
+                    <div className="settings-row">
+                        <span className="settings-label">User ID</span>
+                        <span className="settings-value">
+                            <code>{currentUser?.id ?? '—'}</code>
+                        </span>
+                    </div>
+                    <div className="settings-actions">
+                        <button className="btn-danger" onClick={logout}>
+                            Log out
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section className="settings-section">
+                <h2 className="section-title">Orchestrator</h2>
+                <div className="settings-card">
+                    <div className="settings-row">
+                        <span className="settings-label">Server URL</span>
+                        <span className="settings-value">
+                            <code>{SERVER_ROOT_URL}</code>
+                            <button
+                                className="copy-btn"
+                                onClick={() => copy('server', SERVER_ROOT_URL)}
+                                aria-label="Copy server URL"
+                            >
+                                {copied === 'server' ? 'Copied' : 'Copy'}
+                            </button>
+                        </span>
+                    </div>
+                    <div className="settings-row">
+                        <span className="settings-label">Client bootstrap</span>
+                        <span className="settings-value">
+                            <code>python client-docker/entrypoint.py --server {SERVER_ROOT_URL}</code>
+                        </span>
+                    </div>
+                </div>
+            </section>
+
+            <section className="settings-section">
+                <h2 className="section-title">About</h2>
+                <div className="settings-card">
+                    <p className="settings-paragraph">
+                        FedLearn-Platform orchestrates federated training across heterogeneous
+                        edge devices (Jetson ARM64, Apple Silicon, x86/CUDA). For client
+                        provisioning, visit the <a href="/clients">Clients</a> page.
+                    </p>
+                </div>
+            </section>
         </div>
     );
 };
@@ -2185,16 +4878,119 @@ export default SettingsPage;
 
 ================================================================================
 File: frontend/src/pages/TrainingPage.tsx
-Size: 238 bytes | Lines: 12 | Section: source
+Size: 4557 bytes | Lines: 115 | Section: source
 ================================================================================
 ```tsx
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import * as api from '../services/apiServices';
+import type { Project } from '../services/apiServices';
+import DiskLoader from '../components/DiskLoader';
+import '../styles/Dashboard.css';
+import '../styles/ClientsPage.css';
+
+interface StatusBucket {
+    label: string;
+    key: Project['status'];
+    color: string;
+    count: number;
+}
 
 const TrainingPage: React.FC = () => {
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        (async () => {
+            try {
+                setIsLoading(true);
+                const res = await api.fetchProjects();
+                setProjects(Array.isArray(res.data) ? res.data : []);
+            } catch (err) {
+                setError('Failed to load training activity.');
+                console.error(err);
+            } finally {
+                setIsLoading(false);
+            }
+        })();
+    }, []);
+
+    const buckets = useMemo<StatusBucket[]>(() => [
+        { label: 'Running', key: 'RUNNING', color: '#10b981', count: projects.filter(p => p.status === 'RUNNING').length },
+        { label: 'Stopped', key: 'STOPPED', color: '#6b7280', count: projects.filter(p => p.status === 'STOPPED').length },
+        { label: 'Completed', key: 'COMPLETED', color: '#2563eb', count: projects.filter(p => p.status === 'COMPLETED').length },
+        { label: 'Failed', key: 'FAILED', color: '#dc2626', count: projects.filter(p => p.status === 'FAILED').length },
+    ], [projects]);
+
+    if (isLoading) return <DiskLoader message="Loading Training Activity…" />;
+
     return (
-        <div>
-            <h1>Training Page</h1>
-            <p>View training progress and metrics</p>
+        <div className="dashboard">
+            <header className="dashboard-header">
+                <div>
+                    <h1>Training Activity</h1>
+                    <p className="section-subtitle">
+                        Aggregate health of every federated project on this server.
+                    </p>
+                </div>
+            </header>
+
+            {error && (
+                <div className="error-message" role="alert">
+                    {error}
+                </div>
+            )}
+
+            <div className="training-stats">
+                {buckets.map((b) => (
+                    <div className="stat-card" key={b.key}>
+                        <span className="stat-dot" style={{ background: b.color }} aria-hidden />
+                        <div className="stat-body">
+                            <span className="stat-number">{b.count}</span>
+                            <span className="stat-label">{b.label}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <h2 className="section-title">All Projects</h2>
+            {projects.length === 0 ? (
+                <div className="empty-state">
+                    <p>No projects yet.</p>
+                </div>
+            ) : (
+                <div className="training-table-wrapper">
+                    <table className="training-table">
+                        <thead>
+                            <tr>
+                                <th>Project</th>
+                                <th>Model</th>
+                                <th>Optimizer</th>
+                                <th>Status</th>
+                                <th>Server Port</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {projects.map((p) => (
+                                <tr key={p.id}>
+                                    <td>{p.name}</td>
+                                    <td>
+                                        {p.modelName}
+                                        <span className="model-type"> · {p.modelType}</span>
+                                    </td>
+                                    <td>{p.optimizer || '—'}</td>
+                                    <td>
+                                        <span className={`pill pill-${p.status.toLowerCase()}`}>
+                                            {p.status}
+                                        </span>
+                                    </td>
+                                    <td>{p.serverPort ?? '—'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
         </div>
     );
 };
@@ -2205,7 +5001,7 @@ export default TrainingPage;
 
 ================================================================================
 File: frontend/src/services/apiServices.ts
-Size: 2823 bytes | Lines: 98 | Section: source
+Size: 3338 bytes | Lines: 118 | Section: source
 ================================================================================
 ```typescript
 import api from '../api/axiosConfig';
@@ -2305,6 +5101,146 @@ export const fetchProjectLogs = (projectId: string): Promise<AxiosResponse<any[]
 
 export const deleteProject = (projectId: string): Promise<AxiosResponse<string>> => {
     return api.post<string>(`/projects/${projectId}/delete`);
+};
+
+// User / Client Management Endpoints
+export interface User {
+    id: number;
+    username: string;
+    email: string;
+    createdAt?: string;
+}
+
+export const fetchUsers = (): Promise<AxiosResponse<User[]>> => {
+    return api.get<User[]>('/users');
+};
+
+export const createUser = (userData: RegisterData): Promise<AxiosResponse<User>> => {
+    return api.post<User>('/users', userData);
+};
+
+export const deleteUser = (userId: number): Promise<AxiosResponse<any>> => {
+    return api.delete(`/users/${userId}`);
+};
+```
+
+
+================================================================================
+File: frontend/src/services/logStore.ts
+Size: 3995 bytes | Lines: 112 | Section: source
+================================================================================
+```typescript
+// =============================================================================
+// FedLearn Frontend — Log Store
+// =============================================================================
+// Module-level cache of log entries keyed by projectId. Survives unmount of
+// any LogViewer modal so reopening a project's logs shows prior session output
+// rather than resetting to an empty list.
+//
+// Consumers:
+//   - logStore.get(projectId)             -> current cached entries
+//   - logStore.append(projectId, entry)   -> push new entry (auto-trimmed)
+//   - logStore.subscribe(id, cb)          -> observe changes for a projectId
+//   - logStore.clear(projectId)           -> wipe cache (user action)
+//   - logStore.hasLoadedHistorical(id)    -> avoid re-fetching /logs REST
+//
+// The store is intentionally framework-agnostic so it can be consumed by the
+// classic LogViewer, the redesigned V2 LogViewerV2, and any future telemetry
+// widget without duplicating caching logic.
+
+export interface StoredLogEntry {
+    level?: string;
+    message: string;
+    timestamp?: string;
+    stackTrace?: string;
+}
+
+type Listener = (logs: StoredLogEntry[]) => void;
+
+const MAX_LOGS_PER_PROJECT = 2000;
+
+const cache = new Map<string, StoredLogEntry[]>();
+const historicalLoaded = new Set<string>();
+const listeners = new Map<string, Set<Listener>>();
+
+function emit(projectId: string): void {
+    const subs = listeners.get(projectId);
+    if (!subs || subs.size === 0) return;
+    const snapshot = cache.get(projectId) ?? [];
+    subs.forEach((cb) => {
+        try {
+            cb(snapshot);
+        } catch (err) {
+            // A misbehaving listener must not break the store.
+            // eslint-disable-next-line no-console
+            console.error('[logStore] listener error:', err);
+        }
+    });
+}
+
+export const logStore = {
+    get(projectId: string): StoredLogEntry[] {
+        return cache.get(projectId) ?? [];
+    },
+
+    append(projectId: string, entry: StoredLogEntry): void {
+        const arr = cache.get(projectId) ?? [];
+        arr.push(entry);
+        if (arr.length > MAX_LOGS_PER_PROJECT) {
+            arr.splice(0, arr.length - MAX_LOGS_PER_PROJECT);
+        }
+        cache.set(projectId, arr);
+        emit(projectId);
+    },
+
+    setAll(projectId: string, entries: StoredLogEntry[]): void {
+        cache.set(projectId, entries.slice(-MAX_LOGS_PER_PROJECT));
+        emit(projectId);
+    },
+
+    mergeHistorical(projectId: string, entries: StoredLogEntry[]): void {
+        // Historical logs are considered authoritative for their time range and
+        // get prepended before any live entries that arrived first. We dedupe
+        // trivially by timestamp+message pairing.
+        const existing = cache.get(projectId) ?? [];
+        const existingKeys = new Set(existing.map((e) => `${e.timestamp ?? ''}|${e.message}`));
+        const merged = [
+            ...entries.filter((e) => !existingKeys.has(`${e.timestamp ?? ''}|${e.message}`)),
+            ...existing,
+        ].slice(-MAX_LOGS_PER_PROJECT);
+        cache.set(projectId, merged);
+        historicalLoaded.add(projectId);
+        emit(projectId);
+    },
+
+    clear(projectId: string): void {
+        cache.delete(projectId);
+        historicalLoaded.delete(projectId);
+        emit(projectId);
+    },
+
+    hasLoadedHistorical(projectId: string): boolean {
+        return historicalLoaded.has(projectId);
+    },
+
+    markHistoricalLoaded(projectId: string): void {
+        historicalLoaded.add(projectId);
+    },
+
+    subscribe(projectId: string, listener: Listener): () => void {
+        let subs = listeners.get(projectId);
+        if (!subs) {
+            subs = new Set();
+            listeners.set(projectId, subs);
+        }
+        subs.add(listener);
+        return () => {
+            const current = listeners.get(projectId);
+            if (!current) return;
+            current.delete(listener);
+            if (current.size === 0) listeners.delete(projectId);
+        };
+    },
 };
 ```
 
@@ -2420,6 +5356,486 @@ Size: 2616 bytes | Lines: 106 | Section: source
     text-align: center;
     font-size: 0.9em;
   }
+```
+
+
+================================================================================
+File: frontend/src/styles/ClientsPage.css
+Size: 6609 bytes | Lines: 383 | Section: source
+================================================================================
+```text
+.section-subtitle {
+    color: #6b7280;
+    margin: 0.35rem 0 0;
+    font-size: 0.95rem;
+}
+
+.modal-subtitle {
+    color: #6b7280;
+    margin: 0 0 1.25rem;
+    font-size: 0.95rem;
+}
+
+.success-message {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-weight: 500;
+}
+
+.error-message {
+    position: relative;
+}
+
+.dismiss-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    background: transparent;
+    border: none;
+    font-size: 1.25rem;
+    color: inherit;
+    cursor: pointer;
+    line-height: 1;
+    opacity: 0.7;
+}
+
+.dismiss-btn:hover {
+    opacity: 1;
+}
+
+.client-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.client-form label {
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.9rem;
+}
+
+.client-form input {
+    padding: 0.65rem 0.85rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.client-form input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.client-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.25rem;
+}
+
+.client-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+    border: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.client-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+
+.client-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.5px;
+}
+
+.client-identity h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #111827;
+}
+
+.client-email {
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.client-meta {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem 1rem;
+}
+
+.client-meta div {
+    display: flex;
+    flex-direction: column;
+}
+
+.client-meta dt {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: #9ca3af;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.15rem;
+}
+
+.client-meta dd {
+    margin: 0;
+    color: #1f2937;
+    font-size: 0.9rem;
+}
+
+.client-meta code {
+    background: #f3f4f6;
+    padding: 0.12rem 0.45rem;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+}
+
+.client-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.client-actions .btn-danger,
+.btn-danger {
+    padding: 0.5rem 0.95rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid #fecaca;
+    background: #fff;
+    color: #dc2626;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.client-actions .btn-danger:hover,
+.btn-danger:hover {
+    background: #fef2f2;
+}
+
+.empty-state {
+    background: #fff;
+    border: 1px dashed #d1d5db;
+    padding: 3rem 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+    color: #374151;
+}
+
+.empty-state p {
+    margin: 0.25rem 0;
+}
+
+.empty-state .empty-sub {
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+
+/* Training page */
+.training-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    border: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+}
+
+.stat-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.stat-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-number {
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 0.2rem;
+}
+
+.training-table-wrapper {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+}
+
+.training-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.training-table th {
+    text-align: left;
+    padding: 0.85rem 1rem;
+    background: #f9fafb;
+    color: #4b5563;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.training-table td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1f2937;
+}
+
+.training-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.model-type {
+    color: #9ca3af;
+    font-size: 0.85rem;
+}
+
+.pill {
+    display: inline-block;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+.pill-running {
+    background: #dcfce7;
+    color: #065f46;
+}
+
+.pill-stopped {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.pill-completed {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.pill-failed {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Settings page */
+.settings-section {
+    margin-bottom: 2rem;
+}
+
+.settings-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.settings-label {
+    color: #6b7280;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.settings-value {
+    color: #111827;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.settings-value code {
+    background: #f3f4f6;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+    color: #1f2937;
+}
+
+.settings-actions {
+    display: flex;
+    justify-content: flex-end;
+    border-top: 1px solid #f3f4f6;
+    padding-top: 1rem;
+}
+
+.settings-paragraph {
+    margin: 0;
+    color: #374151;
+    line-height: 1.55;
+}
+
+.settings-paragraph a {
+    color: #2563eb;
+    font-weight: 500;
+}
+
+.copy-btn {
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    color: #374151;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.copy-btn:hover {
+    background: #e5e7eb;
+}
+```
+
+
+================================================================================
+File: frontend/src/styles/ConfirmDialog.css
+Size: 1598 bytes | Lines: 81 | Section: source
+================================================================================
+```text
+.confirm-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+    padding: 1.5rem;
+}
+
+.confirm-dialog {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.75rem;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+    animation: confirm-pop 0.18s ease-out;
+}
+
+@keyframes confirm-pop {
+    from { transform: scale(0.96); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+}
+
+.confirm-dialog h3 {
+    margin: 0 0 0.5rem;
+    color: #111827;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.confirm-dialog p {
+    margin: 0 0 1.5rem;
+    color: #4b5563;
+    line-height: 1.45;
+}
+
+.confirm-dialog-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+}
+
+.confirm-dialog-actions button {
+    padding: 0.6rem 1.1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.confirm-dialog-actions .btn-cancel {
+    background: #fff;
+    border-color: #d1d5db;
+    color: #374151;
+}
+
+.confirm-dialog-actions .btn-cancel:hover {
+    background: #f9fafb;
+}
+
+.confirm-dialog-actions .btn-primary {
+    background: #007bff;
+    color: #fff;
+}
+
+.confirm-dialog-actions .btn-primary:hover {
+    background: #0056b3;
+}
+
+.confirm-dialog-actions .btn-danger {
+    background: #dc2626;
+    color: #fff;
+}
+
+.confirm-dialog-actions .btn-danger:hover {
+    background: #b91c1c;
+}
 ```
 
 
@@ -3055,7 +6471,7 @@ body {
 
 ================================================================================
 File: frontend/src/styles/Layout.css
-Size: 6523 bytes | Lines: 275 | Section: source
+Size: 7079 bytes | Lines: 304 | Section: source
 ================================================================================
 ```text
 /* Example Layout.css */
@@ -3294,6 +6710,35 @@ Size: 6523 bytes | Lines: 275 | Section: source
   text-decoration: none;
   color: #555;
   font-weight: 500;
+  padding: 0.4rem 0.1rem;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.app-nav a:hover {
+  color: #111827;
+}
+
+.app-nav a.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+}
+
+.v2-link {
+  text-decoration: none;
+  color: #4f46e5;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: 1px solid #c7d2fe;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  background: #eef2ff;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.v2-link:hover {
+  background: #4f46e5;
+  color: #fff;
 }
 
 .user-profile {
@@ -3915,6 +7360,215 @@ Size: 1600 bytes | Lines: 86 | Section: source
   border: 1px solid #ccc;
   border-radius: 6px;
   cursor: pointer;
+}
+```
+
+
+================================================================================
+File: frontend/src/styles/fonts.css
+Size: 88 bytes | Lines: 1 | Section: source
+================================================================================
+```text
+/* Fonts are loaded via <link> tag in index.html for correct ordering with Tailwind. */
+```
+
+
+================================================================================
+File: frontend/src/styles/tailwind.css
+Size: 69 bytes | Lines: 3 | Section: source
+================================================================================
+```text
+@import "tailwindcss";
+@import "./theme.css";
+@import "./fonts.css";
+```
+
+
+================================================================================
+File: frontend/src/styles/theme.css
+Size: 5448 bytes | Lines: 181 | Section: source
+================================================================================
+```text
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --background: #ffffff;
+  --foreground: oklch(0.145 0 0);
+  --card: #ffffff;
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: #030213;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.0058 264.53);
+  --secondary-foreground: #030213;
+  --muted: #ececf0;
+  --muted-foreground: #717182;
+  --accent: #e9ebef;
+  --accent-foreground: #030213;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.1);
+  --input: transparent;
+  --input-background: #f3f3f5;
+  --switch-background: #cbced4;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: #030213;
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /**
+  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
+  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
+  */
+
+  html {
+    font-size: var(--font-size);
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
 }
 ```
 

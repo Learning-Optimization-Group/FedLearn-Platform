@@ -2,12 +2,12 @@
 FedLearn Platform — LLM context dump: fedlearn-desktop
 ================================================================================
 Component path : fedlearn-desktop
-Generated at   : 2026-04-14 17:41 UTC
-Git branch     : feature/fedlearn-desktop-and-aws-orchestration
-Git commit     : 89b2cf5 (uncommitted changes present)
+Generated at   : 2026-04-15 05:56 UTC
+Git branch     : audit-remediation
+Git commit     : d53fc44 (uncommitted changes present)
 Files included : 21 (config=3, source=16, tests=0, docs=2)
-Total lines    : 3,207
-Total size     : 91.6 KB
+Total lines    : 3,487
+Total size     : 100.2 KB
 
 Notes for the reader:
   * Everything below is verbatim from this repo at the commit above.
@@ -47,24 +47,24 @@ fedlearn-desktop/
 path                                                                        bytes   lines  section
 fedlearn-desktop/CLAUDE.md                                                    810      15  docs
 fedlearn-desktop/README.md                                                   6444     184  docs
-fedlearn-desktop/electron-builder.yml                                        1052      62  config
-fedlearn-desktop/package.json                                                2054      49  config
-fedlearn-desktop/src/main/auth.service.ts                                    6756     205  source
+fedlearn-desktop/electron-builder.yml                                        1362      73  config
+fedlearn-desktop/package.json                                                2257      56  config
+fedlearn-desktop/src/main/auth.service.ts                                    7779     235  source
 fedlearn-desktop/src/main/docker.service.ts                                 11458     323  source
-fedlearn-desktop/src/main/ipc.handlers.ts                                    6958     177  source
-fedlearn-desktop/src/main/main.ts                                            5185     153  source
-fedlearn-desktop/src/preload/preload.ts                                      6335     190  source
-fedlearn-desktop/src/renderer/App.tsx                                        6615     209  source
-fedlearn-desktop/src/renderer/components/AuthModal.tsx                       4159     133  source
+fedlearn-desktop/src/main/ipc.handlers.ts                                    8241     212  source
+fedlearn-desktop/src/main/main.ts                                            5229     153  source
+fedlearn-desktop/src/preload/preload.ts                                      7138     209  source
+fedlearn-desktop/src/renderer/App.tsx                                        6784     211  source
+fedlearn-desktop/src/renderer/components/AuthModal.tsx                       7425     222  source
 fedlearn-desktop/src/renderer/components/HardwareSelector.tsx                6497     211  source
 fedlearn-desktop/src/renderer/components/LogPanel.tsx                        2537      74  source
 fedlearn-desktop/src/renderer/components/StatusIndicator.tsx                 1718      40  source
 fedlearn-desktop/src/renderer/index.tsx                                       595      20  source
-fedlearn-desktop/src/renderer/styles.css                                    16457     814  source
+fedlearn-desktop/src/renderer/styles.css                                    18242     903  source
 fedlearn-desktop/tsconfig.json                                                792      35  config
 fedlearn-desktop/webpack.main.config.js                                       729      34  source
-fedlearn-desktop/webpack.preload.config.js                                    585      31  source
-fedlearn-desktop/webpack.prod.config.js                                      4503     188  source
+fedlearn-desktop/webpack.preload.config.js                                    540      30  source
+fedlearn-desktop/webpack.prod.config.js                                      4458     187  source
 fedlearn-desktop/webpack.renderer.config.js                                  1531      60  source
 
 ################################################################################
@@ -73,7 +73,7 @@ fedlearn-desktop/webpack.renderer.config.js                                  153
 
 ================================================================================
 File: fedlearn-desktop/electron-builder.yml
-Size: 1052 bytes | Lines: 62 | Section: config
+Size: 1362 bytes | Lines: 73 | Section: config
 ================================================================================
 ```yaml
 appId: com.fedlearn.desktop
@@ -94,18 +94,29 @@ files:
 asar: true
 compression: maximum
 
+# Disable auto-publish — GitHub Release is handled by the CI workflow
+publish: null
+
 mac:
   category: public.app-category.developer-tools
   target:
     - target: dmg
       arch:
-        - x64
         - arm64
-  hardenedRuntime: true
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  # Only enable hardenedRuntime when code signing is configured.
+  # Without a valid identity, this corrupts the DMG (error 3840).
+  hardenedRuntime: false
   gatekeeperAssess: false
+  identity: null
 
 dmg:
   artifactName: "${productName}-${version}-${arch}.dmg"
+  sign: false
 
 linux:
   category: Development
@@ -143,7 +154,7 @@ nsis:
 
 ================================================================================
 File: fedlearn-desktop/package.json
-Size: 2054 bytes | Lines: 49 | Section: config
+Size: 2257 bytes | Lines: 56 | Section: config
 ================================================================================
 ```json
 {
@@ -151,14 +162,21 @@ Size: 2054 bytes | Lines: 49 | Section: config
   "version": "1.0.0",
   "description": "FedLearn Desktop Client — Docker-based Federated Learning Orchestrator",
   "main": "dist/main/main.js",
-  "author": "FedLearn Team",
+  "author": {
+    "name": "FedLearn Team",
+    "email": "anuragpandey2796@gmail.com"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anurag2796/FedLearn-Platform.git"
+  },
   "scripts": {
     "dev:renderer": "webpack serve --config webpack.renderer.config.js --mode development",
     "dev:main": "webpack --config webpack.main.config.js --mode development --watch",
     "dev:preload": "webpack --config webpack.preload.config.js --mode development --watch",
     "dev:electron": "electron dist/main/main.js",
-    "dev": "concurrently --kill-others \"npm run dev:preload\" \"npm run dev:main\" \"npm run dev:renderer\"",
+    "dev": "concurrently --kill-others \"npm run dev:preload\" \"npm run dev:main\" \"npm run dev:renderer\" \"sleep 3 && npm run dev:electron\"",
     "build:main": "webpack --config webpack.main.config.js --mode production",
     "build:preload": "webpack --config webpack.preload.config.js --mode production",
     "build:renderer": "webpack --config webpack.renderer.config.js --mode production",
@@ -172,7 +190,7 @@ Size: 2054 bytes | Lines: 49 | Section: config
     "axios": "1.7.9",
     "dockerode": "4.0.4",
     "electron-log": "5.3.0",
-    "electron-store": "10.0.0",
+    "electron-store": "8.2.0",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
@@ -247,7 +265,7 @@ Size: 792 bytes | Lines: 35 | Section: config
 
 ================================================================================
 File: fedlearn-desktop/src/main/auth.service.ts
-Size: 6756 bytes | Lines: 205 | Section: source
+Size: 7779 bytes | Lines: 235 | Section: source
 ================================================================================
 ```typescript
 // =============================================================================
@@ -275,6 +293,8 @@ interface AuthStore {
   username: string;
 }
 
+const SERVER_URL_KEY = 'serverUrl';
+
 const AUTH_STORE_KEY = 'auth';
 const JWT_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours — matches backend's maxAge
 
@@ -291,8 +311,26 @@ export class AuthService {
       encryptionKey: 'fedlearn-store-key', // Obfuscation layer; real encryption is safeStorage
     });
 
-    this.apiBaseUrl = process.env.FEDLEARN_API_URL || DEFAULT_API_BASE_URL;
+    // Load persisted server URL, or fall back to env var / localhost default
+    const savedUrl = this.store.get(SERVER_URL_KEY) as string | undefined;
+    this.apiBaseUrl = savedUrl || process.env.FEDLEARN_API_URL || DEFAULT_API_BASE_URL;
     log.info(`[AuthService] Initialized with API base URL: ${this.apiBaseUrl}`);
+  }
+
+  /**
+   * Update the backend API URL and persist it for future launches.
+   */
+  setApiUrl(url: string): void {
+    this.apiBaseUrl = url;
+    this.store.set(SERVER_URL_KEY, url);
+    log.info(`[AuthService] API base URL updated to: ${url}`);
+  }
+
+  /**
+   * Returns the current backend API URL.
+   */
+  getApiUrl(): string {
+    return this.apiBaseUrl;
   }
 
   /**
@@ -324,17 +362,27 @@ export class AuthService {
         return false;
       }
 
-      // Extract JWT from Set-Cookie header
-      // Backend sets: ResponseCookie.from("jwtToken", jwt).httpOnly(true)...
+      // Extract JWT — prefer the accessToken in the response body (always
+      // available), fall back to parsing the Set-Cookie header.
       let jwt: string | null = null;
 
-      const setCookieHeaders = response.headers['set-cookie'];
-      if (setCookieHeaders) {
-        for (const cookie of setCookieHeaders) {
-          const match = cookie.match(/jwtToken=([^;]+)/);
-          if (match) {
-            jwt = match[1];
-            break;
+      // 1. Check response body (backend returns { accessToken, username, email })
+      if (response.data && typeof response.data.accessToken === 'string') {
+        jwt = response.data.accessToken;
+        log.info('[AuthService] JWT extracted from response body');
+      }
+
+      // 2. Fallback: Set-Cookie header
+      if (!jwt) {
+        const setCookieHeaders = response.headers['set-cookie'];
+        if (setCookieHeaders) {
+          for (const cookie of setCookieHeaders) {
+            const match = cookie.match(/jwtToken=([^;]+)/);
+            if (match) {
+              jwt = match[1];
+              log.info('[AuthService] JWT extracted from Set-Cookie header');
+              break;
+            }
           }
         }
       }
@@ -791,7 +839,7 @@ export class DockerService {
 
 ================================================================================
 File: fedlearn-desktop/src/main/ipc.handlers.ts
-Size: 6958 bytes | Lines: 177 | Section: source
+Size: 8241 bytes | Lines: 212 | Section: source
 ================================================================================
 ```typescript
 // =============================================================================
@@ -969,14 +1017,49 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, auth:login, auth:logout, auth:check');
+  // ===================== Server URL Channel =====================
+
+  ipcMain.handle('auth:set-server-url', async (_event, url: unknown) => {
+    try {
+      if (typeof url !== 'string' || url.length === 0 || url.length > 512) {
+        log.error('[IPC:auth:set-server-url] Invalid URL input');
+        return { success: false, error: 'Invalid server URL' };
+      }
+
+      // Normalize: ensure it ends with /api
+      let normalized = url.trim().replace(/\/+$/, '');
+      if (!normalized.endsWith('/api')) {
+        normalized += '/api';
+      }
+
+      authService.setApiUrl(normalized);
+      return { success: true, url: normalized };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:auth:set-server-url] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
+  ipcMain.handle('auth:get-server-url', async () => {
+    try {
+      const url = authService.getApiUrl();
+      return { success: true, url };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:auth:get-server-url] Failed: ${message}`);
+      return { success: false, url: '' };
+    }
+  });
+
+  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url');
 }
 ```
 
 
 ================================================================================
 File: fedlearn-desktop/src/main/main.ts
-Size: 5185 bytes | Lines: 153 | Section: source
+Size: 5229 bytes | Lines: 153 | Section: source
 ================================================================================
 ```typescript
 // =============================================================================
@@ -1054,7 +1137,7 @@ function createWindow(): void {
         'Content-Security-Policy': [
           [
             "default-src 'self'",
-            "script-src 'self'",
+            isDev ? "script-src 'self' 'unsafe-eval'" : "script-src 'self'",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "font-src 'self' https://fonts.gstatic.com",
             "img-src 'self' data:",
@@ -1137,7 +1220,7 @@ app.disableHardwareAcceleration();
 
 ================================================================================
 File: fedlearn-desktop/src/preload/preload.ts
-Size: 6335 bytes | Lines: 190 | Section: source
+Size: 7138 bytes | Lines: 209 | Section: source
 ================================================================================
 ```typescript
 // =============================================================================
@@ -1158,7 +1241,8 @@ Size: 6335 bytes | Lines: 190 | Section: source
 // =============================================================================
 
 import { contextBridge, ipcRenderer } from 'electron';
-import log from 'electron-log';
+// NOTE: electron-log cannot be used in sandboxed preload scripts.
+// console.error is forwarded to the main process console automatically.
 
 // ========== Validation Constants ==========
 
@@ -1172,59 +1256,59 @@ const MAX_STRING_LENGTH = 256;
 
 function isValidHardwareProfile(profile: unknown): boolean {
   if (typeof profile !== 'string') {
-    log.error(`[Preload:Validation] Hardware profile is not a string: ${typeof profile}`);
+    console.error(`[Preload:Validation] Hardware profile is not a string: ${typeof profile}`);
     return false;
   }
   const valid = (ALLOWED_HARDWARE_PROFILES as readonly string[]).includes(profile);
   if (!valid) {
-    log.error(`[Preload:Validation] Rejected hardware profile not in allowlist: "${profile}"`);
+    console.error(`[Preload:Validation] Rejected hardware profile not in allowlist: "${profile}"`);
   }
   return valid;
 }
 
 function isValidProjectId(id: unknown): boolean {
   if (typeof id !== 'string') {
-    log.error(`[Preload:Validation] Project ID is not a string: ${typeof id}`);
+    console.error(`[Preload:Validation] Project ID is not a string: ${typeof id}`);
     return false;
   }
   const valid = PROJECT_ID_PATTERN.test(id);
   if (!valid) {
-    log.error(`[Preload:Validation] Rejected project ID failing pattern: "${id}"`);
+    console.error(`[Preload:Validation] Rejected project ID failing pattern: "${id}"`);
   }
   return valid;
 }
 
 function isValidPartitionId(id: unknown): boolean {
   if (typeof id !== 'string') {
-    log.error(`[Preload:Validation] Partition ID is not a string: ${typeof id}`);
+    console.error(`[Preload:Validation] Partition ID is not a string: ${typeof id}`);
     return false;
   }
   const valid = PARTITION_ID_PATTERN.test(id);
   if (!valid) {
-    log.error(`[Preload:Validation] Rejected partition ID failing pattern: "${id}"`);
+    console.error(`[Preload:Validation] Rejected partition ID failing pattern: "${id}"`);
   }
   return valid;
 }
 
 function isValidServerAddress(addr: unknown): boolean {
   if (typeof addr !== 'string') {
-    log.error(`[Preload:Validation] Server address is not a string: ${typeof addr}`);
+    console.error(`[Preload:Validation] Server address is not a string: ${typeof addr}`);
     return false;
   }
   const valid = SERVER_ADDRESS_PATTERN.test(addr);
   if (!valid) {
-    log.error(`[Preload:Validation] Rejected server address failing pattern: "${addr}"`);
+    console.error(`[Preload:Validation] Rejected server address failing pattern: "${addr}"`);
   }
   return valid;
 }
 
 function isValidStringInput(val: unknown, fieldName: string): boolean {
   if (typeof val !== 'string') {
-    log.error(`[Preload:Validation] ${fieldName} is not a string: ${typeof val}`);
+    console.error(`[Preload:Validation] ${fieldName} is not a string: ${typeof val}`);
     return false;
   }
   if (val.length === 0 || val.length > MAX_STRING_LENGTH) {
-    log.error(`[Preload:Validation] ${fieldName} length out of bounds: ${val.length}`);
+    console.error(`[Preload:Validation] ${fieldName} length out of bounds: ${val.length}`);
     return false;
   }
   return true;
@@ -1329,13 +1413,31 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   removeTrainingLogListener: (): void => {
     ipcRenderer.removeAllListeners('docker:training-log');
   },
+
+  /**
+   * Set the backend server URL. Persisted across app restarts.
+   * Users enter the URL (e.g. http://192.168.1.100:8081) and /api is appended automatically.
+   */
+  setServerUrl: async (url: string): Promise<{ success: boolean; url?: string; error?: string }> => {
+    if (!isValidStringInput(url, 'serverUrl')) {
+      return { success: false, error: 'Invalid server URL' };
+    }
+    return ipcRenderer.invoke('auth:set-server-url', url);
+  },
+
+  /**
+   * Get the currently configured backend server URL.
+   */
+  getServerUrl: async (): Promise<{ success: boolean; url?: string }> => {
+    return ipcRenderer.invoke('auth:get-server-url');
+  },
 });
 ```
 
 
 ================================================================================
 File: fedlearn-desktop/src/renderer/App.tsx
-Size: 6615 bytes | Lines: 209 | Section: source
+Size: 6784 bytes | Lines: 211 | Section: source
 ================================================================================
 ```tsx
 // =============================================================================
@@ -1366,6 +1468,8 @@ declare global {
       checkAuth: () => Promise<{ success: boolean; authenticated?: boolean }>;
       onTrainingLog: (callback: (logLine: string) => void) => void;
       removeTrainingLogListener: () => void;
+      setServerUrl: (url: string) => Promise<{ success: boolean; url?: string; error?: string }>;
+      getServerUrl: () => Promise<{ success: boolean; url?: string }>;
     };
   }
 }
@@ -1552,27 +1656,69 @@ export default App;
 
 ================================================================================
 File: fedlearn-desktop/src/renderer/components/AuthModal.tsx
-Size: 4159 bytes | Lines: 133 | Section: source
+Size: 7425 bytes | Lines: 222 | Section: source
 ================================================================================
 ```tsx
 // =============================================================================
 // FedLearn Desktop — AuthModal Component
 // =============================================================================
-// Login form that calls window.fedLearnAPI.login().
-// JWT is confined to Main Process — this component only receives { success }.
+// Login form with server URL configuration.
+// Calls window.fedLearnAPI.login() — JWT is confined to Main Process.
+// Server URL is persisted via IPC so users only need to set it once.
 // =============================================================================
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 
 interface AuthModalProps {
   onLoginSuccess: () => void;
 }
 
 const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
+  const [serverUrl, setServerUrl] = useState('http://localhost:8081');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showServerConfig, setShowServerConfig] = useState(false);
+  const [serverSaved, setServerSaved] = useState(false);
+
+  // Load saved server URL on mount
+  useEffect(() => {
+    const loadUrl = async () => {
+      try {
+        const result = await window.fedLearnAPI.getServerUrl();
+        if (result.success && result.url) {
+          // Strip /api suffix for display
+          const displayUrl = result.url.replace(/\/api$/, '');
+          setServerUrl(displayUrl);
+        }
+      } catch {
+        // Use default
+      }
+    };
+    loadUrl();
+  }, []);
+
+  const handleSaveServer = useCallback(async () => {
+    if (!serverUrl.trim()) {
+      setError('Please enter a server URL.');
+      return;
+    }
+
+    try {
+      const result = await window.fedLearnAPI.setServerUrl(serverUrl.trim());
+      if (result.success) {
+        setServerSaved(true);
+        setError('');
+        setTimeout(() => setServerSaved(false), 2000);
+      } else {
+        setError(result.error || 'Failed to save server URL.');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(`Failed to save server URL: ${message}`);
+    }
+  }, [serverUrl]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -1587,6 +1733,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
       setIsLoading(true);
 
       try {
+        // Ensure server URL is saved before login attempt
+        await window.fedLearnAPI.setServerUrl(serverUrl.trim());
+
         const result = await window.fedLearnAPI.login(username, password);
 
         if (result.success) {
@@ -1594,13 +1743,15 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
         } else {
           setError('Invalid credentials. Please try again.');
         }
-      } catch {
-        setError('Connection failed. Is the backend running?');
+      } catch (err) {
+        console.error('[AuthModal] Login error:', err);
+        const message = err instanceof Error ? err.message : String(err);
+        setError(`Connection failed: ${message}`);
       } finally {
         setIsLoading(false);
       }
     },
-    [username, password, onLoginSuccess],
+    [username, password, serverUrl, onLoginSuccess],
   );
 
   return (
@@ -1620,6 +1771,48 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
 
           {/* Login Form */}
           <form className="auth-form" onSubmit={handleSubmit}>
+            {/* Server URL — collapsible */}
+            <div className="form-group">
+              <button
+                type="button"
+                className="server-toggle"
+                onClick={() => setShowServerConfig(!showServerConfig)}
+              >
+                <span className="server-toggle-icon">{showServerConfig ? '▾' : '▸'}</span>
+                <span className="server-toggle-label">Server</span>
+                <span className="server-toggle-url">{serverUrl}</span>
+              </button>
+
+              {showServerConfig && (
+                <div className="server-config">
+                  <div className="server-input-row">
+                    <input
+                      id="auth-server-url"
+                      className="form-input"
+                      type="text"
+                      value={serverUrl}
+                      onChange={(e) => {
+                        setServerUrl(e.target.value);
+                        setServerSaved(false);
+                      }}
+                      placeholder="http://your-server:8081"
+                      disabled={isLoading}
+                      maxLength={512}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-secondary"
+                      onClick={handleSaveServer}
+                      disabled={isLoading}
+                    >
+                      {serverSaved ? '✓' : 'Save'}
+                    </button>
+                  </div>
+                  <p className="server-hint">/api is appended automatically</p>
+                </div>
+              )}
+            </div>
+
             <div className="form-group">
               <label className="form-label" htmlFor="auth-username">
                 Username
@@ -2070,7 +2263,7 @@ root.render(
 
 ================================================================================
 File: fedlearn-desktop/src/renderer/styles.css
-Size: 16457 bytes | Lines: 814 | Section: source
+Size: 18242 bytes | Lines: 903 | Section: source
 ================================================================================
 ```text
 /* =============================================================================
@@ -2879,6 +3072,95 @@ body {
   margin-top: var(--space-sm);
 }
 
+/* ========== Server URL Toggle (Auth Modal) ========== */
+
+.server-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.server-toggle:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+
+.server-toggle-icon {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.server-toggle-label {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.server-toggle-url {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.server-config {
+  margin-top: var(--space-sm);
+  animation: slideDown 200ms ease-out;
+}
+
+.server-input-row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.server-input-row .form-input {
+  flex: 1;
+}
+
+.btn-sm {
+  padding: 8px 14px;
+  font-size: 0.8rem;
+}
+
+.btn-secondary {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+}
+
+.server-hint {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  margin-top: var(--space-xs);
+  padding-left: 2px;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ========== Responsive ========== */
 
 @media (max-width: 900px) {
@@ -2934,7 +3216,7 @@ module.exports = {
 
 ================================================================================
 File: fedlearn-desktop/webpack.preload.config.js
-Size: 585 bytes | Lines: 31 | Section: source
+Size: 540 bytes | Lines: 30 | Section: source
 ================================================================================
 ```javascript
 const path = require('path');
@@ -2961,7 +3243,6 @@ module.exports = {
   },
   externals: {
     electron: 'commonjs electron',
-    'electron-log': 'commonjs electron-log',
   },
   node: {
     __dirname: false,
@@ -2973,7 +3254,7 @@ module.exports = {
 
 ================================================================================
 File: fedlearn-desktop/webpack.prod.config.js
-Size: 4503 bytes | Lines: 188 | Section: source
+Size: 4458 bytes | Lines: 187 | Section: source
 ================================================================================
 ```javascript
 // Bypass Node 22+ SecurityError for html-webpack-plugin
@@ -3086,7 +3367,6 @@ const preloadConfig = {
   },
   externals: {
     electron: 'commonjs electron',
-    'electron-log': 'commonjs electron-log',
   },
   node: {
     __dirname: false,
