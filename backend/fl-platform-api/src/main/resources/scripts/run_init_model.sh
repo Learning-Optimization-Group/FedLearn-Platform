@@ -6,18 +6,20 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 echo "[WRAPPER-SH] Activating Python virtual environment..."
 
-# Activate the virtual environment
-source /home/ec2-user/app/venv/bin/activate
+# Activate the virtual environment (Disabled for local Mac testing)
+# source /home/ec2-user/app/venv/bin/activate
 
 echo "[WRAPPER-SH] Environment activated. Executing init_model.py..."
 
 # Change to script directory and execute init_model.py with absolute path
+PROJECT_ROOT="$( cd "${SCRIPT_DIR}/../../../../../.." && pwd )"
+VENV_PATH="${PROJECT_ROOT}/venv"
 cd "$SCRIPT_DIR"
-python3 init_model.py "$@"
+"$VENV_PATH/bin/python3" init_model.py "$@"
 
 EXIT_CODE=$?
 echo "[WRAPPER-SH] Python script finished with exit code: $EXIT_CODE"
 
 # Deactivation happens automatically when the script exits
-deactivate
+# deactivate
 exit $EXIT_CODE

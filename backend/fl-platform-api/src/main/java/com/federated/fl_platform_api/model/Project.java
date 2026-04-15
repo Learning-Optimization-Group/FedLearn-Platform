@@ -2,8 +2,6 @@ package com.federated.fl_platform_api.model;
 
 
 import jakarta.persistence.*;
-import java.time.Instant;
-import java.util.Objects;
 
 
 import java.util.UUID;

@@ -1,7 +1,5 @@
 package com.federated.fl_platform_api.dto;
 
-import lombok.Data;
-
 import java.util.UUID;
 
 

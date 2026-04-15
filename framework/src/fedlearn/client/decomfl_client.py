@@ -137,8 +137,8 @@ class DeComFLClient(Client):
 
         print(f"[DeComFLClient] Starting local training: K={K}, P={P}")
 
-        # Store initial model for revert (Algorithm 4, Line 23)
-        x_initial = self.x_current.clone()
+        # Track total perturbation for in-place revert to avoid OOM
+        total_perturbation = torch.zeros_like(self.x_current)
 
         gradient_scalars = []
         data_iter = iter(self.train_loader)
@@ -199,15 +199,17 @@ class DeComFLClient(Client):
                 delta += g * z
 
             # Algorithm 4, Line 21: Update model
-            self.x_current = self.x_current - (eta / P) * delta
+            step_update = (eta / P) * delta
+            self.x_current -= step_update
+            total_perturbation -= step_update
 
             gradient_scalars.append(k_gradient_scalars)
 
             if (k + 1) % max(1, K // 5) == 0:
                 print(f"[DeComFLClient] Completed local step {k + 1}/{K}")
 
-        # Algorithm 4, Revert model back to initial state
-        self.x_current = x_initial
+        # SECURE: Revert by mathematically reversing the exact perturbation in-place
+        self.x_current -= total_perturbation
         self.zo_estimator._set_flat_params(self.model, self.x_current)
 
         # Count training examples

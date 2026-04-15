@@ -1,4 +1,4 @@
-﻿from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod
 from typing import Optional, Callable, Tuple
 from collections import OrderedDict
 import torch
@@ -72,6 +72,8 @@ class FedAvg(Strategy):
 
 
 class FedAvgAggregator:
+    MAX_SAMPLES = 100_000  # Cap to prevent model poisoning via inflated num_examples
+
     def aggregate(self, updates):
         if not updates:
             raise ValueError("Cannot aggregate an empty list of updates.")
@@ -109,13 +111,29 @@ class FedAvgAggregator:
         aggregated_params = OrderedDict(
             [(key, torch.zeros_like(tensor, dtype=torch.float32)) for key, tensor in template_params.items()])
 
-        total_examples = sum(num_examples for _, _, num_examples in updates)
+        # Sanitize num_examples: cap and reject invalid values
+        sanitized_updates = [
+            (cid, p, min(n, self.MAX_SAMPLES))
+            for cid, p, n in updates if n > 0
+        ]
+        if not sanitized_updates:
+            raise ValueError("No valid updates after sanitization.")
 
-        for client_id, params, num_examples in updates:
+        total_examples = sum(num_examples for _, _, num_examples in sanitized_updates)
+
+        for client_id, params, num_examples in sanitized_updates:
             weight = num_examples / total_examples
             for key in aggregated_params:
                 if key in params:
-                    aggregated_params[key] += params[key].to(device).float() * weight
+                    torch.add(
+                        aggregated_params[key], 
+                        params[key].to(device).float(), 
+                        alpha=weight, 
+                        out=aggregated_params[key]
+                    )
+            
+            # Aggressively free client memory buffer
+            params.clear()
 
         return aggregated_params
 

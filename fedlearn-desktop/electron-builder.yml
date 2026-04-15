@@ -1,0 +1,73 @@
+appId: com.fedlearn.desktop
+productName: FedLearn Desktop
+copyright: Copyright © 2024 FedLearn Team
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - "!dist/**/*.map"
+  - "!dist/**/*.d.ts"
+  - "!node_modules/**/*.md"
+  - "!node_modules/**/*.map"
+
+asar: true
+compression: maximum
+
+# Disable auto-publish — GitHub Release is handled by the CI workflow
+publish: null
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  # Only enable hardenedRuntime when code signing is configured.
+  # Without a valid identity, this corrupts the DMG (error 3840).
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  identity: null
+
+dmg:
+  artifactName: "${productName}-${version}-${arch}.dmg"
+  sign: false
+
+linux:
+  category: Development
+  target:
+    - target: deb
+      arch:
+        - x64
+        - arm64
+    - target: rpm
+      arch:
+        - x64
+
+deb:
+  artifactName: "${productName}-${version}-${arch}.deb"
+  depends:
+    - docker.io
+
+rpm:
+  artifactName: "${productName}-${version}-${arch}.rpm"
+  depends:
+    - docker
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: "${productName}-${version}-Setup.exe"

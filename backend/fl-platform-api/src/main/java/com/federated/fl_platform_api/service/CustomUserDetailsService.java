@@ -1,6 +1,5 @@
 package com.federated.fl_platform_api.service;
 
-import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;

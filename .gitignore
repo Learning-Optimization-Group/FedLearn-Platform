@@ -1,22 +1,86 @@
-# Virtual environments
-.venv/
+# =============================================================================
+# FedLearn-Platform — Root .gitignore
+# =============================================================================
+
+# ========================
+# Environments & Secrets
+# ========================
+.env
+.env.local
+.env.*.local
+env.txt
+backend/fl-platform-api/env.txt
+
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.pytest_cache/
 venv/
+.venv/
 env/
 
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
+# ========================
+# Java / Spring Boot / Gradle
+# ========================
+target/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+.gradle/
+*.jar
+*.war
+*.ear
+*.class
+.mvn/wrapper/maven-wrapper.jar
 
-# Python packaging
-*.egg-info/
+# ========================
+# Node / React
+# ========================
+node_modules/
+dist/
+.vite/
 
-# ML artifacts
+# ========================
+# ML Artifacts & Data
+# ========================
 *.pth
 *.pkl
 *.npz
 checkpoints/
 results/
+models/
 
-# Native binaries
+# ========================
+# Logs & Ephemeral Data
+# ========================
+logs/
+*.log
+backend/Logs.txt
+**/*.csv
+data/
+
+# ========================
+# IDE / Editor
+# ========================
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+*.swp
+*.swo
+*~
+.DS_Store
+CLAUDE.md
+
+# ========================
+# Native / Compiled
+# ========================
 *.so
+*.dylib
+*.dll
+

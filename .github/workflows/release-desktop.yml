@@ -1,0 +1,177 @@
+# =============================================================================
+# FedLearn Desktop — Build & Release Workflow
+# =============================================================================
+# Triggers on version tags (e.g. v1.0.0, v1.2.3-beta.1).
+# Builds the Electron app for macOS (arm64 + x64), Windows (x64), and
+# Linux (x64 + arm64), then uploads all artifacts to a GitHub Release.
+#
+# Clients download the installer from:
+#   https://github.com/<owner>/FedLearn-Platform/releases/latest
+# =============================================================================
+
+name: Build & Release Electron Desktop
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.0.0)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write  # Required to create releases and upload assets
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ─── Build Matrix ──────────────────────────────────────────────────────────
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest       # Apple Silicon (arm64) runner
+            platform: mac
+            arch: arm64
+          - os: macos-latest       # Build x64 on arm64 runner (cross-compile)
+            platform: mac
+            arch: x64
+          - os: windows-latest
+            platform: win
+            arch: x64
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.platform }}-${{ matrix.arch }})
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: fedlearn-desktop/package-lock.json
+
+      - name: Install dependencies
+        working-directory: fedlearn-desktop
+        run: npm ci
+
+      - name: Build webpack bundles (production)
+        working-directory: fedlearn-desktop
+        run: npm run build
+
+      - name: Package Electron app
+        working-directory: fedlearn-desktop
+        env:
+          # Disable macOS code signing — no developer certificate configured.
+          # Remove this line and set MAC_CERTS secret to enable signing.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ matrix.platform }}" = "mac" ]; then
+            npx electron-builder --mac --${{ matrix.arch }} --publish never
+          elif [ "${{ matrix.platform }}" = "win" ]; then
+            npx electron-builder --win --x64 --publish never
+          elif [ "${{ matrix.platform }}" = "linux" ]; then
+            npx electron-builder --linux --x64 --publish never
+          fi
+        shell: bash
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            fedlearn-desktop/release/*.dmg
+            fedlearn-desktop/release/*.exe
+            fedlearn-desktop/release/*.deb
+            fedlearn-desktop/release/*.rpm
+            fedlearn-desktop/release/*.AppImage
+            fedlearn-desktop/release/*.zip
+            fedlearn-desktop/release/*.blockmap
+            fedlearn-desktop/release/latest*.yml
+          if-no-files-found: warn
+          retention-days: 5
+
+  # ─── Create GitHub Release ─────────────────────────────────────────────────
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Publish GitHub Release
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: find artifacts -type f | head -30
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "tag=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: FedLearn Desktop ${{ steps.version.outputs.tag }}
+          body: |
+            ## FedLearn Desktop ${{ steps.version.outputs.tag }}
+
+            ### Downloads
+
+            | Platform | Architecture | File |
+            |----------|-------------|------|
+            | macOS    | Apple Silicon (M1/M2/M3/M4) | `.dmg` (arm64) |
+            | macOS    | Intel | `.dmg` (x64) |
+            | Windows  | x64 | `-Setup.exe` |
+            | Linux    | x64 | `.deb` / `.rpm` |
+
+            ### Installation
+
+            **macOS:**
+            1. Download the `.zip` file for your architecture
+            2. Extract and drag **FedLearn Desktop.app** to `/Applications`
+            3. Run `xattr -cr "/Applications/FedLearn Desktop.app"` in Terminal
+            4. Right-click the app → **Open** (first time only)
+
+            **Windows:** Run the `-Setup.exe` installer.
+
+            **Linux:** Install the `.deb` (`sudo dpkg -i ...`) or `.rpm` (`sudo rpm -i ...`) package.
+
+            ### Requirements
+            - **Docker** must be installed and running on your machine
+            - Network access to the FedLearn backend server
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.tag, 'beta') || contains(steps.version.outputs.tag, 'alpha') || contains(steps.version.outputs.tag, 'rc') }}
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.exe
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.AppImage
+            artifacts/**/*.zip
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

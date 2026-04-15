@@ -1,15 +1,16 @@
 package com.federated.fl_platform_api.config;
 
+import com.federated.fl_platform_api.security.InternalApiKeyFilter;
 import com.federated.fl_platform_api.security.JwtAuthenticationFilter;
 import com.federated.fl_platform_api.service.CustomUserDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -34,6 +35,12 @@ public class SecurityConfig {
     @Autowired
     private JwtAuthenticationFilter jwtAuthFilter;
 
+    @Autowired
+    private InternalApiKeyFilter internalApiKeyFilter;
+
+    @Value("${app.cors.allowed-origins}")
+    private String allowedOriginsCsv;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -55,16 +62,19 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(
-                "http://localhost:5173",
-                "http://127.0.0.1:5173",
-                "http://10.1.60.59:5173",
-                "https://federated-learning-platform-ui.vercel.app",
-                "https://zo-sl.vercel.app",
-                "https://2f156910653b.ngrok-free.app"
-        ));
+        List<String> origins = Arrays.stream(allowedOriginsCsv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        if (origins.isEmpty()) {
+            throw new IllegalStateException("CORS_ALLOWED_ORIGINS must be set to an explicit, non-empty allowlist");
+        }
+        // Use allowedOriginPatterns (not allowedOrigins) so entries may contain wildcards
+        // (e.g. "http://localhost:*") while still permitting credentials. With credentials
+        // enabled, Spring requires patterns instead of a literal "*" origin.
+        configuration.setAllowedOriginPatterns(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
@@ -74,21 +84,21 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
-
+                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/**", "/ws-logs/**", "/error","/api/projects/**").permitAll()
+                        .requestMatchers("/api/auth/**", "/ws-logs/**", "/error", "/h2-console/**", "/actuator/health").permitAll()
+                        // Service-to-service callbacks from FL-server tasks. The chain is permitAll
+                        // here because InternalApiKeyFilter (added below) rejects any request without
+                        // a valid X-Internal-Key header before Spring Security sees it.
+                        .requestMatchers("/api/internal/**").permitAll()
                         .anyRequest().authenticated()
                 )
-
-                // 5. Configure stateless sessions (this is correct).
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                // 6. Set up your providers (this is correct).
                 .authenticationProvider(authenticationProvider())
+                .addFilterBefore(internalApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

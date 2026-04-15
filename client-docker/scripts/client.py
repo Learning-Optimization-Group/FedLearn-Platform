@@ -1,27 +1,82 @@
+from __future__ import annotations
+
+import logging
+import sys
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - [ClientID: %(client_id)s] - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+
+class ClientLogAdapter(logging.LoggerAdapter):
+    def process(self, msg, kwargs):
+        return msg, {**kwargs, 'extra': {'client_id': self.extra.get('client_id', 'BOOTING')}}
+
+base_logger = logging.getLogger("FedLearn-EdgeClient")
+logger = ClientLogAdapter(base_logger, {'client_id': 'BOOTING'})
+
+import time as _time
+
+logger.info("=" * 60)
+logger.info("FedLearn Client — Starting up...")
+logger.info(f"Python: {sys.version}")
+logger.info("=" * 60)
+
+_t0 = _time.time()
+
+logger.info("[BOOT] Importing argparse...")
 import argparse
+
+logger.info(f"[BOOT] Importing torch... (this can take 1-3 min on Jetson)")
 import torch
+logger.info(f"[BOOT] ✓ torch {torch.__version__} loaded in {_time.time()-_t0:.1f}s | CUDA: {torch.cuda.is_available()}")
+
 import time
 import threading
+
+logger.info("[BOOT] Importing numpy...")
 import numpy as np
+logger.info(f"[BOOT] ✓ numpy {np.__version__}")
+
 from collections import OrderedDict
 from typing import List, Tuple
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR
-import psutil
-import fedlearn as fl
 
+logger.info("[BOOT] Importing psutil...")
+import psutil
+
+logger.info("[BOOT] Importing fedlearn...")
+import fedlearn as fl
+logger.info("[BOOT] ✓ fedlearn loaded")
+
+logger.info("[BOOT] Importing flwr_datasets...")
 from flwr_datasets import FederatedDataset
+logger.info("[BOOT] ✓ flwr_datasets loaded")
+
+logger.info("[BOOT] Importing torchvision...")
 import torchvision.transforms as transforms
+logger.info("[BOOT] ✓ torchvision loaded")
+
+logger.info("[BOOT] Importing HuggingFace datasets...")
 from datasets import load_dataset
+logger.info("[BOOT] ✓ datasets loaded")
+
+logger.info("[BOOT] Importing transformers (slowest on ARM)...")
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
+logger.info(f"[BOOT] ✓ transformers loaded")
+
+logger.info("[BOOT] Importing models...")
 from models import CnnNet
+logger.info(f"[BOOT] ✓ All imports complete in {_time.time()-_t0:.1f}s")
 
 
 try:
     import pynvml
-    print('pynvml - ',pynvml.__version__)
+    logger.info(f'[BOOT] ✓ pynvml {pynvml.__version__}')
     PYNVML_AVAILABLE = True
     pynvml.nvmlInit()
     GPU_HANDLE = pynvml.nvmlDeviceGetHandleByIndex(0)
@@ -76,8 +131,8 @@ CNN_LEARNING_RATE = 1e-3
 # Global dataset selection (will be set via argparse)
 DATASET_NAME = "sst2"
 
-print(f"Client operating on {DEVICE}")
-print(f"--- RUNNING EXPERIMENT: {'LLM (OPT-125M)' if USE_LLM else 'CNN (CIFAR-10)'} ---")
+logger.info(f"Client operating on {DEVICE}")
+logger.info(f"--- RUNNING EXPERIMENT: {'LLM (OPT-125M)' if USE_LLM else 'CNN (CIFAR-10)'} ---")
 
 
 # ==============================================================================
@@ -109,7 +164,7 @@ def log_processing_usage(step_tag=""):
     utilization_log.append(entry)
 
     # Optional live print
-    print(f"[Usage] {step_tag} CPU RAM {cpu_ram:.2f} MB "
+    logger.info(f"[Usage] {step_tag} CPU RAM {cpu_ram:.2f} MB "
           f"GPU alloc {entry['gpu_alloc_mb']} MB "
           f"GPU util {entry['gpu_util_percent']}")
 
@@ -135,7 +190,7 @@ def load_data(partition_id: int, dataset_name: str):
         else:  # sst2
             raw_dataset = load_dataset(config["dataset_key"], config["dataset_name"], split="train")
 
-        print(f"Dataset {dataset_name} loaded: {len(raw_dataset)} samples")
+        logger.info(f"Dataset {dataset_name} loaded: {len(raw_dataset)} samples")
 
         # Partition data across clients
         num_samples = len(raw_dataset)
@@ -144,7 +199,7 @@ def load_data(partition_id: int, dataset_name: str):
         end = (partition_id + 1) * samples_per_client if partition_id < NUM_PARTITIONS - 1 else num_samples
         partition = raw_dataset.select(range(start, end))
 
-        print(f"Client {partition_id} partition: {len(partition)} samples (indices {start}-{end})")
+        logger.info(f"Client {partition_id} partition: {len(partition)} samples (indices {start}-{end})")
 
         def tokenize_function(examples):
             """Tokenize based on dataset type (single or pair)."""
@@ -210,8 +265,8 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
 
     trainable = sum(p.numel() for p in net.parameters() if p.requires_grad)
     frozen = sum(p.numel() for p in net.parameters() if not p.requires_grad)
-    print(f"   [Training] Trainable params: {trainable:,}")
-    print(f"   [Training] Frozen params: {frozen:,}")
+    logger.info(f"   [Training] Trainable params: {trainable:,}")
+    logger.info(f"   [Training] Frozen params: {frozen:,}")
 
     if trainable == 0:
         raise ValueError("ERROR: All model parameters are frozen!")
@@ -249,12 +304,12 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
             num_warmup_steps=num_warmup_steps,
             num_training_steps=total_steps
         )
-        print(f"   [Training] Using warmup for {num_warmup_steps} steps")
+        logger.info(f"   [Training] Using warmup for {num_warmup_steps} steps")
 
-    print(f"   [Training] Starting {total_steps} steps for {epochs} epoch(s)...")
-    print(f"   [Training] Learning rate: {learning_rate}")
+    logger.info(f"   [Training] Starting {total_steps} steps for {epochs} epoch(s)...")
+    logger.info(f"   [Training] Learning rate: {learning_rate}")
     if USE_LLM:
-        print(f"   [Training] Dataset: {dataset_name}")
+        logger.info(f"   [Training] Dataset: {dataset_name}")
 
     # Save initial parameters (OUTSIDE epoch loop)
     first_epoch_params = None
@@ -266,7 +321,7 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
         # Save parameters at START of first epoch
         if epoch == 0:
             first_epoch_params = {name: param.clone().detach() for name, param in net.named_parameters()}
-            print(f"   [Training] Saved initial parameters for comparison")
+            logger.info(f"   [Training] Saved initial parameters for comparison")
 
         for i, batch in enumerate(trainloader):
             optimizer.zero_grad()
@@ -280,12 +335,12 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                 loss = outputs.loss
 
                 if current_step == 0:  # First batch only
-                    print(f"   [DEBUG] First batch check:")
-                    print(f"   [DEBUG] Loss raw value: {loss}")
-                    print(f"   [DEBUG] Loss item: {loss.item()}")
-                    print(f"   [DEBUG] Loss requires_grad: {loss.requires_grad}")
-                    print(f"   [DEBUG] Batch has labels: {'labels' in batch}")
-                    print(
+                    logger.info(f"   [DEBUG] First batch check:")
+                    logger.info(f"   [DEBUG] Loss raw value: {loss}")
+                    logger.info(f"   [DEBUG] Loss item: {loss.item()}")
+                    logger.info(f"   [DEBUG] Loss requires_grad: {loss.requires_grad}")
+                    logger.info(f"   [DEBUG] Batch has labels: {'labels' in batch}")
+                    logger.info(
                         f"   [DEBUG] Model trainable params: {sum(p.numel() for p in net.parameters() if p.requires_grad):,}")
             else:
                 images, labels = batch["img"].to(DEVICE), batch["label"].to(DEVICE)
@@ -294,11 +349,11 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
 
             # Check for NaN or exploding loss
             if torch.isnan(loss) or torch.isinf(loss):
-                print(f"   [Training] WARNING: Invalid loss detected (NaN/Inf), skipping batch")
+                logger.info(f"   [Training] WARNING: Invalid loss detected (NaN/Inf), skipping batch")
                 continue
 
             if loss.item() > 100.0:
-                print(f"   [Training] WARNING: Extremely high loss ({loss.item():.2f}), skipping batch")
+                logger.info(f"   [Training] WARNING: Extremely high loss ({loss.item():.2f}), skipping batch")
                 continue
 
             loss.backward()
@@ -328,7 +383,7 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
             if (current_step % 10) == 0:
                 avg_loss = epoch_loss / epoch_steps
                 current_lr = scheduler.get_last_lr()[0] if USE_LLM else optimizer.param_groups[0]['lr']
-                print(f"   [Training] Epoch {epoch + 1}/{epochs}, "
+                logger.info(f"   [Training] Epoch {epoch + 1}/{epochs}, "
                       f"Step {current_step}/{total_steps}: "
                       f"Loss = {loss.item():.6f}, "
                       f"Avg Loss = {avg_loss:.6f}, "
@@ -336,7 +391,7 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
 
         # Epoch summary
         avg_epoch_loss = epoch_loss / epoch_steps if epoch_steps > 0 else 0.0
-        print(f"   [Training] Epoch {epoch + 1} complete. Average loss: {avg_epoch_loss:.6f}")
+        logger.info(f"   [Training] Epoch {epoch + 1} complete. Average loss: {avg_epoch_loss:.6f}")
 
         # Compare parameters at END of last epoch
         if epoch == epochs - 1 and first_epoch_params is not None:
@@ -349,14 +404,14 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
             if param_changes:
                 avg_change = sum(param_changes) / len(param_changes)
                 max_change = max(param_changes)
-                print(f"   [Training] Parameter changes from start:")
-                print(f"   [Training]   Average change: {avg_change:.6e}")
-                print(f"   [Training]   Maximum change: {max_change:.6e}")
+                logger.info(f"   [Training] Parameter changes from start:")
+                logger.info(f"   [Training]   Average change: {avg_change:.6e}")
+                logger.info(f"   [Training]   Maximum change: {max_change:.6e}")
 
                 if avg_change < 1e-10:
-                    print("   [Training] ⚠️  WARNING: Parameters barely changed!")
+                    logger.info("   [Training] ⚠️  WARNING: Parameters barely changed!")
                 else:
-                    print(f"   [Training] ✓ Parameters updated successfully")
+                    logger.info(f"   [Training] ✓ Parameters updated successfully")
 
     log_processing_usage("after training finished")
 
@@ -378,14 +433,14 @@ class ZOSLClient(fl.Client):
                 use_safetensors=True
             )
             self.net.to(DEVICE)
-            print(f"Loaded {MODEL_NAME} for {dataset_name} ({config['num_classes']} classes)")
+            logger.info(f"Loaded {MODEL_NAME} for {dataset_name} ({config['num_classes']} classes)")
             self.trainloader, _ = load_data(
                 partition_id=self.partition_id,
                 dataset_name=dataset_name
             )
         else:
             self.net = CnnNet().to(DEVICE)
-            print("Loaded CNN for CIFAR-10")
+            logger.info("Loaded CNN for CIFAR-10")
 
             self.trainloader, self.valloader = load_data(
                 partition_id=self.partition_id,
@@ -395,12 +450,12 @@ class ZOSLClient(fl.Client):
         log_processing_usage("after model init")
 
 
-        print(f"Data loaded successfully for client {partition_id}.")
+        logger.info(f"Data loaded successfully for client {partition_id}.")
 
     def set_grpc_client(self, grpc_client):
         """Set the gRPC client for heartbeat updates."""
         self.grpc_client = grpc_client
-        print(f"[Client] gRPC client configured for heartbeat updates.")
+        logger.info(f"[Client] gRPC client configured for heartbeat updates.")
 
     def get_parameters(self) -> OrderedDict[str, torch.Tensor]:
         return self.net.state_dict()
@@ -417,8 +472,8 @@ class ZOSLClient(fl.Client):
         # Get local epochs from config or use dataset default
         if USE_LLM:
             local_epochs = config.get("local_epochs", DATASET_CONFIGS[self.dataset_name]["local_epochs"])
-            print('self.dataset_name - ',self.dataset_name)
-            print('Client Class epochs - ',local_epochs)
+            logger.info('self.dataset_name - ',self.dataset_name)
+            logger.info('Client Class epochs - ',local_epochs)
         else:
             local_epochs = config.get("local_epochs", 1)
 
@@ -460,30 +515,32 @@ def main():
     args = parser.parse_args()
 
     # Update global configuration
+    global logger
+    logger = ClientLogAdapter(base_logger, {'client_id': f'project_{args.project_id}_client_{args.partition_id}'})
     USE_LLM = args.use_llm
     DATASET_NAME = args.dataset
     BATCH_SIZE = 1 if USE_LLM else 32
 
-    print(f"\n{'='*60}")
-    print(f"Starting FedLearn Client")
-    print(f"{'='*60}")
-    print(f"Configuration:")
-    print(f"  Project ID: {args.project_id}")
-    print(f"  Partition ID: {args.partition_id}")
-    print(f"  Model: {'LLM (OPT-125M)' if USE_LLM else 'CNN (CIFAR-10)'}")
+    logger.info(f"\n{'='*60}")
+    logger.info(f"Starting FedLearn Client")
+    logger.info(f"{'='*60}")
+    logger.info(f"Configuration:")
+    logger.info(f"  Project ID: {args.project_id}")
+    logger.info(f"  Partition ID: {args.partition_id}")
+    logger.info(f"  Model: {'LLM (OPT-125M)' if USE_LLM else 'CNN (CIFAR-10)'}")
     if USE_LLM:
-        print(f"  Dataset: {args.dataset.upper()}")
-        print(f"  Num classes: {DATASET_CONFIGS[args.dataset]['num_classes']}")
-        print(f"  Learning rate: {DATASET_CONFIGS[args.dataset]['learning_rate']}")
-        print(f"  Local epochs: {DATASET_CONFIGS[args.dataset]['local_epochs']}")
-    print(f"  Device: {DEVICE}")
-    print(f"  Server: {args.server_address}")
-    print(f"{'='*60}\n")
+        logger.info(f"  Dataset: {args.dataset.upper()}")
+        logger.info(f"  Num classes: {DATASET_CONFIGS[args.dataset]['num_classes']}")
+        logger.info(f"  Learning rate: {DATASET_CONFIGS[args.dataset]['learning_rate']}")
+        logger.info(f"  Local epochs: {DATASET_CONFIGS[args.dataset]['local_epochs']}")
+    logger.info(f"  Device: {DEVICE}")
+    logger.info(f"  Server: {args.server_address}")
+    logger.info(f"{'='*60}\n")
 
     client = ZOSLClient(partition_id=args.partition_id, dataset_name=args.dataset)
     client_id = f"project_{args.project_id}_client_{args.partition_id}"
 
-    print(f"Connecting to gRPC server at {args.server_address}...")
+    logger.info(f"Connecting to gRPC server at {args.server_address}...")
 
     try:
         # Start the client
@@ -494,22 +551,22 @@ def main():
         )
 
     except KeyboardInterrupt:
-        print(f"\n[{client_id}] Interrupted by user. Shutting down...")
+        logger.info(f"\n[{client_id}] Interrupted by user. Shutting down...")
     except Exception as e:
-        print(f"[{client_id}] Error: {e}")
+        logger.info(f"[{client_id}] Error: {e}")
         raise
     finally:
-        print("\n=== Utilization Summary ===")
-        print(f"{'Step':25} {'CPU RAM (MB)':15} {'GPU Alloc (MB)':15} {'GPU Reserved (MB)':18} {'GPU Util (%)':12}")
+        logger.info("\n=== Utilization Summary ===")
+        logger.info(f"{'Step':25} {'CPU RAM (MB)':15} {'GPU Alloc (MB)':15} {'GPU Reserved (MB)':18} {'GPU Util (%)':12}")
 
         for entry in utilization_log:
-            print(f"{entry['step']:25}"
+            logger.info(f"{entry['step']:25}"
                   f"{entry['cpu_ram_mb']:<15.2f}"
                   f"{(entry['gpu_alloc_mb'] or 0):<15.2f}"
                   f"{(entry['gpu_reserved_mb'] or 0):<18.2f}"
                   f"{(entry['gpu_util_percent'] or 0):<12}")
 
-        print(f"[{client_id}] Client disconnected.")
+        logger.info(f"[{client_id}] Client disconnected.")
 
 
 if __name__ == "__main__":

@@ -1,17 +1,14 @@
 # ==================================
 # Build artifacts
 # ==================================
+build/
+.gradle/
+# IntelliJ's default Java output path when the project hasn't been re-imported
+# as a Gradle module; keep ignored so stale IDE output never gets committed.
 target/
 *.jar
 *.war
 *.ear
-
-# ==================================
-# Maven
-# ==================================
-.mvn/
-mvnw
-mvnw.cmd
 
 # ==================================
 # IDE files

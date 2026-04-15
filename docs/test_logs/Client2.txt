@@ -1,0 +1,333 @@
+Last login: Tue Apr 14 18:51:09 on ttys014
+source '/Users/anurag/codebase/personalProjects/FedLearn-Platform/venv/bin/activate' && cd '/Users/anurag/codebase/personalProjects/FedLearn-Platform/backend/fl-platform-api/src/main/resources/scripts' && python client.py --project-id dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9 --server-address localhost:53319 --partition-id 2 --model-type CNN --model-name net --dataset cb --strategy FedAvg; echo ''; echo '--- Client 2 finished. Press Enter to close ---'; read
+anurag@Anurags-MacBook-Pro-2 ~ % source '/Users/anurag/codebase/personalProjects/FedLearn-Platform/venv/bin/activate' && cd '/Users/anurag/codebase/personalProjects/FedLearn-Platform/backend/fl-platform-api/src/main/resources/scripts' && python client.py --project-id dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9 --server-address localhost:53319 --partition-id 2 --model-type CNN --model-name net --dataset cb --strategy FedAvg; echo ''; echo '--- Client 2 finished. Press Enter to close ---'; read
+{"timestamp": "2026-04-14T22:51:12.565935Z", "level": "INFO", "message": "PyTorch version 2.5.1 available."}
+Client operating on cpu
+--- RUNNING EXPERIMENT: LLM (OPT-125M) ---
+
+============================================================
+DEVICE DETECTION
+============================================================
+torch.cuda.is_available(): False
+Selected device: cpu
+============================================================
+
+
+============================================================
+Starting FedLearn Client
+============================================================
+Configuration:
+  Project ID: dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9
+  Partition ID: 2
+  Model Type: CNN
+  Model Name: net
+  Strategy: FedAvg
+  Dataset: CB
+  Device: cpu
+  Server: localhost:53319
+============================================================
+
+Using FedAvg client (standard parameter download)
+Loaded CNN for CIFAR-10
+[Usage] after model init CPU RAM 449.78 MB GPU alloc None MB GPU util None
+Data loaded successfully for client 2.
+Connecting to gRPC server at localhost:53319...
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Starting heartbeat...
+{"timestamp": "2026-04-14T22:51:15.444152Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Heartbeat started (every 5s)"}
+[Client] gRPC client configured for heartbeat updates.
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Fetching global model...
+{"timestamp": "2026-04-14T22:51:15.444492Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Downloading model via streaming"}
+{"timestamp": "2026-04-14T22:51:15.446747Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Receiving 1 chunk(s) for round 2"}
+{"timestamp": "2026-04-14T22:51:15.446888Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Download complete in 0.0s"}
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Starting local training for round 2...
+
+[FIT DEBUG] Initial parameter stats:
+  conv1.weight: mean=0.000603, std=0.071937
+  conv2.bias: mean=0.000394, std=0.048116
+  fc1.weight: mean=0.000523, std=0.031663
+
+============================================================
+TRAINING DEBUG INFO
+============================================================
+  Dataset: cb
+  Learning rate: 0.001
+  Epochs: 1
+  Num batches: 125
+  Batch size: 32
+  Total samples: 4000
+  Device: cpu
+  Model type: CNN
+============================================================
+
+  Optimizer: Adam
+   [Training] Starting 125 steps for 1 epoch(s)...
+   [Training] Learning rate: 0.001
+
+   [DEBUG] First batch info:
+     Batch type: <class 'dict'>
+[Usage] batch 0 CPU RAM 585.75 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 10/125: Loss = 1.8358, Avg Loss = 1.9435, LR = 1.00e-03
+[Usage] batch 10 CPU RAM 589.97 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 20/125: Loss = 1.7161, Avg Loss = 1.9010, LR = 1.00e-03
+[Usage] batch 20 CPU RAM 590.38 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 30/125: Loss = 1.9840, Avg Loss = 1.8861, LR = 1.00e-03
+[Usage] batch 30 CPU RAM 591.02 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 40/125: Loss = 1.8885, Avg Loss = 1.8908, LR = 1.00e-03
+[Usage] batch 40 CPU RAM 591.59 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 50/125: Loss = 1.8709, Avg Loss = 1.8839, LR = 1.00e-03
+[Usage] batch 50 CPU RAM 591.62 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 60/125: Loss = 1.9459, Avg Loss = 1.8821, LR = 1.00e-03
+[Usage] batch 60 CPU RAM 591.78 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 70/125: Loss = 1.7815, Avg Loss = 1.8748, LR = 1.00e-03
+[Usage] batch 70 CPU RAM 591.80 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 80/125: Loss = 1.6933, Avg Loss = 1.8588, LR = 1.00e-03
+[Usage] batch 80 CPU RAM 591.83 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 90/125: Loss = 1.9565, Avg Loss = 1.8585, LR = 1.00e-03
+[Usage] batch 90 CPU RAM 591.86 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 100/125: Loss = 1.7207, Avg Loss = 1.8576, LR = 1.00e-03
+[Usage] batch 100 CPU RAM 591.88 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 110/125: Loss = 1.7037, Avg Loss = 1.8514, LR = 1.00e-03
+[Usage] batch 110 CPU RAM 591.88 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 120/125: Loss = 1.7232, Avg Loss = 1.8473, LR = 1.00e-03
+[Usage] batch 120 CPU RAM 592.08 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1 complete. Average loss: 1.8394
+   [Training] Epoch 1 complete. Average loss: 1.8394
+   [Training] Total batches processed: 125
+
+[FIT DEBUG] Final parameter stats:
+  conv1.weight: mean=0.000926, std=0.076831
+  conv1.bias: mean=0.058245, std=0.038091
+  conv2.weight: mean=0.002325, std=0.053937
+
+[FIT DEBUG] Parameter changes:
+  conv1.weight: avg change = 1.294854e-02
+  conv2.bias: avg change = 1.367205e-02
+  fc1.weight: avg change = 7.189209e-03
+  Average parameter change: 1.126993e-02
+[Usage] after training finished CPU RAM 592.14 MB GPU alloc None MB GPU util None
+
+[JAVA CLIENT DEBUG] Training complete for round 0
+  Total batches trained: 125
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Submitting update for round 2...
+{"timestamp": "2026-04-14T22:51:17.061723Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Model: 0.24 MB (62,006 params)"}
+{"timestamp": "2026-04-14T22:51:17.061764Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Unary upload selected"}
+{"timestamp": "2026-04-14T22:51:17.061781Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Unary model upload"}
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Successfully submitted update for round 2.
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Fetching global model...
+{"timestamp": "2026-04-14T22:51:17.710855Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Downloading model via streaming"}
+{"timestamp": "2026-04-14T22:51:17.713538Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Receiving 1 chunk(s) for round 3"}
+{"timestamp": "2026-04-14T22:51:17.713730Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Download complete in 0.0s"}
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Starting local training for round 3...
+
+[FIT DEBUG] Initial parameter stats:
+  conv1.weight: mean=-0.000152, std=0.076419
+  conv2.bias: mean=0.000584, std=0.057810
+  fc1.weight: mean=0.000991, std=0.034548
+
+============================================================
+TRAINING DEBUG INFO
+============================================================
+  Dataset: cb
+  Learning rate: 0.001
+  Epochs: 1
+  Num batches: 125
+  Batch size: 32
+  Total samples: 4000
+  Device: cpu
+  Model type: CNN
+============================================================
+
+  Optimizer: Adam
+   [Training] Starting 125 steps for 1 epoch(s)...
+   [Training] Learning rate: 0.001
+
+   [DEBUG] First batch info:
+     Batch type: <class 'dict'>
+[Usage] batch 0 CPU RAM 592.17 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 10/125: Loss = 1.7798, Avg Loss = 1.7267, LR = 1.00e-03
+[Usage] batch 10 CPU RAM 592.38 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 20/125: Loss = 1.9280, Avg Loss = 1.7693, LR = 1.00e-03
+[Usage] batch 20 CPU RAM 592.39 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 30/125: Loss = 1.5912, Avg Loss = 1.7638, LR = 1.00e-03
+[Usage] batch 30 CPU RAM 592.39 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 40/125: Loss = 1.6117, Avg Loss = 1.7648, LR = 1.00e-03
+[Usage] batch 40 CPU RAM 592.39 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 50/125: Loss = 1.5101, Avg Loss = 1.7611, LR = 1.00e-03
+[Usage] batch 50 CPU RAM 592.39 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 60/125: Loss = 1.5523, Avg Loss = 1.7457, LR = 1.00e-03
+[Usage] batch 60 CPU RAM 592.39 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 70/125: Loss = 1.5421, Avg Loss = 1.7357, LR = 1.00e-03
+[Usage] batch 70 CPU RAM 592.39 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 80/125: Loss = 1.7512, Avg Loss = 1.7343, LR = 1.00e-03
+[Usage] batch 80 CPU RAM 592.39 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 90/125: Loss = 1.6263, Avg Loss = 1.7304, LR = 1.00e-03
+[Usage] batch 90 CPU RAM 592.39 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 100/125: Loss = 1.8308, Avg Loss = 1.7339, LR = 1.00e-03
+[Usage] batch 100 CPU RAM 592.39 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 110/125: Loss = 1.4599, Avg Loss = 1.7275, LR = 1.00e-03
+[Usage] batch 110 CPU RAM 592.39 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 120/125: Loss = 1.6165, Avg Loss = 1.7199, LR = 1.00e-03
+[Usage] batch 120 CPU RAM 592.42 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1 complete. Average loss: 1.7169
+   [Training] Epoch 1 complete. Average loss: 1.7169
+   [Training] Total batches processed: 125
+
+[FIT DEBUG] Final parameter stats:
+  conv1.weight: mean=0.000975, std=0.078794
+  conv1.bias: mean=0.049507, std=0.046472
+  conv2.weight: mean=0.001400, std=0.055678
+
+[FIT DEBUG] Parameter changes:
+  conv1.weight: avg change = 6.284318e-03
+  conv2.bias: avg change = 8.730516e-03
+  fc1.weight: avg change = 5.321756e-03
+  Average parameter change: 6.778863e-03
+[Usage] after training finished CPU RAM 592.42 MB GPU alloc None MB GPU util None
+
+[JAVA CLIENT DEBUG] Training complete for round 0
+  Total batches trained: 125
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Submitting update for round 3...
+{"timestamp": "2026-04-14T22:51:18.555444Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Model: 0.24 MB (62,006 params)"}
+{"timestamp": "2026-04-14T22:51:18.555481Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Unary upload selected"}
+{"timestamp": "2026-04-14T22:51:18.555498Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Unary model upload"}
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Successfully submitted update for round 3.
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Fetching global model...
+{"timestamp": "2026-04-14T22:51:18.560329Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Downloading model via streaming"}
+{"timestamp": "2026-04-14T22:51:18.564767Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Receiving 1 chunk(s) for round 3"}
+{"timestamp": "2026-04-14T22:51:18.565737Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Download complete in 0.0s"}
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Server is still in round 3. Waiting...
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Fetching global model...
+{"timestamp": "2026-04-14T22:51:23.566945Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Downloading model via streaming"}
+{"timestamp": "2026-04-14T22:51:23.568348Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Receiving 1 chunk(s) for round 5"}
+{"timestamp": "2026-04-14T22:51:23.568475Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Download complete in 0.0s"}
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Starting local training for round 5...
+
+[FIT DEBUG] Initial parameter stats:
+  conv1.weight: mean=0.001063, std=0.080561
+  conv2.bias: mean=-0.004165, std=0.072270
+  fc1.weight: mean=-0.000124, std=0.038771
+
+============================================================
+TRAINING DEBUG INFO
+============================================================
+  Dataset: cb
+  Learning rate: 0.001
+  Epochs: 1
+  Num batches: 125
+  Batch size: 32
+  Total samples: 4000
+  Device: cpu
+  Model type: CNN
+============================================================
+
+  Optimizer: Adam
+   [Training] Starting 125 steps for 1 epoch(s)...
+   [Training] Learning rate: 0.001
+
+   [DEBUG] First batch info:
+     Batch type: <class 'dict'>
+[Usage] batch 0 CPU RAM 592.39 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 10/125: Loss = 1.7290, Avg Loss = 1.5936, LR = 1.00e-03
+[Usage] batch 10 CPU RAM 592.45 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 20/125: Loss = 1.6286, Avg Loss = 1.5637, LR = 1.00e-03
+[Usage] batch 20 CPU RAM 592.48 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 30/125: Loss = 1.7302, Avg Loss = 1.6116, LR = 1.00e-03
+[Usage] batch 30 CPU RAM 592.48 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 40/125: Loss = 1.5764, Avg Loss = 1.6091, LR = 1.00e-03
+[Usage] batch 40 CPU RAM 592.50 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 50/125: Loss = 1.5246, Avg Loss = 1.6059, LR = 1.00e-03
+[Usage] batch 50 CPU RAM 592.52 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 60/125: Loss = 1.7243, Avg Loss = 1.6126, LR = 1.00e-03
+[Usage] batch 60 CPU RAM 592.53 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 70/125: Loss = 1.4785, Avg Loss = 1.6016, LR = 1.00e-03
+[Usage] batch 70 CPU RAM 592.55 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 80/125: Loss = 1.6831, Avg Loss = 1.5931, LR = 1.00e-03
+[Usage] batch 80 CPU RAM 592.56 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 90/125: Loss = 1.6973, Avg Loss = 1.5887, LR = 1.00e-03
+[Usage] batch 90 CPU RAM 592.56 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 100/125: Loss = 1.4049, Avg Loss = 1.5889, LR = 1.00e-03
+[Usage] batch 100 CPU RAM 592.56 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 110/125: Loss = 1.7496, Avg Loss = 1.5909, LR = 1.00e-03
+[Usage] batch 110 CPU RAM 592.56 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1/1, Step 120/125: Loss = 1.7130, Avg Loss = 1.6004, LR = 1.00e-03
+[Usage] batch 120 CPU RAM 592.56 MB GPU alloc None MB GPU util None
+   [Training] Epoch 1 complete. Average loss: 1.5988
+   [Training] Epoch 1 complete. Average loss: 1.5988
+   [Training] Total batches processed: 125
+
+[FIT DEBUG] Final parameter stats:
+  conv1.weight: mean=0.000818, std=0.082151
+  conv1.bias: mean=0.039420, std=0.053771
+  conv2.weight: mean=-0.000187, std=0.058647
+
+[FIT DEBUG] Parameter changes:
+  conv1.weight: avg change = 4.766481e-03
+  conv2.bias: avg change = 7.209789e-03
+  fc1.weight: avg change = 4.835177e-03
+  Average parameter change: 5.603816e-03
+[Usage] after training finished CPU RAM 592.56 MB GPU alloc None MB GPU util None
+
+[JAVA CLIENT DEBUG] Training complete for round 0
+  Total batches trained: 125
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Submitting update for round 5...
+{"timestamp": "2026-04-14T22:51:25.020211Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Model: 0.24 MB (62,006 params)"}
+{"timestamp": "2026-04-14T22:51:25.020246Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Unary upload selected"}
+{"timestamp": "2026-04-14T22:51:25.020261Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Unary model upload"}
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Successfully submitted update for round 5.
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Fetching global model...
+{"timestamp": "2026-04-14T22:51:25.673612Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Downloading model via streaming"}
+{"timestamp": "2026-04-14T22:51:25.675773Z", "level": "ERROR", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] GetGlobalModel failed: failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:53319: Failed to connect to remote host: Connection refused"}
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Server is unavailable. Shutting down.
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Shutting down...
+{"timestamp": "2026-04-14T22:51:30.460733Z", "level": "INFO", "message": "[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Heartbeat stopped"}
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Shutdown complete.
+
+=== Utilization Summary ===
+Step                      CPU RAM (MB)    GPU Alloc (MB)  GPU Reserved (MB)  GPU Util (%)
+after model init         449.78         0.00           0.00              0           
+batch 0                  585.75         0.00           0.00              0           
+batch 10                 589.97         0.00           0.00              0           
+batch 20                 590.38         0.00           0.00              0           
+batch 30                 591.02         0.00           0.00              0           
+batch 40                 591.59         0.00           0.00              0           
+batch 50                 591.62         0.00           0.00              0           
+batch 60                 591.78         0.00           0.00              0           
+batch 70                 591.80         0.00           0.00              0           
+batch 80                 591.83         0.00           0.00              0           
+batch 90                 591.86         0.00           0.00              0           
+batch 100                591.88         0.00           0.00              0           
+batch 110                591.88         0.00           0.00              0           
+batch 120                592.08         0.00           0.00              0           
+after training finished  592.14         0.00           0.00              0           
+batch 0                  592.17         0.00           0.00              0           
+batch 10                 592.38         0.00           0.00              0           
+batch 20                 592.39         0.00           0.00              0           
+batch 30                 592.39         0.00           0.00              0           
+batch 40                 592.39         0.00           0.00              0           
+batch 50                 592.39         0.00           0.00              0           
+batch 60                 592.39         0.00           0.00              0           
+batch 70                 592.39         0.00           0.00              0           
+batch 80                 592.39         0.00           0.00              0           
+batch 90                 592.39         0.00           0.00              0           
+batch 100                592.39         0.00           0.00              0           
+batch 110                592.39         0.00           0.00              0           
+batch 120                592.42         0.00           0.00              0           
+after training finished  592.42         0.00           0.00              0           
+batch 0                  592.39         0.00           0.00              0           
+batch 10                 592.45         0.00           0.00              0           
+batch 20                 592.48         0.00           0.00              0           
+batch 30                 592.48         0.00           0.00              0           
+batch 40                 592.50         0.00           0.00              0           
+batch 50                 592.52         0.00           0.00              0           
+batch 60                 592.53         0.00           0.00              0           
+batch 70                 592.55         0.00           0.00              0           
+batch 80                 592.56         0.00           0.00              0           
+batch 90                 592.56         0.00           0.00              0           
+batch 100                592.56         0.00           0.00              0           
+batch 110                592.56         0.00           0.00              0           
+batch 120                592.56         0.00           0.00              0           
+after training finished  592.56         0.00           0.00              0           
+[project_dc3a7919-5c9a-4634-a5ba-8ab2073bb0e9_client_2] Client disconnected.
+
+--- Client 2 finished. Press Enter to close ---
+

@@ -12,7 +12,7 @@ service FederatedLearningService {
   rpc RegisterClient(RegisterClientRequest) returns (RegisterClientResponse);
   rpc GetGlobalModel(GetGlobalModelRequest) returns (GetGlobalModelResponse);
   rpc GetGlobalModelStream(GetGlobalModelRequest) returns (stream ModelChunk);
-  rpc SubmitModelUpdate(SubmitModelUpdateReque) returns (SubmitModelUpdateResponse);
+  rpc SubmitModelUpdate(SubmitModelUpdateRequest) returns (SubmitModelUpdateResponse);
   rpc SubmitModelUpdateStream(stream ModelUpdateChunk) returns (SubmitModelUpdateResponse);
   rpc GetServerStatus(GetServerStatusRequest) returns (GetServerStatusResponse);
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
@@ -62,7 +62,7 @@ message GetGlobalModelResponse {
   map<string, string> config = 3;
 }
 
-message SubmitModelUpdateReque {
+message SubmitModelUpdateRequest {
   string client_id = 1;
   ModelParameters parameters = 2;
   int32 trained_on_round = 3;

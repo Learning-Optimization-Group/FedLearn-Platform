@@ -5,10 +5,8 @@ import com.federated.fl_platform_api.dto.CreateProjectRequest;
 import com.federated.fl_platform_api.dto.ProjectResponseDto;
 import com.federated.fl_platform_api.dto.RoundResultDto;
 import com.federated.fl_platform_api.dto.StartProject;
-import com.federated.fl_platform_api.model.Project;
-import com.federated.fl_platform_api.model.RoundResult;
-import com.federated.fl_platform_api.repository.RoundResultRepository;
 import com.federated.fl_platform_api.service.ProjectService;
+import org.springframework.lang.NonNull;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,9 +24,6 @@ public class ProjectController {
     @Autowired
     private ProjectService projectService;
 
-    @Autowired
-    private RoundResultRepository roundResultRepository;
-
     @PostMapping
     public ResponseEntity<ProjectResponseDto> createProject(@Valid @RequestBody CreateProjectRequest request) {
         try {
@@ -37,7 +31,8 @@ public class ProjectController {
             ProjectResponseDto newProject = projectService.createProject(request);
             return ResponseEntity.ok(newProject);
         } catch (Exception e) {
-            // It's better to have a proper exception handler, but for now this is ok
+            System.err.println("=== ERROR IN CREATE PROJECT ===");
+            e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
     }
@@ -54,7 +49,7 @@ public class ProjectController {
     }
 
     @PostMapping("/{projectId}/start")
-    public ResponseEntity<ProjectResponseDto> startProjectServer(@PathVariable UUID projectId,
+    public ResponseEntity<ProjectResponseDto> startProjectServer(@PathVariable @NonNull UUID projectId,
                                                                  @RequestBody StartProject request,
                                                                  HttpServletRequest httpRequest) {
 
@@ -79,7 +74,7 @@ public class ProjectController {
     }
 
     @PostMapping("/{projectId}/stop")
-    public ResponseEntity<ProjectResponseDto> stopProjectServer(@PathVariable UUID projectId) {
+    public ResponseEntity<ProjectResponseDto> stopProjectServer(@PathVariable @NonNull UUID projectId) {
         try {
             ProjectResponseDto stoppedProject = projectService.stopServerForProject(projectId);
             return ResponseEntity.ok(stoppedProject);
@@ -91,13 +86,46 @@ public class ProjectController {
 
 
     @GetMapping("/{projectId}/results")
-    public ResponseEntity<List<RoundResultDto>> getProjectResults(@PathVariable UUID projectId) {
+    public ResponseEntity<List<RoundResultDto>> getProjectResults(@PathVariable @NonNull UUID projectId) {
         List<RoundResultDto> resultDtos = projectService.getResultsForProject(projectId);
         return ResponseEntity.ok(resultDtos);
     }
 
+    @GetMapping("/{projectId}/logs")
+    public ResponseEntity<List<com.federated.fl_platform_api.dto.ServerLogDto>> getProjectLogs(@PathVariable @NonNull UUID projectId) {
+        List<com.federated.fl_platform_api.dto.ServerLogDto> logs = projectService.getLogsForProject(projectId);
+        return ResponseEntity.ok(logs);
+    }
+
+    /**
+     * Export logs as a downloadable plain-text file for external review.
+     */
+    @GetMapping("/{projectId}/logs/export")
+    public ResponseEntity<String> exportProjectLogs(@PathVariable @NonNull UUID projectId) {
+        List<com.federated.fl_platform_api.dto.ServerLogDto> logs = projectService.getLogsForProject(projectId);
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== FedLearn Training Logs ===\n");
+        sb.append("Project ID: ").append(projectId).append("\n");
+        sb.append("Exported at: ").append(java.time.Instant.now()).append("\n");
+        sb.append("Total log entries: ").append(logs.size()).append("\n");
+        sb.append("=".repeat(60)).append("\n\n");
+
+        for (com.federated.fl_platform_api.dto.ServerLogDto log : logs) {
+            sb.append(String.format("[%s] [%s] %s\n", log.getTimestamp(), log.getLevel(), log.getMessage()));
+            if (log.getStackTrace() != null && !log.getStackTrace().isEmpty()) {
+                sb.append("  STACKTRACE: ").append(log.getStackTrace()).append("\n");
+            }
+        }
+
+        String filename = "fedlearn-logs-" + projectId + ".txt";
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+                .header("Content-Type", "text/plain; charset=UTF-8")
+                .body(sb.toString());
+    }
+
     @PostMapping("/{projectId}/delete")
-    public ResponseEntity<String> deleteProject(@PathVariable UUID projectId) {
+    public ResponseEntity<String> deleteProject(@PathVariable @NonNull UUID projectId) {
         projectService.deleteProject(projectId);
         String msg = projectId+"Project deleted successfully";
         return ResponseEntity.ok(msg);

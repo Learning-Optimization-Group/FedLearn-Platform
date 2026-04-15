@@ -1,25 +1,34 @@
+import io
+import logging
+import os
+from collections import OrderedDict
+from typing import Dict, Generator, Optional, Tuple
+
 import numpy as np
 import torch
-import pickle
-from collections import OrderedDict
+
 from fedlearn.communication.generated import fedlearn_pb2
-from typing import Generator, Dict, Tuple, Optional
+
+log = logging.getLogger(__name__)
+
 try:
-    import lz4.frame
-    LZ4_AVAILABLE = False
-    USE_COMPRESSION = False
+    import lz4.frame  # noqa: F401
+    LZ4_AVAILABLE = True
 except ImportError:
-    print("WARNING: lz4 not installed. Install with: pip install lz4")
-    print("WARNING: Compression disabled - transfers will be slower")
+    log.warning("lz4 not installed. Install with: pip install lz4 — compression disabled.")
     LZ4_AVAILABLE = False
-    USE_COMPRESSION = False
+
+# Compression is opt-in via env var; off by default for parity with existing deployments.
+USE_COMPRESSION = LZ4_AVAILABLE and os.environ.get("FEDLEARN_USE_COMPRESSION", "0") == "1"
+
+# Default chunk size. 50MB is appropriate for LAN; tune down for WAN / AWS ALB.
+# Override with FEDLEARN_CHUNK_SIZE_MB.
+_DEFAULT_CHUNK_SIZE_MB = int(os.environ.get("FEDLEARN_CHUNK_SIZE_MB", "4"))
+CHUNK_SIZE = _DEFAULT_CHUNK_SIZE_MB * 1024 * 1024
 
 ModelParameters = fedlearn_pb2.ModelParameters
 Tensor = fedlearn_pb2.Tensor
-import io
 
-CHUNK_SIZE = 50 * 1024 * 1024  # 50 MB per chunk
-USE_COMPRESSION = False
 
 def parameters_to_proto(parameters: OrderedDict[str, torch.Tensor], num_examples: int) -> ModelParameters:
     """Serialize a PyTorch state_dict to a proto message."""
@@ -33,11 +42,36 @@ def parameters_to_proto(parameters: OrderedDict[str, torch.Tensor], num_examples
         )
     return ModelParameters(tensors=tensors, num_examples_trained=num_examples)
 
-def proto_to_parameters(proto: ModelParameters) -> tuple[OrderedDict[str, torch.Tensor], int]:
+
+# Whitelist of safe numpy dtypes to prevent arbitrary dtype injection.
+_SAFE_DTYPES = {
+    'float16', 'float32', 'float64',
+    'int8', 'int16', 'int32', 'int64',
+    'uint8',
+    'bool',
+    'bfloat16',
+}
+
+
+def proto_to_parameters(proto: ModelParameters) -> Tuple[OrderedDict[str, torch.Tensor], int]:
     """Deserialize a proto message to a PyTorch state_dict."""
-    parameters = OrderedDict()
+    parameters: OrderedDict[str, torch.Tensor] = OrderedDict()
     for name, tensor_proto in proto.tensors.items():
-        np_array = np.frombuffer(tensor_proto.data, dtype=np.dtype(tensor_proto.dtype))
+        dtype_str = tensor_proto.dtype
+        if dtype_str not in _SAFE_DTYPES:
+            raise ValueError(f"Unsafe dtype '{dtype_str}' for tensor '{name}'. Allowed: {_SAFE_DTYPES}")
+
+        np_array = np.frombuffer(tensor_proto.data, dtype=np.dtype(dtype_str))
+
+        expected_size = 1
+        for d in tensor_proto.dims:
+            if d <= 0:
+                raise ValueError(f"Invalid dimension {d} for tensor '{name}'")
+            expected_size *= d
+        if expected_size != len(np_array):
+            raise ValueError(
+                f"Shape mismatch for tensor '{name}': dims product {expected_size} != data length {len(np_array)}")
+
         np_array = np_array.reshape(tensor_proto.dims).copy()
         parameters[name] = torch.tensor(np_array)
     return parameters, proto.num_examples_trained
@@ -47,46 +81,41 @@ def parameters_to_chunks(
         params: OrderedDict[str, torch.Tensor],
         num_examples: int,
         chunk_size: int = CHUNK_SIZE,
-        compress: bool = False
+        compress: Optional[bool] = None,
 ) -> Generator[Dict, None, None]:
     """Memory-efficient serialization using torch.save."""
+    if compress is None:
+        compress = USE_COMPRESSION
+
     try:
-        print(f"[Serializer] Using torch.save for {len(params)} tensors...")
+        log.debug("Serializing %d tensors with torch.save", len(params))
 
-        # Use BytesIO buffer
-        buffer = io.BytesIO()
-
-        # Save using torch (more memory efficient than pickle)
-        model_data = {
-            'parameters': params,  # torch.save handles OrderedDict efficiently
-            'num_examples': num_examples
-        }
-
-        torch.save(model_data, buffer)
-
-        # Get bytes
-        serialized = buffer.getvalue()
-        buffer.close()
+        with io.BytesIO() as buffer:
+            model_data = {
+                'parameters': params,
+                'num_examples': num_examples,
+            }
+            torch.save(model_data, buffer)
+            serialized = buffer.getvalue()
 
         original_size = len(serialized)
-        print(f"[Serializer] Serialized: {original_size / (1024 ** 2):.2f} MB")
+        log.debug("Serialized size: %.2f MB", original_size / (1024 ** 2))
 
-        # Compress
         if compress and LZ4_AVAILABLE:
-            print(f"[Serializer] Compressing...")
+            import lz4.frame
+            log.debug("Compressing with lz4")
             compressed = lz4.frame.compress(serialized, compression_level=lz4.frame.COMPRESSIONLEVEL_MIN)
             data_to_send = compressed
-            ratio = original_size / len(compressed)
-            print(f"[Serializer] Compressed: {len(compressed) / (1024 ** 2):.2f} MB (ratio: {ratio:.2f}x)")
+            ratio = original_size / len(compressed) if compressed else 1.0
+            log.debug("Compressed size: %.2f MB (ratio %.2fx)", len(compressed) / (1024 ** 2), ratio)
         else:
             data_to_send = serialized
 
         del serialized
 
-        # Chunk
         total_size = len(data_to_send)
         num_chunks = (total_size + chunk_size - 1) // chunk_size
-        print(f"[Serializer] Creating {num_chunks} chunk(s)")
+        log.debug("Emitting %d chunks of ~%d bytes", num_chunks, chunk_size)
 
         for i in range(num_chunks):
             start = i * chunk_size
@@ -97,36 +126,36 @@ def parameters_to_chunks(
                 'total_chunks': num_chunks,
                 'chunk_data': data_to_send[start:end],
                 'is_final_chunk': (i == num_chunks - 1),
-                'num_examples': num_examples
+                'num_examples': num_examples,
             }
 
-    except Exception as e:
-        print(f"[Serializer] ERROR: {e}")
-        import traceback
-        traceback.print_exc()
+    except Exception:
+        log.exception("parameters_to_chunks failed")
         raise
 
 
-def chunks_to_parameters(chunks_data: bytes, compressed: bool = USE_COMPRESSION) -> Tuple[
-    OrderedDict[str, torch.Tensor], int]:
-    """Reconstruct using torch.load."""
+def chunks_to_parameters(
+        chunks_data: bytes,
+        compressed: Optional[bool] = None,
+) -> Tuple[OrderedDict[str, torch.Tensor], int]:
+    """Reconstruct a state_dict from a serialized blob using torch.load."""
+    if compressed is None:
+        compressed = USE_COMPRESSION
+
     try:
-        # Decompress
         if compressed and LZ4_AVAILABLE:
-            print(f"[Serializer] Decompressing...")
+            import lz4.frame
+            log.debug("Decompressing lz4 blob")
             data = lz4.frame.decompress(chunks_data)
         else:
             data = chunks_data
 
-        # Load using torch
-        buffer = io.BytesIO(data)
-        model_data = torch.load(buffer, map_location='cpu')
-        buffer.close()
+        # weights_only=True prevents arbitrary pickle execution.
+        with io.BytesIO(data) as buffer:
+            model_data = torch.load(buffer, map_location='cpu', weights_only=True)
 
         return model_data['parameters'], model_data['num_examples']
 
-    except Exception as e:
-        print(f"[Serializer] ERROR: {e}")
-        import traceback
-        traceback.print_exc()
+    except Exception:
+        log.exception("chunks_to_parameters failed")
         raise

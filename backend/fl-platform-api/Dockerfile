@@ -1,61 +1,64 @@
+# =============================================================================
+# FedLearn Platform API — Docker image
+# =============================================================================
+# Stage 1: build the Spring Boot jar with the project's Gradle wrapper.
+# Stage 2: assemble a slim JRE runtime that runs as a non-root user.
+# =============================================================================
 
-# Stage 1 - Build the Spring Boot application using Maven
-
-
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
 
-# Copy the Maven project definition first to leverage Docker's layer caching
-COPY pom.xml .
-COPY .mvn .mvn
+# Copy Gradle wrapper and config first so dependency resolution can be cached
+# independently of source changes.
+COPY gradlew .
+COPY gradle gradle
+COPY settings.gradle build.gradle ./
+RUN chmod +x gradlew && ./gradlew --no-daemon dependencies || true
 
-# Copy the rest of the source code
 COPY src src
+RUN ./gradlew --no-daemon bootJar -x test
 
-# Build the application, skipping tests to speed up the process
-RUN mvn package -DskipTests
-
-# Stage 2 - Create the Python virtual environment
-
-FROM python:3.10-slim AS python-env
+FROM eclipse-temurin:21-jre
 WORKDIR /app
 
-# Copy the requirements file
-COPY requirements.txt .
+# Unprivileged runtime user.
+ARG APP_UID=10001
+ARG APP_GID=10001
+RUN groupadd --system --gid ${APP_GID} fedlearn \
+    && useradd --system --uid ${APP_UID} --gid ${APP_GID} --no-create-home --shell /usr/sbin/nologin fedlearn
 
-# Create a virtual environment and install dependencies into it
+COPY --from=build /app/build/libs/*.jar /app/app.jar
 
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Stage 3 - Assemble the final image
-
-FROM openjdk:21-jdk-slim
-WORKDIR /app
-
-# Copy the python environment
-# Copy the virtual environment from the python-env stage
-COPY --from=python-env /opt/venv /opt/venv
-
-# --- Copy the Python Scripts ---
-# Create a directory for the scripts and copy them in
-RUN mkdir -p /app/scripts
-COPY src/main/resources/scripts /app/scripts
-
-# --- Copy the Java Application ---
-# Copy the built JAR file from the build stage
-COPY --from=build /app/target/*.jar app.jar
-
-# --- Configure Environment ---
-# Add the venv's bin directory to the system's PATH
-# This ensures the 'python' command uses the venv's interpreter
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Expose the application port
 EXPOSE 8081
 
-# --- Set the entrypoint to run the application ---
-# This command will be executed when the container starts
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+# Entrypoint:
+#   - Rewrites Heroku/RDS-style DATABASE_URL (postgres://) to JDBC form.
+#   - Fails fast if required secrets are missing from the orchestrator env.
+COPY <<'EOF' /app/entrypoint.sh
+#!/bin/sh
+set -eu
 
+if [ -n "${DATABASE_URL:-}" ]; then
+  export SPRING_DATASOURCE_URL=$(echo "$DATABASE_URL" | sed 's|^postgres://|jdbc:postgresql://|')
+fi
+
+required_vars="APP_JWT_SECRET APP_INTERNAL_API_KEY SPRING_DATASOURCE_URL SPRING_DATASOURCE_USERNAME SPRING_DATASOURCE_PASSWORD"
+missing=""
+for v in $required_vars; do
+  eval "val=\${$v:-}"
+  if [ -z "$val" ]; then
+    missing="$missing $v"
+  fi
+done
+if [ -n "$missing" ]; then
+  echo "ERROR: Required environment variables are missing:$missing" >&2
+  exit 1
+fi
+
+exec java -jar /app/app.jar "$@"
+EOF
+RUN chmod +x /app/entrypoint.sh \
+    && chown -R fedlearn:fedlearn /app
+
+USER fedlearn
+ENTRYPOINT ["/app/entrypoint.sh"]

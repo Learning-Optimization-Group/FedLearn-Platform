@@ -1,0 +1,278 @@
+// =============================================================================
+// FedLearn Frontend — DashboardV2 (Apple-inspired, real API)
+// =============================================================================
+// Wired to apiServices for real project data, WebSocket status updates.
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import * as api from '../../services/apiServices';
+import { Client as StompClient, StompSubscription } from '@stomp/stompjs';
+import { ProjectCard } from './ProjectCard';
+import { LogViewerV2 } from './LogViewer';
+import { ResultsModalV2 } from './ResultsModal';
+import { CreateProjectModalV2 } from './CreateProjectModal';
+import { EditProjectModal } from './EditProjectModal';
+import { StartProjectModal } from './StartProjectModal';
+import { Plus, Search, Filter } from 'lucide-react';
+import type { Project, ProjectResult } from '../../services/apiServices';
+
+const SERVER_ROOT_URL = import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
+const WEBSOCKET_URL_BASE = SERVER_ROOT_URL.replace(/^http/, 'ws');
+
+interface StatusUpdate {
+  projectId: string;
+  newStatus: string;
+  serverPort?: number;
+}
+
+export function DashboardV2() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [logViewProjectId, setLogViewProjectId] = useState<string | null>(null);
+  const [resultsProject, setResultsProject] = useState<{ id: string; name: string } | null>(null);
+  const [results, setResults] = useState<ProjectResult[]>([]);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editProject, setEditProject] = useState<Project | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const [isStartModalOpen, setIsStartModalOpen] = useState(false);
+  const [startProject, setStartProject] = useState<Project | null>(null);
+
+  const stompClientRef = useRef<StompClient | null>(null);
+  const subscriptionRef = useRef<StompSubscription | null>(null);
+
+  const loadProjects = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await api.fetchProjects();
+      setProjects(Array.isArray(response.data) ? response.data : []);
+      setError('');
+    } catch {
+      setError('Failed to fetch projects.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadProjects(); }, [loadProjects]);
+
+  // WebSocket status updates
+  useEffect(() => {
+    const client = new StompClient({
+      brokerURL: `${WEBSOCKET_URL_BASE}/ws-logs`,
+      reconnectDelay: 5000,
+    });
+
+    client.onConnect = () => {
+      const subscription = client.subscribe('/topic/status/*', (message) => {
+        try {
+          const update: StatusUpdate = JSON.parse(message.body);
+          setProjects((prev) =>
+            prev.map((p) =>
+              p.id === update.projectId
+                ? { ...p, status: update.newStatus as Project['status'], serverPort: update.serverPort }
+                : p
+            )
+          );
+        } catch { /* ignore parse errors */ }
+      });
+      subscriptionRef.current = subscription;
+    };
+
+    client.activate();
+    stompClientRef.current = client;
+
+    return () => {
+      subscriptionRef.current?.unsubscribe();
+      if (stompClientRef.current?.active) stompClientRef.current.deactivate();
+    };
+  }, []);
+
+  const handleCreateProject = async (projectData: any) => {
+    try {
+      setIsCreating(true);
+      await api.createProject(projectData);
+      setIsCreateModalOpen(false);
+      loadProjects();
+    } catch (err) {
+      setError('Failed to create project.');
+      console.error(err);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleToggleServer = async (project: Project) => {
+    try {
+      if (project.status === 'RUNNING') {
+        const res = await api.stopProjectServer(project.id);
+        setProjects((prev) => prev.map((p) => (p.id === res.data.id ? res.data : p)));
+      } else {
+        setStartProject(project);
+        setIsStartModalOpen(true);
+      }
+    } catch {
+      setError(`Failed to stop server.`);
+    }
+  };
+
+  const handleStartSubmit = async (projectId: string, config: any) => {
+    try {
+      const res = await api.startProjectServer(projectId, config);
+      setProjects((prev) => prev.map((p) => (p.id === res.data.id ? res.data : p)));
+      setIsStartModalOpen(false);
+      setStartProject(null);
+    } catch {
+      setError('Failed to start server.');
+    }
+  };
+
+  const handleUpdateProject = async (id: string, projectData: Partial<Project>) => {
+    try {
+      setIsUpdating(true);
+      const res = await api.updateProject(id, projectData);
+      setProjects((prev) => prev.map((p) => (p.id === id ? res.data : p)));
+      setIsEditModalOpen(false);
+      setEditProject(null);
+    } catch (err) {
+      setError('Failed to update project.');
+      console.error(err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      await api.deleteProject(projectId);
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    } catch (err) {
+      setError('Failed to delete project.');
+    }
+  };
+
+  const handleOpenResults = async (project: Project) => {
+    try {
+      const res = await api.fetchProjectResults(project.id);
+      setResults(res.data);
+      setResultsProject({ id: project.id, name: project.name });
+    } catch {
+      setError('Could not fetch results.');
+    }
+  };
+
+  const filteredProjects = projects.filter((p) =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-950 text-slate-200 font-sans selection:bg-cyan-500/30 selection:text-cyan-50">
+      {/* Header */}
+      <div className="h-24 flex items-center justify-between px-10 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-20">
+        <div>
+          <h1 className="text-[24px] font-semibold tracking-tight text-slate-100">Active Projects</h1>
+          <p className="text-[14px] text-slate-400 mt-0.5 tracking-tight">Manage and monitor federated tasks.</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search className="w-[18px] h-[18px] absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search projects"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-slate-900 border border-slate-800 pl-11 pr-4 py-2.5 rounded-md text-[14px] text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all w-72"
+            />
+          </div>
+          <button className="w-10 h-10 flex items-center justify-center bg-slate-900 border border-slate-800 hover:bg-slate-800 hover:text-slate-100 rounded-md text-slate-400 transition-colors">
+            <Filter className="w-4 h-4" />
+          </button>
+          <div className="w-px h-6 bg-slate-800 mx-2" />
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-slate-50 px-5 py-2.5 rounded-md text-[14px] font-medium transition-all duration-200 shadow-lg shadow-cyan-900/40 border border-cyan-500 hover:border-cyan-400"
+          >
+            <Plus className="w-[18px] h-[18px]" />
+            New Project
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="flex-1 overflow-y-auto px-10 py-10 relative z-10 bg-slate-950">
+        {error && (
+          <div className="mb-6 px-5 py-3 rounded-md border border-rose-500/20 bg-rose-500/10 text-rose-500 text-[14px] font-medium">
+            {error}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64 text-slate-500">
+            Loading projects...
+          </div>
+        ) : filteredProjects.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-[1600px] mx-auto">
+            {filteredProjects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onOpenLogs={() => setLogViewProjectId(project.id)}
+                onOpenResults={() => handleOpenResults(project)}
+                onToggleServer={() => handleToggleServer(project)}
+                onEditProject={() => { setEditProject(project); setIsEditModalOpen(true); }}
+                onDeleteProject={() => handleDeleteProject(project.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-2">
+            <p className="text-[16px] font-medium text-slate-300">No projects found.</p>
+            <p className="text-[14px]">Create one to get started.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Modals */}
+      <CreateProjectModalV2
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateProject}
+        isLoading={isCreating}
+      />
+      
+      <EditProjectModal
+        isOpen={isEditModalOpen}
+        project={editProject}
+        onClose={() => { setIsEditModalOpen(false); setEditProject(null); }}
+        onSubmit={handleUpdateProject}
+        isLoading={isUpdating}
+      />
+      
+      <StartProjectModal
+        isOpen={isStartModalOpen}
+        project={startProject}
+        onClose={() => { setIsStartModalOpen(false); setStartProject(null); }}
+        onSubmit={handleStartSubmit}
+      />
+      
+      {logViewProjectId && (
+        <LogViewerV2
+          projectId={logViewProjectId}
+          serverUrl={SERVER_ROOT_URL}
+          onClose={() => setLogViewProjectId(null)}
+        />
+      )}
+
+      <ResultsModalV2
+        isOpen={!!resultsProject}
+        onClose={() => setResultsProject(null)}
+        projectName={resultsProject?.name || ''}
+        results={results}
+      />
+    </div>
+  );
+}
