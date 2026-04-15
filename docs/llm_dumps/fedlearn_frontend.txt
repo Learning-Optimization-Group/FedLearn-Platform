@@ -2,9 +2,9 @@
 FedLearn Platform — LLM context dump: frontend
 ================================================================================
 Component path : frontend
-Generated at   : 2026-04-15 05:56 UTC
+Generated at   : 2026-04-15 15:34 UTC
 Git branch     : audit-remediation
-Git commit     : d53fc44 (uncommitted changes present)
+Git commit     : 84d8566 (uncommitted changes present)
 Files included : 63 (config=3, source=57, tests=0, docs=3)
 Total lines    : 7,603
 Total size     : 242.6 KB

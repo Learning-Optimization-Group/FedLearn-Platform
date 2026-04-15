@@ -2,12 +2,12 @@
 FedLearn Platform — LLM context dump: client-docker
 ================================================================================
 Component path : client-docker
-Generated at   : 2026-04-15 05:56 UTC
+Generated at   : 2026-04-15 15:34 UTC
 Git branch     : audit-remediation
-Git commit     : d53fc44 (uncommitted changes present)
+Git commit     : 84d8566 (uncommitted changes present)
 Files included : 10 (config=3, source=4, tests=0, docs=3)
-Total lines    : 1,943
-Total size     : 62.7 KB
+Total lines    : 1,954
+Total size     : 63.2 KB
 
 Notes for the reader:
   * Everything below is verbatim from this repo at the commit above.
@@ -32,7 +32,7 @@ client-docker/
 -- MANIFEST --------------------------------------------------------------------
 path                                                                        bytes   lines  section
 client-docker/CLAUDE.md                                                         0       0  docs
-client-docker/DEPLOYMENT_GUIDE.md                                           18320     450  docs
+client-docker/DEPLOYMENT_GUIDE.md                                           18844     461  docs
 client-docker/Dockerfile                                                     1921      47  config
 client-docker/README.md                                                     14995     669  docs
 client-docker/entrypoint.sh                                                   917      25  config
@@ -946,7 +946,7 @@ Size: 0 bytes | Lines: 0 | Section: docs
 
 ================================================================================
 File: client-docker/DEPLOYMENT_GUIDE.md
-Size: 18320 bytes | Lines: 450 | Section: docs
+Size: 18844 bytes | Lines: 461 | Section: docs
 ================================================================================
 ```markdown
 # FedLearn Client — Deployment Guide
@@ -1005,11 +1005,22 @@ Size: 18320 bytes | Lines: 450 | Section: docs
 # Clone or copy the client-docker/ directory to the Jetson
 cd ~/codebase/client-docker
 
-# Build (use --no-cache on first build or after dependency changes)
-sudo docker build --no-cache -t fedlearn-client .
+# Build (use --no-cache on first build or after dependency changes).
+# Always tag BOTH :latest (default resolved by the Electron orchestrator)
+# AND a version tag (consumed via FEDLEARN_CLIENT_IMAGE overrides).
+sudo docker build --no-cache \
+  -t fedlearn-client:latest \
+  -t fedlearn-client:0.1.0 \
+  .
 ```
 
 **Expected build time**: ~10-15 minutes (first build downloads ~2GB of dependencies).
+
+> **Why two tags?** `fedlearn-desktop` (`src/main/docker.service.ts`) resolves
+> `fedlearn-client:latest` by default. Pinning a specific release
+> (`fedlearn-client:0.1.0`) lets you override per-environment with
+> `FEDLEARN_CLIENT_IMAGE=fedlearn-client:0.1.0 npm run dev`. Bump the version
+> tag every release; `:latest` moves with it.
 
 ### 2.3 Run the Client Container
 

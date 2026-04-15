@@ -18,3 +18,21 @@ export default defineConfig({
     host: true,
   },
 });
+
+/*
+ * AWS CloudFront Deployment Routing Rule (React Router 404 Fix)
+ * -------------------------------------------------------------
+ * When deploying a single page application (SPA) to S3 + CloudFront,
+ * direct navigation to routes (e.g., /projects, /login) will return a 403/404
+ * from S3 because these objects don't exist. React Router handles them on the client.
+ * 
+ * To fix this, create a Custom Error Response in your CloudFront Distribution:
+ * 1. Go to Error Pages in your CloudFront Distribution.
+ * 2. Create Custom Error Response.
+ * 3. HTTP Error Code: 404 (Not Found)
+ * 4. Customize Error Response: Yes
+ * 5. Response Page Path: /index.html
+ * 6. HTTP Response Code: 200 (OK)
+ * 
+ * Also ensure your S3 Bucket Policy is configured for public read if needed.
+ */

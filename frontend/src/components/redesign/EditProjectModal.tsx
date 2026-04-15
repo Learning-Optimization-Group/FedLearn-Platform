@@ -1,9 +1,10 @@
 // =============================================================================
-// FedLearn Frontend — CreateProjectModal V2 (Apple-inspired)
+// FedLearn Frontend — EditProjectModal
 // =============================================================================
 
 import { useState, useEffect } from 'react';
-import { X, Sparkles } from 'lucide-react';
+import { X, Edit3 } from 'lucide-react';
+import type { Project } from '../../services/apiServices';
 
 const modelOptions = {
   CNN: {
@@ -18,45 +19,51 @@ const modelOptions = {
 
 type ModelType = keyof typeof modelOptions;
 
-interface CreateProjectModalProps {
+interface EditProjectModalProps {
   isOpen: boolean;
-  onSubmit: (data: {
-    name: string;
-    modelType: string;
-    modelName: string;
-    optimizer: string;
-    pretrainEpochs: number;
-  }) => void;
+  project: Project | null;
+  onSubmit: (id: string, data: Partial<Project>) => void;
   onClose: () => void;
   isLoading?: boolean;
 }
 
-export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = false }: CreateProjectModalProps) {
+export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading = false }: EditProjectModalProps) {
   const [name, setName] = useState('');
   const [modelType, setModelType] = useState<ModelType>('CNN');
-  const [modelName, setModelName] = useState(modelOptions.CNN.models[0]);
-  const [optimizer, setOptimizer] = useState(modelOptions.CNN.optimizers[0]);
+  const [modelName, setModelName] = useState('');
+  const [optimizer, setOptimizer] = useState('');
   const [pretrainEpochs, setPretrainEpochs] = useState(0);
 
   useEffect(() => {
-    setModelName(modelOptions[modelType].models[0]);
-    setOptimizer(modelOptions[modelType].optimizers[0]);
-  }, [modelType]);
-
-  // Reset on close
-  useEffect(() => {
-    if (!isOpen) {
-      setName('');
-      setModelType('CNN');
-      setPretrainEpochs(0);
+    if (project && isOpen) {
+      setName(project.name);
+      
+      const type = (modelOptions as any)[project.modelType] ? (project.modelType as ModelType) : 'CNN';
+      setModelType(type);
+      setModelName(project.modelName);
+      setOptimizer(project.optimizer);
+      setPretrainEpochs(0); // pretrainEpochs isn't part of the DTO returning from backend typically, but initializing to 0
     }
-  }, [isOpen]);
+  }, [project, isOpen]);
 
-  if (!isOpen) return null;
+  // Handle cascading dropdowns
+  useEffect(() => {
+    if (project && isOpen) {
+        if (!modelOptions[modelType].models.includes(modelName)) {
+            setModelName(modelOptions[modelType].models[0]);
+        }
+        if (!modelOptions[modelType].optimizers.includes(optimizer)) {
+            setOptimizer(modelOptions[modelType].optimizers[0]);
+        }
+    }
+  }, [modelType, project, isOpen, modelName, optimizer]);
+
+
+  if (!isOpen || !project) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ name, modelType, modelName, optimizer, pretrainEpochs });
+    onSubmit(project.id, { name, modelType, modelName, optimizer, pretrainEpochs } as any);
   };
 
   const selectClass =
@@ -74,8 +81,8 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
         {/* Header */}
         <div className="flex items-center justify-between p-5 pb-4 border-b border-slate-800">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-cyan-400" />
-            <h2 className="text-[18px] font-semibold tracking-tight text-slate-100">New Project</h2>
+            <Edit3 className="w-5 h-5 text-cyan-400" />
+            <h2 className="text-[18px] font-semibold tracking-tight text-slate-100">Edit Project</h2>
           </div>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center text-slate-400 bg-slate-800 hover:bg-slate-700 rounded-sm transition-colors">
             <X className="w-4 h-4" />
@@ -113,7 +120,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
             <div className="flex flex-col gap-2">
               <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Model</label>
               <select value={modelName} onChange={(e) => setModelName(e.target.value)} className={selectClass}>
-                {modelOptions[modelType].models.map((m) => (
+                {modelOptions[modelType]?.models.map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
               </select>
@@ -121,23 +128,11 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
             <div className="flex flex-col gap-2">
               <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Optimizer</label>
               <select value={optimizer} onChange={(e) => setOptimizer(e.target.value)} className={selectClass}>
-                {modelOptions[modelType].optimizers.map((o) => (
+                {modelOptions[modelType]?.optimizers.map((o) => (
                   <option key={o} value={o}>{o}</option>
                 ))}
               </select>
             </div>
-          </div>
-
-          {/* Pre-train Epochs */}
-          <div className="flex flex-col gap-2">
-            <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Pre-train Epochs</label>
-            <input
-              type="number"
-              value={pretrainEpochs}
-              onChange={(e) => setPretrainEpochs(Number(e.target.value))}
-              min="0"
-              className={inputClass}
-            />
           </div>
 
           {/* Buttons */}
@@ -155,7 +150,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
               disabled={isLoading || !name.trim()}
               className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 py-2.5 rounded-md text-[14px] font-semibold tracking-tight transition-all duration-200 shadow-[0_0_15px_rgba(6,182,212,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Creating...' : 'Create Project'}
+              {isLoading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </form>

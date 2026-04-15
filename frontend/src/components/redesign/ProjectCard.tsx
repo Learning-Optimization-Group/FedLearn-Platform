@@ -15,6 +15,7 @@ interface ProjectCardProps {
   onOpenResults: () => void;
   onOpenLogs: () => void;
   onToggleServer: () => void;
+  onEditProject: () => void;
   onDeleteProject: () => void;
 }
 
@@ -56,6 +57,7 @@ export function ProjectCard({
   onOpenResults,
   onOpenLogs,
   onToggleServer,
+  onEditProject,
   onDeleteProject,
 }: ProjectCardProps) {
   const [showMenu, setShowMenu] = useState(false);
@@ -107,7 +109,7 @@ export function ProjectCard({
   };
 
   return (
-    <div className="bg-[#1c1c1e] rounded-[24px] p-6 flex flex-col gap-5 text-[#f5f5f7] w-full font-sans transition-all hover:bg-[#2c2c2e]/60 duration-300 group relative">
+    <div className="bg-slate-900 border border-slate-800 rounded-md p-6 flex flex-col gap-5 text-slate-200 w-full font-sans transition-all hover:bg-slate-800/50 hover:border-slate-700 duration-300 group relative shadow-md">
       {/* Header Row */}
       <div className="flex justify-between items-start">
         <div className="flex-1 min-w-0">
@@ -137,14 +139,25 @@ export function ProjectCard({
           {showMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => { setShowMenu(false); setConfirmDelete(false); }} />
-              <div className="absolute right-0 top-10 z-20 bg-[#2c2c2e] border border-[rgba(255,255,255,0.1)] rounded-2xl py-2 w-48 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+              <div className="absolute right-0 top-10 z-20 bg-slate-800 border border-slate-700 rounded-md py-1 w-48 shadow-xl">
+                <button
+                  onClick={() => {
+                    onEditProject();
+                    setShowMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-[14px] font-medium transition-colors flex items-center gap-2 text-slate-300 hover:bg-slate-700/50"
+                >
+                  <Activity className="w-4 h-4" /> {/* Or Edit3 imported */}
+                  Edit Project
+                </button>
+                <div className="h-px bg-slate-700/50 my-1" />
                 <button
                   onClick={handleDelete}
                   className={cn(
-                    "w-full px-4 py-2.5 text-left text-[14px] font-medium transition-colors flex items-center gap-2",
+                    "w-full px-4 py-2 text-left text-[14px] font-medium transition-colors flex items-center gap-2",
                     confirmDelete
-                      ? "text-[#ff453a] bg-[#ff453a]/10"
-                      : "text-[#ff453a] hover:bg-[rgba(255,255,255,0.05)]"
+                      ? "text-rose-500 bg-rose-500/10"
+                      : "text-rose-500 hover:bg-slate-700/50"
                   )}
                 >
                   <Trash2 className="w-4 h-4" />
@@ -182,7 +195,7 @@ export function ProjectCard({
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-4">
         {/* Model Info */}
-        <div className="bg-[#2c2c2e]/40 rounded-2xl p-4 flex flex-col justify-between gap-3">
+        <div className="bg-slate-800/40 border border-slate-700/50 rounded-md p-4 flex flex-col justify-between gap-3">
           <div className="flex items-center text-[#86868b] gap-1.5">
             <Server className="w-[14px] h-[14px]" />
             <span className="text-[11px] font-semibold uppercase tracking-wider">Model</span>
@@ -196,8 +209,8 @@ export function ProjectCard({
         </div>
 
         {/* Accuracy Sparkline */}
-        <div className="bg-[#2c2c2e]/40 rounded-2xl p-4 flex flex-col justify-between gap-2 relative overflow-hidden">
-          <div className="flex items-center justify-between text-[#86868b]">
+        <div className="bg-slate-800/40 border border-slate-700/50 rounded-md p-4 flex flex-col justify-between gap-2 relative overflow-hidden">
+          <div className="flex items-center justify-between text-slate-400">
             <div className="flex items-center gap-1.5">
               <Activity className="w-[14px] h-[14px]" />
               <span className="text-[11px] font-semibold uppercase tracking-wider">Accuracy</span>
@@ -227,22 +240,22 @@ export function ProjectCard({
 
       {/* Action Buttons */}
       <div className="flex gap-3 mt-1">
-        <button onClick={onOpenResults} className="flex-1 bg-[#2c2c2e] hover:bg-[#3a3a3c] text-[#f5f5f7] py-[11px] px-4 rounded-full text-[15px] font-medium tracking-tight transition-colors">
+        <button onClick={onOpenResults} className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 py-2.5 px-4 rounded-md text-[14px] font-medium tracking-tight transition-colors">
           View Results
         </button>
         <button onClick={onOpenLogs} disabled={!isRunning} className={cn(
-          "flex-1 py-[11px] px-4 rounded-full text-[15px] font-medium tracking-tight transition-colors",
-          isRunning ? "bg-[#2c2c2e] hover:bg-[#3a3a3c] text-[#f5f5f7]" : "bg-[#2c2c2e]/50 text-[#86868b] cursor-not-allowed"
+          "flex-1 py-2.5 px-4 rounded-md text-[14px] font-medium border border-slate-700 tracking-tight transition-colors",
+          isRunning ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-800/30 text-slate-500 cursor-not-allowed"
         )}>
           Logs
         </button>
         <button onClick={onToggleServer} disabled={isFailed} className={cn(
-          "py-[11px] px-5 rounded-full text-[15px] font-medium tracking-tight transition-all",
+          "py-2.5 px-5 rounded-md text-[14px] font-semibold tracking-tight transition-all border",
           isFailed
-            ? "bg-[#3a3a3c]/30 text-[#86868b] cursor-not-allowed"
+            ? "bg-slate-800/30 border-slate-700/50 text-slate-500 cursor-not-allowed"
             : isRunning
-              ? "bg-[#ff453a]/20 text-[#ff453a] hover:bg-[#ff453a]/30"
-              : "bg-[#32d74b]/20 text-[#32d74b] hover:bg-[#32d74b]/30"
+              ? "bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20"
+              : "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20"
         )}>
           {isRunning ? 'Stop' : 'Start'}
         </button>

@@ -1,16 +1,18 @@
 import axios, { AxiosError } from 'axios';
 
-const envBaseUrl = import.meta.env.VITE_API_BASE_URL;
+const envBaseUrl = import.meta.env.VITE_FEDLEARN_API_URL;
 
 if (import.meta.env.PROD && !envBaseUrl) {
-    throw new Error('VITE_API_BASE_URL must be set for production builds');
+    throw new Error('VITE_FEDLEARN_API_URL must be set for production builds');
 }
 
+// Fallback is strictly for local dev when the env var isn't explicitly supplied, but not used in PROD.
 const baseURL =
-    envBaseUrl ||
-    (typeof window !== 'undefined'
-        ? `http://${window.location.hostname}:8081/api`
-        : 'http://localhost:8081/api');
+    import.meta.env.PROD
+        ? envBaseUrl
+        : envBaseUrl || (typeof window !== 'undefined'
+            ? `http://${window.location.hostname}:8081/api`
+            : 'http://localhost:8081/api');
 
 const api = axios.create({
     baseURL,

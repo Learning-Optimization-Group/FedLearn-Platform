@@ -2,9 +2,9 @@
 FedLearn Platform — LLM context dump: framework
 ================================================================================
 Component path : framework
-Generated at   : 2026-04-15 05:56 UTC
+Generated at   : 2026-04-15 15:34 UTC
 Git branch     : audit-remediation
-Git commit     : d53fc44 (uncommitted changes present)
+Git commit     : 84d8566 (uncommitted changes present)
 Files included : 70 (config=3, source=51, tests=0, docs=16)
 Total lines    : 12,950
 Total size     : 452.8 KB

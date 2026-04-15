@@ -2,11 +2,11 @@
 FedLearn Platform — LLM context dump: fedlearn-desktop
 ================================================================================
 Component path : fedlearn-desktop
-Generated at   : 2026-04-15 05:56 UTC
+Generated at   : 2026-04-15 15:34 UTC
 Git branch     : audit-remediation
-Git commit     : d53fc44 (uncommitted changes present)
+Git commit     : 84d8566 (uncommitted changes present)
 Files included : 21 (config=3, source=16, tests=0, docs=2)
-Total lines    : 3,487
+Total lines    : 3,488
 Total size     : 100.2 KB
 
 Notes for the reader:
@@ -50,7 +50,7 @@ fedlearn-desktop/README.md                                                   644
 fedlearn-desktop/electron-builder.yml                                        1362      73  config
 fedlearn-desktop/package.json                                                2257      56  config
 fedlearn-desktop/src/main/auth.service.ts                                    7779     235  source
-fedlearn-desktop/src/main/docker.service.ts                                 11458     323  source
+fedlearn-desktop/src/main/docker.service.ts                                 11544     324  source
 fedlearn-desktop/src/main/ipc.handlers.ts                                    8241     212  source
 fedlearn-desktop/src/main/main.ts                                            5229     153  source
 fedlearn-desktop/src/preload/preload.ts                                      7138     209  source
@@ -508,7 +508,7 @@ export class AuthService {
 
 ================================================================================
 File: fedlearn-desktop/src/main/docker.service.ts
-Size: 11458 bytes | Lines: 323 | Section: source
+Size: 11544 bytes | Lines: 324 | Section: source
 ================================================================================
 ```typescript
 // =============================================================================
@@ -547,8 +547,9 @@ const JETSON_DEVICE_MOUNTS: Docker.DeviceMapping[] = [
 ];
 
 const CONTAINER_NAME = 'fedlearn-training-client';
-// Pin to an explicit version tag for reproducibility; override per-environment with FEDLEARN_CLIENT_IMAGE.
-const DEFAULT_DOCKER_IMAGE = 'fedlearn-client:0.1.0';
+// Default to :latest (matches `docker build -t fedlearn-client .` in DEPLOYMENT_GUIDE.md).
+// Pin to a specific version per-environment via FEDLEARN_CLIENT_IMAGE (e.g. fedlearn-client:0.1.0).
+const DEFAULT_DOCKER_IMAGE = 'fedlearn-client:latest';
 const DOCKER_IMAGE = process.env.FEDLEARN_CLIENT_IMAGE || DEFAULT_DOCKER_IMAGE;
 
 export class DockerService {
