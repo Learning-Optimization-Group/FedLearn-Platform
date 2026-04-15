@@ -83,21 +83,29 @@ read -r -p "  Model name               [cnn]: "   MODEL_NAME;  MODEL_NAME="${MOD
 read -r -p "  Dataset                  [cb]:  "   DATASET;     DATASET="${DATASET:-cb}"
 read -r -p "  Strategy                 [FedAvg]: " STRATEGY;  STRATEGY="${STRATEGY:-FedAvg}"
 
+# Reserve the last partition for the Electron desktop app so the Docker path
+# is exercised end-to-end. Terminal windows handle partitions [0 .. N-2];
+# the Electron app handles partition N-1.
+TERMINAL_CLIENTS=$((NUM_CLIENTS - 1))
+ELECTRON_PARTITION=$((NUM_CLIENTS - 1))
+
 # ── 3. Confirmation summary ───────────────────────────────────────────────────
 printf "\n${CYAN}${BOLD}"
 printf "╔══════════════════════════════════════════════════╗\n"
 printf "║                   Ready to Launch                ║\n"
 printf "╚══════════════════════════════════════════════════╝\n"
 printf "${NC}"
-printf "  gRPC Server  →  ${CYAN}$SERVER_ADDRESS${NC}\n"
-printf "  Project ID   →  ${CYAN}$PROJECT_ID${NC}\n"
-printf "  Clients      →  ${CYAN}$NUM_CLIENTS${NC}\n"
-printf "  Model        →  ${CYAN}$MODEL_TYPE / $MODEL_NAME${NC}\n"
-printf "  Dataset      →  ${CYAN}$DATASET${NC}\n"
-printf "  Strategy     →  ${CYAN}$STRATEGY${NC}\n"
-printf "  Venv         →  ${DIM}$VENV_PATH${NC}\n\n"
+printf "  gRPC Server      →  ${CYAN}$SERVER_ADDRESS${NC}\n"
+printf "  Project ID       →  ${CYAN}$PROJECT_ID${NC}\n"
+printf "  Total clients    →  ${CYAN}$NUM_CLIENTS${NC}\n"
+printf "  Terminal clients →  ${CYAN}$TERMINAL_CLIENTS${NC} ${DIM}(partitions 0..$((TERMINAL_CLIENTS - 1)))${NC}\n"
+printf "  Electron client  →  ${CYAN}1${NC} ${DIM}(partition $ELECTRON_PARTITION — launch via desktop app)${NC}\n"
+printf "  Model            →  ${CYAN}$MODEL_TYPE / $MODEL_NAME${NC}\n"
+printf "  Dataset          →  ${CYAN}$DATASET${NC}\n"
+printf "  Strategy         →  ${CYAN}$STRATEGY${NC}\n"
+printf "  Venv             →  ${DIM}$VENV_PATH${NC}\n\n"
 
-read -r -p "  ▶ Press Enter to launch clients (Ctrl+C to abort)..." _
+read -r -p "  ▶ Press Enter to launch terminal clients (Ctrl+C to abort)..." _
 printf "\n"
 
 # ── 4. Launch function ────────────────────────────────────────────────────────
@@ -113,16 +121,38 @@ launch_client() {
   sleep 2
 }
 
-# ── 5. Launch all clients ─────────────────────────────────────────────────────
-for i in $(seq 0 $((NUM_CLIENTS - 1))); do
-  printf "  ${GREEN}▶ Launching Client $i (partition-id=$i)...${NC}\n"
-  launch_client "$i"
-done
+# ── 5. Launch terminal clients (all but the last partition) ───────────────────
+if [ "$TERMINAL_CLIENTS" -gt 0 ]; then
+  for i in $(seq 0 $((TERMINAL_CLIENTS - 1))); do
+    printf "  ${GREEN}▶ Launching terminal Client $i (partition-id=$i)...${NC}\n"
+    launch_client "$i"
+  done
+  printf "\n${GREEN}${BOLD}✓ $TERMINAL_CLIENTS terminal client(s) launched.${NC}\n"
+else
+  printf "  ${DIM}(No terminal clients to launch — NUM_CLIENTS=1, Electron handles the only partition.)${NC}\n"
+fi
 
-printf "\n${GREEN}${BOLD}✓ All $NUM_CLIENTS clients launched!${NC}\n"
-printf "\n${BOLD}What to watch:${NC}\n"
-printf "  • Client windows — should print 'Connected to server' then start training\n"
-printf "  • Window 1       — backend logs show rounds completing\n"
-printf "  • Dashboard      — live log stream updates per round\n"
+# ── 6. Electron hand-off ──────────────────────────────────────────────────────
+printf "\n${CYAN}${BOLD}"
+printf "╔══════════════════════════════════════════════════╗\n"
+printf "║          Now launch the Electron client          ║\n"
+printf "╚══════════════════════════════════════════════════╝\n"
+printf "${NC}"
+printf "  The FL server expects ${BOLD}$NUM_CLIENTS${NC} clients — partition ${BOLD}$ELECTRON_PARTITION${NC}\n"
+printf "  must come from the Electron desktop app (Window 3) so the\n"
+printf "  Docker orchestration path is exercised end-to-end.\n\n"
+printf "  ${BOLD}In the Electron app:${NC}\n"
+printf "    1. Log in (if not already)\n"
+printf "    2. Pick a hardware profile (Discrete GPU / Jetson / CPU)\n"
+printf "    3. Fill the form with ${DIM}exactly${NC} these values:\n"
+printf "         Project ID      →  ${CYAN}$PROJECT_ID${NC}\n"
+printf "         Server Address  →  ${CYAN}$SERVER_ADDRESS${NC}\n"
+printf "         Partition ID    →  ${CYAN}$ELECTRON_PARTITION${NC}\n"
+printf "    4. Click ${BOLD}Start Training${NC}\n\n"
+printf "${BOLD}What to watch:${NC}\n"
+printf "  • Terminal client windows — 'Connected to server' then training logs\n"
+printf "  • Electron app log panel  — Docker container stdout for partition $ELECTRON_PARTITION\n"
+printf "  • Backend (Window 1)      — round completion logs\n"
+printf "  • Dashboard               — live log stream per round\n"
 printf "\n${DIM}The FL server waits for all $NUM_CLIENTS clients before starting Round 1.\n"
 printf "Training completes automatically after all rounds finish.${NC}\n\n"
