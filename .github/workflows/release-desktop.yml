@@ -149,11 +149,16 @@ jobs:
             | Linux    | x64 | `.deb` / `.rpm` |
 
             ### Installation
-            1. Download the installer for your platform
-            2. Install the app
-            3. Launch **FedLearn Desktop**
-            4. Enter the server URL provided by your project administrator
-            5. Log in with your credentials and start training
+
+            **macOS:**
+            1. Download the `.zip` file for your architecture
+            2. Extract and drag **FedLearn Desktop.app** to `/Applications`
+            3. Run `xattr -cr "/Applications/FedLearn Desktop.app"` in Terminal
+            4. Right-click the app → **Open** (first time only)
+
+            **Windows:** Run the `-Setup.exe` installer.
+
+            **Linux:** Install the `.deb` (`sudo dpkg -i ...`) or `.rpm` (`sudo rpm -i ...`) package.
 
             ### Requirements
             - **Docker** must be installed and running on your machine
