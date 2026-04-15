@@ -173,5 +173,40 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, auth:login, auth:logout, auth:check');
+  // ===================== Server URL Channel =====================
+
+  ipcMain.handle('auth:set-server-url', async (_event, url: unknown) => {
+    try {
+      if (typeof url !== 'string' || url.length === 0 || url.length > 512) {
+        log.error('[IPC:auth:set-server-url] Invalid URL input');
+        return { success: false, error: 'Invalid server URL' };
+      }
+
+      // Normalize: ensure it ends with /api
+      let normalized = url.trim().replace(/\/+$/, '');
+      if (!normalized.endsWith('/api')) {
+        normalized += '/api';
+      }
+
+      authService.setApiUrl(normalized);
+      return { success: true, url: normalized };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:auth:set-server-url] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
+  ipcMain.handle('auth:get-server-url', async () => {
+    try {
+      const url = authService.getApiUrl();
+      return { success: true, url };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:auth:get-server-url] Failed: ${message}`);
+      return { success: false, url: '' };
+    }
+  });
+
+  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url');
 }

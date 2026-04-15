@@ -26,6 +26,8 @@ declare global {
       checkAuth: () => Promise<{ success: boolean; authenticated?: boolean }>;
       onTrainingLog: (callback: (logLine: string) => void) => void;
       removeTrainingLogListener: () => void;
+      setServerUrl: (url: string) => Promise<{ success: boolean; url?: string; error?: string }>;
+      getServerUrl: () => Promise<{ success: boolean; url?: string }>;
     };
   }
 }

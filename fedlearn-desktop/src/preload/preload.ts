@@ -188,4 +188,22 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   removeTrainingLogListener: (): void => {
     ipcRenderer.removeAllListeners('docker:training-log');
   },
+
+  /**
+   * Set the backend server URL. Persisted across app restarts.
+   * Users enter the URL (e.g. http://192.168.1.100:8081) and /api is appended automatically.
+   */
+  setServerUrl: async (url: string): Promise<{ success: boolean; url?: string; error?: string }> => {
+    if (!isValidStringInput(url, 'serverUrl')) {
+      return { success: false, error: 'Invalid server URL' };
+    }
+    return ipcRenderer.invoke('auth:set-server-url', url);
+  },
+
+  /**
+   * Get the currently configured backend server URL.
+   */
+  getServerUrl: async (): Promise<{ success: boolean; url?: string }> => {
+    return ipcRenderer.invoke('auth:get-server-url');
+  },
 });

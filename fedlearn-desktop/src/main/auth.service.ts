@@ -23,6 +23,8 @@ interface AuthStore {
   username: string;
 }
 
+const SERVER_URL_KEY = 'serverUrl';
+
 const AUTH_STORE_KEY = 'auth';
 const JWT_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours — matches backend's maxAge
 
@@ -39,8 +41,26 @@ export class AuthService {
       encryptionKey: 'fedlearn-store-key', // Obfuscation layer; real encryption is safeStorage
     });
 
-    this.apiBaseUrl = process.env.FEDLEARN_API_URL || DEFAULT_API_BASE_URL;
+    // Load persisted server URL, or fall back to env var / localhost default
+    const savedUrl = this.store.get(SERVER_URL_KEY) as string | undefined;
+    this.apiBaseUrl = savedUrl || process.env.FEDLEARN_API_URL || DEFAULT_API_BASE_URL;
     log.info(`[AuthService] Initialized with API base URL: ${this.apiBaseUrl}`);
+  }
+
+  /**
+   * Update the backend API URL and persist it for future launches.
+   */
+  setApiUrl(url: string): void {
+    this.apiBaseUrl = url;
+    this.store.set(SERVER_URL_KEY, url);
+    log.info(`[AuthService] API base URL updated to: ${url}`);
+  }
+
+  /**
+   * Returns the current backend API URL.
+   */
+  getApiUrl(): string {
+    return this.apiBaseUrl;
   }
 
   /**
