@@ -29,6 +29,7 @@ env/
 # ========================
 target/
 build/
+!fedlearn-desktop/build/
 !gradle/wrapper/gradle-wrapper.jar
 .gradle/
 *.jar

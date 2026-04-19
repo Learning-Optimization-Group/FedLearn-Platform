@@ -26,7 +26,7 @@ permissions:
   contents: write  # Required to create releases and upload assets
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
 
 jobs:
   # ─── Build Matrix ──────────────────────────────────────────────────────────
