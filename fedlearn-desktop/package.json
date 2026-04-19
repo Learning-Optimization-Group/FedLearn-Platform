@@ -28,29 +28,32 @@
     "package:win": "npm run build && electron-builder --win --config electron-builder.yml"
   },
   "dependencies": {
-    "axios": "1.7.9",
-    "dockerode": "4.0.4",
+    "axios": "^1.15.0",
+    "dockerode": "^4.0.10",
     "electron-log": "5.3.0",
     "electron-store": "8.2.0",
     "react": "18.3.1",
     "react-dom": "18.3.1"
+  },
+  "overrides": {
+    "protobufjs": ">=7.5.5"
   },
   "devDependencies": {
     "@types/dockerode": "3.3.34",
     "@types/react": "18.3.18",
     "@types/react-dom": "18.3.5",
     "concurrently": "9.1.2",
-    "copy-webpack-plugin": "12.0.2",
+    "copy-webpack-plugin": "^14.0.0",
     "css-loader": "7.1.2",
-    "electron": "34.2.0",
-    "electron-builder": "25.1.8",
+    "electron": "^34.5.8",
+    "electron-builder": "^26.8.1",
     "html-webpack-plugin": "5.6.3",
     "style-loader": "4.0.0",
-    "terser-webpack-plugin": "5.3.11",
+    "terser-webpack-plugin": "^5.4.0",
     "ts-loader": "9.5.1",
     "typescript": "5.7.3",
-    "webpack": "5.97.1",
+    "webpack": "^5.106.2",
     "webpack-cli": "6.0.1",
-    "webpack-dev-server": "5.2.0"
+    "webpack-dev-server": "^5.2.3"
   }
 }

@@ -224,6 +224,18 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   },
 
   /**
+   * Register a callback for Docker daemon unavailability events.
+   * Fired once on startup if the Docker socket is unreachable.
+   */
+  onDockerUnavailable: (callback: (message: string) => void): void => {
+    ipcRenderer.on('docker:daemon-unavailable', (_event, value: string) => {
+      if (typeof value === 'string') {
+        callback(value);
+      }
+    });
+  },
+
+  /**
    * Set the backend server URL. Persisted across app restarts.
    * Users enter the URL (e.g. http://192.168.1.100:8081) and /api is appended automatically.
    */

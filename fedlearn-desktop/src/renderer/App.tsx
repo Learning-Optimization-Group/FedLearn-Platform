@@ -29,6 +29,7 @@ declare global {
       checkAuth: () => Promise<{ success: boolean; authenticated?: boolean }>;
       onTrainingLog: (callback: (logLine: string) => void) => void;
       removeTrainingLogListener: () => void;
+      onDockerUnavailable: (callback: (message: string) => void) => void;
       setServerUrl: (url: string) => Promise<{ success: boolean; url?: string; error?: string }>;
       getServerUrl: () => Promise<{ success: boolean; url?: string }>;
       selectDatasetPath: () => Promise<{ success: boolean; path?: string; error?: string }>;
@@ -48,6 +49,14 @@ const App: React.FC = () => {
   const [containerStatus, setContainerStatus] = useState<ContainerStatus>('idle');
   const [logs, setLogs] = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [dockerWarning, setDockerWarning] = useState<string | null>(null);
+
+  // Listen for Docker daemon unavailability (fired once on startup)
+  useEffect(() => {
+    window.fedLearnAPI.onDockerUnavailable((msg: string) => {
+      setDockerWarning(`Docker is not running: ${msg}`);
+    });
+  }, []);
 
   // Check authentication on mount
   useEffect(() => {
@@ -208,6 +217,17 @@ const App: React.FC = () => {
           </button>
         </div>
       </header>
+
+      {/* Docker Warning Banner */}
+      {dockerWarning && (
+        <div className="docker-warning" role="alert">
+          <span className="error-icon">⚠</span>
+          <span>{dockerWarning}</span>
+          <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+            Start Docker Desktop and restart the app.
+          </span>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="app-main">
