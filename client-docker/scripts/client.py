@@ -5,13 +5,14 @@ import sys
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - [ClientID: %(client_id)s] - %(message)s',
+    format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 
 class ClientLogAdapter(logging.LoggerAdapter):
     def process(self, msg, kwargs):
-        return msg, {**kwargs, 'extra': {'client_id': self.extra.get('client_id', 'BOOTING')}}
+        client_id = self.extra.get('client_id', 'BOOTING')
+        return f"[ClientID: {client_id}] - {msg}", kwargs
 
 base_logger = logging.getLogger("FedLearn-EdgeClient")
 logger = ClientLogAdapter(base_logger, {'client_id': 'BOOTING'})
