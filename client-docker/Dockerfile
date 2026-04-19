@@ -37,8 +37,8 @@ RUN chmod +x /app/entrypoint.sh
 ARG APP_UID=10001
 ARG APP_GID=10001
 RUN groupadd --system --gid ${APP_GID} fedlearn \
-    && useradd --system --uid ${APP_UID} --gid ${APP_GID} --no-create-home --shell /usr/sbin/nologin fedlearn \
-    && chown -R fedlearn:fedlearn /app
+    && useradd --system --uid ${APP_UID} --gid ${APP_GID} --create-home --shell /bin/bash fedlearn \
+    && chown -R fedlearn:fedlearn /app /home/fedlearn
 
 ENV PYTHONPATH=/app:${PYTHONPATH}
 WORKDIR /app/scripts
