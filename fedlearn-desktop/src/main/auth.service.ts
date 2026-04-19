@@ -38,7 +38,6 @@ export class AuthService {
   constructor() {
     this.store = new Store({
       name: 'fedlearn-auth',
-      encryptionKey: 'fedlearn-store-key', // Obfuscation layer; real encryption is safeStorage
     });
 
     // Load persisted server URL, or fall back to env var / localhost default

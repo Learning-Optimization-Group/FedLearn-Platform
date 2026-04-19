@@ -2,7 +2,7 @@
 // FedLearn Desktop — Main Application Component
 // =============================================================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import AuthModal from './components/AuthModal';
 import HardwareSelector from './components/HardwareSelector';
 import LogPanel from './components/LogPanel';
@@ -38,6 +38,10 @@ declare global {
 
 export type ContainerStatus = 'idle' | 'pulling' | 'running' | 'completed' | 'error' | 'restarting' | 'paused' | 'stopped';
 
+// Cap log buffer at 10K lines to prevent unbounded memory growth during long training runs.
+// When exceeded, the oldest lines are dropped.
+const MAX_LOG_LINES = 10_000;
+
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -60,16 +64,39 @@ const App: React.FC = () => {
     checkAuth();
   }, []);
 
-  // Subscribe to container logs
+  // Subscribe to container logs — batch rapid IPC events into single state updates
+  // to prevent per-line re-renders that thrash layout during fast Docker output.
+  const logBufferRef = useRef<string[]>([]);
+  const rafIdRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
     window.fedLearnAPI.onTrainingLog((logLine: string) => {
-      setLogs((prev) => [...prev, logLine]);
+      logBufferRef.current.push(logLine);
+
+      if (rafIdRef.current === null) {
+        rafIdRef.current = requestAnimationFrame(() => {
+          const batch = logBufferRef.current;
+          logBufferRef.current = [];
+          rafIdRef.current = null;
+          setLogs((prev) => {
+            const merged = [...prev, ...batch];
+            if (merged.length > MAX_LOG_LINES) {
+              return merged.slice(merged.length - MAX_LOG_LINES);
+            }
+            return merged;
+          });
+        });
+      }
     });
 
     return () => {
       window.fedLearnAPI.removeTrainingLogListener();
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
     };
   }, [isAuthenticated]);
 

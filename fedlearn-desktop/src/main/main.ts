@@ -9,10 +9,14 @@
 // No use of the deprecated 'remote' module.
 // =============================================================================
 
-import { app, BrowserWindow, session } from 'electron';
+import { app, BrowserWindow, session, crashReporter } from 'electron';
 import * as path from 'path';
 import log from 'electron-log';
 import { registerIpcHandlers } from './ipc.handlers';
+
+// Crash reports written to disk — visible via app.getPath('crashDumps').
+// No remote submission configured; dumps stay local for debugging.
+crashReporter.start({ uploadToServer: false });
 
 // Configure electron-log as the sole logging mechanism
 log.transports.file.level = 'info';
