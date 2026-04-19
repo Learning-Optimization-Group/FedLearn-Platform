@@ -97,8 +97,14 @@ function createWindow(): void {
     });
   }
 
-  // Register all IPC handlers (docker, auth)
-  registerIpcHandlers(mainWindow);
+  // Register all IPC handlers (docker, auth). An exception here must not
+  // prevent the renderer from loading — otherwise the window stays black
+  // and the user has no way to recover (e.g. log out, switch server).
+  try {
+    registerIpcHandlers(mainWindow);
+  } catch (err) {
+    log.error('[Main] registerIpcHandlers failed; renderer will still load', err);
+  }
 
   // Load the renderer
   if (isDev) {
