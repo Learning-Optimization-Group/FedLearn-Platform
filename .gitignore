@@ -36,6 +36,7 @@ build/
 *.ear
 *.class
 .mvn/wrapper/maven-wrapper.jar
+bin/
 
 # ========================
 # Node / React
@@ -43,6 +44,7 @@ build/
 node_modules/
 dist/
 .vite/
+release/
 
 # ========================
 # ML Artifacts & Data
