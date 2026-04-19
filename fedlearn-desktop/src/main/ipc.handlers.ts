@@ -141,7 +141,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       log.error(`[IPC:docker:get-status] Failed: ${message}`);
-      return { success: true, status: 'error' };
+      return { success: false, status: 'error', error: message };
     }
   });
 
@@ -210,6 +210,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       if (typeof url !== 'string' || url.length === 0 || url.length > 512) {
         log.error('[IPC:auth:set-server-url] Invalid URL input');
         return { success: false, error: 'Invalid server URL' };
+      }
+
+      // Require http:// or https:// protocol
+      if (!/^https?:\/\//i.test(url.trim())) {
+        log.error('[IPC:auth:set-server-url] Rejected URL missing http(s):// protocol');
+        return { success: false, error: 'URL must start with http:// or https://' };
       }
 
       // Normalize: ensure it ends with /api

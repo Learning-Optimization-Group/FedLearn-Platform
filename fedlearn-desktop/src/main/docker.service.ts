@@ -58,6 +58,17 @@ export class DockerService {
 
     this.docker = new Docker({ socketPath });
     log.info(`[DockerService] Initialized with socket: ${socketPath}`);
+
+    // Verify Docker daemon is reachable. Non-blocking — fires IPC event on failure
+    // so the renderer can show a warning without blocking startup.
+    this.docker.ping().then(() => {
+      log.info('[DockerService] Docker daemon is reachable');
+    }).catch((err: Error) => {
+      log.error(`[DockerService] Docker daemon unreachable: ${err.message}`);
+      if (!this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send('docker:daemon-unavailable', err.message);
+      }
+    });
   }
 
   /**

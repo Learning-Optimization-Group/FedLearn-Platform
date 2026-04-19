@@ -139,15 +139,23 @@ app.on('web-contents-created', (_event, contents) => {
     return { action: 'deny' };
   });
 
-  // Prevent navigation away from the app
+  // Prevent navigation away from the app.
+  // In production, only allow file:// URLs rooted in the app's own directory.
+  // In dev, also allow the webpack dev server origin.
+  const appDir = isDev ? '' : path.join(__dirname, '..');
   contents.on('will-navigate', (event, url) => {
-    const parsedUrl = new URL(url);
-    const allowedOrigins = ['http://localhost:9000', `file://`];
-    const isAllowed = allowedOrigins.some((origin) => url.startsWith(origin));
+    let allowed = false;
+    if (isDev && url.startsWith('http://localhost:9000')) {
+      allowed = true;
+    } else if (url.startsWith('file://')) {
+      // Restrict file:// navigation to the packaged app directory
+      const filePath = decodeURIComponent(new URL(url).pathname);
+      allowed = appDir ? filePath.startsWith(appDir) : true;
+    }
 
-    if (!isAllowed) {
+    if (!allowed) {
       event.preventDefault();
-      log.warn(`[Security] Blocked navigation to: ${parsedUrl.origin}`);
+      log.warn(`[Security] Blocked navigation to: ${url}`);
     }
   });
 });
