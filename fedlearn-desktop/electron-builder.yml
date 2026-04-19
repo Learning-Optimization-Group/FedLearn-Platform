@@ -92,8 +92,9 @@ linux:
   category: Development
   icon: build/icons
   desktop:
-    StartupNotify: "true"
-    Terminal: "false"
+    entry:
+      StartupNotify: "true"
+      Terminal: "false"
 
 # ======================== Publish ========================
 # Configure for auto-update if using electron-updater later.
