@@ -1,24 +1,37 @@
+# =============================================================================
+# FedLearn Desktop — electron-builder Configuration
+# =============================================================================
+# Packaging config for macOS, Windows, and Linux.
+#
+# Code signing:
+#   macOS — Set CSC_LINK (p12 cert path) and CSC_KEY_PASSWORD env vars.
+#           For notarization, set APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD,
+#           and APPLE_TEAM_ID.
+#   Windows — Set CSC_LINK and CSC_KEY_PASSWORD for Authenticode signing.
+#   Unsigned builds will trigger OS security warnings (Gatekeeper / SmartScreen).
+# =============================================================================
+
 appId: com.fedlearn.desktop
 productName: FedLearn Desktop
-copyright: Copyright © 2024 FedLearn Team
+copyright: Copyright 2024 Learning Optimization Group, Rochester Institute of Technology
 
 directories:
-  output: release
   buildResources: build
+  output: release
 
 files:
   - dist/**/*
   - "!dist/**/*.map"
-  - "!dist/**/*.d.ts"
-  - "!node_modules/**/*.md"
-  - "!node_modules/**/*.map"
+  - node_modules/dockerode/**/*
+  - node_modules/electron-store/**/*
+  - node_modules/electron-log/**/*
+  - node_modules/axios/**/*
 
 asar: true
-compression: maximum
+asarUnpack:
+  - node_modules/dockerode/**/*
 
-# Disable auto-publish — GitHub Release is handled by the CI workflow
-publish: null
-
+# ======================== macOS ========================
 mac:
   category: public.app-category.developer-tools
   target:
@@ -30,44 +43,61 @@ mac:
       arch:
         - arm64
         - x64
-  # Only enable hardenedRuntime when code signing is configured.
-  # Without a valid identity, this corrupts the DMG (error 3840).
-  hardenedRuntime: false
+  icon: build/icon.icns
+  darkModeSupport: true
+  hardenedRuntime: true
   gatekeeperAssess: false
-  identity: null
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
 
 dmg:
   artifactName: "${productName}-${version}-${arch}.dmg"
-  sign: false
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
 
-linux:
-  category: Development
-  target:
-    - target: deb
-      arch:
-        - x64
-        - arm64
-    - target: rpm
-      arch:
-        - x64
+# Notarization — requires APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
+# Uncomment when signing certs are configured:
+# afterSign: scripts/notarize.js
 
-deb:
-  artifactName: "${productName}-${version}-${arch}.deb"
-  depends:
-    - docker.io
-
-rpm:
-  artifactName: "${productName}-${version}-${arch}.rpm"
-  depends:
-    - docker
-
+# ======================== Windows ========================
 win:
   target:
     - target: nsis
       arch:
         - x64
+  icon: build/icon.ico
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  artifactName: "${productName}-${version}-Setup.exe"
+  perMachine: false
+  artifactName: "${productName}-Setup-${version}.exe"
+
+# ======================== Linux ========================
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+        - arm64
+    - target: deb
+      arch:
+        - x64
+        - arm64
+  category: Development
+  icon: build/icons
+  desktop:
+    StartupNotify: "true"
+    Terminal: "false"
+
+# ======================== Publish ========================
+# Configure for auto-update if using electron-updater later.
+# publish:
+#   provider: github
+#   owner: anurag2796
+#   repo: FedLearn-Platform
