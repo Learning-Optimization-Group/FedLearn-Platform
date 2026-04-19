@@ -70,26 +70,32 @@ function createWindow(): void {
     : [];
   const apiConnectSrc = [...defaultApiOrigins, ...apiOriginsFromEnv].join(' ');
 
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          [
-            "default-src 'self'",
-            isDev ? "script-src 'self' 'unsafe-eval'" : "script-src 'self'",
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-            "font-src 'self' https://fonts.gstatic.com",
-            "img-src 'self' data:",
-            `connect-src 'self' ${apiConnectSrc}`.trim(),
-            "frame-src 'none'",
-            "object-src 'none'",
-            "base-uri 'self'",
-          ].join('; '),
-        ],
-      },
+  // CSP is injected via a <meta> tag in index.html for packaged (file://) builds,
+  // because Chromium's interpretation of 'self' under file:// origins is inconsistent
+  // and can block legitimate scripts bundled in the asar. For dev builds served over
+  // HTTP, the response-header approach works correctly.
+  if (isDev) {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' https://fonts.gstatic.com",
+              "img-src 'self' data:",
+              `connect-src 'self' ${apiConnectSrc}`.trim(),
+              "frame-src 'none'",
+              "object-src 'none'",
+              "base-uri 'self'",
+            ].join('; '),
+          ],
+        },
+      });
     });
-  });
+  }
 
   // Register all IPC handlers (docker, auth)
   registerIpcHandlers(mainWindow);
