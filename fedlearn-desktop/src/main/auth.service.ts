@@ -36,8 +36,13 @@ export class AuthService {
   private apiBaseUrl: string;
 
   constructor() {
+    // clearInvalidConfig recovers from unreadable state — e.g. a store file
+    // written by an older build that used a different encryptionKey. Without
+    // this, a SyntaxError here would propagate up through registerIpcHandlers
+    // and prevent mainWindow.loadFile from running, leaving a black window.
     this.store = new Store({
       name: 'fedlearn-auth',
+      clearInvalidConfig: true,
     });
 
     // Load persisted server URL, or fall back to env var / localhost default

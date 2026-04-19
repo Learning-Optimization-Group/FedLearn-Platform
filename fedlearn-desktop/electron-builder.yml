@@ -45,10 +45,12 @@ mac:
         - x64
   icon: build/icon.icns
   darkModeSupport: true
-  hardenedRuntime: true
+  # Ad-hoc signed (identity: null) — no Apple Developer ID. Hardened runtime
+  # requires pairing with a Developer ID + notarization; without them macOS
+  # rejects launch with "damaged / check with developer" even after install.
+  identity: null
+  hardenedRuntime: false
   gatekeeperAssess: false
-  entitlements: build/entitlements.mac.plist
-  entitlementsInherit: build/entitlements.mac.plist
 
 dmg:
   artifactName: "${productName}-${version}-${arch}.dmg"
