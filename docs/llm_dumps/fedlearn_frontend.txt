@@ -2,12 +2,12 @@
 FedLearn Platform — LLM context dump: frontend
 ================================================================================
 Component path : frontend
-Generated at   : 2026-04-15 15:34 UTC
-Git branch     : audit-remediation
-Git commit     : 84d8566 (uncommitted changes present)
-Files included : 63 (config=3, source=57, tests=0, docs=3)
-Total lines    : 7,603
-Total size     : 242.6 KB
+Generated at   : 2026-04-15 17:22 UTC
+Git branch     : feature/desktop-client-beta
+Git commit     : 7f296b3 (uncommitted changes present)
+Files included : 66 (config=4, source=59, tests=0, docs=3)
+Total lines    : 7,992
+Total size     : 258.8 KB
 
 Notes for the reader:
   * Everything below is verbatim from this repo at the commit above.
@@ -17,6 +17,7 @@ Notes for the reader:
 ================================================================================
 -- TREE ------------------------------------------------------------------------
 frontend/
+    .env.example
     CLAUDE.md
     FIXES_APPLIED.md
     README.md
@@ -47,6 +48,7 @@ frontend/
         CreateProjectModal.tsx
         DashboardV2.tsx
         DatasetsView.tsx
+        EditProjectModal.tsx
         LayoutV2.tsx
         LogViewer.tsx
         ModelsView.tsx
@@ -55,6 +57,7 @@ frontend/
         ResultsModal.tsx
         SettingsView.tsx
         Sidebar.tsx
+        StartProjectModal.tsx
   src/context/
       AuthContext.tsx
   src/lib/
@@ -92,13 +95,14 @@ frontend/
 
 -- MANIFEST --------------------------------------------------------------------
 path                                                                        bytes   lines  section
+frontend/.env.example                                                         866      14  config
 frontend/CLAUDE.md                                                            806      15  docs
 frontend/FIXES_APPLIED.md                                                    8425     339  docs
 frontend/README.md                                                           8922     280  docs
 frontend/package.json                                                        1035      40  config
 frontend/src/App.css                                                            0       0  source
 frontend/src/App.tsx                                                         3701      93  source
-frontend/src/api/axiosConfig.ts                                              1543      47  source
+frontend/src/api/axiosConfig.ts                                              1711      49  source
 frontend/src/components/ConfirmDialog.tsx                                    1985      68  source
 frontend/src/components/CopyIcon.tsx                                         1441      46  source
 frontend/src/components/CreateProjectModal.tsx                               5800     155  source
@@ -109,17 +113,19 @@ frontend/src/components/ModelCard.tsx                                         86
 frontend/src/components/ProjectCard.tsx                                     11236     262  source
 frontend/src/components/ProtectedRoute.tsx                                    496      20  source
 frontend/src/components/ResultsModal.tsx                                     2693      78  source
-frontend/src/components/redesign/CreateProjectModal.tsx                      6746     165  source
-frontend/src/components/redesign/DashboardV2.tsx                             8711     226  source
+frontend/src/components/redesign/CreateProjectModal.tsx                      6796     165  source
+frontend/src/components/redesign/DashboardV2.tsx                            10467     278  source
 frontend/src/components/redesign/DatasetsView.tsx                            5442     138  source
+frontend/src/components/redesign/EditProjectModal.tsx                        6859     160  source
 frontend/src/components/redesign/LayoutV2.tsx                                 484      14  source
-frontend/src/components/redesign/LogViewer.tsx                              13213     294  source
+frontend/src/components/redesign/LogViewer.tsx                              13355     296  source
 frontend/src/components/redesign/ModelsView.tsx                              7217     179  source
 frontend/src/components/redesign/NodeNetwork.tsx                             9318     229  source
-frontend/src/components/redesign/ProjectCard.tsx                            10210     252  source
-frontend/src/components/redesign/ResultsModal.tsx                           10808     195  source
+frontend/src/components/redesign/ProjectCard.tsx                            10927     265  source
+frontend/src/components/redesign/ResultsModal.tsx                           10793     195  source
 frontend/src/components/redesign/SettingsView.tsx                            5199     134  source
 frontend/src/components/redesign/Sidebar.tsx                                 3432      84  source
+frontend/src/components/redesign/StartProjectModal.tsx                       5676     128  source
 frontend/src/context/AuthContext.tsx                                         2720      97  source
 frontend/src/index.css                                                       1693      63  source
 frontend/src/lib/utils.ts                                                     169       6  source
@@ -150,15 +156,37 @@ frontend/src/styles/ProjectCard.css                                          733
 frontend/src/styles/ResultsModal.css                                         1600      86  source
 frontend/src/styles/fonts.css                                                  88       1  source
 frontend/src/styles/tailwind.css                                               69       3  source
-frontend/src/styles/theme.css                                                5448     181  source
+frontend/src/styles/theme.css                                                5089     181  source
 frontend/tsconfig.json                                                        854      33  config
 frontend/tsconfig.node.json                                                   233      11  source
 frontend/vercel.json                                                           96       8  source
-frontend/vite.config.ts                                                       393      20  config
+frontend/vite.config.ts                                                      1174      38  config
 
 ################################################################################
 # CONFIG & BUILD
 ################################################################################
+
+================================================================================
+File: frontend/.env.example
+Size: 866 bytes | Lines: 14 | Section: config
+================================================================================
+```text
+# =============================================================================
+# FedLearn Frontend — Environment Variables Template
+# =============================================================================
+# Rename this file to .env.local for local development or .env.production
+# for production builds. Vite statically replaces these values during build.
+
+# The Base URL where your FedLearn Spring Boot API is hosted.
+# For local dev, this might be http://localhost:8081/api
+# For AWS deployment, replace with your Elastic IP, ALB DNS, or Domain (e.g., https://api.my-fedlearn.com/api)
+VITE_FEDLEARN_API_URL=http://localhost:8081/api
+
+# The Root URL of your FedLearn backend, used for establishing WebSocket connections (ws:// /topic/logs).
+# This is typically the VITE_FEDLEARN_API_URL without the /api suffix.
+VITE_SERVER_ROOT_URL=http://localhost:8081
+```
+
 
 ================================================================================
 File: frontend/package.json
@@ -251,7 +279,7 @@ Size: 854 bytes | Lines: 33 | Section: config
 
 ================================================================================
 File: frontend/vite.config.ts
-Size: 393 bytes | Lines: 20 | Section: config
+Size: 1174 bytes | Lines: 38 | Section: config
 ================================================================================
 ```typescript
 import { defineConfig } from 'vite';
@@ -274,6 +302,24 @@ export default defineConfig({
     host: true,
   },
 });
+
+/*
+ * AWS CloudFront Deployment Routing Rule (React Router 404 Fix)
+ * -------------------------------------------------------------
+ * When deploying a single page application (SPA) to S3 + CloudFront,
+ * direct navigation to routes (e.g., /projects, /login) will return a 403/404
+ * from S3 because these objects don't exist. React Router handles them on the client.
+ * 
+ * To fix this, create a Custom Error Response in your CloudFront Distribution:
+ * 1. Go to Error Pages in your CloudFront Distribution.
+ * 2. Create Custom Error Response.
+ * 3. HTTP Error Code: 404 (Not Found)
+ * 4. Customize Error Response: Yes
+ * 5. Response Page Path: /index.html
+ * 6. HTTP Response Code: 200 (OK)
+ * 
+ * Also ensure your S3 Bucket Policy is configured for public read if needed.
+ */
 ```
 
 
@@ -393,22 +439,24 @@ export default App;
 
 ================================================================================
 File: frontend/src/api/axiosConfig.ts
-Size: 1543 bytes | Lines: 47 | Section: source
+Size: 1711 bytes | Lines: 49 | Section: source
 ================================================================================
 ```typescript
 import axios, { AxiosError } from 'axios';
 
-const envBaseUrl = import.meta.env.VITE_API_BASE_URL;
+const envBaseUrl = import.meta.env.VITE_FEDLEARN_API_URL;
 
 if (import.meta.env.PROD && !envBaseUrl) {
-    throw new Error('VITE_API_BASE_URL must be set for production builds');
+    throw new Error('VITE_FEDLEARN_API_URL must be set for production builds');
 }
 
+// Fallback is strictly for local dev when the env var isn't explicitly supplied, but not used in PROD.
 const baseURL =
-    envBaseUrl ||
-    (typeof window !== 'undefined'
-        ? `http://${window.location.hostname}:8081/api`
-        : 'http://localhost:8081/api');
+    import.meta.env.PROD
+        ? envBaseUrl
+        : envBaseUrl || (typeof window !== 'undefined'
+            ? `http://${window.location.hostname}:8081/api`
+            : 'http://localhost:8081/api');
 
 const api = axios.create({
     baseURL,
@@ -1446,7 +1494,7 @@ export default ResultsModal;
 
 ================================================================================
 File: frontend/src/components/redesign/CreateProjectModal.tsx
-Size: 6746 bytes | Lines: 165 | Section: source
+Size: 6796 bytes | Lines: 165 | Section: source
 ================================================================================
 ```tsx
 // =============================================================================
@@ -1511,33 +1559,33 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
   };
 
   const selectClass =
-    "w-full bg-[#1c1c1e] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-[15px] text-[#f5f5f7] focus:outline-none focus:ring-[3px] focus:ring-[#0a84ff]/30 focus:border-[#0a84ff]/50 transition-all appearance-none cursor-pointer";
+    "w-full bg-slate-900 border border-slate-700/50 rounded-md px-4 py-3 text-[14px] text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all appearance-none cursor-pointer";
 
   const inputClass =
-    "w-full bg-[#1c1c1e] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-[15px] text-[#f5f5f7] placeholder-[#86868b] focus:outline-none focus:ring-[3px] focus:ring-[#0a84ff]/30 focus:border-[#0a84ff]/50 transition-all";
+    "w-full bg-slate-900 border border-slate-700/50 rounded-md px-4 py-3 text-[14px] text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all";
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl font-sans"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm font-sans"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-[rgba(28,28,30,0.92)] border border-[rgba(255,255,255,0.1)] w-full max-w-lg rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden text-[#f5f5f7]">
+      <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-md shadow-2xl shadow-cyan-900/10 flex flex-col overflow-hidden text-slate-200">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 pb-4">
+        <div className="flex items-center justify-between p-5 pb-4 border-b border-slate-800">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[#0a84ff]" />
-            <h2 className="text-[22px] font-semibold tracking-tight">New Project</h2>
+            <Sparkles className="w-5 h-5 text-cyan-400" />
+            <h2 className="text-[18px] font-semibold tracking-tight text-slate-100">New Project</h2>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-[#86868b] bg-[#3a3a3c] hover:bg-[rgba(255,255,255,0.2)] rounded-full transition-colors">
-            <X className="w-[18px] h-[18px]" />
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center text-slate-400 bg-slate-800 hover:bg-slate-700 rounded-sm transition-colors">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="px-6 pb-6 flex flex-col gap-5">
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5 bg-slate-800/20">
           {/* Project Name */}
           <div className="flex flex-col gap-2">
-            <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Project Name</label>
+            <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Project Name</label>
             <input
               type="text"
               value={name}
@@ -1551,7 +1599,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
 
           {/* Model Architecture */}
           <div className="flex flex-col gap-2">
-            <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Architecture</label>
+            <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Architecture</label>
             <select value={modelType} onChange={(e) => setModelType(e.target.value as ModelType)} className={selectClass}>
               {Object.keys(modelOptions).map((type) => (
                 <option key={type} value={type}>{type}</option>
@@ -1562,7 +1610,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
           {/* Model + Optimizer row */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
-              <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Model</label>
+              <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Model</label>
               <select value={modelName} onChange={(e) => setModelName(e.target.value)} className={selectClass}>
                 {modelOptions[modelType].models.map((m) => (
                   <option key={m} value={m}>{m}</option>
@@ -1570,7 +1618,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
               </select>
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Optimizer</label>
+              <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Optimizer</label>
               <select value={optimizer} onChange={(e) => setOptimizer(e.target.value)} className={selectClass}>
                 {modelOptions[modelType].optimizers.map((o) => (
                   <option key={o} value={o}>{o}</option>
@@ -1581,7 +1629,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
 
           {/* Pre-train Epochs */}
           <div className="flex flex-col gap-2">
-            <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Pre-train Epochs</label>
+            <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Pre-train Epochs</label>
             <input
               type="number"
               value={pretrainEpochs}
@@ -1592,19 +1640,19 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
           </div>
 
           {/* Buttons */}
-          <div className="flex gap-3 mt-2">
+          <div className="flex gap-3 mt-4 pt-4 border-t border-slate-700/50">
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="flex-1 bg-[#2c2c2e] hover:bg-[#3a3a3c] text-[#f5f5f7] py-3 rounded-full text-[15px] font-medium tracking-tight transition-colors"
+              className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-md text-[14px] font-medium tracking-tight border border-slate-600 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading || !name.trim()}
-              className="flex-1 bg-[#f5f5f7] text-black hover:bg-white py-3 rounded-full text-[15px] font-medium tracking-tight transition-all duration-200 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 py-2.5 rounded-md text-[14px] font-semibold tracking-tight transition-all duration-200 shadow-[0_0_15px_rgba(6,182,212,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Creating...' : 'Create Project'}
             </button>
@@ -1619,7 +1667,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
 
 ================================================================================
 File: frontend/src/components/redesign/DashboardV2.tsx
-Size: 8711 bytes | Lines: 226 | Section: source
+Size: 10467 bytes | Lines: 278 | Section: source
 ================================================================================
 ```tsx
 // =============================================================================
@@ -1634,6 +1682,8 @@ import { ProjectCard } from './ProjectCard';
 import { LogViewerV2 } from './LogViewer';
 import { ResultsModalV2 } from './ResultsModal';
 import { CreateProjectModalV2 } from './CreateProjectModal';
+import { EditProjectModal } from './EditProjectModal';
+import { StartProjectModal } from './StartProjectModal';
 import { Plus, Search, Filter } from 'lucide-react';
 import type { Project, ProjectResult } from '../../services/apiServices';
 
@@ -1656,6 +1706,13 @@ export function DashboardV2() {
   const [results, setResults] = useState<ProjectResult[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editProject, setEditProject] = useState<Project | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const [isStartModalOpen, setIsStartModalOpen] = useState(false);
+  const [startProject, setStartProject] = useState<Project | null>(null);
 
   const stompClientRef = useRef<StompClient | null>(null);
   const subscriptionRef = useRef<StompSubscription | null>(null);
@@ -1727,11 +1784,37 @@ export function DashboardV2() {
         const res = await api.stopProjectServer(project.id);
         setProjects((prev) => prev.map((p) => (p.id === res.data.id ? res.data : p)));
       } else {
-        const res = await api.startProjectServer(project.id, { strategy: 'FedAvg', numRounds: 5, minClients: 2 });
-        setProjects((prev) => prev.map((p) => (p.id === res.data.id ? res.data : p)));
+        setStartProject(project);
+        setIsStartModalOpen(true);
       }
     } catch {
-      setError(`Failed to ${project.status === 'RUNNING' ? 'stop' : 'start'} server.`);
+      setError(`Failed to stop server.`);
+    }
+  };
+
+  const handleStartSubmit = async (projectId: string, config: any) => {
+    try {
+      const res = await api.startProjectServer(projectId, config);
+      setProjects((prev) => prev.map((p) => (p.id === res.data.id ? res.data : p)));
+      setIsStartModalOpen(false);
+      setStartProject(null);
+    } catch {
+      setError('Failed to start server.');
+    }
+  };
+
+  const handleUpdateProject = async (id: string, projectData: Partial<Project>) => {
+    try {
+      setIsUpdating(true);
+      const res = await api.updateProject(id, projectData);
+      setProjects((prev) => prev.map((p) => (p.id === id ? res.data : p)));
+      setIsEditModalOpen(false);
+      setEditProject(null);
+    } catch (err) {
+      setError('Failed to update project.');
+      console.error(err);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -1759,31 +1842,31 @@ export function DashboardV2() {
   );
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-black text-[#f5f5f7] font-sans selection:bg-[#0a84ff] selection:text-white">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-950 text-slate-200 font-sans selection:bg-cyan-500/30 selection:text-cyan-50">
       {/* Header */}
-      <div className="h-24 flex items-center justify-between px-10 border-b border-[#2c2c2e] bg-[rgba(0,0,0,0.65)] backdrop-blur-3xl saturate-[1.8] sticky top-0 z-20">
+      <div className="h-24 flex items-center justify-between px-10 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-20">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-[#f5f5f7]">Active Projects</h1>
-          <p className="text-[15px] text-[#86868b] mt-0.5 tracking-tight">Manage and monitor federated tasks.</p>
+          <h1 className="text-[24px] font-semibold tracking-tight text-slate-100">Active Projects</h1>
+          <p className="text-[14px] text-slate-400 mt-0.5 tracking-tight">Manage and monitor federated tasks.</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative">
-            <Search className="w-[18px] h-[18px] absolute left-4 top-1/2 -translate-y-1/2 text-[#86868b]" />
+            <Search className="w-[18px] h-[18px] absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
               placeholder="Search projects"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-[#1c1c1e] pl-11 pr-4 py-2.5 rounded-full text-[15px] text-[#f5f5f7] placeholder-[#86868b] focus:outline-none focus:ring-[3px] focus:ring-[#0a84ff]/30 transition-all w-72 border border-transparent focus:border-[#0a84ff]/50"
+              className="bg-slate-900 border border-slate-800 pl-11 pr-4 py-2.5 rounded-md text-[14px] text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all w-72"
             />
           </div>
-          <button className="w-10 h-10 flex items-center justify-center bg-[#1c1c1e] hover:bg-[#2c2c2e] rounded-full text-[#f5f5f7] transition-colors">
+          <button className="w-10 h-10 flex items-center justify-center bg-slate-900 border border-slate-800 hover:bg-slate-800 hover:text-slate-100 rounded-md text-slate-400 transition-colors">
             <Filter className="w-4 h-4" />
           </button>
-          <div className="w-px h-6 bg-[#2c2c2e] mx-2" />
+          <div className="w-px h-6 bg-slate-800 mx-2" />
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 bg-[#f5f5f7] text-black hover:bg-white px-5 py-2.5 rounded-full text-[15px] font-medium transition-all duration-200 transform active:scale-95 shadow-[0_2px_10px_rgba(255,255,255,0.1)]"
+            className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-slate-50 px-5 py-2.5 rounded-md text-[14px] font-medium transition-all duration-200 shadow-lg shadow-cyan-900/40 border border-cyan-500 hover:border-cyan-400"
           >
             <Plus className="w-[18px] h-[18px]" />
             New Project
@@ -1792,15 +1875,15 @@ export function DashboardV2() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="flex-1 overflow-y-auto px-10 py-10 relative z-10 bg-black">
+      <div className="flex-1 overflow-y-auto px-10 py-10 relative z-10 bg-slate-950">
         {error && (
-          <div className="mb-6 px-5 py-3 rounded-2xl bg-[#ff453a]/10 text-[#ff453a] text-[14px] font-medium">
+          <div className="mb-6 px-5 py-3 rounded-md border border-rose-500/20 bg-rose-500/10 text-rose-500 text-[14px] font-medium">
             {error}
           </div>
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-[#86868b]">
+          <div className="flex items-center justify-center h-64 text-slate-500">
             Loading projects...
           </div>
         ) : filteredProjects.length > 0 ? (
@@ -1812,13 +1895,14 @@ export function DashboardV2() {
                 onOpenLogs={() => setLogViewProjectId(project.id)}
                 onOpenResults={() => handleOpenResults(project)}
                 onToggleServer={() => handleToggleServer(project)}
+                onEditProject={() => { setEditProject(project); setIsEditModalOpen(true); }}
                 onDeleteProject={() => handleDeleteProject(project.id)}
               />
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-64 text-[#86868b] gap-2">
-            <p className="text-[17px]">No projects found.</p>
+          <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-2">
+            <p className="text-[16px] font-medium text-slate-300">No projects found.</p>
             <p className="text-[14px]">Create one to get started.</p>
           </div>
         )}
@@ -1831,6 +1915,22 @@ export function DashboardV2() {
         onSubmit={handleCreateProject}
         isLoading={isCreating}
       />
+      
+      <EditProjectModal
+        isOpen={isEditModalOpen}
+        project={editProject}
+        onClose={() => { setIsEditModalOpen(false); setEditProject(null); }}
+        onSubmit={handleUpdateProject}
+        isLoading={isUpdating}
+      />
+      
+      <StartProjectModal
+        isOpen={isStartModalOpen}
+        project={startProject}
+        onClose={() => { setIsStartModalOpen(false); setStartProject(null); }}
+        onSubmit={handleStartSubmit}
+      />
+      
       {logViewProjectId && (
         <LogViewerV2
           projectId={logViewProjectId}
@@ -1998,6 +2098,174 @@ export function DatasetsView() {
 
 
 ================================================================================
+File: frontend/src/components/redesign/EditProjectModal.tsx
+Size: 6859 bytes | Lines: 160 | Section: source
+================================================================================
+```tsx
+// =============================================================================
+// FedLearn Frontend — EditProjectModal
+// =============================================================================
+
+import { useState, useEffect } from 'react';
+import { X, Edit3 } from 'lucide-react';
+import type { Project } from '../../services/apiServices';
+
+const modelOptions = {
+  CNN: {
+    models: ['net', 'ResNet', 'VGGNet', 'AlexNet'],
+    optimizers: ['Adam', 'SGD', 'RMSprop', 'AdamW'],
+  },
+  Transformer: {
+    models: ['opt-125m', 'bert-tiny'],
+    optimizers: ['AdamW', 'Adam'],
+  },
+};
+
+type ModelType = keyof typeof modelOptions;
+
+interface EditProjectModalProps {
+  isOpen: boolean;
+  project: Project | null;
+  onSubmit: (id: string, data: Partial<Project>) => void;
+  onClose: () => void;
+  isLoading?: boolean;
+}
+
+export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading = false }: EditProjectModalProps) {
+  const [name, setName] = useState('');
+  const [modelType, setModelType] = useState<ModelType>('CNN');
+  const [modelName, setModelName] = useState('');
+  const [optimizer, setOptimizer] = useState('');
+  const [pretrainEpochs, setPretrainEpochs] = useState(0);
+
+  useEffect(() => {
+    if (project && isOpen) {
+      setName(project.name);
+      
+      const type = (modelOptions as any)[project.modelType] ? (project.modelType as ModelType) : 'CNN';
+      setModelType(type);
+      setModelName(project.modelName);
+      setOptimizer(project.optimizer);
+      setPretrainEpochs(0); // pretrainEpochs isn't part of the DTO returning from backend typically, but initializing to 0
+    }
+  }, [project, isOpen]);
+
+  // Handle cascading dropdowns
+  useEffect(() => {
+    if (project && isOpen) {
+        if (!modelOptions[modelType].models.includes(modelName)) {
+            setModelName(modelOptions[modelType].models[0]);
+        }
+        if (!modelOptions[modelType].optimizers.includes(optimizer)) {
+            setOptimizer(modelOptions[modelType].optimizers[0]);
+        }
+    }
+  }, [modelType, project, isOpen, modelName, optimizer]);
+
+
+  if (!isOpen || !project) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(project.id, { name, modelType, modelName, optimizer, pretrainEpochs } as any);
+  };
+
+  const selectClass =
+    "w-full bg-slate-900 border border-slate-700/50 rounded-md px-4 py-3 text-[14px] text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all appearance-none cursor-pointer";
+
+  const inputClass =
+    "w-full bg-slate-900 border border-slate-700/50 rounded-md px-4 py-3 text-[14px] text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm font-sans"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-md shadow-2xl shadow-cyan-900/10 flex flex-col overflow-hidden text-slate-200">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 pb-4 border-b border-slate-800">
+          <div className="flex items-center gap-2">
+            <Edit3 className="w-5 h-5 text-cyan-400" />
+            <h2 className="text-[18px] font-semibold tracking-tight text-slate-100">Edit Project</h2>
+          </div>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center text-slate-400 bg-slate-800 hover:bg-slate-700 rounded-sm transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5 bg-slate-800/20">
+          {/* Project Name */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Project Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. ResNet50 Imaging"
+              className={inputClass}
+              required
+              autoFocus
+            />
+          </div>
+
+          {/* Model Architecture */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Architecture</label>
+            <select value={modelType} onChange={(e) => setModelType(e.target.value as ModelType)} className={selectClass}>
+              {Object.keys(modelOptions).map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Model + Optimizer row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Model</label>
+              <select value={modelName} onChange={(e) => setModelName(e.target.value)} className={selectClass}>
+                {modelOptions[modelType]?.models.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Optimizer</label>
+              <select value={optimizer} onChange={(e) => setOptimizer(e.target.value)} className={selectClass}>
+                {modelOptions[modelType]?.optimizers.map((o) => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3 mt-4 pt-4 border-t border-slate-700/50">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+              className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-md text-[14px] font-medium tracking-tight border border-slate-600 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading || !name.trim()}
+              className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 py-2.5 rounded-md text-[14px] font-semibold tracking-tight transition-all duration-200 shadow-[0_0_15px_rgba(6,182,212,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+```
+
+
+================================================================================
 File: frontend/src/components/redesign/LayoutV2.tsx
 Size: 484 bytes | Lines: 14 | Section: source
 ================================================================================
@@ -2021,7 +2289,7 @@ export function LayoutV2() {
 
 ================================================================================
 File: frontend/src/components/redesign/LogViewer.tsx
-Size: 13213 bytes | Lines: 294 | Section: source
+Size: 13355 bytes | Lines: 296 | Section: source
 ================================================================================
 ```tsx
 // =============================================================================
@@ -2041,6 +2309,7 @@ import { logStore, StoredLogEntry } from '../../services/logStore';
 
 interface TelemetryEntry {
   timestamp: string;
+  round?: number;
   loss: number;
   accuracy: number;
 }
@@ -2124,11 +2393,12 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
             stackTrace: parsed.stackTrace,
           });
 
+          // Check if payload is a RoundResultDto
           if (parsed.loss !== undefined && parsed.accuracy !== undefined) {
             const prev = telemetryCache.get(projectId) ?? [];
             const next = [
               ...prev.slice(-30),
-              { timestamp: timeStr, loss: parsed.loss, accuracy: parsed.accuracy },
+              { timestamp: timeStr, round: parsed.serverRound, loss: parsed.loss, accuracy: parsed.accuracy },
             ];
             telemetryCache.set(projectId, next);
             setTelemetry(next);
@@ -2164,30 +2434,30 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
   const handleClear = () => logStore.clear(projectId);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl font-sans">
-      <div className="bg-[rgba(28,28,30,0.85)] border border-[rgba(255,255,255,0.1)] w-full max-w-7xl h-[85vh] rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden text-[#f5f5f7]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm font-sans">
+      <div className="bg-slate-900 border border-slate-700 w-full max-w-7xl h-[85vh] rounded-md shadow-2xl shadow-cyan-900/10 flex flex-col overflow-hidden text-slate-200">
 
         {/* Header */}
-        <div className="h-[60px] border-b border-[rgba(255,255,255,0.1)] flex items-center justify-between px-6">
+        <div className="h-[60px] border-b border-slate-800 flex items-center justify-between px-6 bg-slate-900/50">
           <div className="flex items-center gap-3">
-            <TerminalSquare className="w-[18px] h-[18px] text-[#86868b]" />
-            <h2 className="text-[17px] font-semibold tracking-tight text-[#f5f5f7]">Telemetry Dashboard</h2>
-            <div className="w-px h-[18px] bg-[rgba(255,255,255,0.1)] mx-2" />
+            <TerminalSquare className="w-[18px] h-[18px] text-slate-400" />
+            <h2 className="text-[17px] font-semibold tracking-tight text-slate-100">Telemetry Dashboard</h2>
+            <div className="w-px h-[18px] bg-slate-700 mx-2" />
             <span className="flex h-2 w-2 relative">
               <span className={cn(
                 "animate-ping absolute inline-flex h-2 w-2 rounded-full opacity-75",
-                isPaused ? "bg-[#ff9f0a]" : isConnected ? "bg-[#32d74b]" : "bg-[#ff453a]"
+                isPaused ? "bg-amber-500" : isConnected ? "bg-green-500" : "bg-rose-500"
               )} />
               <span className={cn(
                 "relative inline-flex rounded-full h-2 w-2",
-                isPaused ? "bg-[#ff9f0a]" : isConnected ? "bg-[#32d74b]" : "bg-[#ff453a]"
+                isPaused ? "bg-amber-500" : isConnected ? "bg-green-500" : "bg-rose-500"
               )} />
             </span>
-            <span className="text-[13px] text-[#86868b] font-medium tracking-tight">
+            <span className="text-[13px] text-slate-400 font-medium tracking-tight">
               {isPaused ? 'Paused' : isConnected ? 'Live Streaming' : 'Connecting…'}
             </span>
           </div>
-          <button onClick={onClose} className="text-[#86868b] hover:text-[#f5f5f7] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-100 bg-slate-800 hover:bg-slate-700 rounded-sm px-4 py-1.5 text-[13px] font-medium transition-colors border border-slate-700">
             Done
           </button>
         </div>
@@ -2196,15 +2466,15 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
         <div className="flex-1 flex overflow-hidden">
 
           {/* Logs Pane */}
-          <div className="flex-1 flex flex-col border-r border-[rgba(255,255,255,0.1)]">
+          <div className="flex-1 flex flex-col border-r border-slate-800 bg-slate-950/30">
             {/* Toolbar */}
-            <div className="h-[52px] border-b border-[rgba(255,255,255,0.05)] flex items-center justify-between px-6">
+            <div className="h-[52px] border-b border-slate-800 flex items-center justify-between px-6">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setIsPaused(!isPaused)}
                   className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors",
-                    isPaused ? "bg-[#0a84ff]/20 text-[#0a84ff]" : "bg-[rgba(255,255,255,0.05)] text-[#f5f5f7] hover:bg-[rgba(255,255,255,0.1)]"
+                    "flex items-center gap-2 px-3 py-1.5 rounded-sm text-[13px] font-medium transition-colors border border-transparent",
+                    isPaused ? "bg-amber-500/20 text-amber-500 border-amber-500/30" : "bg-slate-800 text-slate-200 hover:bg-slate-700 border-slate-700"
                   )}
                 >
                   {isPaused ? <Play className="w-3.5 h-3.5 fill-current" /> : <Pause className="w-3.5 h-3.5 fill-current" />}
@@ -2213,8 +2483,8 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
                 <button
                   onClick={() => setFilterError(!filterError)}
                   className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors",
-                    filterError ? "bg-[#ff453a]/20 text-[#ff453a]" : "bg-[rgba(255,255,255,0.05)] text-[#f5f5f7] hover:bg-[rgba(255,255,255,0.1)]"
+                    "flex items-center gap-2 px-3 py-1.5 rounded-sm text-[13px] font-medium transition-colors border border-transparent",
+                    filterError ? "bg-rose-500/20 text-rose-500 border-rose-500/30" : "bg-slate-800 text-slate-200 hover:bg-slate-700 border-slate-700"
                   )}
                 >
                   <Filter className="w-3.5 h-3.5" />
@@ -2222,41 +2492,41 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
                 </button>
                 <button
                   onClick={handleClear}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium bg-[rgba(255,255,255,0.05)] text-[#f5f5f7] hover:bg-[rgba(255,255,255,0.1)] transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-sm text-[13px] font-medium bg-slate-800 text-slate-200 hover:bg-slate-700 transition-colors border border-slate-700"
                   title="Clear cached log entries"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   Clear
                 </button>
               </div>
-              <span className="text-[13px] text-[#86868b] font-mono tracking-tight">{logs.length} events</span>
+              <span className="text-[13px] text-slate-500 font-mono tracking-tight">{logs.length} events</span>
             </div>
 
             {/* Terminal Window */}
-            <div className="flex-1 overflow-y-auto bg-black m-4 rounded-[20px] p-5 font-mono text-[13px] leading-relaxed relative scroll-smooth border border-[rgba(255,255,255,0.1)]">
+            <div className="flex-1 overflow-y-auto bg-slate-950 m-4 rounded-sm p-5 font-mono text-[13px] leading-relaxed relative scroll-smooth border border-slate-800 shadow-inner">
               {filteredLogs.length === 0 && (
-                <div className="flex items-center justify-center h-full text-[#86868b]">
+                <div className="flex items-center justify-center h-full text-slate-500">
                   Waiting for logs from project {projectId}…
                 </div>
               )}
               {filteredLogs.map((log, idx) => {
                 const level = normalizeLevel(log.level);
                 return (
-                  <div key={idx} className="flex hover:bg-[rgba(255,255,255,0.05)] py-[2px] px-2 -mx-2 rounded-md transition-colors">
-                    <span className="text-[#86868b] w-[90px] shrink-0 select-none">{log.timestamp}</span>
+                  <div key={idx} className="flex hover:bg-slate-900/50 py-[2px] px-2 -mx-2 rounded transition-colors font-mono">
+                    <span className="text-slate-500 w-[90px] shrink-0 select-none">{log.timestamp}</span>
                     <span className={cn(
                       "w-[60px] shrink-0 font-medium select-none",
-                      level === 'INFO' && "text-[#0a84ff]",
-                      level === 'ERROR' && "text-[#ff453a]",
-                      level === 'WARN' && "text-[#ff9f0a]",
-                      level === 'DEBUG' && "text-[#86868b]"
+                      level === 'INFO' && "text-cyan-400",
+                      level === 'ERROR' && "text-rose-400",
+                      level === 'WARN' && "text-amber-400",
+                      level === 'DEBUG' && "text-slate-400"
                     )}>
                       {level}
                     </span>
                     <span className={cn(
                       "flex-1 break-words tracking-tight",
-                      level === 'ERROR' ? "text-[#ff453a]" : "text-[#f5f5f7]",
-                      level === 'WARN' && "text-[#ff9f0a]"
+                      level === 'ERROR' ? "text-rose-400" : "text-slate-300",
+                      level === 'WARN' && "text-amber-400"
                     )}>
                       {log.message}
                     </span>
@@ -2268,45 +2538,45 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
           </div>
 
           {/* Telemetry Pane */}
-          <div className="w-[360px] flex flex-col shrink-0">
+          <div className="w-[360px] flex flex-col shrink-0 bg-slate-900 border-l border-slate-800">
             <div className="p-6 flex flex-col gap-6 h-full overflow-y-auto">
               <div>
-                <h3 className="text-[11px] font-semibold uppercase tracking-widest text-[#86868b] mb-1">Live Metrics</h3>
+                <h3 className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-1">Live Metrics</h3>
               </div>
 
-              <div className="bg-[rgba(0,0,0,0.3)] rounded-[20px] p-5 flex flex-col gap-4">
+              <div className="bg-slate-950/50 rounded-md p-5 flex flex-col gap-4 border border-slate-800">
                 <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2 text-[#86868b]">
+                  <div className="flex items-center gap-2 text-slate-400">
                     <Activity className="w-4 h-4" />
                     <span className="text-[13px] font-medium">Global Loss</span>
                   </div>
-                  <span className="font-mono text-[20px] tracking-tighter font-semibold text-[#f5f5f7]">
+                  <span className="font-mono text-[20px] tracking-tighter font-semibold text-slate-100">
                     {telemetry.length > 0 ? telemetry[telemetry.length - 1].loss.toFixed(4) : '---'}
                   </span>
                 </div>
                 <div className="h-[100px] w-full">
                   <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                     <LineChart data={telemetry}>
-                      <Line type="stepAfter" dataKey="loss" stroke="#bf5af2" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+                      <Line type="stepAfter" dataKey="loss" stroke="#f43f5e" strokeWidth={2.5} dot={false} isAnimationActive={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              <div className="bg-[rgba(0,0,0,0.3)] rounded-[20px] p-5 flex flex-col gap-4">
+              <div className="bg-slate-950/50 rounded-md p-5 flex flex-col gap-4 border border-slate-800">
                 <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2 text-[#86868b]">
+                  <div className="flex items-center gap-2 text-slate-400">
                     <Activity className="w-4 h-4" />
                     <span className="text-[13px] font-medium">Global Accuracy</span>
                   </div>
-                  <span className="font-mono text-[20px] tracking-tighter font-semibold text-[#f5f5f7]">
+                  <span className="font-mono text-[20px] tracking-tighter font-semibold text-slate-100">
                     {telemetry.length > 0 ? (telemetry[telemetry.length - 1].accuracy * 100).toFixed(2) + '%' : '---'}
                   </span>
                 </div>
                 <div className="h-[100px] w-full">
                   <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                     <LineChart data={telemetry}>
-                      <Line type="monotone" dataKey="accuracy" stroke="#32d74b" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="accuracy" stroke="#22c55e" strokeWidth={2.5} dot={false} isAnimationActive={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -2747,7 +3017,7 @@ export function NodeNetwork() {
 
 ================================================================================
 File: frontend/src/components/redesign/ProjectCard.tsx
-Size: 10210 bytes | Lines: 252 | Section: source
+Size: 10927 bytes | Lines: 265 | Section: source
 ================================================================================
 ```tsx
 // =============================================================================
@@ -2767,6 +3037,7 @@ interface ProjectCardProps {
   onOpenResults: () => void;
   onOpenLogs: () => void;
   onToggleServer: () => void;
+  onEditProject: () => void;
   onDeleteProject: () => void;
 }
 
@@ -2808,6 +3079,7 @@ export function ProjectCard({
   onOpenResults,
   onOpenLogs,
   onToggleServer,
+  onEditProject,
   onDeleteProject,
 }: ProjectCardProps) {
   const [showMenu, setShowMenu] = useState(false);
@@ -2859,7 +3131,7 @@ export function ProjectCard({
   };
 
   return (
-    <div className="bg-[#1c1c1e] rounded-[24px] p-6 flex flex-col gap-5 text-[#f5f5f7] w-full font-sans transition-all hover:bg-[#2c2c2e]/60 duration-300 group relative">
+    <div className="bg-slate-900 border border-slate-800 rounded-md p-6 flex flex-col gap-5 text-slate-200 w-full font-sans transition-all hover:bg-slate-800/50 hover:border-slate-700 duration-300 group relative shadow-md">
       {/* Header Row */}
       <div className="flex justify-between items-start">
         <div className="flex-1 min-w-0">
@@ -2889,14 +3161,25 @@ export function ProjectCard({
           {showMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => { setShowMenu(false); setConfirmDelete(false); }} />
-              <div className="absolute right-0 top-10 z-20 bg-[#2c2c2e] border border-[rgba(255,255,255,0.1)] rounded-2xl py-2 w-48 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+              <div className="absolute right-0 top-10 z-20 bg-slate-800 border border-slate-700 rounded-md py-1 w-48 shadow-xl">
+                <button
+                  onClick={() => {
+                    onEditProject();
+                    setShowMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-[14px] font-medium transition-colors flex items-center gap-2 text-slate-300 hover:bg-slate-700/50"
+                >
+                  <Activity className="w-4 h-4" /> {/* Or Edit3 imported */}
+                  Edit Project
+                </button>
+                <div className="h-px bg-slate-700/50 my-1" />
                 <button
                   onClick={handleDelete}
                   className={cn(
-                    "w-full px-4 py-2.5 text-left text-[14px] font-medium transition-colors flex items-center gap-2",
+                    "w-full px-4 py-2 text-left text-[14px] font-medium transition-colors flex items-center gap-2",
                     confirmDelete
-                      ? "text-[#ff453a] bg-[#ff453a]/10"
-                      : "text-[#ff453a] hover:bg-[rgba(255,255,255,0.05)]"
+                      ? "text-rose-500 bg-rose-500/10"
+                      : "text-rose-500 hover:bg-slate-700/50"
                   )}
                 >
                   <Trash2 className="w-4 h-4" />
@@ -2934,7 +3217,7 @@ export function ProjectCard({
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-4">
         {/* Model Info */}
-        <div className="bg-[#2c2c2e]/40 rounded-2xl p-4 flex flex-col justify-between gap-3">
+        <div className="bg-slate-800/40 border border-slate-700/50 rounded-md p-4 flex flex-col justify-between gap-3">
           <div className="flex items-center text-[#86868b] gap-1.5">
             <Server className="w-[14px] h-[14px]" />
             <span className="text-[11px] font-semibold uppercase tracking-wider">Model</span>
@@ -2948,8 +3231,8 @@ export function ProjectCard({
         </div>
 
         {/* Accuracy Sparkline */}
-        <div className="bg-[#2c2c2e]/40 rounded-2xl p-4 flex flex-col justify-between gap-2 relative overflow-hidden">
-          <div className="flex items-center justify-between text-[#86868b]">
+        <div className="bg-slate-800/40 border border-slate-700/50 rounded-md p-4 flex flex-col justify-between gap-2 relative overflow-hidden">
+          <div className="flex items-center justify-between text-slate-400">
             <div className="flex items-center gap-1.5">
               <Activity className="w-[14px] h-[14px]" />
               <span className="text-[11px] font-semibold uppercase tracking-wider">Accuracy</span>
@@ -2979,22 +3262,22 @@ export function ProjectCard({
 
       {/* Action Buttons */}
       <div className="flex gap-3 mt-1">
-        <button onClick={onOpenResults} className="flex-1 bg-[#2c2c2e] hover:bg-[#3a3a3c] text-[#f5f5f7] py-[11px] px-4 rounded-full text-[15px] font-medium tracking-tight transition-colors">
+        <button onClick={onOpenResults} className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 py-2.5 px-4 rounded-md text-[14px] font-medium tracking-tight transition-colors">
           View Results
         </button>
         <button onClick={onOpenLogs} disabled={!isRunning} className={cn(
-          "flex-1 py-[11px] px-4 rounded-full text-[15px] font-medium tracking-tight transition-colors",
-          isRunning ? "bg-[#2c2c2e] hover:bg-[#3a3a3c] text-[#f5f5f7]" : "bg-[#2c2c2e]/50 text-[#86868b] cursor-not-allowed"
+          "flex-1 py-2.5 px-4 rounded-md text-[14px] font-medium border border-slate-700 tracking-tight transition-colors",
+          isRunning ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-800/30 text-slate-500 cursor-not-allowed"
         )}>
           Logs
         </button>
         <button onClick={onToggleServer} disabled={isFailed} className={cn(
-          "py-[11px] px-5 rounded-full text-[15px] font-medium tracking-tight transition-all",
+          "py-2.5 px-5 rounded-md text-[14px] font-semibold tracking-tight transition-all border",
           isFailed
-            ? "bg-[#3a3a3c]/30 text-[#86868b] cursor-not-allowed"
+            ? "bg-slate-800/30 border-slate-700/50 text-slate-500 cursor-not-allowed"
             : isRunning
-              ? "bg-[#ff453a]/20 text-[#ff453a] hover:bg-[#ff453a]/30"
-              : "bg-[#32d74b]/20 text-[#32d74b] hover:bg-[#32d74b]/30"
+              ? "bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20"
+              : "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20"
         )}>
           {isRunning ? 'Stop' : 'Start'}
         </button>
@@ -3007,7 +3290,7 @@ export function ProjectCard({
 
 ================================================================================
 File: frontend/src/components/redesign/ResultsModal.tsx
-Size: 10808 bytes | Lines: 195 | Section: source
+Size: 10793 bytes | Lines: 195 | Section: source
 ================================================================================
 ```tsx
 // =============================================================================
@@ -3044,19 +3327,19 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
   const finalLoss = hasResults ? results[results.length - 1].loss : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-black/40 backdrop-blur-xl font-sans">
-      <div className="bg-[rgba(28,28,30,0.85)] border border-[rgba(255,255,255,0.1)] w-full max-w-6xl h-full max-h-[90vh] rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden text-[#f5f5f7]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-slate-950/60 backdrop-blur-sm font-sans">
+      <div className="bg-slate-900 border border-slate-700 w-full max-w-6xl h-full max-h-[90vh] rounded-md shadow-2xl shadow-cyan-900/10 flex flex-col overflow-hidden text-slate-200">
 
         {/* Header */}
-        <div className="flex items-center justify-between p-8 pb-6">
+        <div className="flex items-center justify-between p-8 pb-6 border-b border-slate-800">
           <div>
-            <h2 className="text-[28px] font-semibold tracking-tight">{projectName} — Results</h2>
-            <p className="text-[15px] text-[#86868b] mt-1 tracking-tight">
+            <h2 className="text-[24px] font-semibold tracking-tight text-slate-100">{projectName} — Results</h2>
+            <p className="text-[14px] text-slate-400 mt-1 tracking-tight">
               {hasResults ? `${results.length} rounds completed.` : 'No training rounds recorded yet.'}
             </p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-[#86868b] bg-[#3a3a3c] hover:bg-[rgba(255,255,255,0.3)] rounded-full transition-colors">
-            <X className="w-[18px] h-[18px]" />
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-slate-400 bg-slate-800 hover:bg-slate-700 rounded-sm transition-colors">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -3065,18 +3348,18 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
 
           {!hasResults && (
             <div className="flex flex-col items-center justify-center flex-1 text-center gap-3 py-16">
-              <div className="w-14 h-14 rounded-full bg-[#2c2c2e] flex items-center justify-center">
-                <ChartIcon className="w-6 h-6 text-[#86868b]" />
+              <div className="w-14 h-14 rounded-md bg-slate-800 flex items-center justify-center">
+                <ChartIcon className="w-6 h-6 text-slate-400" />
               </div>
-              <h3 className="text-[20px] font-semibold tracking-tight">No results yet</h3>
-              <p className="text-[15px] text-[#86868b] max-w-md tracking-tight">
+              <h3 className="text-[20px] font-semibold tracking-tight text-slate-200">No results yet</h3>
+              <p className="text-[14px] text-slate-400 max-w-md tracking-tight">
                 Results appear here once the project has completed at least one
                 federated training round. Start the server and connect clients
                 to produce data.
               </p>
               <button
                 onClick={onClose}
-                className="mt-4 bg-[#f5f5f7] text-black hover:bg-white px-6 py-2.5 rounded-full text-[15px] font-medium tracking-tight transition-colors"
+                className="mt-4 bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-2.5 rounded-md text-[14px] font-medium tracking-tight border border-slate-700 transition-colors"
               >
                 Close
               </button>
@@ -3087,44 +3370,44 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-[rgba(0,0,0,0.3)] rounded-[32px] p-8 border border-[rgba(255,255,255,0.05)]">
-              <div className="flex items-center gap-2 text-[#32d74b] mb-3">
+            <div className="bg-slate-800/40 rounded-md p-8 border border-slate-700/50">
+              <div className="flex items-center gap-2 text-green-500 mb-3">
                 <Trophy className="w-5 h-5" />
-                <span className="font-semibold tracking-wide uppercase text-[12px]">Best Accuracy</span>
+                <span className="font-semibold tracking-wide uppercase text-[12px] text-slate-400">Best Accuracy</span>
               </div>
-              <div className="text-[44px] font-semibold tracking-tighter text-[#f5f5f7]">
+              <div className="text-[36px] font-semibold tracking-tighter text-slate-100">
                 {(bestAccuracy * 100).toFixed(2)}%
               </div>
             </div>
 
-            <div className="bg-[rgba(0,0,0,0.3)] rounded-[32px] p-8 border border-[rgba(255,255,255,0.05)]">
-              <div className="flex items-center gap-2 text-[#bf5af2] mb-3">
+            <div className="bg-slate-800/40 rounded-md p-8 border border-slate-700/50">
+              <div className="flex items-center gap-2 text-rose-500 mb-3">
                 <TrendingDown className="w-5 h-5" />
-                <span className="font-semibold tracking-wide uppercase text-[12px]">Final Loss</span>
+                <span className="font-semibold tracking-wide uppercase text-[12px] text-slate-400">Final Loss</span>
               </div>
-              <div className="text-[44px] font-semibold tracking-tighter text-[#f5f5f7]">
+              <div className="text-[36px] font-semibold tracking-tighter text-slate-100">
                 {finalLoss.toFixed(4)}
               </div>
             </div>
 
-            <div className="bg-[rgba(0,0,0,0.3)] rounded-[32px] p-8 border border-[rgba(255,255,255,0.05)]">
-              <div className="flex items-center gap-2 text-[#0a84ff] mb-3">
+            <div className="bg-slate-800/40 rounded-md p-8 border border-slate-700/50">
+              <div className="flex items-center gap-2 text-cyan-500 mb-3">
                 <Timer className="w-5 h-5" />
-                <span className="font-semibold tracking-wide uppercase text-[12px]">Total Rounds</span>
+                <span className="font-semibold tracking-wide uppercase text-[12px] text-slate-400">Total Rounds</span>
               </div>
-              <div className="text-[44px] font-semibold tracking-tighter text-[#f5f5f7]">
+              <div className="text-[36px] font-semibold tracking-tighter text-slate-100">
                 {results.length}
               </div>
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 border-b border-slate-800 pb-2">
             <button
               onClick={() => setActiveTab('chart')}
               className={cn(
-                "flex items-center gap-2 px-5 py-2.5 rounded-full text-[14px] font-medium tracking-tight transition-all duration-200",
-                activeTab === 'chart' ? "bg-[#f5f5f7] text-black shadow-sm" : "bg-[rgba(255,255,255,0.05)] text-[#f5f5f7] hover:bg-[rgba(255,255,255,0.1)]"
+                "flex items-center gap-2 px-5 py-2.5 rounded-md text-[14px] font-medium tracking-tight transition-all duration-200",
+                activeTab === 'chart' ? "bg-slate-800 text-cyan-400 border border-slate-700" : "text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-transparent"
               )}
             >
               <ChartIcon className="w-4 h-4" />
@@ -3133,8 +3416,8 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
             <button
               onClick={() => setActiveTab('table')}
               className={cn(
-                "flex items-center gap-2 px-5 py-2.5 rounded-full text-[14px] font-medium tracking-tight transition-all duration-200",
-                activeTab === 'table' ? "bg-[#f5f5f7] text-black shadow-sm" : "bg-[rgba(255,255,255,0.05)] text-[#f5f5f7] hover:bg-[rgba(255,255,255,0.1)]"
+                "flex items-center gap-2 px-5 py-2.5 rounded-md text-[14px] font-medium tracking-tight transition-all duration-200",
+                activeTab === 'table' ? "bg-slate-800 text-cyan-400 border border-slate-700" : "text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-transparent"
               )}
             >
               <Table className="w-4 h-4" />
@@ -3143,55 +3426,55 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
           </div>
 
           {/* Tab Content */}
-          <div className="flex-1 bg-black rounded-[32px] p-8 min-h-[440px] border border-[rgba(255,255,255,0.05)]">
+          <div className="flex-1 bg-slate-950 rounded-md p-8 min-h-[440px] border border-slate-800 shadow-inner">
             {activeTab === 'chart' ? (
               <div className="h-full w-full flex flex-col gap-6">
                 <div className="flex items-center justify-end gap-6 text-[13px] font-medium tracking-tight">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#32d74b]" />
-                    <span className="text-[#86868b]">Accuracy (Right Axis)</span>
+                    <span className="w-2.5 h-2.5 rounded-sm bg-green-500" />
+                    <span className="text-slate-400">Accuracy (Right Axis)</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#bf5af2]" />
-                    <span className="text-[#86868b]">Loss (Left Axis)</span>
+                    <span className="w-2.5 h-2.5 rounded-sm bg-rose-500" />
+                    <span className="text-slate-400">Loss (Left Axis)</span>
                   </div>
                 </div>
                 <div className="flex-1 min-h-[400px]">
                   <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                     <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="4 4" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                      <XAxis dataKey="round" stroke="rgba(255,255,255,0.2)" tick={{ fill: '#86868b', fontSize: 13 }} tickLine={false} axisLine={false} dy={10} />
-                      <YAxis yAxisId="left" stroke="rgba(255,255,255,0.2)" tick={{ fill: '#86868b', fontSize: 13 }} tickLine={false} axisLine={false} dx={-10} />
-                      <YAxis yAxisId="right" orientation="right" stroke="rgba(255,255,255,0.2)" tick={{ fill: '#86868b', fontSize: 13 }} tickLine={false} axisLine={false} dx={10} tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`} />
+                      <CartesianGrid strokeDasharray="4 4" stroke="#334155" vertical={false} />
+                      <XAxis dataKey="round" stroke="#475569" tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={false} dy={10} />
+                      <YAxis yAxisId="left" stroke="#475569" tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={false} dx={-10} />
+                      <YAxis yAxisId="right" orientation="right" stroke="#475569" tick={{ fill: '#94a3b8', fontSize: 12 }} tickLine={false} axisLine={false} dx={10} tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`} />
                       <Tooltip
-                        contentStyle={{ backgroundColor: 'rgba(28,28,30,0.85)', backdropFilter: 'blur(20px)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '16px', color: '#f5f5f7', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}
-                        itemStyle={{ fontWeight: 600, fontSize: '15px' }}
-                        labelStyle={{ color: '#86868b', marginBottom: '8px', fontSize: '13px' }}
+                        contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '6px', color: '#f1f5f9', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
+                        itemStyle={{ fontWeight: 600, fontSize: '13px' }}
+                        labelStyle={{ color: '#94a3b8', marginBottom: '8px', fontSize: '12px' }}
                         formatter={(value: number, name: string) => [name === 'accuracy' ? `${(value * 100).toFixed(2)}%` : value.toFixed(4), name.charAt(0).toUpperCase() + name.slice(1)]}
                         labelFormatter={(label) => `Round ${label}`}
                       />
-                      <Line yAxisId="left" type="monotone" dataKey="loss" stroke="#bf5af2" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 0, fill: '#bf5af2' }} />
-                      <Line yAxisId="right" type="monotone" dataKey="accuracy" stroke="#32d74b" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 0, fill: '#32d74b' }} />
+                      <Line yAxisId="left" type="monotone" dataKey="loss" stroke="#f43f5e" strokeWidth={2.5} dot={false} activeDot={{ r: 5, strokeWidth: 0, fill: '#f43f5e' }} />
+                      <Line yAxisId="right" type="monotone" dataKey="accuracy" stroke="#22c55e" strokeWidth={2.5} dot={false} activeDot={{ r: 5, strokeWidth: 0, fill: '#22c55e' }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
             ) : (
-              <div className="h-[450px] overflow-auto rounded-[20px]">
-                <table className="w-full text-left border-collapse">
-                  <thead className="bg-[rgba(28,28,30,0.85)] sticky top-0 backdrop-blur-xl z-10">
+              <div className="h-[450px] overflow-auto rounded-md border border-slate-800">
+                <table className="w-full text-left border-collapse bg-slate-900">
+                  <thead className="bg-slate-800 sticky top-0 z-10 shadow-sm border-b border-slate-700">
                     <tr>
-                      <th className="px-6 py-4 text-[12px] font-semibold uppercase tracking-wider text-[#86868b]">Round</th>
-                      <th className="px-6 py-4 text-[12px] font-semibold uppercase tracking-wider text-[#86868b]">Loss</th>
-                      <th className="px-6 py-4 text-[12px] font-semibold uppercase tracking-wider text-[#86868b]">Accuracy</th>
+                      <th className="px-6 py-3 text-[12px] font-semibold uppercase tracking-wider text-slate-400">Round</th>
+                      <th className="px-6 py-3 text-[12px] font-semibold uppercase tracking-wider text-slate-400">Loss</th>
+                      <th className="px-6 py-3 text-[12px] font-semibold uppercase tracking-wider text-slate-400">Accuracy</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[rgba(255,255,255,0.05)] text-[14px] font-mono tracking-tight text-[#f5f5f7]">
+                  <tbody className="divide-y divide-slate-800 text-[13px] font-mono tracking-tight text-slate-300">
                     {results.slice().reverse().map((row) => (
-                      <tr key={row.serverRound} className="hover:bg-[rgba(255,255,255,0.02)] transition-colors">
-                        <td className="px-6 py-4 text-[#86868b]">#{row.serverRound}</td>
-                        <td className="px-6 py-4 text-[#bf5af2]">{row.loss.toFixed(4)}</td>
-                        <td className="px-6 py-4 text-[#32d74b]">{(row.accuracy * 100).toFixed(2)}%</td>
+                      <tr key={row.serverRound} className="hover:bg-slate-800/50 transition-colors">
+                        <td className="px-6 py-3.5 text-slate-400">#{row.serverRound}</td>
+                        <td className="px-6 py-3.5 text-rose-400">{row.loss.toFixed(4)}</td>
+                        <td className="px-6 py-3.5 text-green-400">{(row.accuracy * 100).toFixed(2)}%</td>
                       </tr>
                     ))}
                   </tbody>
@@ -3435,6 +3718,142 @@ export function Sidebar() {
             <LogOut className="w-4 h-4" />
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+```
+
+
+================================================================================
+File: frontend/src/components/redesign/StartProjectModal.tsx
+Size: 5676 bytes | Lines: 128 | Section: source
+================================================================================
+```tsx
+import { useState } from 'react';
+import { Play, Sparkles, X } from 'lucide-react';
+import { Project } from '../../services/apiServices';
+
+interface StartProjectModalProps {
+  isOpen: boolean;
+  project: Project | null;
+  onClose: () => void;
+  onSubmit: (projectId: string, config: { strategy: string; numRounds: number; minClients: number }) => Promise<void>;
+}
+
+export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartProjectModalProps) {
+  const [strategy, setStrategy] = useState('FedAvg');
+  const [numRounds, setNumRounds] = useState(5);
+  const [minClients, setMinClients] = useState(2);
+  const [isLoading, setIsLoading] = useState(false);
+
+  if (!isOpen || !project) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsLoading(true);
+      await onSubmit(project.id, {
+        strategy,
+        numRounds: Number(numRounds),
+        minClients: Number(minClients),
+      });
+      // Reset form defaults upon success
+      setStrategy('FedAvg');
+      setNumRounds(5);
+      setMinClients(2);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const selectClass =
+    "w-full bg-slate-900 border border-slate-700/50 rounded-md px-4 py-3 text-[14px] text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all appearance-none cursor-pointer";
+  const inputClass =
+    "w-full bg-slate-900 border border-slate-700/50 rounded-md px-4 py-3 text-[14px] text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm font-sans"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-md shadow-2xl shadow-cyan-900/10 flex flex-col overflow-hidden text-slate-200">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 pb-4 border-b border-slate-800">
+          <div className="flex items-center gap-2">
+            <Play className="w-5 h-5 text-cyan-400" />
+            <h2 className="text-[18px] font-semibold tracking-tight text-slate-100">Start Project Server</h2>
+          </div>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center text-slate-400 bg-slate-800 hover:bg-slate-700 rounded-sm transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5 bg-slate-800/20">
+          <div className="flex flex-col gap-1 mb-2">
+            <h3 className="text-[14px] font-medium text-slate-200">Configure Run Parameter</h3>
+            <p className="text-[13px] text-slate-400">Settings for orchestrating clients in project <strong className="text-slate-300">{project.name}</strong>.</p>
+          </div>
+
+          {/* Strategy */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Aggregation Strategy</label>
+            <select value={strategy} onChange={(e) => setStrategy(e.target.value)} className={selectClass}>
+              <option value="FedAvg">FedAvg</option>
+              <option value="FedAdam">FedAdam</option>
+              <option value="FedAdagrad">FedAdagrad</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Rounds */}
+            <div className="flex flex-col gap-2">
+              <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Total Rounds</label>
+              <input
+                type="number"
+                min="1"
+                value={numRounds}
+                onChange={(e) => setNumRounds(Number(e.target.value))}
+                className={inputClass}
+                required
+              />
+            </div>
+            {/* Min Clients */}
+            <div className="flex flex-col gap-2">
+              <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Min. Clients</label>
+              <input
+                type="number"
+                min="1"
+                value={minClients}
+                onChange={(e) => setMinClients(Number(e.target.value))}
+                className={inputClass}
+                required
+              />
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3 mt-4 pt-4 border-t border-slate-700/50">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+              className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-md text-[14px] font-medium tracking-tight border border-slate-600 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 py-2.5 rounded-md text-[14px] font-semibold tracking-tight transition-all duration-200 shadow-[0_0_15px_rgba(6,182,212,0.3)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isLoading ? 'Starting...' : <><Play className="w-4 h-4 fill-current" /> Start Server</>}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -7386,7 +7805,7 @@ Size: 69 bytes | Lines: 3 | Section: source
 
 ================================================================================
 File: frontend/src/styles/theme.css
-Size: 5448 bytes | Lines: 181 | Section: source
+Size: 5089 bytes | Lines: 181 | Section: source
 ================================================================================
 ```text
 @custom-variant dark (&:is(.dark *));
@@ -7433,40 +7852,40 @@ Size: 5448 bytes | Lines: 181 | Section: source
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
+  --background: #020617;
+  --foreground: #f1f5f9;
+  --card: #0f172a;
+  --card-foreground: #f1f5f9;
+  --popover: #0f172a;
+  --popover-foreground: #f1f5f9;
+  --primary: #06b6d4;
+  --primary-foreground: #020617;
+  --secondary: #1e293b;
+  --secondary-foreground: #f1f5f9;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
+  --accent-foreground: #f1f5f9;
+  --destructive: #f43f5e;
+  --destructive-foreground: #ffffff;
+  --border: #1e293b;
+  --input: #1e293b;
+  --ring: #06b6d4;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --chart-1: #06b6d4;
+  --chart-2: #22c55e;
+  --chart-3: #8b5cf6;
+  --chart-4: #f43f5e;
+  --chart-5: #eab308;
+  --sidebar: #0f172a;
+  --sidebar-foreground: #f1f5f9;
+  --sidebar-primary: #06b6d4;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1e293b;
+  --sidebar-accent-foreground: #f1f5f9;
+  --sidebar-border: #1e293b;
+  --sidebar-ring: #06b6d4;
 }
 
 @theme inline {

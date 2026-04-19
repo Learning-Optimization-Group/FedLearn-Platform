@@ -2,12 +2,12 @@
 FedLearn Platform — LLM context dump: backend
 ================================================================================
 Component path : backend
-Generated at   : 2026-04-15 15:34 UTC
-Git branch     : audit-remediation
-Git commit     : 84d8566
+Generated at   : 2026-04-15 17:22 UTC
+Git branch     : feature/desktop-client-beta
+Git commit     : 7f296b3
 Files included : 68 (config=9, source=53, tests=4, docs=2)
-Total lines    : 6,819
-Total size     : 238.4 KB
+Total lines    : 6,840
+Total size     : 239.3 KB
 
 Notes for the reader:
   * Everything below is verbatim from this repo at the commit above.
@@ -138,7 +138,7 @@ backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/ServerLo
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/dto/StartProject.java        901      44  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/exception/GlobalExceptionHandler.java       3649      82  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/exception/UserAlreadyExistsException.java        205       7  source
-backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/flower/FlowerServerManager.java      12034     288  source
+backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/flower/FlowerServerManager.java      12356     294  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/model/Project.java       1987     107  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/model/RoundResult.java       1385      72  source
 backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/model/ServerLog.java        672      28  source
@@ -164,7 +164,7 @@ backend/fl-platform-api/src/main/resources/scripts/config.py                 535
 backend/fl-platform-api/src/main/resources/scripts/data.py                   2814      82  source
 backend/fl-platform-api/src/main/resources/scripts/data_loaders/__init__.py        368      20  source
 backend/fl-platform-api/src/main/resources/scripts/data_loaders/ecg_loader.py      11684     362  source
-backend/fl-platform-api/src/main/resources/scripts/fl_server.py             25031     594  source
+backend/fl-platform-api/src/main/resources/scripts/fl_server.py             25731     609  source
 backend/fl-platform-api/src/main/resources/scripts/init_model.py             8691     196  source
 backend/fl-platform-api/src/main/resources/scripts/model_utils.py            1164      29  source
 backend/fl-platform-api/src/main/resources/scripts/models.py                  745      24  source
@@ -1976,7 +1976,7 @@ public class UserAlreadyExistsException extends RuntimeException {
 
 ================================================================================
 File: backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/flower/FlowerServerManager.java
-Size: 12034 bytes | Lines: 288 | Section: source
+Size: 12356 bytes | Lines: 294 | Section: source
 ================================================================================
 ```java
 package com.federated.fl_platform_api.flower;
@@ -2143,6 +2143,12 @@ public class FlowerServerManager {
 
             if (!isPretrained) {
                 pb.command().add("--pretrain");
+            }
+
+            Map<String, String> env = pb.environment();
+            env.put("FEDLEARN_INTERNAL_API_KEY", internalApiKey == null ? "" : internalApiKey);
+            if (backendInternalUrl != null && !backendInternalUrl.trim().isEmpty()) {
+                env.put("FEDLEARN_BACKEND_URL", backendInternalUrl);
             }
 
             System.out.println("--- Preparing to Start Flower Server ---");
@@ -5361,7 +5367,7 @@ if __name__ == "__main__":
 
 ================================================================================
 File: backend/fl-platform-api/src/main/resources/scripts/fl_server.py
-Size: 25031 bytes | Lines: 594 | Section: source
+Size: 25731 bytes | Lines: 609 | Section: source
 ================================================================================
 ```python
 import sys
@@ -5775,6 +5781,16 @@ def main():
         print(f"  Loss: {avg_loss:.4f}")
         print(f"  Accuracy: {accuracy:.2f}% ({correct}/{total})")
 
+        # Emit JSON structure for frontend LogViewer.tsx telemetry over WebSocket
+        import json
+        print(json.dumps({
+            "level": "INFO",
+            "serverRound": server_round,
+            "loss": avg_loss,
+            "accuracy": accuracy / 100.0,
+            "message": f"[Telemetry] Round {server_round} Aggregation Complete: Loss {avg_loss:.4f}, Acc {accuracy/100.0:.4f}"
+        }))
+
         # Compare to target for different datasets
         if is_llm:
             if args.dataset == "cb":
@@ -5924,10 +5940,15 @@ def main():
 
     if history and headers is not None:
         for r, metrics in history:
+            acc_metric = float(metrics.get("accuracy", 0.0))
+            # The evaluate_fn returns accuracy as a percentage (e.g. 52.74)
+            # The database / frontend expects a decimal for precision (e.g. 0.5274)
+            decimal_accuracy = acc_metric / 100.0 if acc_metric > 1.0 else acc_metric
+
             result_payload = {
                 "serverRound": r,
                 "loss": float(metrics.get("loss", 0.0)),
-                "accuracy": float(metrics.get("accuracy", 0.0)),
+                "accuracy": decimal_accuracy,
                 "gpuUtilization": 0.0,
             }
             try:
