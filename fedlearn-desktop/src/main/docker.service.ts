@@ -11,9 +11,11 @@
 
 import Docker from 'dockerode';
 import { BrowserWindow } from 'electron';
+import { ChildProcess, spawn } from 'child_process';
+import * as path from 'path';
 import log from 'electron-log';
 
-export type HardwareProfile = 'discrete' | 'jetson' | 'cpu';
+export type HardwareProfile = 'discrete' | 'jetson' | 'cpu' | 'mps';
 
 export interface TrainingConfig {
   hardwareProfile: HardwareProfile;
@@ -46,6 +48,7 @@ export class DockerService {
   private mainWindow: BrowserWindow;
   private activeContainerId: string | null = null;
   private logStream: NodeJS.ReadableStream | null = null;
+  private nativeProcess: ChildProcess | null = null;
 
   constructor(mainWindow: BrowserWindow) {
     this.mainWindow = mainWindow;
@@ -87,6 +90,14 @@ export class DockerService {
     };
 
     // ========== Hardware Profile Routing (Section 4.2) ==========
+
+    // MPS (Apple Silicon): bypass Docker entirely — run client.py natively
+    if (config.hardwareProfile === 'mps') {
+      log.info('[DockerService] Hardware profile: MPS (Apple Silicon) — launching native process');
+      await this.startNativeTraining(config);
+      return;
+    }
+
     switch (config.hardwareProfile) {
       case 'discrete':
         // Standard NVIDIA GPU workstation: --gpus all equivalent
@@ -240,6 +251,19 @@ export class DockerService {
    * Stops and removes the active training container.
    */
   async stopTraining(): Promise<void> {
+    // Handle native MPS process
+    if (this.nativeProcess) {
+      log.info('[DockerService] Stopping native MPS process');
+      this.nativeProcess.kill('SIGTERM');
+      // Give it 5s to shut down gracefully, then force kill
+      setTimeout(() => {
+        if (this.nativeProcess && !this.nativeProcess.killed) {
+          this.nativeProcess.kill('SIGKILL');
+        }
+      }, 5000);
+      return;
+    }
+
     if (!this.activeContainerId) {
       log.warn('[DockerService] No active container to stop');
       return;
@@ -285,6 +309,12 @@ export class DockerService {
    * Returns the current status of the training container.
    */
   async getStatus(): Promise<string> {
+    // Handle native MPS process status
+    if (this.nativeProcess) {
+      if (this.nativeProcess.exitCode === null) return 'running';
+      return this.nativeProcess.exitCode === 0 ? 'completed' : 'error';
+    }
+
     if (!this.activeContainerId) {
       return 'idle';
     }
@@ -311,6 +341,90 @@ export class DockerService {
       log.error(`[DockerService] Status check failed: ${message}`);
       return 'error';
     }
+  }
+
+  /**
+   * Starts client.py as a native child process for MPS (Apple Silicon).
+   * Docker cannot pass through Metal GPUs, so we bypass it entirely.
+   * The log stream is forwarded to the Renderer via the same IPC channel
+   * used by Docker containers, so the UI doesn't need to know the difference.
+   */
+  private async startNativeTraining(config: TrainingConfig): Promise<void> {
+    // Kill any existing native process
+    if (this.nativeProcess) {
+      this.nativeProcess.kill('SIGTERM');
+      this.nativeProcess = null;
+    }
+
+    // Resolve paths relative to the packaged or dev app directory.
+    // In dev: <project-root>/client-docker/scripts/client.py
+    // In production: the user must have the client-docker directory alongside the app.
+    const appRoot = path.resolve(__dirname, '..', '..', '..');
+    const clientScript = path.join(appRoot, 'client-docker', 'scripts', 'client.py');
+    const frameworkSrc = path.join(appRoot, 'framework', 'src');
+
+    const args = [
+      '-u', clientScript,
+      '--project-id', config.projectId,
+      '--server-address', config.serverAddress,
+      '--partition-id', config.partitionId,
+    ];
+
+    // Add model-type arguments based on configuration
+    if (config.modelType === 'OPT-125M') {
+      args.push('--use-llm');
+    }
+
+    log.info(`[DockerService:MPS] Spawning: python3 ${args.join(' ')}`);
+    log.info(`[DockerService:MPS] PYTHONPATH=${frameworkSrc}`);
+
+    const child = spawn('python3', args, {
+      env: {
+        ...process.env,
+        PYTHONPATH: `${frameworkSrc}:${process.env.PYTHONPATH || ''}`,
+        PYTHONUNBUFFERED: '1',
+      },
+      cwd: path.join(appRoot, 'client-docker', 'scripts'),
+    });
+
+    this.nativeProcess = child;
+
+    // Forward stdout to renderer
+    child.stdout.on('data', (data: Buffer) => {
+      const text = data.toString('utf-8');
+      if (!this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send('docker:training-log', text);
+      }
+    });
+
+    // Forward stderr to renderer
+    child.stderr.on('data', (data: Buffer) => {
+      const text = data.toString('utf-8');
+      if (!this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send('docker:training-log', `[stderr] ${text}`);
+      }
+    });
+
+    child.on('error', (err: Error) => {
+      log.error(`[DockerService:MPS] Process error: ${err.message}`);
+      if (!this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send('docker:training-log', `[System] Native process error: ${err.message}\n`);
+      }
+      this.nativeProcess = null;
+    });
+
+    child.on('exit', (code: number | null, signal: string | null) => {
+      log.info(`[DockerService:MPS] Process exited with code=${code}, signal=${signal}`);
+      if (!this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send(
+          'docker:training-log',
+          `[System] Native process exited (code=${code}, signal=${signal})\n`
+        );
+      }
+      this.nativeProcess = null;
+    });
+
+    log.info(`[DockerService:MPS] Native process started (PID: ${child.pid})`);
   }
 
   /**
