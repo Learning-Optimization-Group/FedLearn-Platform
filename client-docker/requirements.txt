@@ -24,9 +24,13 @@ huggingface-hub>=0.20
 # NOTE: pyarrow is deliberately UNCAPPED because flwr-datasets 0.3.0
 #       requires pyarrow==16.1.0 (exact pin). Capping it causes a conflict.
 #       pyarrow 16.1.0 has a pre-built cp38-aarch64 wheel on PyPI.
+# NOTE: scikit-learn is required both for ecg_loader (train_test_split) and
+#       for pre-importing before torch on ARM64 to resolve libgomp static-TLS
+#       allocation issues. cp38-aarch64 wheel available on PyPI.
 # -----------------------------------------------------------------------------
 numpy>=1.21.0,<2.0.0
 pandas>=1.5.0
+scikit-learn>=1.0,<1.4
 
 # -----------------------------------------------------------------------------
 # gRPC and Networking
@@ -63,6 +67,7 @@ colorama>=0.4.6
 # -----------------------------------------------------------------------------
 # Image and Serialization
 # -----------------------------------------------------------------------------
+torchvision>=0.15.0
 pillow>=9.5.0
 msgpack>=1.0
 dill>=0.3.6
