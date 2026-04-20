@@ -227,6 +227,72 @@ lsof -nP -iTCP -sTCP:LISTEN | grep python
 
 ---
 
+### 3.6 Apple Silicon GPU Acceleration (MPS)
+
+On Apple Silicon Macs (M1/M2/M3/M4), the client automatically detects and uses the **Metal Performance Shaders (MPS)** backend for GPU-accelerated training. This happens transparently — no extra flags needed.
+
+> **Important**: MPS acceleration only works when running the client **natively** (outside Docker). Docker Desktop for Mac does not support Metal GPU pass-through.
+
+#### How It Works
+
+The client's device selection logic:
+```python
+if torch.cuda.is_available():
+    DEVICE = "cuda"          # NVIDIA GPU
+elif torch.backends.mps.is_available():
+    DEVICE = "mps"           # Apple Silicon GPU
+else:
+    DEVICE = "cpu"           # Fallback
+```
+
+#### Verify MPS Is Available
+
+```bash
+python3 -c "import torch; print('MPS available:', torch.backends.mps.is_available())"
+# Expected: MPS available: True
+```
+
+#### Run with MPS
+
+```bash
+cd ~/codebase/personalProjects/FedLearn-Platform/client-docker
+source venv/bin/activate
+export PYTHONPATH="../framework/src"
+
+python3 scripts/client.py \
+  --project-id "<your-project-uuid>" \
+  --server-address "127.0.0.1:<grpc-port>" \
+  --partition-id 1
+```
+
+Or use the smart launcher (recommended):
+
+```bash
+./run-client.sh "<project-uuid>" "127.0.0.1:<grpc-port>" 1 --use-llm --dataset sst2
+```
+
+The launcher auto-detects macOS and runs natively instead of Docker.
+
+#### Expected Output
+
+```
+Client operating on mps
+[Usage] after model init CPU RAM 1024.32 MB GPU alloc 502.1 MB GPU util None
+```
+
+> **Note**: MPS does not expose GPU utilization percentage or reserved memory — only allocated memory is tracked. This is a PyTorch/Metal limitation.
+
+#### MPS Known Limitations
+
+| Limitation | Impact | Workaround |
+|---|---|---|
+| No GPU utilization % | Telemetry shows `None` | Monitor via Activity Monitor → GPU History |
+| No reserved memory tracking | Only allocated memory reported | Sufficient for debugging OOM issues |
+| Some ops fall back to CPU | Minor perf hit on unsupported ops | PyTorch handles this transparently |
+| Docker cannot use MPS | Must run natively | Use `run-client.sh` (auto-detects) |
+
+---
+
 ## 4. Challenges & Fixes — Complete Log
 
 ### 4.1 Docker Container Silent Hang
