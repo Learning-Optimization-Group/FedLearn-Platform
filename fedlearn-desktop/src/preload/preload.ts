@@ -21,7 +21,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // ========== Validation Constants ==========
 
-const ALLOWED_HARDWARE_PROFILES = ['discrete', 'jetson', 'cpu'] as const;
+const ALLOWED_HARDWARE_PROFILES = ['discrete', 'jetson', 'cpu', 'mps'] as const;
 const PROJECT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
 const PARTITION_ID_PATTERN = /^[0-9]{1,10}$/;
 const SERVER_ADDRESS_PATTERN = /^[a-zA-Z0-9._:/-]{1,256}$/;

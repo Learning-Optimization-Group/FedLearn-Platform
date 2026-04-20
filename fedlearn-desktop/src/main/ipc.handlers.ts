@@ -11,7 +11,7 @@ import log from 'electron-log';
 import { DockerService, TrainingConfig, HardwareProfile } from './docker.service';
 import { AuthService } from './auth.service';
 
-const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> = new Set(['discrete', 'jetson', 'cpu']);
+const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> = new Set(['discrete', 'jetson', 'cpu', 'mps']);
 const PROJECT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
 const PARTITION_ID_PATTERN = /^[0-9]{1,10}$/;
 const SERVER_ADDRESS_PATTERN = /^[a-zA-Z0-9._:/-]{1,256}$/;

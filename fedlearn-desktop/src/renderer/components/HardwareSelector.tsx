@@ -45,6 +45,13 @@ const HARDWARE_PROFILES: HardwareProfileOption[] = [
     dockerConfig: 'Devices: /dev/nvhost-ctrl, nvhost-ctrl-gpu, ...',
   },
   {
+    id: 'mps',
+    label: 'Apple Silicon',
+    description: 'Mac M1/M2/M3/M4 with Metal GPU. Runs natively (no Docker) for MPS acceleration.',
+    icon: '🍎',
+    dockerConfig: 'Native process (no Docker)',
+  },
+  {
     id: 'cpu',
     label: 'CPU Only',
     description: 'Standard CPU training without GPU acceleration. Compatible with any hardware.',
