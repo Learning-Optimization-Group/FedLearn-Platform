@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # =============================================================================
-# FedLearn Native Client — macOS arm64 Build
+# FedLearn Native Client — macOS Build
 # =============================================================================
-# Produces dist/fedlearn-client/ with an MPS-enabled torch wheel.
-# Run on an Apple Silicon Mac with Python 3.11+ installed.
+# Produces dist/fedlearn-client/ with torch 2.5.1. On Apple Silicon the wheel
+# includes MPS acceleration; on x64 Macs it's CPU-only (Apple dropped CUDA
+# support years ago). PyPI serves the correct wheel automatically based on
+# `uname -m`, so the pip command is arch-agnostic.
+#
+# Run on a Mac (arm64 or x86_64) with Python 3.11+ installed.
 #
 # Output: client-docker/packaging/dist/fedlearn-client/fedlearn-client
 # =============================================================================
@@ -12,15 +16,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 FRAMEWORK_DIR="$REPO_ROOT/framework"
-VENV_DIR="$SCRIPT_DIR/.venv-mac"
 
 ARCH="$(uname -m)"
-if [[ "$ARCH" != "arm64" ]]; then
-  echo "[build-mac] ERROR: expected arm64 host, got $ARCH" >&2
-  echo "[build-mac] The MPS wheel only runs on Apple Silicon." >&2
-  exit 1
-fi
+# Arch-suffixed venv avoids x64/arm64 cross-contamination if a developer
+# (rare) builds both variants on the same machine via Rosetta.
+VENV_DIR="$SCRIPT_DIR/.venv-mac-$ARCH"
 
+echo "[build-mac] Arch:         $ARCH"
 echo "[build-mac] Repo root:    $REPO_ROOT"
 echo "[build-mac] Framework:    $FRAMEWORK_DIR"
 echo "[build-mac] Venv:         $VENV_DIR"

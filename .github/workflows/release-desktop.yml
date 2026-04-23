@@ -2,11 +2,20 @@
 # FedLearn Desktop — Build & Release Workflow
 # =============================================================================
 # Triggers on version tags (e.g. v1.0.0, v1.2.3-beta.1).
-# Builds the Electron app for macOS (arm64 + x64), Windows (x64), and
-# Linux (x64 + arm64), then uploads all artifacts to a GitHub Release.
 #
-# Clients download the installer from:
-#   https://github.com/<owner>/FedLearn-Platform/releases/latest
+# Each matrix row:
+#   1. Sets up Node.js 22 + Python 3.11
+#   2. Builds the PyInstaller native client (torch + fedlearn) into
+#      client-docker/packaging/dist/fedlearn-client/
+#   3. Builds the Electron webpack bundles
+#   4. Packages the Electron installer (electron-builder picks up the native
+#      bundle via extraResources in electron-builder.yml)
+#
+# PyInstaller does not cross-compile — each OS/arch target needs a native
+# runner. Mac arm64 → macos-latest, Mac x64 → macos-13, Win x64 → windows-
+# latest, Linux x64 → ubuntu-latest, Linux arm64 → ubuntu-24.04-arm.
+#
+# Windows ships two variants (CPU and CUDA 12.4) from the same runner image.
 # =============================================================================
 
 name: Build & Release Electron Desktop
@@ -23,33 +32,72 @@ on:
         default: ''
 
 permissions:
-  contents: write  # Required to create releases and upload assets
+  contents: write
 
 env:
   NODE_VERSION: '22'
+  PYTHON_VERSION: '3.11'
 
 jobs:
-  # ─── Build Matrix ──────────────────────────────────────────────────────────
   build:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest       # Apple Silicon (arm64) runner
+          - name: mac-arm64
+            os: macos-latest
             platform: mac
             arch: arm64
-          - os: macos-latest       # Build x64 on arm64 runner (cross-compile)
+            native-shell: bash
+            native-cmd: ./build-mac.sh
+            eb-cmd: npx electron-builder --mac --arm64 --publish never
+
+          - name: mac-x64
+            os: macos-13            # Intel runner; arm64 PyInstaller won't produce x64 binaries
             platform: mac
             arch: x64
-          - os: windows-latest
+            native-shell: bash
+            native-cmd: ./build-mac.sh
+            eb-cmd: npx electron-builder --mac --x64 --publish never
+
+          - name: win-x64-cpu
+            os: windows-latest
             platform: win
             arch: x64
-          - os: ubuntu-latest
+            variant: cpu
+            native-shell: pwsh
+            native-cmd: .\build-win-cpu.ps1
+            # Single-quoted to keep ${version} literal for electron-builder's
+            # own template expansion (bash would otherwise expand it to empty).
+            eb-cmd: "npx electron-builder --win --x64 --publish never -c.nsis.artifactName='FedLearn-Desktop-Setup-${version}-cpu.exe'"
+
+          - name: win-x64-cuda
+            os: windows-latest
+            platform: win
+            arch: x64
+            variant: cuda
+            native-shell: pwsh
+            native-cmd: .\build-win-cuda.ps1
+            eb-cmd: "npx electron-builder --win --x64 --publish never -c.nsis.artifactName='FedLearn-Desktop-Setup-${version}-cuda.exe'"
+
+          - name: linux-x64
+            os: ubuntu-latest
             platform: linux
             arch: x64
+            native-shell: bash
+            native-cmd: ./build-linux.sh
+            eb-cmd: npx electron-builder --linux --x64 --publish never
+
+          - name: linux-arm64
+            os: ubuntu-24.04-arm    # native arm64 runner; avoids qemu emulation for PyInstaller + torch aarch64 wheel
+            platform: linux
+            arch: arm64
+            native-shell: bash
+            native-cmd: ./build-linux.sh
+            eb-cmd: npx electron-builder --linux --arm64 --publish never
 
     runs-on: ${{ matrix.os }}
-    name: Build (${{ matrix.platform }}-${{ matrix.arch }})
+    name: Build (${{ matrix.name }})
 
     steps:
       - name: Checkout repository
@@ -62,7 +110,28 @@ jobs:
           cache: 'npm'
           cache-dependency-path: fedlearn-desktop/package-lock.json
 
-      - name: Install dependencies
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # ── Native client (PyInstaller bundle shipped inside the installer) ──
+      - name: Build native client (${{ matrix.name }})
+        working-directory: client-docker/packaging
+        shell: ${{ matrix.native-shell }}
+        run: ${{ matrix.native-cmd }}
+
+      - name: Verify native bundle was produced
+        shell: bash
+        run: |
+          if [ ! -d "client-docker/packaging/dist/fedlearn-client" ]; then
+            echo "::error::PyInstaller bundle missing at client-docker/packaging/dist/fedlearn-client"
+            exit 1
+          fi
+          ls -la client-docker/packaging/dist/fedlearn-client | head -5
+
+      # ── Electron installer ──
+      - name: Install npm dependencies
         working-directory: fedlearn-desktop
         run: npm ci
 
@@ -72,25 +141,19 @@ jobs:
 
       - name: Package Electron app
         working-directory: fedlearn-desktop
+        shell: bash
         env:
-          # Disable macOS code signing — no developer certificate configured.
-          # Remove this line and set MAC_CERTS secret to enable signing.
+          # No Apple Developer ID / Authenticode certs wired yet. Users will
+          # see Gatekeeper / SmartScreen warnings on first launch. Remove these
+          # and populate MAC_CERTS / WIN_CERTS secrets to enable signing.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [ "${{ matrix.platform }}" = "mac" ]; then
-            npx electron-builder --mac --${{ matrix.arch }} --publish never
-          elif [ "${{ matrix.platform }}" = "win" ]; then
-            npx electron-builder --win --x64 --publish never
-          elif [ "${{ matrix.platform }}" = "linux" ]; then
-            npx electron-builder --linux --x64 --publish never
-          fi
-        shell: bash
+        run: ${{ matrix.eb-cmd }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.platform }}-${{ matrix.arch }}
+          name: release-${{ matrix.name }}
           path: |
             fedlearn-desktop/release/*.dmg
             fedlearn-desktop/release/*.exe
@@ -120,7 +183,7 @@ jobs:
           merge-multiple: true
 
       - name: List artifacts
-        run: find artifacts -type f | head -30
+        run: find artifacts -type f | head -40
 
       - name: Determine version
         id: version
@@ -139,30 +202,46 @@ jobs:
           body: |
             ## FedLearn Desktop ${{ steps.version.outputs.tag }}
 
+            Each installer bundles a standalone PyInstaller-built Python
+            training client — **no Docker, no Python, no repo checkout**
+            required on end-user machines (Mac, Windows, Linux x86_64/arm64).
+
+            Jetson deployments still use the Docker path
+            (`nvcr.io/nvidia/l4t-pytorch`) because NVIDIA's L4T torch wheel
+            is pinned to a specific JetPack firmware stack.
+
             ### Downloads
 
             | Platform | Architecture | File |
             |----------|-------------|------|
-            | macOS    | Apple Silicon (M1/M2/M3/M4) | `.dmg` (arm64) |
-            | macOS    | Intel | `.dmg` (x64) |
-            | Windows  | x64 | `-Setup.exe` |
-            | Linux    | x64 | `.deb` / `.rpm` |
+            | macOS    | Apple Silicon (M1/M2/M3/M4) | `.dmg` (arm64) — MPS-accelerated |
+            | macOS    | Intel | `.dmg` (x64) — CPU-only |
+            | Windows  | x64 (NVIDIA GPU) | `-Setup-${{ steps.version.outputs.tag }}-cuda.exe` |
+            | Windows  | x64 (no GPU) | `-Setup-${{ steps.version.outputs.tag }}-cpu.exe` |
+            | Linux    | x86_64 | `.deb` / `.AppImage` — CPU-only native |
+            | Linux    | arm64  | `.deb` / `.AppImage` — CPU-only native |
 
             ### Installation
 
             **macOS:**
-            1. Download the `.zip` file for your architecture
-            2. Extract and drag **FedLearn Desktop.app** to `/Applications`
+            1. Download the `.dmg` for your architecture (arm64 for Apple Silicon)
+            2. Open and drag **FedLearn Desktop.app** to `/Applications`
             3. Run `xattr -cr "/Applications/FedLearn Desktop.app"` in Terminal
+               (the build is unsigned; this clears the quarantine flag)
             4. Right-click the app → **Open** (first time only)
 
-            **Windows:** Run the `-Setup.exe` installer.
+            **Windows:** Run the `-Setup.exe` installer. Pick the `-cuda`
+            variant if you have an NVIDIA GPU with driver ≥ 550, otherwise
+            `-cpu`. SmartScreen may warn about the unsigned installer —
+            click **More info → Run anyway**.
 
-            **Linux:** Install the `.deb` (`sudo dpkg -i ...`) or `.rpm` (`sudo rpm -i ...`) package.
+            **Linux:** Install the `.deb` (`sudo dpkg -i ...`) or run the
+            `.AppImage` directly (`chmod +x`, then execute).
 
             ### Requirements
-            - **Docker** must be installed and running on your machine
-            - Network access to the FedLearn backend server
+
+            - **Mac / Windows / Linux native path**: no external dependencies
+            - **Jetson path**: Docker + NVIDIA Container Toolkit (ships with JetPack)
           draft: false
           prerelease: ${{ contains(steps.version.outputs.tag, 'beta') || contains(steps.version.outputs.tag, 'alpha') || contains(steps.version.outputs.tag, 'rc') }}
           files: |
