@@ -33,6 +33,18 @@ declare global {
       setServerUrl: (url: string) => Promise<{ success: boolean; url?: string; error?: string }>;
       getServerUrl: () => Promise<{ success: boolean; url?: string }>;
       selectDatasetPath: () => Promise<{ success: boolean; path?: string; error?: string }>;
+      detectHardware: () => Promise<{
+        success: boolean;
+        detection?: {
+          platform: string;
+          arch: string;
+          recommendedProfile: string;
+          nativeBundleAvailable: boolean;
+          cudaAvailable: boolean;
+          cudaInfo?: string;
+        };
+        error?: string;
+      }>;
     };
   }
 }

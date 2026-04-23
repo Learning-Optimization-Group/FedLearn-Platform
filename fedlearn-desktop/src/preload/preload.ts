@@ -259,4 +259,24 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   selectDatasetPath: async (): Promise<{ success: boolean; path?: string; error?: string }> => {
     return ipcRenderer.invoke('dialog:open-directory');
   },
+
+  /**
+   * One-shot hardware detection. Returns the platform/arch, whether a CUDA
+   * GPU is visible, whether the bundled native client is shipped with this
+   * install, and a recommended hardware profile to pre-select in the UI.
+   */
+  detectHardware: async (): Promise<{
+    success: boolean;
+    detection?: {
+      platform: string;
+      arch: string;
+      recommendedProfile: string;
+      nativeBundleAvailable: boolean;
+      cudaAvailable: boolean;
+      cudaInfo?: string;
+    };
+    error?: string;
+  }> => {
+    return ipcRenderer.invoke('hardware:detect');
+  },
 });
