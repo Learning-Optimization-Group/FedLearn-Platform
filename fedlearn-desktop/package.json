@@ -25,7 +25,8 @@
     "package": "npm run build && electron-builder --config electron-builder.yml",
     "package:mac": "npm run build && electron-builder --mac --config electron-builder.yml",
     "package:linux": "npm run build && electron-builder --linux --config electron-builder.yml",
-    "package:win": "npm run build && electron-builder --win --config electron-builder.yml"
+    "package:win:cpu": "npm run build && electron-builder --win --config electron-builder.yml -c.nsis.artifactName=FedLearn-Desktop-Setup-${version}-cpu.exe",
+    "package:win:cuda": "npm run build && electron-builder --win --config electron-builder.yml -c.nsis.artifactName=FedLearn-Desktop-Setup-${version}-cuda.exe"
   },
   "dependencies": {
     "axios": "^1.15.0",
