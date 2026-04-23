@@ -10,21 +10,31 @@ checkout — install the desktop app and training just works.
 | Target | Host needed to build | Torch wheel | Output dir |
 |---|---|---|---|
 | `macOS arm64` | Apple Silicon Mac, Python 3.11+ | MPS-enabled (default index) | `dist/fedlearn-client/` |
+| `macOS x64` | Intel Mac, Python 3.11+ | CPU-only (default index) | `dist/fedlearn-client/` |
 | `Windows x64 CPU` | Windows 10/11 x64, Python 3.11+ | CPU-only | `dist/fedlearn-client/` |
 | `Windows x64 CUDA 12.4` | Windows 10/11 x64 + NVIDIA driver >= 550, Python 3.11+ | CUDA 12.4 | `dist/fedlearn-client/` |
+| `Linux x86_64` | x86_64 Linux, Python 3.11+ | CPU-only (pytorch.org/whl/cpu) | `dist/fedlearn-client/` |
+| `Linux aarch64` | aarch64 Linux, Python 3.11+ | CPU-only (default PyPI manylinux_aarch64) | `dist/fedlearn-client/` |
 
-**PyInstaller does not cross-compile.** The Windows `.exe` must be produced
-on a Windows host. Jetson is intentionally not supported as a native build —
-its L4T torch wheel is pinned to a specific JetPack firmware stack; Docker
+**PyInstaller does not cross-compile.** Each OS/arch combo needs a native
+host. Jetson is intentionally not supported as a native build — its L4T
+torch wheel is pinned to a specific JetPack firmware stack; Docker
 (`nvcr.io/nvidia/l4t-pytorch`) is the correct deployment path there.
+
+Linux GPU is also intentionally out of scope. x86_64+NVIDIA users can use
+the Docker path (`fedlearn-client:latest` image); the GA release pipeline
+ships CPU-only native bundles for Linux.
 
 ## Build commands
 
 From this directory:
 
 ```bash
-# macOS arm64
+# macOS (arch-aware — runs on both arm64 and x86_64 hosts)
 ./build-mac.sh
+
+# Linux (arch-aware — runs on both x86_64 and aarch64 hosts)
+./build-linux.sh
 
 # Windows x64 CPU (PowerShell)
 .\build-win-cpu.ps1
@@ -49,9 +59,10 @@ dist/fedlearn-client/
 └── ...
 ```
 
-The full bundle is large: **~770 MB** on Mac (MPS), **~300 MB** on Windows CPU,
-**~2.5 GB** on Windows CUDA. Most of this is `torch` + `transformers` model
-conversion scripts.
+Typical bundle sizes: **~770 MB** Mac arm64 (MPS), **~600 MB** Mac x64 (CPU),
+**~500 MB** Linux x86_64/aarch64 (CPU), **~300 MB** Windows x64 CPU, **~2.5 GB**
+Windows x64 CUDA. Most of this is `torch` + `transformers` model conversion
+scripts.
 
 ## Packaging into the Electron app
 
