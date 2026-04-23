@@ -48,7 +48,6 @@ jobs:
             os: macos-latest
             platform: mac
             arch: arm64
-            native-shell: bash
             native-cmd: ./build-mac.sh
             eb-cmd: npx electron-builder --mac --arm64 --publish never
 
@@ -56,7 +55,6 @@ jobs:
             os: macos-13            # Intel runner; arm64 PyInstaller won't produce x64 binaries
             platform: mac
             arch: x64
-            native-shell: bash
             native-cmd: ./build-mac.sh
             eb-cmd: npx electron-builder --mac --x64 --publish never
 
@@ -65,7 +63,6 @@ jobs:
             platform: win
             arch: x64
             variant: cpu
-            native-shell: pwsh
             native-cmd: .\build-win-cpu.ps1
             # Single-quoted to keep ${version} literal for electron-builder's
             # own template expansion (bash would otherwise expand it to empty).
@@ -76,7 +73,6 @@ jobs:
             platform: win
             arch: x64
             variant: cuda
-            native-shell: pwsh
             native-cmd: .\build-win-cuda.ps1
             eb-cmd: "npx electron-builder --win --x64 --publish never -c.nsis.artifactName='FedLearn-Desktop-Setup-${version}-cuda.exe'"
 
@@ -84,7 +80,6 @@ jobs:
             os: ubuntu-latest
             platform: linux
             arch: x64
-            native-shell: bash
             native-cmd: ./build-linux.sh
             eb-cmd: npx electron-builder --linux --x64 --publish never
 
@@ -92,7 +87,6 @@ jobs:
             os: ubuntu-24.04-arm    # native arm64 runner; avoids qemu emulation for PyInstaller + torch aarch64 wheel
             platform: linux
             arch: arm64
-            native-shell: bash
             native-cmd: ./build-linux.sh
             eb-cmd: npx electron-builder --linux --arm64 --publish never
 
@@ -118,7 +112,6 @@ jobs:
       # ── Native client (PyInstaller bundle shipped inside the installer) ──
       - name: Build native client (${{ matrix.name }})
         working-directory: client-docker/packaging
-        shell: ${{ matrix.native-shell }}
         run: ${{ matrix.native-cmd }}
 
       - name: Verify native bundle was produced
