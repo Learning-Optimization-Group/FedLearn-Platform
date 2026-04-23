@@ -10,6 +10,7 @@ import { ipcMain, BrowserWindow, dialog } from 'electron';
 import log from 'electron-log';
 import { DockerService, TrainingConfig, HardwareProfile } from './docker.service';
 import { AuthService } from './auth.service';
+import { detectHardware } from './hardware.probe';
 
 const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> = new Set(['discrete', 'jetson', 'cpu', 'mps']);
 const PROJECT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
@@ -134,6 +135,17 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  ipcMain.handle('hardware:detect', async () => {
+    try {
+      const detection = await detectHardware();
+      return { success: true, detection };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:hardware:detect] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
   ipcMain.handle('docker:get-status', async () => {
     try {
       const status = await dockerService.getStatus();
@@ -244,5 +256,5 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory');
+  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, hardware:detect, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory');
 }
