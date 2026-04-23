@@ -27,6 +27,22 @@ files:
   - node_modules/electron-log/**/*
   - node_modules/axios/**/*
 
+# Ship the PyInstaller-built native client alongside the Electron app.
+# On Mac/Win this ends up at process.resourcesPath/fedlearn-client/ which
+# DockerService.resolveNativeInvocation() locates at runtime.
+#
+# Precondition: run the appropriate packaging script BEFORE electron-builder
+# so dist/fedlearn-client/ exists:
+#   Mac:        client-docker/packaging/build-mac.sh
+#   Win CPU:    client-docker/packaging/build-win-cpu.ps1
+#   Win CUDA:   client-docker/packaging/build-win-cuda.ps1
+# Only one Windows variant can exist at a time — pick the one you're shipping.
+extraResources:
+  - from: ../client-docker/packaging/dist/fedlearn-client
+    to: fedlearn-client
+    filter:
+      - "**/*"
+
 asar: true
 asarUnpack:
   - node_modules/dockerode/**/*
