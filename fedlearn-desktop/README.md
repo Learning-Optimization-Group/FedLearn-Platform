@@ -1,36 +1,81 @@
 # FedLearn Desktop
 
-> Docker-based Federated Learning Orchestrator for edge devices and GPU workstations.
-
-FedLearn Desktop is an Electron application that acts as a **system orchestrator** — it does not bundle PyTorch, CUDA, or the Python runtime. Instead, it controls the host's pre-installed Docker daemon to spin up `fedlearn-client` training containers with hardware-aware device mappings.
+> Electron client for federated-learning training. Ships with a native
+> PyInstaller-bundled Python client on Mac and Windows — no Docker, no
+> Python, no repo checkout needed on end-user machines. Jetson clients still
+> go through Docker because NVIDIA's L4T torch wheel is firmware-pinned.
 
 ---
 
-## Prerequisites
+## For end users (install-and-run)
+
+1. Download the installer for your platform:
+   - **macOS (Apple Silicon)** — `FedLearn Desktop-X.Y.Z-arm64.dmg`
+   - **Windows x64 with NVIDIA GPU** — `FedLearn-Desktop-Setup-X.Y.Z-cuda.exe`
+   - **Windows x64 without GPU** — `FedLearn-Desktop-Setup-X.Y.Z-cpu.exe`
+   - **Jetson AGX Orin** — install via `.deb` or AppImage, requires Docker + NVIDIA Container Toolkit (pre-installed with JetPack)
+2. Install and launch. The app auto-detects your hardware (Apple Silicon, NVIDIA GPU, or CPU) and pre-selects the right profile.
+3. Enter the server address + project ID and click **Start Training**.
+
+---
+
+## For developers
+
+### Prerequisites
 
 | Requirement | Notes |
 |---|---|
 | **Node.js** ≥ 18.x | For building and running the Electron app |
-| **Docker Engine** | Must be installed and running on the host |
-| **NVIDIA Container Toolkit** | Required for `discrete` GPU profile only |
-| **FedLearn Client Docker Image** | `fedlearn-client:latest` must be built/pulled locally |
-| **FedLearn Backend** | Spring Boot API running at `http://localhost:8081` (default) |
+| **Python 3.11+** | Only needed for dev mode (the packaged installer bundles its own) |
+| **Docker Engine** | Only needed for the Jetson profile |
+| **FedLearn Backend** | Spring Boot API running at `http://localhost:8081` |
 
-### Building the Client Docker Image
+### Dev mode (system Python + repo checkout)
 
-From the repository root:
+The `DockerService` falls back to spawning `python3 client-docker/scripts/client.py`
+when `app.isPackaged === false`, so you don't need to rebuild the PyInstaller
+bundle after every Python edit. Make sure you have the framework installed:
 
 ```bash
-docker build -t fedlearn-client:latest -f client-docker/Dockerfile .
+pip install -e framework
+pip install -r client-docker/packaging/requirements-client.txt
 ```
 
-For NVIDIA Jetson, use the L4T base image:
+### Building a distributable installer
+
+Distributables bundle the native client as a PyInstaller-produced binary
+inside `resources/`. Build the client first, then package Electron:
+
+```bash
+# 1. Build the native client (pick the one matching your installer target)
+cd client-docker/packaging
+./build-mac.sh             # Mac arm64 (MPS)
+# or on Windows:
+.\build-win-cpu.ps1        # Windows CPU
+.\build-win-cuda.ps1       # Windows CUDA 12.4
+
+# 2. Package the Electron installer
+cd ../../fedlearn-desktop
+npm run package:mac        # Mac
+npm run package:win:cpu    # Windows CPU
+npm run package:win:cuda   # Windows CUDA
+```
+
+See `client-docker/packaging/README.md` for bundle size, troubleshooting,
+and the rationale for the PyInstaller approach.
+
+### Jetson (Docker path — unchanged)
+
+Jetson deployment still goes through `fedlearn-client:latest`:
 
 ```bash
 docker build -t fedlearn-client:latest \
   --build-arg BASE_IMAGE=nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3 \
   -f client-docker/Dockerfile .
 ```
+
+The desktop app picks the Docker path automatically when the user selects
+the **Jetson SoC** hardware profile; other profiles use the native bundle.
 
 ---
 
