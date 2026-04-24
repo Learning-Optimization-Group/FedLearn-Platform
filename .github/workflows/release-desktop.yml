@@ -51,12 +51,10 @@ jobs:
             native-cmd: ./build-mac.sh
             eb-cmd: npx electron-builder --mac --arm64 --publish never
 
-          - name: mac-x64
-            os: macos-13            # Intel runner; arm64 PyInstaller won't produce x64 binaries
-            platform: mac
-            arch: x64
-            native-cmd: ./build-mac.sh
-            eb-cmd: npx electron-builder --mac --x64 --publish never
+          # mac-x64 (Intel) dropped: macos-13 runner queue is unreliable as
+          # GitHub phases it out, and arm64 PyInstaller can't cross-compile
+          # to x64 so no alternative runner works. Intel Mac users can run
+          # the arm64 build under Rosetta if absolutely needed.
 
           - name: win-x64-cpu
             os: windows-latest
@@ -98,6 +96,9 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     name: Build (${{ matrix.name }})
+    # Cap per-job wall clock so a queued / hung runner can't stall the
+    # release job (default is 6h on public runners).
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
@@ -168,6 +169,10 @@ jobs:
   # ─── Create GitHub Release ─────────────────────────────────────────────────
   release:
     needs: build
+    # Publish whatever artifacts succeeded — don't let one flaky runner (e.g.
+    # the retiring macos-13 queue) block the whole release. Still skip on
+    # manual cancel so partial artifacts aren't silently shipped.
+    if: always() && !cancelled()
     runs-on: ubuntu-latest
     name: Publish GitHub Release
 
@@ -214,16 +219,18 @@ jobs:
             | Platform | Architecture | File |
             |----------|-------------|------|
             | macOS    | Apple Silicon (M1/M2/M3/M4) | `.dmg` (arm64) — MPS-accelerated |
-            | macOS    | Intel | `.dmg` (x64) — CPU-only |
             | Windows  | x64 (NVIDIA GPU) | `-Setup-${{ steps.version.outputs.tag }}-cuda.exe` |
             | Windows  | x64 (no GPU) | `-Setup-${{ steps.version.outputs.tag }}-cpu.exe` |
             | Linux    | x86_64 | `.deb` / `.AppImage` — CPU-only native |
             | Linux    | arm64  | `.deb` / `.AppImage` — CPU-only native |
 
+            Intel Mac is not a shipped target; the arm64 build runs under
+            Rosetta 2 if absolutely needed.
+
             ### Installation
 
-            **macOS:**
-            1. Download the `.dmg` for your architecture (arm64 for Apple Silicon)
+            **macOS (Apple Silicon):**
+            1. Download the arm64 `.dmg`
             2. Open and drag **FedLearn Desktop.app** to `/Applications`
             3. Run `xattr -cr "/Applications/FedLearn Desktop.app"` in Terminal
                (the build is unsigned; this clears the quarantine flag)
