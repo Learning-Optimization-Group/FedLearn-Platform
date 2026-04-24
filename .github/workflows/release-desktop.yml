@@ -81,14 +81,20 @@ jobs:
             platform: linux
             arch: x64
             native-cmd: ./build-linux.sh
-            eb-cmd: npx electron-builder --linux --x64 --publish never
+            # target:arch pairs REPLACE the config's target list — this keeps
+            # @electron/rebuild from also running for arm64 on an x64 host
+            # (which would try to cross-compile native deps like cpu-features).
+            eb-cmd: npx electron-builder --linux AppImage:x64 deb:x64 --publish never
 
           - name: linux-arm64
             os: ubuntu-24.04-arm    # native arm64 runner; avoids qemu emulation for PyInstaller + torch aarch64 wheel
             platform: linux
             arch: arm64
             native-cmd: ./build-linux.sh
-            eb-cmd: npx electron-builder --linux --arm64 --publish never
+            # See linux-x64 note above — target:arch pairs are required here
+            # because aarch64 gcc has no -m64 flag, so the stray x64 rebuild
+            # step fails with "unrecognized command-line option '-m64'".
+            eb-cmd: npx electron-builder --linux AppImage:arm64 deb:arm64 --publish never
 
     runs-on: ${{ matrix.os }}
     name: Build (${{ matrix.name }})
