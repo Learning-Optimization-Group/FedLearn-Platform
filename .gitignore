@@ -57,6 +57,12 @@ checkpoints/
 results/
 models/
 
+# Source package dirs that collide with the ML-artifact "models/" rule above
+!backend/fl-platform-api/src/main/resources/scripts/models/
+!backend/fl-platform-api/src/main/resources/scripts/models/**
+!client-docker/scripts/models/
+!client-docker/scripts/models/**
+
 # ========================
 # Logs & Ephemeral Data
 # ========================
