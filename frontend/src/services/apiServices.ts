@@ -45,13 +45,41 @@ export interface ProjectResult {
     gpuUtilization?: number;
 }
 
-// Authentication Endpoints
-export const loginUser = (credentials: LoginCredentials): Promise<AxiosResponse> => {
-    return api.post('/auth/login', credentials);
+// ─── Authentication ──────────────────────────────────────────────────────
+//
+// Auth contract is cookie-only: the backend sets an HttpOnly `jwtToken`
+// cookie on /auth/login and clears it on /auth/logout. JS never sees the
+// token. To answer "am I logged in?" the SPA calls /auth/me.
+
+export interface AuthIdentity {
+    username: string;
+    email: string;
+    role: 'USER' | 'ADMIN';
+}
+
+export const loginUser = (credentials: LoginCredentials): Promise<AxiosResponse<AuthIdentity>> => {
+    return api.post<AuthIdentity>('/auth/login', credentials);
 };
 
 export const registerUser = (userData: RegisterData): Promise<AxiosResponse> => {
     return api.post('/auth/register', userData);
+};
+
+/**
+ * Returns the current user's identity if the session cookie is still valid;
+ * otherwise the request fails with 401 (which the axios interceptor ignores
+ * for this specific URL — see api/axiosConfig.ts).
+ */
+export const fetchCurrentUser = (): Promise<AxiosResponse<AuthIdentity>> => {
+    return api.get<AuthIdentity>('/auth/me');
+};
+
+/**
+ * Clears the auth cookie server-side. The frontend should also clear its
+ * in-memory user state immediately; don't wait on this call's success.
+ */
+export const logoutUser = (): Promise<AxiosResponse<void>> => {
+    return api.post<void>('/auth/logout');
 };
 
 // Project Management Endpoints
@@ -93,8 +121,10 @@ export const fetchProjectLogs = (projectId: string): Promise<AxiosResponse<any[]
     return api.get<any[]>(`/projects/${projectId}/logs`);
 };
 
-export const deleteProject = (projectId: string): Promise<AxiosResponse<string>> => {
-    return api.post<string>(`/projects/${projectId}/delete`);
+export const deleteProject = (projectId: string): Promise<AxiosResponse<{ projectId: string; message: string }>> => {
+    // Canonical DELETE; the backend keeps POST /projects/{id}/delete around
+    // as a deprecated alias for older Electron builds.
+    return api.delete<{ projectId: string; message: string }>(`/projects/${projectId}`);
 };
 
 // User / Client Management Endpoints
@@ -102,9 +132,15 @@ export interface User {
     id: number;
     username: string;
     email: string;
+    role?: 'USER' | 'ADMIN';
     createdAt?: string;
 }
 
+/**
+ * Lists every user. Admin-only on the backend — non-admins receive 403,
+ * which callers should display as "permission denied" rather than a hard
+ * logout (the axios interceptor already enforces this distinction).
+ */
 export const fetchUsers = (): Promise<AxiosResponse<User[]>> => {
     return api.get<User[]>('/users');
 };
