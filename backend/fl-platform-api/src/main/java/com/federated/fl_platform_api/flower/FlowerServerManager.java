@@ -1,7 +1,9 @@
 package com.federated.fl_platform_api.flower;
 
+import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.service.WebSocketService;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -126,18 +128,16 @@ public class FlowerServerManager {
     }
 
     private int startLocalServer(Project project, boolean isPretrained, String strategy, Integer numRounds) {
+        Process process = null;
         try {
             stopServerForProject(project.getId());
-            Thread.sleep(2000);
 
             int freePort = findFreePort();
             File scriptFile = new File(flServerWrapperPath);
             String absoluteScriptPath = scriptFile.getAbsolutePath();
-            ProcessBuilder pb;
-            System.out.println("absoluteScriptPath - " + absoluteScriptPath);
+
             List<String> command = new ArrayList<>();
             String os = System.getProperty("os.name").toLowerCase();
-
             if (!os.contains("win")) {
                 command.add("bash");
             }
@@ -158,7 +158,7 @@ public class FlowerServerManager {
             command.add("--model-name");
             command.add(project.getModelName());
 
-            pb = new ProcessBuilder(command);
+            ProcessBuilder pb = new ProcessBuilder(command);
 
             if (!isPretrained) {
                 pb.command().add("--pretrain");
@@ -166,69 +166,110 @@ public class FlowerServerManager {
 
             Map<String, String> env = pb.environment();
             env.put("FEDLEARN_INTERNAL_API_KEY", internalApiKey == null ? "" : internalApiKey);
-            if (backendInternalUrl != null && !backendInternalUrl.trim().isEmpty()) {
+            if (!isBlank(backendInternalUrl)) {
                 env.put("FEDLEARN_BACKEND_URL", backendInternalUrl);
             }
 
-            System.out.println("--- Preparing to Start Flower Server ---");
-            System.out.println("Executing command: " + String.join(" ", pb.command()));
+            log.debug("Starting FL server for project {} via script {}", project.getId(), absoluteScriptPath);
 
             pb.redirectErrorStream(true);
             pb.directory(new File("."));
 
-            Process process = pb.start();
+            process = pb.start();
             runningServers.put(project.getId(), process);
 
             final StringBuilder startupOutput = new StringBuilder();
             final boolean[] errorOccurred = {false};
+            final Process readerProcess = process;
 
             Thread outputReaderThread = new Thread(() -> {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(readerProcess.getInputStream()))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
-                        System.out.println("[FL_SERVER_LOG " + project.getId() + "] " + line);
+                        log.debug("[FL_SERVER {}] {}", project.getId(), line);
                         if (logBroadcaster != null) {
                             logBroadcaster.sendLogs(project.getId(), line);
                         }
-                        startupOutput.append(line).append("\n");
+                        startupOutput.append(line).append('\n');
                     }
                 } catch (IOException e) {
-                    System.err.println("Error reading output from Flower server for project " + project.getId());
                     errorOccurred[0] = true;
+                    log.warn("Failed reading FL server output for project {}: {}",
+                            project.getId(), e.getClass().getSimpleName());
                     if (logBroadcaster != null) {
-                        logBroadcaster.sendLogs(project.getId(), "ERROR: " + e);
+                        logBroadcaster.sendLogs(project.getId(),
+                                "ERROR: " + e.getClass().getSimpleName() + ": " + e.getMessage());
                     }
-                    e.printStackTrace();
                 }
-            });
+            }, "fl-server-stdout-" + project.getId());
             outputReaderThread.setDaemon(true);
             outputReaderThread.start();
 
             boolean exited = process.waitFor(3, TimeUnit.SECONDS);
 
-            if (exited || errorOccurred[0]) {
+            if (exited) {
                 outputReaderThread.join(1000);
-                throw new RuntimeException("Flower server process failed to start. Exit code: " + process.exitValue() +
-                        "\nFull Output:\n" + startupOutput);
+                throw new ServerProcessException(
+                        "FL server exited during startup for project " + project.getId()
+                                + " (exit code " + process.exitValue() + ")\nOutput:\n" + startupOutput);
+            }
+            if (errorOccurred[0]) {
+                outputReaderThread.join(1000);
+                throw new ServerProcessException(
+                        "FL server stdout reader failed for project " + project.getId());
             }
 
-            System.out.println("Started Flower server for project " + project.getName() + " on port " + freePort);
+            log.info("Started FL server for project {} on port {}", project.getId(), freePort);
             return freePort;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to start local server process", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            if (process != null) {
+                process.destroyForcibly();
+                runningServers.remove(project.getId());
+            }
+            throw new ServerProcessException(
+                    "Interrupted while starting FL server for project " + project.getId(), e);
+        } catch (IOException e) {
+            throw new ServerProcessException(
+                    "Failed to spawn FL server process for project " + project.getId(), e);
         }
     }
 
     public boolean stopServerForProject(UUID projectId) {
         Process process = runningServers.get(projectId);
         if (process != null && process.isAlive()) {
-            System.out.println("Stopping Flower server for project: " + projectId);
+            log.info("Stopping FL server for project {}", projectId);
             process.destroyForcibly();
             runningServers.remove(projectId);
             return true;
         }
-        System.out.println("No running server found for project: " + projectId);
+        log.debug("No running FL server found for project {}", projectId);
         return false;
+    }
+
+    /**
+     * Stop every spawned FL server when the application context shuts down.
+     * Without this, child Python processes survive backend restarts and
+     * become orphans on the host (no longer reachable, but still bound to
+     * their gRPC ports).
+     */
+    @PreDestroy
+    public void stopAllOnShutdown() {
+        if (runningServers.isEmpty()) {
+            return;
+        }
+        log.info("Shutdown: terminating {} running FL server process(es)", runningServers.size());
+        runningServers.forEach((id, p) -> {
+            try {
+                if (p.isAlive()) {
+                    p.destroyForcibly();
+                }
+            } catch (RuntimeException e) {
+                log.warn("Failed to terminate FL server for project {}: {}",
+                        id, e.getClass().getSimpleName());
+            }
+        });
+        runningServers.clear();
     }
 
     public boolean isServerRunning(UUID projectId) {

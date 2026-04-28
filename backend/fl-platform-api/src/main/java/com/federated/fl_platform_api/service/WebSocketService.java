@@ -5,6 +5,8 @@ import com.federated.fl_platform_api.model.ServerLog;
 import com.federated.fl_platform_api.repository.ServerLogRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -14,6 +16,8 @@ import java.util.UUID;
 
 @Service
 public class WebSocketService {
+
+    private static final Logger log = LoggerFactory.getLogger(WebSocketService.class);
 
     // Spring automatically provides this template for sending messages.
     @Autowired
@@ -74,9 +78,10 @@ public class WebSocketService {
 
         try {
             serverLogRepository.save(log);
-        } catch (Exception e) {
-            // Don't let a DB failure break the log stream.
-            System.err.println("[WebSocketService] Failed to persist log: " + e.getMessage());
+        } catch (RuntimeException e) {
+            // Don't let a DB failure break the log stream — but make it visible to operators.
+            WebSocketService.log.warn("Failed to persist FL log for project {}: {}",
+                    projectId, e.getClass().getSimpleName());
         }
     }
 }
