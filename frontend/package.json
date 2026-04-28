@@ -1,7 +1,7 @@
 {
   "name": "fedlearn-frontend",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.4.1-beta",
   "type": "module",
   "scripts": {
     "dev": "vite --open",

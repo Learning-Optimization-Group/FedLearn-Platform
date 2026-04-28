@@ -2,6 +2,7 @@ package com.federated.fl_platform_api;
 
 import com.federated.fl_platform_api.dto.CreateProjectRequest;
 import com.federated.fl_platform_api.dto.ProjectResponseDto;
+import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.flower.FlowerServerManager;
 import com.federated.fl_platform_api.service.ModelInitializer;
 import com.federated.fl_platform_api.model.Project;
@@ -145,8 +146,13 @@ class ProjectServiceTest {
         request.setPretrainEpochs(5);
 
         // --- ACT & ASSERT ---
-        assertThrows(IOException.class, () -> {
-            projectService.createProject(request);
-        });
+        // ProjectService now wraps IOException/InterruptedException coming out
+        // of ModelInitializer in ServerProcessException so the @ControllerAdvice
+        // can map it to a single 502 Bad Gateway response. The original cause
+        // is preserved on the exception chain.
+        ServerProcessException ex = assertThrows(ServerProcessException.class,
+                () -> projectService.createProject(request));
+        assertNotNull(ex.getCause());
+        assertEquals(IOException.class, ex.getCause().getClass());
     }
 }

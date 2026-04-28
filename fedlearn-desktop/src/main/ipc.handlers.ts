@@ -8,13 +8,67 @@
 
 import { ipcMain, BrowserWindow, dialog } from 'electron';
 import log from 'electron-log';
+import * as fs from 'fs';
+import * as path from 'path';
 import { DockerService, TrainingConfig, HardwareProfile } from './docker.service';
 import { AuthService } from './auth.service';
+import { detectHardware } from './hardware.probe';
 
-const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> = new Set(['discrete', 'jetson', 'cpu']);
+const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> = new Set(['discrete', 'jetson', 'cpu', 'mps']);
 const PROJECT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
 const PARTITION_ID_PATTERN = /^[0-9]{1,10}$/;
 const SERVER_ADDRESS_PATTERN = /^[a-zA-Z0-9._:/-]{1,256}$/;
+const MAX_DATASET_PATH_LEN = 2048;
+
+/**
+ * Normalizes and validates a dataset path before it's bind-mounted into a
+ * training container. The renderer normally selects the path through the
+ * native dialog (which is safe), but a compromised renderer or future text
+ * input could craft a path that, once interpolated into the Docker bind
+ * string `${path}:/data`, escapes to a sensitive host directory.
+ *
+ * Rules:
+ *   - String of bounded length, no NUL bytes (no directory-traversal via
+ *     embedded null terminator).
+ *   - Resolves to an absolute path with no remaining `..` segments.
+ *   - Path must currently exist and be a directory (catches typos and
+ *     prevents bind-mounting non-existent paths which Docker would create
+ *     as empty directories owned by root).
+ *
+ * Returns the canonical absolute path on success, or null on rejection.
+ */
+function sanitizeDatasetPath(raw: unknown): string | null {
+  if (typeof raw !== 'string' || raw.length === 0 || raw.length > MAX_DATASET_PATH_LEN) {
+    return null;
+  }
+  if (raw.includes('\0')) {
+    return null;
+  }
+  let resolved: string;
+  try {
+    resolved = path.resolve(raw);
+  } catch {
+    return null;
+  }
+  // After resolve(), `..` segments should already be collapsed. If any
+  // remain (only possible on platforms with unusual semantics), bail out.
+  if (resolved.split(path.sep).some((seg) => seg === '..')) {
+    return null;
+  }
+  if (!path.isAbsolute(resolved)) {
+    return null;
+  }
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(resolved);
+  } catch {
+    return null;
+  }
+  if (!stat.isDirectory()) {
+    return null;
+  }
+  return resolved;
+}
 
 let dockerService: DockerService;
 let authService: AuthService;
@@ -98,9 +152,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         return { success: false, error: 'Invalid model type' };
       }
 
-      if (typeof cfg.datasetPath !== 'string' || cfg.datasetPath.length === 0 || cfg.datasetPath.length > 2048) {
-        log.error(`[IPC:docker:start-training] Rejected invalid dataset path: ${String(cfg.datasetPath)}`);
-        return { success: false, error: 'Invalid dataset path' };
+      const safeDatasetPath = sanitizeDatasetPath(cfg.datasetPath);
+      if (safeDatasetPath === null) {
+        // Don't echo the raw input back into logs verbatim — it may be
+        // very long or contain attacker-supplied bytes. The string-cast
+        // here is bounded by the validator's max-length check above.
+        log.error('[IPC:docker:start-training] Rejected invalid dataset path');
+        return {
+          success: false,
+          error: 'Invalid dataset path: must be an existing absolute directory',
+        };
       }
 
       const validConfig: TrainingConfig = {
@@ -109,7 +170,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         serverAddress: cfg.serverAddress as string,
         partitionId: cfg.partitionId as string,
         modelType: cfg.modelType as string,
-        datasetPath: cfg.datasetPath as string,
+        // Use the canonical resolved path, not the raw string from the renderer.
+        datasetPath: safeDatasetPath,
       };
 
       log.info(`[IPC:docker:start-training] Starting training with profile=${validConfig.hardwareProfile}, project=${validConfig.projectId}, model=${validConfig.modelType}`);
@@ -134,6 +196,17 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  ipcMain.handle('hardware:detect', async () => {
+    try {
+      const detection = await detectHardware();
+      return { success: true, detection };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:hardware:detect] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
   ipcMain.handle('docker:get-status', async () => {
     try {
       const status = await dockerService.getStatus();
@@ -141,7 +214,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       log.error(`[IPC:docker:get-status] Failed: ${message}`);
-      return { success: true, status: 'error' };
+      return { success: false, status: 'error', error: message };
     }
   });
 
@@ -212,6 +285,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         return { success: false, error: 'Invalid server URL' };
       }
 
+      // Require http:// or https:// protocol
+      if (!/^https?:\/\//i.test(url.trim())) {
+        log.error('[IPC:auth:set-server-url] Rejected URL missing http(s):// protocol');
+        return { success: false, error: 'URL must start with http:// or https://' };
+      }
+
       // Normalize: ensure it ends with /api
       let normalized = url.trim().replace(/\/+$/, '');
       if (!normalized.endsWith('/api')) {
@@ -238,5 +317,5 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory');
+  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, hardware:detect, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory');
 }

@@ -1,8 +1,11 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Optional, Callable, Tuple
 from collections import OrderedDict
 import torch
 import json
+
+log = logging.getLogger(__name__)
 
 class Strategy(ABC):
     """Abstract base class for learning strategies."""
@@ -67,7 +70,10 @@ class FedAvg(Strategy):
 
         # Call the user-provided evaluation function
         loss, metrics = self.evaluate_fn(server_round, parameters)
-        print(f"Strategy Evaluation (Round {server_round}): Loss={loss:.4f}, Metrics={metrics}")
+        log.info(
+            "FedAvg eval round=%d loss=%.4f metrics=%s",
+            server_round, loss, metrics,
+        )
         return loss, metrics
 
 

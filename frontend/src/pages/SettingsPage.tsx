@@ -44,9 +44,15 @@ const SettingsPage: React.FC = () => {
                         </span>
                     </div>
                     <div className="settings-row">
-                        <span className="settings-label">User ID</span>
+                        <span className="settings-label">Email</span>
                         <span className="settings-value">
-                            <code>{currentUser?.id ?? '—'}</code>
+                            <code>{currentUser?.email ?? '—'}</code>
+                        </span>
+                    </div>
+                    <div className="settings-row">
+                        <span className="settings-label">Role</span>
+                        <span className="settings-value">
+                            <code>{currentUser?.role ?? 'USER'}</code>
                         </span>
                     </div>
                     <div className="settings-actions">

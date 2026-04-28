@@ -64,6 +64,22 @@ print(f'PyTorch Version: {torch.__version__}')
 "
 echo -e "${GREEN}[✔] PyTorch Functional.${NC}"
 
+echo -e "\n${YELLOW}[5/5] Checking GPU/Device Backend Availability...${NC}"
+docker run --rm --entrypoint python3 "$IMAGE_NAME" -c "
+import torch
+backends = []
+if torch.cuda.is_available():
+    backends.append('CUDA (' + torch.cuda.get_device_name(0) + ')')
+if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+    backends.append('MPS (Apple Metal)')
+if not backends:
+    backends.append('CPU only')
+print('Available backends:', ', '.join(backends))
+device = 'cuda' if torch.cuda.is_available() else ('mps' if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available() else 'cpu')
+print('Default device would be:', device)
+"
+echo -e "${GREEN}[✔] Device Backend Check Complete.${NC}"
+
 echo -e "\n${GREEN}======================================================${NC}"
 echo -e "${GREEN} All Tests Passed! The refactored Dockerfile is solid.${NC}"
 echo -e "${GREEN}======================================================${NC}"

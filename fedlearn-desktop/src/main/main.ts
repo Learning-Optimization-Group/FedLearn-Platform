@@ -9,10 +9,14 @@
 // No use of the deprecated 'remote' module.
 // =============================================================================
 
-import { app, BrowserWindow, session } from 'electron';
+import { app, BrowserWindow, session, crashReporter } from 'electron';
 import * as path from 'path';
 import log from 'electron-log';
 import { registerIpcHandlers } from './ipc.handlers';
+
+// Crash reports written to disk — visible via app.getPath('crashDumps').
+// No remote submission configured; dumps stay local for debugging.
+crashReporter.start({ uploadToServer: false });
 
 // Configure electron-log as the sole logging mechanism
 log.transports.file.level = 'info';
@@ -66,29 +70,41 @@ function createWindow(): void {
     : [];
   const apiConnectSrc = [...defaultApiOrigins, ...apiOriginsFromEnv].join(' ');
 
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          [
-            "default-src 'self'",
-            isDev ? "script-src 'self' 'unsafe-eval'" : "script-src 'self'",
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-            "font-src 'self' https://fonts.gstatic.com",
-            "img-src 'self' data:",
-            `connect-src 'self' ${apiConnectSrc}`.trim(),
-            "frame-src 'none'",
-            "object-src 'none'",
-            "base-uri 'self'",
-          ].join('; '),
-        ],
-      },
+  // CSP is injected via a <meta> tag in index.html for packaged (file://) builds,
+  // because Chromium's interpretation of 'self' under file:// origins is inconsistent
+  // and can block legitimate scripts bundled in the asar. For dev builds served over
+  // HTTP, the response-header approach works correctly.
+  if (isDev) {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' https://fonts.gstatic.com",
+              "img-src 'self' data:",
+              `connect-src 'self' ${apiConnectSrc}`.trim(),
+              "frame-src 'none'",
+              "object-src 'none'",
+              "base-uri 'self'",
+            ].join('; '),
+          ],
+        },
+      });
     });
-  });
+  }
 
-  // Register all IPC handlers (docker, auth)
-  registerIpcHandlers(mainWindow);
+  // Register all IPC handlers (docker, auth). An exception here must not
+  // prevent the renderer from loading — otherwise the window stays black
+  // and the user has no way to recover (e.g. log out, switch server).
+  try {
+    registerIpcHandlers(mainWindow);
+  } catch (err) {
+    log.error('[Main] registerIpcHandlers failed; renderer will still load', err);
+  }
 
   // Load the renderer
   if (isDev) {
@@ -135,15 +151,23 @@ app.on('web-contents-created', (_event, contents) => {
     return { action: 'deny' };
   });
 
-  // Prevent navigation away from the app
+  // Prevent navigation away from the app.
+  // In production, only allow file:// URLs rooted in the app's own directory.
+  // In dev, also allow the webpack dev server origin.
+  const appDir = isDev ? '' : path.join(__dirname, '..');
   contents.on('will-navigate', (event, url) => {
-    const parsedUrl = new URL(url);
-    const allowedOrigins = ['http://localhost:9000', `file://`];
-    const isAllowed = allowedOrigins.some((origin) => url.startsWith(origin));
+    let allowed = false;
+    if (isDev && url.startsWith('http://localhost:9000')) {
+      allowed = true;
+    } else if (url.startsWith('file://')) {
+      // Restrict file:// navigation to the packaged app directory
+      const filePath = decodeURIComponent(new URL(url).pathname);
+      allowed = appDir ? filePath.startsWith(appDir) : true;
+    }
 
-    if (!isAllowed) {
+    if (!allowed) {
       event.preventDefault();
-      log.warn(`[Security] Blocked navigation to: ${parsedUrl.origin}`);
+      log.warn(`[Security] Blocked navigation to: ${url}`);
     }
   });
 });

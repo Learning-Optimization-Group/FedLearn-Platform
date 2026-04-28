@@ -3,8 +3,11 @@ import * as api from '../services/apiServices';
 import type { User, RegisterData } from '../services/apiServices';
 import DiskLoader from '../components/DiskLoader';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { createLogger } from '../lib/logger';
 import '../styles/Dashboard.css';
 import '../styles/ClientsPage.css';
+
+const log = createLogger('ClientsPage');
 
 interface CreateClientModalProps {
     onSubmit: (data: RegisterData) => Promise<void> | void;
@@ -91,6 +94,7 @@ const ClientsPage: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
+    const [forbidden, setForbidden] = useState(false);
     const [success, setSuccess] = useState('');
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,9 +106,19 @@ const ClientsPage: React.FC = () => {
             const res = await api.fetchUsers();
             setUsers(Array.isArray(res.data) ? res.data : []);
             setError('');
-        } catch (err) {
-            console.error(err);
-            setError('Failed to fetch clients.');
+            setForbidden(false);
+        } catch (err: any) {
+            // /api/users is admin-only on the backend. Distinguish "you don't
+            // have permission" (403 — show a friendly empty state) from a real
+            // failure (network / 5xx — show the generic error banner).
+            if (err?.response?.status === 403) {
+                setForbidden(true);
+                setUsers([]);
+                setError('');
+            } else {
+                log.error('fetchUsers failed', err);
+                setError('Failed to fetch clients.');
+            }
         } finally {
             setIsLoading(false);
         }
@@ -145,7 +159,7 @@ const ClientsPage: React.FC = () => {
             setUsers((prev) => prev.filter((u) => u.id !== id));
             setSuccess('Client removed.');
         } catch (err) {
-            console.error(err);
+            log.error(`deleteUser failed for id ${id}`, err);
             setError('Failed to delete client.');
         } finally {
             setConfirmDeleteId(null);
@@ -195,7 +209,16 @@ const ClientsPage: React.FC = () => {
                 </div>
             )}
 
-            {users.length === 0 ? (
+            {forbidden ? (
+                <div className="empty-state" role="status">
+                    <p>Admin access required</p>
+                    <p className="empty-sub">
+                        Listing clients is restricted to admin accounts. Ask an administrator
+                        to grant your account the <code>ADMIN</code> role if you need this
+                        view.
+                    </p>
+                </div>
+            ) : users.length === 0 ? (
                 <div className="empty-state">
                     <p>No clients provisioned yet.</p>
                     <p className="empty-sub">

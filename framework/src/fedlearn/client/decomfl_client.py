@@ -3,6 +3,7 @@
 DeComFL Client implementing Algorithm 4 from the paper.
 """
 
+import logging
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 import torch
@@ -10,6 +11,8 @@ import torch.nn as nn
 from typing import Tuple, List, Dict
 from .client import Client
 from fedlearn.estimators.zeroth_order import ZerothOrderEstimator
+
+log = logging.getLogger(__name__)
 
 
 class DeComFLClient(Client):
@@ -52,7 +55,10 @@ class DeComFLClient(Client):
         # For heartbeat integration
         self.grpc_client = None
 
-        print(f"[DeComFLClient] Initialized with {self.zo_estimator.get_num_params(self.model):,} parameters")
+        log.info(
+            "DeComFLClient initialised with %d parameters",
+            self.zo_estimator.get_num_params(self.model),
+        )
 
     def set_grpc_client(self, grpc_client):
         """Set gRPC client for heartbeat updates."""
@@ -78,7 +84,7 @@ class DeComFLClient(Client):
         if not rebuild_history:
             return
 
-        print(f"[DeComFLClient] Rebuilding model from {len(rebuild_history)} missed rounds")
+        log.debug("Rebuilding model from %d missed rounds", len(rebuild_history))
 
         for round_data in rebuild_history:
             round_num = round_data['round_number']
@@ -110,7 +116,7 @@ class DeComFLClient(Client):
 
         # Apply rebuilt parameters to model
         self.zo_estimator._set_flat_params(self.model, self.x_current)
-        print(f"[DeComFLClient] Model rebuild complete")
+        log.debug("Model rebuild complete")
 
     def fit(
             self,
@@ -135,7 +141,7 @@ class DeComFLClient(Client):
         P = len(seeds[0]) if K > 0 else 0  # Number of perturbations
         eta = float(config.get('learning_rate', 0.001))
 
-        print(f"[DeComFLClient] Starting local training: K={K}, P={P}")
+        log.debug("Starting local DeComFL training (K=%d, P=%d)", K, P)
 
         # Track total perturbation for in-place revert to avoid OOM
         total_perturbation = torch.zeros_like(self.x_current)
@@ -206,7 +212,7 @@ class DeComFLClient(Client):
             gradient_scalars.append(k_gradient_scalars)
 
             if (k + 1) % max(1, K // 5) == 0:
-                print(f"[DeComFLClient] Completed local step {k + 1}/{K}")
+                log.debug("Completed local step %d/%d", k + 1, K)
 
         # SECURE: Revert by mathematically reversing the exact perturbation in-place
         self.x_current -= total_perturbation
@@ -215,8 +221,11 @@ class DeComFLClient(Client):
         # Count training examples
         num_examples = len(self.train_loader.dataset)
 
-        print(f"[DeComFLClient] Local training complete. Generated {len(gradient_scalars)} "
-              f"local steps with {len(gradient_scalars[0])} perturbations each")
+        log.debug(
+            "Local training complete: %d local steps × %d perturbations",
+            len(gradient_scalars),
+            len(gradient_scalars[0]) if gradient_scalars else 0,
+        )
 
         # Algorithm 4, Line 24: Return gradient scalars
         return gradient_scalars, num_examples

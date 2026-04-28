@@ -1,0 +1,58 @@
+# =============================================================================
+# FedLearn Native Client — Pinned Runtime Dependencies
+# =============================================================================
+# Used by the PyInstaller build to produce standalone executables for
+# Mac (arm64, MPS) and Windows (x64, CPU or CUDA 12.4).
+#
+# torch / torchvision are installed separately by the per-platform build
+# script because the right wheel URL differs per target:
+#   - Mac arm64 : default PyPI (MPS-enabled)
+#   - Win CPU   : https://download.pytorch.org/whl/cpu
+#   - Win CUDA  : https://download.pytorch.org/whl/cu124
+# =============================================================================
+
+# FL Framework (installed via `pip install -e ../../framework` in build script)
+
+# Transformers / NLP
+transformers==4.46.3
+tokenizers==0.20.3
+datasets==3.1.0
+accelerate==1.1.1
+safetensors==0.4.5
+huggingface-hub==0.26.2
+
+# FL Datasets
+flwr-datasets==0.5.0
+
+# Data
+numpy==1.26.4
+pandas==2.2.3
+scikit-learn==1.5.2
+pyarrow==18.0.0
+
+# gRPC
+protobuf==5.28.3
+grpcio==1.68.0
+grpcio-tools==1.68.0
+grpcio-health-checking==1.68.0
+
+# HTTP
+aiohttp==3.11.7
+requests==2.32.3
+
+# Monitoring
+psutil==6.1.0
+pynvml==11.5.3
+
+# CLI / utils
+click==8.1.7
+tqdm==4.67.1
+colorama==0.4.6
+PyYAML==6.0.2
+dill==0.3.8
+filelock==3.16.1
+fsspec==2024.9.0
+typing_extensions==4.12.2
+
+# Build
+pyinstaller==6.11.1

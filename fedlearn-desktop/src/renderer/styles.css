@@ -266,6 +266,22 @@ body {
   background-color: var(--color-danger);
 }
 
+/* ========== Docker Warning Banner ========== */
+
+.docker-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-xl);
+  background: var(--color-warning-bg);
+  border-bottom: 1px solid rgba(251, 191, 36, 0.2);
+  color: var(--color-warning);
+  font-size: 0.8rem;
+  font-weight: 500;
+  z-index: 10;
+  position: relative;
+}
+
 /* ========== Main Content ========== */
 
 .app-main {
@@ -575,8 +591,9 @@ body {
 
 .log-panel {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: scroll;
   overflow-x: hidden;
+  scrollbar-gutter: stable;
   padding: var(--space-md);
   min-height: 0;
 }
@@ -615,6 +632,8 @@ body {
   white-space: pre-wrap;
   word-break: break-all;
   margin: 0;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .log-line {

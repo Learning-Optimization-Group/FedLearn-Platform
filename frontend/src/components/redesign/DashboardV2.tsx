@@ -14,6 +14,9 @@ import { EditProjectModal } from './EditProjectModal';
 import { StartProjectModal } from './StartProjectModal';
 import { Plus, Search, Filter } from 'lucide-react';
 import type { Project, ProjectResult } from '../../services/apiServices';
+import { createLogger } from '../../lib/logger';
+
+const log = createLogger('DashboardV2');
 
 const SERVER_ROOT_URL = import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
 const WEBSOCKET_URL_BASE = SERVER_ROOT_URL.replace(/^http/, 'ws');
@@ -100,7 +103,7 @@ export function DashboardV2() {
       loadProjects();
     } catch (err) {
       setError('Failed to create project.');
-      console.error(err);
+      log.error('createProject failed', err);
     } finally {
       setIsCreating(false);
     }
@@ -140,7 +143,7 @@ export function DashboardV2() {
       setEditProject(null);
     } catch (err) {
       setError('Failed to update project.');
-      console.error(err);
+      log.error('updateProject failed', err);
     } finally {
       setIsUpdating(false);
     }

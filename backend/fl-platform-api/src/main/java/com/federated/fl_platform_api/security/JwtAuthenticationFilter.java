@@ -6,10 +6,13 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -17,8 +20,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 @Component
-
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtTokenProvider jwtTokenProvider;
 
@@ -62,7 +66,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
 
-                if(jwtTokenProvider.validateToken(jwt, userDetails)) {
+                if (jwtTokenProvider.validateToken(jwt, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities()
                     );
@@ -73,10 +77,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
-        } catch (Exception e) {
-            // Log the error specifically but continue the filter chain so Spring
-            // Security can correctly return 401 Unauthorized instead of a 500 Exception
-            System.err.println("JWT Token validation failed: " + e.getMessage());
+        } catch (UsernameNotFoundException e) {
+            // Token references a deleted/disabled user. Treat as anonymous; let
+            // downstream Spring Security produce a 401.
+            log.info("JWT references unknown user; rejecting as anonymous");
+        } catch (RuntimeException e) {
+            // Catches expired, malformed, or signature-mismatched JWTs. We never
+            // log the token itself, only the exception class, to avoid disclosure.
+            log.warn("JWT validation failed: {}", e.getClass().getSimpleName());
         }
 
         filterChain.doFilter(request, response);

@@ -21,7 +21,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // ========== Validation Constants ==========
 
-const ALLOWED_HARDWARE_PROFILES = ['discrete', 'jetson', 'cpu'] as const;
+const ALLOWED_HARDWARE_PROFILES = ['discrete', 'jetson', 'cpu', 'mps'] as const;
 const PROJECT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
 const PARTITION_ID_PATTERN = /^[0-9]{1,10}$/;
 const SERVER_ADDRESS_PATTERN = /^[a-zA-Z0-9._:/-]{1,256}$/;
@@ -224,6 +224,18 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   },
 
   /**
+   * Register a callback for Docker daemon unavailability events.
+   * Fired once on startup if the Docker socket is unreachable.
+   */
+  onDockerUnavailable: (callback: (message: string) => void): void => {
+    ipcRenderer.on('docker:daemon-unavailable', (_event, value: string) => {
+      if (typeof value === 'string') {
+        callback(value);
+      }
+    });
+  },
+
+  /**
    * Set the backend server URL. Persisted across app restarts.
    * Users enter the URL (e.g. http://192.168.1.100:8081) and /api is appended automatically.
    */
@@ -246,5 +258,25 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
    */
   selectDatasetPath: async (): Promise<{ success: boolean; path?: string; error?: string }> => {
     return ipcRenderer.invoke('dialog:open-directory');
+  },
+
+  /**
+   * One-shot hardware detection. Returns the platform/arch, whether a CUDA
+   * GPU is visible, whether the bundled native client is shipped with this
+   * install, and a recommended hardware profile to pre-select in the UI.
+   */
+  detectHardware: async (): Promise<{
+    success: boolean;
+    detection?: {
+      platform: string;
+      arch: string;
+      recommendedProfile: string;
+      nativeBundleAvailable: boolean;
+      cudaAvailable: boolean;
+      cudaInfo?: string;
+    };
+    error?: string;
+  }> => {
+    return ipcRenderer.invoke('hardware:detect');
   },
 });

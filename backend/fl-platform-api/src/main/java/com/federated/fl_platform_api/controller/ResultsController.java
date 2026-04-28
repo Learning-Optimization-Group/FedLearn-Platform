@@ -2,15 +2,17 @@ package com.federated.fl_platform_api.controller;
 
 
 import com.federated.fl_platform_api.dto.RoundResultDto;
+import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.RoundResult;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.RoundResultRepository;
 import com.federated.fl_platform_api.service.ProjectService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.lang.NonNull;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
@@ -28,12 +30,11 @@ public class ResultsController {
     private ProjectService projectService;
 
     @PostMapping("/{projectId}")
-    public ResponseEntity<Void> reportRoundResult(@PathVariable @NonNull UUID projectId, @RequestBody RoundResultDto resultDto) {
-        Project project = projectRepository.findById(projectId).orElse(null);
-        if (project == null) {
-            return ResponseEntity.notFound().build();
+    public ResponseEntity<Void> reportRoundResult(@PathVariable @NonNull UUID projectId,
+                                                  @Valid @RequestBody RoundResultDto resultDto) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
 
-        }
         RoundResult result = new RoundResult();
         result.setProject(project);
         result.setServerRound(resultDto.getServerRound());
@@ -49,7 +50,4 @@ public class ResultsController {
         projectService.markProjectAsCompleted(projectId);
         return ResponseEntity.ok().build();
     }
-
-
-
 }

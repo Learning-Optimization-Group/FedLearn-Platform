@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Play, Sparkles, X } from 'lucide-react';
 import { Project } from '../../services/apiServices';
+import { createLogger } from '../../lib/logger';
+
+const log = createLogger('StartProjectModal');
 
 interface StartProjectModalProps {
   isOpen: boolean;
@@ -31,7 +34,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       setNumRounds(5);
       setMinClients(2);
     } catch (err) {
-      console.error(err);
+      log.error('startProject submit failed', err);
     } finally {
       setIsLoading(false);
     }

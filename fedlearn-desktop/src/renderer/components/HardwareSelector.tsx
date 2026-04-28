@@ -6,7 +6,7 @@
 // runtime configurations specified in Section 4.2 of the deployment guide.
 // =============================================================================
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 
 interface HardwareSelectorProps {
   onStart: (config: {
@@ -45,6 +45,13 @@ const HARDWARE_PROFILES: HardwareProfileOption[] = [
     dockerConfig: 'Devices: /dev/nvhost-ctrl, nvhost-ctrl-gpu, ...',
   },
   {
+    id: 'mps',
+    label: 'Apple Silicon',
+    description: 'Mac M1/M2/M3/M4 with Metal GPU. Runs natively (no Docker) for MPS acceleration.',
+    icon: '🍎',
+    dockerConfig: 'Native process (no Docker)',
+  },
+  {
     id: 'cpu',
     label: 'CPU Only',
     description: 'Standard CPU training without GPU acceleration. Compatible with any hardware.',
@@ -54,13 +61,44 @@ const HARDWARE_PROFILES: HardwareProfileOption[] = [
 ];
 
 const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, isRunning }) => {
-  const [selectedProfile, setSelectedProfile] = useState('discrete');
+  const [selectedProfile, setSelectedProfile] = useState('cpu');
+  const [detectionLabel, setDetectionLabel] = useState<string | null>(null);
   const [projectId, setProjectId] = useState('');
   const [serverAddress, setServerAddress] = useState('');
   const [partitionId, setPartitionId] = useState('0');
   const [modelType, setModelType] = useState('CNN');
   const [datasetPath, setDatasetPath] = useState('');
   const [validationError, setValidationError] = useState('');
+
+  // One-shot hardware detection — pre-select the profile that matches the
+  // local machine so the user doesn't have to guess between the four cards.
+  // The user can still override by clicking a different card.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await window.fedLearnAPI.detectHardware();
+        if (cancelled || !result.success || !result.detection) return;
+
+        const d = result.detection;
+        setSelectedProfile(d.recommendedProfile);
+
+        // Human-readable summary shown under the cards.
+        const parts: string[] = [];
+        if (d.platform === 'darwin' && d.arch === 'arm64') parts.push('Apple Silicon');
+        else if (d.platform === 'win32') parts.push('Windows x64');
+        else parts.push(`${d.platform}/${d.arch}`);
+
+        if (d.cudaAvailable) parts.push(`CUDA — ${d.cudaInfo || 'NVIDIA GPU'}`);
+        if (!d.nativeBundleAvailable) parts.push('native bundle missing — falling back to Docker');
+
+        setDetectionLabel(parts.join(' · '));
+      } catch {
+        // Swallow — detection is best-effort. User can still pick manually.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSelectDataset = async () => {
     try {
@@ -132,6 +170,11 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
 
   return (
     <div className="hardware-selector">
+      {detectionLabel && (
+        <div className="detection-label" role="status" style={{ fontSize: '12px', opacity: 0.7, marginBottom: '8px' }}>
+          Detected: {detectionLabel}
+        </div>
+      )}
       {/* Hardware Profile Cards */}
       <div className="profile-cards">
         {HARDWARE_PROFILES.map((profile) => (

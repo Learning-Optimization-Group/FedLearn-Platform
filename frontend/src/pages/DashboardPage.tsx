@@ -8,6 +8,9 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import '../styles/Dashboard.css';
 import '../styles/ClientsPage.css';
 import DiskLoader from '../components/DiskLoader';
+import { createLogger } from '../lib/logger';
+
+const log = createLogger('DashboardPage');
 
 const SERVER_ROOT_URL = import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
 const WEBSOCKET_URL_BASE = SERVER_ROOT_URL.replace(/^http/, 'ws');
@@ -53,7 +56,7 @@ const DashboardPage: React.FC = () => {
             setError('');
         } catch (err) {
             setError('Failed to fetch projects. Please try again.');
-            console.error(err);
+            log.error('fetchProjects failed', err);
         } finally {
             setIsLoading(false);
         }
@@ -85,7 +88,7 @@ const DashboardPage: React.FC = () => {
                         )
                     );
                 } catch (err) {
-                    console.error('Error parsing status update:', err);
+                    log.warn('Failed to parse STOMP status update payload', err);
                 }
             });
 
@@ -112,7 +115,7 @@ const DashboardPage: React.FC = () => {
             loadProjects();
         } catch (err) {
             setError('Failed to create project.');
-            console.error(err);
+            log.error('createProject failed', err);
         }
     };
 
@@ -139,8 +142,9 @@ const DashboardPage: React.FC = () => {
                 )
             );
         } catch (err) {
-            setError(`Failed to ${isCurrentlyRunning ? 'stop' : 'start'} server.`);
-            console.error(err);
+            const action = isCurrentlyRunning ? 'stop' : 'start';
+            setError(`Failed to ${action} server.`);
+            log.error(`toggleServer (${action}) failed for project ${project.id}`, err);
         } finally {
             setIsLoadingProjectCard(false);
         }
@@ -153,7 +157,7 @@ const DashboardPage: React.FC = () => {
             setProjects(current => current.map(p => (p.id === updated.id ? updated : p)));
         } catch (err) {
             setError('Failed to update optimizer.');
-            console.error(err);
+            log.error(`updateOptimizer failed for project ${projectId}`, err);
         }
     };
 
@@ -170,7 +174,7 @@ const DashboardPage: React.FC = () => {
             setProjects(currentProjects => currentProjects.filter(p => p.id !== projectId));
         } catch (err) {
             setError('Failed to delete project.');
-            console.error(err);
+            log.error(`deleteProject failed for project ${projectId}`, err);
         }
     };
 

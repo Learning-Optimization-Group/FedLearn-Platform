@@ -29,6 +29,7 @@ env/
 # ========================
 target/
 build/
+!fedlearn-desktop/build/
 !gradle/wrapper/gradle-wrapper.jar
 .gradle/
 *.jar
@@ -36,6 +37,7 @@ build/
 *.ear
 *.class
 .mvn/wrapper/maven-wrapper.jar
+bin/
 
 # ========================
 # Node / React
@@ -43,6 +45,7 @@ build/
 node_modules/
 dist/
 .vite/
+release/
 
 # ========================
 # ML Artifacts & Data
@@ -53,6 +56,12 @@ dist/
 checkpoints/
 results/
 models/
+
+# Source package dirs that collide with the ML-artifact "models/" rule above
+!backend/fl-platform-api/src/main/resources/scripts/models/
+!backend/fl-platform-api/src/main/resources/scripts/models/**
+!client-docker/scripts/models/
+!client-docker/scripts/models/**
 
 # ========================
 # Logs & Ephemeral Data
@@ -84,3 +93,4 @@ CLAUDE.md
 *.dylib
 *.dll
 
+docs/llm_dumps/

@@ -2,7 +2,7 @@
 // FedLearn Desktop — Main Application Component
 // =============================================================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import AuthModal from './components/AuthModal';
 import HardwareSelector from './components/HardwareSelector';
 import LogPanel from './components/LogPanel';
@@ -29,14 +29,31 @@ declare global {
       checkAuth: () => Promise<{ success: boolean; authenticated?: boolean }>;
       onTrainingLog: (callback: (logLine: string) => void) => void;
       removeTrainingLogListener: () => void;
+      onDockerUnavailable: (callback: (message: string) => void) => void;
       setServerUrl: (url: string) => Promise<{ success: boolean; url?: string; error?: string }>;
       getServerUrl: () => Promise<{ success: boolean; url?: string }>;
       selectDatasetPath: () => Promise<{ success: boolean; path?: string; error?: string }>;
+      detectHardware: () => Promise<{
+        success: boolean;
+        detection?: {
+          platform: string;
+          arch: string;
+          recommendedProfile: string;
+          nativeBundleAvailable: boolean;
+          cudaAvailable: boolean;
+          cudaInfo?: string;
+        };
+        error?: string;
+      }>;
     };
   }
 }
 
 export type ContainerStatus = 'idle' | 'pulling' | 'running' | 'completed' | 'error' | 'restarting' | 'paused' | 'stopped';
+
+// Cap log buffer at 10K lines to prevent unbounded memory growth during long training runs.
+// When exceeded, the oldest lines are dropped.
+const MAX_LOG_LINES = 10_000;
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -44,6 +61,14 @@ const App: React.FC = () => {
   const [containerStatus, setContainerStatus] = useState<ContainerStatus>('idle');
   const [logs, setLogs] = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [dockerWarning, setDockerWarning] = useState<string | null>(null);
+
+  // Listen for Docker daemon unavailability (fired once on startup)
+  useEffect(() => {
+    window.fedLearnAPI.onDockerUnavailable((msg: string) => {
+      setDockerWarning(`Docker is not running: ${msg}`);
+    });
+  }, []);
 
   // Check authentication on mount
   useEffect(() => {
@@ -60,16 +85,39 @@ const App: React.FC = () => {
     checkAuth();
   }, []);
 
-  // Subscribe to container logs
+  // Subscribe to container logs — batch rapid IPC events into single state updates
+  // to prevent per-line re-renders that thrash layout during fast Docker output.
+  const logBufferRef = useRef<string[]>([]);
+  const rafIdRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
     window.fedLearnAPI.onTrainingLog((logLine: string) => {
-      setLogs((prev) => [...prev, logLine]);
+      logBufferRef.current.push(logLine);
+
+      if (rafIdRef.current === null) {
+        rafIdRef.current = requestAnimationFrame(() => {
+          const batch = logBufferRef.current;
+          logBufferRef.current = [];
+          rafIdRef.current = null;
+          setLogs((prev) => {
+            const merged = [...prev, ...batch];
+            if (merged.length > MAX_LOG_LINES) {
+              return merged.slice(merged.length - MAX_LOG_LINES);
+            }
+            return merged;
+          });
+        });
+      }
     });
 
     return () => {
       window.fedLearnAPI.removeTrainingLogListener();
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
     };
   }, [isAuthenticated]);
 
@@ -181,6 +229,17 @@ const App: React.FC = () => {
           </button>
         </div>
       </header>
+
+      {/* Docker Warning Banner */}
+      {dockerWarning && (
+        <div className="docker-warning" role="alert">
+          <span className="error-icon">⚠</span>
+          <span>{dockerWarning}</span>
+          <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+            Start Docker Desktop and restart the app.
+          </span>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="app-main">

@@ -3,6 +3,9 @@ import '../styles/ProjectCard.css';
 import * as api from '../services/apiServices';
 import ResultsModal from './ResultsModal';
 import CopyIcon from './CopyIcon';
+import { createLogger } from '../lib/logger';
+
+const log = createLogger('ProjectCard');
 
 const EditIcon: React.FC = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -90,7 +93,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
             setIsResultsModalOpen(true);
         } catch (err) {
             setError('Could not fetch results.');
-            console.error(err);
+            log.error('fetchProjectResults failed', err);
         } finally {
             setIsLoadingResults(false);
         }
