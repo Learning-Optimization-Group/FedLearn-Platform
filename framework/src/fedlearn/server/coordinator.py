@@ -1,3 +1,4 @@
+import logging
 import threading
 from collections import OrderedDict
 import torch
@@ -5,6 +6,8 @@ from typing import Optional, List, Tuple, Dict
 import time
 from threading import Lock
 from .strategy import Strategy
+
+log = logging.getLogger(__name__)
 
 
 class FLCoordinator:
@@ -63,19 +66,22 @@ class FLCoordinator:
 
             # Sanitize num_examples to prevent model poisoning
             if num_examples <= 0:
-                print(f"[Coordinator] WARNING: Invalid num_examples ({num_examples}) from '{client_id}'. Skipping.")
+                # Suspicious payload — keep at WARNING so it shows up without DEBUG noise.
+                log.warning(
+                    "Invalid num_examples (%s) from client %s; skipping update",
+                    num_examples, client_id,
+                )
                 return
             num_examples = min(num_examples, self.MAX_NUM_EXAMPLES)
 
-            print(f"[Coordinator] Received update from '{client_id}' for round {self.current_round}.")
+            log.debug("Received update from %s for round %d", client_id, self.current_round)
             self._client_updates_received.append((params, num_examples))
 
-            # if len(self._client_updates_received) >= self.min_clients:
-
             if len(self._client_updates_received) == self.clients_per_round:
-                print(f"[Coordinator] Client updates received {len(self._client_updates_received)}.")
-                print(f"[Coordinator] Clients per round {self.clients_per_round}")
-                print(f"[Coordinator] Triggering aggregation")
+                log.info(
+                    "All %d clients reported for round %d; aggregating",
+                    self.clients_per_round, self.current_round,
+                )
                 self._trigger_aggregation_and_evaluation()
 
     def _trigger_aggregation_and_evaluation(self):
@@ -86,8 +92,10 @@ class FLCoordinator:
         event signal are therefore atomic with respect to concurrent RPC
         threads calling submit_client_update or get_global_model_for_client.
         """
-        print(
-            f"[Coordinator] Aggregating {len(self._client_updates_received)} updates for round {self.current_round}...")
+        log.debug(
+            "Aggregating %d updates for round %d",
+            len(self._client_updates_received), self.current_round,
+        )
 
         results = list(self._client_updates_received)
         self._client_updates_received.clear()
@@ -99,7 +107,10 @@ class FLCoordinator:
             loss, metrics = self.strategy.evaluate(self.current_round, self._global_model_params)
             self.latest_metrics = {"loss": loss, **metrics}
         else:
-            print(f"WARNING: Aggregation for round {self.current_round} failed.")
+            # Aggregation returning None is a hard failure for the round, but
+            # the server can continue — log at WARNING so operators see it
+            # without breaking out of the federated loop.
+            log.warning("Aggregation for round %d failed", self.current_round)
             self.latest_metrics = None
 
         # Advance round and signal LAST — state is consistent before any
@@ -145,8 +156,11 @@ class FLCoordinator:
 
         if current_step % 10 == 0 or current_step == total_steps:
             progress = (current_step / total_steps * 100) if total_steps > 0 else 0
-            print(f"[Heartbeat] {client_id}: {status} - Round {current_round}, "
-                  f"Step {current_step}/{total_steps} ({progress:.1f}%)")
+            # Per-step heartbeats are very chatty; keep at DEBUG.
+            log.debug(
+                "heartbeat client=%s status=%s round=%d step=%d/%d (%.1f%%)",
+                client_id, status, current_round, current_step, total_steps, progress,
+            )
 
         should_stop = False
 
@@ -212,23 +226,35 @@ class FLCoordinator:
         """
         with self._lock:
             if trained_on_round < self.current_round:
-                print(f"[Coordinator] Ignoring stale update from {client_id} "
-                      f"(trained on {trained_on_round}, current is {self.current_round})")
+                # Stale submission from a slow client; expected during dropout/rejoin.
+                log.debug(
+                    "Ignoring stale DeComFL update from %s (trained=%d, current=%d)",
+                    client_id, trained_on_round, self.current_round,
+                )
                 return
 
             if trained_on_round > self.current_round:
-                print(f"[Coordinator] Warning: Client {client_id} is ahead "
-                      f"(trained on {trained_on_round}, current is {self.current_round})")
+                # Client claims to be ahead of the server — protocol violation.
+                log.warning(
+                    "Client %s is ahead of server (trained=%d, current=%d); ignoring",
+                    client_id, trained_on_round, self.current_round,
+                )
                 return
 
-            print(f"[Coordinator] Received DeComFL update from '{client_id}' for round {self.current_round}.")
-            print(f"[Coordinator] Updates so far: {len(self._client_updates_received) + 1}/{self.clients_per_round}")
+            log.debug(
+                "Received DeComFL update from %s for round %d (%d/%d)",
+                client_id, self.current_round,
+                len(self._client_updates_received) + 1, self.clients_per_round,
+            )
 
             # Store as tuple: (client_id, gradient_scalars, num_examples)
             self._client_updates_received.append((client_id, gradient_scalars, num_examples))
 
             if len(self._client_updates_received) >= self.clients_per_round:
-                print(f"[Coordinator] Received all {self.clients_per_round} updates. Starting aggregation...")
+                log.info(
+                    "All %d DeComFL updates received for round %d; aggregating",
+                    self.clients_per_round, self.current_round,
+                )
                 self._trigger_decomfl_aggregation_and_evaluation()
 
     def _trigger_decomfl_aggregation_and_evaluation(self):
@@ -238,8 +264,10 @@ class FLCoordinator:
         is held (by submit_decomfl_update). See _trigger_aggregation_and_evaluation
         for the full rationale.
         """
-        print(f"[Coordinator] Aggregating {len(self._client_updates_received)} "
-              f"DeComFL updates for round {self.current_round}...")
+        log.debug(
+            "Aggregating %d DeComFL updates for round %d",
+            len(self._client_updates_received), self.current_round,
+        )
 
         results = list(self._client_updates_received)
         self._client_updates_received.clear()
@@ -256,14 +284,17 @@ class FLCoordinator:
             # Check if strategy is DeComFL and has gradient_history
             if 'DeComFL' in str(type(self.strategy)) and hasattr(self.strategy, 'gradient_history'):
                 self.strategy.gradient_history.append(avg_gradients)
-                print(f"[Coordinator] Stored gradient history for round {self.current_round}")
+                log.debug("Stored gradient history for round %d", self.current_round)
 
             # Evaluate
             loss, metrics = self.strategy.evaluate(self.current_round, self._global_model_params)
             self.latest_metrics = {"loss": loss, **metrics}
-            print(f"[Coordinator] Round {self.current_round} complete. Loss: {loss:.4f}, Metrics: {metrics}")
+            log.info(
+                "Round %d complete (loss=%.4f, metrics=%s)",
+                self.current_round, loss, metrics,
+            )
         else:
-            print(f"WARNING: DeComFL aggregation for round {self.current_round} failed.")
+            log.warning("DeComFL aggregation for round %d failed", self.current_round)
             self.latest_metrics = None
 
         # Advance round and signal LAST — see _trigger_aggregation_and_evaluation.

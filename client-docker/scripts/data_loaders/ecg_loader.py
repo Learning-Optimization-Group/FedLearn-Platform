@@ -2,12 +2,15 @@
 # data.py - ECG Data Loading for Federated Learning
 # =============================================================================
 
+import logging
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader, Subset
 from sklearn.model_selection import train_test_split
 import pickle
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 
 class ECGDataset(Dataset):
@@ -106,7 +109,7 @@ def get_or_create_split(
 
     if split_file.exists():
         # Load existing split
-        print(f"Loading existing data split from {split_file}")
+        log.info("Loading existing ECG data split from %s", split_file)
         with open(split_file, 'rb') as f:
             split_data = pickle.load(f)
             X_train = split_data['X_train']
@@ -116,7 +119,7 @@ def get_or_create_split(
             client_indices_list = split_data['client_indices']
     else:
         # Create new split
-        print(f"Creating new data split and saving to {split_file}")
+        log.info("Creating new ECG data split → %s", split_file)
 
         # 1. First split into train/test
         X_train, X_test, y_train, y_test = train_test_split(
@@ -129,7 +132,10 @@ def get_or_create_split(
             indices = np.random.RandomState(seed).permutation(len(X_train))[:num_samples]
             X_train = X_train[indices]
             y_train = y_train[indices]
-            print(f"Using {data_fraction * 100}% of training data: {num_samples} samples")
+            log.info(
+                "Using %.0f%% of training data (%d samples)",
+                data_fraction * 100, num_samples,
+            )
 
         # 3. Split training data across clients using Dirichlet
         client_indices_list = dirichlet_split(y_train, num_clients, alpha, seed)
@@ -145,17 +151,19 @@ def get_or_create_split(
         with open(split_file, 'wb') as f:
             pickle.dump(split_data, f)
 
-        # Print distribution
-        print(f"\nData distribution across {num_clients} clients:")
+        # Distribution diagnostics — DEBUG so they don't bloat normal training logs.
+        log.debug("Data distribution across %d clients:", num_clients)
         for i, indices in enumerate(client_indices_list):
             client_labels = y_train[indices]
-            print(f"  Client {i}: {len(indices)} samples "
-                  f"(Normal: {np.sum(client_labels == 0)}, "
-                  f"Abnormal: {np.sum(client_labels == 1)})")
-
-        print(f"\nTest set: {len(X_test)} samples "
-              f"(Normal: {np.sum(y_test == 0)}, "
-              f"Abnormal: {np.sum(y_test == 1)})")
+            log.debug(
+                "  client %d: %d samples (normal=%d, abnormal=%d)",
+                i, len(indices),
+                int(np.sum(client_labels == 0)), int(np.sum(client_labels == 1)),
+            )
+        log.debug(
+            "Test set: %d samples (normal=%d, abnormal=%d)",
+            len(X_test), int(np.sum(y_test == 0)), int(np.sum(y_test == 1)),
+        )
 
     return X_train, X_test, y_train, y_test, client_indices_list
 
@@ -247,17 +255,20 @@ def get_ecg_loaders(
         'data_fraction': data_fraction
     }
 
-    print(f"\n{'=' * 60}")
-    print(f"CLIENT {client_id} DATA LOADED")
-    print(f"{'=' * 60}")
-    print(f"Training samples: {data_info['train_samples']}")
-    print(f"  - Normal: {data_info['train_normal']}")
-    print(f"  - Abnormal: {data_info['train_abnormal']}")
-    print(f"Test samples: {data_info['test_samples']}")
-    print(f"  - Normal: {data_info['test_normal']}")
-    print(f"  - Abnormal: {data_info['test_abnormal']}")
-    print(f"Input dimension: {data_info['input_dim']}")
-    print(f"{'=' * 60}\n")
+    # One-shot summary: INFO level + a single structured line so it survives
+    # log aggregation without 12 lines of decoration per client.
+    log.info(
+        "ECG client %d loaded: train=%d (normal=%d, abnormal=%d), "
+        "test=%d (normal=%d, abnormal=%d), input_dim=%d",
+        client_id,
+        data_info['train_samples'],
+        data_info['train_normal'],
+        data_info['train_abnormal'],
+        data_info['test_samples'],
+        data_info['test_normal'],
+        data_info['test_abnormal'],
+        data_info['input_dim'],
+    )
 
     return train_loader, test_loader, data_info
 
