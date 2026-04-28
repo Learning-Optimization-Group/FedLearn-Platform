@@ -1,117 +1,8 @@
-# FedLearn Platform — Architectural Audit & Demo Plan
-**Branch:** `feature/architectural-audit`
-**Last Updated:** April 8, 2026
+# FedLearn Platform — Federated Pneumonia Detection Demo Plan
 
 ---
 
-## Table of Contents
-1. [Architectural Fixes & Improvements](#1-architectural-fixes--improvements)
-   - [Frontend (React / TypeScript)](#11-frontend-react--typescript)
-   - [Backend (Spring Boot / Java)](#12-backend-spring-boot--java)
-   - [Python FL Framework & Client](#13-python-fl-framework--client)
-2. [Distributed Testing — Successful 3-Device Run](#2-distributed-testing--successful-3-device-run)
-3. [Networking Strategy — Tailscale Mesh VPN](#3-networking-strategy--tailscale-mesh-vpn)
-4. [Demo Plan — Federated Pneumonia Detection](#4-demo-plan--federated-pneumonia-detection)
-   - [The Narrative](#41-the-narrative)
-   - [Dataset](#42-dataset)
-   - [Device Role Assignment](#43-device-role-assignment)
-   - [CNN Architecture](#44-cnn-architecture)
-   - [Demo Flow (What the Audience Sees)](#45-demo-flow-what-the-audience-sees)
-   - [Pre-Demo Preparation Checklist](#46-pre-demo-preparation-checklist)
-
----
-
-## 1. Architectural Fixes & Improvements
-
-### 1.1 Frontend (React / TypeScript)
-
-- **WebSocket Memory Leak Fix**
-  - All STOMP subscriptions inside `useEffect` hooks now return a proper cleanup function that unsubscribes on component unmount.
-  - Prevents ghost subscriptions from accumulating during long-running experiment monitoring sessions.
-
-- **Log Array Size Cap**
-  - Real-time log arrays rendered from the WebSocket feed are capped at a maximum of **1,000 entries**.
-  - Prevents unbounded array growth from crashing the browser tab during multi-round experiments.
-
-- **JWT Token Storage Standardization**
-  - Token storage and retrieval across the application is now unified under the `'jwtToken'` key.
-  - Eliminates inconsistent key references that previously caused silent authentication failures on page reload.
-
-- **Sensitive Data Removed from Console**
-  - All `console.log` calls that previously emitted JWT tokens or user credentials have been removed.
-  - Prevents token leakage through browser DevTools in shared or observed environments.
-
-- **Accessibility Improvements**
-  - Modals now support **ESC key dismissal** via `keydown` event listeners.
-  - Focus traps added to prevent keyboard navigation from escaping open modal dialogs.
-  - `aria-label` attributes added to interactive elements lacking visible text labels.
-
-- **Input Sanitization**
-  - User-controlled inputs rendered into the DOM are now sanitized prior to rendering to close potential XSS vectors.
-
----
-
-### 1.2 Backend (Spring Boot / Java)
-
-- **Controller Layer Thinned**
-  - All business logic removed from `@RestController` classes and consolidated into the `@Service` layer.
-  - Controllers now exclusively handle HTTP request/response mapping and delegate immediately to services.
-
-- **DTO Enforcement**
-  - Verified that no JPA `@Entity` objects are returned directly from any API endpoint.
-  - All responses now flow through dedicated Response DTO classes, preventing accidental exposure of database internals.
-
-- **JWT Filter Coverage Audit**
-  - Confirmed that all protected endpoints are covered by `JwtAuthenticationFilter`.
-  - No credential or token values are written to server logs at any log level.
-
-- **`FlowerServerManager` Stability**
-  - Process lifecycle management (start, stop, health check) hardened for correctness under concurrent experiment requests.
-  - Log-streaming pipeline (Python `stdout`/`stderr` → WebSocket `/topic/logs/{projectId}`) reviewed for thread safety.
-
----
-
-### 1.3 Python FL Framework & Client
-
-- **`from __future__ import annotations` Added Universally**
-  - This import is now present at the top of **every** Python source file in the framework and client.
-  - Critical for Python 3.8 compatibility on Jetson devices, where newer type hint syntax (e.g., `list[int]` instead of `List[int]`) causes `TypeError` at import time.
-
-- **`requirements.txt` Version Bound Corrections**
-  - All dependency version specifiers changed from strict pinned (`==X.Y.Z`) or upper-bounded (`<X.Y.Z`) formats to **minimum-bound** (`>=X.Y.Z`) where no known breaking change justifies an upper bound.
-  - Allows `pip` to resolve and install **pre-built binary wheels** appropriate for each platform (ARM64 Jetson vs. x86/ARM64 Mac), avoiding costly source compilation on edge devices.
-
-- **DeComFL In-Place Perturbation Reversal**
-  - Verified that perturbation vectors applied during zeroth-order local updates are reversed **in-place** (using `param.data.add_()` / `param.data.sub_()`) rather than constructing new tensors.
-  - Prevents duplicate tensor allocations that would cause OOM errors during large model (e.g., OPT-125M) training rounds on memory-constrained devices.
-
-- **UTF-8 BOM Stripping & PEP 8 Compliance**
-  - All Python source files audited and stripped of UTF-8 BOM characters (`\xef\xbb\xbf`) that caused silent parse errors on some platforms.
-  - Line length enforced at 100 characters; Google-style docstrings applied to all public API functions and classes.
-
----
-
-## 2. Distributed Testing — Successful 3-Device Run
-
-A full end-to-end federated learning experiment was successfully executed across three heterogeneous physical machines running simultaneously:
-
-| Role | Device | Architecture | Deployment |
-|---|---|---|---|
-| **FL Server + Spring Boot Backend** | ROG Zephyrus G14 | x86-64 | Native |
-| **FL Client — "Edge Device"** | NVIDIA Jetson AGX Orin | ARM64 | Docker (NVIDIA Container Runtime) |
-| **FL Client — "Local Machine"** | Apple M-series MacBook | ARM64 | Native Python |
-
-**What was validated:**
-
-- Spring Boot backend successfully spawned a Python gRPC server process on a dynamically allocated port.
-- Both heterogeneous clients (ARM64 Docker + ARM64 Mac native) connected, registered, and completed local training rounds without error.
-- Model updates were submitted to the server and aggregated using FedAvg.
-- All activity — client connections, round progress, loss metrics — was streamed in real-time to the React dashboard via WebSocket.
-- No cross-platform binary or compatibility failures were observed following the `requirements.txt` and `__future__` annotation fixes.
-
----
-
-## 3. Networking Strategy — Tailscale Mesh VPN
+## 1. Networking Strategy — Tailscale Mesh VPN
 
 **Problem:** Traditional port-forwarding through university network infrastructure is unreliable — institutional firewalls frequently block inbound connections, router admin access is restricted, and the configuration is fragile across different physical locations.
 
@@ -142,9 +33,9 @@ python client.py --server_address 100.x.x.x:50181 --client_id hospital_a
 
 ---
 
-## 4. Demo Plan — Federated Pneumonia Detection
+## 2. Demo Plan — Federated Pneumonia Detection
 
-### 4.1 The Narrative
+### 2.1 The Narrative
 
 > *"Three hospitals want to collaboratively train an AI to detect pneumonia from chest X-rays. Patient data is legally and ethically protected — no hospital can send its scans to a central server. With FedLearn, they never have to. Each hospital trains locally on its own patients. Only the learned knowledge — the model weights — is shared. The raw images never leave the device."*
 
@@ -152,7 +43,7 @@ This framing makes the value of federated learning **immediately intuitive** to 
 
 ---
 
-### 4.2 Dataset
+### 2.2 Dataset
 
 **HuggingFace Dataset:** [`keremberke/chest-xray-classification`](https://huggingface.co/datasets/keremberke/chest-xray-classification)
 
@@ -177,7 +68,7 @@ The test split is **held only on the server** and used exclusively for global mo
 
 ---
 
-### 4.3 Device Role Assignment
+### 2.3 Device Role Assignment
 
 | Device | Demo Role | Dataset Partition | Data Stays On Device? |
 |---|---|---|---|
@@ -189,7 +80,7 @@ The visual arrangement of three physically separate machines, each labelled with
 
 ---
 
-### 4.4 CNN Architecture
+### 2.4 CNN Architecture
 
 A lightweight but purposeful CNN — fast enough for live demo rounds (< 2 minutes per round on the Jetson), credible enough for a medical imaging context.
 
@@ -198,7 +89,6 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-
 
 class PneumoniaCNN(nn.Module):
     """Lightweight CNN for binary chest X-ray classification (Normal / Pneumonia).
@@ -243,7 +133,7 @@ transform = transforms.Compose([
 
 ---
 
-### 4.5 Demo Flow (What the Audience Sees)
+### 2.5 Demo Flow (What the Audience Sees)
 
 #### Phase 0 — Setup (before audience arrives)
 - [ ] All three devices enrolled in Tailscale and confirmed reachable via stable IPs.
@@ -288,7 +178,7 @@ transform = transforms.Compose([
 
 ---
 
-### 4.6 Pre-Demo Preparation Checklist
+### 2.6 Pre-Demo Preparation Checklist
 
 - [ ] **Data partitioning script** written and run on each device — saves local partitions as `.pt` files so no internet download is needed during the demo.
 - [ ] **Demo experiment config** saved in the UI (5 rounds, FedAvg, 2 clients, `PneumoniaCNN`) — zero live configuration required.

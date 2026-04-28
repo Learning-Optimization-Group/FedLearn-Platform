@@ -1,0 +1,604 @@
+# 06 — DeComFL: Dimension-Free Federated Learning
+
+## Table of Contents
+- [Motivation and Background](#motivation-and-background)
+- [The Core Idea: Zeroth-Order Gradient Estimation](#the-core-idea-zeroth-order-gradient-estimation)
+- [Communication Comparison](#communication-comparison)
+- [Algorithm Overview](#algorithm-overview)
+  - [Algorithm 3: Server Protocol](#algorithm-3-server-protocol)
+  - [Algorithm 4: Client Protocol](#algorithm-4-client-protocol)
+- [Implementation Deep Dive](#implementation-deep-dive)
+  - [Seed Generation and Sharing](#seed-generation-and-sharing)
+  - [ZerothOrderEstimator](#zerothorderestimator)
+  - [DeComFLClient.fit()](#decomflclientfit)
+  - [DeComFL.aggregate_fit()](#decomflaggregate_fit)
+  - [Model Rebuild for Missed Rounds](#model-rebuild-for-missed-rounds)
+- [gRPC Protocol for DeComFL](#grpc-protocol-for-decomfl)
+- [Hyperparameter Guide](#hyperparameter-guide)
+- [Trade-offs and Limitations](#trade-offs-and-limitations)
+- [Running a DeComFL Experiment](#running-a-decomfl-experiment)
+- [Connection to the DeComFL Paper](#connection-to-the-decomfl-paper)
+
+---
+
+## Motivation and Background
+
+Standard federated learning (FedAvg) requires each client to transmit a full copy of the model parameters after every round. For large language models:
+
+| Model | Parameters | Size (float32) | Bandwidth per round per client |
+|-------|-----------|----------------|-------------------------------|
+| CNN (MNIST) | 1.2M | 4.8 MB | Negligible |
+| GPT-2 Small | 117M | 468 MB | 468 MB upload + 468 MB download |
+| OPT-125M | 125M | 500 MB | 500 MB upload + 500 MB download |
+| LLaMA-7B | 7B | 28 GB | 28 GB upload + 28 GB download |
+
+For edge devices (mobile phones, laptops, IoT), uploading 500 MB every training round is often impractical.
+
+**DeComFL** (Decomposed Federated Learning) solves this by transmitting only a small number of scalar values per round instead of the full parameter vector.
+
+---
+
+## The Core Idea: Zeroth-Order Gradient Estimation
+
+Instead of computing gradients via backpropagation and transmitting the gradient vector (which has the same dimension `d` as the model), DeComFL uses **zeroth-order (ZO) gradient estimation**:
+
+```
+g = (f(x + μz; ξ) - f(x; ξ)) / μ
+```
+
+Where:
+- `f(x; ξ)` = loss on mini-batch `ξ` with parameters `x`
+- `z ~ N(0, I_d)` = random perturbation vector
+- `μ` = small smoothing parameter (e.g., 0.001)
+- `g` = **a single scalar** — the estimated directional gradient along `z`
+
+This requires only **two forward passes**, no backward pass, and produces a scalar `g` that can be transmitted in bytes.
+
+The update direction is then reconstructed as `g × z`. The key insight is that if both server and client know the seed used to generate `z`, they can both regenerate `z` independently — so only the scalar `g` needs to be transmitted.
+
+---
+
+## Communication Comparison
+
+| Method | Upload per round | Download per round | Notes |
+|--------|-----------------|-------------------|-------|
+| FedAvg | d × 4 bytes | d × 4 bytes | d = number of parameters |
+| DeComFL | K × P × 8 bytes | K × P × (4+8) bytes | K=local steps, P=perturbations |
+
+For OPT-125M (d=125M) with K=5 local steps and P=10 perturbations:
+
+| | FedAvg | DeComFL |
+|--|--------|---------|
+| Upload | 500 MB | 400 bytes (5×10×8B) |
+| Download | 500 MB | ~1.6 KB (seeds + scalars) |
+| Reduction | — | **~1.25 million× smaller** |
+
+The communication is truly **O(K×P)** — independent of model dimension `d`.
+
+---
+
+## Algorithm Overview
+
+### Algorithm 3: Server Protocol
+
+```
+Inputs: T (rounds), K (local steps), P (perturbations), η (lr), μ (smoothing)
+Initialize: x_0 (model), seed_history = [], gradient_history = []
+
+For round t = 1, ..., T:
+  1. Generate seeds S^t[k][p] for k=1..K, p=1..P
+  2. Store seeds: seed_history.append(S^t)
+  3. Send S^t and rebuild_history to each client
+  4. Receive gradient scalars G^t_i[k][p] from each client i
+  5. Compute average: G^t[k][p] = mean_i(G^t_i[k][p])
+  6. Store averages: gradient_history.append(G^t)
+  7. For k = 1..K:
+       Δ = (1/(N×P)) × Σ_i Σ_p G^t_i[k][p] × z(S^t[k][p])
+       x_t = x_{t-1} - η × P × Δ   (note: P factor cancels in full derivation)
+  8. Broadcast updated seed_history + gradient_history for rebuild
+```
+
+### Algorithm 4: Client Protocol
+
+```
+Inputs: local model x (maintained across rounds), seeds S^t from server
+
+Procedure per round:
+  1. (If missed rounds) Rebuild model from seed+gradient history
+  2. For k = 1..K:
+     a. Sample mini-batch ξ
+     b. For p = 1..P:
+          z = randn(seed=S^t[k][p])   ← regenerated, NOT transmitted
+          g = (f(x + μz; ξ) - f(x; ξ)) / μ
+          δ += g × z
+     c. x_local = x_local - (η/P) × δ
+  3. Revert x_local to pre-round state (server will advance it)
+  4. Submit gradient_scalars G[k][p] = {g for each k, p}
+```
+
+---
+
+## Implementation Deep Dive
+
+### Seed Generation and Sharing
+
+Seeds are generated by the server at the start of each round and sent to all clients:
+
+```python
+# decomfl_strategy.py — DeComFL.generate_seeds()
+def generate_seeds(self, round_idx: int) -> List[List[int]]:
+    """
+    Returns seeds[k][p] = seed for local step k, perturbation p
+    """
+    seeds = []
+    for k in range(self.K):
+        k_seeds = []
+        for p in range(self.P):
+            seed = np.random.randint(0, 2**31 - 1)  # 31-bit seed for int32 compatibility
+            k_seeds.append(int(seed))
+        seeds.append(k_seeds)
+    return seeds
+```
+
+The server stores these seeds in `strategy.seed_history`:
+
+```python
+# grpc_servicer.py — GetDeComFLConfig handler
+seeds = strategy.generate_seeds(current_round)
+strategy.seed_history.append(seeds)   # stored for rebuild history
+```
+
+Clients receive seeds via `GetDeComFLConfig` RPC:
+
+```python
+# GetDeComFLConfigResponse
+{
+    current_round: 3,
+    current_seeds: PerturbationSeeds {
+        local_steps: [
+            LocalStepSeeds { seeds: [1234567, 8901234, ...] },   # k=0
+            LocalStepSeeds { seeds: [5678901, 2345678, ...] },   # k=1
+            ...  # K steps total
+        ]
+    },
+    rebuild_history: RebuildHistory { rounds: [...] },
+    config: { learning_rate: "0.001", smoothing_param: "0.001", ... }
+}
+```
+
+### ZerothOrderEstimator
+
+The estimator provides two core primitives:
+
+**Perturbation generation** — deterministic from seed:
+```python
+def generate_perturbation(self, seed: int, num_params: int) -> torch.Tensor:
+    generator = torch.Generator(device=self.device)
+    generator.manual_seed(seed)
+    # N(0, I_d) sample — same device, same generator, same output
+    return torch.randn(num_params, generator=generator, device=self.device)
+```
+
+**Gradient scalar computation** — two forward passes:
+```python
+def compute_gradient_scalar(self, model, flat_params, perturbation, inputs, targets):
+    model.eval()
+    with torch.no_grad():
+        # Baseline: f(x; ξ)
+        self._set_flat_params(model, flat_params)
+        if isinstance(inputs, dict):   # LLM
+            loss_x = model(**inputs, labels=targets).loss
+        else:                          # CNN / MLP
+            loss_x = nn.CrossEntropyLoss()(model(inputs), targets)
+
+        # Perturbed: f(x + μz; ξ)
+        self._set_flat_params(model, flat_params + self.mu * perturbation)
+        if isinstance(inputs, dict):
+            loss_perturbed = model(**inputs, labels=targets).loss
+        else:
+            loss_perturbed = nn.CrossEntropyLoss()(model(inputs), targets)
+
+    # Forward-difference ZO estimate
+    g = (loss_perturbed - loss_x) / self.mu
+    return g.item()   # scalar float
+```
+
+**Flat parameter helpers** — the estimator operates on flat (1D) parameter vectors:
+
+```python
+@staticmethod
+def _get_flat_params(model: nn.Module) -> torch.Tensor:
+    """Extract all trainable parameters as a 1D tensor."""
+    return torch.cat([p.data.view(-1) for p in model.parameters() if p.requires_grad])
+
+@staticmethod
+def _set_flat_params(model: nn.Module, flat_params: torch.Tensor):
+    """Set all trainable parameters from a 1D tensor."""
+    offset = 0
+    for p in model.parameters():
+        if p.requires_grad:
+            numel = p.numel()
+            p.data.copy_(flat_params[offset:offset + numel].view_as(p.data))
+            offset += numel
+```
+
+### DeComFLClient.fit()
+
+The full training loop with annotations matching the algorithm:
+
+```python
+def fit(self, parameters, config):
+    seeds = config['seeds']  # List[List[int]] — KxP
+    K = len(seeds)
+    P = len(seeds[0])
+    eta = float(config.get('learning_rate', 0.001))
+
+    # Track cumulative update for clean revert at end
+    total_perturbation = torch.zeros_like(self.x_current)
+    gradient_scalars = []   # Will be KxP list of floats
+    data_iter = iter(self.train_loader)
+
+    # Algorithm 4, Line 14: For each local step k = 1..K
+    for k in range(K):
+        delta = torch.zeros_like(self.x_current)  # Σ g×z for this step
+        k_gradient_scalars = []
+
+        # Get data batch (cycling through loader)
+        try:
+            batch = next(data_iter)
+        except StopIteration:
+            data_iter = iter(self.train_loader)
+            batch = next(data_iter)
+
+        inputs, targets = batch
+        # Handle both tensor inputs (CNN) and dict inputs (LLM)
+        if isinstance(inputs, dict):
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        else:
+            inputs = inputs.to(self.device)
+        targets = targets.to(self.device)
+
+        # Progress update for heartbeat
+        if self.grpc_client:
+            self.grpc_client.update_status("training", k + 1, K)
+
+        # Algorithm 4, Line 16: For each perturbation p = 1..P
+        for p in range(P):
+            # Line 17: Generate z from shared seed (server has same z)
+            z = self.zo_estimator.generate_perturbation(seeds[k][p], len(self.x_current))
+
+            # Line 18: Compute ZO gradient scalar
+            g = self.zo_estimator.compute_gradient_scalar(
+                self.model, self.x_current, z, inputs, targets
+            )
+            k_gradient_scalars.append(g)  # this scalar is what we'll transmit
+
+            # Line 19: Accumulate update direction
+            delta += g * z
+
+        # Line 21: Apply local step
+        step_update = (eta / P) * delta
+        self.x_current -= step_update
+        total_perturbation -= step_update  # track cumulative for revert
+
+        gradient_scalars.append(k_gradient_scalars)
+
+    # CRITICAL: Revert to pre-round state
+    # The server will advance the global model independently.
+    # The client syncs via rebuild_model() at the start of the next round.
+    self.x_current -= total_perturbation
+    self.zo_estimator._set_flat_params(self.model, self.x_current)
+
+    # Algorithm 4, Line 24: Return scalar gradients (KxP floats, not d-dimensional)
+    return gradient_scalars, len(self.train_loader.dataset)
+```
+
+> **Memory note:** The critical insight is that `z` (shape `[d]`) is generated and immediately used to compute `g` (a scalar) and update `delta`. The `z` tensor is then released by Python's garbage collector. No KxP tensors of size d are ever held in memory simultaneously.
+
+### DeComFL.aggregate_fit()
+
+The server aggregates gradient scalars and reconstructs the global model update:
+
+```python
+# decomfl_strategy.py
+def aggregate_fit(self, server_round, results):
+    """
+    Args:
+        results: List of (client_id, gradient_scalars[K][P], num_examples)
+    """
+    # 1. Organize scalars by client
+    client_gradients = {}
+    for client_id, grad_scalars, num_examples in results:
+        client_gradients[client_id] = grad_scalars
+        self.client_last_round[client_id] = server_round
+
+    # 2. Reconstruct update direction using averaged scalars
+    x_current = self.global_params_flat.clone()
+
+    for k in range(self.K):
+        delta = torch.zeros_like(x_current)
+        num_clients = len(client_gradients)
+
+        for client_id, grad_scalars in client_gradients.items():
+            for p in range(self.P):
+                # Regenerate SAME perturbation using SAME seed
+                z = self._generate_perturbation(self.seed_history[server_round][k][p])
+                g = grad_scalars[k][p]
+
+                # Accumulate: g × z
+                delta += g * z
+
+        # Average across clients and perturbations, then apply update
+        delta = delta / (num_clients * self.P)
+        x_current = x_current - self.eta * delta * self.P  # ×P cancels in derivation
+
+    # 3. Store updated flat params
+    self.global_params_flat = x_current
+
+    # 4. Unflatten back to state_dict format
+    return self._unflatten_params(x_current, self.initial_parameters)
+```
+
+**Why seed_history is indexed by server_round:** The `GetDeComFLConfig` handler appends seeds to `strategy.seed_history` when it serves them to clients. By round index `t`, `seed_history[t]` contains the K×P seeds for that round. When `aggregate_fit(t, ...)` runs, it looks up `seed_history[t]` to regenerate the correct perturbation vectors.
+
+### Model Rebuild for Missed Rounds
+
+If a client disconnects and reconnects, it must reconstruct the global model updates for all missed rounds:
+
+```python
+# decomfl_client.py
+def rebuild_model(self, rebuild_history, learning_rate):
+    """
+    Replays missed rounds deterministically.
+    
+    rebuild_history = [
+        { 'round_number': 5, 'seeds': [[...], ...], 'gradients': [[...], ...] },
+        { 'round_number': 6, 'seeds': [[...], ...], 'gradients': [[...], ...] },
+    ]
+    """
+    for round_data in rebuild_history:
+        seeds = round_data['seeds']              # K×P ints from server
+        avg_gradients = round_data['gradients']  # K×P floats (server-averaged)
+
+        K = len(seeds)
+        P = len(seeds[0])
+
+        for k in range(K):
+            delta = torch.zeros_like(self.x_current)
+
+            for p in range(P):
+                z = self.zo_estimator.generate_perturbation(
+                    seeds[k][p], len(self.x_current)
+                )
+                g = avg_gradients[k][p]   # averaged gradient from server logs
+                delta += g * z
+
+            # Apply the global update for this missed step
+            self.x_current -= (learning_rate / P) * delta
+
+    # Sync model weights from rebuilt flat params
+    self.zo_estimator._set_flat_params(self.model, self.x_current)
+```
+
+The rebuild requires:
+- The seeds (small: 2 int32s × K × P)
+- The averaged gradient scalars (small: 2 float64s × K × P)
+
+Both are stored on the server and sent via the `RebuildHistory` proto message. The full perturbation vectors (`d`-dimensional) are **never stored** — they are regenerated from seeds on demand.
+
+---
+
+## gRPC Protocol for DeComFL
+
+DeComFL uses two dedicated RPCs that bypass the standard model parameter path:
+
+### Round Protocol Flow
+
+```
+Client                              Server
+  │                                   │
+  │  GetDeComFLConfig(client_id)       │
+  │──────────────────────────────────►│
+  │                                   │ generate_seeds(round)
+  │                                   │ seed_history.append(seeds)
+  │                                   │ get_rebuild_history(client_id, round)
+  │  GetDeComFLConfigResponse          │
+  │◄──────────────────────────────────│
+  │  { round, seeds, rebuild_history, config }
+  │                                   │
+  │ (if rebuild_history not empty)    │
+  │   rebuild_model(history, lr)      │
+  │                                   │
+  │ fit(config) → grad_scalars[K][P]  │
+  │                                   │
+  │  SubmitGradientScalars(scalars)   │
+  │──────────────────────────────────►│
+  │                                   │ submit_decomfl_update(client_id, scalars, n, round)
+  │                                   │ (when all clients submitted):
+  │                                   │   aggregate_fit()
+  │                                   │   round_complete_event.set()
+  │  SubmitGradientScalarsResponse    │
+  │◄──────────────────────────────────│
+  │                                   │
+  │  (sleep 2s, poll again)           │
+  │──────────────────────────────────►│
+```
+
+### Wire Format for Gradient Scalars
+
+```proto
+// Upload: K×P float64 scalars (~400 bytes for K=5, P=10)
+message SubmitGradientScalarsRequest {
+  string client_id       = 1;
+  int32  trained_on_round = 2;
+  GradientScalars gradients = 3;  // K×P doubles
+  int64  num_examples    = 4;
+}
+
+message GradientScalars {
+  repeated LocalStepGradients local_steps = 1;
+}
+
+message LocalStepGradients {
+  repeated double scalars = 1;   // P gradient scalars for this local step
+}
+```
+
+### Wire Format for Seed Download
+
+```proto
+// Download: K×P int32 seeds (~200 bytes for K=5, P=10) + rebuild history
+message GetDeComFLConfigResponse {
+  int32 current_round = 1;
+  PerturbationSeeds current_seeds = 2;
+  RebuildHistory rebuild_history = 3;
+  map<string, string> config = 4;   // lr, mu, K, P
+}
+```
+
+---
+
+## Hyperparameter Guide
+
+| Parameter | Symbol | Typical Range | Effect |
+|-----------|--------|--------------|--------|
+| `num_local_steps` | K | 1–10 | More steps = more computation per round, less communication overhead |
+| `num_perturbations` | P | 5–50 | More perturbations = better gradient estimation, more computation |
+| `learning_rate` | η | 1e-4 to 1e-2 | Standard learning rate; tune as in regular training |
+| `smoothing_param` | μ | 1e-4 to 1e-2 | Smaller = more accurate ZO estimate but noisier; 0.001 is a good default |
+| `seed` | — | Any int | Sets NumPy + PyTorch random state for reproducibility |
+
+### Communication vs. Convergence Trade-off
+
+```
+Increasing P (perturbations):
+  ✓ Better gradient estimate (lower variance)
+  ✗ More computation (2P forward passes per local step)
+  = Same communication (K×P scalars)
+
+Increasing K (local steps):
+  ✓ More model update per round (faster convergence)
+  ✗ More computation (K data batches)
+  = Same communication (K×P scalars)
+
+Decreasing μ (smoothing):
+  ✓ More accurate gradient direction
+  ✗ Noisier estimates (finite-difference approximation error)
+  = No effect on communication
+```
+
+---
+
+## Trade-offs and Limitations
+
+### Advantages
+- **Massive communication reduction:** O(K×P) vs. O(d) — ~1M× for LLMs
+- **Backprop-free:** Can work on devices/APIs where gradients are unavailable (black-box models)
+- **Memory-efficient:** No gradient tensors stored during training
+- **Natural compatibility with model rebuilding:** Missed rounds can be replayed without full model transmission
+
+### Limitations
+1. **Convergence rate:** ZO methods converge ~1/d× slower than gradient-based methods in the worst case. In practice, the gap is much smaller.
+2. **Two forward passes per perturbation:** Computational cost is 2×P×K forward passes per round (vs. 1 forward + 1 backward for FedAvg).
+3. **High variance with small P:** If P is too small (P < 5), gradient estimates are noisy and training can be unstable.
+4. **Smoothing bias:** The ZO estimator introduces a bias term proportional to μ². Smaller μ reduces bias but increases variance.
+5. **Seed history growth:** The server accumulates `seed_history` for all rounds. For very long training (1000+ rounds), this becomes a non-trivial memory cost (K×P×4 bytes per round).
+
+---
+
+## Running a DeComFL Experiment
+
+### ECG Classification Example
+
+```bash
+# Terminal 1: Start server
+cd examples/ecg_decomfl_multiclient
+
+python run_server.py \
+    --num_clients 3 \
+    --num_rounds 10 \
+    --num_local_steps 5 \
+    --num_perturbations 10 \
+    --learning_rate 0.001 \
+    --smoothing_param 0.001
+
+# Terminal 2-4: Start clients
+python run_client.py --id 0 --data_path ecg_data/ecg.csv --server_address localhost:50051
+python run_client.py --id 1 --data_path ecg_data/ecg.csv --server_address localhost:50051
+python run_client.py --id 2 --data_path ecg_data/ecg.csv --server_address localhost:50051
+```
+
+### Minimal Custom DeComFL Setup
+
+```python
+# server side
+import fedlearn as fl
+import torch
+
+model = MyModel()
+
+strategy = fl.DeComFL(
+    initial_parameters=model.state_dict(),
+    evaluate_fn=my_eval_fn,
+    min_fit_clients=2,
+    clients_per_round=3,
+    num_local_steps=5,       # K
+    num_perturbations=10,    # P
+    learning_rate=0.001,     # η
+    smoothing_param=0.001,   # μ
+)
+
+fl.server.start_server(
+    server_address="0.0.0.0:50051",
+    config=fl.server.ServerConfig(num_rounds=20),
+    strategy=strategy,
+)
+
+# client side
+from fedlearn import DeComFLClient
+from fedlearn.client.decomfl_start import start_decomfl_client
+
+class MyDeComFLClient(DeComFLClient):
+    pass  # DeComFLClient.fit() is already fully implemented
+
+client = MyDeComFLClient(
+    model=MyModel(),
+    train_loader=my_loader,
+    smoothing_param=0.001,
+    device="mps",   # Apple Silicon
+)
+
+start_decomfl_client(
+    server_address="localhost:50051",
+    client=client,
+    client_id="client_0",
+)
+```
+
+---
+
+## Connection to the DeComFL Paper
+
+The implementation maps directly to the algorithms in the DeComFL paper:
+
+| Paper Reference | Code Location |
+|----------------|---------------|
+| Algorithm 3, Server protocol | `decomfl_strategy.py` `aggregate_fit()` + `generate_seeds()` |
+| Algorithm 4, Client protocol | `decomfl_client.py` `fit()` |
+| Algorithm 2, Model rebuilding | `decomfl_client.py` `rebuild_model()` |
+| ZO estimator (Eq. 1) | `estimators/zeroth_order.py` `compute_gradient_scalar()` |
+| Seed history `S^t` | `decomfl_strategy.py` `self.seed_history` |
+| Gradient history `G^t` | `coordinator.py` `strategy.gradient_history` |
+
+### Citation
+
+```bibtex
+@article{yang2024decomfl,
+  title={DeComFL: Decomposed Federated Learning},
+  author={Yang, Haibo and [Co-authors]},
+  journal={[Journal/Conference]},
+  year={2024}
+}
+```
+
+Developed at Rochester Institute of Technology under Professor Haibo Yang.
