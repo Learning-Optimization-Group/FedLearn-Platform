@@ -23,7 +23,8 @@ import static org.junit.jupiter.api.Assertions.*;
     "app.jwt.expiration-ms=3600000",
     "app.auth.cookie.secure=false",
     "app.auth.cookie.same-site=Lax",
-    "app.internal.api-key=test-internal-key"
+    "app.internal.api-key=test-internal-key",
+    "app.cors.allowed-origins=http://localhost"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class AuthControllerIntegrationTest {

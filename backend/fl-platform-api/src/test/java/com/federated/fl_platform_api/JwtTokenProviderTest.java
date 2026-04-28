@@ -19,9 +19,12 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestPropertySource(properties = {
     "app.jwt.secret=dGVzdHNlY3JldGtleWZvcmp3dHRlc3RpbmcxMjM0NTY3ODk=",
     "app.jwt.expiration-ms=3600000",
-    "spring.datasource.url=jdbc:h2:mem:testdb",
+    "app.cors.allowed-origins=http://localhost",
+    "app.internal.api-key=test-internal-key",
+    "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1",
     "spring.datasource.driver-class-name=org.h2.Driver",
     "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
+    "spring.jpa.hibernate.ddl-auto=create-drop",
     "spring.flyway.enabled=false"
 })
 class JwtTokenProviderTest {

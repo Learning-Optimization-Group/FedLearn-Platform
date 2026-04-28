@@ -7,6 +7,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,6 +38,12 @@ class ExceptionTestController {
 
 @WebMvcTest(controllers = ExceptionTestController.class)
 @Import({GlobalExceptionHandler.class, com.federated.fl_platform_api.config.SecurityConfig.class})
+@TestPropertySource(properties = {
+    "app.cors.allowed-origins=http://localhost",
+    "app.jwt.secret=dGVzdHNlY3JldGtleWZvcmp3dHRlc3RpbmcxMjM0NTY3ODk=",
+    "app.jwt.expiration-ms=3600000",
+    "app.internal.api-key=test-internal-key"
+})
 class GlobalExceptionHandlerTest {
 
     @Autowired
@@ -47,8 +54,6 @@ class GlobalExceptionHandlerTest {
     private com.federated.fl_platform_api.service.CustomUserDetailsService customUserDetailsService;
     @MockBean
     private com.federated.fl_platform_api.security.JwtTokenProvider jwtTokenProvider;
-    @MockBean
-    private com.federated.fl_platform_api.security.JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Test
     @WithMockUser
