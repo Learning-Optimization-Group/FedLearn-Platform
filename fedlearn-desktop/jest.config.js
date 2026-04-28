@@ -4,6 +4,11 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.test.ts'],
+  globals: {
+    'ts-jest': {
+      tsconfig: '<rootDir>/tsconfig.test.json',
+    },
+  },
   moduleNameMapper: {
     // Stub out Electron modules — they can't run in Jest
     'electron': '<rootDir>/src/__mocks__/electron.ts',
