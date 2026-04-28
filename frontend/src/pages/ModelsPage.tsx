@@ -2,8 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import * as api from '../services/apiServices';
 import type { Project } from '../services/apiServices';
 import DiskLoader from '../components/DiskLoader';
+import { createLogger } from '../lib/logger';
 import '../styles/Dashboard.css';
 import '../styles/ClientsPage.css';
+
+const log = createLogger('ModelsPage');
 
 interface ModelSummary {
     modelName: string;
@@ -53,7 +56,7 @@ const ModelsPage: React.FC = () => {
                 setProjects(Array.isArray(res.data) ? res.data : []);
             } catch (err) {
                 setError('Failed to load models.');
-                console.error(err);
+                log.error('fetchProjects failed', err);
             } finally {
                 setIsLoading(false);
             }
