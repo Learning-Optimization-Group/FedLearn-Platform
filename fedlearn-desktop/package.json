@@ -22,6 +22,7 @@
     "build:preload": "webpack --config webpack.preload.config.js --mode production",
     "build:renderer": "webpack --config webpack.renderer.config.js --mode production",
     "build": "webpack --config webpack.prod.config.js",
+    "test": "jest",
     "package": "npm run build && electron-builder --config electron-builder.yml",
     "package:mac": "npm run build && electron-builder --mac --config electron-builder.yml",
     "package:linux": "npm run build && electron-builder --linux --config electron-builder.yml",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@types/dockerode": "3.3.34",
+    "@types/jest": "^29.5.14",
     "@types/react": "18.3.18",
     "@types/react-dom": "18.3.5",
     "concurrently": "9.1.2",
@@ -51,6 +53,7 @@
     "html-webpack-plugin": "5.6.3",
     "style-loader": "4.0.0",
     "terser-webpack-plugin": "^5.4.0",
+    "ts-jest": "^29.3.2",
     "ts-loader": "9.5.1",
     "typescript": "5.7.3",
     "webpack": "^5.106.2",
