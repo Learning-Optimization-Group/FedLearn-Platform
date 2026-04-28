@@ -38,8 +38,12 @@ function App() {
     const { currentUser, logout, isLoading } = useAuth();
 
     useEffect(() => {
+        // The axios 401 interceptor dispatches `authError` for any data-route
+        // 401 (cookie missing or rejected). We swallow the logout's promise
+        // because there's nothing useful to do if the backend logout call
+        // itself fails — local state is cleared either way.
         const handleAuthError = () => {
-            logout();
+            void logout();
         };
         window.addEventListener('authError', handleAuthError);
         return () => {

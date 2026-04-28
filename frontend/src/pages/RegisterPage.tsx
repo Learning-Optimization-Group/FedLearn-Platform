@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { registerUser } from '../services/apiServices';
+import { createLogger } from '../lib/logger';
 import '../styles/AuthStyles.css';
+
+const log = createLogger('RegisterPage');
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -14,9 +18,17 @@ const RegisterPage: React.FC = () => {
     const [successMessage, setSuccessMessage] = useState('');
     const navigate = useNavigate();
 
-    const API_SERVER_ROOT = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:8081/api`;
-    const endpointPath = '/auth/register';
-    const fullApiUrl = `${API_SERVER_ROOT}${endpointPath}`;
+    // Track the post-success redirect timer so we can cancel it on unmount —
+    // otherwise the navigate() call fires after the component is gone and
+    // React warns "state update on unmounted component".
+    const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+        return () => {
+            if (redirectTimerRef.current) {
+                clearTimeout(redirectTimerRef.current);
+            }
+        };
+    }, []);
 
     const validatePassword = (password: string): string | null => {
         if (password.length < MIN_PASSWORD_LENGTH) {
@@ -59,52 +71,36 @@ const RegisterPage: React.FC = () => {
             return;
         }
 
-        const registrationData = {
-            username,
-            email,
-            password
-        };
-
         try {
-            const response = await fetch(fullApiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify(registrationData),
-            });
+            // Routed through the shared axios instance so it picks up
+            // baseURL, withCredentials, and the 401/403 interceptor — same
+            // contract as every other API call in the app.
+            const response = await registerUser({ username, email, password });
+            setSuccessMessage(response.data?.message || 'Registration successful! Please login.');
 
-            const responseData = await response.json();
+            setUsername('');
+            setEmail('');
+            setPassword('');
+            setConfirmPassword('');
 
-            if (response.ok) {
-                setSuccessMessage(responseData.message || 'Registration successful! Please login.');
-
-                setUsername('');
-                setEmail('');
-                setPassword('');
-                setConfirmPassword('');
-
-                setTimeout(() => {
-                    navigate('/login');
-                }, 2000);
-            } else {
-                let displayError = `Registration failed: ${response.statusText}`;
-                if (responseData.message) {
-                    displayError = responseData.message;
-                }
-                if (responseData.errors) {
-                    const fieldErrors = Object.values(responseData.errors).join(', ');
-                    displayError = `Validation failed: ${fieldErrors}`;
-                } else if (responseData.error && responseData.message) {
-                    displayError = responseData.message;
-                }
-                setError(displayError);
+            redirectTimerRef.current = setTimeout(() => {
+                navigate('/login');
+            }, 2000);
+        } catch (err: any) {
+            log.error('register failed', err);
+            const data = err?.response?.data;
+            // GlobalExceptionHandler returns either {message, fieldErrors:{...}}
+            // (validation), {message} (generic), or — for legacy paths —
+            // {error}. Try them in order without losing the field-level detail.
+            let displayError = 'An error occurred during registration. Please try again later.';
+            if (data?.fieldErrors && typeof data.fieldErrors === 'object') {
+                displayError = `Validation failed: ${Object.values(data.fieldErrors).join(', ')}`;
+            } else if (data?.message) {
+                displayError = data.message;
+            } else if (data?.error) {
+                displayError = data.error;
             }
-        } catch (err) {
-            console.error('Registration API call failed:', err);
-            setError('An error occurred during registration. Please try again later.');
+            setError(displayError);
         } finally {
             setIsLoading(false);
         }

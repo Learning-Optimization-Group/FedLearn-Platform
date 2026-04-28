@@ -1,14 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../api/axiosConfig';
+import { loginUser } from '../services/apiServices';
 import '../styles/AuthStyles.css';
-
-interface LoginResponse {
-    username: string;
-    email?: string;
-    accessToken: string;
-}
 
 const LoginPage: React.FC = () => {
     const [identifier, setIdentifier] = useState('');
@@ -32,27 +26,19 @@ const LoginPage: React.FC = () => {
         }
 
         try {
-            const response = await api.post<LoginResponse>('/auth/login', {
-                username: identifier,
-                password: password,
-            });
-
-            const { accessToken, username, email } = response.data;
-
-            if (!accessToken) {
-                setError('Login response is missing the access token. Please contact support.');
-                return;
-            }
-
-            auth.login({ username, email }, accessToken);
+            // The JWT lands in an HttpOnly cookie; the response body only
+            // gives us the identity needed to render the shell.
+            const response = await loginUser({ username: identifier, password });
+            const { username, email, role } = response.data;
+            auth.setSession({ username, email, role });
 
             const from = (location.state as any)?.from?.pathname || '/dashboard';
             navigate(from, { replace: true });
         } catch (err: any) {
             const responseData = err?.response?.data;
             setError(
-                responseData?.error ||
-                    responseData?.message ||
+                responseData?.message ||
+                    responseData?.error ||
                     'An error occurred during login. Please try again later.'
             );
         } finally {
