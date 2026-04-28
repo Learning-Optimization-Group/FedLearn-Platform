@@ -7,7 +7,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo "[WRAPPER-SH] Activating Python virtual environment..."
 
 # Activate the virtual environment (Disabled for local Mac testing)
-# source /home/ec2-user/app/venv/bin/activate
+source /home/ec2-user/app/venv/bin/activate
 
 echo "[WRAPPER-SH] Environment activated. Executing init_model.py..."
 
