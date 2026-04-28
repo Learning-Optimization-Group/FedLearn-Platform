@@ -17,9 +17,17 @@ CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; NC='\033[0m'
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INTERACTIVE_LAUNCHER="$PROJECT_ROOT/scripts/launch_clients_interactive.sh"
 
-# Environment defaults
-export APP_JWT_SECRET="${APP_JWT_SECRET:-MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=}"
-export APP_INTERNAL_API_KEY="${APP_INTERNAL_API_KEY:-local_default_internal_api_key_12345}"
+# ── Environment defaults ──────────────────────────────────────────────────────
+# Activate the dev profile so application-dev.properties supplies the local
+# fallback secrets / H2 console / permissive CORS. Override env vars below to
+# point dev at real secrets if you want.
+export SPRING_PROFILES_ACTIVE="${SPRING_PROFILES_ACTIVE:-dev}"
+# These are present so launch_all.sh remains a single source of truth for
+# legacy callers that grep for them; the dev profile already supplies safe
+# fallbacks if you unset them. Both values are PUBLIC and exist only for
+# zero-config local boot — never copy them into a deployed environment.
+export APP_JWT_SECRET="${APP_JWT_SECRET:-ZGV2LW9ubHktand0LXNlY3JldC1kby1ub3QtdXNlLWluLXByb2QhIQ==}"
+export APP_INTERNAL_API_KEY="${APP_INTERNAL_API_KEY:-dev-only-internal-key-do-not-use-in-prod}"
 
 BACKEND_PORT=8081
 FRONTEND_PORT=5173
@@ -68,7 +76,7 @@ open_window() {
 
 # ── 3. Window 1 — Spring Boot Backend ────────────────────────────────────────
 printf "${YELLOW}▶ Window 1: Spring Boot Backend${NC}\n"
-BACKEND_CMD="cd '${PROJECT_ROOT}/backend/fl-platform-api' && export APP_JWT_SECRET='${APP_JWT_SECRET}' && export APP_INTERNAL_API_KEY='${APP_INTERNAL_API_KEY}' && echo '--- [1] Spring Boot Backend ---' && ./gradlew bootRun"
+BACKEND_CMD="cd '${PROJECT_ROOT}/backend/fl-platform-api' && export SPRING_PROFILES_ACTIVE='${SPRING_PROFILES_ACTIVE}' && export APP_JWT_SECRET='${APP_JWT_SECRET}' && export APP_INTERNAL_API_KEY='${APP_INTERNAL_API_KEY}' && echo '--- [1] Spring Boot Backend (profile=${SPRING_PROFILES_ACTIVE}) ---' && ./gradlew bootRun"
 open_window "$BACKEND_CMD"
 printf "  ${GREEN}✓ Launched${NC}\n"
 sleep 1
