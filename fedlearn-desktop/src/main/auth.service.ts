@@ -23,6 +23,13 @@ interface AuthStore {
   username: string;
 }
 
+/** Held only in main-process memory when OS-level encryption is unavailable. */
+interface SessionMemory {
+  jwt: string;
+  expiresAt: number;
+  username: string;
+}
+
 const SERVER_URL_KEY = 'serverUrl';
 
 const AUTH_STORE_KEY = 'auth';
@@ -34,6 +41,17 @@ const DEFAULT_API_BASE_URL = 'http://localhost:8081/api';
 export class AuthService {
   private store: any;
   private apiBaseUrl: string;
+  /**
+   * Holds the JWT in process memory when {@link safeStorage} cannot
+   * encrypt (typically headless Linux without a keyring). On those hosts
+   * we deliberately do NOT persist to disk — the previous design wrote
+   * reversible base64, which is not encryption and would leak the token
+   * to anyone with read access to the userData directory.
+   *
+   * Trade-off: the user must re-authenticate on every app launch when
+   * encryption is unavailable. That's the correct security posture.
+   */
+  private sessionMemory: SessionMemory | null = null;
 
   constructor() {
     // clearInvalidConfig recovers from unreadable state — e.g. a store file
@@ -145,32 +163,46 @@ export class AuthService {
   }
 
   /**
-   * Clears the stored JWT from the encrypted store.
+   * Clears the stored JWT from both the encrypted store and the in-memory
+   * fallback. Safe to call repeatedly.
    */
   logout(): void {
     this.store.delete(AUTH_STORE_KEY);
+    this.sessionMemory = null;
     log.info('[AuthService] JWT cleared from store');
   }
 
   /**
-   * Checks if a valid (non-expired) JWT exists in the encrypted store.
+   * Checks if a valid (non-expired) JWT is available — either from the
+   * encrypted on-disk store (preferred) or from the in-memory session
+   * fallback used when OS encryption is unavailable.
    */
   isAuthenticated(): boolean {
     try {
+      // 1. In-memory session (used when safeStorage was unavailable at login).
+      if (this.sessionMemory) {
+        if (Date.now() > this.sessionMemory.expiresAt) {
+          log.info('[AuthService] In-memory JWT has expired');
+          this.logout();
+          return false;
+        }
+        return this.sessionMemory.jwt.length > 0;
+      }
+
+      // 2. Encrypted on-disk store.
       const authData = this.store.get(AUTH_STORE_KEY) as AuthStore | undefined;
 
       if (!authData || !authData.encryptedJwt) {
         return false;
       }
 
-      // Check expiration
       if (Date.now() > authData.expiresAt) {
         log.info('[AuthService] Stored JWT has expired');
         this.logout();
         return false;
       }
 
-      // Verify we can decrypt it (safeStorage key may have changed)
+      // Verify we can decrypt it (safeStorage key may have changed).
       try {
         const decrypted = safeStorage.decryptString(Buffer.from(authData.encryptedJwt, 'base64'));
         return decrypted.length > 0;
@@ -192,6 +224,15 @@ export class AuthService {
    */
   getAuthHeader(): string | null {
     try {
+      // In-memory session takes priority — if present, on-disk is empty by design.
+      if (this.sessionMemory) {
+        if (Date.now() > this.sessionMemory.expiresAt) {
+          this.logout();
+          return null;
+        }
+        return `Bearer ${this.sessionMemory.jwt}`;
+      }
+
       const authData = this.store.get(AUTH_STORE_KEY) as AuthStore | undefined;
 
       if (!authData || !authData.encryptedJwt) {
@@ -212,28 +253,43 @@ export class AuthService {
   }
 
   /**
-   * Encrypts and stores the JWT token using Electron's safeStorage API.
-   * safeStorage uses the OS keychain (macOS Keychain, Windows DPAPI, Linux libsecret).
+   * Stores the JWT either in the OS-encrypted on-disk store (preferred) or,
+   * if {@link safeStorage} cannot encrypt, in process memory only.
+   *
+   * The previous implementation wrote reversible base64 to disk when
+   * encryption was unavailable. Base64 is not encryption — anything with
+   * read access to {@code app.getPath('userData')} could lift the token
+   * trivially. The new behaviour: refuse to persist, force the user to
+   * re-authenticate per launch on hosts without a keyring. This is the
+   * correct trade-off; persistence is a convenience, not a requirement.
    */
   private storeJwt(jwt: string, username: string): void {
-    let encryptedJwt: string;
+    const expiresAt = Date.now() + JWT_EXPIRY_MS;
 
     if (safeStorage.isEncryptionAvailable()) {
       const encrypted = safeStorage.encryptString(jwt);
-      encryptedJwt = encrypted.toString('base64');
+      const authData: AuthStore = {
+        encryptedJwt: encrypted.toString('base64'),
+        expiresAt,
+        username,
+      };
+      this.store.set(AUTH_STORE_KEY, authData);
+      // Clear any prior in-memory session so the on-disk path is the single
+      // source of truth once encryption becomes available again.
+      this.sessionMemory = null;
       log.info('[AuthService] JWT encrypted via safeStorage (OS keychain)');
-    } else {
-      // Fallback: store as base64 (less secure, but functional on some Linux DEs)
-      encryptedJwt = Buffer.from(jwt).toString('base64');
-      log.warn('[AuthService] safeStorage unavailable — JWT stored with base64 encoding only');
+      return;
     }
 
-    const authData: AuthStore = {
-      encryptedJwt,
-      expiresAt: Date.now() + JWT_EXPIRY_MS,
-      username,
-    };
-
-    this.store.set(AUTH_STORE_KEY, authData);
+    // No OS encryption — fall back to in-memory only.
+    log.warn(
+      '[AuthService] safeStorage unavailable on this host (no OS keyring). '
+        + 'JWT will be held in process memory only; user must re-authenticate '
+        + 'on next launch.',
+    );
+    // Belt-and-suspenders: if the on-disk store somehow already holds an
+    // unencrypted token from a prior install, scrub it.
+    this.store.delete(AUTH_STORE_KEY);
+    this.sessionMemory = { jwt, expiresAt, username };
   }
 }
