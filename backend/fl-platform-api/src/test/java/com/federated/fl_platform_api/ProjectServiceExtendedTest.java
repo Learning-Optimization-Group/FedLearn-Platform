@@ -82,7 +82,7 @@ class ProjectServiceExtendedTest {
     }
 
     @Test
-    void getProjectsForCurrentUser_shouldReturnOnly callerProjects() {
+    void getProjectsForCurrentUser_shouldReturnOnlyCallerProjects() {
         Project p1 = new Project();
         p1.setId(UUID.randomUUID());
         p1.setName("P1"); p1.setModelType("CNN"); p1.setModelName("r"); p1.setOptimizer("SGD");
@@ -104,7 +104,6 @@ class ProjectServiceExtendedTest {
         asRegularUser();
         when(flowerServerManager.stopServerForProject(testProject.getId())).thenReturn(true);
         when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
-        doNothing().when(webSocketService).sendStatusUpdate(any());
 
         ProjectResponseDto dto = projectService.stopServerForProject(testProject.getId());
 
