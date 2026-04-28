@@ -151,7 +151,10 @@ class ResultConsumer(threading.Thread):
                     if 'connection' in locals() and connection.is_open:
                         connection.close()
                 except Exception:
-                    pass
+                    # Cleanup-only path; never mask the original failure, but
+                    # don't lose the diagnostic either.
+                    logging.debug("[ResultConsumer] Failed to close stale RabbitMQ connection",
+                                  exc_info=True)
 
     def stop(self):
         """Gracefully stops the consumer thread."""
