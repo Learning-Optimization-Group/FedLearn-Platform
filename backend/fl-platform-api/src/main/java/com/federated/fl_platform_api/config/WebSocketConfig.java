@@ -1,40 +1,67 @@
 package com.federated.fl_platform_api.config;
 
+import com.federated.fl_platform_api.security.JwtChannelInterceptor;
+import com.federated.fl_platform_api.security.JwtHandshakeInterceptor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
-import org.springframework.lang.NonNull;
+
+import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
+    private final JwtHandshakeInterceptor jwtHandshakeInterceptor;
+    private final JwtChannelInterceptor jwtChannelInterceptor;
+    private final String allowedOriginsCsv;
+
+    public WebSocketConfig(JwtHandshakeInterceptor jwtHandshakeInterceptor,
+                           JwtChannelInterceptor jwtChannelInterceptor,
+                           @Value("${app.cors.allowed-origins}") String allowedOriginsCsv) {
+        this.jwtHandshakeInterceptor = jwtHandshakeInterceptor;
+        this.jwtChannelInterceptor = jwtChannelInterceptor;
+        this.allowedOriginsCsv = allowedOriginsCsv;
+    }
+
     @Override
     public void configureMessageBroker(@NonNull MessageBrokerRegistry config) {
-        // This sets up a simple in-memory message broker.
-        // The broker will send messages to clients who are subscribed to destinations
-        // starting with "/topic".
+        // In-memory STOMP broker — fine for single-replica deployments.
+        // For multi-instance deploys, switch this to a relay (RabbitMQ/Redis).
         config.enableSimpleBroker("/topic");
-
-        // This defines the prefix for messages sent from clients TO the server.
-        // We won't use this for logging, but it's good practice to define.
         config.setApplicationDestinationPrefixes("/app");
     }
 
     @Override
     public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
-        // This is the HTTP endpoint that clients will connect to to upgrade to a WebSocket connection.
-        // We allow all origins for local development. In production, you'd restrict this.
+        // Origins are driven from the same allowlist as the REST CORS config so
+        // there is exactly one place to update when adding a new frontend host.
+        // Patterns (not literal origins) so wildcards like "http://localhost:*"
+        // work; matches Spring's REST CORS behaviour exactly.
+        List<String> origins = Arrays.stream(allowedOriginsCsv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        if (origins.isEmpty()) {
+            throw new IllegalStateException(
+                    "app.cors.allowed-origins must be set to a non-empty allowlist for STOMP");
+        }
+
         registry.addEndpoint("/ws-logs")
-                .setAllowedOrigins(
-                        "http://localhost:5173",
-                        "http://127.0.0.1:5173",
-                        "https://federated-learning-platform-ui.vercel.app",
-                        "https://zo-sl.vercel.app",// Your production URL
-                        "https://adbd9c9fe9a7.ngrok-free.app"
-                ); // Add your React dev server URL
-//                .withSockJS();
+                .setAllowedOriginPatterns(origins.toArray(new String[0]))
+                .addInterceptors(jwtHandshakeInterceptor);
+    }
+
+    @Override
+    public void configureClientInboundChannel(@NonNull ChannelRegistration registration) {
+        // Promote the handshake-cached principal onto the STOMP session at
+        // CONNECT time, and reject any unauthenticated CONNECT as a backstop.
+        registration.interceptors(jwtChannelInterceptor);
     }
 }
