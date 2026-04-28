@@ -93,3 +93,4 @@ CLAUDE.md
 *.dylib
 *.dll
 
+docs/llm_dumps/
