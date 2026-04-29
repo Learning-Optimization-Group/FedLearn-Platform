@@ -92,7 +92,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<ApiError> handleTypeMismatch(
             MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
 
-        String required = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "expected type";
+        Class<?> requiredType = ex.getRequiredType();
+        String required = requiredType != null ? requiredType.getSimpleName() : "expected type";
         String msg = String.format("Parameter '%s' must be a valid %s", ex.getName(), required);
         return badRequest(request, msg, null);
     }

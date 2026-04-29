@@ -52,6 +52,7 @@ public class UserController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @SuppressWarnings("null")
     public ResponseEntity<Map<String, String>> deleteUser(@PathVariable Long id) {
         if (!userRepository.existsById(id)) {
             throw ResourceNotFoundException.forEntity("User", id);
