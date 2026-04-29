@@ -33,11 +33,12 @@ const LogViewer: React.FC<LogViewerProps> = ({ projectId, serverUrl, onClose }) 
             api.fetchProjectLogs(projectId)
                 .then((response) => {
                     if (Array.isArray(response.data) && response.data.length > 0) {
-                        const formatted: StoredLogEntry[] = response.data.map((log: any) => ({
-                            level: log.level,
-                            message: log.message,
-                            timestamp: log.timestamp,
-                            stackTrace: log.stackTrace,
+                        // ids are assigned by the store at merge time.
+                        const formatted = response.data.map((entry: any) => ({
+                            level: entry.level,
+                            message: entry.message,
+                            timestamp: entry.timestamp,
+                            stackTrace: entry.stackTrace,
                         }));
                         logStore.mergeHistorical(projectId, formatted);
                     } else {
@@ -152,8 +153,12 @@ const LogViewer: React.FC<LogViewerProps> = ({ projectId, serverUrl, onClose }) 
                 </div>
                 <div className="logs-container" ref={logContainerRef}>
                     {logs.length > 0 ? (
-                        logs.map((log, i) => (
-                            <div key={i} className={`log-entry log-${log.level?.toLowerCase() ?? 'info'}`}>
+                        // Keying by store-assigned id (not array index) so React
+                        // reconciles correctly when historical logs are prepended
+                        // by mergeHistorical — array indexes shift in that case
+                        // and produce visibly garbled rendering.
+                        logs.map((log) => (
+                            <div key={log.id} className={`log-entry log-${log.level?.toLowerCase() ?? 'info'}`}>
                                 <span className="log-timestamp">{log.timestamp}</span>
                                 <span className={`log-level level-${log.level?.toLowerCase() ?? 'info'}`}>
                                     [{log.level ?? 'INFO'}]

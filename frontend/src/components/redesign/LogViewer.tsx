@@ -45,8 +45,9 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
   const [filterError, setFilterError] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
-  const pausedRef = useRef(isPaused);
-  pausedRef.current = isPaused;
+  // No pausedRef anymore — we always append to the store regardless of
+  // pause state. "Pause" only affects auto-scroll (see effect below) so
+  // the user can read history without losing in-flight messages.
 
   // Hydrate + subscribe to the shared log cache.
   useEffect(() => {
@@ -61,11 +62,12 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
     api.fetchProjectLogs(projectId)
       .then((response) => {
         if (Array.isArray(response.data) && response.data.length > 0) {
-          const formatted: StoredLogEntry[] = response.data.map((log: any) => ({
-            level: log.level,
-            message: log.message,
-            timestamp: log.timestamp,
-            stackTrace: log.stackTrace,
+          // ids are assigned by the store at merge time.
+          const formatted = response.data.map((entry: any) => ({
+            level: entry.level,
+            message: entry.message,
+            timestamp: entry.timestamp,
+            stackTrace: entry.stackTrace,
           }));
           logStore.mergeHistorical(projectId, formatted);
         } else {
@@ -86,7 +88,10 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
     client.onConnect = () => {
       setIsConnected(true);
       client.subscribe(`/topic/logs/${projectId}`, (message) => {
-        if (pausedRef.current) return;
+        // Always append — even while paused. "Pause" only freezes the
+        // auto-scroll viewport (see effect below); messages received in
+        // the paused window remain in the store and become visible again
+        // when the user scrolls or resumes.
         try {
           const parsed = JSON.parse(message.body);
           const timeStr =
@@ -215,10 +220,12 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
                   Waiting for logs from project {projectId}…
                 </div>
               )}
-              {filteredLogs.map((log, idx) => {
+              {filteredLogs.map((log) => {
                 const level = normalizeLevel(log.level);
                 return (
-                  <div key={idx} className="flex hover:bg-slate-900/50 py-[2px] px-2 -mx-2 rounded transition-colors font-mono">
+                  // Keying by store-assigned id so prepended historical
+                  // entries don't shift array indexes and confuse React.
+                  <div key={log.id} className="flex hover:bg-slate-900/50 py-[2px] px-2 -mx-2 rounded transition-colors font-mono">
                     <span className="text-slate-500 w-[90px] shrink-0 select-none">{log.timestamp}</span>
                     <span className={cn(
                       "w-[60px] shrink-0 font-medium select-none",
