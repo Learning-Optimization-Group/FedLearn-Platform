@@ -47,8 +47,9 @@ class AuthControllerIntegrationTest {
         ResponseEntity<Map<String, Object>> response = restTemplate.postForEntity("/api/auth/register", request, (Class<Map<String, Object>>) (Class<?>) Map.class);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody().containsKey("userId"));
+        Map<String, Object> body = response.getBody();
+        assertNotNull(body);
+        assertTrue(body.containsKey("userId"));
     }
 
     @Test
