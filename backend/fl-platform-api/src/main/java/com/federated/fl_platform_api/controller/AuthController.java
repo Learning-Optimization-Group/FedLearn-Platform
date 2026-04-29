@@ -56,6 +56,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @SuppressWarnings("null")
     public ResponseEntity<Map<String, Object>> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
         // UserAlreadyExistsException → 409, validation → 400, anything else → 500,
         // all centralised in GlobalExceptionHandler.
