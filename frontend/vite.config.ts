@@ -10,7 +10,16 @@ export default defineConfig({
   },
   build: {
     minify: 'esbuild',
-    sourcemap: true,
+    // Sourcemaps are NOT shipped to the CDN. The previous setting (`true`)
+    // produced ./dist/assets/index-*.js.map alongside the bundle, which any
+    // visitor could fetch and de-minify back to readable TypeScript —
+    // exposing internal API paths, auth handling, and business logic.
+    //
+    // If you later wire up Sentry / Datadog RUM and want server-side
+    // de-minification, switch to `'hidden'`: it generates the maps locally
+    // (so they can be uploaded to the error tracker) but omits the
+    // //# sourceMappingURL comment so the bundle never references them.
+    sourcemap: false,
   },
   server: {
     port: 5173,
