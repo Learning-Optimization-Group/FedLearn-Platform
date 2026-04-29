@@ -29,9 +29,15 @@ public class ResultsController {
     @Autowired
     private ProjectService projectService;
 
+    @org.springframework.beans.factory.annotation.Value("${feature.round-result-reporting.enabled:true}")
+    private boolean roundResultsEnabled;
+
     @PostMapping("/{projectId}")
     public ResponseEntity<Void> reportRoundResult(@PathVariable @NonNull UUID projectId,
                                                   @Valid @RequestBody RoundResultDto resultDto) {
+        if (!roundResultsEnabled) {
+            return ResponseEntity.ok().build();
+        }
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
 

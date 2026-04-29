@@ -26,6 +26,9 @@ public class WebSocketService {
     @Autowired
     private ServerLogRepository serverLogRepository;
 
+    @org.springframework.beans.factory.annotation.Value("${feature.log-persistence.enabled:true}")
+    private boolean logPersistenceEnabled;
+
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -46,7 +49,9 @@ public class WebSocketService {
         // Persist the log line to the database.
         // The FL server emits JSON-formatted log lines; extract level/message
         // from the JSON structure when possible, falling back to the raw line.
-        persistLog(projectId, logMessage);
+        if (logPersistenceEnabled) {
+            persistLog(projectId, logMessage);
+        }
     }
 
     public void sendStatusUpdate(ProjectStatusUpdateDto statusUpdate) {
