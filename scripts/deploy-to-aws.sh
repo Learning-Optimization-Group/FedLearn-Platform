@@ -146,8 +146,20 @@ ssh_cmd "mkdir -p $REMOTE_APP_DIR $REMOTE_SCRIPTS_DIR $REMOTE_APP_DIR/models $RE
 scp_cmd "$JAR_PATH" "$EC2_TARGET:$REMOTE_APP_DIR/app.jar"
 echo "      ✓ app.jar uploaded"
 
-# Upload the full scripts directory (FL server + init model scripts + Python files)
-scp_cmd -r "$SCRIPTS_SRC"/* "$EC2_TARGET:$REMOTE_SCRIPTS_DIR/"
+# Upload scripts directory — use rsync to skip __pycache__, logs, and debug files
+# (rsync is pre-installed on macOS; if missing: brew install rsync)
+if command -v rsync &>/dev/null; then
+  rsync -az --quiet \
+    --exclude='__pycache__/' \
+    --exclude='*.pyc' \
+    --exclude='*.log' \
+    --exclude='*.npz' \
+    -e "ssh -i $EC2_KEY_PATH -o StrictHostKeyChecking=no" \
+    "$SCRIPTS_SRC/" "$EC2_TARGET:$REMOTE_SCRIPTS_DIR/"
+else
+  # Fallback to scp if rsync is unavailable
+  scp_cmd -r "$SCRIPTS_SRC"/* "$EC2_TARGET:$REMOTE_SCRIPTS_DIR/"
+fi
 echo "      ✓ Python scripts uploaded"
 
 # Make shell scripts executable on the remote

@@ -49,6 +49,7 @@ If you have never used AWS before, follow these exact steps to create your serve
    - Under "Firewall (security groups)", select **Create security group**.
    - Name it `fedlearn-sg`.
    - **Rule 1 (SSH):** Type: SSH, Port: 22, Source type: **My IP**. *(This ensures only your current Wi-Fi can log into the server).*
+     - ⚠️ **Important:** If your IP changes (different Wi-Fi, VPN, etc.), you will be locked out via SSH. To update: go to AWS Console → EC2 → Security Groups → `fedlearn-sg` → Edit inbound rules → update the SSH rule's source to your new IP.
    - **Click "Add security group rule"** to add another rule.
    - **Rule 2 (Backend API):** Type: Custom TCP, Port Range: **8081**, Source type: **My IP**.
    - **Click "Add security group rule"** again.
@@ -83,9 +84,13 @@ export EC2_KEY_PATH=~/.ssh/fedlearn-key.pem  # Replace with where you saved the 
 
 This runs `ec2-bootstrap.sh` remotely to install Java 21 JRE, Python 3, CPU-only PyTorch, and all Python dependencies.
 
+> ⏱️ **This step takes 5–10 minutes.** PyTorch is a large download (~800MB). The terminal will be silent during the download. Do not interrupt it.
+
 ---
 
 ### Phase 3 — Every Deploy (code changes)
+
+> ⚠️ **Run this command from the root of the repository** (the folder that contains `backend/`, `scripts/`, `docs/`, etc.), not from inside the `scripts/` folder!
 
 ```bash
 # Set these once in your shell session (or add to ~/.zshrc)
@@ -126,8 +131,8 @@ sudo nano /etc/systemd/system/fedlearn.service
 
 4. **Uncomment them** (delete the `#` at the start of the line) and fill in your actual values:
    - `CORS_ALLOWED_ORIGINS`: If testing locally with frontend, leave it as `http://localhost:5173`. If you have a hosted frontend on Vercel, put that URL here.
-   - `APP_JWT_SECRET`: Generate a random base64 string (e.g., `dGVzdHNlY3JldGtleWZvcmp3dHRlc3RpbmcxMjM0NTY3ODk=`).
-   - `APP_INTERNAL_API_KEY`: Any secure random string (e.g., `my-super-secret-key-123`).
+   - `APP_JWT_SECRET`: Run `openssl rand -base64 64` in your local terminal and paste the output here.
+   - `APP_INTERNAL_API_KEY`: Run `openssl rand -hex 32` in your local terminal and paste the output here.
 
 5. Save the file and exit nano:
    - Press `Ctrl + O` to save, then `Enter` to confirm.
@@ -148,10 +153,19 @@ sudo systemctl start fedlearn   # Starts the app right now
 
 ```bash
 # Health check
-curl http://<EC2-IP>:8081/actuator/health
+curl http://$EC2_HOST:8081/actuator/health
 
-# Live logs
-ssh -i ~/.ssh/your-key.pem ubuntu@<EC2-IP> 'sudo journalctl -u fedlearn -f'
+# Expected response (backend is running):
+# {"status":"UP","components":{"db":{"status":"UP"},...}}
+
+# Bad response (app is still starting or failed):
+# curl: (7) Failed to connect to 54.x.x.x port 8081: Connection refused
+
+# Live logs (check this if health check fails!)
+ssh -i $EC2_KEY_PATH ubuntu@$EC2_HOST 'sudo journalctl -u fedlearn -f'
+
+# If the service fails to start, check the status:
+ssh -i $EC2_KEY_PATH ubuntu@$EC2_HOST 'sudo systemctl status fedlearn'
 ```
 
 ---
@@ -183,10 +197,13 @@ from any `https://` origin (mixed-content), so a SPA hosted on Vercel /
 CloudFront / Netlify *cannot* talk to a bare-IP EC2 backend. You need TLS in
 front of `8081`. Pick one of three paths.
 
+#### Path C — Accept HTTP-only (just for a demo / classroom)
+
+If you genuinely don't need HTTPS (e.g., a school project), host the SPA on the same EC2 over HTTP (serve `frontend/dist/` from nginx on port 80). No mixed-content issue because both origins are HTTP. Don't ship credentials over this; cookies won't be `Secure`.
+
 #### Path A — nginx + Let's Encrypt on the same EC2 (cheapest)
 
-Use this when you already have a DNS name pointing at the EC2 IP (DuckDNS,
-your own domain, etc.). Run on the instance:
+Use this when you already have a DNS name pointing at the EC2 IP (DuckDNS, your own domain, etc.) and you want HTTPS. Run on the instance:
 
 ```bash
 sudo apt-get install -y nginx certbot python3-certbot-nginx
@@ -214,29 +231,15 @@ server {
 }
 ```
 
-Then update the EC2 security group: open `443/TCP` to `0.0.0.0/0`, keep
-`8081/TCP` locked to your IP (or remove it — nginx is the only client now).
-Set `app.auth.cookie.secure=true` in `application-ec2demo.properties` once
-HTTPS is live.
+Then update the EC2 security group: open `443/TCP` to `0.0.0.0/0`, keep `8081/TCP` locked to your IP (or remove it — nginx is the only client now). Set `app.auth.cookie.secure=true` in `application-ec2demo.properties` once HTTPS is live.
 
 #### Path B — ALB + ACM (cleanest, costs ~$16/mo)
 
-1. Request an ACM certificate for `api.example.com` (us-east-1 if fronting
-   CloudFront, otherwise the region of the ALB).
-2. Create an Application Load Balancer, listener on `443` with the ACM cert,
-   target group pointing at the EC2 instance on `8081`.
-3. Set the target-group **idle timeout to 3600s** so STOMP WebSockets don't
-   get culled mid-training (default is 60s — way too short for FL rounds).
+1. Request an ACM certificate for `api.example.com` (us-east-1 if fronting CloudFront, otherwise the region of the ALB).
+2. Create an Application Load Balancer, listener on `443` with the ACM cert, target group pointing at the EC2 instance on `8081`.
+3. Set the target-group **idle timeout to 3600s** so STOMP WebSockets don't get culled mid-training (default is 60s — way too short for FL rounds).
 4. Point `api.example.com` (Route 53 alias) at the ALB DNS.
-5. Update the EC2 SG: allow `8081/TCP` only from the ALB's SG, drop public
-   `8081` access.
-
-#### Path C — accept HTTP-only (demo / classroom only)
-
-If you genuinely don't need HTTPS, host the SPA on the same EC2 over HTTP
-(serve `frontend/dist/` from nginx on port 80). No mixed-content issue
-because both origins are HTTP. Don't ship credentials over this; cookies
-won't be `Secure`.
+5. Update the EC2 SG: allow `8081/TCP` only from the ALB's SG, drop public `8081` access.
 
 #### Build the frontend pointing at your backend
 

@@ -85,25 +85,26 @@ Wants=network-online.target
 Type=simple
 User=$ACTUAL_USER
 WorkingDirectory=$APP_DIR
-ExecStart=/usr/bin/java -jar $APP_DIR/app.jar
+ExecStart=/usr/bin/java -Xmx1g -jar $APP_DIR/app.jar
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=fedlearn
 
-# Environment variables — edit these before starting:
-# EnvironmentFile=$APP_DIR/.env
-# Or inject them here:
-# Environment="SPRING_PROFILES_ACTIVE=ec2demo"
+# ── Non-secret settings (pre-configured, no changes needed) ─────────────────
+Environment="SPRING_PROFILES_ACTIVE=ec2demo"
+Environment="FEDLEARN_PYTHON=python3"
+Environment="PYTHON_EXECUTABLE_PATH=$SCRIPTS_DIR/run_init_model.sh"
+Environment="PYTHON_SCRIPT_FL_SERVER_PATH=$SCRIPTS_DIR/run_fl_server.sh"
+Environment="FEATURE_LOG_PERSISTENCE=false"
+Environment="FEATURE_ROUND_RESULTS=true"
+# ── Secrets — YOU MUST FILL THESE IN before starting ─────────────────────────
+# Generate APP_JWT_SECRET:     openssl rand -base64 64
+# Generate APP_INTERNAL_API_KEY: openssl rand -hex 32
 # Environment="APP_JWT_SECRET=CHANGE_ME"
 # Environment="APP_INTERNAL_API_KEY=CHANGE_ME"
 # Environment="CORS_ALLOWED_ORIGINS=http://localhost:5173"
-# Environment="FEDLEARN_PYTHON=python3"
-# Environment="PYTHON_EXECUTABLE_PATH=$SCRIPTS_DIR/run_init_model.sh"
-# Environment="PYTHON_SCRIPT_FL_SERVER_PATH=$SCRIPTS_DIR/run_fl_server.sh"
-# Environment="FEATURE_LOG_PERSISTENCE=false"
-# Environment="FEATURE_ROUND_RESULTS=true"
 
 [Install]
 WantedBy=multi-user.target
