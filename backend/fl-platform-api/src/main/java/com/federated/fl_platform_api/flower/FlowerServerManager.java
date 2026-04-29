@@ -66,6 +66,12 @@ public class FlowerServerManager {
     @Value("${python.script.fl-server.path:src/main/resources/scripts/run_fl_server.sh}")
     private String flServerWrapperPath;
 
+    @Value("${fl.server.port-range.start:50000}")
+    private int portRangeStart;
+
+    @Value("${fl.server.port-range.end:50010}")
+    private int portRangeEnd;
+
     @Autowired
     private WebSocketService logBroadcaster;
 
@@ -278,14 +284,15 @@ public class FlowerServerManager {
     }
 
     private int findFreePort() {
-        try (ServerSocket serverSocket = new ServerSocket(0)) {
-            if (serverSocket != null) {
-                return serverSocket.getLocalPort();
+        for (int port = portRangeStart; port <= portRangeEnd; port++) {
+            try (ServerSocket s = new ServerSocket(port)) {
+                return port;
+            } catch (IOException ignored) {
+                // port in use, try next
             }
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not find a free TCP/IP port", e);
         }
-        throw new IllegalStateException("Could not find a free TCP/IP port");
+        throw new IllegalStateException(
+            "No free port in range " + portRangeStart + "–" + portRangeEnd);
     }
 
     private void validateEcsConfig() {
