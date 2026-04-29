@@ -39,6 +39,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     }
 
     @Override
+    @SuppressWarnings("null")
     public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
         // Origins are driven from the same allowlist as the REST CORS config so
         // there is exactly one place to update when adding a new frontend host.

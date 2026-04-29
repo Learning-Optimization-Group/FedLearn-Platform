@@ -76,6 +76,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @SuppressWarnings("null")
     public ResponseEntity<Map<String, Object>> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         // AuthenticationException (bad credentials, locked, etc.) → 401 via GlobalExceptionHandler.
         Authentication authentication = authenticationManager.authenticate(

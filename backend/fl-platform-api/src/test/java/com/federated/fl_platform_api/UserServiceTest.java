@@ -13,7 +13,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,14 +40,14 @@ class UserServiceTest {
         when(userRepository.existsByUsername("alice")).thenReturn(false);
         when(userRepository.existsByEmail("alice@example.com")).thenReturn(false);
         when(passwordEncoder.encode("plaintext")).thenReturn("$hashed$");
-        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         User result = userService.registerUser(buildRequest("alice", "alice@example.com"));
 
         assertNotNull(result);
         assertEquals("alice", result.getUsername());
         assertEquals("$hashed$", result.getPassword());
-        verify(userRepository).save(any(User.class));
+        verify(userRepository).save(any());
     }
 
     @Test

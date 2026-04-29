@@ -15,6 +15,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Promotes the principal stashed by {@link JwtHandshakeInterceptor} (or
@@ -50,8 +51,9 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
 
         // 1. Try the principal cached by the handshake interceptor.
         UsernamePasswordAuthenticationToken handshakePrincipal = null;
-        if (accessor.getSessionAttributes() != null) {
-            Object cached = accessor.getSessionAttributes().get(JwtHandshakeInterceptor.PRINCIPAL_ATTR);
+        Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+        if (sessionAttributes != null) {
+            Object cached = sessionAttributes.get(JwtHandshakeInterceptor.PRINCIPAL_ATTR);
             if (cached instanceof UsernamePasswordAuthenticationToken auth) {
                 handshakePrincipal = auth;
             }

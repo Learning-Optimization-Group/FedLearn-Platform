@@ -4,7 +4,7 @@ import com.federated.fl_platform_api.exception.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
@@ -50,9 +50,9 @@ class GlobalExceptionHandlerTest {
     private MockMvc mockMvc;
 
     // SecurityConfig needs these beans
-    @MockBean
+    @MockitoBean
     private com.federated.fl_platform_api.service.CustomUserDetailsService customUserDetailsService;
-    @MockBean
+    @MockitoBean
     private com.federated.fl_platform_api.security.JwtTokenProvider jwtTokenProvider;
 
     @Test

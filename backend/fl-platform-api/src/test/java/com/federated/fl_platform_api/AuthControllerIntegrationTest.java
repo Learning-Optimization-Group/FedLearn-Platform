@@ -43,7 +43,8 @@ class AuthControllerIntegrationTest {
         HttpEntity<Map<String, Object>> request =
                 new HttpEntity<>(registerPayload("bob", "bob@example.com", "Password1!"), headers);
 
-        ResponseEntity<Map> response = restTemplate.postForEntity("/api/auth/register", request, Map.class);
+        @SuppressWarnings("unchecked")
+        ResponseEntity<Map<String, Object>> response = restTemplate.postForEntity("/api/auth/register", request, (Class<Map<String, Object>>) (Class<?>) Map.class);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -58,7 +59,8 @@ class AuthControllerIntegrationTest {
                 new HttpEntity<>(registerPayload("bob2", "bob2@example.com", "Password1!"), headers);
 
         restTemplate.postForEntity("/api/auth/register", request, Map.class);
-        ResponseEntity<Map> second = restTemplate.postForEntity("/api/auth/register", request, Map.class);
+        @SuppressWarnings("unchecked")
+        ResponseEntity<Map<String, Object>> second = restTemplate.postForEntity("/api/auth/register", request, (Class<Map<String, Object>>) (Class<?>) Map.class);
 
         assertEquals(HttpStatus.CONFLICT, second.getStatusCode());
     }
@@ -75,7 +77,8 @@ class AuthControllerIntegrationTest {
         // Now login
         HttpEntity<Map<String, Object>> loginRequest = new HttpEntity<>(
                 Map.of("username", "charlie", "password", "Password1!"), headers);
-        ResponseEntity<Map> response = restTemplate.postForEntity("/api/auth/login", loginRequest, Map.class);
+        @SuppressWarnings("unchecked")
+        ResponseEntity<Map<String, Object>> response = restTemplate.postForEntity("/api/auth/login", loginRequest, (Class<Map<String, Object>>) (Class<?>) Map.class);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         // Cookie should be set
@@ -92,14 +95,16 @@ class AuthControllerIntegrationTest {
         HttpEntity<Map<String, Object>> request =
                 new HttpEntity<>(Map.of("username", "nobody", "password", "wrongpass"), headers);
 
-        ResponseEntity<Map> response = restTemplate.postForEntity("/api/auth/login", request, Map.class);
+        @SuppressWarnings("unchecked")
+        ResponseEntity<Map<String, Object>> response = restTemplate.postForEntity("/api/auth/login", request, (Class<Map<String, Object>>) (Class<?>) Map.class);
 
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
 
     @Test
     void getMe_withoutAuth_shouldReturn401() {
-        ResponseEntity<Map> response = restTemplate.getForEntity("/api/auth/me", Map.class);
+        @SuppressWarnings("unchecked")
+        ResponseEntity<Map<String, Object>> response = restTemplate.getForEntity("/api/auth/me", (Class<Map<String, Object>>) (Class<?>) Map.class);
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
 
