@@ -23,21 +23,61 @@ For multi-replica with model storage on S3 and FL servers as ECS tasks, see
 
 ### Phase 1 — One-Time: Provision EC2 (do this in AWS Console)
 
-1. **Launch instance:** Ubuntu 22.04, `t3.medium`, 20GB EBS
-2. **Security Group inbound rules:**
-   - `22/TCP` — SSH (your IP only)
-   - `8081/TCP` — Spring Boot API + WebSocket (your IP only)
-   - `50000-50010/TCP` — gRPC FL server ports (your IP only)
-3. Download your `.pem` key file
+If you have never used AWS before, follow these exact steps to create your server:
+
+1. **Log in to AWS:** Open your browser and go to the [AWS Management Console](https://console.aws.amazon.com/). Log in with your account.
+2. **Navigate to EC2:** In the top search bar, type `EC2` and click on the **EC2 (Virtual Servers in the Cloud)** service.
+3. **Start the Launch Wizard:** On the EC2 Dashboard, click the orange **Launch instance** button.
+4. **Name your server:** Under "Name and tags", enter `FedLearn-Demo`.
+5. **Choose the OS (AMI):** 
+   - Under "Application and OS Images", select the **Ubuntu** logo.
+   - For the Amazon Machine Image (AMI), choose **Ubuntu Server 24.04 LTS (HVM)** or **22.04 LTS**.
+6. **Choose the Instance Type:** 
+   - Scroll down to "Instance type" and select **`t3.medium`**. *(Note: The free tier `t2.micro` only has 1GB of RAM, which will crash during Python PyTorch processing. You must use `t3.medium` which has 4GB of RAM).*
+7. **Create a Key Pair:**
+   - Scroll to "Key pair (login)".
+   - Click **Create new key pair**.
+   - Name it `fedlearn-key`.
+   - Leave the type as `RSA` and format as `.pem` (for Mac/Linux) or `.ppk` (if you use PuTTY on Windows).
+   - Click **Create key pair**. Your browser will download a file (e.g., `fedlearn-key.pem`). Move this file to a safe folder on your computer (like `~/.ssh/`) and keep it secret!
+8. **Configure Storage:**
+   - Scroll to "Configure storage".
+   - Change the size from `8 GiB` to **`20 GiB`** (PyTorch and Docker take up significant space).
+9. **Configure Network and Security Groups:**
+   - Scroll to "Network settings" and click the **Edit** button in that box.
+   - Ensure "Auto-assign public IP" is **Enable**.
+   - Under "Firewall (security groups)", select **Create security group**.
+   - Name it `fedlearn-sg`.
+   - **Rule 1 (SSH):** Type: SSH, Port: 22, Source type: **My IP**. *(This ensures only your current Wi-Fi can log into the server).*
+   - **Click "Add security group rule"** to add another rule.
+   - **Rule 2 (Backend API):** Type: Custom TCP, Port Range: **8081**, Source type: **My IP**.
+   - **Click "Add security group rule"** again.
+   - **Rule 3 (gRPC Federated Learning):** Type: Custom TCP, Port Range: **50000-50010**, Source type: **My IP**.
+10. **Launch!** Click the orange **Launch instance** button on the bottom right.
+11. **Get your IP Address:** 
+    - Click on the Instance ID link (e.g., `i-0abcd1234...`) to view your new server.
+    - Wait until the "Instance state" says **Running**.
+    - Find the **Public IPv4 address** on the page. Copy this number. You will use this as your `<your-ec2-public-ip>` in the scripts below.
+
+*Mac/Linux users: Make sure your key is not publicly viewable before using it. Open your local terminal and run:*
+```bash
+chmod 400 ~/.ssh/fedlearn-key.pem
+```
 
 ---
 
 ### Phase 2 — One-Time: Bootstrap the EC2 Instance
 
-```bash
-export EC2_HOST=<your-ec2-public-ip>
-export EC2_KEY_PATH=~/.ssh/your-key.pem
+Open your local terminal (on your Mac/PC, not the server) and run these commands to set your environment variables. Replace the IP and key path with your actual details:
 
+```bash
+# 1. Tell your terminal where your server is
+export EC2_HOST=54.123.45.67  # Replace with your actual Public IPv4 address
+
+# 2. Tell your terminal where your downloaded .pem key is
+export EC2_KEY_PATH=~/.ssh/fedlearn-key.pem  # Replace with where you saved the file
+
+# 3. Run the bootstrap script
 ./scripts/deploy-to-aws.sh --bootstrap
 ```
 
@@ -49,8 +89,8 @@ This runs `ec2-bootstrap.sh` remotely to install Java 21 JRE, Python 3, CPU-only
 
 ```bash
 # Set these once in your shell session (or add to ~/.zshrc)
-export EC2_HOST=<your-ec2-public-ip>
-export EC2_KEY_PATH=~/.ssh/your-key.pem
+export EC2_HOST=54.123.45.67
+export EC2_KEY_PATH=~/.ssh/fedlearn-key.pem
 
 ./scripts/deploy-to-aws.sh
 ```
@@ -65,15 +105,39 @@ This will:
 
 ### Phase 4 — Configure & Start (first time only)
 
-SSH into the instance and edit the systemd service to inject your secrets:
+Now you need to log into the AWS server itself to start the Java application.
 
+1. SSH into the instance using the command the script printed out for you, or manually type:
+```bash
+ssh -i ~/.ssh/fedlearn-key.pem ubuntu@$EC2_HOST
+```
+
+2. Open the system service file in a text editor (`nano`):
 ```bash
 sudo nano /etc/systemd/system/fedlearn.service
-# Uncomment + fill in the Environment= lines
+```
 
+3. Find the `Environment=` lines at the top. They look like this:
+```ini
+# Environment="CORS_ALLOWED_ORIGINS=http://localhost:5173"
+# Environment="APP_JWT_SECRET=your-base64-secret-here"
+# Environment="APP_INTERNAL_API_KEY=your-internal-api-key"
+```
+
+4. **Uncomment them** (delete the `#` at the start of the line) and fill in your actual values:
+   - `CORS_ALLOWED_ORIGINS`: If testing locally with frontend, leave it as `http://localhost:5173`. If you have a hosted frontend on Vercel, put that URL here.
+   - `APP_JWT_SECRET`: Generate a random base64 string (e.g., `dGVzdHNlY3JldGtleWZvcmp3dHRlc3RpbmcxMjM0NTY3ODk=`).
+   - `APP_INTERNAL_API_KEY`: Any secure random string (e.g., `my-super-secret-key-123`).
+
+5. Save the file and exit nano:
+   - Press `Ctrl + O` to save, then `Enter` to confirm.
+   - Press `Ctrl + X` to exit.
+
+6. Start the background service:
+```bash
 sudo systemctl daemon-reload
-sudo systemctl enable fedlearn  # auto-start on reboot
-sudo systemctl start fedlearn
+sudo systemctl enable fedlearn  # Auto-starts the app if the server reboots
+sudo systemctl start fedlearn   # Starts the app right now
 ```
 
 **For quick debugging**, skip systemd and run in the foreground — the script prints the exact `export` + `java -jar` commands for you.
