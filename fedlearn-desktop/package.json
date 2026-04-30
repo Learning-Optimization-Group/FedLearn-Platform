@@ -1,6 +1,6 @@
 {
   "name": "fedlearn-desktop",
-  "version": "3.0.1-beta",
+  "version": "3.0.2-beta",
   "description": "FedLearn Desktop Client — Docker-based Federated Learning Orchestrator",
   "main": "dist/main/main.js",
   "author": {
