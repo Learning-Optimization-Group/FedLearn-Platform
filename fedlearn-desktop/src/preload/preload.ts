@@ -78,11 +78,12 @@ function isValidModelType(val: unknown): boolean {
 }
 
 function isValidDatasetPath(val: unknown): boolean {
+  // Dataset path is optional — empty string is allowed (means 'use default data')
   if (typeof val !== 'string') {
     console.error(`[Preload:Validation] Dataset path is not a string: ${typeof val}`);
     return false;
   }
-  if (val.length === 0 || val.length > 2048) {
+  if (val.length > 2048) {
     console.error(`[Preload:Validation] Dataset path length out of bounds: ${val.length}`);
     return false;
   }
@@ -278,5 +279,23 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
     error?: string;
   }> => {
     return ipcRenderer.invoke('hardware:detect');
+  },
+
+  // ===================== Auto Updater =====================
+
+  onUpdateAvailable: (callback: (info: any) => void): void => {
+    ipcRenderer.on('updater:update-available', (_event, info) => callback(info));
+  },
+
+  onUpdateProgress: (callback: (progress: any) => void): void => {
+    ipcRenderer.on('updater:download-progress', (_event, progress) => callback(progress));
+  },
+
+  onUpdateDownloaded: (callback: (info: any) => void): void => {
+    ipcRenderer.on('updater:update-downloaded', (_event, info) => callback(info));
+  },
+
+  installUpdate: async (): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('updater:install');
   },
 });

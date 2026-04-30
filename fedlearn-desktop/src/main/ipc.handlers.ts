@@ -7,6 +7,7 @@
 // =============================================================================
 
 import { ipcMain, BrowserWindow, dialog } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -38,6 +39,10 @@ const MAX_DATASET_PATH_LEN = 2048;
  * Returns the canonical absolute path on success, or null on rejection.
  */
 function sanitizeDatasetPath(raw: unknown): string | null {
+  // Dataset path is optional — empty string means "use default dataset inside container".
+  if (typeof raw === 'string' && raw.trim() === '') {
+    return '';
+  }
   if (typeof raw !== 'string' || raw.length === 0 || raw.length > MAX_DATASET_PATH_LEN) {
     return null;
   }
@@ -154,9 +159,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
       const safeDatasetPath = sanitizeDatasetPath(cfg.datasetPath);
       if (safeDatasetPath === null) {
-        // Don't echo the raw input back into logs verbatim — it may be
-        // very long or contain attacker-supplied bytes. The string-cast
-        // here is bounded by the validator's max-length check above.
         log.error('[IPC:docker:start-training] Rejected invalid dataset path');
         return {
           success: false,
@@ -317,5 +319,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, hardware:detect, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory');
+  // ===================== Auto Updater =====================
+  ipcMain.handle('updater:install', async () => {
+    try {
+      log.info('[IPC:updater:install] User requested restart to install update');
+      autoUpdater.quitAndInstall();
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:updater:install] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
+  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, hardware:detect, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory, updater:install');
 }

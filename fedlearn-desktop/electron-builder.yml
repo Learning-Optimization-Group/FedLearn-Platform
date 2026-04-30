@@ -116,7 +116,7 @@ linux:
 
 # ======================== Publish ========================
 # Configure for auto-update if using electron-updater later.
-# publish:
-#   provider: github
-#   owner: anurag2796
-#   repo: FedLearn-Platform
+publish:
+  provider: github
+  owner: anurag2796
+  repo: FedLearn-Platform
