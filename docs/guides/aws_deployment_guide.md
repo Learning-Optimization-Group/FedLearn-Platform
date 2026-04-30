@@ -33,7 +33,7 @@ If you have never used AWS before, follow these exact steps to create your serve
    - Under "Application and OS Images", select the **Ubuntu** logo.
    - For the Amazon Machine Image (AMI), choose **Ubuntu Server 24.04 LTS (HVM)** or **22.04 LTS**.
 6. **Choose the Instance Type:** 
-   - Scroll down to "Instance type" and select **`t3.medium`**. *(Note: The free tier `t2.micro` only has 1GB of RAM, which will crash during Python PyTorch processing. You must use `t3.medium` which has 4GB of RAM).*
+   - Scroll down to "Instance type" and select **`r5.large`**. *(Note: The free tier `t2.micro` only has 1GB of RAM, which will crash during Python PyTorch processing. You must use `r5.large` which has 16GB of RAM to run larger ML models).*
 7. **Create a Key Pair:**
    - Scroll to "Key pair (login)".
    - Click **Create new key pair**.
@@ -303,10 +303,10 @@ few things the deploy guide doesn't otherwise cover:
   now SCP'd in step 2/5, before bootstrap. If you're upgrading from an older
   copy of the script, re-run `--bootstrap` once after pulling the fix, or
   just `pip install -r ~/requirements.txt` on the host.
-- **JVM OOM on `t3.medium`.** 4GB RAM, default JVM heap = 1GB, plus a
-  forked Python+torch process per project can push past the limit. Cap the
-  heap in the systemd unit:
-  `Environment="JAVA_TOOL_OPTIONS=-Xmx1g"`.
+- **JVM OOM on `r5.large`.** 16GB RAM, default JVM heap = 1/4 of RAM, plus a
+  massive PyTorch process. OOM killer usually takes out the Java process. We
+  baked `-Xmx4g` into `ec2-bootstrap.sh`, but if you skipped it, add
+  `Environment="JAVA_TOOL_OPTIONS=-Xmx4g"`.
 - **CORS empty / boot fails.** The `ec2demo` profile requires
   `CORS_ALLOWED_ORIGINS` — Spring fails fast if unset. The deploy script's
   printed `export` line uses `http://localhost:5173`; update it to your real
