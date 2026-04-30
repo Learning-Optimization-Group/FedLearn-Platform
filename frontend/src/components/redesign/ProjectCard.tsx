@@ -243,11 +243,8 @@ export function ProjectCard({
         <button onClick={onOpenResults} className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 py-2.5 px-4 rounded-md text-[14px] font-medium tracking-tight transition-colors">
           View Results
         </button>
-        <button onClick={onOpenLogs} disabled={!isRunning} className={cn(
-          "flex-1 py-2.5 px-4 rounded-md text-[14px] font-medium border border-slate-700 tracking-tight transition-colors",
-          isRunning ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-800/30 text-slate-500 cursor-not-allowed"
-        )}>
-          Logs
+        <button onClick={onOpenLogs} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 px-4 rounded-md text-[14px] font-medium border border-slate-700 tracking-tight transition-colors">
+          View Logs
         </button>
         <button onClick={onToggleServer} disabled={isFailed} className={cn(
           "py-2.5 px-5 rounded-md text-[14px] font-semibold tracking-tight transition-all border",

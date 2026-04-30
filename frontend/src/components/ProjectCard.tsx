@@ -227,10 +227,9 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                     <button
                         className="action-btn logs-btn"
                         onClick={() => onShowLogs(project.id)}
-                        disabled={!isServerRunning}
-                        title={isServerRunning ? "Show live server logs" : "Start server to view logs"}
+                        title="Show server logs"
                     >
-                        Show Live Logs
+                        View Logs
                     </button>
                 </div>
 

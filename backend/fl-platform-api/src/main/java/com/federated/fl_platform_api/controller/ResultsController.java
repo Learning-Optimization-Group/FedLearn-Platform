@@ -29,6 +29,9 @@ public class ResultsController {
     @Autowired
     private ProjectService projectService;
 
+    @Autowired
+    private com.federated.fl_platform_api.service.WebSocketService webSocketService;
+
     @org.springframework.beans.factory.annotation.Value("${feature.round-result-reporting.enabled:true}")
     private boolean roundResultsEnabled;
 
@@ -47,7 +50,11 @@ public class ResultsController {
         result.setLoss(resultDto.getLoss());
         result.setAccuracy(resultDto.getAccuracy());
 
-        roundResultRepository.save(result);
+        RoundResult saved = roundResultRepository.save(result);
+        
+        // Broadcast the result to connected clients
+        webSocketService.sendResultUpdate(projectId, saved);
+        
         return ResponseEntity.ok().build();
     }
 

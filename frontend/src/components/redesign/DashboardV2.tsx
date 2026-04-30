@@ -45,15 +45,35 @@ export function DashboardV2() {
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
   const [startProject, setStartProject] = useState<Project | null>(null);
 
+  // Store results for all projects to power the sparkline charts
+  const [resultsMap, setResultsMap] = useState<Record<string, ProjectResult[]>>({});
+
   const stompClientRef = useRef<StompClient | null>(null);
-  const subscriptionRef = useRef<StompSubscription | null>(null);
+  const subscriptionStatusRef = useRef<StompSubscription | null>(null);
+  const subscriptionResultsRef = useRef<StompSubscription | null>(null);
 
   const loadProjects = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await api.fetchProjects();
-      setProjects(Array.isArray(response.data) ? response.data : []);
+      const loadedProjects = Array.isArray(response.data) ? response.data : [];
+      setProjects(loadedProjects);
       setError('');
+      
+      // Load historical results for all projects to populate sparklines
+      if (loadedProjects.length > 0) {
+        Promise.allSettled(
+          loadedProjects.map(p => api.fetchProjectResults(p.id).then(res => ({ id: p.id, results: res.data })))
+        ).then((resultsData) => {
+          const newMap: Record<string, ProjectResult[]> = {};
+          resultsData.forEach(r => {
+            if (r.status === 'fulfilled') {
+              newMap[r.value.id] = r.value.results;
+            }
+          });
+          setResultsMap(prev => ({ ...prev, ...newMap }));
+        });
+      }
     } catch {
       setError('Failed to fetch projects.');
     } finally {
@@ -71,7 +91,8 @@ export function DashboardV2() {
     });
 
     client.onConnect = () => {
-      const subscription = client.subscribe('/topic/status/*', (message) => {
+      // 1. Subscribe to Status updates
+      const subStatus = client.subscribe('/topic/status/*', (message) => {
         try {
           const update: StatusUpdate = JSON.parse(message.body);
           setProjects((prev) =>
@@ -83,14 +104,31 @@ export function DashboardV2() {
           );
         } catch { /* ignore parse errors */ }
       });
-      subscriptionRef.current = subscription;
+      subscriptionStatusRef.current = subStatus;
+
+      // 2. Subscribe to Telemetry updates
+      const subResults = client.subscribe('/topic/results/*', (message) => {
+        try {
+          const result: ProjectResult = JSON.parse(message.body);
+          const destParts = message.headers.destination.split('/');
+          const projectId = destParts[destParts.length - 1];
+          if (projectId && result) {
+            setResultsMap(prev => ({
+              ...prev,
+              [projectId]: [...(prev[projectId] || []), result]
+            }));
+          }
+        } catch { /* ignore parse errors */ }
+      });
+      subscriptionResultsRef.current = subResults;
     };
 
     client.activate();
     stompClientRef.current = client;
 
     return () => {
-      subscriptionRef.current?.unsubscribe();
+      subscriptionStatusRef.current?.unsubscribe();
+      subscriptionResultsRef.current?.unsubscribe();
       if (stompClientRef.current?.active) stompClientRef.current.deactivate();
     };
   }, []);
@@ -223,6 +261,7 @@ export function DashboardV2() {
               <ProjectCard
                 key={project.id}
                 project={project}
+                results={resultsMap[project.id] || []}
                 onOpenLogs={() => setLogViewProjectId(project.id)}
                 onOpenResults={() => handleOpenResults(project)}
                 onToggleServer={() => handleToggleServer(project)}

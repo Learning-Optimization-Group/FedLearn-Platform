@@ -60,6 +60,12 @@ public class WebSocketService {
         messagingTemplate.convertAndSend(destination, statusUpdate);
     }
 
+    public void sendResultUpdate(UUID projectId, Object result) {
+        if (projectId == null || result == null) return;
+        String destination = "/topic/results/" + projectId.toString();
+        messagingTemplate.convertAndSend(destination, result);
+    }
+
     // ─── Private helpers ─────────────────────────────────────────────────────
 
     private void persistLog(UUID projectId, String rawLine) {
