@@ -30,11 +30,15 @@ SCRIPTS_DIR="$APP_DIR/scripts"
 
 echo "[1/6] Updating system packages..."
 apt-get update -qq
+
 apt-get install -y --no-install-recommends \
   openjdk-21-jre-headless \
   python3 \
-  python3-pip \
   python3-venv \
+  python3-dev \
+  python3-pip \
+  build-essential \
+  cmake \
   curl \
   unzip \
   htop \
@@ -45,17 +49,17 @@ echo ""
 echo "[2/6] Installing CPU-only PyTorch (saves ~2GB vs CUDA build)..."
 # Install CPU wheels explicitly BEFORE requirements.txt to prevent pip from
 # pulling down the enormous CUDA-enabled torch build.
-sudo -u "$ACTUAL_USER" pip3 install --quiet \
-  torch==2.5.1 \
-  torchvision==0.20.1 \
-  torchaudio==2.5.1 \
+sudo -u "$ACTUAL_USER" pip3 install --break-system-packages \
+  torch \
+  torchvision \
+  torchaudio \
   --index-url https://download.pytorch.org/whl/cpu
 echo "      ✓ PyTorch CPU wheels installed"
 
 echo ""
-echo "[3/6] Installing FedLearn Python dependencies..."
+echo "[3/6] Installing FedLearn Python dependencies (this may take a while)..."
 if [[ -f "$HOME_DIR/requirements.txt" ]]; then
-  sudo -u "$ACTUAL_USER" pip3 install --quiet -r "$HOME_DIR/requirements.txt"
+  sudo -u "$ACTUAL_USER" pip3 install --break-system-packages -r "$HOME_DIR/requirements.txt"
   echo "      ✓ Python dependencies installed"
 else
   echo "      ⚠ WARNING: $HOME_DIR/requirements.txt not found."
