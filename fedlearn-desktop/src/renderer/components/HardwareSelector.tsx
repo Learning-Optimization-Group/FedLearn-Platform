@@ -153,10 +153,10 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
       return;
     }
 
-    if (!datasetPath.trim()) {
-      setValidationError('Local Dataset Path is required.');
-      return;
-    }
+    // if (!datasetPath.trim()) {
+    //   setValidationError('Local Dataset Path is required.');
+    //   return;
+    // }
 
     onStart({
       hardwareProfile: selectedProfile,
@@ -263,7 +263,7 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
 
         <div className="form-group">
           <label className="form-label" htmlFor="config-dataset-path">
-            Local Dataset Path
+            Local Dataset Path (Optional)
           </label>
           <div style={{ display: 'flex', gap: '8px' }}>
             <input
