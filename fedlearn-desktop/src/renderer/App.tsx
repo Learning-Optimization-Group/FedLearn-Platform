@@ -50,7 +50,10 @@ declare global {
       onUpdateAvailable: (callback: (info: any) => void) => void;
       onUpdateProgress: (callback: (progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => void;
       onUpdateDownloaded: (callback: (info: any) => void) => void;
+      onUpdateNotAvailable: (callback: () => void) => void;
+      onUpdateError: (callback: (message: string) => void) => void;
       installUpdate: () => Promise<{ success: boolean; error?: string }>;
+      checkForUpdates: () => Promise<{ success: boolean; error?: string }>;
     };
   }
 }

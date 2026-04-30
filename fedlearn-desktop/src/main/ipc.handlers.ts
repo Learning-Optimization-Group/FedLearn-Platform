@@ -332,5 +332,28 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  ipcMain.handle('updater:check', async () => {
+    try {
+      log.info('[IPC:updater:check] Manual update check triggered');
+      // Relay "not available" and "error" events back to the renderer
+      autoUpdater.once('update-not-available', () => {
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('updater:not-available');
+        }
+      });
+      autoUpdater.once('error', (err: Error) => {
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('updater:error', err.message);
+        }
+      });
+      await autoUpdater.checkForUpdates();
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:updater:check] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
   log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, hardware:detect, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory, updater:install');
 }
