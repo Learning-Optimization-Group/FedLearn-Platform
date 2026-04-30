@@ -295,7 +295,19 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
     ipcRenderer.on('updater:update-downloaded', (_event, info) => callback(info));
   },
 
+  onUpdateNotAvailable: (callback: () => void): void => {
+    ipcRenderer.on('updater:not-available', () => callback());
+  },
+
+  onUpdateError: (callback: (message: string) => void): void => {
+    ipcRenderer.on('updater:error', (_event, message) => callback(message));
+  },
+
   installUpdate: async (): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('updater:install');
+  },
+
+  checkForUpdates: async (): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('updater:check');
   },
 });
