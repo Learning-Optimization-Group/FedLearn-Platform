@@ -98,10 +98,10 @@ except Exception:
 
 utilization_log = []
 
-# --- !! MANUAL FLAG TO SWITCH BETWEEN MODELS !! ---
-USE_LLM = True
-USE_MLP = False  # Flag for MLP/ECG
-# --------------------------------------------------
+# These are overridden at runtime by --model-type CLI arg inside main().
+# Default to CNN so the early boot log line is accurate for the common case.
+USE_LLM = False
+USE_MLP = False
 
 # --- Configuration ---
 NUM_PARTITIONS = 10
@@ -825,4 +825,6 @@ def main():
 
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()  # Required for PyInstaller on macOS (spawn method)
     main()
