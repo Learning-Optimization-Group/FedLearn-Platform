@@ -31,7 +31,7 @@ If you have never used AWS before, follow these exact steps to create your serve
 4. **Name your server:** Under "Name and tags", enter `FedLearn-Demo`.
 5. **Choose the OS (AMI):** 
    - Under "Application and OS Images", select the **Ubuntu** logo.
-   - For the Amazon Machine Image (AMI), choose **Ubuntu Server 24.04 LTS (HVM)** or **22.04 LTS**.
+   - For the Amazon Machine Image (AMI), choose **Ubuntu Server 26.04 LTS (HVM)**, **24.04 LTS**, or **22.04 LTS**.
 6. **Choose the Instance Type:** 
    - Scroll down to "Instance type" and select **`r5.large`**. *(Note: The free tier `t2.micro` only has 1GB of RAM, which will crash during Python PyTorch processing. You must use `r5.large` which has 16GB of RAM to run larger ML models).*
 7. **Create a Key Pair:**
