@@ -33,7 +33,7 @@ If you have never used AWS before, follow these exact steps to create your serve
    - Under "Application and OS Images", select the **Ubuntu** logo.
    - For the Amazon Machine Image (AMI), choose **Ubuntu Server 26.04 LTS (HVM)**, **24.04 LTS**, or **22.04 LTS**.
 6. **Choose the Instance Type:** 
-   - Scroll down to "Instance type" and select **`r5.large`**. *(Note: The free tier `t2.micro` only has 1GB of RAM, which will crash during Python PyTorch processing. You must use `r5.large` which has 16GB of RAM to run larger ML models).*
+   - Scroll down to "Instance type" and select **`r5.large`** (16GB RAM) or **`m7i-flex.large`** (8GB RAM). *(Note: The free tier `t2.micro` only has 1GB of RAM, which will crash during Python PyTorch processing. You must use an instance with at least 8GB of RAM to run ML models).*
 7. **Create a Key Pair:**
    - Scroll to "Key pair (login)".
    - Click **Create new key pair**.
@@ -47,7 +47,8 @@ If you have never used AWS before, follow these exact steps to create your serve
    - Scroll to "Network settings" and click the **Edit** button in that box.
    - Ensure "Auto-assign public IP" is **Enable**.
    - Under "Firewall (security groups)", select **Create security group**.
-   - Name it `fedlearn-sg`.
+    - **Security group name:** `fedlearn-sg`
+    - **Description:** `    `
    - **Rule 1 (SSH):** Type: SSH, Port: 22, Source type: **My IP**. *(This ensures only your current Wi-Fi can log into the server).*
      - ⚠️ **Important:** If your IP changes (different Wi-Fi, VPN, etc.), you will be locked out via SSH. To update: go to AWS Console → EC2 → Security Groups → `fedlearn-sg` → Edit inbound rules → update the SSH rule's source to your new IP.
    - **Click "Add security group rule"** to add another rule.
@@ -73,7 +74,7 @@ Open your local terminal (on your Mac/PC, not the server) and run these commands
 
 ```bash
 # 1. Tell your terminal where your server is
-export EC2_HOST=54.123.45.67  # Replace with your actual Public IPv4 address
+export EC2_HOST=3.17.204.225  # Replace with your actual Public IPv4 address
 
 # 2. Tell your terminal where your downloaded .pem key is
 export EC2_KEY_PATH=~/.ssh/fedlearn-key.pem  # Replace with where you saved the file
@@ -303,10 +304,7 @@ few things the deploy guide doesn't otherwise cover:
   now SCP'd in step 2/5, before bootstrap. If you're upgrading from an older
   copy of the script, re-run `--bootstrap` once after pulling the fix, or
   just `pip install -r ~/requirements.txt` on the host.
-- **JVM OOM on `r5.large`.** 16GB RAM, default JVM heap = 1/4 of RAM, plus a
-  massive PyTorch process. OOM killer usually takes out the Java process. We
-  baked `-Xmx4g` into `ec2-bootstrap.sh`, but if you skipped it, add
-  `Environment="JAVA_TOOL_OPTIONS=-Xmx4g"`.
+- **JVM OOM on smaller instances.** 16GB RAM (`r5.large`) is ideal. If using 8GB RAM (like `m7i-flex.large`), a massive PyTorch process plus the Java backend might trigger the OOM killer. We baked `-Xmx4g` into `ec2-bootstrap.sh`, but if you are on an 8GB instance, edit your `fedlearn.service` to add `Environment="JAVA_TOOL_OPTIONS=-Xmx2g"` to leave more memory for PyTorch.
 - **CORS empty / boot fails.** The `ec2demo` profile requires
   `CORS_ALLOWED_ORIGINS` — Spring fails fast if unset. The deploy script's
   printed `export` line uses `http://localhost:5173`; update it to your real
