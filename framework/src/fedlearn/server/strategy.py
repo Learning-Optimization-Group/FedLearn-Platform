@@ -40,12 +40,12 @@ class FedAvg(Strategy):
             initial_parameters: OrderedDict[str, torch.Tensor],
             evaluate_fn:Optional[Callable]=None,
             min_fit_clients:int=1,
-            clients_per_round:int=2
+            clients_per_round:int=None
     ):
         self.initial_parameters = initial_parameters
         self.evaluate_fn = evaluate_fn
         self.min_fit_clients = min_fit_clients
-        self.clients_per_round = clients_per_round
+        self.clients_per_round = clients_per_round if clients_per_round is not None else min_fit_clients
         self.aggregator = FedAvgAggregator()
 
     def initialize_parameters(self) -> Optional[OrderedDict[str, torch.Tensor]]:

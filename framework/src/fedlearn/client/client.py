@@ -90,6 +90,7 @@ def start_client(server_address: str, client: Client, client_id: str):
                     else:
                         log.error("[%s] Failed to submit update for round %d", client_id, server_round)
                         comm_client.update_status("error", 0, 0)
+                else:
                     # The server is still in the same round, waiting for other clients.
                     # TODO: Replace polling with a WaitForNextRound server-streaming RPC
                     # that blocks until the Coordinator fires _round_complete_event,
