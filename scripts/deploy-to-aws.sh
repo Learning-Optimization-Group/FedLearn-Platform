@@ -33,10 +33,10 @@ SKIP_BUILD=false
 RUN_BOOTSTRAP=false
 RESTART_SERVICE=false
 
-# ── Repo root (this script lives in scripts/) ─────────────────────────────────
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_DIR="$REPO_ROOT/backend/fl-platform-api"
 SCRIPTS_SRC="$BACKEND_DIR/src/main/resources/scripts"
+FRAMEWORK_SRC="$REPO_ROOT/framework"
 REQUIREMENTS_SRC="$REPO_ROOT/framework/requirements.txt"
 BOOTSTRAP_SCRIPT="$REPO_ROOT/scripts/ec2-bootstrap.sh"
 
@@ -140,7 +140,7 @@ echo ""
 echo "[4/5] Uploading app artifacts..."
 
 # Make sure remote directories exist
-ssh_cmd "mkdir -p $REMOTE_APP_DIR $REMOTE_SCRIPTS_DIR $REMOTE_APP_DIR/models $REMOTE_APP_DIR/data"
+ssh_cmd "mkdir -p $REMOTE_APP_DIR $REMOTE_SCRIPTS_DIR $REMOTE_APP_DIR/framework $REMOTE_APP_DIR/models $REMOTE_APP_DIR/data"
 
 # Upload JAR
 scp_cmd "$JAR_PATH" "$EC2_TARGET:$REMOTE_APP_DIR/app.jar"
@@ -156,15 +156,30 @@ if command -v rsync &>/dev/null; then
     --exclude='*.npz' \
     -e "ssh -i $EC2_KEY_PATH -o StrictHostKeyChecking=no" \
     "$SCRIPTS_SRC/" "$EC2_TARGET:$REMOTE_SCRIPTS_DIR/"
+    
+  rsync -az --quiet \
+    --exclude='__pycache__/' \
+    --exclude='*.pyc' \
+    --exclude='*.log' \
+    --exclude='.pytest_cache/' \
+    --exclude='docs/' \
+    -e "ssh -i $EC2_KEY_PATH -o StrictHostKeyChecking=no" \
+    "$FRAMEWORK_SRC/" "$EC2_TARGET:$REMOTE_APP_DIR/framework/"
 else
   # Fallback to scp if rsync is unavailable
   scp_cmd -r "$SCRIPTS_SRC"/* "$EC2_TARGET:$REMOTE_SCRIPTS_DIR/"
+  scp_cmd -r "$FRAMEWORK_SRC"/* "$EC2_TARGET:$REMOTE_APP_DIR/framework/"
 fi
-echo "      ✓ Python scripts uploaded"
+echo "      ✓ Python scripts and framework uploaded"
 
 # Make shell scripts executable on the remote
 ssh_cmd "chmod +x $REMOTE_SCRIPTS_DIR/*.sh 2>/dev/null || true"
 echo "      ✓ Shell scripts marked executable"
+
+# Install framework in editable mode
+echo "[4.5/5] Installing framework package on remote..."
+ssh_cmd "sudo -u ubuntu pip3 install --break-system-packages -e $REMOTE_APP_DIR/framework"
+echo "      ✓ Framework package installed"
 
 # ── Step 5: Restart service (optional) ────────────────────────────────────────
 echo ""
