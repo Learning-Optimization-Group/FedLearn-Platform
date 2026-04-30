@@ -95,3 +95,5 @@ CLAUDE.md
 
 docs/llm_dumps/
 docs/testing/
+docs/guides/aws_deployment_guide.md
+MULTI_DEVICE_TESTING_GUIDE.md
