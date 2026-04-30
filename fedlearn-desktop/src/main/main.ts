@@ -13,6 +13,7 @@ import { app, BrowserWindow, session, crashReporter } from 'electron';
 import * as path from 'path';
 import log from 'electron-log';
 import { registerIpcHandlers } from './ipc.handlers';
+import { initializeUpdater } from './updater';
 
 // Crash reports written to disk — visible via app.getPath('crashDumps').
 // No remote submission configured; dumps stay local for debugging.
@@ -114,6 +115,9 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
     log.info('[Main] Loaded renderer from packaged file');
   }
+
+  // Initialize auto-updater
+  initializeUpdater(mainWindow);
 
   mainWindow.on('closed', () => {
     mainWindow = null;

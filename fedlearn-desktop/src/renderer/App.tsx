@@ -8,6 +8,7 @@ import HardwareSelector from './components/HardwareSelector';
 import LogPanel from './components/LogPanel';
 import StatusIndicator from './components/StatusIndicator';
 import SettingsModal from './components/SettingsModal';
+import UpdateBanner from './components/UpdateBanner';
 import './styles.css';
 
 // Type declaration for the secure preload API
@@ -45,6 +46,11 @@ declare global {
         };
         error?: string;
       }>;
+      // Auto-updater
+      onUpdateAvailable: (callback: (info: any) => void) => void;
+      onUpdateProgress: (callback: (progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => void;
+      onUpdateDownloaded: (callback: (info: any) => void) => void;
+      installUpdate: () => Promise<{ success: boolean; error?: string }>;
     };
   }
 }
@@ -240,6 +246,9 @@ const App: React.FC = () => {
           </span>
         </div>
       )}
+
+      {/* Auto-Update Banner */}
+      <UpdateBanner />
 
       {/* Main Content */}
       <main className="app-main">
