@@ -4,8 +4,10 @@
   "version": "1.4.1-beta",
   "type": "module",
   "scripts": {
-    "dev": "vite --open",
+    "dev": "vite --open --mode development",
+    "dev:ec2demo": "vite --open --mode ec2demo",
     "build": "tsc && vite build",
+    "build:ec2demo": "tsc && vite build --mode ec2demo",
     "lint": "eslint .",
     "preview": "vite preview"
   },
