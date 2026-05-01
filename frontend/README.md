@@ -1,280 +1,92 @@
-# FedLearn Platform - Fixed Frontend
+# FedLearn Frontend
 
-This is a **completely refactored and security-hardened** version of the FedLearn platform frontend. All critical security vulnerabilities and code quality issues have been addressed.
+React 19 + Vite + TypeScript SPA for the FedLearn Platform. The dashboard talks to the Spring Boot backend over REST and STOMP-over-WebSocket; auth is cookie-based.
 
-## 🔒 Security Fixes Applied
+## Stack
 
-### Critical Security Issues Fixed
+- **React 19** — function components, hooks, modern JSX runtime
+- **Vite 6** — dev server + build (mode-aware env loading, HMR, native ESM)
+- **TypeScript** (strict) — typed components, services, and API responses
+- **Tailwind v4** — utility-first styling via `@tailwindcss/vite`
+- **Axios** — HTTP client; `withCredentials: true` so cookies flow on every request
+- **`@stomp/stompjs`** — native WebSocket STOMP client (no SockJS shim)
+- **`recharts`** — telemetry sparklines on the dashboard
+- **`lucide-react`** — icon set
+- **React Router v7** — routing
 
-1. **Removed Token Logging to Console**
-   - ❌ Before: JWT tokens were logged to console
-   - ✅ After: All console.log statements containing tokens removed
-
-2. **Added Token Expiration Validation**
-   - ❌ Before: No client-side expiration checking
-   - ✅ After: JWT expiration validated before use
-
-3. **Consistent Token Storage Keys**
-   - ❌ Before: Mixed usage of 'token' and 'jwtToken'
-   - ✅ After: Standardized on 'jwtToken' throughout
-
-4. **Removed Suspicious Headers**
-   - ❌ Before: Hardcoded User-Agent strings
-   - ✅ After: Clean, minimal headers
-
-5. **Password Strength Validation**
-   - ❌ Before: No password requirements
-   - ✅ After: Minimum 8 characters, uppercase, lowercase, and numbers required
-
-6. **XSS Protection via Sanitization**
-   - ❌ Before: Raw user input displayed
-   - ✅ After: React's built-in XSS protection + proper escaping
-
-7. **Proper Error Handling**
-   - ❌ Before: Errors exposed system details
-   - ✅ After: Generic error messages to users, detailed logs for developers
-
-## 🐛 Bug Fixes Applied
-
-### Critical Bugs Fixed
-
-1. **LoginPage response.json() Bug** (Lines 2930-2934)
-   - ❌ Before: `const responseData = response.json;` (assigned function, not result)
-   - ✅ After: `const responseData = await response.json();` (proper async call)
-
-2. **Missing useEffect Dependencies**
-   - ❌ Before: Layout.tsx had empty dependency array
-   - ✅ After: Added `[currentUser]` dependency
-
-3. **Memory Leak in WebSocket**
-   - ❌ Before: Subscriptions not properly cleaned up
-   - ✅ After: Proper useRef and cleanup in useEffect
-
-4. **Unbounded Log Array Growth**
-   - ❌ Before: Logs array grew infinitely
-   - ✅ After: Max 1000 logs with automatic rotation
-
-5. **UI Typo Fixed**
-   - ❌ Before: "Passwordddd" label
-   - ✅ After: "Password" label
-
-6. **Unused State Removed**
-   - ❌ Before: Multiple unused state variables
-   - ✅ After: Clean, minimal state management
-
-## 🎯 Code Quality Improvements
-
-### TypeScript Migration
-
-- ✅ **Complete TypeScript conversion** from JavaScript
-- ✅ Strict mode enabled with full type safety
-- ✅ Proper interfaces for all data structures
-- ✅ Type-safe API calls and responses
-
-### React Best Practices
-
-- ✅ Fixed all React Hooks dependency arrays
-- ✅ Proper cleanup in all useEffect hooks
-- ✅ Removed callback dependency loops
-- ✅ Added proper prop types and interfaces
-- ✅ Eliminated prop drilling where possible
-
-### Accessibility Improvements
-
-- ✅ Added ARIA labels to all interactive elements
-- ✅ Proper role attributes on modals and dialogs
-- ✅ Keyboard navigation (ESC to close modals)
-- ✅ Screen reader support with aria-live regions
-- ✅ Form labels properly associated with inputs
-
-### Performance Optimizations
-
-- ✅ useCallback for expensive operations
-- ✅ Proper memo usage where needed
-- ✅ Log rotation prevents memory bloat
-- ✅ Request cancellation on component unmount
-- ✅ Debounced input handlers
-
-### Error Handling
-
-- ✅ Try-catch blocks on all async operations
-- ✅ User-friendly error messages
-- ✅ Loading states for all async actions
-- ✅ Graceful degradation on failures
-
-## 📁 Project Structure
+## Project layout
 
 ```
-fixed-frontend/
+frontend/
 ├── src/
-│   ├── api/
-│   │   └── axiosConfig.ts          # Fixed: Removed console.logs, clean headers
-│   ├── components/
-│   │   ├── CopyIcon.tsx            # Fixed: Added proper types
-│   │   ├── CreateProjectModal.tsx  # Fixed: ESC key support, accessibility
-│   │   ├── DiskLoader.tsx          # Fixed: ARIA attributes
-│   │   ├── Layout.tsx              # Fixed: useEffect dependencies
-│   │   ├── LogViewer.tsx           # Fixed: Memory leak, log rotation
-│   │   ├── ModelCard.tsx           # Fixed: TypeScript types
-│   │   ├── ProjectCard.tsx         # Fixed: State sync, prop updates
-│   │   ├── ProtectedRoute.tsx      # Fixed: Proper loading states
-│   │   └── ResultsModal.tsx        # Fixed: ESC key, accessibility
-│   ├── context/
-│   │   └── AuthContext.tsx         # Fixed: Token expiration, types
-│   ├── pages/
-│   │   ├── DashboardPage.tsx       # Fixed: WebSocket cleanup, refs
-│   │   ├── HomePage.tsx            # New: Proper structure
-│   │   ├── LandingPage.tsx         # Fixed: Clean markup
-│   │   ├── LoginPage.tsx           # Fixed: response.json() bug!
-│   │   ├── ModelsPage.tsx          # New: Proper structure
-│   │   ├── RegisterPage.tsx        # Fixed: Password validation, typo
-│   │   ├── SettingsPage.tsx        # New: Proper structure
-│   │   └── TrainingPage.tsx        # New: Proper structure
+│   ├── api/axiosConfig.ts       # Axios singleton, interceptors, env-driven baseURL
+│   ├── components/              # Reusable + redesign/* (Apple-inspired DashboardV2, LogViewer, ...)
+│   ├── pages/                   # Top-level routes (Login, Register, Dashboard, ...)
 │   ├── services/
-│   │   └── apiServices.ts          # Fixed: Removed console.logs, added types
-│   ├── styles/                     # (Create your CSS files here)
-│   ├── App.tsx                     # Fixed: Proper 404 handling
-│   └── main.tsx                    # Fixed: Error boundary ready
-├── .env.example                    # Environment variables template
-├── index.html                      # HTML entry point
-├── package.json                    # Updated with TypeScript
-├── tsconfig.json                   # Strict TypeScript config
-├── tsconfig.node.json              # Node TypeScript config
-├── vite.config.ts                  # Clean Vite configuration
-└── README.md                       # This file
-
+│   │   ├── apiServices.ts       # Typed wrappers around every backend endpoint
+│   │   └── logStore.ts          # Cross-component WebSocket log cache
+│   ├── context/AuthContext.tsx  # Bootstrap auth state from /api/auth/me probe
+│   ├── lib/                     # logger, cn(), small util layer
+│   └── main.tsx
+├── .env.development             # full-local mode (committed)
+├── .env.ec2demo                 # frontend-local + remote backend (committed)
+├── .env.production              # prod build (committed; placeholder host)
+├── .env.local                   # personal overrides (gitignored)
+├── .env.example                 # documents the env-var contract
+├── vite.config.ts
+└── package.json
 ```
 
-## 🚀 Getting Started
+## Auth model
 
-### Prerequisites
+The backend issues an HttpOnly **`jwtToken` cookie** on `/api/auth/login`. `axiosConfig.ts` sets `withCredentials: true`; the browser handles everything else. There is no `localStorage`, no `Authorization: Bearer` header, no JS-readable token.
 
-- Node.js 18+ and npm/pnpm
-- Backend API running (default: http://localhost:8081)
+Bootstrap flow (`AuthContext.tsx`):
 
-### Installation
+1. App mounts → silently probes `GET /api/auth/me`.
+2. 200 → user is hydrated into context.
+3. 401 → user is anonymous; the interceptor in `axiosConfig.ts` swallows this specific 401 (it's intentional, not an auth error to redirect on).
+
+A 401 on any other endpoint dispatches an `authError` event, prompting the global redirect to `/login`.
+
+## Environment modes
+
+Vite modes mirror the backend's Spring profiles 1:1:
+
+| Mode | Spring profile | Script | Notes |
+|---|---|---|---|
+| `development` | `dev` | `npm run dev` | Full-local. Backend on `localhost:8081`, no proxy. CORS in `application-dev.properties` allows `http://localhost:*`. |
+| `ec2demo` | `ec2demo` | `npm run dev:ec2demo` | Vite proxies `/api` and `/ws-logs` to `https://fedlearn.duckdns.org`. Cookies stay first-party to `localhost:5173` — sidesteps Safari's third-party cookie traps. |
+| `production` | `production` | `npm run build` / `npm run build:ec2demo` | Static bundle. `VITE_FEDLEARN_API_URL` is required at build time; `axiosConfig.ts` throws on boot if missing. |
+
+Vite env precedence (highest wins): `.env.[mode].local` > `.env.local` > `.env.[mode]` > `.env`. Personal overrides go in the `*.local` files, which are gitignored. Full var contract: `.env.example`.
+
+The Vite proxy target is env-driven (`VITE_PROXY_TARGET`), so a teammate pointing at a different EC2 can override it in `.env.local` without editing `vite.config.ts`.
+
+## Scripts
 
 ```bash
-# Copy environment variables
-cp .env.example .env
-
-# Edit .env with your backend URL
-nano .env
-
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
+npm run dev               # Vite mode: development
+npm run dev:ec2demo       # Vite mode: ec2demo (proxy → live EC2)
+npm run build             # tsc + vite build (mode: production)
+npm run build:ec2demo     # tsc + vite build (mode: ec2demo)
+npm run lint              # ESLint
+npm run preview           # Local preview of the production bundle
 ```
 
-The app will be available at `http://localhost:5173`
+`vite.config.ts` enforces `strictPort: true`. If `:5173` is busy, Vite refuses to start instead of silently shifting to `:5174` — that shift would break CORS, since the backend allowlist is keyed on `:5173`.
 
-### Build for Production
+## Conventions
 
-```bash
-# Build with TypeScript checking
-npm run build
+- Strict TypeScript — interfaces for every component prop and API response.
+- Components in `components/redesign/*` are the current Apple-inspired UI; older flat components are kept until callers are migrated.
+- API calls go through `services/apiServices.ts` — never `axios.create()` ad hoc in a component.
+- Never log cookies, request headers, or response bodies that could carry auth material.
+- WebSocket subscriptions clean up on unmount (`useRef<StompSubscription>` + cleanup).
 
-# Preview production build
-npm run preview
-```
+## Adjacent docs
 
-## 🔧 Environment Variables
-
-Create a `.env` file in the project root:
-
-```env
-VITE_API_BASE_URL=http://localhost:8081/api
-VITE_SERVER_ROOT_URL=http://localhost:8081
-VITE_APP_NAME=FedLearn Platform
-```
-
-## 📊 What Was Fixed - Summary
-
-| Category | Issues Found | Issues Fixed |
-|----------|--------------|--------------|
-| Security | 14 | 14 ✅ |
-| Bugs | 11 | 11 ✅ |
-| TypeScript | 0 | Added ✅ |
-| Accessibility | 20 | 20 ✅ |
-| Performance | 7 | 7 ✅ |
-| Code Quality | 16 | 16 ✅ |
-| **Total** | **68** | **68 ✅** |
-
-## 🎨 CSS Files Needed
-
-You'll need to create the following CSS files (not included in this package):
-
-```
-src/styles/
-├── App.css
-├── AuthStyles.css
-├── CopyIcon.css
-├── CreateProjectModal.css
-├── Dashboard.css
-├── DiskLoader.css
-├── LandingPage.css
-├── Layout.css
-├── LogViewer.css
-├── ModelCard.css
-├── ProjectCard.css
-├── ResultsModal.css
-└── index.css
-```
-
-These should contain your styling from the original project.
-
-## 🔐 Security Recommendations for Production
-
-1. **Use httpOnly Cookies** instead of localStorage for tokens
-2. **Implement CSRF Protection** tokens for state-changing operations
-3. **Add Content Security Policy** (CSP) headers
-4. **Enable HTTPS** for all communication
-5. **Add rate limiting** on the backend
-6. **Implement proper session management**
-7. **Regular security audits** and dependency updates
-
-## 📝 Development Notes
-
-### TypeScript Benefits
-
-- Catch errors at compile-time, not runtime
-- Better IDE autocomplete and IntelliSense
-- Refactoring is safer and easier
-- Self-documenting code with types
-
-### Testing Recommendations
-
-```bash
-# Add these to your dev dependencies
-npm install -D @testing-library/react @testing-library/jest-dom vitest
-```
-
-Then create tests for:
-- Authentication flows
-- Form validation
-- API error handling
-- WebSocket reconnection
-
-## 🤝 Contributing
-
-When adding new features:
-
-1. Use TypeScript for all new files
-2. Follow existing patterns and conventions
-3. Add proper error handling
-4. Include accessibility attributes
-5. Write tests for critical paths
-
-## 📄 License
-
-Same as the original FedLearn Platform project.
-
-## 🙏 Acknowledgments
-
-This refactored version addresses all issues identified in the original codebase security and code quality audit.
-
----
-
-**Note**: This is a production-ready codebase with all identified security vulnerabilities and bugs fixed. However, always perform your own security audit before deploying to production.
+- Coding guidance for AI assistants: `frontend/CLAUDE.md` (gitignored — local-only).
+- Wiki / deeper architecture: `docs/wikis/frontend/`.
+- Backend auth contract: `backend/fl-platform-api/CLAUDE.md` and `backend/fl-platform-api/DEVELOPMENT.md`.

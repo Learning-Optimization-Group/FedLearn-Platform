@@ -41,37 +41,32 @@ FedLearn Platform is an **open-source**, end-to-end solution for federated learn
 
 ### System Components
 
-| Component              | Technology            | Purpose                                 | Deployment        |
-| ---------------------- | --------------------- | --------------------------------------- | ----------------- |
-| **Frontend**     | React 19 + Vite       | Web dashboard, real-time logs           | Vercel            |
-| **Backend API**  | Spring Boot 3         | REST API, authentication, orchestration | AWS EC2           |
-| **Database**     | PostgreSQL            | User data, projects, results            | AWS EC2           |
-| **FL Framework** | Python 3.10 + PyTorch | Custom federated learning server        | AWS EC2 (spawned) |
-| **FL Clients**   | Docker + Python       | Containerized training clients          | Distributed       |
+| Component              | Technology               | Purpose                                  | Deployment                                          |
+| ---------------------- | ------------------------ | ---------------------------------------- | --------------------------------------------------- |
+| **Frontend**     | React 19 + Vite + TS     | Web dashboard, real-time telemetry       | Local Vite (`:5173`) or static bundle               |
+| **Backend API**  | Spring Boot 3 (Java 21)  | REST + STOMP, auth, FL-server lifecycle  | AWS EC2 behind nginx + Let's Encrypt                |
+| **Database**     | H2 (file-mode)           | Users, projects, training results        | EBS-backed on the same EC2; PostgreSQL is `production` profile (unfinished) |
+| **FL Framework** | Python 3.10 + PyTorch    | Custom federated learning server         | Spawned by backend via `ProcessBuilder`             |
+| **FL Clients**   | Docker + Python          | Containerized training clients           | Heterogeneous: Jetson AGX Orin / M4 Max / Zephyrus  |
+| **Desktop**      | Electron + TS + dockerode | Host-side orchestrator for FL clients   | Packaged for macOS / Linux / Windows (CPU + CUDA)   |
 
 ### Data Flow
 
 ```
-1. User creates project in React Dashboard
-           ↓
-2. Frontend sends REST API request to Spring Boot
-           ↓
-3. Spring Boot saves project to PostgreSQL
-           ↓
-4. Spring Boot spawns Python FL Server (via ProcessBuilder)
-           ↓
-5. FL Server starts gRPC server on dynamic port
-           ↓
-6. Docker/Native clients connect via gRPC
-           ↓
-7. Training begins with chunked parameter transfer
-           ↓
-8. Parallel heartbeat keeps connection alive
-           ↓
-9. Server logs streamed to React via WebSocket
-           ↓
-10. Results saved to PostgreSQL and displayed in UI
+Browser
+  → nginx :443 (TLS, Let's Encrypt) — only on EC2; local dev hits :8081 direct
+  → Spring Boot REST + STOMP (:8081, loopback-only on EC2)
+  → H2 / PostgreSQL  (project + user state)
+  → spawns Python FL server via ProcessBuilder
+  → FL server gRPC on a dynamic port in :50000-50010
+  → FL clients (Docker / native) connect over gRPC
+       ↘ training stub (long blocking calls)
+       ↘ heartbeat stub (parallel thread, keeps connection alive)
+  → server stdout streamed back as STOMP messages → live in the React dashboard
+  → round results persisted, surfaced as sparklines + telemetry
 ```
+
+Live demo deployment: **https://fedlearn.duckdns.org** (`ec2demo` Spring profile). See `docs/guides/aws_deployment_guide.md`.
 
 ---
 
@@ -204,20 +199,21 @@ docker run -v /data:/data \
 
 ---
 
-### 6. Full JWT Authentication & Authorization
+### 6. Stateless JWT via HttpOnly Cookies
 
-Secure REST API with Spring Security + JWT tokens.
+Spring Security signs a stateless JWT and delivers it to the browser as an **HttpOnly, Secure, SameSite-tightened cookie**. The frontend never sees the token in JavaScript — `withCredentials: true` on Axios is the only thing it does to authenticate.
 
 **Flow**:
 
 ```
-1. User logs in → Spring Boot validates credentials
-2. JWT token generated and returned
-3. Frontend stores token in localStorage
-4. All API requests include token in Authorization header
-5. Spring Boot validates token on each request
-6. User can only access their own projects
+1. User logs in   → Spring Boot validates credentials, signs a JWT
+2. Backend sets jwtToken as an HttpOnly cookie in the response
+3. Browser auto-sends the cookie on every subsequent request
+4. JwtAuthenticationFilter reads the cookie, validates, sets SecurityContext
+5. Resource-level checks ensure users only see their own projects
 ```
+
+This deliberately closes the XSS exfiltration vector: there is no `localStorage` or JS-readable token to steal. The same model applies to the Electron desktop app — auth state lives in the main-process session, never crosses into the renderer.
 
 ---
 
@@ -235,13 +231,12 @@ Secure REST API with Spring Security + JWT tokens.
 
 ### Backend
 
-- **Spring Boot 3** - Java framework
-- **Spring Security** - Authentication/authorization
-- **JWT** - Token-based auth
-- **WebSocket (STOMP)** - Real-time communication
-- **JPA/Hibernate** - ORM
-- **PostgreSQL** - Relational database
-- **Deployment**: AWS EC2 (Ubuntu)
+- **Spring Boot 3** + **Java 21** + **Gradle**
+- **Spring Security** + **JWT** delivered as HttpOnly cookies
+- **WebSocket (STOMP)** for live log + telemetry streaming
+- **JPA / Hibernate** (validate-only) — schema owned by **Flyway**
+- **H2** (file-mode) on the EC2 demo; **PostgreSQL** wired in the `production` profile
+- **Deployment**: AWS EC2 (Ubuntu) behind **nginx** + **Let's Encrypt**
 
 ### FL Framework
 
@@ -321,57 +316,45 @@ FedLearn-Platform/
 
 ### Prerequisites
 
-- **Python 3.10+**
-- **Java 17+**
+- **Java 21**
 - **Node.js 18+**
-- **PostgreSQL 12+**
-- **Docker** (for client deployment)
+- **Python 3.10+** (only if you run the FL framework directly; the Docker client bundles its own runtime)
+- **Docker** (for FL clients)
 
-### 1. Setup Framework
+H2 is file-mode in dev — no PostgreSQL needed locally.
+
+### Run the full stack
 
 ```bash
+./launch_all.sh
+```
+
+This opens four terminal windows: backend on `:8081` (Spring profile `dev`), Vite on `:5173`, Electron on `:9000`, and the FL-client launcher.
+
+### Run components individually
+
+```bash
+# Backend
+cd backend/fl-platform-api
+SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun
+
+# Frontend — three modes, all mirror Spring profiles 1:1
+cd frontend && npm install
+npm run dev               # full-local: backend on localhost:8081
+npm run dev:ec2demo       # frontend-local, backend on https://fedlearn.duckdns.org via Vite proxy
+npm run build             # production bundle
+
+# FL framework (Python)
 cd framework
 pip install -e .
-```
 
-**Documentation**: [`framework/README.md`](framework/README.md)
-
-### 2. Setup Backend
-
-```bash
-cd backend/fl-platform-api
-
-# Configure database in application.properties
-# spring.datasource.url=jdbc:postgresql://localhost:5432/fedlearn_db
-
-mvn spring-boot:run
-```
-
-**Documentation**: [`backend/fl-platform-api/README.md`](backend/fl-platform-api/README.md)
-
-### 3. Setup Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-**Documentation**: [`frontend/README.md`](frontend/README.md)
-
-### 4. Run FL Client (Docker)
-
-```bash
+# Docker FL client
 cd client-docker
 docker build -t fedlearn-client:latest .
-
-docker run -v /data:/data \
-  fedlearn-client:latest \
-  --server-address localhost:50051 \
-  --client-id 0
+docker run -v /data:/data fedlearn-client:latest --server-address localhost:50051 --client-id 0
 ```
 
-**Documentation**: [`client-docker/README.md`](client-docker/README.md)
+For deployed environments, see **`docs/guides/aws_deployment_guide.md`** (the canonical EC2 deploy procedure) and **`client-docker/DEPLOYMENT_GUIDE.md`** (Jetson and native clients).
 
 ---
 
@@ -386,11 +369,14 @@ Comprehensive documentation for each component:
 | **Backend API**   | [`backend/fl-platform-api/README.md`](backend/fl-platform-api/README.md) |
 | **Docker Client** | [`client-docker/README.md`](client-docker/README.md)                     |
 
-### Developer Guides
+### Operational Guides
 
-- **Framework Development**: [`framework/CONTRIBUTING.md`](framework/CONTRIBUTING.md)
-- **Frontend Development**: [`frontend/DEVELOPMENT.md`](frontend/DEVELOPMENT.md)
-- **Backend Development**: [`backend/fl-platform-api/DEVELOPMENT.md`](backend/fl-platform-api/DEVELOPMENT.md)
+- **AWS deployment**: [`docs/guides/aws_deployment_guide.md`](docs/guides/aws_deployment_guide.md)
+- **Local + RIT lab deployment**: [`docs/guides/local_and_rit_deployment_guide.md`](docs/guides/local_and_rit_deployment_guide.md)
+- **Pneumonia federation demo plan**: [`docs/guides/pneumonia_demo_plan.md`](docs/guides/pneumonia_demo_plan.md)
+- **AWS / Electron architectural review**: [`docs/guides/aws_and_electron_architecture_risks.md`](docs/guides/aws_and_electron_architecture_risks.md)
+- **AWS audit (Tier 2 backlog)**: [`docs/guides/AWS_AUDIT.md`](docs/guides/AWS_AUDIT.md)
+- **Framework contribution guide**: [`framework/CONTRIBUTING.md`](framework/CONTRIBUTING.md)
 
 ---
 
@@ -459,57 +445,61 @@ If you use FedLearn Platform in your research, please cite:
 
 ### Authentication
 
-- ✅ JWT-based user authentication
-- ✅ Project-level access control
-- ✅ Secure WebSocket connections
+- ✅ Stateless JWT delivered as **HttpOnly + Secure** cookies (no JS-readable token storage)
+- ✅ Resource-level authorization (users only see their own projects)
+- ✅ STOMP WebSocket auth via the same cookie
 
 ### Network Security
 
-- ✅ TLS/SSL for gRPC (configurable)
-- ✅ CORS configuration
-- ✅ Input validation & sanitization
+- ✅ TLS terminated at nginx (Let's Encrypt) on the EC2 deployment
+- ✅ Backend `:8081` bound to `127.0.0.1` only — no public side-door
+- ✅ Strict CORS allowlist — Spring fails fast on missing config
+- ⚠️ gRPC FL client traffic is currently plaintext over WAN (audit item #37)
 
 ---
 
 ## 🚀 Deployment
 
-### Development (Local)
+### Local development
+
+`./launch_all.sh` launches everything in parallel terminal windows. Or run individually:
 
 ```bash
-# Terminal 1: Backend
-cd backend/fl-platform-api && mvn spring-boot:run
+# Backend (Gradle, Java 21)
+cd backend/fl-platform-api && SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun
 
-# Terminal 2: Frontend
+# Frontend
 cd frontend && npm run dev
 
-# Terminal 3: FL Client
+# FL example
 cd framework/examples/simple_federation
-python run_server.py  # Server
-python run_client.py --id 0  # Client
+python run_server.py
+python run_client.py --id 0
 ```
 
-### Production (AWS EC2)
+### EC2 demo (`ec2demo` profile)
 
-**Backend + FL Server**:
+Live at **https://fedlearn.duckdns.org**. Deploy procedure: [`docs/guides/aws_deployment_guide.md`](docs/guides/aws_deployment_guide.md).
 
-- AWS EC2 instance (Ubuntu 22.04)
-- PostgreSQL installed locally
-- Spring Boot as systemd service
-- Python FL servers spawned dynamically
+- AWS EC2 (Ubuntu 24.04 LTS, `r5.large`)
+- nginx terminates TLS on `:443`, proxies to Spring Boot on `127.0.0.1:8081`
+- Let's Encrypt certbot for auto-renewing TLS
+- H2 file-mode at `~/app/data/`, EBS-backed across reboots
+- Spring Boot as a systemd service (`fedlearn.service`)
+- Python FL servers spawned by `FlowerServerManager`
 
-**Frontend**:
-
-- Deployed on Vercel
-- Automatic deployments from `main` branch
-
-**Configuration**:
+Required env vars (set in `/etc/systemd/system/fedlearn.service`):
 
 ```bash
-# Backend environment variables
-DATABASE_URL=jdbc:postgresql://localhost:5432/fedlearn_db
-JWT_SECRET=your-secret-key
-FL_SCRIPTS_PATH=/path/to/scripts
+APP_JWT_SECRET=<openssl rand -base64 64>
+APP_INTERNAL_API_KEY=<openssl rand -hex 32>
+CORS_ALLOWED_ORIGINS=https://fedlearn.duckdns.org,http://localhost:5173
+APP_AUTH_COOKIE_SECURE=true
 ```
+
+### ECS Fargate (`production` profile)
+
+Wired but unfinished. Tier 2 audit items 10–17 in [`docs/guides/AWS_AUDIT.md`](docs/guides/AWS_AUDIT.md) describe what's missing (S3 model storage, FL servers as ECS tasks, multi-replica safety).
 
 ---
 
@@ -530,8 +520,8 @@ We welcome contributions! This is an open-source project under Apache 2.0 licens
 See individual component documentation:
 
 - Framework: [`framework/CONTRIBUTING.md`](framework/CONTRIBUTING.md)
-- Frontend: [`frontend/DEVELOPMENT.md`](frontend/DEVELOPMENT.md)
 - Backend: [`backend/fl-platform-api/DEVELOPMENT.md`](backend/fl-platform-api/DEVELOPMENT.md)
+- Frontend: [`frontend/README.md`](frontend/README.md) and `frontend/.env.example`
 
 ### Code of Conduct
 

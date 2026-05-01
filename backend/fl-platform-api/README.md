@@ -1,622 +1,178 @@
-# FedLearn Platform - Backend API
+# FedLearn Platform — Backend API
 
-Spring Boot REST API for managing federated learning projects, authentication, and server lifecycle management. This backend orchestrates FL experiments by spawning Python FL servers and streaming real-time logs via WebSocket.
+Spring Boot 3 / Java 21 / Gradle. REST + STOMP-over-WebSocket. Manages users, projects, training results, and the lifecycle of Python FL-server processes.
 
-## Features
+For Spring profile semantics, deployment topology, and the cookie auth model, see `CLAUDE.md` in this directory.
 
-- 🔐 **JWT Authentication** - Secure user authentication and authorization
-- 📊 **Project Management** - CRUD operations for FL projects
-- 🚀 **Server Lifecycle** - Start/stop FL servers dynamically
-- 📡 **WebSocket Streaming** - Real-time server logs
-- 💾 **PostgreSQL Database** - Persistent storage with Hibernate/JPA
-- 🐍 **Python Integration** - Spawns FL server processes (`fl_server.py`)
+## Stack
 
-## Tech Stack
+- **Spring Boot 3** + **Spring Security**
+- **Java 21** + **Gradle** (wrapper committed; do not switch to Maven)
+- **JWT** delivered as **HttpOnly cookies** — no Bearer headers, no JS-readable token
+- **WebSocket / STOMP** for real-time logs and round-result telemetry
+- **JPA / Hibernate** in `validate`-only mode — schema is owned by **Flyway**
+- **H2** (file-mode) on the EC2 demo and locally; **PostgreSQL** wired in the `production` profile (unfinished)
 
-- **Framework**: Spring Boot 3.x
-- **Database**: PostgreSQL with Hibernate/JPA
-- **Security**: Spring Security + JWT
-- **WebSocket**: STOMP over WebSocket
-- **Build Tool**: Gradle (wrapper committed)
-- **Java Version**: 21
+## Spring profiles
 
-## Project Structure
+| Profile | Purpose | Activation |
+|---|---|---|
+| (base) | `application.properties`. Refuses to boot without `APP_JWT_SECRET`, `APP_INTERNAL_API_KEY`, `CORS_ALLOWED_ORIGINS`. | always loaded |
+| `dev` | Public dev secrets, permissive CORS (`http://localhost:*`), H2 console enabled, `cookie.secure=false`. **Never activate in any deployed env.** | `SPRING_PROFILES_ACTIVE=dev` / `./launch_all.sh` |
+| `test` | In-memory H2, Flyway disabled, Hibernate `create-drop`, public test secrets, quiet logging. | `@ActiveProfiles("test")` or `SPRING_PROFILES_ACTIVE=test ./gradlew test` |
+| `ec2demo` | Single-EC2 demo at `https://fedlearn.duckdns.org`. H2 file-mode, FL servers as local Python processes, `cookie.secure=true`. | `SPRING_PROFILES_ACTIVE=ec2demo` (set by `scripts/deploy-to-aws.sh`) |
+| `production` | ECS Fargate, PostgreSQL, FL servers as ECS tasks. **Unfinished — do not activate.** | – |
+
+## Quick start
+
+```bash
+cd backend/fl-platform-api
+SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun
+```
+
+H2 file at `./data/federated_platform_db`. H2 console at `http://localhost:8081/h2-console` (gated to the `dev` profile by SecurityConfig). The app starts on `:8081`.
+
+### Tests
+
+```bash
+SPRING_PROFILES_ACTIVE=test ./gradlew test
+./gradlew test --tests "com.federated.fl_platform_api.SomeTest"
+```
+
+The `test` profile uses an in-memory H2 with Hibernate `create-drop`. Flyway is disabled for tests; **never** change this — Flyway migrations must validate against `dev`/`ec2demo`/`production` only.
+
+### Build
+
+```bash
+./gradlew build           # full build with tests
+./gradlew bootJar         # fat JAR only
+```
+
+## Project structure
 
 ```
 backend/fl-platform-api/
 ├── src/main/java/com/federated/fl_platform_api/
-│   ├── config/
-│   │   ├── SecurityConfig.java          # Spring Security configuration
-│   │   └── WebSocketConfig.java         # WebSocket/STOMP configuration
-│   ├── controller/
-│   │   ├── AuthController.java          # Login/Register endpoints
-│   │   ├── CorsTestController.java      # CORS testing
-│   │   ├── HomeController.java          # Health check
-│   │   ├── ProjectController.java       # Project CRUD + Server control
-│   │   └── ResultsController.java       # Training results
-│   ├── dto/
-│   │   ├── ApiResponse.java             # Standard API response wrapper
-│   │   ├── CreateProjectRequest.java    # Project creation payload
-│   │   ├── LoginRequest.java            # Login credentials
-│   │   ├── ProjectResponseDto.java      # Project response
-│   │   ├── ProjectStatusUpdateDto.java  # Status update payload
-│   │   ├── RegisterRequest.java         # Registration payload
-│   │   ├── RoundResultDto.java          # Round metrics
-│   │   └── StartProject.java            # Server start payload
-│   ├── exception/
-│   │   ├── GlobalExceptionHandler.java  # Centralized error handling
-│   │   └── UserAlreadyExistsException.java
-│   ├── flower/
-│   │   └── FlowerServerManager.java     # Manages FL server processes
-│   ├── model/
-│   │   ├── Project.java                 # Project entity
-│   │   ├── RoundResult.java             # Training round results
-│   │   └── User.java                    # User entity
-│   ├── repository/
-│   │   ├── ProjectRepository.java       # Project data access
-│   │   ├── RoundResultRepository.java   # Results data access
-│   │   └── UserRepository.java          # User data access
-│   ├── security/
-│   │   ├── JwtAuthenticationFilter.java # JWT token validation filter
-│   │   └── JwtTokenProvider.java        # JWT token generation/validation
-│   ├── service/
-│   │   ├── CustomUserDetailsService.java # Spring Security user details
-│   │   ├── ModelInitializer.java        # Model initialization logic
-│   │   ├── ProjectService.java          # Project business logic
-│   │   ├── UserService.java             # User business logic
-│   │   └── WebSocketService.java        # WebSocket message handling
-│   └── FlPlatformApiApplication.java    # Main Spring Boot application
+│   ├── config/         # SecurityConfig, WebSocketConfig, CorsConfig
+│   ├── controller/     # AuthController, ProjectController, ResultsController, UserController
+│   ├── dto/            # Request/response DTOs (LoginRequest, RegisterRequest, ProjectResponseDto, ...)
+│   ├── exception/      # GlobalExceptionHandler + typed exceptions
+│   ├── flower/         # FlowerServerManager — spawns/manages Python FL-server processes (legacy package name; we do NOT depend on Flower/flwr)
+│   ├── model/          # JPA entities (User, Project, RoundResult)
+│   ├── repository/     # Spring Data JPA repositories
+│   ├── security/       # JwtTokenProvider, JwtAuthenticationFilter, JwtHandshakeInterceptor (for STOMP)
+│   ├── service/        # Business logic
+│   └── FlPlatformApiApplication.java
 ├── src/main/resources/
-│   ├── scripts/                         # Python FL server scripts
-│   │   ├── architecture.cnn/
-│   │   ├── data_loaders/
-│   │   ├── data_splits/
-│   │   ├── ecg_data/
-│   │   ├── models/                      # Saved model checkpoints
-│   │   ├── client.py
-│   │   ├── config.py
-│   │   ├── data.py
-│   │   ├── fl_server.py                 # Python FL server script
-│   │   ├── init_model.py
-│   │   ├── model_utils.py
-│   │   ├── models.py
-│   │   ├── run_clients.sh
-│   │   ├── run_fl_server.bat
-│   │   ├── run_fl_server.sh             # Shell script to start FL server
-│   │   ├── run_init_model.bat
-│   │   └── run_init_model.sh
-│   ├── application.properties           # Main configuration
-│   └── application-production.properties # Production config
-├── .ebextensions/                       # AWS Elastic Beanstalk config
-├── .github/                             # GitHub Actions CI/CD
-├── data/                                # Data storage
-├── models/                              # Model storage
-└── queries/                             # SQL queries/migrations
+│   ├── application.properties               # base — env-var-driven, no fallbacks
+│   ├── application-dev.properties           # local-dev convenience
+│   ├── application-test.properties          # in-memory H2, public test secrets
+│   ├── application-ec2demo.properties       # single-EC2 demo
+│   ├── application-production.properties    # ECS Fargate path (unfinished)
+│   ├── db/migration/                        # Flyway versioned migrations
+│   └── scripts/                             # Python FL-server scripts (init_model.py, fl_server.py, ...)
+├── DEVELOPMENT.md      # Deeper backend dev notes
+├── CLAUDE.md           # AI assistant guidance (gitignored)
+└── build.gradle
 ```
 
-## Quick Start
+## Cookie auth contract
 
-### Prerequisites
+| Cookie | Set by | Attributes |
+|---|---|---|
+| `jwtToken` | `/api/auth/login`, `/api/auth/register` | `HttpOnly`, `SameSite=Lax` (or `Strict` in prod), `Secure` flag controlled by `app.auth.cookie.secure` |
 
-- Java 21
-- PostgreSQL 12+
-- Python 3.10+ (only if you run the legacy local FL-server scripts; production
-  uses the ECS Fargate FL-server launched via `FlowerServerManager`)
+The frontend sends `withCredentials: true` on every Axios call; the cookie flows automatically. No token appears in any response body.
 
-### Installation
+`POST /api/auth/login` returns the user's profile only — the JWT lives entirely in the `Set-Cookie` response header:
 
-```bash
-# Navigate to backend directory
-cd backend/fl-platform-api
-
-# Copy and edit the env template
-cp .env.example .env
-
-# Build the project (uses the committed Gradle wrapper)
-./gradlew build
-
-# Run the application
-./gradlew bootRun
-```
-
-The API will be available at `http://localhost:8081`
-
-## Configuration
-
-### Database Configuration
-
-Edit `src/main/resources/application.properties`:
-
-```properties
-# PostgreSQL Configuration
-spring.datasource.url=jdbc:postgresql://localhost:5432/fedlearn_db
-spring.datasource.username=your_username
-spring.datasource.password=your_password
-
-# Hibernate
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
-
-# JWT Configuration
-jwt.secret=your-secret-key-here
-jwt.expiration=86400000
-
-# Python Scripts Path
-fl.scripts.path=src/main/resources/scripts
-fl.models.path=models
-
-# WebSocket
-spring.websocket.allowed-origins=http://localhost:5173,https://your-frontend-url.com
-```
-
-### Production Configuration
-
-For production, use `application-production.properties` with environment variables:
-
-```properties
-spring.datasource.url=${DATABASE_URL}
-spring.datasource.username=${DB_USERNAME}
-spring.datasource.password=${DB_PASSWORD}
-jwt.secret=${JWT_SECRET}
-```
-
-## Architecture Overview
-
-### Layer Architecture
-
-```
-┌─────────────────────────────────────────┐
-│         Controller Layer                │  ← REST endpoints
-│  (AuthController, ProjectController)    │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│         Service Layer                   │  ← Business logic
-│  (ProjectService, UserService)          │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│         Repository Layer                │  ← Data access (JPA)
-│  (ProjectRepository, UserRepository)    │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│         PostgreSQL Database             │
-└─────────────────────────────────────────┘
-```
-
-### FL Server Integration
-
-```
-┌──────────────────┐
-│  Spring Boot API │
-│  ProjectService  │
-└────────┬─────────┘
-         │
-         │ Spawns Process
-         ▼
-┌──────────────────┐
-│ FlowerServerMgr  │──→ Runs: python fl_server.py --port 50051 --project-id {id}
-└────────┬─────────┘
-         │
-         │ Process Output
-         ▼
-┌──────────────────┐
-│ WebSocketService │──→ Streams logs to: /topic/logs/{projectId}
-└──────────────────┘
-```
-
-## API Endpoints
-
-### Authentication (`/api/auth`)
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| POST | `/api/auth/register` | Register new user | No |
-| POST | `/api/auth/login` | Login and get JWT token | No |
-
-**Register Request**:
 ```json
 {
-  "username": "john_doe",
-  "email": "john@example.com",
-  "password": "securePassword123"
+  "id": 1,
+  "username": "anurag",
+  "email": "anurag@example.com",
+  "roles": ["USER"]
 }
 ```
 
-**Login Request**:
-```json
-{
-  "email": "john@example.com",
-  "password": "securePassword123"
-}
-```
+## REST endpoints (overview)
 
-**Login Response**:
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": 1,
-    "username": "john_doe",
-    "email": "john@example.com"
-  }
-}
-```
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/auth/register` | – | Create account, set `jwtToken` cookie |
+| POST | `/api/auth/login` | – | Authenticate, set `jwtToken` cookie |
+| POST | `/api/auth/logout` | ✓ | Clear cookie |
+| GET | `/api/auth/me` | silent 401 | Bootstrap probe — returns user or 401 with no logout side-effect |
+| GET | `/api/projects` | ✓ | List the caller's projects |
+| POST | `/api/projects` | ✓ | Create a project |
+| GET / PUT / DELETE | `/api/projects/{id}` | ✓ | CRUD |
+| POST | `/api/projects/{id}/start` | ✓ | Spawn FL server for project |
+| POST | `/api/projects/{id}/stop` | ✓ | Kill FL server |
+| GET | `/api/results/{projectId}` | ✓ | Round-by-round metrics |
+| GET | `/api/projects/{id}/logs` | ✓ | Persisted log history (the live stream is over WebSocket) |
 
----
+For the canonical list, browse `controller/`.
 
-### Projects (`/api/projects`)
+## WebSocket / STOMP
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| GET | `/api/projects` | Get all user projects | Yes |
-| GET | `/api/projects/{id}` | Get project by ID | Yes |
-| POST | `/api/projects` | Create new project | Yes |
-| PUT | `/api/projects/{id}` | Update project | Yes |
-| DELETE | `/api/projects/{id}` | Delete project | Yes |
-| POST | `/api/projects/{id}/start` | Start FL server | Yes |
-| POST | `/api/projects/{id}/stop` | Stop FL server | Yes |
-| GET | `/api/projects/{id}/status` | Get server status | Yes |
+| | |
+|---|---|
+| Endpoint | `/ws-logs` (relative to backend host) |
+| Auth | Same `jwtToken` cookie — validated by `JwtHandshakeInterceptor` |
+| Topics | `/topic/logs/{projectId}` (training output), `/topic/status/{projectId}` (server lifecycle), `/topic/results/{projectId}` (round results) |
 
-**Create Project Request**:
-```json
-{
-  "name": "CNN Training v1",
-  "type": "CNN",
-  "model": "resnet18",
-  "optimizer": "Adam",
-  "strategy": "FedAvg",
-  "rounds": 10,
-  "minClients": 2,
-  "clientsPerRound": 5
-}
-```
+Client example (the SPA does this in `services/logStore.ts`):
 
-**Project Response**:
-```json
-{
-  "id": "uuid-here",
-  "name": "CNN Training v1",
-  "type": "CNN",
-  "model": "resnet18",
-  "status": "STOPPED",
-  "strategy": "FedAvg",
-  "rounds": 10,
-  "minClients": 2,
-  "createdAt": "2024-01-15T10:30:00Z",
-  "updatedAt": "2024-01-15T10:30:00Z"
-}
-```
-
----
-
-### Results (`/api/results`)
-
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| GET | `/api/results/{projectId}` | Get training results | Yes |
-| GET | `/api/results/{projectId}/round/{roundNum}` | Get specific round results | Yes |
-
-**Results Response**:
-```json
-{
-  "projectId": "uuid-here",
-  "totalRounds": 10,
-  "currentRound": 5,
-  "rounds": [
-    {
-      "roundNumber": 1,
-      "accuracy": 0.75,
-      "loss": 0.45,
-      "timestamp": "2024-01-15T10:35:00Z"
-    }
-  ]
-}
-```
-
----
-
-## WebSocket Endpoints
-
-### Log Streaming
-
-**Connect**: `ws://localhost:8080/ws`
-
-**Subscribe**: `/topic/logs/{projectId}`
-
-**Message Format**:
-```json
-{
-  "timestamp": "2024-01-15T10:35:00Z",
-  "level": "INFO",
-  "message": "Round 1 started with 3 clients"
-}
-```
-
-**Client Example (JavaScript)**:
 ```javascript
 const client = new Client({
-  brokerURL: 'ws://localhost:8080/ws',
-  onConnect: () => {
-    client.subscribe('/topic/logs/project-123', (message) => {
-      console.log(message.body);
-    });
-  }
+  brokerURL: `${wsBase}/ws-logs`,
+  reconnectDelay: 5000,
 });
+client.onConnect = () => {
+  client.subscribe(`/topic/logs/${projectId}`, (msg) => { /* ... */ });
+};
 client.activate();
 ```
 
----
+## FL-server orchestration
 
-## Key Components Explained
+`FlowerServerManager` is the entry point. On `POST /api/projects/{id}/start` it:
 
-### 1. FlowerServerManager
+1. Reserves a port from `fl.server.port-range.start..end` (default `50000-50010`).
+2. Spawns `python src/main/resources/scripts/run_fl_server.sh ...` with project config.
+3. Captures stdout/stderr line-by-line and broadcasts via `WebSocketService` to `/topic/logs/{projectId}`.
+4. Tracks PID + process handle so `/stop` can terminate cleanly.
 
-Manages FL server lifecycle by spawning Python processes.
-
-**Responsibilities**:
-- Start FL server process for a project
-- Monitor server status
-- Stop server process
-- Stream server output to WebSocket
-
-**Key Methods** (refer to actual code for implementation):
-- `startServer(projectId, port)` - Spawns `python fl_server.py --project-id {id} --port {port}`
-- `stopServer(projectId)` - Kills the server process
-- `isServerRunning(projectId)` - Checks if server is active
-
----
-
-### 2. ProjectService
-
-Business logic for project management.
-
-**Responsibilities**:
-- Create/Read/Update/Delete projects
-- Validate project configuration
-- Coordinate with FlowerServerManager
-- Update project status
-
-**Key Operations**:
-- Create project → Save to DB → Return DTO
-- Start server → Call FlowerServerManager → Update status to RUNNING
-- Stop server → Call FlowerServerManager → Update status to STOPPED
-
----
-
-### 3. WebSocketService
-
-Handles WebSocket message broadcasting.
-
-**Responsibilities**:
-- Send log messages to subscribed clients
-- Broadcast project status updates
-- Handle connection management
-
-**Message Topics**:
-- `/topic/logs/{projectId}` - Server logs
-- `/topic/status/{projectId}` - Status updates
-
----
-
-### 4. JwtTokenProvider & JwtAuthenticationFilter
-
-JWT-based authentication.
-
-**JwtTokenProvider**:
-- Generate JWT tokens on login
-- Validate tokens
-- Extract user info from tokens
-
-**JwtAuthenticationFilter**:
-- Intercept requests
-- Extract JWT from Authorization header
-- Validate token
-- Set authentication in SecurityContext
-
----
-
-## Database Schema
-
-### User Table
-
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | BIGINT | Primary Key, Auto-increment |
-| username | VARCHAR(50) | Unique, Not Null |
-| email | VARCHAR(100) | Unique, Not Null |
-| password | VARCHAR(255) | Not Null (BCrypt hashed) |
-| created_at | TIMESTAMP | Not Null |
-
----
-
-### Project Table
-
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | VARCHAR(36) | Primary Key (UUID) |
-| user_id | BIGINT | Foreign Key → User |
-| name | VARCHAR(100) | Not Null |
-| type | VARCHAR(50) | Not Null |
-| model | VARCHAR(50) | Not Null |
-| optimizer | VARCHAR(50) | Not Null |
-| strategy | VARCHAR(50) | Not Null |
-| rounds | INT | Not Null |
-| min_clients | INT | Not Null |
-| status | VARCHAR(20) | RUNNING, STOPPED, COMPLETED |
-| port | INT | Server port number |
-| created_at | TIMESTAMP | Not Null |
-| updated_at | TIMESTAMP | Not Null |
-
----
-
-### RoundResult Table
-
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | BIGINT | Primary Key, Auto-increment |
-| project_id | VARCHAR(36) | Foreign Key → Project |
-| round_number | INT | Not Null |
-| accuracy | DOUBLE | Nullable |
-| loss | DOUBLE | Nullable |
-| metrics | JSON/TEXT | Additional metrics |
-| timestamp | TIMESTAMP | Not Null |
-
----
-
-## Security
-
-### JWT Configuration
-
-- **Algorithm**: HS256
-- **Expiration**: Configurable (default: 24 hours)
-- **Secret**: Stored in application.properties (use env var in production)
-
-### Password Security
-
-- **Hashing**: BCrypt with strength 10
-- **Storage**: Never store plaintext passwords
-
-### CORS Configuration
-
-Configured in `SecurityConfig.java` to dynamically allow frontend origins based on deployment architecture.
-
-**Allowed Origins**:
-Origins are resolved dynamically via environment variables (e.g. `FRONTEND_URL`) to seamlessly support LAN deployments and AWS integration, strictly avoiding hardcoded bindings to `http://localhost:5173` in production.
-
----
-
-## Python FL Server Integration
-
-### How It Works
-
-1. **User clicks "Start Server"** in frontend
-2. **Backend receives** POST `/api/projects/{id}/start`
-3. **FlowerServerManager spawns** Python process:
-   ```bash
-   python src/main/resources/scripts/fl_server.py \
-     --project-id {projectId} \
-     --port {port} \
-     --rounds {rounds} \
-     --min-clients {minClients} \
-     --strategy {strategy}
-   ```
-4. **Process output** is captured and streamed via WebSocket
-5. **Server runs** until training completes or user stops it
-
-### FL Server Script Parameters
-
-The `fl_server.py` script accepts:
-- `--project-id`: Unique project identifier
-- `--port`: gRPC server port (e.g., 50051)
-- `--rounds`: Number of training rounds
-- `--min-clients`: Minimum clients required
-- `--strategy`: Aggregation strategy (FedAvg, DeComFL)
-
----
+The shell wrapper exists so the Python entry point is portable across local dev (Mac, Linux) and the EC2 host. There's a parallel `.bat` for Windows local dev.
 
 ## Deployment
 
-### Local Development
+### Local
 
-```bash
-# Start PostgreSQL
-docker run -d \
-  --name fedlearn-postgres \
-  -e POSTGRES_DB=fedlearn_db \
-  -e POSTGRES_USER=fedlearn \
-  -e POSTGRES_PASSWORD=password \
-  -p 5432:5432 \
-  postgres:15
+`./launch_all.sh` (root) starts backend + frontend + Electron + FL-client launcher. Or run components individually as described above.
 
-# Run Spring Boot
-mvn spring-boot:run
+### EC2 demo (`ec2demo`)
+
+Live at **https://fedlearn.duckdns.org**. Procedure: [`docs/guides/aws_deployment_guide.md`](../../docs/guides/aws_deployment_guide.md).
+
+The EC2 instance runs `fedlearn.service` (systemd) which sources its env from `/etc/systemd/system/fedlearn.service`:
+
+```ini
+Environment="SPRING_PROFILES_ACTIVE=ec2demo"
+Environment="APP_JWT_SECRET=..."           # openssl rand -base64 64
+Environment="APP_INTERNAL_API_KEY=..."     # openssl rand -hex 32
+Environment="CORS_ALLOWED_ORIGINS=https://fedlearn.duckdns.org,http://localhost:5173"
+Environment="APP_AUTH_COOKIE_SECURE=true"
 ```
 
-### Production (AWS/Cloud)
+nginx terminates TLS on `:443` and proxies to `127.0.0.1:8081` — port 8081 is **not** publicly exposed. STOMP upgrade headers and a `proxy_read_timeout 3600s` are required for long-lived training rounds.
 
-1. **Database**: Use managed PostgreSQL (AWS RDS, etc.)
-2. **Application**: Deploy JAR to EC2/Elastic Beanstalk
-3. **Environment Variables**: Set via platform
-4. **Python Environment**: Ensure Python 3.10+ installed on server
+### ECS Fargate (`production`)
 
-### Docker Deployment
+Unfinished. See [`docs/guides/AWS_AUDIT.md`](../../docs/guides/AWS_AUDIT.md) Tier 2 items 10–17 for the remaining work (S3 model storage, FL servers as `RunTask` invocations, multi-replica safety, ALB target-group idle timeouts).
 
-```bash
-# Build JAR
-mvn clean package
+## Adjacent docs
 
-# Build Docker image
-docker build -t fedlearn-backend .
-
-# Run container
-docker run -p 8080:8080 \
-  -e DATABASE_URL=jdbc:postgresql://host:5432/db \
-  -e DB_USERNAME=user \
-  -e DB_PASSWORD=pass \
-  fedlearn-backend
-```
-
----
-
-## Troubleshooting
-
-### Issue: Database connection fails
-
-**Check**:
-1. PostgreSQL is running
-2. Database credentials correct
-3. Database exists
-
-### Issue: FL server won't start
-
-**Check**:
-1. Python 3.10+ installed
-2. `fl_server.py` exists in scripts directory
-3. Required Python packages installed
-4. Port not already in use
-
-### Issue: JWT authentication fails
-
-**Check**:
-1. Token included in Authorization header
-2. Token not expired
-3. JWT secret matches between requests
-
-### Issue: WebSocket not connecting
-
-**Check**:
-1. CORS configuration allows frontend origin
-2. WebSocket endpoint enabled
-3. Firewall allows WebSocket connections
-
----
-
-## Development Guide
-
-See [DEVELOPMENT.md](DEVELOPMENT.md) for:
-- Adding new endpoints
-- Creating new entities
-- Extending services
-- Testing guidelines
-
-## API Documentation
-
-For interactive API docs, see [API.md](API.md) for complete endpoint reference.
-
-## Contributing
-
-When modifying the backend:
-1. Follow Spring Boot best practices
-2. Keep controllers thin, services thick
-3. Use DTOs for API requests/responses
-4. Write JUnit tests for services
-5. Document new endpoints
-
----
-
-**Repository**: [GitHub URL]
-**API Base URL**: `http://localhost:8080/api`
-**WebSocket URL**: `ws://localhost:8080/ws`
+- **`DEVELOPMENT.md`** — deeper architectural walkthroughs and contribution patterns
+- **`CLAUDE.md`** — AI assistant guidance (gitignored)
+- **`docs/wikis/backend/`** — long-form wiki: architecture, security, project lifecycle, FL orchestration, WebSocket streaming
