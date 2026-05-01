@@ -29,6 +29,11 @@ export default defineConfig({
       '/api': {
         target: 'http://3.137.147.240:8081',
         changeOrigin: true,
+      },
+      '/ws-logs': {
+        target: 'ws://3.137.147.240:8081',
+        ws: true,
+        changeOrigin: true,
       }
     }
   },
