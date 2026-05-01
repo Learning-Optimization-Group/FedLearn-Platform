@@ -10,6 +10,9 @@
 .env.*.local
 env.txt
 backend/fl-platform-api/env.txt
+# curl/test cookie jars — must never be committed (may carry live JWT cookies)
+cookies.txt
+**/cookies.txt
 
 # ========================
 # Python
@@ -85,6 +88,8 @@ data/
 *~
 .DS_Store
 CLAUDE.md
+.claude/
+**/.claude/
 
 # ========================
 # Native / Compiled
