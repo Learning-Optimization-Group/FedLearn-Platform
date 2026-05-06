@@ -4,10 +4,13 @@ Start function for DeComFL clients.
 """
 
 import grpc
+import logging
 import time
 import traceback
 from .grpc_client import GrpcClient
 from .decomfl_client import DeComFLClient
+
+log = logging.getLogger(__name__)
 
 
 def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: str):
@@ -24,14 +27,12 @@ def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: 
 
     # Register with server
     if not comm_client.register():
-        print(f"[{client_id}] Could not register with server. Exiting.")
+        log.error("[%s] Could not register with server; exiting", client_id)
         return
 
-    # Start heartbeat
-    print(f"[{client_id}] Starting heartbeat...")
+    log.info("[%s] Registered with server; starting heartbeat", client_id)
     comm_client.start_heartbeat()
 
-    # Pass comm_client to client for progress updates
     if hasattr(client, 'set_grpc_client'):
         client.set_grpc_client(comm_client)
 
@@ -39,73 +40,72 @@ def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: 
         while True:
             try:
                 # 1. Get DeComFL configuration (seeds + rebuild history)
-                print(f"[{client_id}] Fetching DeComFL config...")
+                log.debug("[%s] Fetching DeComFL config", client_id)
                 comm_client.update_status("fetching_config", 0, 0)
 
                 server_round, seeds, rebuild_history, config = comm_client.get_decomfl_config()
 
                 if server_round == -1:
-                    print(f"[{client_id}] Server has finished training. Shutting down.")
+                    log.info("[%s] Server signalled training complete; shutting down", client_id)
                     break
 
-                # Only proceed if server has advanced to new round
                 if server_round > last_completed_round:
-                    print(f"[{client_id}] Starting DeComFL training for round {server_round}...")
-
-                    # Update current round for heartbeat
+                    log.info("[%s] Starting DeComFL training for round %d", client_id, server_round)
                     comm_client.current_round = server_round
 
                     # 2. Rebuild model if needed (for missed rounds)
                     if rebuild_history:
-                        print(f"[{client_id}] Rebuilding model from {len(rebuild_history)} missed rounds...")
+                        log.info(
+                            "[%s] Rebuilding model from %d missed rounds",
+                            client_id, len(rebuild_history),
+                        )
                         comm_client.update_status("rebuilding", 0, 0)
                         learning_rate = float(config.get('learning_rate', 0.001))
                         client.rebuild_model(rebuild_history, learning_rate)
 
                     # 3. Perform local ZO training
                     comm_client.update_status("training", 0, 1)
-
-                    # Add seeds to config
                     training_config = dict(config)
                     training_config['seeds'] = seeds
 
-                    # Train (returns gradient scalars, not parameters)
                     gradient_scalars, num_examples = client.fit(None, training_config)
 
                     # 4. Submit gradient scalars
-                    print(f"[{client_id}] Submitting gradient scalars for round {server_round}...")
+                    log.debug("[%s] Submitting gradient scalars for round %d",
+                              client_id, server_round)
                     comm_client.update_status("submitting_update", 0, 0)
 
                     if comm_client.submit_gradient_scalars(gradient_scalars, num_examples, server_round):
-                        print(f"[{client_id}] Successfully submitted gradient scalars for round {server_round}.")
+                        log.info("[%s] Submitted gradient scalars for round %d",
+                                 client_id, server_round)
                         last_completed_round = server_round
                         comm_client.update_status("idle", 0, 0)
                     else:
-                        print(f"[{client_id}] Failed to submit gradient scalars for round {server_round}.")
+                        log.error("[%s] Failed to submit gradient scalars for round %d",
+                                  client_id, server_round)
                         comm_client.update_status("error", 0, 0)
                 else:
-                    # Server still in same round
-                    print(f"[{client_id}] Server still in round {server_round}. Waiting...")
+                    log.debug("[%s] Server still on round %d; waiting", client_id, server_round)
                     comm_client.update_status("waiting", 0, 0)
                     time.sleep(5)
 
             except grpc.RpcError as e:
                 if e.code() == grpc.StatusCode.UNAVAILABLE:
-                    print(f"[{client_id}] Server unavailable. Shutting down.")
+                    log.warning("[%s] Server unavailable; shutting down", client_id)
                     break
-                else:
-                    print(f"[{client_id}] RPC error: {e.details()}. Retrying in 10 seconds...")
-                    traceback.print_exc()
-                    comm_client.update_status("error", 0, 0)
-                    time.sleep(10)
-            except Exception as e:
-                print(f"[{client_id}] Unexpected error: {e}. Shutting down.")
-                traceback.print_exc()
+                log.warning(
+                    "[%s] gRPC error (code=%s): %s. Retrying in 10s",
+                    client_id, e.code(), e.details(),
+                )
+                comm_client.update_status("error", 0, 0)
+                time.sleep(10)
+            except Exception:
+                log.exception("[%s] Unexpected DeComFL client error; shutting down", client_id)
                 comm_client.update_status("error", 0, 0)
                 break
 
     finally:
-        print(f"[{client_id}] Shutting down...")
+        log.info("[%s] Shutting down", client_id)
         comm_client.stop_heartbeat()
         comm_client.close()
-        print(f"[{client_id}] Shutdown complete.")
+        log.info("[%s] Shutdown complete", client_id)

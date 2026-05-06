@@ -47,7 +47,7 @@ setup(
     package_dir={'': 'src'},
 
     # Python version requirement
-    python_requires='>=3.9',
+    python_requires='>=3.8',
 
     # Dependencies
     install_requires=read_requirements(),

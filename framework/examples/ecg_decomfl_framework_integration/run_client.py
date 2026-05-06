@@ -6,7 +6,6 @@ Run federated learning client using DeComFL (zeroth-order optimization).
 
 import sys
 import os
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import argparse
 import torch
 import numpy as np

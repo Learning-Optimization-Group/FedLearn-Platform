@@ -2,6 +2,21 @@
 import argparse
 import sys
 import os
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - [ClientID: %(client_id)s] - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+
+class ClientLogAdapter(logging.LoggerAdapter):
+    def process(self, msg, kwargs):
+        return msg, {**kwargs, 'extra': {'client_id': self.extra.get('client_id', 'BOOTING')}}
+
+base_logger = logging.getLogger("FedLearn-EdgeClient")
+logger = ClientLogAdapter(base_logger, {'client_id': 'BOOTING'})
+
 from collections import OrderedDict
 import torch
 
@@ -46,6 +61,9 @@ if __name__ == "__main__":
     parser.add_argument("--server_address", type=str, default="localhost:50051", help="Server address")
     parser.add_argument("--id", type=int, required=True, help="Client ID")
     args = parser.parse_args()
+    global logger
+    logger = ClientLogAdapter(base_logger, {'client_id': str(args.id)})
+
 
     # 2. Instantiate your custom client
     client = MnistClient(client_id=args.id)

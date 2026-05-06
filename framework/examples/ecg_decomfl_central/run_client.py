@@ -116,8 +116,8 @@ class DeComFLClient:
         P = self.config.NUM_PERTURBATIONS
         eta = self.config.LEARNING_RATE
 
-        # Algorithm 4, Line 23: Store initial model for revert
-        x_initial = self.x_current.clone()
+        # Track total perturbation for in-place revert to avoid OOM
+        total_perturbation = torch.zeros_like(self.x_current)
 
         gradient_scalars = []
         data_iter = iter(self.train_loader)
@@ -153,12 +153,14 @@ class DeComFLClient:
                 delta += g * z
 
             # Algorithm 4, Line 21: Update model
-            self.x_current = self.x_current - (eta / P) * delta
+            step_update = (eta / P) * delta
+            self.x_current -= step_update
+            total_perturbation -= step_update
 
             gradient_scalars.append(k_gradient_scalars)
 
-        # Algorithm 4, Line 23: CRITICAL - Revert model back to initial state
-        self.x_current = x_initial
+        # SECURE: Revert by mathematically reversing the exact perturbation in-place
+        self.x_current -= total_perturbation
         self.model.set_flat_params(self.x_current)
 
         # Algorithm 4, Line 24: Return gradient scalars

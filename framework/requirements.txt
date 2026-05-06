@@ -1,7 +1,7 @@
 # Core ML packages (PyTorch installed separately with CUDA support)
-# torch==2.5.1+cu121
-# torchvision==0.20.1+cu121
-# torchaudio==2.5.1+cu121
+torch
+torchvision
+torchaudio
 
 # Federated Learning
 flwr==1.20.0
@@ -19,7 +19,7 @@ safetensors==0.6.2
 # Data processing
 numpy==2.1.2
 pandas==2.3.1
-pyarrow==21.0.0
+pyarrow
 
 # Networking (updated grpcio version)
 grpcio>=1.75.1
@@ -41,10 +41,10 @@ opentelemetry-exporter-prometheus==0.57b0
 opentelemetry-proto==1.27.0
 opentelemetry-sdk==1.36.0
 opentelemetry-semantic-conventions==0.57b0
-prometheus_client==0.22.1
+prometheus_client
 
 # Ray (distributed computing)
-ray==2.48.0
+ray
 
 # Visualization (relaxed versions for Python 3.10 compatibility)
 matplotlib>=3.7,<3.10
@@ -107,4 +107,4 @@ tzdata>=2023.0
 # Build tools
 setuptools
 wheel
-sklearn
+scikit-learn

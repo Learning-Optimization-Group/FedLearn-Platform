@@ -1,4 +1,5 @@
-﻿from typing import List, Dict
+import logging
+from typing import List, Dict
 
 import grpc
 from concurrent import futures
@@ -51,7 +52,7 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             total_params = sum(p.numel() for p in params.values())
             size_mb = (total_params * 4) / (1024 * 1024)
 
-            print(f"[Server] Sending global model: {size_mb:.2f} MB")
+            logging.info(f"[Server] Sending global model: {size_mb:.2f} MB")
 
             try:
                 params_proto = parameters_to_proto(params, num_examples=0)
@@ -61,16 +62,14 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                     config=config
                 )
             except MemoryError:
-                print(f"[Server] MemoryError serializing {size_mb:.2f} MB model")
+                logging.info(f"[Server] MemoryError serializing {size_mb:.2f} MB model")
                 context.abort(grpc.StatusCode.RESOURCE_EXHAUSTED,
                               f"Model too large ({size_mb:.2f} MB) for unary transfer. Client should use streaming.")
 
 
         except Exception as e:
-            context.abort(grpc.StatusCode.INTERNAL, f"An internal error occurred: {e}")
-            import traceback
-            traceback.print_exc()
-            context.abort(grpc.StatusCode.INTERNAL, f"An internal error occurred: {str(e)}")
+            logging.error(f"RPC failed for client {request.client_id}", exc_info=True)
+            context.abort(grpc.StatusCode.INTERNAL, "An internal server error occurred.")
 
     def GetGlobalModelStream(self, request: fedlearn_pb2.GetGlobalModelRequest, context):
         """Stream global model to client for large models."""
@@ -83,7 +82,7 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             if params is None:
                 context.abort(grpc.StatusCode.UNAVAILABLE, "Server not initialized")
 
-            print(f"[Server] Streaming global model to {request.client_id} for round {current_round}")
+            logging.info(f"[Server] Streaming global model to {request.client_id} for round {current_round}")
 
 
 
@@ -99,7 +98,7 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             total_size = len(data_to_send)
             num_chunks = (total_size + chunk_size - 1) // chunk_size
 
-            print(f"[Server] Sending {num_chunks} chunk(s) ({total_size / (1024 ** 2):.2f} MB)")
+            logging.info(f"[Server] Sending {num_chunks} chunk(s) ({total_size / (1024 ** 2):.2f} MB)")
 
             # Stream chunks
             for i in range(num_chunks):
@@ -116,19 +115,17 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                 )
 
                 if (i + 1) % 2 == 0 or (i == num_chunks - 1):
-                    print(f"[Server] Sending chunk {i + 1}/{num_chunks}")
+                    logging.info(f"[Server] Sending chunk {i + 1}/{num_chunks}")
 
                 yield chunk_msg
 
-            print(f"[Server] Model stream complete")
+            logging.info(f"[Server] Model stream complete")
 
         except Exception as e:
-            print(f"[Server] Error streaming model: {e}")
-            import traceback
-            traceback.print_exc()
-            context.abort(grpc.StatusCode.INTERNAL, f"Error: {str(e)}")
+            logging.error(f"RPC failed for client {request.client_id}", exc_info=True)
+            context.abort(grpc.StatusCode.INTERNAL, "An internal server error occurred.")
 
-    def SubmitModelUpdate(self, request: fedlearn_pb2.SubmitModelUpdateReque, context):
+    def SubmitModelUpdate(self, request: fedlearn_pb2.SubmitModelUpdateRequest, context):
         """Handle standard unary model update (for small models)."""
         client_id = "UNKNOWN"
         trained_on_round = -1
@@ -137,50 +134,37 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             client_id = request.client_id
             trained_on_round = request.trained_on_round
 
-            print(f"=" * 60)
-            print(f"[Server] SubmitModelUpdate START")
-            print(f"[Server] Client: {client_id}")
-            print(f"[Server] Round: {trained_on_round}")
-            print(f"=" * 60)
+            logging.info(f"=" * 60)
+            logging.info(f"[Server] SubmitModelUpdate START")
+            logging.info(f"[Server] Client: {client_id}")
+            logging.info(f"[Server] Round: {trained_on_round}")
+            logging.info(f"=" * 60)
 
             # Step 1: Deserialize parameters
-            print(f"[Server] Step 1: Deserializing parameters...")
+            logging.info(f"[Server] Step 1: Deserializing parameters...")
             params, num_examples = proto_to_parameters(request.parameters)
-            print(f"[Server] Deserialized {len(params)} parameters")
-            print(f"[Server] Num examples: {num_examples}")
+            logging.info(f"[Server] Deserialized {len(params)} parameters")
+            logging.info(f"[Server] Num examples: {num_examples}")
 
             # Step 2: Submit to coordinator
-            print(f"[Server] Step 2: Submitting to coordinator...")
+            logging.info(f"[Server] Step 2: Submitting to coordinator...")
             self.coordinator.submit_client_update(client_id, params, num_examples, trained_on_round)
-            print(f"[Server] Coordinator accepted update")
+            logging.info(f"[Server] Coordinator accepted update")
 
-            print(f"[Server] SubmitModelUpdate SUCCESS")
-            print(f"=" * 60)
+            logging.info(f"[Server] SubmitModelUpdate SUCCESS")
+            logging.info(f"=" * 60)
             return fedlearn_pb2.SubmitModelUpdateResponse(received=True)
 
         except Exception as e:
-            # COMPREHENSIVE ERROR LOGGING
-            print(f"!" * 60)
-            print(f"[Server] CRITICAL ERROR in SubmitModelUpdate")
-            print(f"[Server] Client: {client_id}")
-            print(f"[Server] Round: {trained_on_round}")
-            print(f"[Server] Error Type: {type(e).__name__}")
-            print(f"[Server] Error Message: {str(e)}")
-            print(f"!" * 60)
-
-            # Full traceback
-            import traceback
-            traceback.print_exc()
-
-            print(f"!" * 60)
-
-            # Send detailed error to client
-            error_msg = f"{type(e).__name__}: {str(e)}"
-            context.abort(grpc.StatusCode.INTERNAL, error_msg)
+            logging.error(f"RPC failed for client {client_id}", exc_info=True)
+            context.abort(grpc.StatusCode.INTERNAL, "An internal server error occurred.")
 
     def SubmitModelUpdateStream(self, request_iterator, context):
         """
         Handle streamed model updates for large models.
+
+        Uses direct BytesIO streaming to avoid 3x memory duplication from
+        chunks.append() + b''.join(). See grpc_client.py for the same fix.
 
         Args:
             request_iterator: Iterator of ModelUpdateChunk messages
@@ -190,41 +174,45 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             SubmitModelUpdateResponse
         """
         try:
-            chunks = []
+            buffer = io.BytesIO()
             client_id = None
             round_num = None
             num_examples = 0
             total_chunks = 0
+            chunks_received = 0
 
-            print(f"[Server] Receiving streamed model update...")
+            logging.info(f"[Server] Receiving streamed model update...")
 
-            # Receive all chunks
+            # Stream chunks directly into buffer
             for chunk in request_iterator:
                 if client_id is None:
                     client_id = chunk.client_id
                     round_num = chunk.trained_on_round
                     total_chunks = chunk.total_chunks
-                    print(f"[Server] Receiving {total_chunks} chunk(s) from {client_id} for round {round_num}")
+                    logging.info(f"[Server] Receiving {total_chunks} chunk(s) from {client_id} for round {round_num}")
 
-                chunks.append(chunk.chunk_data)
+                buffer.write(chunk.chunk_data)
+                chunks_received += 1
 
                 # Progress update
-                progress = len(chunks) / total_chunks * 100
-                print(f"[Server] Received chunk {len(chunks)}/{total_chunks} ({progress:.1f}%)")
+                progress = chunks_received / total_chunks * 100
+                logging.info(f"[Server] Received chunk {chunks_received}/{total_chunks} ({progress:.1f}%)")
 
                 if chunk.is_final_chunk:
                     num_examples = chunk.num_examples
                     break
 
-            print(f"[Server] Received all {len(chunks)} chunk(s) from {client_id}")
+            logging.info(f"[Server] Received all {chunks_received} chunk(s) from {client_id}")
 
-            # Reconstruct parameters
-            full_data = b''.join(chunks)
-            print(f"[Server] Reconstructing model from {len(full_data) / (1024 ** 2):.2f} MB of data...")
+            # Reconstruct parameters from the streamed buffer
+            buffer.seek(0)
+            full_data = buffer.read()
+            buffer.close()
+            logging.info(f"[Server] Reconstructing model from {len(full_data) / (1024 ** 2):.2f} MB of data...")
 
             parameters, num_examples = chunks_to_parameters(full_data, compressed=USE_COMPRESSION)
 
-            print(f"[Server] Model reconstructed successfully. Submitting to coordinator...")
+            logging.info(f"[Server] Model reconstructed successfully. Submitting to coordinator...")
 
             # Submit to coordinator
             self.coordinator.submit_client_update(client_id, parameters, num_examples, round_num)
@@ -232,10 +220,8 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             return fedlearn_pb2.SubmitModelUpdateResponse(received=True)
 
         except Exception as e:
-            print(f"[Server] Error processing streamed update: {e}")
-            import traceback
-            traceback.print_exc()
-            context.abort(grpc.StatusCode.INTERNAL, f"Error processing stream: {str(e)}")
+            logging.error(f"RPC failed for client {client_id}", exc_info=True)
+            context.abort(grpc.StatusCode.INTERNAL, "An internal server error occurred.")
 
     def GetServerStatus(self, request: fedlearn_pb2.GetServerStatusRequest, context):
         status = self.coordinator.get_server_status()
@@ -269,11 +255,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             )
 
         except Exception as e:
-            print(f"ERROR: Heartbeat error for {request.client_id}: {e}")
+            logging.error(f"RPC failed for client {request.client_id}", exc_info=True)
             return fedlearn_pb2.HeartbeatResponse(
                 acknowledged=False,
                 should_stop=False,
-                message=f"Error: {str(e)}"
+                message="An internal server error occurred."
             )
 
     def GetDeComFLConfig(self, request: fedlearn_pb2.GetDeComFLConfigRequest, context):
@@ -290,7 +276,7 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             # Check if using DeComFL strategy
             if 'DeComFL' not in str(type(self.coordinator.strategy)):
                 error_msg = "Server is not configured for DeComFL."
-                print(f"[Server] ERROR: {error_msg}")
+                logging.info(f"[Server] ERROR: {error_msg}")
                 context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
                 context.set_details(error_msg)
                 return fedlearn_pb2.GetDeComFLConfigResponse()
@@ -302,7 +288,7 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             if self.coordinator.stop_requested:
                 return fedlearn_pb2.GetDeComFLConfigResponse(current_round=-1)
 
-            print(f"[Server] DeComFL config request from {client_id} for round {current_round}")
+            logging.info(f"[Server] DeComFL config request from {client_id} for round {current_round}")
 
             # Generate seeds for current round
             seeds = strategy.generate_seeds(current_round)
@@ -323,7 +309,7 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                 'num_perturbations': str(strategy.P)
             }
 
-            print(f"[Server] Sending {len(seeds)} local steps, {len(rebuild_history)} missed rounds")
+            logging.info(f"[Server] Sending {len(seeds)} local steps, {len(rebuild_history)} missed rounds")
 
             return fedlearn_pb2.GetDeComFLConfigResponse(
                 current_round=current_round,
@@ -333,12 +319,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             )
 
         except Exception as e:
-            print(f"[Server] Error in GetDeComFLConfig: {e}")
-            print(f"[Server] Error type: {type(e).__name__}")
-            import traceback
-            traceback.print_exc()
+            logging.error(f"RPC failed for client {request.client_id}", exc_info=True)
             context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(f"Error: {str(e)}")
+            context.set_details("An internal server error occurred.")
             return fedlearn_pb2.GetDeComFLConfigResponse()
 
     def SubmitGradientScalars(self, request: fedlearn_pb2.SubmitGradientScalarsRequest, context):
@@ -350,7 +333,7 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             trained_on_round = request.trained_on_round
             num_examples = request.num_examples
 
-            print(f"[Server] Receiving gradient scalars from {client_id} for round {trained_on_round}")
+            logging.info(f"[Server] Receiving gradient scalars from {client_id} for round {trained_on_round}")
 
             # Import here to avoid circular import
             from fedlearn.server.decomfl_strategy import DeComFL
@@ -358,7 +341,7 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             # Check if using DeComFL strategy
             if 'DeComFL' not in str(type(self.coordinator.strategy)):
                 error_msg = "Server is not configured for DeComFL."
-                print(f"[Server] ERROR: {error_msg}")
+                logging.info(f"[Server] ERROR: {error_msg}")
                 context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
                 context.set_details(error_msg)
                 return fedlearn_pb2.GetDeComFLConfigResponse()
@@ -366,7 +349,7 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             # Convert proto gradients to nested list format
             gradient_scalars = self._proto_to_gradients(request.gradients)
 
-            print(f"[Server] Received {len(gradient_scalars)} local steps, "
+            logging.info(f"[Server] Received {len(gradient_scalars)} local steps, "
                   f"{len(gradient_scalars[0]) if gradient_scalars else 0} perturbations per step")
 
             # Submit to coordinator (modified to handle DeComFL data)
@@ -377,17 +360,14 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                 trained_on_round
             )
 
-            print(f"[Server] Successfully received gradient scalars from {client_id}")
+            logging.info(f"[Server] Successfully received gradient scalars from {client_id}")
 
             return fedlearn_pb2.SubmitGradientScalarsResponse(received=True)
 
         except Exception as e:
-            print(f"[Server] Error in SubmitGradientScalars: {e}")
-            print(f"[Server] Error type: {type(e).__name__}")
-            import traceback
-            traceback.print_exc()
+            logging.error(f"RPC failed for client {request.client_id}", exc_info=True)
             context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(f"Error: {str(e)}")
+            context.set_details("An internal server error occurred.")
             return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
 
     # Helper methods for proto conversion

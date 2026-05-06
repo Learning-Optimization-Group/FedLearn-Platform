@@ -1,9 +1,37 @@
 package com.federated.fl_platform_api.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
+
+/**
+ * Body for POST /api/projects/{id}/start. All fields are optional — the
+ * service supplies sensible defaults — but if provided they must satisfy
+ * the bounds below. Validation rejects pathological inputs (e.g.
+ * numRounds=Integer.MAX_VALUE) before they reach the FL spawn path,
+ * where they could exhaust resources or get interpolated into a shell
+ * command.
+ */
 public class StartProject {
 
+    /**
+     * Allowed values mirror the strategies registered in
+     * {@code framework/src/fedlearn/server/strategy.py} +
+     * {@code decomfl_strategy.py}. Keep this regex in sync if a new
+     * strategy is added on the Python side.
+     */
+    @Pattern(
+            regexp = "FedAvg|FedProx|DeComFL",
+            message = "strategy must be one of: FedAvg, FedProx, DeComFL"
+    )
     private String strategy;
+
+    @Min(value = 1, message = "numRounds must be at least 1")
+    @Max(value = 100, message = "numRounds must be at most 100")
     private Integer numRounds;
+
+    @Min(value = 1, message = "minClients must be at least 1")
+    @Max(value = 100, message = "minClients must be at most 100")
     private Integer minClients;
 
     public String getStrategy() {
@@ -12,14 +40,11 @@ public class StartProject {
 
     public void setStrategy(String strategy) {
         this.strategy = strategy;
-
     }
 
     public Integer getNumRounds() {
         return numRounds;
     }
-
-
 
     public void setNumRounds(Integer numRounds) {
         this.numRounds = numRounds;

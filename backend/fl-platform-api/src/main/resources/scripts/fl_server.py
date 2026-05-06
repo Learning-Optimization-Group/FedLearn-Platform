@@ -1,7 +1,6 @@
 import sys
 import io
 import os
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 # Force UTF-8 encoding for stdout/stderr
 if sys.stdout.encoding != 'utf-8':
@@ -37,12 +36,42 @@ import requests
 from config import DATASET_CONFIGS, get_dataset_config, get_decomfl_config
 from data import load_server_test_data
 
-try:
-    base_url = os.environ['AWS_HOST']
-    print(f"Host environment variable: {base_url}")
-except KeyError:
-    base_url = "localhost"
-    print("Base url environment variable not found setting to local host.")
+target_ip = os.environ.get('SERVER_HOST') or os.environ.get('AWS_HOST') or 'localhost'
+base_url = target_ip  # Preserved to ensure downstream REST logs don't break
+bind_address = "[::]"
+
+# Backend URL used for service-to-service callbacks (round results, project-finished
+# notifications). Prefer FEDLEARN_BACKEND_URL when set — e.g. the internal ALB or
+# service-discovery DNS inside the VPC. Falls back to http://<base_url>:8081 for
+# local dev where everything runs on the same host.
+BACKEND_URL = os.environ.get('FEDLEARN_BACKEND_URL', f"http://{base_url}:8081").rstrip('/')
+
+# Shared secret that gates /api/internal/** on the backend. Set by the orchestrator
+# (FlowerServerManager propagates it into the Fargate task env, or the dev runner
+# exports it). We deliberately do NOT default this — missing key means no callback
+# will succeed, and the task should surface that loudly.
+INTERNAL_API_KEY = os.environ.get('FEDLEARN_INTERNAL_API_KEY', '').strip()
+
+
+def _internal_headers() -> dict:
+    """Headers for /api/internal/** callbacks. Raises if no key is configured."""
+    if not INTERNAL_API_KEY:
+        raise RuntimeError(
+            "FEDLEARN_INTERNAL_API_KEY is not set; refusing to call backend /api/internal/** "
+            "without a shared secret."
+        )
+    return {"X-Internal-Key": INTERNAL_API_KEY, "Content-Type": "application/json"}
+
+
+if os.environ.get('AWS_HOST'):
+    logging.info(f"[NETWORK] Cloud deployment detected. Clients should target AWS Elastic IP: {target_ip}")
+elif os.environ.get('SERVER_HOST'):
+    logging.info(f"[NETWORK] LAN deployment detected. Clients should target LAN IP: {target_ip}")
+else:
+    logging.info(f"[NETWORK] Local environment detected. Clients should target: {target_ip}")
+
+logging.info(f"[NETWORK] gRPC Server universally binding to: {bind_address}")
+logging.info(f"[NETWORK] Backend callbacks will target: {BACKEND_URL}")
 
 
 # ==============================================================================
@@ -380,6 +409,16 @@ def main():
         print(f"  Loss: {avg_loss:.4f}")
         print(f"  Accuracy: {accuracy:.2f}% ({correct}/{total})")
 
+        # Emit JSON structure for frontend LogViewer.tsx telemetry over WebSocket
+        import json
+        print(json.dumps({
+            "level": "INFO",
+            "serverRound": server_round,
+            "loss": avg_loss,
+            "accuracy": accuracy / 100.0,
+            "message": f"[Telemetry] Round {server_round} Aggregation Complete: Loss {avg_loss:.4f}, Acc {accuracy/100.0:.4f}"
+        }))
+
         # Compare to target for different datasets
         if is_llm:
             if args.dataset == "cb":
@@ -438,7 +477,7 @@ def main():
         logging.info("Using FedAvg strategy")
 
     # Start gRPC server
-    server_address = f"0.0.0.0:{args.port}"
+    server_address = f"{bind_address}:{args.port}"
     logging.info(f"Starting FedLearn gRPC server on {server_address}...")
 
     history, final_parameters = fl.server.start_server(
@@ -519,20 +558,45 @@ def main():
         logging.warning("--- No final model parameters to save. ---")
 
 
-    # Report results
-    results_url = "http://"+base_url+":8081"+"/api/internal/results/"+args.project_id
-
-    # Mark Project as completed
-    project_complete_url = "http://"+base_url+":8081"+"/api/projects/"+args.project_id+"/stop"
-
-
+    # Report results via the internal callback endpoint (guarded by X-Internal-Key).
+    results_url = f"{BACKEND_URL}/api/internal/results/{args.project_id}"
     try:
-        response = requests.post(project_complete_url)
-        response.raise_for_status()
-        print(f"POST request successful. Status Code: {response.status_code}")
-        print(f"Response content: {response.text}")
-    except requests.exceptions.RequestException as e:
-        print(f"An error occurred: {e}")
+        headers = _internal_headers()
+    except RuntimeError as e:
+        logging.error("Cannot report round results: %s", e)
+        headers = None
+
+    if history and headers is not None:
+        for r, metrics in history:
+            acc_metric = float(metrics.get("accuracy", 0.0))
+            # The evaluate_fn returns accuracy as a percentage (e.g. 52.74)
+            # The database / frontend expects a decimal for precision (e.g. 0.5274)
+            decimal_accuracy = acc_metric / 100.0 if acc_metric > 1.0 else acc_metric
+
+            result_payload = {
+                "serverRound": r,
+                "loss": float(metrics.get("loss", 0.0)),
+                "accuracy": decimal_accuracy,
+                "gpuUtilization": 0.0,
+            }
+            try:
+                res = requests.post(results_url, json=result_payload, headers=headers, timeout=30)
+                res.raise_for_status()
+                logging.info(f"Successfully reported results for round {r}")
+            except Exception as e:
+                logging.error(f"Failed to report results for round {r}: {e}")
+
+    # Mark project as completed. Uses the internal endpoint
+    # (POST /api/internal/results/{id}/finished) so the FL-server task does not
+    # need a user JWT.
+    project_complete_url = f"{BACKEND_URL}/api/internal/results/{args.project_id}/finished"
+    if headers is not None:
+        try:
+            response = requests.post(project_complete_url, headers=headers, timeout=30)
+            response.raise_for_status()
+            logging.info("Project marked as finished (status=%s)", response.status_code)
+        except requests.exceptions.RequestException as e:
+            logging.error("Failed to mark project as finished: %s", e)
 
 
 if __name__ == "__main__":

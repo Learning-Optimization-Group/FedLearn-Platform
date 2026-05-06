@@ -1,6 +1,7 @@
 package com.federated.fl_platform_api.model;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.Objects;
@@ -19,8 +20,17 @@ public class User {
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password; // This will store the HASHED password
+
+    /**
+     * Coarse role used for endpoint authorization (USER | ADMIN).
+     * Mapped to a Spring Security {@code GrantedAuthority} of
+     * {@code ROLE_<value>} by {@link com.federated.fl_platform_api.service.CustomUserDetailsService}.
+     */
+    @Column(nullable = false, length = 32)
+    private String role = "USER";
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -62,6 +72,10 @@ public class User {
         return password;
     }
 
+    public String getRole() {
+        return role;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
@@ -85,6 +99,10 @@ public class User {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
     }
 
     public void setCreatedAt(Instant createdAt) {

@@ -1,6 +1,9 @@
 package com.federated.fl_platform_api.service;
 
 import com.federated.fl_platform_api.dto.*;
+import com.federated.fl_platform_api.exception.ProjectStateException;
+import com.federated.fl_platform_api.exception.ResourceNotFoundException;
+import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.RoundResult;
 import com.federated.fl_platform_api.model.User;
@@ -8,8 +11,16 @@ import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.flower.FlowerServerManager;
 import com.federated.fl_platform_api.repository.RoundResultRepository;
 import com.federated.fl_platform_api.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.lang.NonNull;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -18,12 +29,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 public class ProjectService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProjectService.class);
 
     @Autowired
     private ProjectRepository projectRepository;
@@ -37,7 +49,62 @@ public class ProjectService {
     private RoundResultRepository roundResultRepository;
     @Autowired
     private WebSocketService webSocketService;
+    @Autowired
+    private com.federated.fl_platform_api.repository.ServerLogRepository serverLogRepository;
 
+
+    // ─── Authorization helpers ──────────────────────────────────────────────
+
+    /**
+     * Resolve the currently authenticated User entity. Spring Security's
+     * filter chain guarantees that any Authentication present in the
+     * SecurityContext at this point came from a successful JWT validation,
+     * so a non-null check here is sufficient — we don't re-check
+     * isAuthenticated().
+     */
+    private User currentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            throw new AccessDeniedException("No authenticated principal");
+        }
+        String username = authentication.getName();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException(
+                        "Authenticated principal has no matching user row: " + username));
+    }
+
+    private static boolean isAdmin(Authentication authentication) {
+        if (authentication == null) return false;
+        for (GrantedAuthority a : authentication.getAuthorities()) {
+            if ("ROLE_ADMIN".equals(a.getAuthority())) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Asserts that the caller either owns the project or is an admin. Returns
+     * 403 (mapped via GlobalExceptionHandler) on mismatch — never 404, since
+     * leaking project-existence to non-owners is itself an information leak.
+     *
+     * Internal callbacks (FL-server → /api/internal/**) bypass this check
+     * entirely because they pass through {@code InternalApiKeyFilter} which
+     * doesn't populate a Spring Security principal.
+     */
+    private void requireOwnerOrAdmin(Project project) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            throw new AccessDeniedException("No authenticated principal");
+        }
+        if (isAdmin(authentication)) {
+            return;
+        }
+        User caller = currentUser();
+        User owner = project.getUser();
+        if (owner == null || !owner.getId().equals(caller.getId())) {
+            // Use a generic message; do not echo back the project id or owner.
+            throw new AccessDeniedException("You do not have access to this project");
+        }
+    }
 
     private RoundResultDto convertToDto(RoundResult result) {
         RoundResultDto dto = new RoundResultDto();
@@ -62,64 +129,57 @@ public class ProjectService {
         return dto;
     }
 
+    @Transactional
     public ProjectResponseDto createProject(CreateProjectRequest request) throws IOException, InterruptedException {
-        System.out.println("\n\n==================== NEW PROJECT REQUEST RECEIVED ====================");
-        System.out.println("=> Project Name: " + request.getName());
-        System.out.println("=> Model Type: " + request.getModelType());
+        log.info("Creating project '{}' (modelType={})", request.getName(), request.getModelType());
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String currentUsername = authentication.getName();
-        User currentUser = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new UsernameNotFoundException("Authenticated user not found in database"));
+        User owner = currentUser();
 
-        // --- Step 1: Initial Database Entry ---
-        System.out.println("\n[1/3] Persisting initial project state to database...");
         Project project = new Project();
         project.setName(request.getName());
         project.setModelType(request.getModelType());
         project.setModelName(request.getModelName());
         project.setOptimizer(request.getOptimizer());
-        project.setUser(currentUser);
+        project.setUser(owner);
         project.setStatus("CREATED");
         Project savedProject = projectRepository.save(project);
-        System.out.println("...Success! Project ID: " + savedProject.getId());
+        log.debug("Persisted project shell with id={}", savedProject.getId());
 
-        // --- Step 2: Model Initialization (The "Loader" Part) ---
         File modelFile = new File("models/" + savedProject.getId().toString() + ".npz");
+        if (!modelFile.getParentFile().exists() && !modelFile.getParentFile().mkdirs()) {
+            throw new ServerProcessException(
+                    "Could not create model output directory: " + modelFile.getParentFile().getAbsolutePath());
+        }
         String absoluteModelPath = modelFile.getAbsolutePath();
         savedProject.setModelPath(absoluteModelPath);
-        System.out.println("Saving model at - "+absoluteModelPath);
 
-        System.out.println("\n[2/3] Initializing model file... (This may take a moment)");
-        System.out.println("------------------------- LOADER START -------------------------");
+        try {
+            modelInitializer.initializeModelFile(
+                    request.getModelType(),
+                    request.getModelName(),
+                    request.getOptimizer(),
+                    absoluteModelPath,
+                    request.getPretrainEpochs());
+        } catch (IOException | InterruptedException e) {
+            // Allow the @Transactional rollback to drop the orphan project row.
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw new ServerProcessException(
+                    "Model initialization failed for project " + savedProject.getId(), e);
+        }
 
-        // This is the long-running, blocking call.
-        modelInitializer.initializeModelFile(request.getModelType(), request.getModelName(), request.getOptimizer(), absoluteModelPath, request.getPretrainEpochs());
-
-        System.out.println("-------------------------- LOADER END --------------------------");
-        System.out.println("...Success! Model file created at: " + absoluteModelPath);
-
-//        // --- Step 3: Start Federated Learning Server ---
-//        System.out.println("\n[3/4] Starting dedicated Flower server process...");
-//        int port = flowerServerManager.startServerForProject(savedProject,false);
-//        savedProject.setServerPort(port);
-//        System.out.println("...Success! Flower server started on port: " + port);
-
-        // --- Step 3: Final Database Update ---
-        System.out.println("\n[3/3] Updating project with server details...");
         Project finalProject = projectRepository.save(savedProject);
-        System.out.println("...Success! Project is fully configured and ready.");
-        System.out.println("==================== PROJECT CREATION COMPLETE ====================\n");
-
+        log.info("Project {} fully initialised at {}", finalProject.getId(), absoluteModelPath);
         return convertToDto(finalProject);
     }
 
-    public ProjectResponseDto startServerForProject(UUID projectId, StartProject request) throws IOException, InterruptedException {
+    public ProjectResponseDto startServerForProject(@NonNull UUID projectId, StartProject request)
+            throws IOException, InterruptedException {
 
-        Optional<Project> savedProject = projectRepository.findById(projectId);
-        System.out.println("\n[1/4] Finding project with ID: " + projectId);
-
-        Project project = projectRepository.findById(projectId).orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectId));
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        requireOwnerOrAdmin(project);
 
         String strategyToUse = (request != null && request.getStrategy() != null && !request.getStrategy().isEmpty())
                 ? request.getStrategy()
@@ -129,114 +189,165 @@ public class ProjectService {
                 ? request.getMinClients()
                 : 1;
 
-        // --- THIS IS THE NEW LOGIC FOR NUMBER OF ROUNDS ---
-        System.out.println("request.getNumRounds() - "+request.getNumRounds());
-        System.out.println(("Minclients = "+request.getMinClients()));
         Integer numRoundsToUse;
         if (request != null && request.getNumRounds() != null && request.getNumRounds() > 0) {
-            // 1. Use the user's value if provided and valid
             numRoundsToUse = request.getNumRounds();
-            System.out.println("...User specified number of rounds: " + numRoundsToUse);
         } else {
-            // 2. Otherwise, set a default based on the model type
-            if ("Transformer".equalsIgnoreCase(project.getModelType())) {
-                numRoundsToUse = 5; // Default for LLMs
-            } else {
-                numRoundsToUse = 5; // Default for CNNs and others
-            }
-            System.out.println("...Using default number of rounds for " + project.getModelType() + ": " + numRoundsToUse);
+            // Default for both LLMs and CNNs; tune per-model-type if needed.
+            numRoundsToUse = 5;
         }
-        // Check if server is already running for this project
+        log.debug("Starting project {} with strategy={}, rounds={}, minClients={}",
+                projectId, strategyToUse, numRoundsToUse, minClients);
 
-        if(flowerServerManager.isServerRunning(projectId)){
-            System.out.println("...Server is already running for this project on port: " + project.getServerPort());
-            convertToDto(project);
+        if (flowerServerManager.isServerRunning(projectId)) {
+            // Was previously a silent fall-through that double-spawned the server.
+            throw new ProjectStateException(
+                    "FL server is already running for project " + projectId
+                            + " on port " + project.getServerPort());
         }
 
-        System.out.println("\n[2/4] Starting dedicated Flower server process...");
-
-        int port = flowerServerManager.startServerForProject(project,true, strategyToUse, numRoundsToUse,minClients);
+        int port = flowerServerManager.startServerForProject(
+                project, true, strategyToUse, numRoundsToUse, minClients);
         project.setServerPort(port);
         project.setStatus("RUNNING");
 
-
-        System.out.println("...Success! Flower server started on port: " + port);
-
-        System.out.println("\n[3/4] Updating project with server details...");
-//        Project finalProject = projectRepository.save(project);
         Project updatedProject = projectRepository.save(project);
 
-        ProjectStatusUpdateDto update = new ProjectStatusUpdateDto(updatedProject.getId(), "RUNNING", updatedProject.getServerPort());
+        ProjectStatusUpdateDto update = new ProjectStatusUpdateDto(
+                updatedProject.getId(), "RUNNING", updatedProject.getServerPort());
         webSocketService.sendStatusUpdate(update);
-        System.out.println("...Success! Project is fully configured and ready.");
-        System.out.println("\n[4/4] Starting dedicated Flower server process...");
-        return convertToDto(updatedProject);
+        log.info("Started FL server for project {} on port {}", projectId, port);
 
+        return convertToDto(updatedProject);
     }
 
     @Transactional
-    public ProjectResponseDto stopServerForProject(UUID projectId) {
+    public ProjectResponseDto stopServerForProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectId));
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        requireOwnerOrAdmin(project);
 
         boolean stopped = flowerServerManager.stopServerForProject(projectId);
         Project finalProjectState = project;
-        if (stopped || project.getStatus().equals("RUNNING")) {
-            System.out.println("!!! SERVER PROCESS WAS STOPPED. SETTING PORT TO NULL. !!!");
-            // If the server was successfully stopped, update the project state
+        if (stopped || "RUNNING".equals(project.getStatus())) {
             project.setServerPort(null);
             project.setStatus("STOPPED");
             finalProjectState = projectRepository.save(project);
-            System.out.println("...Server process stopped and project state updated.");
+            log.info("Stopped FL server for project {}", projectId);
+        } else {
+            log.debug("No running server found for project {}; nothing to stop", projectId);
         }
 
         return convertToDto(finalProjectState);
     }
 
-    // in ProjectService.java
     public List<ProjectResponseDto> getProjectsForCurrentUser() {
-        // Get the currently authenticated user's details
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String currentUsername = authentication.getName();
-
-        // You'll need your UserRepository for this
-        // (Assuming you have a UserRepository that can find by username)
-        User currentUser = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
-        List<Project> projects = projectRepository.findByUserId(currentUser.getId());
-
-        // Convert the list of entities to a list of DTOs
+        User caller = currentUser();
+        List<Project> projects = projectRepository.findByUserId(caller.getId());
         return projects.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
 
-    public List<RoundResultDto> getResultsForProject(UUID projectId) {
-        List<RoundResult> results = roundResultRepository.findByProjectIdOrderByServerRoundAsc(projectId);
-
-        // Convert the list of entities to a list of DTOs
-        return results.stream()
+    public List<RoundResultDto> getResultsForProject(@NonNull UUID projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        requireOwnerOrAdmin(project);
+        return roundResultRepository.findByProjectIdOrderByServerRoundAsc(projectId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
 
-    public void markProjectAsCompleted(UUID projectId){
+    @Transactional
+    public void markProjectAsCompleted(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectId));
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
 
         project.setStatus("COMPLETED");
         project.setServerPort(null);
         projectRepository.save(project);
 
-        ProjectStatusUpdateDto update = new ProjectStatusUpdateDto(project.getId(), "COMPLETED", null);
-        webSocketService.sendStatusUpdate(update);
-        System.out.println("...Success! Project is marked as completed.");
-
+        webSocketService.sendStatusUpdate(
+                new ProjectStatusUpdateDto(project.getId(), "COMPLETED", null));
+        log.info("Project {} marked as completed", projectId);
     }
 
-    public void deleteProject(UUID projectId){
+    @Transactional
+    public void deleteProject(@NonNull UUID projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        requireOwnerOrAdmin(project);
+
+        // Best-effort: stop any running FL server before removing the row so
+        // we don't leak processes/ECS tasks.
+        try {
+            flowerServerManager.stopServerForProject(projectId);
+        } catch (RuntimeException e) {
+            log.warn("Failed to stop FL server for project {} before delete; continuing",
+                    projectId, e);
+        }
         projectRepository.deleteById(projectId);
-        System.out.println("...Success! Project deleted.");
+        log.info("Project {} deleted", projectId);
+    }
+
+    /** Hard cap on the page size a caller can request for the live log endpoint. */
+    public static final int MAX_LOGS_PAGE_SIZE = 500;
+    /** Default page size when the caller doesn't specify one. */
+    public static final int DEFAULT_LOGS_PAGE_SIZE = 200;
+    /**
+     * Hard cap on the export endpoint. Larger projects need to fall back to
+     * archived storage (S3 Athena, etc.) — not in scope yet.
+     */
+    public static final int MAX_LOGS_EXPORT_SIZE = 10_000;
+
+    public List<ServerLogDto> getLogsForProject(UUID projectId, Pageable requested) {
+        Project project = requireProjectAndOwnership(projectId);
+
+        // Clamp to MAX_LOGS_PAGE_SIZE so a caller can't ask for an unbounded
+        // result by passing ?size=1000000. Sort is server-controlled so the
+        // caller can't reverse the order or sort by an unindexed column.
+        int pageNumber = requested != null ? Math.max(0, requested.getPageNumber()) : 0;
+        int pageSize = requested != null && requested.getPageSize() > 0
+                ? Math.min(requested.getPageSize(), MAX_LOGS_PAGE_SIZE)
+                : DEFAULT_LOGS_PAGE_SIZE;
+        Pageable safePageable = PageRequest.of(pageNumber, pageSize, Sort.by("timestamp").ascending());
+
+        return serverLogRepository.findByProjectIdOrderByTimestampAsc(project.getId(), safePageable)
+                .stream()
+                .map(ProjectService::toLogDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Returns up to {@link #MAX_LOGS_EXPORT_SIZE} log lines for the export
+     * endpoint. The cap protects the JVM from a runaway project; if real
+     * users need bigger exports we should ship them to S3 instead.
+     */
+    public List<ServerLogDto> getLogsForExport(UUID projectId) {
+        Project project = requireProjectAndOwnership(projectId);
+        Pageable cap = PageRequest.of(0, MAX_LOGS_EXPORT_SIZE, Sort.by("timestamp").ascending());
+        return serverLogRepository.findByProjectIdOrderByTimestampAsc(project.getId(), cap)
+                .stream()
+                .map(ProjectService::toLogDto)
+                .collect(Collectors.toList());
+    }
+
+    private Project requireProjectAndOwnership(UUID projectId) {
+        if (projectId == null) {
+            throw ResourceNotFoundException.forEntity("Project", null);
+        }
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        requireOwnerOrAdmin(project);
+        return project;
+    }
+
+    private static ServerLogDto toLogDto(com.federated.fl_platform_api.model.ServerLog entry) {
+        ServerLogDto dto = new ServerLogDto();
+        dto.setLevel(entry.getLevel());
+        dto.setMessage(entry.getMessage());
+        dto.setStackTrace(entry.getStackTrace());
+        dto.setTimestamp(entry.getTimestamp());
+        return dto;
     }
 }
