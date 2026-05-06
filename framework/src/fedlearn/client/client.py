@@ -13,6 +13,8 @@ import os
 # import pika
 import traceback
 
+log = logging.getLogger(__name__)
+
 class Client(ABC):
     """Abstract base class for federated learning clients."""
 
@@ -42,11 +44,10 @@ def start_client(server_address: str, client: Client, client_id: str):
 
     # Register with the server
     if not comm_client.register():
-        print(f"[{client_id}] Could not register with the server. Exiting.")
+        log.error("[%s] Could not register with server; exiting", client_id)
         return
 
-    # Start heartbeat thread
-    print(f"[{client_id}] Starting heartbeat...")
+    log.info("[%s] Registered with server; starting heartbeat", client_id)
     comm_client.start_heartbeat()
 
     # Pass comm_client to the client for progress updates
@@ -57,66 +58,68 @@ def start_client(server_address: str, client: Client, client_id: str):
         while True:
             try:
                 # 1. Get model from server
-                print(f"[{client_id}] Fetching global model...")
+                log.debug("[%s] Fetching global model", client_id)
                 comm_client.update_status("fetching_model", 0, 0)
 
                 parameters, server_round, config = comm_client.get_global_model()
 
-                if server_round == -1:  # Server signaling to stop
-                    print(f"[{client_id}] Server has finished training. Shutting down.")
+                if server_round == -1:  # Server signalled completion
+                    log.info("[%s] Server signalled training complete; shutting down", client_id)
                     break
 
                 # Only proceed if the server has advanced to a new round
                 if server_round > last_completed_round:
-                    print(f"[{client_id}] Starting local training for round {server_round}...")
+                    log.info("[%s] Starting local training for round %d", client_id, server_round)
 
                     # Update current round in grpc_client for heartbeat
                     comm_client.current_round = server_round
                     comm_client.update_status("training", 0, 1)  # Will be updated by training loop
 
-                    # 2. Train the model (fit)
-                    # The client.fit() method should call comm_client.update_status() during training
+                    # 2. Train the model (fit). client.fit() should call
+                    # comm_client.update_status() during training to drive heartbeats.
                     new_parameters, num_examples = client.fit(parameters, config)
 
                     # 3. Submit the update
-                    print(f"[{client_id}] Submitting update for round {server_round}...")
+                    log.debug("[%s] Submitting update for round %d", client_id, server_round)
                     comm_client.update_status("submitting_update", 0, 0)
 
                     if comm_client.submit_update(new_parameters, num_examples, server_round):
-                        print(f"[{client_id}] Successfully submitted update for round {server_round}.")
-                        last_completed_round = server_round  # Update our state
+                        log.info("[%s] Submitted update for round %d", client_id, server_round)
+                        last_completed_round = server_round
                         comm_client.update_status("idle", 0, 0)
                     else:
-                        print(f"[{client_id}] Failed to submit update for round {server_round}.")
+                        log.error("[%s] Failed to submit update for round %d", client_id, server_round)
                         comm_client.update_status("error", 0, 0)
                 else:
                     # The server is still in the same round, waiting for other clients.
-                    # We should wait before polling again.
-                    print(f"[{client_id}] Server is still in round {server_round}. Waiting...")
+                    # TODO: Replace polling with a WaitForNextRound server-streaming RPC
+                    # that blocks until the Coordinator fires _round_complete_event,
+                    # instantly pushing new round metadata to connected clients.
+                    log.debug("[%s] Server still on round %d; waiting", client_id, server_round)
                     comm_client.update_status("waiting", 0, 0)
-                    time.sleep(5)  # Wait for 5 seconds before checking again
+                    time.sleep(2)
 
             except grpc.RpcError as e:
                 if e.code() == grpc.StatusCode.UNAVAILABLE:
-                    print(f"[{client_id}] Server is unavailable. Shutting down.")
-                    break  # Server has shut down, so we exit the loop
-                else:
-                    print(f"[{client_id}] An RPC error occurred: {e.details()}. Retrying in 10 seconds...")
-                    print(f"[{client_id}] Error code: {e.code()}")
-                    traceback.print_exc()
-                    comm_client.update_status("error", 0, 0)
-                    time.sleep(10)
-            except Exception as e:
-                print(f"[{client_id}] An unexpected error occurred: {e}. Shutting down.")
-                print(f"[{client_id}] Full traceback:")
-                traceback.print_exc()
+                    log.warning("[%s] Server unavailable; shutting down", client_id)
+                    break  # Server has shut down, exit the loop
+                log.warning(
+                    "[%s] gRPC error (code=%s): %s. Retrying in 10s",
+                    client_id, e.code(), e.details(),
+                )
+                comm_client.update_status("error", 0, 0)
+                time.sleep(10)
+            except Exception:
+                # Unknown failure path — log full traceback and exit so that
+                # the orchestrator can restart the client cleanly. Returning
+                # control to a misbehaving inner loop tends to mask root causes.
+                log.exception("[%s] Unexpected client error; shutting down", client_id)
                 comm_client.update_status("error", 0, 0)
                 break
 
     finally:
-        # Clean shutdown - stop heartbeat and close connection
-        print(f"[{client_id}] Shutting down...")
+        log.info("[%s] Shutting down", client_id)
         comm_client.stop_heartbeat()
         comm_client.close()
-        print(f"[{client_id}] Shutdown complete.")
+        log.info("[%s] Shutdown complete", client_id)
 

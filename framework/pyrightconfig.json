@@ -1,0 +1,5 @@
+{
+  "extraPaths": [
+    "examples/ecg_decomfl_central"
+  ]
+}

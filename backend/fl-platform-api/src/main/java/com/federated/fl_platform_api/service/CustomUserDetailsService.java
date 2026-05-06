@@ -1,51 +1,49 @@
 package com.federated.fl_platform_api.service;
 
-import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
+    private static final Logger log = LoggerFactory.getLogger(CustomUserDetailsService.class);
+
     @Autowired
     private UserRepository userRepository;
 
-    // ...
     @Override
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
-        System.out.println("LOAD_USER_BY_USERNAME: Input identifier: '" + usernameOrEmail + "'");
+        // Avoid logging the raw identifier at INFO — emails are PII.
+        log.debug("loadUserByUsername invoked");
 
         com.federated.fl_platform_api.model.User applicationUser = userRepository.findByUsername(usernameOrEmail)
-                .map(u -> {
-                    System.out.println("LOAD_USER_BY_USERNAME: Found by username: '" + u.getUsername() + "' (Email: '" + u.getEmail() + "')");
-                    return u;
-                })
-                .orElseGet(() -> {
-                    System.out.println("LOAD_USER_BY_USERNAME: Not found by username, trying by email (case-insensitive): '" + usernameOrEmail + "'");
-                    return userRepository.findByEmailIgnoreCase(usernameOrEmail)
-                            .map(u -> {
-                                System.out.println("LOAD_USER_BY_USERNAME: Found by emailIgnoreCase: '" + u.getEmail() + "' (Username: '" + u.getUsername() + "')");
-                                return u;
-                            })
-                            .orElseThrow(() -> {
-                                System.err.println("LOAD_USER_BY_USERNAME: User NOT FOUND with identifier: '" + usernameOrEmail + "'");
-                                return new UsernameNotFoundException("User not found with username or email: " + usernameOrEmail);
-                            });
-                });
+                .orElseGet(() -> userRepository.findByEmailIgnoreCase(usernameOrEmail)
+                        .orElseThrow(() -> {
+                            // Translates to a 401 via the auth handler in GlobalExceptionHandler.
+                            log.info("Authentication failed: identifier not found");
+                            return new UsernameNotFoundException(
+                                    "User not found with username or email: " + usernameOrEmail);
+                        }));
 
-        // CRITICAL LOG: What is the exact username being passed to Spring Security UserDetails?
-        System.out.println("LOAD_USER_BY_USERNAME: Returning UserDetails for DB Username: '" + applicationUser.getUsername() + "' (Length: " + applicationUser.getUsername().length() + ")");
+        // Spring Security expects authorities prefixed with "ROLE_" for the
+        // hasRole(...) DSL to match. We store the bare role on the entity
+        // ("USER" / "ADMIN") and prefix it here at the boundary.
+        String role = applicationUser.getRole() != null ? applicationUser.getRole() : "USER";
+        SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role);
 
         return new org.springframework.security.core.userdetails.User(
                 applicationUser.getUsername(),
                 applicationUser.getPassword(),
-                new ArrayList<>()
+                List.of(authority)
         );
     }
 }

@@ -1,6 +1,6 @@
-﻿import logging
+import logging
 import threading
-import pickle
+import json
 # import pika
 from collections import OrderedDict
 from typing import Dict, Optional
@@ -16,13 +16,13 @@ def get_rabbitmq_parameters():
     port = int(os.environ.get("RABBITMQ_PORT", 5672))
     vhost = "/"  # explicitly use default vhost
 
-    print("=== RabbitMQ Connection Parameters ===")
-    print(f"USER: {user}")
-    print(f"PASS: {password}")
-    print(f"HOST: {host}")
-    print(f"PORT: {port}")
-    print(f"VHOST: {vhost}")
-    print("====================================")
+    logging.info("=== RabbitMQ Connection Parameters ===")
+    logging.info(f"USER: {user}")
+    logging.info(f"PASS: {'*' * len(password)}")
+    logging.info(f"HOST: {host}")
+    logging.info(f"PORT: {port}")
+    logging.info(f"VHOST: {vhost}")
+    logging.info("====================================")
 
     credentials = pika.PlainCredentials(user, password)
     parameters = pika.ConnectionParameters(
@@ -57,7 +57,6 @@ class FLCoordinator:
                 logging.warning(f"Duplicate update from {client_id} for round {trained_on_round} ignored.")
                 return
             self._round_updates[trained_on_round].append((client_id, params, num_examples))
-            self._round_updates[trained_on_round].append((params, num_examples))
 
             if len(self._round_updates[trained_on_round]) >= self.min_clients:
                 logging.info(
@@ -99,7 +98,7 @@ class ResultConsumer(threading.Thread):
     def run(self):
         attempt = 0
         results_queue_name = f"results_queue_{self.project_id}"
-        print(f"[ResultConsumer] results_queue_name - {results_queue_name}")
+        logging.info(f"[ResultConsumer] results_queue_name - {results_queue_name}")
 
         while not self._stop_event.is_set():
             try:
@@ -113,7 +112,7 @@ class ResultConsumer(threading.Thread):
 
                 def callback(ch, method, properties, body):
                     try:
-                        result = pickle.loads(body)
+                        result = json.loads(body)
                         self.coordinator.submit_client_update(
                             client_id=result['client_id'],
                             params=result['params'],
@@ -152,7 +151,10 @@ class ResultConsumer(threading.Thread):
                     if 'connection' in locals() and connection.is_open:
                         connection.close()
                 except Exception:
-                    pass
+                    # Cleanup-only path; never mask the original failure, but
+                    # don't lose the diagnostic either.
+                    logging.debug("[ResultConsumer] Failed to close stale RabbitMQ connection",
+                                  exc_info=True)
 
     def stop(self):
         """Gracefully stops the consumer thread."""

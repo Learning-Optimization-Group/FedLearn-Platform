@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Logback configuration for fl-platform-api.
+
+    Profile-aware:
+      - default / dev: human-readable colorised pattern on stdout.
+      - production:    single-line pattern suitable for the ECS awslogs driver
+                       (CloudWatch ingests one log event per stdout line).
+
+    Per-package levels are in spring.profile-aware properties files; this file
+    only owns layout/appender wiring so that operators can change levels at
+    runtime via Spring Boot's /actuator/loggers (when enabled) without redeploys.
+
+    No file appender on purpose — containers log to stdout/stderr; the
+    awslogs / Docker log driver / CI runner is responsible for persistence.
+-->
+<configuration>
+
+    <!--
+        Pull in Spring Boot's defaults so the %clr / %wex / %wEx conversion
+        words used below are registered. Without this include, the patterns
+        below render as %PARSER_ERROR[clr] etc. when the application context
+        is bootstrapped (most visibly in tests).
+    -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- ─── Common patterns ────────────────────────────────────────────── -->
+    <property name="CONSOLE_LOG_PATTERN_DEV"
+              value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"/>
+
+    <property name="CONSOLE_LOG_PATTERN_PROD"
+              value="%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p [%t] %logger{40} - %m%n%wEx"/>
+
+    <!-- ─── Dev / default profile ──────────────────────────────────────── -->
+    <springProfile name="default,dev,test">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>${CONSOLE_LOG_PATTERN_DEV}</pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <!-- ─── Production profile (CloudWatch / structured-friendly) ──────── -->
+    <springProfile name="production">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>${CONSOLE_LOG_PATTERN_PROD}</pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+</configuration>

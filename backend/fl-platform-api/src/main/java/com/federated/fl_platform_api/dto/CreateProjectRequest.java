@@ -19,7 +19,7 @@ public class CreateProjectRequest {
 
     @NotNull(message = "pretrainEpochs must be provided")
     @Min(value = 0, message = "pretrainEpochs cannot be negative")
-    private Integer preTrainEpocs;
+    private Integer pretrainEpochs;
 
 
     public String getName() {
@@ -47,11 +47,11 @@ public class CreateProjectRequest {
     }
 
     public Integer getPretrainEpochs() {
-        return preTrainEpocs;
+        return pretrainEpochs;
     }
 
-    public void setPretrainEpochs(Integer preTrainEpocs) {
-        this.preTrainEpocs = preTrainEpocs;
+    public void setPretrainEpochs(Integer pretrainEpochs) {
+        this.pretrainEpochs = pretrainEpochs;
     }
 
     public void setModelName(String modelName) {

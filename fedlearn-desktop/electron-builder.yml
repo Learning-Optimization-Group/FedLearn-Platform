@@ -1,0 +1,122 @@
+# =============================================================================
+# FedLearn Desktop — electron-builder Configuration
+# =============================================================================
+# Packaging config for macOS, Windows, and Linux.
+#
+# Code signing:
+#   macOS — Set CSC_LINK (p12 cert path) and CSC_KEY_PASSWORD env vars.
+#           For notarization, set APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD,
+#           and APPLE_TEAM_ID.
+#   Windows — Set CSC_LINK and CSC_KEY_PASSWORD for Authenticode signing.
+#   Unsigned builds will trigger OS security warnings (Gatekeeper / SmartScreen).
+# =============================================================================
+
+appId: com.fedlearn.desktop
+productName: FedLearn Desktop
+copyright: Copyright 2024 Learning Optimization Group, Rochester Institute of Technology
+
+directories:
+  buildResources: build
+  output: release
+
+files:
+  - dist/**/*
+  - "!dist/**/*.map"
+  - node_modules/dockerode/**/*
+  - node_modules/electron-store/**/*
+  - node_modules/electron-log/**/*
+  - node_modules/axios/**/*
+
+# Ship the PyInstaller-built native client alongside the Electron app.
+# On Mac/Win this ends up at process.resourcesPath/fedlearn-client/ which
+# DockerService.resolveNativeInvocation() locates at runtime.
+#
+# Precondition: run the appropriate packaging script BEFORE electron-builder
+# so dist/fedlearn-client/ exists:
+#   Mac:        client-docker/packaging/build-mac.sh
+#   Win CPU:    client-docker/packaging/build-win-cpu.ps1
+#   Win CUDA:   client-docker/packaging/build-win-cuda.ps1
+# Only one Windows variant can exist at a time — pick the one you're shipping.
+extraResources:
+  - from: ../client-docker/packaging/dist/fedlearn-client
+    to: fedlearn-client
+    filter:
+      - "**/*"
+
+asar: true
+asarUnpack:
+  - node_modules/dockerode/**/*
+
+# ======================== macOS ========================
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  icon: build/icon.icns
+  darkModeSupport: true
+  # Ad-hoc signed (identity: null) — no Apple Developer ID. Hardened runtime
+  # requires pairing with a Developer ID + notarization; without them macOS
+  # rejects launch with "damaged / check with developer" even after install.
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+dmg:
+  artifactName: "${productName}-${version}-${arch}.dmg"
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+# Notarization — requires APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
+# Uncomment when signing certs are configured:
+# afterSign: scripts/notarize.js
+
+# ======================== Windows ========================
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  artifactName: "${productName}-Setup-${version}.exe"
+
+# ======================== Linux ========================
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+        - arm64
+    - target: deb
+      arch:
+        - x64
+        - arm64
+  category: Development
+  icon: build/icons
+  desktop:
+    entry:
+      StartupNotify: "true"
+      Terminal: "false"
+
+# ======================== Publish ========================
+# Configure for auto-update if using electron-updater later.
+publish:
+  provider: github
+  owner: anurag2796
+  repo: FedLearn-Platform

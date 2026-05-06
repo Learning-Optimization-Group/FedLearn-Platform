@@ -39,18 +39,18 @@ def dirichlet_split(labels: np.ndarray, num_clients: int, alpha: float = 0.5, se
     Returns:
         client_indices: List of indices for each client
     """
-    np.random.seed(seed)
+    rng = np.random.default_rng(seed)
     num_classes = len(np.unique(labels))
 
     # Dirichlet distribution for each class
-    label_distribution = np.random.dirichlet([alpha] * num_clients, num_classes)
+    label_distribution = rng.dirichlet([alpha] * num_clients, num_classes)
 
     client_indices = [[] for _ in range(num_clients)]
 
     for k in range(num_classes):
         # Get indices for class k
         idx_k = np.where(labels == k)[0]
-        np.random.shuffle(idx_k)
+        rng.shuffle(idx_k)
 
         # Split according to Dirichlet proportions
         proportions = label_distribution[k]
@@ -63,7 +63,7 @@ def dirichlet_split(labels: np.ndarray, num_clients: int, alpha: float = 0.5, se
 
     # Shuffle each client's data
     for i in range(num_clients):
-        np.random.shuffle(client_indices[i])
+        rng.shuffle(client_indices[i])
 
     return client_indices
 
@@ -170,7 +170,8 @@ def get_ecg_loaders(
         data_fraction: float = 1.0,
         alpha: float = 0.5,
         test_size: float = 0.2,
-        num_workers: int = 4,
+        # OPTIMIZED: Default to 0 for Docker/Edge compatibility. Override only on high-RAM servers.
+        num_workers: int = 0,
         seed: int = 42
 ):
     """
@@ -269,7 +270,7 @@ def get_test_loader(
         alpha: float = 0.5,
         data_fraction: float = 1.0,
         test_size: float = 0.2,
-        num_workers: int = 4,
+        num_workers: int = 0,
         seed: int = 42
 ):
     """
