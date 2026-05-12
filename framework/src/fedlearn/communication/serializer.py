@@ -83,7 +83,7 @@ def parameters_to_chunks(
         chunk_size: int = CHUNK_SIZE,
         compress: Optional[bool] = None,
 ) -> Generator[Dict, None, None]:
-    """Memory-efficient serialization using torch.save."""
+    """Memory-efficient serialization using torch.save with memoryview (streaming)."""
     if compress is None:
         compress = USE_COMPRESSION
 
@@ -91,12 +91,9 @@ def parameters_to_chunks(
         log.debug("Serializing %d tensors with torch.save", len(params))
 
         with io.BytesIO() as buffer:
-            model_data = {
-                'parameters': params,
-                'num_examples': num_examples,
-            }
-            torch.save(model_data, buffer)
-            serialized = buffer.getvalue()
+            torch.save(params, buffer)
+            view = memoryview(buffer.getbuffer())
+            serialized = view.tobytes() if compress else view
 
         original_size = len(serialized)
         log.debug("Serialized size: %.2f MB", original_size / (1024 ** 2))
@@ -110,8 +107,6 @@ def parameters_to_chunks(
             log.debug("Compressed size: %.2f MB (ratio %.2fx)", len(compressed) / (1024 ** 2), ratio)
         else:
             data_to_send = serialized
-
-        del serialized
 
         total_size = len(data_to_send)
         num_chunks = (total_size + chunk_size - 1) // chunk_size

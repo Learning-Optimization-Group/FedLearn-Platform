@@ -246,6 +246,12 @@ public class FlowerServerManager {
         if (process != null && process.isAlive()) {
             log.info("Stopping FL server for project {}", projectId);
             process.destroyForcibly();
+            try {
+                process.waitFor(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                log.warn("Interrupted while waiting for FL server {} to terminate", projectId);
+                Thread.currentThread().interrupt();
+            }
             runningServers.remove(projectId);
             return true;
         }
@@ -269,7 +275,11 @@ public class FlowerServerManager {
             try {
                 if (p.isAlive()) {
                     p.destroyForcibly();
+                    p.waitFor(5, TimeUnit.SECONDS);
                 }
+            } catch (InterruptedException e) {
+                log.warn("Interrupted while waiting for FL server {} to terminate during shutdown", id);
+                Thread.currentThread().interrupt();
             } catch (RuntimeException e) {
                 log.warn("Failed to terminate FL server for project {}: {}",
                         id, e.getClass().getSimpleName());
