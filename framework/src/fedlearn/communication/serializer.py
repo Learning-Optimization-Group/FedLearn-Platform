@@ -90,10 +90,13 @@ def parameters_to_chunks(
     try:
         log.debug("Serializing %d tensors with torch.save", len(params))
 
-        with io.BytesIO() as buffer:
-            torch.save(params, buffer)
-            view = memoryview(buffer.getbuffer())
-            serialized = view.tobytes() if compress else view
+        # Don't use `with io.BytesIO()`: closing the buffer while a memoryview
+        # export from getbuffer() is still alive raises BufferError. The buffer
+        # is freed when the local refs die at function exit.
+        buffer = io.BytesIO()
+        torch.save(params, buffer)
+        view = memoryview(buffer.getbuffer())
+        serialized = view.tobytes() if compress else view
 
         original_size = len(serialized)
         log.debug("Serialized size: %.2f MB", original_size / (1024 ** 2))

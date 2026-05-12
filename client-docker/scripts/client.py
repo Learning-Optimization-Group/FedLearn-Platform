@@ -509,14 +509,13 @@ class ZOSLClient(fl.Client):
             )
         elif USE_LLM:
             config = DATASET_CONFIGS[dataset_name]
-            model_name = args.model_name or MODEL_NAME
             self.net = AutoModelForSequenceClassification.from_pretrained(
-                model_name,
+                MODEL_NAME,
                 num_labels=config["num_classes"],
                 use_safetensors=True,
             )
             self.net.to(DEVICE)
-            logger.info(f"Loaded {model_name} for {dataset_name} ({config['num_classes']} classes)")
+            logger.info(f"Loaded {MODEL_NAME} for {dataset_name} ({config['num_classes']} classes)")
 
             self.trainloader, self.valloader = load_data(
                 partition_id=self.partition_id,
@@ -617,7 +616,7 @@ def create_decomfl_compatible_loader(original_loader, is_llm=False):
 # --- Main Execution Block ---
 # ==============================================================================
 def main():
-    global USE_LLM, USE_MLP, DATASET_NAME, BATCH_SIZE, logger
+    global USE_LLM, USE_MLP, DATASET_NAME, BATCH_SIZE, MODEL_NAME, logger
 
     parser = argparse.ArgumentParser(description="FedLearn gRPC Client with Heartbeat")
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
@@ -633,6 +632,9 @@ def main():
                         help="Use LLM (deprecated, use --model-type TRANSFORMER)")
 
     args = parser.parse_args()
+
+    if args.model_name:
+        MODEL_NAME = args.model_name
 
     # Rebind logger with per-client ID
     logger = ClientLogAdapter(
@@ -739,10 +741,9 @@ def main():
         elif USE_LLM:
             config = DATASET_CONFIGS[args.dataset]
             decomfl_config = get_decomfl_config("default")
-            model_name = args.model_name or MODEL_NAME
 
             net = AutoModelForSequenceClassification.from_pretrained(
-                model_name,
+                MODEL_NAME,
                 num_labels=config["num_classes"],
                 use_safetensors=True,
             ).to(DEVICE)
