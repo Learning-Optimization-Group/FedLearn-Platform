@@ -101,4 +101,8 @@ CLAUDE.md
 docs/llm_dumps/
 docs/testing/
 docs/guides/aws_deployment_guide.md
+docs/ULTRAREVIEW_AUDIT.md
 MULTI_DEVICE_TESTING_GUIDE.md
+.aider.chat.history.md
+.aider.input.history
+.aider.tags.cache.v4/
