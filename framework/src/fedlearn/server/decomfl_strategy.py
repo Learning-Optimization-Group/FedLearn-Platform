@@ -3,11 +3,14 @@
 DeComFL Strategy implementing Algorithm 3 from the paper.
 """
 
+import logging
 from typing import Optional, Callable, Tuple, List, Dict
 from collections import OrderedDict
 import torch
 import numpy as np
 from .strategy import Strategy
+
+log = logging.getLogger(__name__)
 
 
 class DeComFL(Strategy):
@@ -25,7 +28,7 @@ class DeComFL(Strategy):
             initial_parameters: OrderedDict[str, torch.Tensor],
             evaluate_fn: Optional[Callable] = None,
             min_fit_clients: int = 1,
-            clients_per_round: int = 2,
+            clients_per_round: int = None,
             num_local_steps: int = 1,
             num_perturbations: int = 10,
             learning_rate: float = 0.001,
@@ -47,7 +50,7 @@ class DeComFL(Strategy):
         self.initial_parameters = initial_parameters
         self.evaluate_fn = evaluate_fn
         self.min_fit_clients = min_fit_clients
-        self.clients_per_round = clients_per_round
+        self.clients_per_round = clients_per_round if clients_per_round is not None else min_fit_clients
 
         # DeComFL hyperparameters
         self.K = num_local_steps
@@ -71,12 +74,11 @@ class DeComFL(Strategy):
         np.random.seed(seed)
         torch.manual_seed(seed)
 
-        print(f"[DeComFL] Initialized with:")
-        print(f"  - K (local steps): {self.K}")
-        print(f"  - P (perturbations): {self.P}")
-        print(f"  - η (learning rate): {self.eta}")
-        print(f"  - μ (smoothing): {self.mu}")
-        print(f"  - Model dimension: {len(self.global_params_flat):,}")
+        # One-shot startup banner — INFO so it's captured in normal logs.
+        log.info(
+            "DeComFL initialised: K=%d, P=%d, eta=%g, mu=%g, model_dim=%d",
+            self.K, self.P, self.eta, self.mu, len(self.global_params_flat),
+        )
 
     def initialize_parameters(self) -> Optional[OrderedDict[str, torch.Tensor]]:
         """Initialize global model parameters."""
@@ -138,7 +140,7 @@ class DeComFL(Strategy):
         if not results:
             return None
 
-        print(f"[DeComFL] Aggregating {len(results)} client updates for round {server_round}")
+        log.debug("Aggregating %d client updates for round %d", len(results), server_round)
 
         # Extract gradient scalars from all clients
         client_gradients = {}
@@ -223,5 +225,8 @@ class DeComFL(Strategy):
             return None
 
         loss, metrics = self.evaluate_fn(server_round, parameters)
-        print(f"[DeComFL] Evaluation (Round {server_round}): Loss={loss:.4f}, Metrics={metrics}")
+        log.info(
+            "DeComFL eval round=%d loss=%.4f metrics=%s",
+            server_round, loss, metrics,
+        )
         return loss, metrics

@@ -6,7 +6,7 @@
 
 ## Overview
 
-FedLearn is a flexible and extensible federated learning framework designed for distributed machine learning across multiple clients. Built on top of Flower (flwr) with gRPC communication, it supports training both CNNs and Large Language Models with custom aggregation strategies and Byzantine-robust optimization techniques.
+FedLearn is a flexible and extensible federated learning framework designed for distributed machine learning across multiple clients. **Built from scratch — no Flower / `flwr` dependency.** Communication is direct gRPC over a custom protobuf contract (`fedlearn.proto`, package `fedlearn.v1`); the framework supports CNNs, Transformers, and LLMs with custom aggregation strategies and Byzantine-robust optimization. The legacy `flower/` package name in the Spring Boot backend refers to the `FlowerServerManager` — that's a historical name for the FL-server process supervisor, not a Flower dependency.
 
 **Key Features:**
 - 🌐 **Server-Client Architecture** - Efficient gRPC-based communication

@@ -1,22 +1,104 @@
-# Virtual environments
-.venv/
+# =============================================================================
+# FedLearn-Platform — Root .gitignore
+# =============================================================================
+
+# ========================
+# Environments & Secrets
+# ========================
+.env
+.env.local
+.env.*.local
+env.txt
+backend/fl-platform-api/env.txt
+# curl/test cookie jars — must never be committed (may carry live JWT cookies)
+cookies.txt
+**/cookies.txt
+
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.pytest_cache/
 venv/
+.venv/
 env/
 
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
+# ========================
+# Java / Spring Boot / Gradle
+# ========================
+target/
+build/
+!fedlearn-desktop/build/
+!gradle/wrapper/gradle-wrapper.jar
+.gradle/
+*.jar
+*.war
+*.ear
+*.class
+.mvn/wrapper/maven-wrapper.jar
+bin/
 
-# Python packaging
-*.egg-info/
+# ========================
+# Node / React
+# ========================
+node_modules/
+dist/
+.vite/
+release/
 
-# ML artifacts
+# ========================
+# ML Artifacts & Data
+# ========================
 *.pth
 *.pkl
 *.npz
 checkpoints/
 results/
+models/
 
-# Native binaries
+# Source package dirs that collide with the ML-artifact "models/" rule above
+!backend/fl-platform-api/src/main/resources/scripts/models/
+!backend/fl-platform-api/src/main/resources/scripts/models/**
+!client-docker/scripts/models/
+!client-docker/scripts/models/**
+
+# ========================
+# Logs & Ephemeral Data
+# ========================
+logs/
+*.log
+backend/Logs.txt
+**/*.csv
+data/
+
+# ========================
+# IDE / Editor
+# ========================
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+*.swp
+*.swo
+*~
+.DS_Store
+CLAUDE.md
+.claude/
+**/.claude/
+
+# ========================
+# Native / Compiled
+# ========================
 *.so
+*.dylib
+*.dll
+
+docs/llm_dumps/
+docs/testing/
+docs/guides/aws_deployment_guide.md
+MULTI_DEVICE_TESTING_GUIDE.md

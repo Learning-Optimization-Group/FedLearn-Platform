@@ -1,17 +1,12 @@
 # ==================================
-# Build artifacts
+# Build artifacts (built inside the image by Gradle)
 # ==================================
+build/
+.gradle/
 target/
 *.jar
 *.war
 *.ear
-
-# ==================================
-# Maven
-# ==================================
-.mvn/
-mvnw
-mvnw.cmd
 
 # ==================================
 # IDE files

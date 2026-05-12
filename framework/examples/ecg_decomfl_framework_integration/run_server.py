@@ -6,7 +6,6 @@ Run federated learning server using DeComFL strategy.
 
 import sys
 import os
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import torch
 import numpy as np
 import pandas as pd

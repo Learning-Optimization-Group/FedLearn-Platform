@@ -651,7 +651,7 @@ class FedAvgAggregator:
             for key in params:
                 if key not in aggregated_params:
                     aggregated_params[key] = torch.zeros_like(params[key])
-                aggregated_params[key] += params[key] * weight
+                torch.add(aggregated_params[key], params[key], alpha=weight, out=aggregated_params[key])
         
         return aggregated_params
 ```
@@ -954,9 +954,8 @@ def chunks_to_parameters(
         chunks_data = lz4.frame.decompress(chunks_data)
     
     # 2. Load using torch
-    buffer = io.BytesIO(chunks_data)
-    model_data = torch.load(buffer, map_location='cpu')
-    buffer.close()
+    with io.BytesIO(chunks_data) as buffer:
+        model_data = torch.load(buffer, map_location='cpu', weights_only=True)
     
     return model_data['parameters'], model_data['num_examples']
 ```

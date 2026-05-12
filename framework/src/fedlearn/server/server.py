@@ -1,4 +1,4 @@
-﻿from concurrent import futures
+from concurrent import futures
 import grpc
 import time
 from dataclasses import dataclass
@@ -14,9 +14,25 @@ from ..communication.generated import fedlearn_pb2_grpc
 import logging
 import sys
 import os
+import json
+from datetime import datetime
 
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        log_obj = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "level": record.levelname,
+            "message": record.getMessage()
+        }
+        if record.exc_info:
+            log_obj["stackTrace"] = self.formatException(record.exc_info)
+        return json.dumps(log_obj)
 
-
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(JSONFormatter())
+logger.handlers = [handler]
 @dataclass
 class ServerConfig:
     num_rounds: int = 3
@@ -50,8 +66,10 @@ def start_server(
 
     coordinator.set_initial_parameters(strategy.initial_parameters)
     # Create gRPC server with proper options
+    max_expected_clients = int(os.environ.get('MAX_CLIENTS', 50))
+    optimal_workers = (max_expected_clients * 2) + 10
     grpc_server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=10),
+        futures.ThreadPoolExecutor(max_workers=optimal_workers),
         options=[
             # Keepalive settings for long-running clients
             ('grpc.keepalive_time_ms', 120000),  # 120 seconds
@@ -80,8 +98,33 @@ def start_server(
         grpc_server
     )
 
-    # Bind address
-    grpc_server.add_insecure_port(server_address)
+    # Bind address. Uses TLS when FEDLEARN_GRPC_USE_TLS=1.
+    use_tls = os.environ.get("FEDLEARN_GRPC_USE_TLS", "0") == "1"
+    if use_tls:
+        server_key_path = os.environ["FEDLEARN_GRPC_SERVER_KEY"]
+        server_cert_path = os.environ["FEDLEARN_GRPC_SERVER_CERT"]
+        root_cert_path = os.environ.get("FEDLEARN_GRPC_ROOT_CERT")
+        require_client_auth = os.environ.get("FEDLEARN_GRPC_REQUIRE_CLIENT_AUTH", "0") == "1"
+
+        with open(server_key_path, "rb") as f:
+            server_key = f.read()
+        with open(server_cert_path, "rb") as f:
+            server_cert = f.read()
+        root_cert = None
+        if root_cert_path:
+            with open(root_cert_path, "rb") as f:
+                root_cert = f.read()
+
+        server_credentials = grpc.ssl_server_credentials(
+            [(server_key, server_cert)],
+            root_certificates=root_cert,
+            require_client_auth=require_client_auth,
+        )
+        grpc_server.add_secure_port(server_address, server_credentials)
+        logging.info("gRPC TLS enabled (require_client_auth=%s)", require_client_auth)
+    else:
+        grpc_server.add_insecure_port(server_address)
+        logging.warning("gRPC server running without TLS. Set FEDLEARN_GRPC_USE_TLS=1 for production.")
 
     # Start server
     grpc_server.start()
@@ -112,8 +155,8 @@ def start_server(
             else:
                 logging.warning(f"[Server] Round {round_num} completed but no metrics available.")
 
-            # Advance to next round
-            coordinator.current_round += 1
+            # Note: Round advancement is handled by coordinator._trigger_aggregation_and_evaluation()
+            # Do NOT increment here — it was causing double-increment (rounds 1→3→5).
 
 
         # Get final parameters

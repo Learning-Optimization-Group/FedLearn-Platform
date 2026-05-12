@@ -315,7 +315,8 @@ Client 1:
 │     chunks.append(chunk.chunk_data)                  │
 │                                                       │
 │   full_data = b''.join(chunks)                       │
-│   model_data = torch.load(BytesIO(full_data))       │
+│   with BytesIO(full_data) as buffer:                 │
+│     model_data = torch.load(buffer, weights_only=True)│
 │   return model_data['parameters'], round, config    │
 └──────────────────────────────────────────────────────┘
                     ▲
@@ -517,7 +518,8 @@ Coordinator (Main Thread Wakes Up):
 │     # 0.333, 0.167, 0.500                           │
 │                                                       │
 │     for key in params:                               │
-│       aggregated[key] += params[key] * weight        │
+│       torch.add(aggregated[key], params[key],        │
+│                 alpha=weight, out=aggregated[key])   │
 │                                                       │
 │   return aggregated                                  │
 └──────────────────────────────────────────────────────┘

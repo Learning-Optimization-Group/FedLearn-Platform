@@ -2,13 +2,16 @@ package com.federated.fl_platform_api.controller;
 
 
 import com.federated.fl_platform_api.dto.RoundResultDto;
+import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.RoundResult;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.RoundResultRepository;
 import com.federated.fl_platform_api.service.ProjectService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -26,29 +29,38 @@ public class ResultsController {
     @Autowired
     private ProjectService projectService;
 
-    @PostMapping("/{projectId}")
-    public ResponseEntity<Void> reportRoundResult(@PathVariable UUID projectId, @RequestBody RoundResultDto resultDto) {
-        Project project = projectRepository.findById(projectId).orElse(null);
-        if (project == null) {
-            return ResponseEntity.notFound().build();
+    @Autowired
+    private com.federated.fl_platform_api.service.WebSocketService webSocketService;
 
+    @org.springframework.beans.factory.annotation.Value("${feature.round-result-reporting.enabled:true}")
+    private boolean roundResultsEnabled;
+
+    @PostMapping("/{projectId}")
+    public ResponseEntity<Void> reportRoundResult(@PathVariable @NonNull UUID projectId,
+                                                  @Valid @RequestBody RoundResultDto resultDto) {
+        if (!roundResultsEnabled) {
+            return ResponseEntity.ok().build();
         }
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+
         RoundResult result = new RoundResult();
         result.setProject(project);
         result.setServerRound(resultDto.getServerRound());
         result.setLoss(resultDto.getLoss());
         result.setAccuracy(resultDto.getAccuracy());
 
-        roundResultRepository.save(result);
+        RoundResult saved = roundResultRepository.save(result);
+        
+        // Broadcast the result to connected clients
+        webSocketService.sendResultUpdate(projectId, saved);
+        
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{projectId}/finished")
-    public ResponseEntity<Void> markProjectAsFinished(@PathVariable UUID projectId) {
+    public ResponseEntity<Void> markProjectAsFinished(@PathVariable @NonNull UUID projectId) {
         projectService.markProjectAsCompleted(projectId);
         return ResponseEntity.ok().build();
     }
-
-
-
 }
