@@ -1,29 +1,33 @@
 package com.federated.fl_platform_api.membership;
 
+import com.federated.fl_platform_api.model.JoinedVia;
+import com.federated.fl_platform_api.model.MembershipRole;
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.ProjectMembership;
 import com.federated.fl_platform_api.model.ProjectVisibility;
 import com.federated.fl_platform_api.model.User;
+import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @Transactional
 class MembershipPersistenceTest {
 
     @Autowired ProjectRepository projectRepository;
     @Autowired UserRepository userRepository;
+    @Autowired ProjectMembershipRepository membershipRepository;
 
     @Test
     void project_persistsVisibilityAndModelHubFields() {
@@ -50,5 +54,36 @@ class MembershipPersistenceTest {
         assertEquals("test description", reloaded.getModelDescription());
         assertEquals("vision,demo", reloaded.getModelTags());
         assertEquals(Instant.parse("2026-05-12T00:00:00Z"), reloaded.getModelPublishedAt());
+    }
+
+    @Test
+    void membership_persistsAndQueriesByProjectAndUser() {
+        User owner = userRepository.save(new User("bob", "bob@example.com", "hash"));
+        User client = userRepository.save(new User("carol", "carol@example.com", "hash"));
+
+        Project p = new Project();
+        p.setName("test-mem-" + System.nanoTime());
+        p.setModelType("CNN-CIFAR10");
+        p.setModelName("resnet8");
+        p.setStatus("CREATED");
+        p.setUser(owner);
+        projectRepository.saveAndFlush(p);
+
+        ProjectMembership m = new ProjectMembership(
+            p, client, MembershipRole.CLIENT, JoinedVia.OWNER_ADD, owner);
+        membershipRepository.saveAndFlush(m);
+
+        Optional<ProjectMembership> found =
+            membershipRepository.findByIdProjectIdAndIdUserId(p.getId(), client.getId());
+        assertTrue(found.isPresent());
+        assertEquals(MembershipRole.CLIENT, found.get().getRole());
+        assertEquals(JoinedVia.OWNER_ADD, found.get().getJoinedVia());
+        assertNull(found.get().getPartitionId());
+
+        assertEquals(-1, membershipRepository.maxPartitionIdForProject(p.getId()));
+
+        found.get().setPartitionId(5);
+        membershipRepository.saveAndFlush(found.get());
+        assertEquals(5, membershipRepository.maxPartitionIdForProject(p.getId()));
     }
 }
