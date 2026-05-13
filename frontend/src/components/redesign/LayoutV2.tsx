@@ -6,7 +6,13 @@ import { Sidebar } from './Sidebar';
 
 export function LayoutV2() {
   return (
-    <div className="flex h-screen w-screen bg-black text-[#f5f5f7] overflow-hidden font-sans">
+    <div
+      className="flex h-screen w-screen overflow-hidden font-sans transition-colors duration-300"
+      style={{
+        backgroundColor: 'var(--background-primary)',
+        color: 'var(--text-primary)',
+      }}
+    >
       <Sidebar />
       <Outlet />
     </div>
