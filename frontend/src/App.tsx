@@ -19,6 +19,12 @@ import { NodeNetwork } from './components/redesign/NodeNetwork';
 import { ModelsView } from './components/redesign/ModelsView';
 import { DatasetsView } from './components/redesign/DatasetsView';
 import { SettingsView } from './components/redesign/SettingsView';
+import { TrainingInsightsView } from './components/redesign/TrainingInsightsView';
+import DiscoverPage from './pages/DiscoverPage';
+import MyRequestsPage from './pages/MyRequestsPage';
+import ProjectDetailPage from './pages/ProjectDetailPage';
+import AdminUsersPage from './pages/AdminUsersPage';
+import AdminProjectsPage from './pages/AdminProjectsPage';
 
 const AppLoading: React.FC = () => (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -69,22 +75,36 @@ function App() {
                 />
 
                 <Route element={<ProtectedRoute />}>
-                    {/* Original UI */}
-                    <Route element={<Layout />}>
-                        <Route path="/dashboard" element={<DashboardPage />} />
-                        <Route path="/clients" element={<ClientsPage />} />
-                        <Route path="/models" element={<ModelsPage />} />
-                        <Route path="/training" element={<TrainingPage />} />
-                        <Route path="/settings" element={<SettingsPage />} />
+                    {/* Redesigned UI is now the default protected experience. */}
+                    <Route element={<LayoutV2 />}>
+                        <Route path="/dashboard" element={<DashboardV2 />} />
+                        <Route path="/clients" element={<NodeNetwork />} />
+                        <Route path="/models" element={<ModelsView />} />
+                        <Route path="/training" element={<TrainingInsightsView />} />
+                        <Route path="/datasets" element={<DatasetsView />} />
+                        <Route path="/settings" element={<SettingsView />} />
+                        <Route path="/discover" element={<DiscoverPage />} />
+                        <Route path="/my/requests" element={<MyRequestsPage />} />
+                        <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+                        <Route path="/admin/users" element={<AdminUsersPage />} />
+                        <Route path="/admin/projects" element={<AdminProjectsPage />} />
+
+                        {/* Backward-compatible aliases for existing v2 deep links. */}
+                        <Route path="/v2" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="/v2/nodes" element={<Navigate to="/clients" replace />} />
+                        <Route path="/v2/models" element={<Navigate to="/models" replace />} />
+                        <Route path="/v2/training" element={<Navigate to="/training" replace />} />
+                        <Route path="/v2/datasets" element={<Navigate to="/datasets" replace />} />
+                        <Route path="/v2/settings" element={<Navigate to="/settings" replace />} />
                     </Route>
 
-                    {/* Redesigned UI (v2) — Apple-inspired dark theme */}
-                    <Route element={<LayoutV2 />}>
-                        <Route path="/v2" element={<DashboardV2 />} />
-                        <Route path="/v2/nodes" element={<NodeNetwork />} />
-                        <Route path="/v2/models" element={<ModelsView />} />
-                        <Route path="/v2/datasets" element={<DatasetsView />} />
-                        <Route path="/v2/settings" element={<SettingsView />} />
+                    {/* Legacy UI remains available under /legacy/* routes. */}
+                    <Route element={<Layout />}>
+                        <Route path="/legacy/dashboard" element={<DashboardPage />} />
+                        <Route path="/legacy/clients" element={<ClientsPage />} />
+                        <Route path="/legacy/models" element={<ModelsPage />} />
+                        <Route path="/legacy/training" element={<TrainingPage />} />
+                        <Route path="/legacy/settings" element={<SettingsPage />} />
                     </Route>
                 </Route>
 
