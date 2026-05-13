@@ -1,84 +1,87 @@
-/* General body styling for the landing page */
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
 .landing-container {
-  /* --- NEW BLUE GRADIENT BACKGROUND --- */
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-  color: #e2e8f0; /* Lighter text for contrast */
+  background:
+    radial-gradient(circle at top, rgba(0, 113, 227, 0.14), transparent 34%),
+    linear-gradient(180deg, var(--background-primary) 0%, var(--background-primary) 100%);
+  color: var(--text-primary);
   min-height: 100vh;
 }
 
-/* --- Header Section --- */
 .landing-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.5rem 3rem;
-  background-color: rgba(15, 23, 42, 0.5); /* Semi-transparent dark blue */
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid #334155;
+  gap: 1.5rem;
+  padding: 0.9rem 2rem;
+  background-color: var(--surface-glass);
+  backdrop-filter: blur(22px) saturate(180%);
+  border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
 .logo span {
-  font-size: 1.75rem;
+  font-size: 1.3rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
+}
+
+.landing-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .landing-nav a {
-  color: #cbd5e1;
+  color: var(--text-secondary);
   text-decoration: none;
   margin: 0 1rem;
   font-weight: 500;
-  transition: color 0.2s;
+  transition: color 0.2s ease;
 }
 
 .landing-nav a:hover {
-  color: #63b3ed; /* Light Blue on hover */
+  color: var(--accent-primary);
+}
+
+.auth-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .auth-buttons .btn {
-  margin-left: 1rem;
   padding: 0.6rem 1.2rem;
-  border-radius: 6px;
+  border-radius: 999px;
   text-decoration: none;
   font-weight: 600;
   transition: all 0.2s;
 }
 
 .btn-secondary {
-  background-color: transparent;
-  border: 2px solid #63b3ed;
-  color: #63b3ed;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
 }
 
 .btn-secondary:hover {
-  background-color: #63b3ed;
-  color: #0f172a;
+  background-color: var(--background-card);
 }
 
 .btn-primary {
-  background-color: #63b3ed;
-  border: 2px solid #63b3ed;
-  color: #0f172a;
+  background-color: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+  color: #ffffff;
 }
 
 .btn-primary:hover {
-  background-color: #4299e1;
-  border-color: #4299e1;
+  background-color: var(--accent-secondary);
+  border-color: var(--accent-secondary);
 }
 
-/* --- Hero Section (Main Content) --- */
 .hero-section {
   display: flex;
   flex-direction: column;
@@ -88,26 +91,25 @@ body {
 }
 
 .hero-title {
-  font-size: 3.8rem;
+  font-size: clamp(3rem, 8vw, 5.5rem);
   font-weight: 800;
-  color: #ffffff;
+  color: var(--text-primary);
   max-width: 850px;
   margin-bottom: 1.5rem;
-  line-height: 1.2;
+  line-height: 1.03;
+  letter-spacing: -0.05em;
 }
 
 .hero-subtitle {
-  font-size: 1.3rem;
-  color: #94a3b8; /* Softer gray */
+  font-size: 1.15rem;
+  color: var(--text-secondary);
   max-width: 700px;
   margin: 0 auto 4rem auto;
   line-height: 1.7;
 }
 
-/* --- Service Cards --- */
 .services-grid {
   display: grid;
-  /* Allow 4 columns if there's space */
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
   max-width: 1200px;
@@ -115,61 +117,61 @@ body {
 }
 
 .service-card {
-  background: rgba(45, 55, 72, 0.5); /* Semi-transparent card */
+  background: var(--background-card);
   padding: 2rem;
-  border-radius: 12px;
-  border: 1px solid #4a5568;
-  transition: transform 0.2s, box-shadow 0.2s;
+  border-radius: 24px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
 .service-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-strong);
+  border-color: color-mix(in srgb, var(--accent-primary) 20%, var(--border-color));
 }
 
 .service-card h3 {
   font-size: 1.3rem;
   margin-top: 0;
   margin-bottom: 1rem;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .service-card p {
   font-size: 1rem;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
-/* --- Launch Button --- */
 .btn-launch {
-  background-color: #4299e1; /* Primary blue */
+  background-color: var(--accent-primary);
   color: #ffffff;
   padding: 1rem 3rem;
   font-size: 1.25rem;
   font-weight: 600;
-  border-radius: 50px;
+  border-radius: 999px;
   text-decoration: none;
   border: none;
-  transition: all 0.2s;
+  transition: transform 0.2s ease, background-color 0.2s ease;
   cursor: pointer;
 }
 
 .btn-launch:hover {
-  background-color: #3182ce;
+  background-color: var(--accent-secondary);
   transform: scale(1.05);
 }
 
-/* --- Upcoming Features Section --- */
 .features-section {
   padding: 5rem 2rem;
-  background-color: rgba(15, 23, 42, 0.7); /* Slightly darker, semi-transparent section */
 }
 
 .section-title {
-  font-size: 2.8rem;
+  font-size: clamp(2rem, 5vw, 3.2rem);
   font-weight: 700;
   margin-bottom: 3rem;
   text-align: center;
+  letter-spacing: -0.04em;
 }
 
 .features-category {
@@ -179,10 +181,10 @@ body {
 
 .features-category h3 {
   font-size: 1.8rem;
-  color: #63b3ed; /* Highlight category titles */
+  color: var(--accent-primary);
   margin-bottom: 2rem;
   text-align: left;
-  border-bottom: 2px solid #334155;
+  border-bottom: 1px solid var(--border-color);
   padding-bottom: 0.5rem;
 }
 
@@ -193,39 +195,40 @@ body {
 }
 
 .feature-card {
-  background-color: #1e293b; /* Match the darker gradient color */
+  background-color: var(--background-secondary);
   padding: 1.5rem;
-  border-radius: 8px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-soft);
 }
 
 .feature-card h4 {
   font-size: 1.2rem;
   margin-top: 0;
   margin-bottom: 0.5rem;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .feature-card p {
-  color: #94a3b8;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
 .logo-link {
-  text-decoration: none; /* Removes the underline */
-  color: inherit; /* Makes the text color inherit from the parent */
+  text-decoration: none;
+  color: inherit;
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: 0.75rem; /* Adds space between the image and the text */
+  gap: 0.75rem;
   font-size: 1.5rem;
   font-weight: 700;
-  color: #333;
+  color: var(--text-primary);
 }
 
-/* Style for the logo image itself */
 .logo-image {
-  height: 100px; /* Adjust the height as needed */
-  width: auto;  /* Let the width adjust automatically to maintain aspect ratio */
+  height: 100px;
+  width: auto;
 }

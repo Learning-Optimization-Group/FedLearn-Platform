@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { ThemeToggle } from '../components/ThemeToggle';
 import '../styles/LandingPage.css';
 
 const LandingPage: React.FC = () => {
@@ -17,6 +18,7 @@ const LandingPage: React.FC = () => {
                     <a href="#about">About</a>
                 </nav>
                 <div className="auth-buttons">
+                    <ThemeToggle />
                     <Link to="/login" className="btn btn-secondary">Sign In</Link>
                     <Link to="/register" className="btn btn-primary">Sign Up</Link>
                 </div>
