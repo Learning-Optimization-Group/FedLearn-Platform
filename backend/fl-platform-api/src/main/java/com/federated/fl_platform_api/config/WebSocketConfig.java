@@ -34,8 +34,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureMessageBroker(@NonNull MessageBrokerRegistry config) {
         // In-memory STOMP broker — fine for single-replica deployments.
         // For multi-instance deploys, switch this to a relay (RabbitMQ/Redis).
-        config.enableSimpleBroker("/topic");
+        // /topic — public broadcast (logs, status). /queue — user-targeted via
+        // /user/{username}/queue/... resolved by Spring's user-destination prefix.
+        config.enableSimpleBroker("/topic", "/queue");
         config.setApplicationDestinationPrefixes("/app");
+        config.setUserDestinationPrefix("/user");
     }
 
     @Override
