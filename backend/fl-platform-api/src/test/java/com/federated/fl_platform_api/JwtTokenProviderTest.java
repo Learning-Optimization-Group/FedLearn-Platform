@@ -9,8 +9,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.test.context.TestPropertySource;
-
+import org.springframework.test.context.ActiveProfiles;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;

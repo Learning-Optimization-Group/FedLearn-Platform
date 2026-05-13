@@ -23,7 +23,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+// BEFORE_CLASS forces a fresh context (and H2 schema recreation) before this class runs.
+// Without it, a prior AFTER_EACH context teardown from another test class can drop the
+// shared H2 in-memory schema, leaving this context's queries with no tables.
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_CLASS)
 class PartitionAssignmentConcurrencyTest {
 
     @Autowired ClientApiService clientApiService;
