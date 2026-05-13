@@ -106,3 +106,5 @@ MULTI_DEVICE_TESTING_GUIDE.md
 .aider.chat.history.md
 .aider.input.history
 .aider.tags.cache.v4/
+docs/superpowers/plans/2026-05-12-rbac-backend-foundation.md
+docs/superpowers/specs/2026-05-12-rbac-and-model-hub-design.md
