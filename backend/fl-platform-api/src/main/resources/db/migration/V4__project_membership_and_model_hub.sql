@@ -4,7 +4,7 @@
 -- Visibility. Default PRIVATE so existing rows do not accidentally become
 -- world-readable after the migration.
 ALTER TABLE projects
-    ADD COLUMN visibility VARCHAR(16) NOT NULL DEFAULT 'PRIVATE';
+    ADD COLUMN visibility VARCHAR(32) NOT NULL DEFAULT 'PRIVATE';
 CREATE INDEX idx_projects_visibility ON projects(visibility);
 
 -- Model Hub columns. model_published_at is the first time the owner flipped
@@ -24,9 +24,9 @@ CREATE INDEX idx_projects_model_published ON projects(model_published);
 CREATE TABLE project_memberships (
     project_id     UUID         NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     user_id        BIGINT       NOT NULL REFERENCES users(id)    ON DELETE CASCADE,
-    role           VARCHAR(16)  NOT NULL,    -- 'MEMBER' | 'CLIENT' | 'OWNER'
+    role           VARCHAR(32)  NOT NULL,    -- 'MEMBER' | 'CLIENT' | 'OWNER'
     partition_id   INTEGER,
-    joined_via     VARCHAR(16)  NOT NULL,    -- 'OWNER_ADD' | 'PUBLIC_JOIN' | 'REQUEST_APPROVED' | 'OWNER_SELF'
+    joined_via     VARCHAR(32)  NOT NULL,    -- 'OWNER_ADD' | 'PUBLIC_JOIN' | 'REQUEST_APPROVED' | 'OWNER_SELF'
     added_by       BIGINT       REFERENCES users(id) ON DELETE SET NULL,
     added_at       TIMESTAMP WITH TIME ZONE NOT NULL,
     PRIMARY KEY (project_id, user_id)
@@ -40,8 +40,8 @@ CREATE TABLE project_access_requests (
     id              BIGSERIAL PRIMARY KEY,
     project_id      UUID         NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     user_id         BIGINT       NOT NULL REFERENCES users(id)    ON DELETE CASCADE,
-    requested_role  VARCHAR(16)  NOT NULL,    -- always 'CLIENT' in v1
-    status          VARCHAR(16)  NOT NULL,    -- 'PENDING' | 'APPROVED' | 'DENIED'
+    requested_role  VARCHAR(32)  NOT NULL,    -- always 'CLIENT' in v1
+    status          VARCHAR(32)  NOT NULL,    -- 'PENDING' | 'APPROVED' | 'DENIED'
     message         TEXT,
     requested_at    TIMESTAMP WITH TIME ZONE NOT NULL,
     decided_at      TIMESTAMP WITH TIME ZONE,
