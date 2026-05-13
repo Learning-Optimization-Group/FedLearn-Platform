@@ -1,19 +1,24 @@
-// =============================================================================
-// FedLearn Frontend — Redesigned Sidebar (Apple-inspired dark theme)
-// =============================================================================
-// Wired to existing AuthContext for user profile and logout.
-
-import { Brain, LayoutDashboard, Settings, Boxes, Network, Database, LogOut } from 'lucide-react';
+import { Brain, LayoutDashboard, Settings, Boxes, Network, Database, LogOut, ChartLine, Compass, Inbox, ShieldCheck, Users } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
+import { ThemeToggle } from '../ThemeToggle';
+import { NotificationBell } from './NotificationBell';
 
-const navItems = [
-  { icon: LayoutDashboard, label: 'Overview', path: '/v2' },
-  { icon: Network, label: 'Node Network', path: '/v2/nodes' },
-  { icon: Boxes, label: 'Models', path: '/v2/models' },
-  { icon: Database, label: 'Datasets', path: '/v2/datasets' },
-  { icon: Settings, label: 'Settings', path: '/v2/settings' },
+const baseNavItems = [
+  { icon: LayoutDashboard, label: 'Overview', path: '/dashboard' },
+  { icon: Network, label: 'Node Network', path: '/clients' },
+  { icon: Boxes, label: 'Models', path: '/models' },
+  { icon: ChartLine, label: 'Training', path: '/training' },
+  { icon: Database, label: 'Datasets', path: '/datasets' },
+  { icon: Compass, label: 'Discover', path: '/discover' },
+  { icon: Inbox, label: 'My Requests', path: '/my/requests' },
+  { icon: Settings, label: 'Settings', path: '/settings' },
+];
+
+const adminNavItems = [
+  { icon: Users, label: 'Manage Users', path: '/admin/users' },
+  { icon: ShieldCheck, label: 'All Projects', path: '/admin/projects' },
 ];
 
 export function Sidebar() {
@@ -24,55 +29,79 @@ export function Sidebar() {
     : 'U';
 
   return (
-    <div className="w-64 bg-black border-r border-[#2c2c2e] h-screen flex flex-col text-[#f5f5f7] font-sans flex-shrink-0 relative z-10 selection:bg-[#0a84ff] selection:text-white">
+    <div className="w-64 h-screen shrink-0 flex flex-col relative z-10 font-sans border-r border-(--border-color) bg-(--background-secondary) text-(--text-primary) selection:bg-(--accent-primary) selection:text-white transition-colors duration-300">
       <div className="h-20 flex items-center gap-3 px-8">
-        <div className="w-8 h-8 rounded-xl bg-[#1c1c1e] border border-[#2c2c2e] flex items-center justify-center">
-          <Brain className="w-5 h-5 text-[#f5f5f7]" />
+        <div className="w-8 h-8 rounded-xl bg-(--background-card) border border-(--border-color) flex items-center justify-center shadow-(--shadow-soft)">
+          <Brain className="w-5 h-5 text-(--accent-primary)" />
         </div>
-        <span className="font-semibold text-lg tracking-tight text-[#f5f5f7]">FedLearn</span>
+        <span className="font-semibold text-lg tracking-tight text-(--text-primary) flex-1">FedLearn</span>
+        <NotificationBell />
       </div>
 
       <div className="flex-1 overflow-y-auto py-4 px-4 flex flex-col gap-1">
-        <div className="text-[11px] font-medium tracking-widest uppercase text-[#86868b] mb-2 px-4 mt-4">Menu</div>
-        {navItems.map((item) => (
+        <div className="text-[11px] font-medium tracking-widest uppercase text-(--text-secondary) mb-2 px-4 mt-4">Menu</div>
+        {baseNavItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
-            end={item.path === '/v2'}
+            end={item.path === '/dashboard'}
             className={({ isActive }) => cn(
-              "flex items-center gap-3 px-4 py-2.5 rounded-xl text-[15px] font-medium transition-all duration-200",
+              'flex items-center gap-3 px-4 py-2.5 rounded-xl text-[15px] font-medium transition-all duration-200',
               isActive
-                ? "bg-[#2c2c2e] text-[#f5f5f7]"
-                : "text-[#86868b] hover:bg-[#1c1c1e] hover:text-[#f5f5f7]"
+                ? 'bg-(--background-card) text-(--text-primary) shadow-(--shadow-soft)'
+                : 'text-(--text-secondary) hover:bg-(--background-card) hover:text-(--text-primary)'
             )}
           >
             {({ isActive }) => (
               <>
-                <item.icon className={cn(
-                  "w-[18px] h-[18px]",
-                  isActive ? "text-[#f5f5f7]" : "text-[#86868b]"
-                )} />
+                <item.icon className={cn('w-4.5 h-4.5', isActive ? 'text-(--accent-primary)' : 'text-(--text-secondary)')} />
                 {item.label}
               </>
             )}
           </NavLink>
         ))}
+
+        {currentUser?.role === 'ADMIN' && (
+          <>
+            <div className="text-[11px] font-medium tracking-widest uppercase text-(--text-secondary) mb-2 px-4 mt-6">Admin</div>
+            {adminNavItems.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) => cn(
+                  'flex items-center gap-3 px-4 py-2.5 rounded-xl text-[15px] font-medium transition-all duration-200',
+                  isActive
+                    ? 'bg-(--background-card) text-(--text-primary) shadow-(--shadow-soft)'
+                    : 'text-(--text-secondary) hover:bg-(--background-card) hover:text-(--text-primary)'
+                )}
+              >
+                {({ isActive }) => (
+                  <>
+                    <item.icon className={cn('w-4.5 h-4.5', isActive ? 'text-(--accent-primary)' : 'text-(--text-secondary)')} />
+                    {item.label}
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </>
+        )}
       </div>
 
-      <div className="p-4">
-        <div className="rounded-2xl p-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-[#2c2c2e] flex items-center justify-center text-sm font-medium text-[#f5f5f7]">
+      <div className="p-4 space-y-3 border-t border-(--border-color) bg-(--surface-glass) backdrop-blur-xl">
+        <ThemeToggle />
+        <div className="rounded-2xl p-3 flex items-center gap-3 bg-(--background-card) border border-(--border-color) shadow-(--shadow-soft)">
+          <div className="w-9 h-9 rounded-full bg-(--background-secondary) flex items-center justify-center text-sm font-medium text-(--text-primary)">
             {initials}
           </div>
           <div className="flex flex-col flex-1 min-w-0">
-            <span className="text-[15px] font-medium text-[#f5f5f7] tracking-tight truncate">
+            <span className="text-[15px] font-medium text-(--text-primary) tracking-tight truncate">
               {currentUser?.username || 'User'}
             </span>
-            <span className="text-[13px] text-[#86868b]">Admin</span>
+            <span className="text-[13px] text-(--text-secondary)">{currentUser?.role ?? 'User'}</span>
           </div>
           <button
             onClick={logout}
-            className="text-[#86868b] hover:text-[#ff453a] transition-colors p-1"
+            className="text-(--text-secondary) hover:text-destructive transition-colors p-1"
             title="Logout"
           >
             <LogOut className="w-4 h-4" />

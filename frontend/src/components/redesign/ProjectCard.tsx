@@ -1,11 +1,7 @@
-// =============================================================================
-// FedLearn Frontend — Redesigned ProjectCard (Apple-inspired)
-// =============================================================================
-// Full feature parity: delete, copy ID, copy port, start/stop, results, logs.
-
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ResponsiveContainer, LineChart, Line, YAxis } from 'recharts';
-import { Activity, Server, Trash2, Copy, Check, MoreHorizontal } from 'lucide-react';
+import { Activity, Server, Trash2, Copy, Check, Play, Square, ChartLine, TerminalSquare } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { Project, ProjectResult } from '../../services/apiServices';
 
@@ -60,28 +56,20 @@ export function ProjectCard({
   onEditProject,
   onDeleteProject,
 }: ProjectCardProps) {
-  const [showMenu, setShowMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const isRunning = project.status === 'RUNNING';
   const isCompleted = project.status === 'COMPLETED';
   const isFailed = project.status === 'FAILED';
 
-  // Build accuracy trend from real results
   const accuracyTrend = results.slice(-10).map((r) => ({
     round: r.serverRound,
     accuracy: r.accuracy,
   }));
 
-  // Progress calculation
   const latestRound = results.length > 0 ? results[results.length - 1].serverRound : 0;
-  const totalRounds = 100;
-  const progress = Math.min((latestRound / totalRounds) * 100, 100);
-
-  // Circular progress ring
-  const radius = 26;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
+  const latestAccuracy = results.length > 0 ? results[results.length - 1].accuracy : 0;
+  const latestLoss = results.length > 0 ? results[results.length - 1].loss : 0;
 
   const statusColor = isRunning
     ? 'text-[#0a84ff]'
@@ -91,29 +79,23 @@ export function ProjectCard({
         ? 'text-[#ff453a]'
         : 'text-[#86868b]';
 
-  const ringColor = isRunning
-    ? 'text-[#0a84ff]'
-    : isCompleted
-      ? 'text-[#32d74b]'
-      : 'text-[#ff453a]';
-
   const handleDelete = () => {
-    if (confirmDelete) {
-      onDeleteProject();
-      setConfirmDelete(false);
-      setShowMenu(false);
-    } else {
-      setConfirmDelete(true);
-      setTimeout(() => setConfirmDelete(false), 3000); // Reset after 3s
-    }
+    setConfirmDelete(true);
+    setTimeout(() => setConfirmDelete(false), 3000); // Reset after 3s
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-md p-6 flex flex-col gap-5 text-slate-200 w-full font-sans transition-all hover:bg-slate-800/50 hover:border-slate-700 duration-300 group relative shadow-md">
-      {/* Header Row */}
+    <div
+      className="rounded-3xl p-6 flex flex-col gap-5 w-full transition-all duration-300 group"
+      style={{
+        background: 'var(--background-card)',
+        border: '1px solid var(--border-color)',
+        boxShadow: 'var(--shadow-soft)',
+      }}
+    >
       <div className="flex justify-between items-start">
         <div className="flex-1 min-w-0">
-          <h3 className="text-[20px] font-semibold tracking-tight">{project.name}</h3>
+          <h3 className="text-[20px] font-semibold tracking-tight text-(--text-primary)">{project.name}</h3>
           <div className="flex items-center gap-2 mt-1">
             <span className={cn("inline-flex items-center gap-[6px] text-[13px] font-medium tracking-tight", statusColor)}>
               <span className={cn(
@@ -125,66 +107,27 @@ export function ProjectCard({
               )} />
               {project.status}
             </span>
+            {project.myRelationship && (
+              <span className={cn(
+                'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider',
+                project.myRelationship === 'OWNER'
+                  ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20'
+                  : project.myRelationship === 'MEMBER'
+                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                    : 'bg-purple-500/10 text-purple-500 border border-purple-500/20'
+              )}>
+                {project.myRelationship}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Actions Menu */}
-        <div className="relative">
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#3a3a3c] text-[#86868b] hover:text-[#f5f5f7] transition-colors"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-          {showMenu && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => { setShowMenu(false); setConfirmDelete(false); }} />
-              <div className="absolute right-0 top-10 z-20 bg-slate-800 border border-slate-700 rounded-md py-1 w-48 shadow-xl">
-                <button
-                  onClick={() => {
-                    onEditProject();
-                    setShowMenu(false);
-                  }}
-                  className="w-full px-4 py-2 text-left text-[14px] font-medium transition-colors flex items-center gap-2 text-slate-300 hover:bg-slate-700/50"
-                >
-                  <Activity className="w-4 h-4" /> {/* Or Edit3 imported */}
-                  Edit Project
-                </button>
-                <div className="h-px bg-slate-700/50 my-1" />
-                <button
-                  onClick={handleDelete}
-                  className={cn(
-                    "w-full px-4 py-2 text-left text-[14px] font-medium transition-colors flex items-center gap-2",
-                    confirmDelete
-                      ? "text-rose-500 bg-rose-500/10"
-                      : "text-rose-500 hover:bg-slate-700/50"
-                  )}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  {confirmDelete ? 'Confirm Delete?' : 'Delete Project'}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Circular Progress Ring */}
-        <div className="relative flex items-center justify-center w-14 h-14 ml-2">
-          <svg className="w-full h-full transform -rotate-90">
-            <circle cx="28" cy="28" r={radius} stroke="currentColor" strokeWidth="4.5" fill="transparent" className="text-[#2c2c2e]" />
-            <circle
-              cx="28" cy="28" r={radius} stroke="currentColor" strokeWidth="4.5" fill="transparent"
-              strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round"
-              className={cn("transition-all duration-1000 ease-out", ringColor)}
-            />
-          </svg>
-          <div className="absolute flex flex-col items-center justify-center text-center">
-            <span className="text-[12px] font-bold tracking-tighter text-[#f5f5f7]">{Math.round(progress)}%</span>
-          </div>
+        <div className="text-right">
+          <div className="text-xs uppercase tracking-[0.18em] text-(--text-secondary)">Round</div>
+          <div className="text-2xl font-semibold text-(--text-primary)">{latestRound || '—'}</div>
         </div>
       </div>
 
-      {/* Project ID & Port — Copyable */}
       <div className="flex flex-wrap items-center gap-3">
         <CopyButton text={project.id} label="ID" />
         {isRunning && project.serverPort && (
@@ -192,31 +135,34 @@ export function ProjectCard({
         )}
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-4">
-        {/* Model Info */}
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-md p-4 flex flex-col justify-between gap-3">
-          <div className="flex items-center text-[#86868b] gap-1.5">
+        <div
+          className="rounded-2xl p-4 flex flex-col justify-between gap-3"
+          style={{ backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border-color)' }}
+        >
+          <div className="flex items-center text-(--text-secondary) gap-1.5">
             <Server className="w-[14px] h-[14px]" />
             <span className="text-[11px] font-semibold uppercase tracking-wider">Model</span>
           </div>
-          <div className="text-[14px] font-medium text-[#f5f5f7] tracking-tight truncate">
+          <div className="text-[14px] font-medium text-(--text-primary) tracking-tight truncate">
             {project.modelName}
           </div>
-          <div className="text-[12px] text-[#86868b] tracking-tight">
+          <div className="text-[12px] text-(--text-secondary) tracking-tight">
             {project.modelType} · {project.optimizer}
           </div>
         </div>
 
-        {/* Accuracy Sparkline */}
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-md p-4 flex flex-col justify-between gap-2 relative overflow-hidden">
-          <div className="flex items-center justify-between text-slate-400">
+        <div
+          className="rounded-2xl p-4 flex flex-col justify-between gap-2 relative overflow-hidden"
+          style={{ backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border-color)' }}
+        >
+          <div className="flex items-center justify-between text-(--text-secondary)">
             <div className="flex items-center gap-1.5">
               <Activity className="w-[14px] h-[14px]" />
               <span className="text-[11px] font-semibold uppercase tracking-wider">Accuracy</span>
             </div>
             {accuracyTrend.length > 0 && (
-              <span className="text-[13px] font-semibold tracking-tight text-[#f5f5f7]">
+              <span className="text-[13px] font-semibold tracking-tight text-(--text-primary)">
                 {(accuracyTrend[accuracyTrend.length - 1].accuracy * 100).toFixed(1)}%
               </span>
             )}
@@ -226,11 +172,11 @@ export function ProjectCard({
               <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 <LineChart data={accuracyTrend}>
                   <YAxis domain={['auto', 'auto']} hide />
-                  <Line type="monotone" dataKey="accuracy" stroke="#0a84ff" strokeWidth={2.5} dot={false} isAnimationActive={true} />
+                  <Line type="monotone" dataKey="accuracy" stroke="var(--accent-primary)" strokeWidth={2.5} dot={false} isAnimationActive={true} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-[11px] text-[#86868b]">
+              <div className="flex items-center justify-center h-full text-[11px] text-(--text-secondary)">
                 No data yet
               </div>
             )}
@@ -238,23 +184,77 @@ export function ProjectCard({
         </div>
       </div>
 
-      {/* Action Buttons */}
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div
+          className="rounded-xl px-3 py-2"
+          style={{ backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border-color)' }}
+        >
+          <div className="text-xs text-(--text-secondary)">Latest Accuracy</div>
+          <div className="font-semibold text-(--text-primary)">{latestAccuracy ? `${(latestAccuracy * 100).toFixed(2)}%` : '—'}</div>
+        </div>
+        <div
+          className="rounded-xl px-3 py-2"
+          style={{ backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border-color)' }}
+        >
+          <div className="text-xs text-(--text-secondary)">Latest Loss</div>
+          <div className="font-semibold text-(--text-primary)">{latestLoss ? latestLoss.toFixed(4) : '—'}</div>
+        </div>
+      </div>
+
       <div className="flex gap-3 mt-1">
-        <button onClick={onOpenResults} className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 py-2.5 px-4 rounded-md text-[14px] font-medium tracking-tight transition-colors">
+        <button
+          onClick={onOpenResults}
+          className="flex-1 py-2.5 px-4 rounded-xl text-[14px] font-medium tracking-tight transition-colors border inline-flex items-center justify-center gap-2"
+          style={{ backgroundColor: 'var(--background-secondary)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+        >
+          <ChartLine className="w-4 h-4" />
           View Results
         </button>
-        <button onClick={onOpenLogs} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 px-4 rounded-md text-[14px] font-medium border border-slate-700 tracking-tight transition-colors">
+        <button
+          onClick={onOpenLogs}
+          className="flex-1 py-2.5 px-4 rounded-xl text-[14px] font-medium border tracking-tight transition-colors inline-flex items-center justify-center gap-2"
+          style={{ backgroundColor: 'var(--background-secondary)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+        >
+          <TerminalSquare className="w-4 h-4" />
           View Logs
         </button>
         <button onClick={onToggleServer} disabled={isFailed} className={cn(
-          "py-2.5 px-5 rounded-md text-[14px] font-semibold tracking-tight transition-all border",
+          "py-2.5 px-5 rounded-xl text-[14px] font-semibold tracking-tight transition-all border inline-flex items-center gap-2",
           isFailed
             ? "bg-slate-800/30 border-slate-700/50 text-slate-500 cursor-not-allowed"
             : isRunning
               ? "bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20"
-              : "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20"
+              : "bg-cyan-500/10 border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/20"
         )}>
+          {isRunning ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           {isRunning ? 'Stop' : 'Start'}
+        </button>
+        <button
+          onClick={confirmDelete ? onDeleteProject : handleDelete}
+          className={cn(
+            "py-2.5 px-4 rounded-xl text-[14px] font-semibold tracking-tight transition-all border inline-flex items-center gap-2",
+            confirmDelete
+              ? "bg-rose-500/20 border-rose-500/40 text-rose-500"
+              : "bg-transparent border-(--border-color) text-(--text-secondary) hover:text-rose-500 hover:border-rose-400/40"
+          )}
+        >
+          <Trash2 className="w-4 h-4" />
+          {confirmDelete ? 'Confirm' : 'Delete'}
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between mt-1">
+        <Link
+          to={`/projects/${project.id}`}
+          className="text-xs font-medium text-(--text-secondary) hover:text-(--accent-primary) transition-colors"
+        >
+          View Details →
+        </Link>
+        <button
+          onClick={onEditProject}
+          className="text-xs font-medium text-(--text-secondary) hover:text-(--accent-primary)"
+        >
+          Edit Project Details
         </button>
       </div>
     </div>
