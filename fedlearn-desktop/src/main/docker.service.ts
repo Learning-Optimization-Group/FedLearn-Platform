@@ -102,10 +102,17 @@ export class DockerService {
   async stopTraining(): Promise<void> {
     if (this.nativeProcess) {
       log.info('[DockerService] Stopping native process');
-      this.nativeProcess.kill('SIGTERM');
       const proc = this.nativeProcess;
+      proc.kill('SIGTERM');
+      // `proc.killed` flips true the moment kill() *sends* a signal, not
+      // when the child actually exits, so a hung child would survive the
+      // old `!proc.killed` guard. Check actual exit state via exitCode /
+      // signalCode (both null while the process is still running).
       setTimeout(() => {
-        if (proc && !proc.killed) proc.kill('SIGKILL');
+        if (proc.exitCode === null && proc.signalCode === null) {
+          log.warn('[DockerService] Native process ignored SIGTERM, sending SIGKILL');
+          proc.kill('SIGKILL');
+        }
       }, 5000);
       return;
     }
