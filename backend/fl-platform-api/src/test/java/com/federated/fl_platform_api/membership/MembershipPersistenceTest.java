@@ -15,6 +15,7 @@ import com.federated.fl_platform_api.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,8 +24,13 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// BEFORE_CLASS forces a fresh context (and a freshly recreated H2 schema)
+// before this test class runs. Without it, the AFTER_EACH @DirtiesContext on
+// the controller integration tests drops the shared in-memory schema and
+// leaves any cached context for this class with no tables.
 @SpringBootTest
 @ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_CLASS)
 @Transactional
 class MembershipPersistenceTest {
 
