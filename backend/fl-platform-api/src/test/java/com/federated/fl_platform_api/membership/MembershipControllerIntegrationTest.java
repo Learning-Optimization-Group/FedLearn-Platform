@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -115,5 +116,38 @@ class MembershipControllerIntegrationTest {
             new HttpEntity<>(authHeaders(aliceCookie)),
             Void.class);
         assertEquals(HttpStatus.NO_CONTENT, rm.getStatusCode());
+    }
+
+    @Test
+    void discover_returnsPublicAndPrivate_withRequestStatus() {
+        User alice = createUser("alice_dis");
+        createUser("bob_dis");
+        createProject(alice, ProjectVisibility.PUBLIC);
+        Project priv = createProject(alice, ProjectVisibility.PRIVATE);
+
+        String bob = loginAs("bob_dis", "Password1!");
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        ResponseEntity<List> first = restTemplate.exchange("/api/projects/discover",
+            HttpMethod.GET, new HttpEntity<>(authHeaders(bob)), List.class);
+        assertEquals(HttpStatus.OK, first.getStatusCode());
+        assertNotNull(first.getBody());
+        assertEquals(2, first.getBody().size());
+
+        restTemplate.exchange("/api/projects/" + priv.getId() + "/access-requests",
+            HttpMethod.POST,
+            new HttpEntity<>(Map.of(), authHeaders(bob)),
+            Map.class);
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        ResponseEntity<List> second = restTemplate.exchange("/api/projects/discover",
+            HttpMethod.GET, new HttpEntity<>(authHeaders(bob)), List.class);
+        assertNotNull(second.getBody());
+        boolean foundPendingPrivate = second.getBody().stream().anyMatch(o -> {
+            Map<?, ?> m = (Map<?, ?>) o;
+            return "PRIVATE".equals(m.get("visibility"))
+                && "PENDING".equals(m.get("myRequestStatus"));
+        });
+        assertTrue(foundPendingPrivate);
     }
 }

@@ -4,10 +4,13 @@ import com.federated.fl_platform_api.dto.*;
 import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
+import com.federated.fl_platform_api.model.MembershipRole;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.ProjectMembership;
+import com.federated.fl_platform_api.model.ProjectVisibility;
 import com.federated.fl_platform_api.model.RoundResult;
 import com.federated.fl_platform_api.model.User;
+import com.federated.fl_platform_api.repository.ProjectAccessRequestRepository;
 import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.flower.FlowerServerManager;
@@ -49,6 +52,10 @@ public class ProjectService {
     private com.federated.fl_platform_api.repository.ServerLogRepository serverLogRepository;
     @Autowired
     private AuthorizationService authz;
+    @Autowired
+    private ProjectAccessRequestRepository accessRequestRepository;
+    @Autowired
+    private NotificationService notificationService;
 
 
     private RoundResultDto convertToDto(RoundResult result) {
@@ -305,5 +312,108 @@ public class ProjectService {
         dto.setStackTrace(entry.getStackTrace());
         dto.setTimestamp(entry.getTimestamp());
         return dto;
+    }
+
+    @Transactional
+    public ProjectResponseDto updateProject(UUID projectId, UpdateProjectRequest req) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        authz.requireOwnerOrAdmin(project);
+
+        if (req.getName() != null && !req.getName().isBlank()) {
+            project.setName(req.getName());
+        }
+        if (req.getDescription() != null) {
+            project.setModelDescription(req.getDescription());
+        }
+        if (req.getVisibility() != null) {
+            ProjectVisibility next = ProjectVisibility.valueOf(req.getVisibility());
+            if (project.getVisibility() != next) {
+                project.setVisibility(next);
+                // Notify current participants (excluding internal OWNER_SELF rows).
+                User actor = authz.currentUser();
+                NotificationDto n = new NotificationDto();
+                n.setType(NotificationDto.Type.PROJECT_VISIBILITY_CHANGED);
+                n.setProjectId(project.getId());
+                n.setProjectName(project.getName());
+                n.setActorId(actor.getId());
+                n.setActorUsername(actor.getUsername());
+                for (ProjectMembership m : membershipRepository.findByIdProjectId(project.getId())) {
+                    if (m.getRole() != MembershipRole.OWNER) {
+                        notificationService.notifyUser(m.getId().getUserId(), n);
+                    }
+                }
+            }
+        }
+        Project saved = projectRepository.save(project);
+        ProjectResponseDto dto = convertToDto(saved);
+        if (authz.isOwner(saved)) {
+            dto.setMyRelationship("OWNER");
+        }
+        return dto;
+    }
+
+    public ProjectResponseDto getProject(UUID projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        boolean isAdmin = authz.isAdmin();
+        boolean isOwner = authz.isOwner(project);
+        boolean isParticipant = isAdmin || isOwner
+                || authz.myMembership(project).map(m ->
+                      m.getRole() == MembershipRole.MEMBER
+                   || m.getRole() == MembershipRole.CLIENT).orElse(false);
+
+        if (isParticipant) {
+            ProjectResponseDto dto = convertToDto(project);
+            if (isOwner) {
+                dto.setMyRelationship("OWNER");
+            } else if (!isAdmin) {
+                authz.myMembership(project)
+                        .ifPresent(m -> dto.setMyRelationship(m.getRole().name()));
+            }
+            return dto;
+        }
+
+        if (project.getVisibility() == ProjectVisibility.PUBLIC) {
+            // Outsiders only see the world-readable fields of a PUBLIC project.
+            ProjectResponseDto trimmed = new ProjectResponseDto();
+            trimmed.setId(project.getId());
+            trimmed.setName(project.getName());
+            trimmed.setModelType(project.getModelType());
+            trimmed.setStatus(project.getStatus());
+            trimmed.setVisibility("PUBLIC");
+            return trimmed;
+        }
+        // PRIVATE outsiders get 404 so we don't leak existence.
+        throw ResourceNotFoundException.project(projectId);
+    }
+
+    public List<DiscoverProjectDto> getDiscoverProjects() {
+        User caller = authz.currentUser();
+        return projectRepository.findDiscoverable(caller.getId(), ProjectVisibility.PUBLIC)
+                .stream()
+                .filter(p -> p.getUser() == null || !p.getUser().getId().equals(caller.getId()))
+                .filter(p -> membershipRepository
+                        .findByIdProjectIdAndIdUserId(p.getId(), caller.getId())
+                        .map(m -> m.getRole() != MembershipRole.MEMBER
+                                  && m.getRole() != MembershipRole.CLIENT)
+                        .orElse(true))
+                .map(p -> toDiscoverDto(p, caller.getId()))
+                .collect(Collectors.toList());
+    }
+
+    private DiscoverProjectDto toDiscoverDto(Project p, Long callerId) {
+        DiscoverProjectDto d = new DiscoverProjectDto();
+        d.setId(p.getId());
+        d.setName(p.getName());
+        d.setVisibility(p.getVisibility() != null ? p.getVisibility().name() : null);
+        d.setOwnerUsername(p.getUser() != null ? p.getUser().getUsername() : null);
+        d.setModelType(p.getModelType());
+        d.setDescription(p.getModelDescription());
+        d.setMyRequestStatus(accessRequestRepository
+                .findByProjectIdAndUserId(p.getId(), callerId)
+                .map(r -> r.getStatus().name())
+                .orElse("NONE"));
+        return d;
     }
 }
