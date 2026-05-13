@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Play, Sparkles, X } from 'lucide-react';
+import { Play, X } from 'lucide-react';
 import { Project } from '../../services/apiServices';
 import { createLogger } from '../../lib/logger';
 

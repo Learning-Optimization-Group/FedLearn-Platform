@@ -1,10 +1,6 @@
-// =============================================================================
-// FedLearn Frontend — V2 Datasets View
-// =============================================================================
-// Aggregates dataset types (modelType) currently referenced by active projects.
-
 import { useEffect, useMemo, useState } from 'react';
-import { Database, Layers } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Database, Layers, Radar, FolderCog } from 'lucide-react';
 import * as api from '../../services/apiServices';
 import type { Project } from '../../services/apiServices';
 
@@ -58,79 +54,76 @@ export function DatasetsView() {
   }, []);
 
   const summaries = useMemo(() => summarize(projects), [projects]);
+  const totalDomains = summaries.length;
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-black text-[#f5f5f7] font-sans">
-      <div className="h-24 flex items-center justify-between px-10 border-b border-[#2c2c2e] bg-[rgba(0,0,0,0.65)] backdrop-blur-3xl saturate-[1.8] sticky top-0 z-20">
-        <div>
-          <h1 className="text-[28px] font-semibold tracking-tight">Datasets</h1>
-          <p className="text-[15px] text-[#86868b] mt-0.5 tracking-tight">
-            Data domains actively consumed by federated projects.
-          </p>
-        </div>
+    <div className="flex-1 flex flex-col h-screen overflow-hidden">
+      <div className="border-b px-8 py-6" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--surface-glass)', backdropFilter: 'blur(18px)' }}>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display text-4xl font-semibold tracking-tight text-(--text-primary)">Data Domains</h1>
+            <p className="text-sm text-(--text-secondary) mt-1">Track where training data categories are concentrated.</p>
+          </div>
+          <span className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm" style={{ backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border-color)' }}>
+            <FolderCog className="w-4 h-4 text-(--accent-primary)" /> {totalDomains} active domains
+          </span>
+        </motion.div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-10 py-10 bg-black">
+      <div className="flex-1 overflow-y-auto px-8 py-8">
         {error && (
-          <div className="mb-6 px-5 py-3 rounded-2xl bg-[#ff453a]/10 text-[#ff453a] text-[14px] font-medium">
+          <div className="mb-6 px-5 py-3 rounded-2xl text-sm font-medium" style={{ backgroundColor: 'color-mix(in srgb, #ef4444 12%, transparent)', color: '#ef4444', border: '1px solid color-mix(in srgb, #ef4444 30%, transparent)' }}>
             {error}
           </div>
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-[#86868b]">
-            Loading datasets…
-          </div>
+          <div className="flex items-center justify-center h-64 text-(--text-secondary)">Loading datasets...</div>
         ) : summaries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-[#86868b] gap-2">
-            <p className="text-[17px]">No dataset types registered.</p>
-            <p className="text-[14px]">
-              Create a project with a model type to start populating this view.
-            </p>
+          <div className="flex flex-col items-center justify-center h-64 text-(--text-secondary) gap-2">
+            <p className="text-lg text-(--text-primary)">No dataset domains registered.</p>
+            <p className="text-sm">Create projects to populate this view.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={{ hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
             {summaries.map((s) => (
-              <div
-                key={s.modelType}
-                className="bg-[#1c1c1e] rounded-[24px] p-6 flex flex-col gap-4 border border-[rgba(255,255,255,0.05)] hover:bg-[#2c2c2e]/60 transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#bf5af2]/10 text-[#bf5af2] flex items-center justify-center">
-                    <Database className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-[17px] font-semibold tracking-tight">{s.modelType}</h3>
-                    <p className="text-[13px] text-[#86868b] tracking-tight">
-                      {s.projectCount} project{s.projectCount > 1 ? 's' : ''}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-[#2c2c2e]/40 rounded-xl p-3 flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5 text-[#0a84ff]">
-                      <Layers className="w-3.5 h-3.5" />
-                      <span className="text-[10px] uppercase tracking-wider font-semibold">
-                        Unique Models
-                      </span>
+              <motion.div key={s.modelType} variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }}>
+                <div className="rounded-3xl p-6 flex flex-col gap-4" style={{ background: 'var(--background-card)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-soft)' }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl inline-flex items-center justify-center" style={{ backgroundColor: 'color-mix(in srgb, #8b5cf6 12%, transparent)' }}>
+                      <Database className="w-5 h-5 text-violet-500" />
                     </div>
-                    <span className="text-[20px] font-semibold tracking-tight">
-                      {s.uniqueModels}
-                    </span>
+                    <div>
+                      <h3 className="text-[18px] font-semibold tracking-tight text-(--text-primary)">{s.modelType}</h3>
+                      <p className="text-[13px] text-(--text-secondary)">{s.projectCount} linked project{s.projectCount > 1 ? 's' : ''}</p>
+                    </div>
                   </div>
-                  <div className="bg-[#2c2c2e]/40 rounded-xl p-3 flex flex-col gap-1">
-                    <span className="text-[10px] uppercase tracking-wider font-semibold text-[#32d74b]">
-                      Running
-                    </span>
-                    <span className="text-[20px] font-semibold tracking-tight">
-                      {s.runningCount}
-                    </span>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl p-3" style={{ backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border-color)' }}>
+                      <div className="flex items-center gap-1.5 text-(--text-secondary)">
+                        <Layers className="w-3.5 h-3.5" />
+                        <span className="text-[10px] uppercase tracking-wider font-semibold">Unique Models</span>
+                      </div>
+                      <span className="text-[20px] font-semibold tracking-tight text-(--text-primary)">{s.uniqueModels}</span>
+                    </div>
+                    <div className="rounded-xl p-3" style={{ backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border-color)' }}>
+                      <div className="flex items-center gap-1.5 text-emerald-500">
+                        <Radar className="w-3.5 h-3.5" />
+                        <span className="text-[10px] uppercase tracking-wider font-semibold">Running</span>
+                      </div>
+                      <span className="text-[20px] font-semibold tracking-tight text-(--text-primary)">{s.runningCount}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

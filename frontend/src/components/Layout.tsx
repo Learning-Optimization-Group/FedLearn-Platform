@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Layout.css';
+import { ThemeToggle } from './ThemeToggle';
 
 const Layout: React.FC = () => {
     const [userName, setUserName] = useState('');
@@ -39,6 +40,7 @@ const Layout: React.FC = () => {
                     </NavLink>
                 </nav>
                 <div className="user-profile">
+                    <ThemeToggle />
                     <Link to="/v2" className="v2-link" title="Switch to the redesigned UI">
                         Try V2 UI →
                     </Link>
