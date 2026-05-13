@@ -11,6 +11,8 @@ public class ProjectResponseDto {
     private Integer serverPort;
     private String optimizer;
     private String status;
+    private String myRelationship;  // "OWNER" | "MEMBER" | "CLIENT" | null
+    private String visibility;       // "PUBLIC" | "PRIVATE"
 
     public UUID getId() {
         return id;
@@ -66,5 +68,21 @@ public class ProjectResponseDto {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getMyRelationship() {
+        return myRelationship;
+    }
+
+    public void setMyRelationship(String myRelationship) {
+        this.myRelationship = myRelationship;
+    }
+
+    public String getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
     }
 }
