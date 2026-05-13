@@ -1,11 +1,14 @@
 package com.federated.fl_platform_api.membership;
 
+import com.federated.fl_platform_api.model.AccessRequestStatus;
 import com.federated.fl_platform_api.model.JoinedVia;
 import com.federated.fl_platform_api.model.MembershipRole;
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.ProjectAccessRequest;
 import com.federated.fl_platform_api.model.ProjectMembership;
 import com.federated.fl_platform_api.model.ProjectVisibility;
 import com.federated.fl_platform_api.model.User;
+import com.federated.fl_platform_api.repository.ProjectAccessRequestRepository;
 import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.UserRepository;
@@ -28,6 +31,7 @@ class MembershipPersistenceTest {
     @Autowired ProjectRepository projectRepository;
     @Autowired UserRepository userRepository;
     @Autowired ProjectMembershipRepository membershipRepository;
+    @Autowired ProjectAccessRequestRepository requestRepository;
 
     @Test
     void project_persistsVisibilityAndModelHubFields() {
@@ -85,5 +89,35 @@ class MembershipPersistenceTest {
         found.get().setPartitionId(5);
         membershipRepository.saveAndFlush(found.get());
         assertEquals(5, membershipRepository.maxPartitionIdForProject(p.getId()));
+    }
+
+    @Test
+    void accessRequest_uniquePerProjectUserPair() {
+        User owner = userRepository.save(new User("dave", "dave@example.com", "hash"));
+        User requester = userRepository.save(new User("eve", "eve@example.com", "hash"));
+
+        Project p = new Project();
+        p.setName("test-req-" + System.nanoTime());
+        p.setModelType("CNN-CIFAR10");
+        p.setModelName("resnet8");
+        p.setStatus("CREATED");
+        p.setUser(owner);
+        projectRepository.saveAndFlush(p);
+
+        ProjectAccessRequest req = new ProjectAccessRequest(p, requester, "let me in");
+        requestRepository.saveAndFlush(req);
+
+        Optional<ProjectAccessRequest> fetched =
+            requestRepository.findByProjectIdAndUserId(p.getId(), requester.getId());
+        assertTrue(fetched.isPresent());
+        assertEquals(AccessRequestStatus.PENDING, fetched.get().getStatus());
+
+        // Approve it.
+        fetched.get().setStatus(AccessRequestStatus.APPROVED);
+        fetched.get().setDecidedAt(Instant.now());
+        fetched.get().setDecidedBy(owner);
+        requestRepository.saveAndFlush(fetched.get());
+
+        assertEquals(1, requestRepository.findByUserId(requester.getId()).size());
     }
 }
