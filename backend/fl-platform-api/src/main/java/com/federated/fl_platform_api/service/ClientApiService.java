@@ -1,0 +1,103 @@
+package com.federated.fl_platform_api.service;
+
+import com.federated.fl_platform_api.dto.ClientConnectionDto;
+import com.federated.fl_platform_api.dto.ClientProjectDto;
+import com.federated.fl_platform_api.exception.ProjectStateException;
+import com.federated.fl_platform_api.exception.ResourceNotFoundException;
+import com.federated.fl_platform_api.model.*;
+import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
+import com.federated.fl_platform_api.repository.ProjectRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+public class ClientApiService {
+
+    @Autowired private ProjectRepository projectRepository;
+    @Autowired private ProjectMembershipRepository membershipRepository;
+    @Autowired private AuthorizationService authz;
+
+    @Value("${app.fl-server.grpc-host:localhost}")
+    private String grpcHost;
+
+    public List<ClientProjectDto> listForCurrentUser() {
+        User self = authz.currentUser();
+        List<ClientProjectDto> result = new ArrayList<>();
+        for (Project p : projectRepository.findOwnedOrMemberOf(self.getId())) {
+            boolean isOwner = p.getUser() != null && p.getUser().getId().equals(self.getId());
+            boolean isClient = membershipRepository
+                .existsByIdProjectIdAndIdUserIdAndRole(p.getId(), self.getId(), MembershipRole.CLIENT);
+            if (isOwner || isClient) result.add(toDto(p));
+        }
+        return result;
+    }
+
+    @Transactional
+    public ClientConnectionDto getConnection(UUID projectId) {
+        // SELECT ... FOR UPDATE serializes concurrent connects against the
+        // same project so partition_id assignment never collides.
+        Project project = projectRepository.lockById(projectId)
+            .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        User self = authz.currentUser();
+        boolean isOwner = project.getUser() != null
+            && project.getUser().getId().equals(self.getId());
+
+        ProjectMembership membership = membershipRepository
+            .findByIdProjectIdAndIdUserId(projectId, self.getId())
+            .orElse(null);
+
+        if (!isOwner && (membership == null || membership.getRole() != MembershipRole.CLIENT)) {
+            throw new AccessDeniedException("You are not a CLIENT of this project");
+        }
+
+        if (!"RUNNING".equals(project.getStatus()) || project.getServerPort() == null) {
+            throw new ProjectStateException(
+                "Project is not currently running (status=" + project.getStatus() + ")");
+        }
+
+        // Owners with no row yet get a hidden OWNER_SELF row to carry their
+        // partition_id; permission logic ignores OWNER rows (owner is decided
+        // by projects.user_id).
+        if (isOwner && membership == null) {
+            membership = new ProjectMembership(project, self, MembershipRole.OWNER,
+                JoinedVia.OWNER_SELF, self);
+            membershipRepository.save(membership);
+        }
+
+        if (membership.getPartitionId() == null) {
+            int next = membershipRepository.maxPartitionIdForProject(projectId) + 1;
+            membership.setPartitionId(next);
+            if (membership.getAddedAt() == null) {
+                membership.setAddedAt(Instant.now());
+            }
+            membership = membershipRepository.save(membership);
+        }
+
+        ClientConnectionDto dto = new ClientConnectionDto();
+        dto.setProjectId(projectId);
+        dto.setName(project.getName());
+        dto.setModelType(project.getModelType());
+        dto.setServerAddress(grpcHost + ":" + project.getServerPort());
+        dto.setPartitionId(membership.getPartitionId());
+        dto.setStatus(project.getStatus());
+        return dto;
+    }
+
+    private ClientProjectDto toDto(Project p) {
+        ClientProjectDto d = new ClientProjectDto();
+        d.setProjectId(p.getId());
+        d.setName(p.getName());
+        d.setModelType(p.getModelType());
+        d.setStatus(p.getStatus());
+        d.setVisibility(p.getVisibility() != null ? p.getVisibility().name() : null);
+        return d;
+    }
+}
