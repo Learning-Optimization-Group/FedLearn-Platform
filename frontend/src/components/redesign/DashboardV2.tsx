@@ -1,20 +1,25 @@
-// =============================================================================
-// FedLearn Frontend — DashboardV2 (Apple-inspired, real API)
-// =============================================================================
-// Wired to apiServices for real project data, WebSocket status updates.
-
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import * as api from '../../services/apiServices';
 import { Client as StompClient, StompSubscription } from '@stomp/stompjs';
+import { motion } from 'framer-motion';
+import {
+  Plus,
+  Search,
+  Activity,
+  ChartLine,
+  Server,
+  AlertTriangle,
+  Layers,
+} from 'lucide-react';
 import { ProjectCard } from './ProjectCard';
 import { LogViewerV2 } from './LogViewer';
 import { ResultsModalV2 } from './ResultsModal';
 import { CreateProjectModalV2 } from './CreateProjectModal';
 import { EditProjectModal } from './EditProjectModal';
 import { StartProjectModal } from './StartProjectModal';
-import { Plus, Search, Filter } from 'lucide-react';
 import type { Project, ProjectResult } from '../../services/apiServices';
 import { createLogger } from '../../lib/logger';
+import { cn } from '../../lib/utils';
 
 const log = createLogger('DashboardV2');
 
@@ -27,6 +32,33 @@ interface StatusUpdate {
   serverPort?: number;
 }
 
+interface KpiCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  accent?: string;
+}
+
+function KpiCard({ icon, label, value, accent = 'var(--accent-primary)' }: KpiCardProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      className="rounded-3xl p-5"
+      style={{ background: 'var(--background-card)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-soft)' }}
+    >
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-(--text-secondary)">{label}</div>
+        <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'color-mix(in srgb, var(--background-secondary) 88%, transparent)', color: accent }}>
+          {icon}
+        </div>
+      </div>
+      <div className="mt-3 text-3xl font-semibold tracking-tight text-(--text-primary)">{value}</div>
+    </motion.div>
+  );
+}
+
 export function DashboardV2() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,7 +69,7 @@ export function DashboardV2() {
   const [results, setResults] = useState<ProjectResult[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -45,8 +77,10 @@ export function DashboardV2() {
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
   const [startProject, setStartProject] = useState<Project | null>(null);
 
-  // Store results for all projects to power the sparkline charts
   const [resultsMap, setResultsMap] = useState<Record<string, ProjectResult[]>>({});
+
+  type RelationFilter = 'all' | 'owner' | 'member' | 'client';
+  const [filter, setFilter] = useState<RelationFilter>('all');
 
   const stompClientRef = useRef<StompClient | null>(null);
   const subscriptionStatusRef = useRef<StompSubscription | null>(null);
@@ -59,19 +93,18 @@ export function DashboardV2() {
       const loadedProjects = Array.isArray(response.data) ? response.data : [];
       setProjects(loadedProjects);
       setError('');
-      
-      // Load historical results for all projects to populate sparklines
+
       if (loadedProjects.length > 0) {
         Promise.allSettled(
-          loadedProjects.map(p => api.fetchProjectResults(p.id).then(res => ({ id: p.id, results: res.data })))
+          loadedProjects.map((p) => api.fetchProjectResults(p.id).then((res) => ({ id: p.id, results: res.data })))
         ).then((resultsData) => {
           const newMap: Record<string, ProjectResult[]> = {};
-          resultsData.forEach(r => {
+          resultsData.forEach((r) => {
             if (r.status === 'fulfilled') {
               newMap[r.value.id] = r.value.results;
             }
           });
-          setResultsMap(prev => ({ ...prev, ...newMap }));
+          setResultsMap((prev) => ({ ...prev, ...newMap }));
         });
       }
     } catch {
@@ -81,9 +114,10 @@ export function DashboardV2() {
     }
   }, []);
 
-  useEffect(() => { loadProjects(); }, [loadProjects]);
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
 
-  // WebSocket status updates
   useEffect(() => {
     const client = new StompClient({
       brokerURL: `${WEBSOCKET_URL_BASE}/ws-logs`,
@@ -91,7 +125,6 @@ export function DashboardV2() {
     });
 
     client.onConnect = () => {
-      // 1. Subscribe to Status updates
       const subStatus = client.subscribe('/topic/status/*', (message) => {
         try {
           const update: StatusUpdate = JSON.parse(message.body);
@@ -102,23 +135,26 @@ export function DashboardV2() {
                 : p
             )
           );
-        } catch { /* ignore parse errors */ }
+        } catch {
+          // Ignore malformed status message.
+        }
       });
       subscriptionStatusRef.current = subStatus;
 
-      // 2. Subscribe to Telemetry updates
       const subResults = client.subscribe('/topic/results/*', (message) => {
         try {
           const result: ProjectResult = JSON.parse(message.body);
           const destParts = message.headers.destination.split('/');
           const projectId = destParts[destParts.length - 1];
           if (projectId && result) {
-            setResultsMap(prev => ({
+            setResultsMap((prev) => ({
               ...prev,
-              [projectId]: [...(prev[projectId] || []), result]
+              [projectId]: [...(prev[projectId] || []), result],
             }));
           }
-        } catch { /* ignore parse errors */ }
+        } catch {
+          // Ignore malformed results payload.
+        }
       });
       subscriptionResultsRef.current = subResults;
     };
@@ -157,7 +193,7 @@ export function DashboardV2() {
         setIsStartModalOpen(true);
       }
     } catch {
-      setError(`Failed to stop server.`);
+      setError('Failed to stop server.');
     }
   };
 
@@ -191,7 +227,7 @@ export function DashboardV2() {
     try {
       await api.deleteProject(projectId);
       setProjects((prev) => prev.filter((p) => p.id !== projectId));
-    } catch (err) {
+    } catch {
       setError('Failed to delete project.');
     }
   };
@@ -206,107 +242,168 @@ export function DashboardV2() {
     }
   };
 
-  const filteredProjects = projects.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProjects = useMemo(() => {
+    let list = projects;
+    if (filter === 'owner') list = projects.filter((p) => p.myRelationship === 'OWNER');
+    else if (filter === 'member') list = projects.filter((p) => p.myRelationship === 'MEMBER');
+    else if (filter === 'client') list = projects.filter((p) => p.myRelationship === 'CLIENT');
+    return list.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [projects, filter, searchQuery]);
+
+  const portfolio = useMemo(() => {
+    const running = projects.filter((p) => p.status === 'RUNNING').length;
+    const failed = projects.filter((p) => p.status === 'FAILED').length;
+    const completed = projects.filter((p) => p.status === 'COMPLETED').length;
+    const uniqueModels = new Set(projects.map((p) => `${p.modelType}:${p.modelName}`)).size;
+
+    const allResults = Object.values(resultsMap).flat();
+    const latestAccuracy = allResults.length > 0 ? allResults[allResults.length - 1].accuracy : 0;
+
+    return {
+      running,
+      failed,
+      completed,
+      uniqueModels,
+      latestAccuracy,
+    };
+  }, [projects, resultsMap]);
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-950 text-slate-200 font-sans selection:bg-cyan-500/30 selection:text-cyan-50">
-      {/* Header */}
-      <div className="h-24 flex items-center justify-between px-10 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-20">
-        <div>
-          <h1 className="text-[24px] font-semibold tracking-tight text-slate-100">Active Projects</h1>
-          <p className="text-[14px] text-slate-400 mt-0.5 tracking-tight">Manage and monitor federated tasks.</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <Search className="w-[18px] h-[18px] absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search projects"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-slate-900 border border-slate-800 pl-11 pr-4 py-2.5 rounded-md text-[14px] text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all w-72"
-            />
+    <div className="flex-1 flex flex-col h-screen overflow-hidden font-sans">
+      <div className="border-b px-8 py-6" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--surface-glass)', backdropFilter: 'blur(18px) saturate(160%)' }}>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="flex flex-col gap-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight text-(--text-primary)">Federated Operations</h1>
+              <p className="text-sm md:text-base text-(--text-secondary) mt-2 max-w-3xl">
+                A unified view of project health, model coverage, and training quality across your distributed fleet.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-(--text-secondary)" />
+                <input
+                  type="text"
+                  placeholder="Search projects"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="rounded-full pl-10 pr-4 py-2.5 text-sm w-64"
+                  style={{ backgroundColor: 'var(--background-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                />
+              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white"
+                style={{ backgroundColor: 'var(--accent-primary)' }}
+              >
+                <Plus className="w-4 h-4" />
+                New Project
+              </button>
+            </div>
           </div>
-          <button className="w-10 h-10 flex items-center justify-center bg-slate-900 border border-slate-800 hover:bg-slate-800 hover:text-slate-100 rounded-md text-slate-400 transition-colors">
-            <Filter className="w-4 h-4" />
-          </button>
-          <div className="w-px h-6 bg-slate-800 mx-2" />
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-slate-50 px-5 py-2.5 rounded-md text-[14px] font-medium transition-all duration-200 shadow-lg shadow-cyan-900/40 border border-cyan-500 hover:border-cyan-400"
-          >
-            <Plus className="w-[18px] h-[18px]" />
-            New Project
-          </button>
-        </div>
+
+          <div className="flex items-center gap-2">
+            {(['all', 'owner', 'member', 'client'] as RelationFilter[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={cn(
+                  'px-4 py-1.5 rounded-full text-[13px] font-medium transition-all border',
+                  filter === f
+                    ? 'bg-(--accent-primary) text-white border-transparent'
+                    : 'text-(--text-secondary) border-(--border-color) hover:text-(--text-primary) hover:bg-(--background-card)'
+                )}
+                style={filter === f ? {} : { backgroundColor: 'var(--background-secondary)' }}
+              >
+                {f === 'all' ? 'All' : f === 'owner' ? 'Owned by me' : f === 'member' ? 'Member' : 'Client'}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <KpiCard icon={<Server className="w-4 h-4" />} label="Active Projects" value={portfolio.running} />
+            <KpiCard icon={<ChartLine className="w-4 h-4" />} label="Completed Runs" value={portfolio.completed} accent="#22c55e" />
+            <KpiCard icon={<AlertTriangle className="w-4 h-4" />} label="Failures" value={portfolio.failed} accent="#ef4444" />
+            <KpiCard icon={<Layers className="w-4 h-4" />} label="Model Families" value={portfolio.uniqueModels} accent="#8b5cf6" />
+            <KpiCard icon={<Activity className="w-4 h-4" />} label="Latest Accuracy" value={portfolio.latestAccuracy ? `${(portfolio.latestAccuracy * 100).toFixed(1)}%` : '—'} accent="#0ea5e9" />
+          </div>
+        </motion.div>
       </div>
 
-      {/* Main Content Grid */}
-      <div className="flex-1 overflow-y-auto px-10 py-10 relative z-10 bg-slate-950">
+      <div className="flex-1 overflow-y-auto px-8 py-8">
         {error && (
-          <div className="mb-6 px-5 py-3 rounded-md border border-rose-500/20 bg-rose-500/10 text-rose-500 text-[14px] font-medium">
+          <div className="mb-6 px-5 py-3 rounded-2xl text-sm font-medium" style={{ backgroundColor: 'color-mix(in srgb, #ef4444 12%, transparent)', color: '#ef4444', border: '1px solid color-mix(in srgb, #ef4444 30%, transparent)' }}>
             {error}
           </div>
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-slate-500">
-            Loading projects...
-          </div>
+          <div className="flex items-center justify-center h-64 text-(--text-secondary)">Loading projects...</div>
         ) : filteredProjects.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-[1600px] mx-auto">
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: { opacity: 0 },
+              visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
+            }}
+            className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-[1700px] mx-auto"
+          >
             {filteredProjects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                results={resultsMap[project.id] || []}
-                onOpenLogs={() => setLogViewProjectId(project.id)}
-                onOpenResults={() => handleOpenResults(project)}
-                onToggleServer={() => handleToggleServer(project)}
-                onEditProject={() => { setEditProject(project); setIsEditModalOpen(true); }}
-                onDeleteProject={() => handleDeleteProject(project.id)}
-              />
+              <motion.div key={project.id} variants={{ hidden: { opacity: 0, y: 18 }, visible: { opacity: 1, y: 0 } }}>
+                <ProjectCard
+                  project={project}
+                  results={resultsMap[project.id] || []}
+                  onOpenLogs={() => setLogViewProjectId(project.id)}
+                  onOpenResults={() => handleOpenResults(project)}
+                  onToggleServer={() => handleToggleServer(project)}
+                  onEditProject={() => {
+                    setEditProject(project);
+                    setIsEditModalOpen(true);
+                  }}
+                  onDeleteProject={() => handleDeleteProject(project.id)}
+                />
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-2">
-            <p className="text-[16px] font-medium text-slate-300">No projects found.</p>
-            <p className="text-[14px]">Create one to get started.</p>
+          <div className="flex flex-col items-center justify-center h-64 text-(--text-secondary) gap-2">
+            <p className="text-[16px] font-medium text-(--text-primary)">No projects found.</p>
+            <p className="text-[14px]">Create one to start federated training.</p>
           </div>
         )}
       </div>
 
-      {/* Modals */}
       <CreateProjectModalV2
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateProject}
         isLoading={isCreating}
       />
-      
+
       <EditProjectModal
         isOpen={isEditModalOpen}
         project={editProject}
-        onClose={() => { setIsEditModalOpen(false); setEditProject(null); }}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditProject(null);
+        }}
         onSubmit={handleUpdateProject}
         isLoading={isUpdating}
       />
-      
+
       <StartProjectModal
         isOpen={isStartModalOpen}
         project={startProject}
-        onClose={() => { setIsStartModalOpen(false); setStartProject(null); }}
+        onClose={() => {
+          setIsStartModalOpen(false);
+          setStartProject(null);
+        }}
         onSubmit={handleStartSubmit}
       />
-      
+
       {logViewProjectId && (
-        <LogViewerV2
-          projectId={logViewProjectId}
-          serverUrl={SERVER_ROOT_URL}
-          onClose={() => setLogViewProjectId(null)}
-        />
+        <LogViewerV2 projectId={logViewProjectId} serverUrl={SERVER_ROOT_URL} onClose={() => setLogViewProjectId(null)} />
       )}
 
       <ResultsModalV2
