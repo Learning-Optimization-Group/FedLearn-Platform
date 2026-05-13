@@ -5,12 +5,13 @@ import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.ProjectMembership;
 import com.federated.fl_platform_api.model.RoundResult;
 import com.federated.fl_platform_api.model.User;
+import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.flower.FlowerServerManager;
 import com.federated.fl_platform_api.repository.RoundResultRepository;
-import com.federated.fl_platform_api.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,7 +40,7 @@ public class ProjectService {
     @Autowired
     private ModelInitializer modelInitializer;
     @Autowired
-    private UserRepository userRepository;
+    private ProjectMembershipRepository membershipRepository;
     @Autowired
     private RoundResultRepository roundResultRepository;
     @Autowired
@@ -69,6 +70,7 @@ public class ProjectService {
         dto.setServerPort(project.getServerPort());
         dto.setOptimizer(project.getOptimizer());
         dto.setStatus(project.getStatus());
+        dto.setVisibility(project.getVisibility() != null ? project.getVisibility().name() : null);
 
         return dto;
     }
@@ -187,10 +189,20 @@ public class ProjectService {
 
     public List<ProjectResponseDto> getProjectsForCurrentUser() {
         User caller = authz.currentUser();
-        List<Project> projects = projectRepository.findByUserId(caller.getId());
-        return projects.stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+        List<Project> projects = projectRepository.findOwnedOrMemberOf(caller.getId());
+        return projects.stream().map(p -> {
+            ProjectResponseDto dto = convertToDto(p);
+            dto.setVisibility(p.getVisibility() != null ? p.getVisibility().name() : null);
+            if (p.getUser() != null && p.getUser().getId().equals(caller.getId())) {
+                dto.setMyRelationship("OWNER");
+            } else {
+                ProjectMembership m = membershipRepository
+                        .findByIdProjectIdAndIdUserId(p.getId(), caller.getId())
+                        .orElse(null);
+                dto.setMyRelationship(m != null && m.getRole() != null ? m.getRole().name() : null);
+            }
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     public List<RoundResultDto> getResultsForProject(@NonNull UUID projectId) {
