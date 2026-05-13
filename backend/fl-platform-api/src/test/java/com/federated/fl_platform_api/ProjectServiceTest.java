@@ -61,6 +61,9 @@ class ProjectServiceTest {
     @Mock
     private Authentication authentication;
 
+    @Mock
+    private com.federated.fl_platform_api.service.AuthorizationService authz;
+
     @InjectMocks
     private ProjectService projectService;
 
@@ -87,11 +90,7 @@ class ProjectServiceTest {
     @Test
     void whenCreateProject_thenShouldSucceedAndReturnProjectWithPortAndPath() throws Exception {
         // --- 1. ARRANGE ---
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getName()).thenReturn("testuser");
-        SecurityContextHolder.setContext(securityContext);
-        
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(authz.currentUser()).thenReturn(testUser);
 
         when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> {
             Project p = invocation.getArgument(0);
@@ -123,11 +122,7 @@ class ProjectServiceTest {
     @Test
     void whenModelInitializationFails_thenShouldThrowException() throws Exception {
         // --- ARRANGE ---
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getName()).thenReturn("testuser");
-        SecurityContextHolder.setContext(securityContext);
-        
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(authz.currentUser()).thenReturn(testUser);
 
         when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> {
             Project p = invocation.getArgument(0);

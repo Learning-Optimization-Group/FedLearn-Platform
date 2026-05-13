@@ -18,11 +18,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.lang.NonNull;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,60 +46,9 @@ public class ProjectService {
     private WebSocketService webSocketService;
     @Autowired
     private com.federated.fl_platform_api.repository.ServerLogRepository serverLogRepository;
+    @Autowired
+    private AuthorizationService authz;
 
-
-    // ─── Authorization helpers ──────────────────────────────────────────────
-
-    /**
-     * Resolve the currently authenticated User entity. Spring Security's
-     * filter chain guarantees that any Authentication present in the
-     * SecurityContext at this point came from a successful JWT validation,
-     * so a non-null check here is sufficient — we don't re-check
-     * isAuthenticated().
-     */
-    private User currentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null) {
-            throw new AccessDeniedException("No authenticated principal");
-        }
-        String username = authentication.getName();
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException(
-                        "Authenticated principal has no matching user row: " + username));
-    }
-
-    private static boolean isAdmin(Authentication authentication) {
-        if (authentication == null) return false;
-        for (GrantedAuthority a : authentication.getAuthorities()) {
-            if ("ROLE_ADMIN".equals(a.getAuthority())) return true;
-        }
-        return false;
-    }
-
-    /**
-     * Asserts that the caller either owns the project or is an admin. Returns
-     * 403 (mapped via GlobalExceptionHandler) on mismatch — never 404, since
-     * leaking project-existence to non-owners is itself an information leak.
-     *
-     * Internal callbacks (FL-server → /api/internal/**) bypass this check
-     * entirely because they pass through {@code InternalApiKeyFilter} which
-     * doesn't populate a Spring Security principal.
-     */
-    private void requireOwnerOrAdmin(Project project) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null) {
-            throw new AccessDeniedException("No authenticated principal");
-        }
-        if (isAdmin(authentication)) {
-            return;
-        }
-        User caller = currentUser();
-        User owner = project.getUser();
-        if (owner == null || !owner.getId().equals(caller.getId())) {
-            // Use a generic message; do not echo back the project id or owner.
-            throw new AccessDeniedException("You do not have access to this project");
-        }
-    }
 
     private RoundResultDto convertToDto(RoundResult result) {
         RoundResultDto dto = new RoundResultDto();
@@ -133,7 +77,7 @@ public class ProjectService {
     public ProjectResponseDto createProject(CreateProjectRequest request) throws IOException, InterruptedException {
         log.info("Creating project '{}' (modelType={})", request.getName(), request.getModelType());
 
-        User owner = currentUser();
+        User owner = authz.currentUser();
 
         Project project = new Project();
         project.setName(request.getName());
@@ -179,7 +123,7 @@ public class ProjectService {
 
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        authz.requireOwnerOrAdmin(project);
 
         String strategyToUse = (request != null && request.getStrategy() != null && !request.getStrategy().isEmpty())
                 ? request.getStrategy()
@@ -225,7 +169,7 @@ public class ProjectService {
     public ProjectResponseDto stopServerForProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        authz.requireOwnerOrAdmin(project);
 
         boolean stopped = flowerServerManager.stopServerForProject(projectId);
         Project finalProjectState = project;
@@ -242,7 +186,7 @@ public class ProjectService {
     }
 
     public List<ProjectResponseDto> getProjectsForCurrentUser() {
-        User caller = currentUser();
+        User caller = authz.currentUser();
         List<Project> projects = projectRepository.findByUserId(caller.getId());
         return projects.stream()
                 .map(this::convertToDto)
@@ -252,7 +196,7 @@ public class ProjectService {
     public List<RoundResultDto> getResultsForProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        authz.requireOwnerOrAdmin(project);
         return roundResultRepository.findByProjectIdOrderByServerRoundAsc(projectId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -276,7 +220,7 @@ public class ProjectService {
     public void deleteProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        authz.requireOwnerOrAdmin(project);
 
         // Best-effort: stop any running FL server before removing the row so
         // we don't leak processes/ECS tasks.
@@ -338,7 +282,7 @@ public class ProjectService {
         }
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        authz.requireOwnerOrAdmin(project);
         return project;
     }
 

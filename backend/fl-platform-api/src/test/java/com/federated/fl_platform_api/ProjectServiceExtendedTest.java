@@ -47,6 +47,7 @@ class ProjectServiceExtendedTest {
     @Mock private ServerLogRepository serverLogRepository;
     @Mock private SecurityContext securityContext;
     @Mock private Authentication authentication;
+    @Mock private com.federated.fl_platform_api.service.AuthorizationService authz;
 
     @InjectMocks
     private ProjectService projectService;
@@ -68,17 +69,13 @@ class ProjectServiceExtendedTest {
         testProject.setOptimizer("SGD");
         testProject.setUser(testUser);
         testProject.setStatus("STOPPED");
-
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getName()).thenReturn("testuser");
-        SecurityContextHolder.setContext(securityContext);
     }
 
-    // Helper: make the mock authentication return no admin role
+    // Helper kept for legacy callers — auth checks are now centralised in
+    // AuthorizationService, which we mock as a no-op for the happy path.
     private void asRegularUser() {
-        when(authentication.getAuthorities()).thenAnswer(inv ->
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        // Default mock behaviour for void methods is no-op, which is what we
+        // want for the "caller is permitted" path.
     }
 
     @Test
@@ -88,7 +85,7 @@ class ProjectServiceExtendedTest {
         p1.setName("P1"); p1.setModelType("CNN"); p1.setModelName("r"); p1.setOptimizer("SGD");
         p1.setUser(testUser); p1.setStatus("CREATED");
 
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(authz.currentUser()).thenReturn(testUser);
         when(projectRepository.findByUserId(1L)).thenReturn(List.of(p1));
 
         List<ProjectResponseDto> results = projectService.getProjectsForCurrentUser();
@@ -153,15 +150,11 @@ class ProjectServiceExtendedTest {
 
     @Test
     void stopServerForProject_whenCallerIsNotOwner_shouldThrowAccessDeniedException() {
-        User otherUser = new User();
-        otherUser.setId(99L);
-        otherUser.setUsername("attacker");
-
         when(projectRepository.findById(testProject.getId())).thenReturn(Optional.of(testProject));
-        // Return a different user from the security context
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(otherUser));
-        when(authentication.getAuthorities()).thenAnswer(inv ->
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+        // AuthorizationService rejects the caller; ProjectService must surface
+        // the AccessDeniedException unchanged.
+        doThrow(new AccessDeniedException("You do not have access to this project"))
+                .when(authz).requireOwnerOrAdmin(testProject);
 
         assertThrows(AccessDeniedException.class,
                 () -> projectService.stopServerForProject(testProject.getId()));
