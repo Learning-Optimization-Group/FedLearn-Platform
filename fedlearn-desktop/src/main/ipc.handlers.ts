@@ -11,6 +11,7 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import * as fs from 'fs';
 import * as path from 'path';
+import Store from 'electron-store';
 import { DockerService, TrainingConfig, HardwareProfile } from './docker.service';
 import { AuthService } from './auth.service';
 import { detectHardware } from './hardware.probe';
@@ -73,6 +74,114 @@ function sanitizeDatasetPath(raw: unknown): string | null {
     return null;
   }
   return resolved;
+}
+
+// =============================================================================
+// Client RBAC IPC Handlers
+// =============================================================================
+
+interface DatasetPathStore { [projectId: string]: string }
+
+let datasetPathStore: any;
+function getDatasetPathStore(): any {
+  if (!datasetPathStore) {
+    datasetPathStore = new Store({ name: 'fedlearn-datasets', clearInvalidConfig: true });
+  }
+  return datasetPathStore;
+}
+
+interface AuthHttpClient {
+  authenticatedGet<T>(path: string): Promise<T | null>;
+  authenticatedPost<T>(path: string, body: unknown): Promise<{ status: number; data: T | null }>;
+}
+
+interface DockerStarter {
+  startTraining(config: TrainingConfig): Promise<void | { success: boolean; error?: string }>;
+}
+
+let clientHandlersRegistered = false;
+
+/** Test-only reset. Not exposed to runtime callers. */
+export function __resetClientHandlerStateForTest(): void {
+  clientHandlersRegistered = false;
+  datasetPathStore = undefined;
+}
+
+export function registerClientIpcHandlers(auth: AuthHttpClient, docker: DockerStarter): void {
+  if (clientHandlersRegistered) return;
+  clientHandlersRegistered = true;
+
+  ipcMain.handle('client:list-projects', async () => {
+    const data = await auth.authenticatedGet<unknown>('/client/projects');
+    if (!Array.isArray(data)) return { success: false };
+    return { success: true, projects: data };
+  });
+
+  ipcMain.handle('client:list-discover', async () => {
+    const data = await auth.authenticatedGet<unknown>('/projects/discover');
+    if (!Array.isArray(data)) return { success: false };
+    return { success: true, projects: data };
+  });
+
+  ipcMain.handle('client:list-my-requests', async () => {
+    const data = await auth.authenticatedGet<unknown>('/my/access-requests');
+    if (!Array.isArray(data)) return { success: false };
+    return { success: true, requests: data };
+  });
+
+  ipcMain.handle('client:request-access', async (_e, projectId: unknown, message: unknown) => {
+    if (!validateProjectId(projectId)) return { success: false, error: 'Invalid project ID' };
+    const msg = typeof message === 'string' && message.length <= 2000 ? message : '';
+    const resp = await auth.authenticatedPost<{ status?: string }>(`/projects/${projectId}/access-requests`, { message: msg });
+    if (resp.status >= 400) return { success: false, error: `Backend returned ${resp.status}` };
+    return { success: true, status: resp.data?.status ?? 'PENDING' };
+  });
+
+  ipcMain.handle('client:train-project', async (_e, projectId: unknown, datasetPath: unknown) => {
+    if (!validateProjectId(projectId)) return { success: false, error: 'Invalid project ID' };
+    if (typeof datasetPath !== 'string' || datasetPath.length > MAX_DATASET_PATH_LEN) {
+      return { success: false, error: 'Invalid dataset path' };
+    }
+
+    const conn = await auth.authenticatedGet<{
+      projectId: string; name: string; modelType: string; modelName: string;
+      serverAddress: string; partitionId: number; status: string;
+    }>(`/client/projects/${projectId}/connection`);
+    if (!conn) return { success: false, error: 'Project not running or no access' };
+
+    const platform = process.platform === 'darwin' ? 'mps'
+      : process.arch === 'arm64' ? 'jetson'
+      : 'cpu';
+
+    const trainResult = await docker.startTraining({
+      hardwareProfile: platform as HardwareProfile,
+      projectId: conn.projectId,
+      serverAddress: conn.serverAddress,
+      partitionId: String(conn.partitionId),
+      modelType: conn.modelType,
+      datasetPath: datasetPath as string,
+    });
+    // Real DockerService returns void; mock returns { success, error? }.
+    if (trainResult && typeof trainResult === 'object') return trainResult;
+    return { success: true };
+  });
+
+  ipcMain.handle('client:get-last-dataset-path', async (_e, projectId: unknown) => {
+    if (!validateProjectId(projectId)) return { success: false };
+    const store = getDatasetPathStore();
+    const all = (store.get('paths') as DatasetPathStore | undefined) || {};
+    return { success: true, path: all[projectId as string] || '' };
+  });
+
+  ipcMain.handle('client:set-last-dataset-path', async (_e, projectId: unknown, p: unknown) => {
+    if (!validateProjectId(projectId)) return { success: false };
+    if (typeof p !== 'string' || p.length > MAX_DATASET_PATH_LEN) return { success: false };
+    const store = getDatasetPathStore();
+    const all = (store.get('paths') as DatasetPathStore | undefined) || {};
+    all[projectId as string] = p as string;
+    store.set('paths', all);
+    return { success: true };
+  });
 }
 
 let dockerService: DockerService;
@@ -355,5 +464,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, hardware:detect, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory, updater:install');
+  registerClientIpcHandlers(authService, dockerService);
+
+  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, hardware:detect, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory, updater:install, client:list-projects, client:list-discover, client:list-my-requests, client:request-access, client:train-project, client:get-last-dataset-path, client:set-last-dataset-path');
 }
