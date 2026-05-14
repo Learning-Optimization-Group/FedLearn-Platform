@@ -310,4 +310,41 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   checkForUpdates: async (): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('updater:check');
   },
+
+  // ===================== Client RBAC Channels =====================
+
+  listClientProjects: async (): Promise<{ success: boolean; projects?: unknown[] }> => {
+    return ipcRenderer.invoke('client:list-projects');
+  },
+
+  listDiscover: async (): Promise<{ success: boolean; projects?: unknown[] }> => {
+    return ipcRenderer.invoke('client:list-discover');
+  },
+
+  listMyRequests: async (): Promise<{ success: boolean; requests?: unknown[] }> => {
+    return ipcRenderer.invoke('client:list-my-requests');
+  },
+
+  requestAccess: async (projectId: string, message: string): Promise<{ success: boolean; status?: string; error?: string }> => {
+    if (!isValidProjectId(projectId)) return { success: false, error: 'Invalid project ID' };
+    if (typeof message !== 'string' || message.length > 2000) return { success: false, error: 'Invalid message' };
+    return ipcRenderer.invoke('client:request-access', projectId, message);
+  },
+
+  trainProject: async (projectId: string, datasetPath: string): Promise<{ success: boolean; error?: string }> => {
+    if (!isValidProjectId(projectId)) return { success: false, error: 'Invalid project ID' };
+    if (!isValidDatasetPath(datasetPath)) return { success: false, error: 'Invalid dataset path' };
+    return ipcRenderer.invoke('client:train-project', projectId, datasetPath);
+  },
+
+  getLastDatasetPath: async (projectId: string): Promise<{ success: boolean; path?: string }> => {
+    if (!isValidProjectId(projectId)) return { success: false };
+    return ipcRenderer.invoke('client:get-last-dataset-path', projectId);
+  },
+
+  setLastDatasetPath: async (projectId: string, path: string): Promise<{ success: boolean }> => {
+    if (!isValidProjectId(projectId)) return { success: false };
+    if (!isValidDatasetPath(path)) return { success: false };
+    return ipcRenderer.invoke('client:set-last-dataset-path', projectId, path);
+  },
 });
