@@ -263,6 +263,51 @@ export class AuthService {
    * re-authenticate per launch on hosts without a keyring. This is the
    * correct trade-off; persistence is a convenience, not a requirement.
    */
+  async authenticatedGet<T>(pathWithLeadingSlash: string): Promise<T | null> {
+    const header = this.getAuthHeader();
+    if (!header) return null;
+    try {
+      const resp = await axios.get<T>(`${this.apiBaseUrl}${pathWithLeadingSlash}`, {
+        headers: { Authorization: header },
+        validateStatus: (s) => s < 500,
+      });
+      if (resp.status === 401) {
+        log.warn(`[AuthService] 401 on GET ${pathWithLeadingSlash} — clearing session`);
+        this.logout();
+        return null;
+      }
+      if (resp.status >= 400) {
+        log.warn(`[AuthService] GET ${pathWithLeadingSlash} returned ${resp.status}`);
+        return null;
+      }
+      return resp.data;
+    } catch (err) {
+      log.error(`[AuthService] GET ${pathWithLeadingSlash} failed: ${err instanceof Error ? err.message : err}`);
+      return null;
+    }
+  }
+
+  async authenticatedPost<T>(
+    pathWithLeadingSlash: string,
+    body: unknown,
+  ): Promise<{ status: number; data: T | null }> {
+    const header = this.getAuthHeader();
+    if (!header) return { status: 401, data: null };
+    try {
+      const resp = await axios.post<T>(`${this.apiBaseUrl}${pathWithLeadingSlash}`, body, {
+        headers: { Authorization: header, 'Content-Type': 'application/json' },
+        validateStatus: (s) => s < 500,
+      });
+      if (resp.status === 401) {
+        this.logout();
+      }
+      return { status: resp.status, data: resp.status < 400 ? resp.data : null };
+    } catch (err) {
+      log.error(`[AuthService] POST ${pathWithLeadingSlash} failed: ${err instanceof Error ? err.message : err}`);
+      return { status: 0, data: null };
+    }
+  }
+
   private storeJwt(jwt: string, username: string): void {
     const expiresAt = Date.now() + JWT_EXPIRY_MS;
 
