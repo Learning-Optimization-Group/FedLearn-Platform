@@ -54,6 +54,14 @@ declare global {
       onUpdateError: (callback: (message: string) => void) => void;
       installUpdate: () => Promise<{ success: boolean; error?: string }>;
       checkForUpdates: () => Promise<{ success: boolean; error?: string }>;
+      // RBAC bridge — implemented in Task 2 IPC handlers
+      listClientProjects: () => Promise<{ success: boolean; projects?: any[] }>;
+      listDiscover: () => Promise<{ success: boolean; projects?: any[] }>;
+      listMyRequests: () => Promise<{ success: boolean; requests?: any[] }>;
+      requestAccess: (projectId: string, message: string) => Promise<{ success: boolean; status?: string; error?: string }>;
+      trainProject: (projectId: string, datasetPath: string) => Promise<{ success: boolean; error?: string }>;
+      getLastDatasetPath: (projectId: string) => Promise<{ success: boolean; path?: string }>;
+      setLastDatasetPath: (projectId: string, path: string) => Promise<{ success: boolean }>;
     };
   }
 }
