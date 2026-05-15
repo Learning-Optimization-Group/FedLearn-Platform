@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -83,6 +84,7 @@ public class ProjectService {
     }
 
     @Transactional
+    @SuppressWarnings("null")
     public ProjectResponseDto createProject(CreateProjectRequest request) throws IOException, InterruptedException {
         log.info("Creating project '{}' (modelType={})", request.getName(), request.getModelType());
 
@@ -159,9 +161,9 @@ public class ProjectService {
                             + " on port " + project.getServerPort());
         }
 
-        int port = flowerServerManager.startServerForProject(
+        Optional<Integer> port = flowerServerManager.startServerForProject(
                 project, true, strategyToUse, numRoundsToUse, minClients);
-        project.setServerPort(port);
+        project.setServerPort(port.orElse(null));
         project.setStatus("RUNNING");
 
         Project updatedProject = projectRepository.save(project);
@@ -169,7 +171,11 @@ public class ProjectService {
         ProjectStatusUpdateDto update = new ProjectStatusUpdateDto(
                 updatedProject.getId(), "RUNNING", updatedProject.getServerPort());
         webSocketService.sendStatusUpdate(update);
-        log.info("Started FL server for project {} on port {}", projectId, port);
+        if (port.isPresent()) {
+            log.info("Started FL server for project {} on port {}", projectId, port.get());
+        } else {
+            log.info("Started FL server for project {} on ECS (port managed externally)", projectId);
+        }
 
         return convertToDto(updatedProject);
     }
@@ -263,7 +269,7 @@ public class ProjectService {
      */
     public static final int MAX_LOGS_EXPORT_SIZE = 10_000;
 
-    public List<ServerLogDto> getLogsForProject(UUID projectId, Pageable requested) {
+    public List<ServerLogDto> getLogsForProject(@NonNull UUID projectId, Pageable requested) {
         Project project = requireProjectAndOwnership(projectId);
 
         // Clamp to MAX_LOGS_PAGE_SIZE so a caller can't ask for an unbounded
@@ -286,7 +292,7 @@ public class ProjectService {
      * endpoint. The cap protects the JVM from a runaway project; if real
      * users need bigger exports we should ship them to S3 instead.
      */
-    public List<ServerLogDto> getLogsForExport(UUID projectId) {
+    public List<ServerLogDto> getLogsForExport(@NonNull UUID projectId) {
         Project project = requireProjectAndOwnership(projectId);
         Pageable cap = PageRequest.of(0, MAX_LOGS_EXPORT_SIZE, Sort.by("timestamp").ascending());
         return serverLogRepository.findByProjectIdOrderByTimestampAsc(project.getId(), cap)
@@ -295,10 +301,7 @@ public class ProjectService {
                 .collect(Collectors.toList());
     }
 
-    private Project requireProjectAndOwnership(UUID projectId) {
-        if (projectId == null) {
-            throw ResourceNotFoundException.forEntity("Project", null);
-        }
+    private Project requireProjectAndOwnership(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
         authz.requireOwnerOrAdmin(project);
@@ -315,7 +318,8 @@ public class ProjectService {
     }
 
     @Transactional
-    public ProjectResponseDto updateProject(UUID projectId, UpdateProjectRequest req) {
+    @SuppressWarnings("null")
+    public ProjectResponseDto updateProject(@NonNull UUID projectId, UpdateProjectRequest req) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
         authz.requireOwnerOrAdmin(project);
@@ -353,7 +357,7 @@ public class ProjectService {
         return dto;
     }
 
-    public ProjectResponseDto getProject(UUID projectId) {
+    public ProjectResponseDto getProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
         boolean isAdmin = authz.isAdmin();
