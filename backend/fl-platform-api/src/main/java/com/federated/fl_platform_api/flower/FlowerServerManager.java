@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -72,6 +73,12 @@ public class FlowerServerManager {
     @Value("${fl.server.port-range.end:50010}")
     private int portRangeEnd;
 
+    @Value("${fl.server.startup-probe-seconds:3}")
+    private long startupProbeSeconds;
+
+    @Value("${fl.server.stdout-drain-millis:5000}")
+    private long stdoutDrainMillis;
+
     @Autowired
     private WebSocketService logBroadcaster;
 
@@ -84,8 +91,8 @@ public class FlowerServerManager {
     private final java.util.Set<Integer> reservedPorts = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Object portReservationLock = new Object();
 
-    public int startServerForProject(Project project, boolean isPretrained, String strategy,
-                                     Integer numRounds, Integer minClients) {
+    public Optional<Integer> startServerForProject(Project project, boolean isPretrained, String strategy,
+                                                   Integer numRounds, Integer minClients) {
         if (!isBlank(ecsClusterName)) {
             return startEcsFargateServer(project, isPretrained, strategy, numRounds, minClients);
         } else {
@@ -93,8 +100,8 @@ public class FlowerServerManager {
         }
     }
 
-    private int startEcsFargateServer(Project project, boolean isPretrained, String strategy,
-                                      Integer numRounds, Integer minClients) {
+    private Optional<Integer> startEcsFargateServer(Project project, boolean isPretrained, String strategy,
+                                                    Integer numRounds, Integer minClients) {
         validateEcsConfig();
         if (isBlank(internalApiKey)) {
             throw new IllegalStateException(
@@ -133,14 +140,14 @@ public class FlowerServerManager {
             }
             String taskArn = response.tasks().isEmpty() ? "<none>" : response.tasks().get(0).taskArn();
             log.info("Dispatched Fargate task {} for project {}", taskArn, project.getId());
-            return 0;
+            return Optional.empty();
         } catch (RuntimeException e) {
             log.error("Failed to dispatch Fargate task for project {}: {}", project.getId(), e.getMessage());
             throw e;
         }
     }
 
-    private int startLocalServer(Project project, boolean isPretrained, String strategy, Integer numRounds) {
+    private Optional<Integer> startLocalServer(Project project, boolean isPretrained, String strategy, Integer numRounds) {
         Process process = null;
         int freePort = -1;
         try {
@@ -219,21 +226,21 @@ public class FlowerServerManager {
             outputReaderThread.setDaemon(true);
             outputReaderThread.start();
 
-            boolean exited = process.waitFor(3, TimeUnit.SECONDS);
+            boolean exited = process.waitFor(startupProbeSeconds, TimeUnit.SECONDS);
 
             if (exited) {
                 // Stdout is buffered: give the reader a generous window to
                 // drain remaining output before we surface the failure.
                 // Truncating here is the difference between "Python crashed"
                 // and a usable stack trace.
-                outputReaderThread.join(5000);
+                outputReaderThread.join(stdoutDrainMillis);
                 runningServers.remove(project.getId());
                 throw new ServerProcessException(
                         "FL server exited during startup for project " + project.getId()
                                 + " (exit code " + process.exitValue() + ")\nOutput:\n" + startupOutput);
             }
             if (errorOccurred[0]) {
-                outputReaderThread.join(5000);
+                outputReaderThread.join(stdoutDrainMillis);
                 process.destroyForcibly();
                 runningServers.remove(project.getId());
                 throw new ServerProcessException(
@@ -242,7 +249,7 @@ public class FlowerServerManager {
             }
 
             log.info("Started FL server for project {} on port {}", project.getId(), freePort);
-            return freePort;
+            return Optional.of(freePort);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             if (process != null) {
@@ -274,7 +281,7 @@ public class FlowerServerManager {
             log.info("Stopping FL server for project {}", projectId);
             process.destroyForcibly();
             try {
-                process.waitFor(5, TimeUnit.SECONDS);
+                process.waitFor(stopWaitSeconds(), TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 log.warn("Interrupted while waiting for FL server {} to terminate", projectId);
                 Thread.currentThread().interrupt();
@@ -302,7 +309,7 @@ public class FlowerServerManager {
             try {
                 if (p.isAlive()) {
                     p.destroyForcibly();
-                    p.waitFor(5, TimeUnit.SECONDS);
+                    p.waitFor(stopWaitSeconds(), TimeUnit.SECONDS);
                 }
             } catch (InterruptedException e) {
                 log.warn("Interrupted while waiting for FL server {} to terminate during shutdown", id);
@@ -347,6 +354,10 @@ public class FlowerServerManager {
 
     private void releasePort(int port) {
         reservedPorts.remove(port);
+    }
+
+    private long stopWaitSeconds() {
+        return Math.max(1L, TimeUnit.MILLISECONDS.toSeconds(stdoutDrainMillis));
     }
 
     private void validateEcsConfig() {
