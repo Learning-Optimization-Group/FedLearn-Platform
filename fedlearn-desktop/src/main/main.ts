@@ -12,7 +12,7 @@
 import { app, BrowserWindow, session, crashReporter } from 'electron';
 import * as path from 'path';
 import log from 'electron-log';
-import { registerIpcHandlers } from './ipc.handlers';
+import { registerIpcHandlers, stopAllTrainingForShutdown } from './ipc.handlers';
 import { initializeUpdater } from './updater';
 
 // Crash reports written to disk — visible via app.getPath('crashDumps').
@@ -28,6 +28,7 @@ log.initialize();
 Object.assign(console, log.functions);
 
 let mainWindow: BrowserWindow | null = null;
+let quittingCleanly = false;
 
 const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
 
@@ -138,6 +139,23 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+});
+
+app.on('before-quit', async (event) => {
+  if (quittingCleanly) {
+    return;
+  }
+
+  event.preventDefault();
+  quittingCleanly = true;
+
+  try {
+    await stopAllTrainingForShutdown();
+  } catch (err) {
+    log.error('[Main] cleanup on quit failed', err);
+  }
+
+  app.quit();
 });
 
 app.on('window-all-closed', () => {

@@ -468,3 +468,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, hardware:detect, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory, updater:install, client:list-projects, client:list-discover, client:list-my-requests, client:request-access, client:train-project, client:get-last-dataset-path, client:set-last-dataset-path');
 }
+
+export async function stopAllTrainingForShutdown(): Promise<void> {
+  if (!dockerService) {
+    return;
+  }
+  await dockerService.stopAllForShutdown();
+}

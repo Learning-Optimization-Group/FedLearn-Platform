@@ -126,6 +126,44 @@ export class DockerService {
   }
 
   /**
+   * Best-effort shutdown cleanup used by app before-quit lifecycle handling.
+   * Stops active native/docker execution paths and tears down dangling streams.
+   */
+  async stopAllForShutdown(): Promise<void> {
+    log.info('[DockerService] Shutdown cleanup: stopping active training resources');
+
+    if (this.activeContainerId) {
+      await this.stopDockerContainer();
+    }
+
+    if (this.nativeProcess) {
+      const proc = this.nativeProcess;
+      try {
+        proc.kill('SIGTERM');
+        const exited = await this.waitForChildExit(proc, 5000);
+        if (!exited) {
+          log.warn('[DockerService] Native process still running during shutdown; forcing SIGKILL');
+          proc.stdout?.destroy();
+          proc.stderr?.destroy();
+          proc.removeAllListeners();
+          proc.kill('SIGKILL');
+          await this.waitForChildExit(proc, 1000);
+        }
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        log.warn(`[DockerService] Native shutdown cleanup warning: ${message}`);
+      } finally {
+        this.nativeProcess = null;
+      }
+    }
+
+    if (this.logStream) {
+      (this.logStream as NodeJS.ReadableStream & { destroy?: () => void }).destroy?.();
+      this.logStream = null;
+    }
+  }
+
+  /**
    * Unified status across native + Docker paths.
    */
   async getStatus(): Promise<string> {
@@ -489,5 +527,30 @@ export class DockerService {
     if (!this.mainWindow.isDestroyed()) {
       this.mainWindow.webContents.send('docker:training-log', text);
     }
+  }
+
+  private waitForChildExit(proc: ChildProcess, timeoutMs: number): Promise<boolean> {
+    if (proc.exitCode !== null || proc.signalCode !== null) {
+      return Promise.resolve(true);
+    }
+
+    return new Promise((resolve) => {
+      const onExit = () => {
+        cleanup();
+        resolve(true);
+      };
+
+      const timer = setTimeout(() => {
+        cleanup();
+        resolve(false);
+      }, timeoutMs);
+
+      const cleanup = () => {
+        clearTimeout(timer);
+        proc.removeListener('exit', onExit);
+      };
+
+      proc.once('exit', onExit);
+    });
   }
 }
