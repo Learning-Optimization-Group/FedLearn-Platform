@@ -51,13 +51,14 @@
 ### 2.2 Build the Docker Image
 
 ```bash
-# Clone or copy the client-docker/ directory to the Jetson
-cd ~/codebase/client-docker
+# Clone the full repository on the Jetson (Dockerfile copies framework/ and client-docker/)
+cd ~/codebase/FedLearn-Platform
 
 # Build (use --no-cache on first build or after dependency changes).
 # Always tag BOTH :latest (default resolved by the Electron orchestrator)
 # AND a version tag (consumed via FEDLEARN_CLIENT_IMAGE overrides).
 sudo docker build --no-cache \
+  -f client-docker/Dockerfile \
   -t fedlearn-client:latest \
   -t fedlearn-client:0.1.0 \
   .
@@ -75,19 +76,31 @@ sudo docker build --no-cache \
 
 ```bash
 sudo docker run --rm -it \
+  --device /dev/nvhost-ctrl \
+  --device /dev/nvhost-ctrl-gpu \
+  --device /dev/nvhost-dbg-gpu \
+  --device /dev/nvhost-prof-gpu \
+  --device /dev/nvmap \
+  --device /dev/nvhost-gpu \
   -e PROJECT_ID="<your-project-uuid>" \
   -e SERVER_ADDRESS="<server-ip>:<grpc-port>" \
   -e PARTITION_ID=0 \
-  fedlearn-client
+  fedlearn-client:jetson
 ```
 
 **Example**:
 ```bash
 sudo docker run --rm -it \
+  --device /dev/nvhost-ctrl \
+  --device /dev/nvhost-ctrl-gpu \
+  --device /dev/nvhost-dbg-gpu \
+  --device /dev/nvhost-prof-gpu \
+  --device /dev/nvmap \
+  --device /dev/nvhost-gpu \
   -e PROJECT_ID="20334813-017d-49b3-ae58-27982069e782" \
   -e SERVER_ADDRESS="192.168.0.7:50181" \
   -e PARTITION_ID=0 \
-  fedlearn-client
+  fedlearn-client:jetson
 ```
 
 ### 2.4 Expected Startup Output
@@ -122,11 +135,11 @@ On Jetson devices, **do not** pass `--runtime nvidia` to `docker run`. Unlike di
 # ✗ WRONG — will silently hang
 sudo docker run --runtime nvidia ...
 
-# ✓ CORRECT — GPU is accessible by default on Jetson
-sudo docker run --rm -it ...
+# ✓ CORRECT — use direct /dev/nvhost-* device mounts
+sudo docker run --rm -it --device /dev/nvhost-ctrl --device /dev/nvhost-ctrl-gpu ... fedlearn-client:jetson
 ```
 
-> **Note**: `CUDA: False` is expected without `--runtime nvidia`. To enable CUDA inside containers on Jetson, use device mounting (see Section 5.3).
+> **Note**: The desktop app uses the same direct device-mount pattern in `fedlearn-desktop/src/main/docker.service.ts`.
 
 ### 2.6 Network Considerations
 
@@ -468,14 +481,14 @@ To access the Jetson's GPU inside Docker without `--runtime nvidia`:
 sudo docker run --rm -it \
   --device /dev/nvhost-ctrl \
   --device /dev/nvhost-ctrl-gpu \
+  --device /dev/nvhost-dbg-gpu \
   --device /dev/nvhost-prof-gpu \
   --device /dev/nvmap \
-  --device /dev/nvgpu \
-  -v /usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra:ro \
+  --device /dev/nvhost-gpu \
   -e PROJECT_ID="..." \
   -e SERVER_ADDRESS="..." \
   -e PARTITION_ID=0 \
-  fedlearn-client
+  fedlearn-client:jetson
 ```
 
 ---
@@ -501,12 +514,18 @@ sudo docker run --rm -it \
 
 ### Build & Run (Jetson)
 ```bash
-sudo docker build --no-cache -t fedlearn-client .
+sudo docker build --no-cache -f client-docker/Dockerfile -t fedlearn-client:jetson .
 sudo docker run --rm -it \
+  --device /dev/nvhost-ctrl \
+  --device /dev/nvhost-ctrl-gpu \
+  --device /dev/nvhost-dbg-gpu \
+  --device /dev/nvhost-prof-gpu \
+  --device /dev/nvmap \
+  --device /dev/nvhost-gpu \
   -e PROJECT_ID="<uuid>" \
   -e SERVER_ADDRESS="<ip>:<port>" \
   -e PARTITION_ID=0 \
-  fedlearn-client
+  fedlearn-client:jetson
 ```
 
 ### Run (Mac/Linux Native)
