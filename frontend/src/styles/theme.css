@@ -1,25 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
   --font-size: 16px;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --radius: 1rem;
+  --radius: 12px;
 
-  --background-primary: #f5f5f7;
-  --background-secondary: #ffffff;
-  --background-card: rgba(255, 255, 255, 0.82);
-  --background-overlay: rgba(255, 255, 255, 0.72);
-  --surface-glass: rgba(255, 255, 255, 0.72);
-  --text-primary: #1d1d1f;
-  --text-secondary: #6e6e73;
-  --accent-primary: #0071e3;
-  --accent-secondary: #2997ff;
-  --destructive: #d92d20;
-  --border-color: rgba(0, 0, 0, 0.08);
-  --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.06);
-  --shadow-strong: 0 24px 60px rgba(0, 0, 0, 0.12);
-  --glow-accent: rgba(0, 113, 227, 0.16);
+  /* Typography */
+  --font-family-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-family-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Light Theme (Instrument Aesthetic) */
+  --background-primary: oklch(0.987 0.006 60);
+  --background-secondary: oklch(1 0 0);
+  --background-card: oklch(1 0 0);
+  --background-overlay: oklch(1 0 0 / 0.85);
+  --surface-glass: oklch(1 0 0 / 0.85);
+  
+  --text-primary: oklch(0.18 0.014 35);
+  --text-secondary: oklch(0.36 0.014 40);
+  
+  /* The Federation Pulse - vivid orange */
+  --accent-primary: oklch(0.62 0.24 48);
+  --accent-secondary: oklch(0.62 0.24 48 / 0.8);
+  --destructive: oklch(0.55 0.22 18);
+  
+  --border-color: oklch(0.91 0.012 50);
+  --shadow-soft: 0 4px 16px oklch(0 0 0 / 0.08);
+  --shadow-strong: 0 12px 40px oklch(0 0 0 / 0.12);
+  --glow-accent: oklch(0.62 0.24 48 / 0.14);
 
   --background: var(--background-primary);
   --foreground: var(--text-primary);
@@ -31,21 +42,22 @@
   --primary-foreground: #ffffff;
   --secondary: var(--background-secondary);
   --secondary-foreground: var(--text-primary);
-  --muted: #ececf0;
+  --muted: oklch(0.968 0.010 60);
   --muted-foreground: var(--text-secondary);
-  --accent: #e9ebef;
+  --accent: oklch(0.968 0.010 60);
   --accent-foreground: var(--text-primary);
   --destructive-foreground: #ffffff;
   --border: var(--border-color);
   --input: transparent;
-  --input-background: #f3f3f5;
-  --switch-background: #cbced4;
-  --ring: rgba(0, 113, 227, 0.45);
-  --chart-1: #0071e3;
-  --chart-2: #00b894;
-  --chart-3: #8b5cf6;
-  --chart-4: #f43f5e;
-  --chart-5: #f59e0b;
+  --input-background: oklch(0.968 0.010 60);
+  --switch-background: oklch(0.82 0.016 50);
+  --ring: oklch(0.62 0.24 48 / 0.45);
+  --chart-1: var(--accent-primary);
+  --chart-2: oklch(0.52 0.16 220); /* Info */
+  --chart-3: oklch(0.55 0.22 340); /* Magenta */
+  --chart-4: var(--destructive);
+  --chart-5: oklch(0.70 0.18 85);   /* Warn */
+  
   --sidebar: var(--background-secondary);
   --sidebar-foreground: var(--text-primary);
   --sidebar-primary: var(--accent-primary);
@@ -58,20 +70,26 @@
 
 .dark {
   color-scheme: dark;
-  --background-primary: #0b0b0f;
-  --background-secondary: #121217;
-  --background-card: rgba(28, 28, 30, 0.82);
-  --background-overlay: rgba(17, 17, 20, 0.72);
-  --surface-glass: rgba(18, 18, 23, 0.72);
-  --text-primary: #f5f5f7;
-  --text-secondary: #a1a1aa;
-  --accent-primary: #0a84ff;
-  --accent-secondary: #64d2ff;
-  --destructive: #ff453a;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --shadow-soft: 0 16px 40px rgba(0, 0, 0, 0.3);
-  --shadow-strong: 0 30px 80px rgba(0, 0, 0, 0.5);
-  --glow-accent: rgba(10, 132, 255, 0.2);
+  
+  /* Dark Theme (Instrument Aesthetic) */
+  --background-primary: oklch(0.155 0.014 35);
+  --background-secondary: oklch(0.198 0.016 35);
+  --background-card: oklch(0.220 0.018 35);
+  --background-overlay: oklch(0.198 0.016 35 / 0.85);
+  --surface-glass: oklch(0.198 0.016 35 / 0.85);
+  
+  --text-primary: oklch(0.970 0.008 60);
+  --text-secondary: oklch(0.78 0.014 50);
+  
+  /* The Federation Pulse - vivid orange */
+  --accent-primary: oklch(0.74 0.22 50);
+  --accent-secondary: oklch(0.74 0.22 50 / 0.8);
+  --destructive: oklch(0.62 0.22 18);
+  
+  --border-color: oklch(0.310 0.024 35);
+  --shadow-soft: 0 4px 12px oklch(0 0 0 / 0.32);
+  --shadow-strong: 0 12px 40px oklch(0 0 0 / 0.45);
+  --glow-accent: oklch(0.74 0.22 50 / 0.20);
 
   --background: var(--background-primary);
   --foreground: var(--text-primary);
@@ -80,27 +98,28 @@
   --popover: var(--background-secondary);
   --popover-foreground: var(--text-primary);
   --primary: var(--accent-primary);
-  --primary-foreground: #ffffff;
+  --primary-foreground: oklch(0.16 0.04 35); /* Darker text on orange button */
   --secondary: var(--background-secondary);
   --secondary-foreground: var(--text-primary);
-  --muted: #1d1d23;
+  --muted: oklch(0.260 0.020 35);
   --muted-foreground: var(--text-secondary);
-  --accent: #1d1d23;
+  --accent: oklch(0.260 0.020 35);
   --accent-foreground: var(--text-primary);
   --destructive-foreground: #ffffff;
   --border: var(--border-color);
-  --input: #1d1d23;
-  --ring: rgba(10, 132, 255, 0.45);
-  --chart-1: #0a84ff;
-  --chart-2: #30d158;
-  --chart-3: #64d2ff;
-  --chart-4: #ff453a;
-  --chart-5: #ffd60a;
+  --input: oklch(0.260 0.020 35);
+  --ring: oklch(0.74 0.22 50 / 0.45);
+  --chart-1: var(--accent-primary);
+  --chart-2: oklch(0.72 0.14 220); /* Info */
+  --chart-3: oklch(0.70 0.22 340); /* Magenta */
+  --chart-4: var(--destructive);
+  --chart-5: oklch(0.88 0.18 95);   /* Warn */
+  
   --sidebar: var(--background-secondary);
   --sidebar-foreground: var(--text-primary);
   --sidebar-primary: var(--accent-primary);
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1d1d23;
+  --sidebar-primary-foreground: oklch(0.16 0.04 35);
+  --sidebar-accent: oklch(0.260 0.020 35);
   --sidebar-accent-foreground: var(--text-primary);
   --sidebar-border: var(--border-color);
   --sidebar-ring: var(--ring);
