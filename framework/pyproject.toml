@@ -2,3 +2,87 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+# =================================================================
+# Ruff — fast Python linter & formatter (replaces flake8 + isort + black)
+# =================================================================
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "RUF",    # ruff-specific rules
+]
+ignore = [
+    "E501",   # line-length (use formatter)
+    "B006",   # mutable-arguments (common in FL training)
+    "B007",   # loop control var not used
+    "B904",   # raise from
+    "RUF012", # mutable-class-default (common in PyTorch)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004"]   # allow asserts in tests, magic numbers OK
+"__init__.py" = ["F401"]          # allow unused imports in __init__
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+# =================================================================
+# Mypy — static type checking
+# =================================================================
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = false
+allow_subclassing_builtin = true
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = [
+    "torch.*",
+    "transformers.*",
+    "datasets.*",
+    "flwr.*",
+    "flwr_datasets.*",
+    "grpc.*",
+    "grpcio.*",
+    "google.*",
+    "pycryptodome.*",
+    "pynvml.*",
+    "nvidia.*",
+    "py_spy.*",
+    "opencensus.*",
+    "opentelemetry.*",
+    "ray.*",
+    "huggingface_hub.*",
+]
+ignore_missing_imports = true
+
+# =================================================================
+# Pytest — test runner
+# =================================================================
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

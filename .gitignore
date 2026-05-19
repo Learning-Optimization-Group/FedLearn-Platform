@@ -111,3 +111,48 @@ docs/STARTUP1.md
 docs/STARTUP.md
 COMPREHENSIVE_AUDIT_REPORT.md
 AUDIT_RESOLUTION_PLAN.md
+
+# Cline CLI config
+.cline/
+.clinerules
+
+# ========================
+# Additional Standard Ignores
+# ========================
+# Node
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.eslintcache
+*.tsbuildinfo
+.next/
+out/
+
+# Python
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+wheels/
+*.egg
+
+# OS
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Security
+*.pem
+*.key
+*.cert
+*.crt
+id_rsa*
