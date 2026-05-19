@@ -21,11 +21,11 @@
   --glass-border-hover: rgba(255, 255, 255, 0.12);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 
-  /* Brand */
-  --color-accent: #7c5cfc;
-  --color-accent-hover: #9278ff;
-  --color-accent-glow: rgba(124, 92, 252, 0.3);
-  --color-accent-subtle: rgba(124, 92, 252, 0.1);
+  /* Brand (Instrument Aesthetic - Orange) */
+  --color-accent: #e55c26; /* Converted from oklch(0.62 0.24 48) */
+  --color-accent-hover: #ff682b;
+  --color-accent-glow: rgba(229, 92, 38, 0.3);
+  --color-accent-subtle: rgba(229, 92, 38, 0.1);
 
   /* Semantic */
   --color-success: #34d399;
@@ -707,6 +707,11 @@ body {
   background: rgba(52, 211, 153, 0.15);
   bottom: -80px;
   left: -60px;
+}
+
+::selection {
+  background: var(--color-accent-glow);
+  color: #ffffff;
 }
 
 .auth-content {

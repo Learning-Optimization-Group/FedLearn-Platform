@@ -130,7 +130,9 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
    * Start a federated learning training container.
    * All parameters are validated against allowlists before IPC transmission.
    */
-  startTraining: async (config: TrainingConfigInput): Promise<{ success: boolean; error?: string }> => {
+  startTraining: async (
+    config: TrainingConfigInput
+  ): Promise<{ success: boolean; error?: string }> => {
     // Validate every field before forwarding to Main
     if (!isValidHardwareProfile(config.hardwareProfile)) {
       return { success: false, error: 'Invalid hardware profile' };
@@ -179,7 +181,10 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
    * Authenticate with the FedLearn backend.
    * Returns { success: boolean } ONLY — JWT never leaves Main Process.
    */
-  login: async (username: string, password: string): Promise<{ success: boolean }> => {
+  login: async (
+    username: string,
+    password: string
+  ): Promise<{ success: boolean; username?: string }> => {
     if (!isValidStringInput(username, 'username')) {
       return { success: false };
     }
@@ -200,7 +205,11 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   /**
    * Check if the user is currently authenticated.
    */
-  checkAuth: async (): Promise<{ success: boolean; authenticated?: boolean }> => {
+  checkAuth: async (): Promise<{
+    success: boolean;
+    authenticated?: boolean;
+    username?: string;
+  }> => {
     return ipcRenderer.invoke('auth:check');
   },
 
@@ -240,7 +249,9 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
    * Set the backend server URL. Persisted across app restarts.
    * Users enter the URL (e.g. http://192.168.1.100:8081) and /api is appended automatically.
    */
-  setServerUrl: async (url: string): Promise<{ success: boolean; url?: string; error?: string }> => {
+  setServerUrl: async (
+    url: string
+  ): Promise<{ success: boolean; url?: string; error?: string }> => {
     if (!isValidStringInput(url, 'serverUrl')) {
       return { success: false, error: 'Invalid server URL' };
     }
@@ -325,13 +336,20 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
     return ipcRenderer.invoke('client:list-my-requests');
   },
 
-  requestAccess: async (projectId: string, message: string): Promise<{ success: boolean; status?: string; error?: string }> => {
+  requestAccess: async (
+    projectId: string,
+    message: string
+  ): Promise<{ success: boolean; status?: string; error?: string }> => {
     if (!isValidProjectId(projectId)) return { success: false, error: 'Invalid project ID' };
-    if (typeof message !== 'string' || message.length > 2000) return { success: false, error: 'Invalid message' };
+    if (typeof message !== 'string' || message.length > 2000)
+      return { success: false, error: 'Invalid message' };
     return ipcRenderer.invoke('client:request-access', projectId, message);
   },
 
-  trainProject: async (projectId: string, datasetPath: string): Promise<{ success: boolean; error?: string }> => {
+  trainProject: async (
+    projectId: string,
+    datasetPath: string
+  ): Promise<{ success: boolean; error?: string }> => {
     if (!isValidProjectId(projectId)) return { success: false, error: 'Invalid project ID' };
     if (!isValidDatasetPath(datasetPath)) return { success: false, error: 'Invalid dataset path' };
     return ipcRenderer.invoke('client:train-project', projectId, datasetPath);

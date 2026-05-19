@@ -6,17 +6,22 @@
 // preload.ts performs primary allowlist validation.
 // =============================================================================
 
-import { ipcMain, BrowserWindow, dialog } from 'electron';
-import { autoUpdater } from 'electron-updater';
+import { BrowserWindow, dialog, ipcMain } from 'electron';
 import log from 'electron-log';
+import Store from 'electron-store';
+import { autoUpdater } from 'electron-updater';
 import * as fs from 'fs';
 import * as path from 'path';
-import Store from 'electron-store';
-import { DockerService, TrainingConfig, HardwareProfile } from './docker.service';
 import { AuthService } from './auth.service';
+import { DockerService, HardwareProfile, TrainingConfig } from './docker.service';
 import { detectHardware } from './hardware.probe';
 
-const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> = new Set(['discrete', 'jetson', 'cpu', 'mps']);
+const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> = new Set([
+  'discrete',
+  'jetson',
+  'cpu',
+  'mps',
+]);
 const PROJECT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
 const PARTITION_ID_PATTERN = /^[0-9]{1,10}$/;
 const SERVER_ADDRESS_PATTERN = /^[a-zA-Z0-9._:/-]{1,256}$/;
@@ -80,7 +85,9 @@ function sanitizeDatasetPath(raw: unknown): string | null {
 // Client RBAC IPC Handlers
 // =============================================================================
 
-interface DatasetPathStore { [projectId: string]: string }
+interface DatasetPathStore {
+  [projectId: string]: string;
+}
 
 let datasetPathStore: any;
 function getDatasetPathStore(): any {
@@ -132,7 +139,10 @@ export function registerClientIpcHandlers(auth: AuthHttpClient, docker: DockerSt
   ipcMain.handle('client:request-access', async (_e, projectId: unknown, message: unknown) => {
     if (!validateProjectId(projectId)) return { success: false, error: 'Invalid project ID' };
     const msg = typeof message === 'string' && message.length <= 2000 ? message : '';
-    const resp = await auth.authenticatedPost<{ status?: string }>(`/projects/${projectId}/access-requests`, { message: msg });
+    const resp = await auth.authenticatedPost<{ status?: string }>(
+      `/projects/${projectId}/access-requests`,
+      { message: msg }
+    );
     if (resp.status >= 400) return { success: false, error: `Backend returned ${resp.status}` };
     return { success: true, status: resp.data?.status ?? 'PENDING' };
   });
@@ -144,14 +154,18 @@ export function registerClientIpcHandlers(auth: AuthHttpClient, docker: DockerSt
     }
 
     const conn = await auth.authenticatedGet<{
-      projectId: string; name: string; modelType: string; modelName: string;
-      serverAddress: string; partitionId: number; status: string;
+      projectId: string;
+      name: string;
+      modelType: string;
+      modelName: string;
+      serverAddress: string;
+      partitionId: number;
+      status: string;
     }>(`/client/projects/${projectId}/connection`);
     if (!conn) return { success: false, error: 'Project not running or no access' };
 
-    const platform = process.platform === 'darwin' ? 'mps'
-      : process.arch === 'arm64' ? 'jetson'
-      : 'cpu';
+    const platform =
+      process.platform === 'darwin' ? 'mps' : process.arch === 'arm64' ? 'jetson' : 'cpu';
 
     const trainResult = await docker.startTraining({
       hardwareProfile: platform as HardwareProfile,
@@ -216,7 +230,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     try {
       const result = await dialog.showOpenDialog(mainWindow, {
         properties: ['openDirectory', 'createDirectory'],
-        title: 'Select Dataset Directory'
+        title: 'Select Dataset Directory',
       });
       if (result.canceled || result.filePaths.length === 0) {
         return { success: false, error: 'User canceled.' };
@@ -242,27 +256,37 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       const cfg = config as Record<string, unknown>;
 
       if (!validateHardwareProfile(cfg.hardwareProfile)) {
-        log.error(`[IPC:docker:start-training] Rejected invalid hardware profile: ${String(cfg.hardwareProfile)}`);
+        log.error(
+          `[IPC:docker:start-training] Rejected invalid hardware profile: ${String(cfg.hardwareProfile)}`
+        );
         return { success: false, error: 'Invalid hardware profile' };
       }
 
       if (!validateProjectId(cfg.projectId)) {
-        log.error(`[IPC:docker:start-training] Rejected invalid project ID: ${String(cfg.projectId)}`);
+        log.error(
+          `[IPC:docker:start-training] Rejected invalid project ID: ${String(cfg.projectId)}`
+        );
         return { success: false, error: 'Invalid project ID' };
       }
 
       if (!validateServerAddress(cfg.serverAddress)) {
-        log.error(`[IPC:docker:start-training] Rejected invalid server address: ${String(cfg.serverAddress)}`);
+        log.error(
+          `[IPC:docker:start-training] Rejected invalid server address: ${String(cfg.serverAddress)}`
+        );
         return { success: false, error: 'Invalid server address' };
       }
 
       if (!validatePartitionId(cfg.partitionId)) {
-        log.error(`[IPC:docker:start-training] Rejected invalid partition ID: ${String(cfg.partitionId)}`);
+        log.error(
+          `[IPC:docker:start-training] Rejected invalid partition ID: ${String(cfg.partitionId)}`
+        );
         return { success: false, error: 'Invalid partition ID' };
       }
 
       if (typeof cfg.modelType !== 'string' || !/^[a-zA-Z0-9_\-\.]{1,128}$/.test(cfg.modelType)) {
-        log.error(`[IPC:docker:start-training] Rejected invalid model type: ${String(cfg.modelType)}`);
+        log.error(
+          `[IPC:docker:start-training] Rejected invalid model type: ${String(cfg.modelType)}`
+        );
         return { success: false, error: 'Invalid model type' };
       }
 
@@ -285,7 +309,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         datasetPath: safeDatasetPath,
       };
 
-      log.info(`[IPC:docker:start-training] Starting training with profile=${validConfig.hardwareProfile}, project=${validConfig.projectId}, model=${validConfig.modelType}`);
+      log.info(
+        `[IPC:docker:start-training] Starting training with profile=${validConfig.hardwareProfile}, project=${validConfig.projectId}, model=${validConfig.modelType}`
+      );
       await dockerService.startTraining(validConfig);
       return { success: true };
     } catch (err: unknown) {
@@ -351,12 +377,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       }
 
       // JWT is confined to Main process — Renderer receives only { success }
-      const result = await authService.login(
-        creds.username as string,
-        creds.password as string,
-      );
+      const result = await authService.login(creds.username as string, creds.password as string);
 
-      return { success: result };
+      return {
+        success: result,
+        username: result ? authService.getUsername() : undefined,
+      };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       log.error(`[IPC:auth:login] Failed: ${message}`);
@@ -379,11 +405,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('auth:check', async () => {
     try {
       const authenticated = authService.isAuthenticated();
-      return { success: true, authenticated };
+      return {
+        success: true,
+        authenticated,
+        username: authenticated ? authService.getUsername() : undefined,
+      };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       log.error(`[IPC:auth:check] Failed: ${message}`);
-      return { success: false, authenticated: false };
+      return { success: false, authenticated: false, username: undefined };
     }
   });
 
@@ -466,7 +496,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   registerClientIpcHandlers(authService, dockerService);
 
-  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, hardware:detect, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory, updater:install, client:list-projects, client:list-discover, client:list-my-requests, client:request-access, client:train-project, client:get-last-dataset-path, client:set-last-dataset-path');
+  log.info(
+    '[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, hardware:detect, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory, updater:install, client:list-projects, client:list-discover, client:list-my-requests, client:request-access, client:train-project, client:get-last-dataset-path, client:set-last-dataset-path'
+  );
 }
 
 export async function stopAllTrainingForShutdown(): Promise<void> {

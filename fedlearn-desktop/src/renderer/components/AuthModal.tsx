@@ -6,10 +6,10 @@
 // Server URL is persisted via IPC so users only need to set it once.
 // =============================================================================
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 interface AuthModalProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (username: string) => void;
 }
 
 const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
@@ -78,7 +78,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
         const result = await window.fedLearnAPI.login(username, password);
 
         if (result.success) {
-          onLoginSuccess();
+          onLoginSuccess(result.username || username.trim());
         } else {
           setError('Invalid credentials. Please try again.');
         }
@@ -90,7 +90,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
         setIsLoading(false);
       }
     },
-    [username, password, serverUrl, onLoginSuccess],
+    [username, password, serverUrl, onLoginSuccess]
   );
 
   return (
@@ -210,9 +210,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
             </button>
           </form>
 
-          <p className="auth-footer-text">
-            Secure authentication via encrypted IPC bridge
-          </p>
+          <p className="auth-footer-text">Secure authentication via encrypted IPC bridge</p>
         </div>
       </div>
     </div>

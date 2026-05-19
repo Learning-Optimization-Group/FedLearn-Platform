@@ -12,10 +12,10 @@
 // OS-level encryption.
 // =============================================================================
 
-import Store from 'electron-store';
-import { safeStorage } from 'electron';
 import axios, { AxiosError } from 'axios';
+import { safeStorage } from 'electron';
 import log from 'electron-log';
+import Store from 'electron-store';
 
 interface AuthStore {
   encryptedJwt: string;
@@ -106,7 +106,7 @@ export class AuthService {
           // Prevent axios from automatically handling cookies
           maxRedirects: 0,
           validateStatus: (status) => status < 500,
-        },
+        }
       );
 
       if (response.status !== 200) {
@@ -219,6 +219,32 @@ export class AuthService {
   }
 
   /**
+   * Returns the username associated with the active auth session.
+   * If the token is missing or expired, null is returned.
+   */
+  getUsername(): string | null {
+    if (this.sessionMemory) {
+      if (Date.now() > this.sessionMemory.expiresAt) {
+        this.logout();
+        return null;
+      }
+      return this.sessionMemory.username;
+    }
+
+    const authData = this.store.get(AUTH_STORE_KEY) as AuthStore | undefined;
+    if (!authData || !authData.username) {
+      return null;
+    }
+
+    if (Date.now() > authData.expiresAt) {
+      this.logout();
+      return null;
+    }
+
+    return authData.username;
+  }
+
+  /**
    * Returns the Authorization header for internal use by other Main Process services.
    * This method is NEVER exposed to the Renderer.
    */
@@ -282,14 +308,16 @@ export class AuthService {
       }
       return resp.data;
     } catch (err) {
-      log.error(`[AuthService] GET ${pathWithLeadingSlash} failed: ${err instanceof Error ? err.message : err}`);
+      log.error(
+        `[AuthService] GET ${pathWithLeadingSlash} failed: ${err instanceof Error ? err.message : err}`
+      );
       return null;
     }
   }
 
   async authenticatedPost<T>(
     pathWithLeadingSlash: string,
-    body: unknown,
+    body: unknown
   ): Promise<{ status: number; data: T | null }> {
     const header = this.getAuthHeader();
     if (!header) return { status: 401, data: null };
@@ -303,7 +331,9 @@ export class AuthService {
       }
       return { status: resp.status, data: resp.status < 400 ? resp.data : null };
     } catch (err) {
-      log.error(`[AuthService] POST ${pathWithLeadingSlash} failed: ${err instanceof Error ? err.message : err}`);
+      log.error(
+        `[AuthService] POST ${pathWithLeadingSlash} failed: ${err instanceof Error ? err.message : err}`
+      );
       return { status: 0, data: null };
     }
   }
@@ -328,9 +358,9 @@ export class AuthService {
 
     // No OS encryption — fall back to in-memory only.
     log.warn(
-      '[AuthService] safeStorage unavailable on this host (no OS keyring). '
-        + 'JWT will be held in process memory only; user must re-authenticate '
-        + 'on next launch.',
+      '[AuthService] safeStorage unavailable on this host (no OS keyring). ' +
+        'JWT will be held in process memory only; user must re-authenticate ' +
+        'on next launch.'
     );
     // Belt-and-suspenders: if the on-disk store somehow already holds an
     // unencrypted token from a prior install, scrub it.
