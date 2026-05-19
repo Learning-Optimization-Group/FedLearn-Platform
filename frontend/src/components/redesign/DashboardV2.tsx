@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Layers,
 } from 'lucide-react';
+import { FederationOrrery } from './FederationOrrery';
 import { ProjectCard } from './ProjectCard';
 import { LogViewerV2 } from './LogViewer';
 import { ResultsModalV2 } from './ResultsModal';
@@ -45,16 +46,15 @@ function KpiCard({ icon, label, value, accent = 'var(--accent-primary)' }: KpiCa
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className="rounded-3xl p-5"
-      style={{ background: 'var(--background-card)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-soft)' }}
+      className="flex flex-col gap-1 min-w-[110px]"
     >
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-(--text-secondary)">{label}</div>
-        <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'color-mix(in srgb, var(--background-secondary) 88%, transparent)', color: accent }}>
+      <div className="font-mono text-[10.5px] font-medium tracking-[0.12em] uppercase text-(--text-secondary)">{label}</div>
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-[18px] font-medium text-(--text-primary)">{value}</span>
+        <div className="h-6 w-6 rounded-md flex items-center justify-center ml-auto" style={{ backgroundColor: `color-mix(in srgb, ${accent} 15%, transparent)`, color: accent }}>
           {icon}
         </div>
       </div>
-      <div className="mt-3 text-3xl font-semibold tracking-tight text-(--text-primary)">{value}</div>
     </motion.div>
   );
 }
@@ -270,67 +270,91 @@ export function DashboardV2() {
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden font-sans">
-      <div className="border-b px-8 py-6" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--surface-glass)', backdropFilter: 'blur(18px) saturate(160%)' }}>
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="flex flex-col gap-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight text-(--text-primary)">Federated Operations</h1>
-              <p className="text-sm md:text-base text-(--text-secondary) mt-2 max-w-3xl">
-                A unified view of project health, model coverage, and training quality across your distributed fleet.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-(--text-secondary)" />
-                <input
-                  type="text"
-                  placeholder="Search projects"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="rounded-full pl-10 pr-4 py-2.5 text-sm w-64"
-                  style={{ backgroundColor: 'var(--background-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-                />
+      <div className="flex-1 overflow-y-auto px-8 py-8" style={{ backgroundColor: 'var(--background-primary)' }}>
+        <div className="max-w-[1600px] mx-auto">
+          {/* Hero band — federation health + stats */}
+          <div className="rounded-[12px] p-6 mb-6 relative overflow-hidden grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 items-center border border-(--border-color)" style={{
+            background: 'radial-gradient(circle at 95% -20%, var(--glow-accent), transparent 55%), var(--background-card)',
+            boxShadow: 'var(--shadow-soft)'
+          }}>
+            <div className="min-w-0">
+              <div className="font-mono text-[10.5px] font-medium tracking-[0.12em] uppercase text-(--text-secondary)">FEDERATION HEALTH</div>
+              <div className="flex items-baseline gap-2.5 mt-1.5">
+                <span className="text-[38px] font-display italic tracking-[-0.01em] leading-none text-(--text-primary)">Nominal</span>
+                <span className="font-mono text-[13px] text-(--accent-primary)">● live</span>
               </div>
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white"
-                style={{ backgroundColor: 'var(--accent-primary)' }}
-              >
-                <Plus className="w-4 h-4" />
-                New Project
-              </button>
+              <p className="my-2.5 text-[13.5px] text-(--text-secondary) leading-relaxed">
+                <span className="font-mono">{portfolio.running}</span> active projects · <span className="font-mono">Healthy</span> components · last aggregation <span className="font-mono">just now</span>
+              </p>
+              <div className="flex gap-6 flex-wrap mt-4">
+                <KpiCard icon={<Server className="w-3.5 h-3.5" />} label="ACTIVE" value={portfolio.running} accent="var(--accent-primary)" />
+                <KpiCard icon={<ChartLine className="w-3.5 h-3.5" />} label="COMPLETED" value={portfolio.completed} accent="oklch(0.52 0.16 220)" />
+                <KpiCard icon={<AlertTriangle className="w-3.5 h-3.5" />} label="FAILURES" value={portfolio.failed} accent="var(--destructive)" />
+                <KpiCard icon={<Layers className="w-3.5 h-3.5" />} label="MODELS" value={portfolio.uniqueModels} accent="oklch(0.55 0.22 340)" />
+                <KpiCard icon={<Activity className="w-3.5 h-3.5" />} label="LATEST ACC" value={portfolio.latestAccuracy ? `${(portfolio.latestAccuracy * 100).toFixed(1)}%` : '—'} accent="oklch(0.70 0.18 85)" />
+              </div>
+            </div>
+            
+            <div className="flex justify-center items-center">
+               <FederationOrrery 
+                 clients={[
+                   { name: 'jetson-orin-1', status: 'uploading', contribution: 0.8 },
+                   { name: 'lab-mac-m2', status: 'training', contribution: 0.5 },
+                   { name: 'gpu-server-x', status: 'training', contribution: 0.9 },
+                   { name: 'clinic-node', status: 'offline', contribution: 0.2 },
+                   { name: 'research-pc', status: 'idle', contribution: 0.4 },
+                 ]} 
+                 round={28} 
+                 totalRounds={50} 
+                 size={180} 
+               />
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {(['all', 'owner', 'member', 'client'] as RelationFilter[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={cn(
-                  'px-4 py-1.5 rounded-full text-[13px] font-medium transition-all border',
-                  filter === f
-                    ? 'bg-(--accent-primary) text-white border-transparent'
-                    : 'text-(--text-secondary) border-(--border-color) hover:text-(--text-primary) hover:bg-(--background-card)'
-                )}
-                style={filter === f ? {} : { backgroundColor: 'var(--background-secondary)' }}
-              >
-                {f === 'all' ? 'All' : f === 'owner' ? 'Owned by me' : f === 'member' ? 'Member' : 'Client'}
-              </button>
-            ))}
+          <div className="flex items-center justify-between mb-4 mt-8">
+            <div>
+              <div className="font-mono text-[10.5px] font-medium tracking-[0.12em] uppercase text-(--text-secondary)">PROJECTS</div>
+              <h2 className="m-0 mt-1 text-[18px] font-medium tracking-tight text-(--text-primary)">All federations</h2>
+            </div>
+            
+            <div className="flex items-center gap-4">
+               <div className="relative">
+                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-(--text-secondary)" />
+                 <input
+                   type="text"
+                   placeholder="Search projects"
+                   value={searchQuery}
+                   onChange={(e) => setSearchQuery(e.target.value)}
+                   className="rounded-md pl-9 pr-3 py-2 text-[13px] w-56 transition-colors"
+                   style={{ backgroundColor: 'var(--input-background)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                 />
+               </div>
+               <div className="flex border border-(--border-color) rounded-md overflow-hidden bg-(--background-secondary)">
+                 {(['all', 'owner', 'member', 'client'] as RelationFilter[]).map((f) => (
+                   <button
+                     key={f}
+                     onClick={() => setFilter(f)}
+                     className={cn(
+                       'px-3 py-1.5 text-[12px] font-medium transition-colors border-r border-(--border-color) last:border-r-0',
+                       filter === f
+                         ? 'bg-(--background-card) text-(--text-primary)'
+                         : 'text-(--text-secondary) hover:text-(--text-primary) hover:bg-(--background-card)'
+                     )}
+                   >
+                     {f === 'all' ? 'All' : f === 'owner' ? 'Owned' : f === 'member' ? 'Member' : 'Client'}
+                   </button>
+                 ))}
+               </div>
+               <button
+                 onClick={() => setIsCreateModalOpen(true)}
+                 className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-[13px] font-semibold text-(--primary-foreground) transition-all hover:brightness-110"
+                 style={{ backgroundColor: 'var(--accent-primary)' }}
+               >
+                 <Plus className="w-4 h-4" />
+                 New federation
+               </button>
+            </div>
           </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <KpiCard icon={<Server className="w-4 h-4" />} label="Active Projects" value={portfolio.running} />
-            <KpiCard icon={<ChartLine className="w-4 h-4" />} label="Completed Runs" value={portfolio.completed} accent="#22c55e" />
-            <KpiCard icon={<AlertTriangle className="w-4 h-4" />} label="Failures" value={portfolio.failed} accent="#ef4444" />
-            <KpiCard icon={<Layers className="w-4 h-4" />} label="Model Families" value={portfolio.uniqueModels} accent="#8b5cf6" />
-            <KpiCard icon={<Activity className="w-4 h-4" />} label="Latest Accuracy" value={portfolio.latestAccuracy ? `${(portfolio.latestAccuracy * 100).toFixed(1)}%` : '—'} accent="#0ea5e9" />
-          </div>
-        </motion.div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-8 py-8">
         {error && (
           <div className="mb-6 px-5 py-3 rounded-2xl text-sm font-medium" style={{ backgroundColor: 'color-mix(in srgb, #ef4444 12%, transparent)', color: '#ef4444', border: '1px solid color-mix(in srgb, #ef4444 30%, transparent)' }}>
             {error}
@@ -372,6 +396,7 @@ export function DashboardV2() {
             <p className="text-[14px]">Create one to start federated training.</p>
           </div>
         )}
+        </div>
       </div>
 
       <CreateProjectModalV2

@@ -72,12 +72,12 @@ export function ProjectCard({
   const latestLoss = results.length > 0 ? results[results.length - 1].loss : 0;
 
   const statusColor = isRunning
-    ? 'text-[#0a84ff]'
+    ? 'var(--signal)'
     : isCompleted
-      ? 'text-[#32d74b]'
+      ? 'var(--info)'
       : isFailed
-        ? 'text-[#ff453a]'
-        : 'text-[#86868b]';
+        ? 'var(--danger)'
+        : 'var(--fg-3)';
 
   const handleDelete = () => {
     setConfirmDelete(true);
@@ -86,175 +86,141 @@ export function ProjectCard({
 
   return (
     <div
-      className="rounded-3xl p-6 flex flex-col gap-5 w-full transition-all duration-300 group"
+      className="rounded-[16px] p-[20px] flex flex-col w-full transition-all duration-300 relative group"
       style={{
         background: 'var(--background-card)',
         border: '1px solid var(--border-color)',
-        boxShadow: 'var(--shadow-soft)',
+        minHeight: 200,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = 'var(--border-strong)';
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = '0 8px 28px oklch(0 0 0 / 0.32)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = 'var(--border-color)';
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'none';
       }}
     >
-      <div className="flex justify-between items-start">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-[20px] font-semibold tracking-tight text-(--text-primary)">{project.name}</h3>
-          <div className="flex items-center gap-2 mt-1">
-            <span className={cn("inline-flex items-center gap-[6px] text-[13px] font-medium tracking-tight", statusColor)}>
-              <span className={cn(
-                "w-1.5 h-1.5 rounded-full",
-                isRunning && "bg-[#0a84ff] animate-pulse",
-                isCompleted && "bg-[#32d74b]",
-                isFailed && "bg-[#ff453a]",
-                !isRunning && !isCompleted && !isFailed && "bg-[#86868b]"
-              )} />
-              {project.status}
+      <div className="flex justify-between items-start mb-4">
+        <div className="flex-1 min-w-0 pr-4">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="font-mono text-[10.5px] font-medium tracking-[0.12em] uppercase text-(--text-secondary)">
+              {project.myRelationship || 'PROJECT'}
             </span>
-            {project.myRelationship && (
-              <span className={cn(
-                'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider',
-                project.myRelationship === 'OWNER'
-                  ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                  : project.myRelationship === 'MEMBER'
-                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                    : 'bg-purple-500/10 text-purple-500 border border-purple-500/20'
-              )}>
-                {project.myRelationship}
-              </span>
-            )}
+          </div>
+          <h3 className="text-[17px] font-medium tracking-tight text-(--text-primary) m-0">{project.name}</h3>
+          <div className="flex flex-wrap items-center gap-3 mt-3">
+             <CopyButton text={project.id} label="ID" />
+             {isRunning && project.serverPort && (
+               <CopyButton text={String(project.serverPort)} label="PORT" />
+             )}
           </div>
         </div>
-
-        <div className="text-right">
-          <div className="text-xs uppercase tracking-[0.18em] text-(--text-secondary)">Round</div>
-          <div className="text-2xl font-semibold text-(--text-primary)">{latestRound || '—'}</div>
+        
+        <div 
+          className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[11px] font-medium tracking-wide uppercase border"
+          style={{
+             borderColor: `color-mix(in srgb, ${statusColor} 30%, transparent)`,
+             backgroundColor: `color-mix(in srgb, ${statusColor} 10%, transparent)`,
+             color: statusColor
+          }}
+        >
+          <span className={cn("w-1.5 h-1.5 rounded-full", isRunning && "animate-pulse")} style={{ backgroundColor: statusColor }} />
+          {project.status}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <CopyButton text={project.id} label="ID" />
-        {isRunning && project.serverPort && (
-          <CopyButton text={String(project.serverPort)} label="Port" />
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div
-          className="rounded-2xl p-4 flex flex-col justify-between gap-3"
-          style={{ backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border-color)' }}
-        >
-          <div className="flex items-center text-(--text-secondary) gap-1.5">
-            <Server className="w-[14px] h-[14px]" />
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Model</span>
-          </div>
-          <div className="text-[14px] font-medium text-(--text-primary) tracking-tight truncate">
-            {project.modelName}
-          </div>
-          <div className="text-[12px] text-(--text-secondary) tracking-tight">
-            {project.modelType} · {project.optimizer}
-          </div>
-        </div>
-
-        <div
-          className="rounded-2xl p-4 flex flex-col justify-between gap-2 relative overflow-hidden"
-          style={{ backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border-color)' }}
-        >
-          <div className="flex items-center justify-between text-(--text-secondary)">
-            <div className="flex items-center gap-1.5">
-              <Activity className="w-[14px] h-[14px]" />
-              <span className="text-[11px] font-semibold uppercase tracking-wider">Accuracy</span>
-            </div>
-            {accuracyTrend.length > 0 && (
-              <span className="text-[13px] font-semibold tracking-tight text-(--text-primary)">
-                {(accuracyTrend[accuracyTrend.length - 1].accuracy * 100).toFixed(1)}%
-              </span>
-            )}
-          </div>
-          <div className="h-8 w-full mt-auto">
+      <div className="grid grid-cols-2 gap-4 mt-auto">
+        <div className="flex flex-col gap-1.5">
+          <div className="font-mono text-[10.5px] font-medium tracking-[0.12em] uppercase text-(--text-secondary)">ACCURACY TREND</div>
+          <div className="h-[40px] w-full mt-1">
             {accuracyTrend.length > 1 ? (
-              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+              <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={accuracyTrend}>
                   <YAxis domain={['auto', 'auto']} hide />
-                  <Line type="monotone" dataKey="accuracy" stroke="var(--accent-primary)" strokeWidth={2.5} dot={false} isAnimationActive={true} />
+                  <Line type="stepAfter" dataKey="accuracy" stroke="var(--accent-primary)" strokeWidth={2} dot={false} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-[11px] text-(--text-secondary)">
-                No data yet
-              </div>
+              <div className="flex items-center text-[11px] text-(--text-secondary) h-full font-mono">No data</div>
             )}
+          </div>
+        </div>
+
+        <div className="flex flex-col items-end gap-1.5 text-right">
+          <div className="font-mono text-[10.5px] font-medium tracking-[0.12em] uppercase text-(--text-secondary)">LATEST RESULTS</div>
+          <div className="font-mono text-[16px] font-medium text-(--text-primary)">
+            {latestAccuracy ? `${(latestAccuracy * 100).toFixed(2)}%` : '—'}
+          </div>
+          <div className="font-mono text-[11px] text-(--text-secondary)">
+            Loss: {latestLoss ? latestLoss.toFixed(4) : '—'}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        <div
-          className="rounded-xl px-3 py-2"
-          style={{ backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border-color)' }}
-        >
-          <div className="text-xs text-(--text-secondary)">Latest Accuracy</div>
-          <div className="font-semibold text-(--text-primary)">{latestAccuracy ? `${(latestAccuracy * 100).toFixed(2)}%` : '—'}</div>
-        </div>
-        <div
-          className="rounded-xl px-3 py-2"
-          style={{ backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border-color)' }}
-        >
-          <div className="text-xs text-(--text-secondary)">Latest Loss</div>
-          <div className="font-semibold text-(--text-primary)">{latestLoss ? latestLoss.toFixed(4) : '—'}</div>
-        </div>
+      <div className="mt-5 pt-4 border-t border-(--border-color) flex items-center justify-between font-mono text-[11px] text-(--text-secondary)">
+        <span>{project.modelName}</span>
+        <span>Round {latestRound || 0}</span>
       </div>
 
-      <div className="flex gap-3 mt-1">
+      <div className="flex gap-2 mt-4">
         <button
           onClick={onOpenResults}
-          className="flex-1 py-2.5 px-4 rounded-xl text-[14px] font-medium tracking-tight transition-colors border inline-flex items-center justify-center gap-2"
+          className="flex-1 py-2 rounded-lg text-[12px] font-medium tracking-tight transition-colors border inline-flex items-center justify-center gap-1.5"
           style={{ backgroundColor: 'var(--background-secondary)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
         >
-          <ChartLine className="w-4 h-4" />
-          View Results
+          <ChartLine className="w-3.5 h-3.5" />
+          Results
         </button>
         <button
           onClick={onOpenLogs}
-          className="flex-1 py-2.5 px-4 rounded-xl text-[14px] font-medium border tracking-tight transition-colors inline-flex items-center justify-center gap-2"
+          className="flex-1 py-2 rounded-lg text-[12px] font-medium tracking-tight transition-colors border inline-flex items-center justify-center gap-1.5"
           style={{ backgroundColor: 'var(--background-secondary)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
         >
-          <TerminalSquare className="w-4 h-4" />
-          View Logs
+          <TerminalSquare className="w-3.5 h-3.5" />
+          Logs
         </button>
         <button onClick={onToggleServer} disabled={isFailed} className={cn(
-          "py-2.5 px-5 rounded-xl text-[14px] font-semibold tracking-tight transition-all border inline-flex items-center gap-2",
+          "flex-1 py-2 rounded-lg text-[12px] font-medium tracking-tight transition-colors border inline-flex items-center justify-center gap-1.5",
           isFailed
-            ? "bg-slate-800/30 border-slate-700/50 text-slate-500 cursor-not-allowed"
+            ? "bg-transparent border-(--border-color) text-(--text-secondary) opacity-50 cursor-not-allowed"
             : isRunning
-              ? "bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20"
-              : "bg-cyan-500/10 border-cyan-500/30 text-cyan-500 hover:bg-cyan-500/20"
+              ? "bg-(--destructive) text-white border-transparent"
+              : "bg-(--accent-primary) text-(--primary-foreground) border-transparent hover:brightness-110"
         )}>
-          {isRunning ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+          {isRunning ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
           {isRunning ? 'Stop' : 'Start'}
-        </button>
-        <button
-          onClick={confirmDelete ? onDeleteProject : handleDelete}
-          className={cn(
-            "py-2.5 px-4 rounded-xl text-[14px] font-semibold tracking-tight transition-all border inline-flex items-center gap-2",
-            confirmDelete
-              ? "bg-rose-500/20 border-rose-500/40 text-rose-500"
-              : "bg-transparent border-(--border-color) text-(--text-secondary) hover:text-rose-500 hover:border-rose-400/40"
-          )}
-        >
-          <Trash2 className="w-4 h-4" />
-          {confirmDelete ? 'Confirm' : 'Delete'}
         </button>
       </div>
 
-      <div className="flex items-center justify-between mt-1">
-        <Link
-          to={`/projects/${project.id}`}
-          className="text-xs font-medium text-(--text-secondary) hover:text-(--accent-primary) transition-colors"
-        >
-          View Details →
-        </Link>
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-(--border-color)">
+        <div className="flex gap-4">
+          <Link
+            to={`/projects/${project.id}`}
+            className="text-[11px] font-medium text-(--text-secondary) hover:text-(--accent-primary) transition-colors"
+          >
+            Details →
+          </Link>
+          <button
+            onClick={onEditProject}
+            className="text-[11px] font-medium text-(--text-secondary) hover:text-(--accent-primary) transition-colors"
+          >
+            Edit
+          </button>
+        </div>
         <button
-          onClick={onEditProject}
-          className="text-xs font-medium text-(--text-secondary) hover:text-(--accent-primary)"
+          onClick={confirmDelete ? onDeleteProject : handleDelete}
+          className={cn(
+            "text-[11px] font-medium transition-colors inline-flex items-center gap-1",
+            confirmDelete
+              ? "text-(--destructive)"
+              : "text-(--text-secondary) hover:text-(--destructive)"
+          )}
         >
-          Edit Project Details
+          <Trash2 className="w-3 h-3" />
+          {confirmDelete ? 'Confirm' : 'Delete'}
         </button>
       </div>
     </div>
