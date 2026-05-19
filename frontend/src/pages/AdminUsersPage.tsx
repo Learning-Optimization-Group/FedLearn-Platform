@@ -8,13 +8,22 @@ import * as api from '../services/apiServices';
 import type { AdminUser } from '../services/apiServices';
 
 function RoleBadge({ role }: { role: 'USER' | 'ADMIN' }) {
+    if (role === 'ADMIN') {
+        return (
+            <span 
+                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider"
+                style={{
+                    backgroundColor: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)',
+                    color: 'var(--accent-primary)',
+                    border: '1px solid color-mix(in srgb, var(--accent-primary) 20%, transparent)'
+                }}
+            >
+                {role}
+            </span>
+        );
+    }
     return (
-        <span className={cn(
-            'inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider',
-            role === 'ADMIN'
-                ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                : 'bg-(--border-color) text-(--text-secondary) border border-(--border-color)'
-        )}>
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider bg-(--border-color) text-(--text-secondary) border border-(--border-color)">
             {role}
         </span>
     );

@@ -8,10 +8,10 @@ import * as api from '../services/apiServices';
 import type { Project } from '../services/apiServices';
 
 function statusDot(status: Project['status']) {
-    if (status === 'RUNNING') return 'bg-blue-500 animate-pulse';
-    if (status === 'COMPLETED') return 'bg-emerald-500';
-    if (status === 'FAILED') return 'bg-rose-500';
-    return 'bg-(--text-secondary)';
+    if (status === 'RUNNING') return { className: 'animate-pulse', style: { backgroundColor: 'var(--accent-primary)', filter: 'drop-shadow(0 0 6px var(--accent-primary))' } };
+    if (status === 'COMPLETED') return { className: '', style: { backgroundColor: 'oklch(0.52 0.16 220)' } };
+    if (status === 'FAILED') return { className: '', style: { backgroundColor: 'var(--destructive)' } };
+    return { className: '', style: { backgroundColor: 'var(--text-secondary)' } };
 }
 
 export default function AdminProjectsPage() {
@@ -72,7 +72,10 @@ export default function AdminProjectsPage() {
                                 className="flex items-center gap-4 px-5 py-4 rounded-2xl"
                                 style={{ background: 'var(--background-card)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-soft)' }}
                             >
-                                <div className={cn('w-2 h-2 rounded-full shrink-0', statusDot(p.status))} />
+                                <div 
+                                    className={cn('w-2 h-2 rounded-full shrink-0', statusDot(p.status).className)} 
+                                    style={statusDot(p.status).style}
+                                />
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
                                         <span className="text-[15px] font-semibold text-(--text-primary) truncate">{p.name}</span>
