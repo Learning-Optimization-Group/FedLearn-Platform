@@ -52,12 +52,21 @@ class V5MigrationTest {
     }
 
     @Test
-    void users_status_column_has_check_constraint() {
-        Integer count = jdbc.queryForObject(
+    void users_status_column_check_constraint_rejects_invalid_value() {
+        // First confirm the column exists.
+        Integer columnCount = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS " +
                         "WHERE TABLE_NAME = 'USERS' AND COLUMN_NAME = 'STATUS'",
                 Integer.class);
-        assertThat(count).isEqualTo(1);
+        assertThat(columnCount).isEqualTo(1);
+
+        // Then prove the CHECK constraint is enforced by attempting an invalid status.
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> jdbc.update(
+                "INSERT INTO users(username, email, password, platform_role, status, " +
+                        "created_at, updated_at) " +
+                        "VALUES ('chk-test', 'chk@test.com', 'x', 'USER', 'ZOMBIE', " +
+                        "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"))
+                .isInstanceOf(Exception.class);
     }
 
     @Test
