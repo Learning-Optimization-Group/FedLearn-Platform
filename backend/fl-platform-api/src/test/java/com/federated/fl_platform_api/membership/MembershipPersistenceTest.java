@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -50,6 +51,7 @@ class MembershipPersistenceTest {
         p.setModelName("resnet8");
         p.setStatus("CREATED");
         p.setUser(owner);
+        p.setOrgId(UUID.fromString("00000000-0000-0000-0000-000000000001"));
         p.setVisibility(ProjectVisibility.PUBLIC);
         p.setModelPublished(true);
         p.setModelDescription("test description");
@@ -77,6 +79,7 @@ class MembershipPersistenceTest {
         p.setModelName("resnet8");
         p.setStatus("CREATED");
         p.setUser(owner);
+        p.setOrgId(UUID.fromString("00000000-0000-0000-0000-000000000001"));
         projectRepository.saveAndFlush(p);
 
         ProjectMembership m = new ProjectMembership(
@@ -108,6 +111,7 @@ class MembershipPersistenceTest {
         p.setModelName("resnet8");
         p.setStatus("CREATED");
         p.setUser(owner);
+        p.setOrgId(UUID.fromString("00000000-0000-0000-0000-000000000001"));
         projectRepository.saveAndFlush(p);
 
         ProjectAccessRequest req = new ProjectAccessRequest(p, requester, "let me in");

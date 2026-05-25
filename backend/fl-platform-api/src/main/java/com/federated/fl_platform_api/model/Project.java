@@ -40,6 +40,9 @@ public class Project {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @Column(name = "org_id", nullable = false)
+    private UUID orgId;
+
     @Column(nullable = false)
     private String status;
 
@@ -159,5 +162,7 @@ public class Project {
     public void setModelPublishedAt(java.time.Instant modelPublishedAt) {
         this.modelPublishedAt = modelPublishedAt;
     }
-}
 
+    public UUID getOrgId() { return orgId; }
+    public void setOrgId(UUID orgId) { this.orgId = orgId; }
+}

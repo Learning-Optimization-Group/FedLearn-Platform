@@ -13,6 +13,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -52,6 +53,7 @@ class ClientApiControllerIntegrationTest {
         p.setStatus(status);
         p.setServerPort(port);
         p.setUser(owner);
+        p.setOrgId(UUID.fromString("00000000-0000-0000-0000-000000000001"));
         p.setVisibility(ProjectVisibility.PRIVATE);
         return projectRepository.save(p);
     }

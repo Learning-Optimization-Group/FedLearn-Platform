@@ -76,4 +76,16 @@ class V5MigrationTest {
                 Integer.class);
         assertThat(count).isEqualTo(1);
     }
+
+    @Test
+    void existing_projects_get_default_org_after_backfill() {
+        // No project rows existed in the test DB before V5, so the
+        // assertion here is: org_id column is present and NOT NULL.
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS " +
+                        "WHERE TABLE_NAME = 'PROJECTS' AND COLUMN_NAME = 'ORG_ID' " +
+                        "AND IS_NULLABLE = 'NO'",
+                Integer.class);
+        assertThat(count).isEqualTo(1);
+    }
 }
