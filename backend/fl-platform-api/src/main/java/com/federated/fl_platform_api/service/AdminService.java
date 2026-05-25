@@ -38,14 +38,14 @@ public class AdminService {
         User target = userRepository.findById(id)
             .orElseThrow(() -> ResourceNotFoundException.forEntity("User", id));
 
-        if ("USER".equals(newRole) && "ADMIN".equals(target.getRole())) {
-            long adminCount = userRepository.countByRole("ADMIN");
+        if ("USER".equals(newRole) && "ADMIN".equals(target.getPlatformRole())) {
+            long adminCount = userRepository.countByPlatformRole("ADMIN");
             if (adminCount <= 1) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Cannot demote the only remaining admin");
             }
         }
-        target.setRole(newRole);
+        target.setPlatformRole(newRole);
         return toDto(userRepository.save(target));
     }
 
@@ -69,7 +69,7 @@ public class AdminService {
         d.setId(u.getId());
         d.setUsername(u.getUsername());
         d.setEmail(u.getEmail());
-        d.setRole(u.getRole());
+        d.setRole(u.getPlatformRole());
         d.setProjectsOwned(projectRepository.findByUserId(u.getId()).size());
         d.setMemberships(membershipRepository.findByIdUserId(u.getId()).size());
         d.setCreatedAt(u.getCreatedAt());

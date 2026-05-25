@@ -114,7 +114,7 @@ public class AuthController {
         Map<String, Object> responseBody = Map.of(
                 "username", appUser.getUsername(),
                 "email", appUser.getEmail(),
-                "role", appUser.getRole()
+                "role", appUser.getPlatformRole()
         );
 
         return ResponseEntity.ok()
@@ -146,7 +146,7 @@ public class AuthController {
         return ResponseEntity.ok(Map.of(
                 "username", appUser.getUsername(),
                 "email", appUser.getEmail(),
-                "role", appUser.getRole()
+                "role", appUser.getPlatformRole()
         ));
     }
 

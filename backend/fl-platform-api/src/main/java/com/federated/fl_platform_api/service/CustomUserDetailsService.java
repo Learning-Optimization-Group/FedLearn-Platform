@@ -37,7 +37,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         // Spring Security expects authorities prefixed with "ROLE_" for the
         // hasRole(...) DSL to match. We store the bare role on the entity
         // ("USER" / "ADMIN") and prefix it here at the boundary.
-        String role = applicationUser.getRole() != null ? applicationUser.getRole() : "USER";
+        String role = applicationUser.getPlatformRole() != null ? applicationUser.getPlatformRole() : "USER";
         SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role);
 
         return new org.springframework.security.core.userdetails.User(
