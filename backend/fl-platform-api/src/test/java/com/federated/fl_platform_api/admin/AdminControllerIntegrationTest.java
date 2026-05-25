@@ -27,7 +27,7 @@ class AdminControllerIntegrationTest {
 
     private User createUser(String username, String role) {
         User u = new User(username, username + "@example.com", passwordEncoder.encode("Password1!"));
-        u.setRole(role);
+        u.setPlatformRole(role);
         return userRepository.save(u);
     }
 

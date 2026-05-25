@@ -57,12 +57,11 @@ class OrganizationMembershipTest {
 
     private User newUser(String username) {
         // NOTE: User uses @GeneratedValue(IDENTITY); do not setId. The field is `password`, not passwordHash.
-        // platform_role rename happens in Task 3; until that lands, this helper uses setRole(...) instead.
         User u = new User();
         u.setUsername(username);
         u.setEmail(username + "@example.com");
         u.setPassword("x");
-        u.setRole("USER");   // Task 3 will rename this to setPlatformRole
+        u.setPlatformRole("USER");
         return u;
     }
 }
