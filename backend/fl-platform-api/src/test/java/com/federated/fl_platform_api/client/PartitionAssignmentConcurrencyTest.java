@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -46,6 +47,7 @@ class PartitionAssignmentConcurrencyTest {
         p.setStatus("RUNNING");
         p.setServerPort(50000);
         p.setUser(owner);
+        p.setOrgId(UUID.fromString("00000000-0000-0000-0000-000000000001"));
         p.setVisibility(ProjectVisibility.PRIVATE);
         projectRepository.saveAndFlush(p);
 
