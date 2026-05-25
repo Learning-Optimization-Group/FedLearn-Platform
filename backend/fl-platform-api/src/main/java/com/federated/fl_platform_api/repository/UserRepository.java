@@ -46,5 +46,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     long countByPlatformRole(String platformRole);
 
+    /**
+     * Existence check used by the bootstrap runner to short-circuit when the
+     * first platform admin has already been seeded.
+     */
+    boolean existsByPlatformRole(String platformRole);
+
     List<User> findByUsernameStartingWithIgnoreCaseOrderByUsernameAsc(String prefix, Pageable pageable);
 }
