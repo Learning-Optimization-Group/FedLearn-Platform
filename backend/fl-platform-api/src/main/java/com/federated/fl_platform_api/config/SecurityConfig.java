@@ -1,5 +1,9 @@
 package com.federated.fl_platform_api.config;
 
+import com.federated.fl_platform_api.repository.AuditEventRepository;
+import com.federated.fl_platform_api.repository.UserRepository;
+import com.federated.fl_platform_api.security.AuditingAuthenticationFailureHandler;
+import com.federated.fl_platform_api.security.AuditingAuthenticationSuccessHandler;
 import com.federated.fl_platform_api.security.InternalApiKeyFilter;
 import com.federated.fl_platform_api.security.JwtAuthenticationFilter;
 import com.federated.fl_platform_api.service.CustomUserDetailsService;
@@ -55,6 +59,18 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuditingAuthenticationSuccessHandler auditingAuthenticationSuccessHandler(
+            UserRepository users, AuditEventRepository audits) {
+        return new AuditingAuthenticationSuccessHandler(users, audits);
+    }
+
+    @Bean
+    public AuditingAuthenticationFailureHandler auditingAuthenticationFailureHandler(
+            AuditEventRepository audits) {
+        return new AuditingAuthenticationFailureHandler(audits);
     }
 
     @Bean

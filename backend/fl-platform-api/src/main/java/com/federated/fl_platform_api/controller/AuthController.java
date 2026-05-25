@@ -1,12 +1,17 @@
 package com.federated.fl_platform_api.controller;
 
+import com.federated.fl_platform_api.audit.Auditable;
 import com.federated.fl_platform_api.dto.LoginRequest;
 import com.federated.fl_platform_api.dto.RegisterRequest;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
+import com.federated.fl_platform_api.model.AuditAction;
 import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.UserRepository;
+import com.federated.fl_platform_api.security.AuditingAuthenticationFailureHandler;
+import com.federated.fl_platform_api.security.AuditingAuthenticationSuccessHandler;
 import com.federated.fl_platform_api.security.JwtTokenProvider;
 import com.federated.fl_platform_api.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +26,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,6 +42,8 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
     private final UserRepository userRepository;
+    private final AuditingAuthenticationSuccessHandler successHandler;
+    private final AuditingAuthenticationFailureHandler failureHandler;
 
     @Value("${app.auth.cookie.secure:true}")
     private boolean cookieSecure;
@@ -48,15 +56,24 @@ public class AuthController {
 
     @Autowired
     public AuthController(UserService userService, AuthenticationManager authenticationManager,
-                          JwtTokenProvider tokenProvider, UserRepository userRepository) {
+                          JwtTokenProvider tokenProvider, UserRepository userRepository,
+                          AuditingAuthenticationSuccessHandler successHandler,
+                          AuditingAuthenticationFailureHandler failureHandler) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.tokenProvider = tokenProvider;
         this.userRepository = userRepository;
+        this.successHandler = successHandler;
+        this.failureHandler = failureHandler;
     }
 
     @PostMapping("/register")
     @SuppressWarnings("null")
+    // Caller is unauthenticated, so the aspect resolves actor=null. The generated user id
+    // is unavailable as a method parameter, so we omit targetIdParam — the action enum
+    // alone identifies the event. The aspect runs only after userService.registerUser
+    // succeeds; failed registrations (duplicate username, validation error) write no audit row.
+    @Auditable(action = AuditAction.USER_REGISTERED, targetType = "USER")
     public ResponseEntity<Map<String, Object>> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
         // UserAlreadyExistsException → 409, validation → 400, anything else → 500,
         // all centralised in GlobalExceptionHandler.
@@ -78,14 +95,23 @@ public class AuthController {
 
     @PostMapping("/login")
     @SuppressWarnings("null")
-    public ResponseEntity<Map<String, Object>> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
-        // AuthenticationException (bad credentials, locked, etc.) → 401 via GlobalExceptionHandler.
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.getUsername(),
-                        loginRequest.getPassword()
-                )
-        );
+    public ResponseEntity<Map<String, Object>> authenticateUser(@Valid @RequestBody LoginRequest loginRequest,
+                                                                HttpServletRequest http) {
+        // AuthenticationException (bad credentials, disabled, locked, etc.) → 401 via
+        // GlobalExceptionHandler. We catch it here only long enough to emit a
+        // USER_LOGIN_FAILED audit row, then rethrow so the existing 401 path is unchanged.
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getUsername(),
+                            loginRequest.getPassword()
+                    )
+            );
+        } catch (AuthenticationException ex) {
+            failureHandler.onFailure(loginRequest.getUsername(), http);
+            throw ex;
+        }
 
         String authenticatedPrincipalName = authentication.getName();
         SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -97,6 +123,10 @@ public class AuthController {
                     log.error("Authenticated principal '{}' has no matching user row", authenticatedPrincipalName);
                     return ResourceNotFoundException.forEntity("User", authenticatedPrincipalName);
                 });
+
+        // Emit USER_LOGIN_SUCCEEDED audit row and update last_login_at BEFORE building
+        // the response so a transient DB issue surfaces as a 500 rather than a half-committed login.
+        successHandler.onSuccess(authenticatedPrincipalName, http);
 
         ResponseCookie jwtCookie = ResponseCookie.from("jwtToken", jwt)
                 .httpOnly(true)
@@ -156,6 +186,7 @@ public class AuthController {
      * immediately.
      */
     @PostMapping("/logout")
+    @Auditable(action = AuditAction.USER_LOGGED_OUT)
     public ResponseEntity<Void> logout() {
         ResponseCookie cleared = ResponseCookie.from("jwtToken", "")
                 .httpOnly(true)
