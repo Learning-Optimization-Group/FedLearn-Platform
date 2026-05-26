@@ -245,4 +245,18 @@
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
   }
+
+  /**
+   * Focus affordance for every native form control. Uses :focus-visible so the
+   * ring only appears on keyboard navigation (mouse clicks stay clean). All
+   * inputs/selects/textareas in this app inherit this — pages don't need to
+   * wire up their own focus handlers.
+   */
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px var(--ring);
+  }
 }

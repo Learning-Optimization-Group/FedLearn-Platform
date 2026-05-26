@@ -169,10 +169,10 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-1 py-3 rounded-lg text-[14px] font-semibold transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100 flex items-center justify-center gap-2"
+              className="flex-1 py-3 rounded-lg text-[14px] font-semibold transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:hover:brightness-100 flex items-center justify-center gap-2"
               style={{
-                backgroundColor: 'var(--accent-primary)',
-                color: 'var(--primary-foreground)',
+                backgroundColor: isLoading ? 'var(--muted)' : 'var(--accent-primary)',
+                color: isLoading ? 'var(--muted-foreground)' : 'var(--primary-foreground)',
               }}
             >
               {isLoading ? (

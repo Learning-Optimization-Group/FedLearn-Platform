@@ -226,10 +226,14 @@ export function CreateProjectModalV2({
             <button
               type="submit"
               disabled={isLoading || !name.trim()}
-              className="flex-1 py-3 rounded-lg text-[14px] font-semibold transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100"
+              className="flex-1 py-3 rounded-lg text-[14px] font-semibold transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:hover:brightness-100"
               style={{
-                backgroundColor: 'var(--accent-primary)',
-                color: 'var(--primary-foreground)',
+                backgroundColor:
+                  isLoading || !name.trim() ? 'var(--muted)' : 'var(--accent-primary)',
+                color:
+                  isLoading || !name.trim()
+                    ? 'var(--muted-foreground)'
+                    : 'var(--primary-foreground)',
               }}
             >
               {isLoading ? 'Creating…' : 'Create Federation'}
