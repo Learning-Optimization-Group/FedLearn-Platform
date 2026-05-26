@@ -1,5 +1,5 @@
 // =============================================================================
-// FedLearn Frontend — CreateProjectModal V2 (Apple-inspired)
+// FedLearn Frontend — CreateProjectModal (Instrument design system)
 // =============================================================================
 
 import { useState, useEffect } from 'react';
@@ -31,7 +31,12 @@ interface CreateProjectModalProps {
   isLoading?: boolean;
 }
 
-export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = false }: CreateProjectModalProps) {
+export function CreateProjectModalV2({
+  isOpen,
+  onSubmit,
+  onClose,
+  isLoading = false,
+}: CreateProjectModalProps) {
   const [name, setName] = useState('');
   const [modelType, setModelType] = useState<ModelType>('CNN');
   const [modelName, setModelName] = useState(modelOptions.CNN.models[0]);
@@ -43,7 +48,6 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
     setOptimizer(modelOptions[modelType].optimizers[0]);
   }, [modelType]);
 
-  // Reset on close
   useEffect(() => {
     if (!isOpen) {
       setName('');
@@ -59,103 +63,176 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
     onSubmit({ name, modelType, modelName, optimizer, pretrainEpochs });
   };
 
-  const selectClass =
-    "w-full bg-slate-900 border border-slate-700/50 rounded-md px-4 py-3 text-[14px] text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all appearance-none cursor-pointer";
+  const fieldStyle: React.CSSProperties = {
+    backgroundColor: 'var(--input-background)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border-color)',
+  };
 
-  const inputClass =
-    "w-full bg-slate-900 border border-slate-700/50 rounded-md px-4 py-3 text-[14px] text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all";
+  const fieldClass =
+    'w-full rounded-lg px-4 py-3 text-[14px] outline-none transition-colors focus:border-(--accent-primary)';
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm font-sans"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm font-sans"
+      style={{ backgroundColor: 'oklch(0 0 0 / 0.5)' }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-md shadow-2xl shadow-cyan-900/10 flex flex-col overflow-hidden text-slate-200">
+      <div
+        className="w-full max-w-lg rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        style={{
+          background: 'var(--background-card)',
+          border: '1px solid var(--border-color)',
+          boxShadow: 'var(--shadow-strong)',
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 pb-4 border-b border-slate-800">
+        <div
+          className="flex items-center justify-between p-5 pb-4"
+          style={{ borderBottom: '1px solid var(--border-color)' }}
+        >
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-cyan-400" />
-            <h2 className="text-[18px] font-semibold tracking-tight text-slate-100">New Project</h2>
+            <Sparkles className="w-5 h-5 text-(--accent-primary)" />
+            <h2 className="text-[18px] font-display font-medium tracking-tight text-(--text-primary) m-0">
+              New Federation
+            </h2>
           </div>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center text-slate-400 bg-slate-800 hover:bg-slate-700 rounded-sm transition-colors">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-(--accent)"
+            style={{ color: 'var(--text-secondary)' }}
+            aria-label="Close"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5 bg-slate-800/20">
+        <form
+          onSubmit={handleSubmit}
+          className="p-6 flex flex-col gap-5"
+          style={{ backgroundColor: 'var(--background-primary)' }}
+        >
           {/* Project Name */}
-          <div className="flex flex-col gap-2">
-            <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Project Name</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12px] font-medium uppercase tracking-wider text-(--text-secondary)">
+              Federation Name
+            </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. ResNet50 Imaging"
-              className={inputClass}
+              className={fieldClass}
+              style={fieldStyle}
               required
               autoFocus
             />
           </div>
 
           {/* Model Architecture */}
-          <div className="flex flex-col gap-2">
-            <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Architecture</label>
-            <select value={modelType} onChange={(e) => setModelType(e.target.value as ModelType)} className={selectClass}>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12px] font-medium uppercase tracking-wider text-(--text-secondary)">
+              Architecture
+            </label>
+            <select
+              value={modelType}
+              onChange={(e) => setModelType(e.target.value as ModelType)}
+              className={`${fieldClass} cursor-pointer appearance-none`}
+              style={fieldStyle}
+            >
               {Object.keys(modelOptions).map((type) => (
-                <option key={type} value={type}>{type}</option>
+                <option key={type} value={type}>
+                  {type}
+                </option>
               ))}
             </select>
           </div>
 
-          {/* Model + Optimizer row */}
+          {/* Model + Optimizer */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Model</label>
-              <select value={modelName} onChange={(e) => setModelName(e.target.value)} className={selectClass}>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[12px] font-medium uppercase tracking-wider text-(--text-secondary)">
+                Model
+              </label>
+              <select
+                value={modelName}
+                onChange={(e) => setModelName(e.target.value)}
+                className={`${fieldClass} cursor-pointer appearance-none`}
+                style={fieldStyle}
+              >
                 {modelOptions[modelType].models.map((m) => (
-                  <option key={m} value={m}>{m}</option>
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
                 ))}
               </select>
             </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Optimizer</label>
-              <select value={optimizer} onChange={(e) => setOptimizer(e.target.value)} className={selectClass}>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[12px] font-medium uppercase tracking-wider text-(--text-secondary)">
+                Optimizer
+              </label>
+              <select
+                value={optimizer}
+                onChange={(e) => setOptimizer(e.target.value)}
+                className={`${fieldClass} cursor-pointer appearance-none`}
+                style={fieldStyle}
+              >
                 {modelOptions[modelType].optimizers.map((o) => (
-                  <option key={o} value={o}>{o}</option>
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
                 ))}
               </select>
             </div>
           </div>
 
           {/* Pre-train Epochs */}
-          <div className="flex flex-col gap-2">
-            <label className="text-[12px] font-semibold text-slate-400 uppercase tracking-widest">Pre-train Epochs</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12px] font-medium uppercase tracking-wider text-(--text-secondary)">
+              Pre-train Epochs
+            </label>
             <input
               type="number"
               value={pretrainEpochs}
               onChange={(e) => setPretrainEpochs(Number(e.target.value))}
               min="0"
-              className={inputClass}
+              className={fieldClass}
+              style={fieldStyle}
             />
           </div>
 
           {/* Buttons */}
-          <div className="flex gap-3 mt-4 pt-4 border-t border-slate-700/50">
+          <div
+            className="flex gap-3 mt-2 pt-4"
+            style={{ borderTop: '1px solid var(--border-color)' }}
+          >
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-md text-[14px] font-medium tracking-tight border border-slate-600 transition-colors"
+              className="flex-1 py-3 rounded-lg text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-95"
+              style={{
+                backgroundColor: 'var(--background-secondary)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-color)',
+              }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading || !name.trim()}
-              className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 py-2.5 rounded-md text-[14px] font-semibold tracking-tight transition-all duration-200 shadow-[0_0_15px_rgba(6,182,212,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-3 rounded-lg text-[14px] font-semibold transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:brightness-100"
+              style={{
+                backgroundColor: 'var(--accent-primary)',
+                color: 'var(--primary-foreground)',
+              }}
             >
-              {isLoading ? 'Creating...' : 'Create Project'}
+              {isLoading ? 'Creating…' : 'Create Federation'}
             </button>
           </div>
         </form>

@@ -18,15 +18,15 @@
   --background-card: oklch(1 0 0);
   --background-overlay: oklch(1 0 0 / 0.85);
   --surface-glass: oklch(1 0 0 / 0.85);
-  
+
   --text-primary: oklch(0.18 0.014 35);
   --text-secondary: oklch(0.36 0.014 40);
-  
+
   /* The Federation Pulse - vivid orange */
   --accent-primary: oklch(0.62 0.24 48);
   --accent-secondary: oklch(0.62 0.24 48 / 0.8);
   --destructive: oklch(0.55 0.22 18);
-  
+
   --border-color: oklch(0.91 0.012 50);
   --shadow-soft: 0 4px 16px oklch(0 0 0 / 0.08);
   --shadow-strong: 0 12px 40px oklch(0 0 0 / 0.12);
@@ -42,22 +42,22 @@
   --primary-foreground: #ffffff;
   --secondary: var(--background-secondary);
   --secondary-foreground: var(--text-primary);
-  --muted: oklch(0.968 0.010 60);
+  --muted: oklch(0.968 0.01 60);
   --muted-foreground: var(--text-secondary);
-  --accent: oklch(0.968 0.010 60);
+  --accent: oklch(0.968 0.01 60);
   --accent-foreground: var(--text-primary);
   --destructive-foreground: #ffffff;
   --border: var(--border-color);
   --input: transparent;
-  --input-background: oklch(0.968 0.010 60);
+  --input-background: oklch(0.968 0.01 60);
   --switch-background: oklch(0.82 0.016 50);
   --ring: oklch(0.62 0.24 48 / 0.45);
   --chart-1: var(--accent-primary);
   --chart-2: oklch(0.52 0.16 220); /* Info */
   --chart-3: oklch(0.55 0.22 340); /* Magenta */
   --chart-4: var(--destructive);
-  --chart-5: oklch(0.70 0.18 85);   /* Warn */
-  
+  --chart-5: oklch(0.7 0.18 85); /* Warn */
+
   --sidebar: var(--background-secondary);
   --sidebar-foreground: var(--text-primary);
   --sidebar-primary: var(--accent-primary);
@@ -70,26 +70,26 @@
 
 .dark {
   color-scheme: dark;
-  
+
   /* Dark Theme (Instrument Aesthetic) */
   --background-primary: oklch(0.155 0.014 35);
   --background-secondary: oklch(0.198 0.016 35);
-  --background-card: oklch(0.220 0.018 35);
+  --background-card: oklch(0.22 0.018 35);
   --background-overlay: oklch(0.198 0.016 35 / 0.85);
   --surface-glass: oklch(0.198 0.016 35 / 0.85);
-  
-  --text-primary: oklch(0.970 0.008 60);
+
+  --text-primary: oklch(0.97 0.008 60);
   --text-secondary: oklch(0.78 0.014 50);
-  
+
   /* The Federation Pulse - vivid orange */
   --accent-primary: oklch(0.74 0.22 50);
   --accent-secondary: oklch(0.74 0.22 50 / 0.8);
   --destructive: oklch(0.62 0.22 18);
-  
-  --border-color: oklch(0.310 0.024 35);
+
+  --border-color: oklch(0.31 0.024 35);
   --shadow-soft: 0 4px 12px oklch(0 0 0 / 0.32);
   --shadow-strong: 0 12px 40px oklch(0 0 0 / 0.45);
-  --glow-accent: oklch(0.74 0.22 50 / 0.20);
+  --glow-accent: oklch(0.74 0.22 50 / 0.2);
 
   --background: var(--background-primary);
   --foreground: var(--text-primary);
@@ -101,25 +101,27 @@
   --primary-foreground: oklch(0.16 0.04 35); /* Darker text on orange button */
   --secondary: var(--background-secondary);
   --secondary-foreground: var(--text-primary);
-  --muted: oklch(0.260 0.020 35);
+  --muted: oklch(0.26 0.02 35);
   --muted-foreground: var(--text-secondary);
-  --accent: oklch(0.260 0.020 35);
+  --accent: oklch(0.26 0.02 35);
   --accent-foreground: var(--text-primary);
   --destructive-foreground: #ffffff;
   --border: var(--border-color);
-  --input: oklch(0.260 0.020 35);
+  --input: oklch(0.26 0.02 35);
+  --input-background: oklch(0.26 0.02 35);
+  --switch-background: oklch(0.31 0.024 35);
   --ring: oklch(0.74 0.22 50 / 0.45);
   --chart-1: var(--accent-primary);
   --chart-2: oklch(0.72 0.14 220); /* Info */
-  --chart-3: oklch(0.70 0.22 340); /* Magenta */
+  --chart-3: oklch(0.7 0.22 340); /* Magenta */
   --chart-4: var(--destructive);
-  --chart-5: oklch(0.88 0.18 95);   /* Warn */
-  
+  --chart-5: oklch(0.88 0.18 95); /* Warn */
+
   --sidebar: var(--background-secondary);
   --sidebar-foreground: var(--text-primary);
   --sidebar-primary: var(--accent-primary);
   --sidebar-primary-foreground: oklch(0.16 0.04 35);
-  --sidebar-accent: oklch(0.260 0.020 35);
+  --sidebar-accent: oklch(0.26 0.02 35);
   --sidebar-accent-foreground: var(--text-primary);
   --sidebar-border: var(--border-color);
   --sidebar-ring: var(--ring);
@@ -185,7 +187,9 @@
       radial-gradient(circle at top left, var(--glow-accent), transparent 34%),
       radial-gradient(circle at top right, rgba(128, 128, 255, 0.08), transparent 32%),
       var(--background-primary);
-    transition: background-color 0.3s ease, color 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
   }
 
   code,
