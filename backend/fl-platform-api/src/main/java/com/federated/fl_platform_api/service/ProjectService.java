@@ -10,6 +10,7 @@ import com.federated.fl_platform_api.model.ProjectMembership;
 import com.federated.fl_platform_api.model.ProjectVisibility;
 import com.federated.fl_platform_api.model.RoundResult;
 import com.federated.fl_platform_api.model.User;
+import com.federated.fl_platform_api.repository.OrganizationMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectAccessRequestRepository;
 import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
@@ -57,6 +58,11 @@ public class ProjectService {
     private ProjectAccessRequestRepository accessRequestRepository;
     @Autowired
     private NotificationService notificationService;
+    @Autowired
+    private OrganizationMembershipRepository orgMembershipRepository;
+
+    /** Default org UUID seeded by V5 migration — fallback when a user has no membership. */
+    private static final UUID DEFAULT_ORG_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
 
     private RoundResultDto convertToDto(RoundResult result) {
@@ -96,6 +102,15 @@ public class ProjectService {
         project.setModelName(request.getModelName());
         project.setOptimizer(request.getOptimizer());
         project.setUser(owner);
+        // V5 made projects.org_id NOT NULL. Pin the project to the owner's first
+        // org membership; fall back to the Default org (seeded by V5) for users
+        // that somehow have no membership. Real cross-org selection UI lives in
+        // a later sub-spec.
+        UUID orgId = orgMembershipRepository.findByUserId(owner.getId()).stream()
+                .findFirst()
+                .map(m -> m.getOrgId())
+                .orElse(DEFAULT_ORG_ID);
+        project.setOrgId(orgId);
         project.setStatus("CREATED");
         Project savedProject = projectRepository.save(project);
         log.debug("Persisted project shell with id={}", savedProject.getId());
