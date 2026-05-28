@@ -53,11 +53,11 @@ A 401 on any other endpoint dispatches an `authError` event, prompting the globa
 
 Vite modes mirror the backend's Spring profiles 1:1:
 
-| Mode | Spring profile | Script | Notes |
-|---|---|---|---|
-| `development` | `dev` | `npm run dev` | Full-local. Backend on `localhost:8081`, no proxy. CORS in `application-dev.properties` allows `http://localhost:*`. |
-| `ec2demo` | `ec2demo` | `npm run dev:ec2demo` | Vite proxies `/api` and `/ws-logs` to `https://fedlearn.duckdns.org`. Cookies stay first-party to `localhost:5173` — sidesteps Safari's third-party cookie traps. |
-| `production` | `production` | `npm run build` / `npm run build:ec2demo` | Static bundle. `VITE_FEDLEARN_API_URL` is required at build time; `axiosConfig.ts` throws on boot if missing. |
+| Mode          | Spring profile | Script                                    | Notes                                                                                                                                                             |
+| ------------- | -------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `development` | `dev`          | `npm run dev`                             | Full-local. Backend on `localhost:8081`, no proxy. CORS in `application-dev.properties` allows `http://localhost:*`.                                              |
+| `ec2demo`     | `ec2demo`      | `npm run dev:ec2demo`                     | Vite proxies `/api` and `/ws-logs` to `https://fedlearn.duckdns.org`. Cookies stay first-party to `localhost:5173` — sidesteps Safari's third-party cookie traps. |
+| `production`  | `production`   | `npm run build` / `npm run build:ec2demo` | Static bundle. `VITE_FEDLEARN_API_URL` is required at build time; `axiosConfig.ts` throws on boot if missing.                                                     |
 
 Vite env precedence (highest wins): `.env.[mode].local` > `.env.local` > `.env.[mode]` > `.env`. Personal overrides go in the `*.local` files, which are gitignored. Full var contract: `.env.example`.
 
@@ -87,6 +87,5 @@ npm run preview           # Local preview of the production bundle
 
 ## Adjacent docs
 
-- Coding guidance for AI assistants: `frontend/CLAUDE.md` (gitignored — local-only).
 - Wiki / deeper architecture: `docs/wikis/frontend/`.
-- Backend auth contract: `backend/fl-platform-api/CLAUDE.md` and `backend/fl-platform-api/DEVELOPMENT.md`.
+- Backend auth contract: `backend/fl-platform-api/DEVELOPMENT.md`.

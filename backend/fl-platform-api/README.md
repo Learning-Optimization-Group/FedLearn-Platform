@@ -2,7 +2,7 @@
 
 Spring Boot 3 / Java 21 / Gradle. REST + STOMP-over-WebSocket. Manages users, projects, training results, and the lifecycle of Python FL-server processes.
 
-For Spring profile semantics, deployment topology, and the cookie auth model, see `CLAUDE.md` in this directory.
+For Spring profile semantics, deployment topology, and the cookie auth model, see `DEVELOPMENT.md` in this directory.
 
 ## Stack
 
@@ -72,7 +72,6 @@ backend/fl-platform-api/
 │   ├── db/migration/                        # Flyway versioned migrations
 │   └── scripts/                             # Python FL-server scripts (init_model.py, fl_server.py, ...)
 ├── DEVELOPMENT.md      # Deeper backend dev notes
-├── CLAUDE.md           # AI assistant guidance (gitignored)
 └── build.gradle
 ```
 
@@ -174,5 +173,4 @@ Unfinished. See [`docs/guides/AWS_AUDIT.md`](../../docs/guides/AWS_AUDIT.md) Tie
 ## Adjacent docs
 
 - **`DEVELOPMENT.md`** — deeper architectural walkthroughs and contribution patterns
-- **`CLAUDE.md`** — AI assistant guidance (gitignored)
 - **`docs/wikis/backend/`** — long-form wiki: architecture, security, project lifecycle, FL orchestration, WebSocket streaming

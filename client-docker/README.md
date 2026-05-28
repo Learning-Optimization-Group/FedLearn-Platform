@@ -103,6 +103,5 @@ For multi-platform image distribution (`buildx`, registry pushes, offline export
 
 - **[`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md)** — full Jetson + native deployment procedure with troubleshooting playbook
 - **[`packaging/README.md`](packaging/README.md)** — PyInstaller bundling for the desktop app
-- **[`CLAUDE.md`](CLAUDE.md)** — AI assistant guidance (gitignored, on-disk only)
 - **`../framework/README.md`** — the FL framework that powers the client
 - **`../fedlearn-desktop/README.md`** — the Electron orchestrator that launches this image for end users
