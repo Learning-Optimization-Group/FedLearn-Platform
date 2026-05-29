@@ -7,6 +7,9 @@ build/
 # as a Gradle module; keep ignored so stale IDE output never gets committed.
 target/
 *.jar
+# The Gradle wrapper jar MUST be committed so `./gradlew` can bootstrap (it carries
+# org.gradle.wrapper.GradleWrapperMain). Re-include it despite the *.jar rule above.
+!gradle/wrapper/gradle-wrapper.jar
 *.war
 *.ear
 
