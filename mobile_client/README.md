@@ -12,8 +12,8 @@ build order in [`docs/v2/build/90-BUILD-SEQUENCE.md`](../docs/v2/build/90-BUILD-
 
 ## Status — what is built so far
 
-This is **increments 1–2: the cross-language determinism contract + the C++ FL core**
-(15-LLD §13 tasks 2–8, plus the framework prerequisite). It is the load-bearing
+This is **increments 1–3: the determinism contract, the C++ FL core, and the C++ gRPC layer**
+(15-LLD §13 tasks 2–10, plus the framework prerequisite). It is the load-bearing
 foundation everything else depends on: the DeComFL protocol only works if the Python
 server and this C++ client regenerate **identical** perturbation vectors from the same
 seed, and produce matching gradient scalars.
@@ -34,15 +34,35 @@ seed, and produce matching gradient scalars.
 | ZO golden reference | `../framework/tests/fixtures/decomfl_golden/` (`zo_model_tiny.pt`, batch, `zo_manifest.json`) + `generate_zo.py` |
 | C++ FL-core tests (gtest) | `model_manager_test`, `flatparam_filter_test`, `g_scalar_parity_test`, `serialize_roundtrip_test`, `decomfl_equivalence_test` |
 | Canonical gRPC proto | `../proto/fedlearn/v2/fedlearn.proto` (+ `buf.yaml`/`buf.gen.yaml`); mirror at `proto/fedlearn/v2/fedlearn.proto`, gated by `../scripts/check_proto_mirror.sh` |
+| C++ gRPC client | `shared/src/FedLearnClient.cpp` (dual-channel TLS+mTLS, streaming + chunk framing/sha256, heartbeat-abort thread, proto↔core marshaling) — **opt-in** target |
+| C++ federated loop | `shared/src/FederatedLoop.cpp` (DeComFL + FedAvg one-round bodies; torch-version gate; deadline/abort checks) — **opt-in** |
+| C++ data loader | `shared/src/DataLoader.cpp` (validated on-device, client-private load) — **opt-in** |
+| gRPC marshal test (gtest) | `shared/tests/grpc_marshal_test.cpp` (server-free; proto↔core + codec whitelist) |
 | Host build | `CMakeLists.txt`, `shared/CMakeLists.txt`, `shared/tests/CMakeLists.txt` |
 
-**Not yet built** (subsequent increments, 15-LLD §13 tasks 9–19): `FedLearnClient`
-(gRPC dual-channel + streaming), `FederatedLoop`, `DataLoader`, the TurboModule bridge,
-the Android/iOS app projects, the RN TypeScript app layer and screens, the
-foreground-service lifecycle, telemetry wiring, the native-dep prebuild scripts, and
-`mobile.yml` CI. (The v2 `fedlearn.proto` it depends on now exists — see the canonical
-proto row above; the C++ gRPC stubs are produced by `buf generate` + the cross-compiled
-gRPC runtime from `scripts/build_grpc_arm64.sh`.)
+**Not yet built** (subsequent increments, 15-LLD §13 tasks 11–19): the TurboModule bridge
+(React Native ↔ C++), the Android/iOS app projects, the RN TypeScript app layer and
+screens, the foreground-service lifecycle, native telemetry wiring, the native-dep prebuild
+scripts (`build_libtorch_arm64.sh`, `build_grpc_arm64.sh`), and `mobile.yml` CI.
+
+### Building the opt-in gRPC layer
+
+`FedLearnClient` / `FederatedLoop` / `DataLoader` need the buf-generated C++ stubs and a
+cross-compiled gRPC runtime, so they are **off by default** (the parity gate above builds
+with only libtorch). To build them:
+
+```bash
+cd proto && buf generate          # emits C++ stubs into gen/cpp/fedlearn/v2/
+cmake -S mobile_client -B mobile_client/build \
+      -DLIBTORCH_DIR="$LIBTORCH_DIR" \
+      -DFEDLEARN_BUILD_GRPC=ON \
+      -DGENERATED_PROTO_DIR="$PWD/gen/cpp"
+cmake --build mobile_client/build -j
+ctest --test-dir mobile_client/build --output-on-failure   # incl. fedlearn_grpc_tests (marshal)
+```
+
+The end-to-end client↔server smoke (register → 1 DeComFL round → upload K·P scalars) runs
+against a dev FL server per 15-LLD §11.6.
 
 ---
 
