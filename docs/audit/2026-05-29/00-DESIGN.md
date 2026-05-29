@@ -50,7 +50,7 @@ pre-committing to porting it.
   e.g. a malformed `SubmitModelUpdate(SubmitModelUpdateReque…)`. Proto
   reconciliation against the canonical `fedlearn.v1` is a confirmed work item.
 
-## 4. Agent roster (17 experts + 1 synthesis)
+## 4. Agent roster (18 experts + 1 synthesis)
 
 Every agent must: (a) cite `file:line` evidence for codebase claims and URLs for
 market claims; (b) rate each module **salvage / refactor / rebuild / kill** with
@@ -91,6 +91,7 @@ view when proposing changes.
 | **C2** | Data engineering / partitioning | The data plane the platform exists to serve: **non-IID handling, Dirichlet splits, the `flwr-datasets` dependency**, dataset versioning/lineage, where client training data physically lives, privacy of data-at-rest, partition reproducibility. |
 | **C3** | ML reproducibility / experiment lineage | **Can you reproduce a published result?** Deterministic FL runs (seed control across Python + C++), model registry/versioning, run lineage, artifact storage, config capture. Distinct from observability; strengthens the paper-alignment story. |
 | **C4** | Business / GTM / pricing / IP | Startup viability: pricing model, competitive wedge vs Flower/FLARE, and critically — **RIT's IP ownership of DeComFL** and the commercialization/licensing implications of spinning research into a startup (Apache license, `flwr-datasets` license, model-weight IP). |
+| **C5** | Visual design / UX / communication | Spans **all three UI surfaces** — web `frontend`, `fedlearn-desktop` renderer, and `mobile_client` screens (Training, Model Library, Model Testing). Design language & visual consistency across surfaces; information architecture & navigation; **data visualization for FL runs** (loss/convergence curves, per-client contribution, round progress, the FederationOrrery, real-time log-stream UX); core UX flows (signup/onboarding, org/project creation, client enrollment, run monitoring, results); **communication / information design** — empty/loading/error states, microcopy, real-time feedback, toasts/notifications; accessibility (WCAG); a shared **design-system / component-library** recommendation (e.g. shadcn/Radix on Tailwind v4) and how it should be shared across web+desktop+mobile; startup brand/visual identity. Benchmarks against best-in-class dev-tool / ML-platform UIs (Vercel, Linear, Weights & Biases, Grafana, Hugging Face). |
 
 ### Synthesis
 
@@ -135,6 +136,7 @@ docs/audit/2026-05-29/
   C2-data-engineering.md
   C3-reproducibility.md
   C4-business-gtm-ip.md
+  C5-design-ux.md
   _verification.md          # adversarial-verification ledger (what survived / was refuted)
 ```
 
