@@ -79,7 +79,8 @@ def main() -> None:
 
     manifest = {
         "description": "ZerothOrderEstimator g-scalar + flat-param-filter golden reference (C++ mobile core).",
-        "torch_version": torch.__version__,
+        # Base version (strip +cpu/+cuXXX); the CPU kernel is identical across build variants.
+        "torch_version": torch.__version__.split("+")[0],
         "architecture": "Linear(4,5)->ReLU->Linear(5,3); fc2 FROZEN (requires_grad=False)",
         "model_file": "zo_model_tiny.pt",
         "model_sha256": model_sha,

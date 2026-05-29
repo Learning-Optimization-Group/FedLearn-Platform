@@ -1,0 +1,126 @@
+# Mobile FL client CI (15-LLD-mobile.md §13 task 19). The golden-vector parity test GATES the
+# build (the M10 checkpoint, 90-BUILD-SEQUENCE §M10): a build whose perturbations diverge from the
+# Python fixture must never ship.
+#
+# Gating jobs (run on every PR, fast): proto-mirror, python-parity, cpp-parity.
+# Heavy job (android .so size budget): gated by the repo variable MOBILE_NATIVE_CI=='true', since it
+# needs the Android app project (task 16) + the cached cross-compiled libtorch/gRPC arm64 artifacts.
+#
+# VERIFY-BEFORE-USE: pinned torch/libtorch URLs + action versions; confirm before first run.
+name: mobile
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile_client/**'
+      - 'proto/**'
+      - 'framework/tests/fixtures/decomfl_golden/**'
+      - 'framework/src/fedlearn/estimators/perturbation.py'
+      - '.github/workflows/mobile.yml'
+  pull_request:
+    paths:
+      - 'mobile_client/**'
+      - 'proto/**'
+      - 'framework/tests/fixtures/decomfl_golden/**'
+      - 'framework/src/fedlearn/estimators/perturbation.py'
+      - '.github/workflows/mobile.yml'
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TORCH_VERSION: '2.12.0' # MUST match framework/tests/fixtures/decomfl_golden/manifest.json
+  SO_BUDGET_MB: '120' # libfedlearn_jni.so arm64 budget (placeholder; calibrate after first measure, A6 M-H1)
+
+jobs:
+  # ---- the mobile proto mirror must not diverge from the canonical proto (E6) ----
+  proto-mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check proto mirror == canonical
+        run: bash scripts/check_proto_mirror.sh
+
+  # ---- Python source-of-truth: canonical_perturbation reproduces the frozen golden fixture ----
+  python-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU torch + test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install --index-url https://download.pytorch.org/whl/cpu "torch==${TORCH_VERSION}"
+          pip install numpy pytest
+      - name: Run perturbation parity tests
+        working-directory: framework
+        run: PYTHONPATH=src pytest tests/test_perturbation.py -v
+
+  # ---- C++ parity gate: the gtests compare the C++ core to the Python golden fixture ----
+  cpp-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ ninja-build unzip
+      - name: Download CPU libtorch (${{ env.TORCH_VERSION }})
+        run: |
+          URL="https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-${TORCH_VERSION}%2Bcpu.zip"
+          curl -fSL "$URL" -o libtorch.zip
+          unzip -q libtorch.zip -d "$RUNNER_TEMP"
+      - name: Configure + build the C++ core tests
+        run: |
+          cmake -S mobile_client -B build/shared -G Ninja \
+            -DLIBTORCH_DIR="$RUNNER_TEMP/libtorch" \
+            -DFEDLEARN_BUILD_TESTS=ON \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/shared --target fedlearn_core_tests
+      - name: Run parity + roundtrip gtests (golden-vector test gates the build)
+        run: ctest --test-dir build/shared --output-on-failure
+
+  # ---- Android arm64 .so build + size budget. Gated until the Android app project (task 16) and
+  #      the cross-compiled libtorch/gRPC arm64 cache exist. Enable with repo var MOBILE_NATIVE_CI. ----
+  android-so-size:
+    if: ${{ vars.MOBILE_NATIVE_CI == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r27
+      - uses: bufbuild/buf-setup-action@v1
+      - name: Generate C++ gRPC stubs
+        working-directory: proto
+        run: buf generate
+      - name: Restore cross-compiled arm64 libtorch + gRPC
+        uses: actions/cache@v4
+        with:
+          path: mobile_client/.artifacts
+          key: native-arm64-torch${{ env.TORCH_VERSION }}-ndk-r27
+      - name: Build arm64 native deps if cache missed
+        env:
+          ANDROID_NDK: ${{ steps.ndk.outputs.ndk-path }}
+          PYTORCH_TAG: v${{ env.TORCH_VERSION }}
+          GRPC_CPP_VERSION: v1.67.1
+        run: |
+          [ -d mobile_client/.artifacts/libtorch-android-${PYTORCH_TAG}-arm64-v8a ] || \
+            bash mobile_client/scripts/build_libtorch_arm64.sh
+          [ -d mobile_client/.artifacts/grpc-android-${GRPC_CPP_VERSION}-arm64-v8a ] || \
+            bash mobile_client/scripts/build_grpc_arm64.sh
+      - name: Build the Android release APK and check the .so budget
+        working-directory: mobile_client/android
+        run: |
+          ./gradlew assembleRelease
+          SO=$(unzip -l app/build/outputs/apk/release/app-release.apk | awk '/libfedlearn_jni\.so/ {print $1}')
+          MB=$(( SO / 1024 / 1024 ))
+          echo "libfedlearn_jni.so = ${MB} MB (budget ${SO_BUDGET_MB} MB)"
+          test "${MB}" -le "${SO_BUDGET_MB}"

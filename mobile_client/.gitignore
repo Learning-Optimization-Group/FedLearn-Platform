@@ -1,0 +1,19 @@
+# Node / RN
+node_modules/
+*.log
+.expo/
+
+# Native build + cross-compiled dependency artifacts (built by scripts/, never committed)
+.build/
+.artifacts/
+build/
+
+# Exported models + fetched datasets (no committed blobs — A6 §L5 / task 18)
+assets/models/*.pt
+data/
+
+# Android / iOS build output
+android/app/build/
+android/.gradle/
+ios/Pods/
+ios/build/

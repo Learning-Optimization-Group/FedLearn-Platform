@@ -1,7 +1,7 @@
 {
   "description": "DeComFL canonical_perturbation golden vectors. The single source of truth for Python<->C++ perturbation RNG parity. Frozen from fedlearn.estimators.perturbation.canonical_perturbation.",
   "generator_recipe": "torch.Generator(device='cpu').manual_seed(seed); torch.randn(num_params, generator=g, dtype=float32, device='cpu')",
-  "torch_version": "2.12.0+cu130",
+  "torch_version": "2.12.0",
   "numpy_version": "2.1.2",
   "file_format": "raw little-endian float32, C-order, length == num_params",
   "cases": [

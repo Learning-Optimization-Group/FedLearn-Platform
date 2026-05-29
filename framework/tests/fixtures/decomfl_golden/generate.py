@@ -71,7 +71,10 @@ def main() -> None:
             "torch.Generator(device='cpu').manual_seed(seed); "
             "torch.randn(num_params, generator=g, dtype=float32, device='cpu')"
         ),
-        "torch_version": torch.__version__,
+        # Base version (strip the +cpu/+cuXXX build suffix): the CPU RNG kernel is identical across
+        # build variants of the same torch version, so the contract keys on the version, not the
+        # build. This lets the CI gate (CPU libtorch) and the device match the fixture.
+        "torch_version": torch.__version__.split("+")[0],
         "numpy_version": np.__version__,
         "file_format": "raw little-endian float32, C-order, length == num_params",
         "cases": entries,

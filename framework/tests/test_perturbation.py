@@ -41,8 +41,9 @@ def test_sha256_matches_manifest(case):
 
 
 def test_torch_version_matches_manifest():
-    # Guards against an unintentional torch bump silently changing the contract.
-    assert torch.__version__ == MANIFEST["torch_version"], (
+    # Guards against an unintentional torch bump silently changing the contract. Compares the BASE
+    # version (strip +cpu/+cuXXX) since the CPU RNG kernel is identical across build variants.
+    assert torch.__version__.split("+")[0] == MANIFEST["torch_version"], (
         "torch version drifted from the frozen golden fixture; re-freeze deliberately "
         "(run tests/fixtures/decomfl_golden/generate.py) and re-validate the C++ parity test."
     )
