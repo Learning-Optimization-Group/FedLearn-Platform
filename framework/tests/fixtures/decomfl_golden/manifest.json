@@ -1,0 +1,81 @@
+{
+  "description": "DeComFL canonical_perturbation golden vectors. The single source of truth for Python<->C++ perturbation RNG parity. Frozen from fedlearn.estimators.perturbation.canonical_perturbation.",
+  "generator_recipe": "torch.Generator(device='cpu').manual_seed(seed); torch.randn(num_params, generator=g, dtype=float32, device='cpu')",
+  "torch_version": "2.12.0+cu130",
+  "numpy_version": "2.1.2",
+  "file_format": "raw little-endian float32, C-order, length == num_params",
+  "cases": [
+    {
+      "seed": 0,
+      "num_params": 16,
+      "dtype": "float32",
+      "byte_order": "little-endian",
+      "file": "z_0_16.f32",
+      "sha256": "7648137a31024642604465428f1598d06f595259ac993612918498d7cde9b70c",
+      "first8": [
+        -1.1258398294448853,
+        -1.152360200881958,
+        -0.2505785822868347,
+        -0.4338788092136383,
+        0.8487103581428528,
+        0.6920091509819031,
+        -0.31601276993751526,
+        -2.1152193546295166
+      ]
+    },
+    {
+      "seed": 1,
+      "num_params": 100,
+      "dtype": "float32",
+      "byte_order": "little-endian",
+      "file": "z_1_100.f32",
+      "sha256": "ffe07025178801668b8f240fad8e5037938730e24eacd8cba01c0cdc03805926",
+      "first8": [
+        -1.5255959033966064,
+        -0.7502318024635315,
+        -0.6539809107780457,
+        -1.6094847917556763,
+        -0.1001671776175499,
+        -0.6091889142990112,
+        -0.9797722697257996,
+        -1.6090962886810303
+      ]
+    },
+    {
+      "seed": 1234567,
+      "num_params": 1000,
+      "dtype": "float32",
+      "byte_order": "little-endian",
+      "file": "z_1234567_1000.f32",
+      "sha256": "b04f0f571ede3bf7e97b73c6f4a814325a9e99058a664800ec17dfcb32f892c4",
+      "first8": [
+        -1.4620221853256226,
+        -0.2823958694934845,
+        2.4558632373809814,
+        1.6109241247177124,
+        0.3629327714443207,
+        -0.821679949760437,
+        0.09903615713119507,
+        -0.09086471796035767
+      ]
+    },
+    {
+      "seed": 2147483646,
+      "num_params": 4096,
+      "dtype": "float32",
+      "byte_order": "little-endian",
+      "file": "z_2147483646_4096.f32",
+      "sha256": "a437bec6ee2af6522ab3045e303ee554b696e7aa7798ed3fdbf3015efa7195e4",
+      "first8": [
+        0.08284638077020645,
+        -0.04305287078022957,
+        2.6250722408294678,
+        1.5743317604064941,
+        -0.7806046605110168,
+        -0.8862162232398987,
+        0.3532828986644745,
+        0.442687064409256
+      ]
+    }
+  ]
+}
