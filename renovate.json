@@ -1,0 +1,26 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits"
+  ],
+  "schedule": ["before 6am on monday"],
+  "prConcurrentLimit": 5,
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Group non-major updates per ecosystem to cut PR noise.",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "{{manager}} non-major"
+    },
+    {
+      "description": "torch is pinned to the DeComFL golden-vector fixture version; require manual review.",
+      "matchPackageNames": ["torch"],
+      "dependencyDashboardApproval": true
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security"]
+  }
+}

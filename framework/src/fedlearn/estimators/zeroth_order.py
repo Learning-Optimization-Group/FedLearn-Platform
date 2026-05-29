@@ -9,6 +9,8 @@ import torch.nn as nn
 from typing import Tuple, List, Union, Dict
 from collections import OrderedDict
 
+from fedlearn.estimators.perturbation import canonical_perturbation
+
 
 class ZerothOrderEstimator:
     """
@@ -42,10 +44,9 @@ class ZerothOrderEstimator:
         Returns:
             Perturbation vector of shape (num_params,)
         """
-        generator = torch.Generator(device=self.device)
-        generator.manual_seed(seed)
-        z = torch.randn(num_params, generator=generator, device=self.device)
-        return z
+        # CPU-canonical (Bug-2 fix): identical to the server's perturbation for the same seed,
+        # regardless of device. Generated on CPU, then moved to the compute device.
+        return canonical_perturbation(seed, num_params).to(self.device)
 
     def compute_gradient_scalar(
             self,

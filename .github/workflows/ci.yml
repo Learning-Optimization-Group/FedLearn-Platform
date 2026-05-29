@@ -1,0 +1,117 @@
+# PR-time CI — the load-bearing gate the audit flagged as missing (Theme 4: "every other defect
+# compounds because nothing gates PRs"). Per-stack jobs run only when that stack changes
+# (dorny/paths-filter), so PRs get fast, relevant feedback. Make these required checks in branch
+# protection (see docs/v2/ci-and-branch-protection.md).
+#
+# VERIFY-BEFORE-USE: pinned tool versions + per-stack commands; confirm against each subproject.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      framework: ${{ steps.filter.outputs.framework }}
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      desktop: ${{ steps.filter.outputs.desktop }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            framework:
+              - 'framework/**'
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+            desktop:
+              - 'fedlearn-desktop/**'
+
+  framework:
+    needs: changes
+    if: ${{ needs.changes.outputs.framework == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install (CPU torch + framework deps + pytest)
+        run: |
+          python -m pip install --upgrade pip
+          # CPU torch pinned to the golden-fixture version (framework/tests/fixtures/decomfl_golden);
+          # the perturbation version-gate compares the base version (2.12.0).
+          pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.12.0"
+          pip install -r framework/requirements.txt pytest
+          pip install -e framework
+      - name: pytest
+        working-directory: framework
+        run: PYTHONPATH=src python -m pytest -q
+
+  backend:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: 'Gradle test (test profile: in-memory H2, Flyway disabled)'
+        working-directory: backend/fl-platform-api
+        env:
+          SPRING_PROFILES_ACTIVE: test
+        run: ./gradlew test --no-daemon
+
+  frontend:
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install + lint + typecheck + build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npx tsc --noEmit
+          npm run build
+
+  desktop:
+    needs: changes
+    if: ${{ needs.changes.outputs.desktop == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: fedlearn-desktop/package-lock.json
+      - name: Install + lint + test
+        working-directory: fedlearn-desktop
+        run: |
+          npm ci
+          npm run lint --if-present
+          npm test

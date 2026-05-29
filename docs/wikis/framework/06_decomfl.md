@@ -94,7 +94,7 @@ For round t = 1, ..., T:
   6. Store averages: gradient_history.append(G^t)
   7. For k = 1..K:
        Δ = (1/(N×P)) × Σ_i Σ_p G^t_i[k][p] × z(S^t[k][p])
-       x_t = x_{t-1} - η × P × Δ   (note: P factor cancels in full derivation)
+       x_t = x_{t-1} - η × Δ   (Δ already averaged by 1/(N×P); matches the client's (η/P)×δ)
   8. Broadcast updated seed_history + gradient_history for rebuild
 ```
 
@@ -330,7 +330,7 @@ def aggregate_fit(self, server_round, results):
 
         # Average across clients and perturbations, then apply update
         delta = delta / (num_clients * self.P)
-        x_current = x_current - self.eta * delta * self.P  # ×P cancels in derivation
+        x_current = x_current - self.eta * delta  # delta already averaged by 1/(N*P)
 
     # 3. Store updated flat params
     self.global_params_flat = x_current

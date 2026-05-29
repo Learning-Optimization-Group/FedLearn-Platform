@@ -9,6 +9,7 @@ from collections import OrderedDict
 import torch
 import numpy as np
 from .strategy import Strategy
+from fedlearn.estimators.perturbation import canonical_perturbation
 
 log = logging.getLogger(__name__)
 
@@ -70,9 +71,11 @@ class DeComFL(Strategy):
         self.global_params_flat = self._flatten_params(initial_parameters)
 
 
-        # Random seed
-        np.random.seed(seed)
-        torch.manual_seed(seed)
+        # Local RNG for seed generation. Does NOT mutate the process-global numpy/torch RNG
+        # (B-2 fix): the old global np.random.seed/torch.manual_seed corrupted reproducibility for
+        # anything else sharing the interpreter. Perturbations use canonical_perturbation's own
+        # local CPU generator, so no global torch seeding is needed either.
+        self._seed_rng = np.random.default_rng(seed)
 
         # One-shot startup banner — INFO so it's captured in normal logs.
         log.info(
@@ -96,8 +99,8 @@ class DeComFL(Strategy):
         for k in range(self.K):
             k_seeds = []
             for p in range(self.P):
-                seed = np.random.randint(0, 2 ** 31 - 1)
-                k_seeds.append(int(seed))
+                seed = int(self._seed_rng.integers(0, 2 ** 31 - 1))
+                k_seeds.append(seed)
             seeds.append(k_seeds)
 
         return seeds
@@ -151,29 +154,26 @@ class DeComFL(Strategy):
 
         # Get current model parameters
         x_current = self.global_params_flat.clone()
+        num_clients = len(client_gradients)
 
         # For each local step
         for k in range(self.K):
             delta = torch.zeros_like(x_current)
 
-            # Average gradients across clients
-            num_clients = len(client_gradients)
-            for client_id, grad_scalars in client_gradients.items():
-                for p in range(self.P):
-                    # Regenerate perturbation from seed
-                    z = self._generate_perturbation(self.seed_history[server_round][k][p])
+            for p in range(self.P):
+                # z depends only on (k, p), NOT on the client — regenerate it once and sum the
+                # gradient scalars across clients (O(K*P) instead of the v1 O(K*P*N) loop, C-1).
+                z = self._generate_perturbation(self.seed_history[server_round][k][p])
+                g_sum = sum(grad_scalars[k][p] for grad_scalars in client_gradients.values())
+                delta += g_sum * z
 
-                    # Get gradient scalar for this client
-                    g = grad_scalars[k][p]
-
-                    # Accumulate gradient direction
-                    delta += g * z
-
-            # Average across clients and perturbations
+            # Average across clients and perturbations.
             delta = delta / (num_clients * self.P)
 
-            # Update model parameters
-            x_current = x_current - self.eta * delta * self.P
+            # Update model parameters. The 1/P averaging above IS the paper's update; the v1 code
+            # cancelled it with an extra * self.P, stepping the global model P x too far and off the
+            # rebuild trajectory (Bug 1, B1-C1). No * self.P here.
+            x_current = x_current - self.eta * delta
 
         # Update global model
         self.global_params_flat = x_current
@@ -184,15 +184,14 @@ class DeComFL(Strategy):
         return updated_params
 
     def _generate_perturbation(self, seed: int) -> torch.Tensor:
-        """Generate perturbation vector from seed."""
-        generator = torch.Generator(device=self.device)
-        generator.manual_seed(seed)
-        z = torch.randn(
-            len(self.global_params_flat),
-            generator=generator,
-            device=self.device
-        )
-        return z
+        """Generate perturbation vector from seed.
+
+        CPU-canonical and device-independent (Bug-2 fix): the server and every client must
+        regenerate bit-identical z from the same seed, which a seeded torch.randn does NOT
+        guarantee across CPU/CUDA/MPS. Delegates to the shared canonical helper, then moves the
+        result to the compute device.
+        """
+        return canonical_perturbation(seed, len(self.global_params_flat)).to(self.device)
 
     def _flatten_params(self, params: OrderedDict[str, torch.Tensor]) -> torch.Tensor:
         """Flatten OrderedDict parameters to 1D tensor."""
