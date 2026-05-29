@@ -1,0 +1,95 @@
+// React Native TurboModule spec (codegen source of truth) — 15-LLD-mobile.md §5.1.
+// Every method is async (Promise) and returns a TYPED object — never a hand-built JSON string
+// (fixes A6 §L3, the v1 stringly-typed bridge). RN codegen consumes THIS file to generate the
+// native interface; the C++ impl is bridge/common/FedLearnCoreModule.{h,cpp}.
+import type { TurboModule } from 'react-native';
+import { TurboModuleRegistry } from 'react-native';
+
+export type Strategy = 'DeComFL' | 'FedAvg';
+export type GradEstimateMethod = 'forward' | 'central';
+
+export interface RegisterResult {
+  accepted: boolean;
+  message: string;
+  assignedRound: number; // RegisterClientResponse.assigned_round (late-joiner round)
+  serverProtocolVersion: number;
+}
+
+export interface ServerStatus {
+  serverState: string; // GetServerStatusResponse.ServerState name
+  currentRound: number;
+  requiredClientsForRound: number;
+  receivedUpdatesThisRound: number;
+  activeClients: number;
+  roundDeadlineUnixMs: number;
+}
+
+export interface RoundConfig {
+  strategy: Strategy;
+  learningRate: number; // eta
+  mu: number; // DeComFL ZO smoothing radius (double on the C++ side)
+  numPerturbations: number; // P  (1..256, 04 §4.2)
+  numLocalSteps: number; // K  (1..1000)
+  gradEstimateMethod: GradEstimateMethod; // default 'forward' (B1-H2)
+  seed: number; // optimizer seed (distinct from data seed)
+  torchVersion: string; // must match server's GetDeComFLConfigResponse.torch_version
+}
+
+export interface RoundResult {
+  round: number;
+  loss: number;
+  accuracy: number; // -1.0 if not evaluated this round
+  scalarsTransmitted: number; // K*P (DeComFL) ; 0 for FedAvg
+  uplinkBytes: number;
+  downlinkBytes: number;
+  computeMs: number;
+  reverted: boolean; // model restored to pre-round snapshot (DeComFL invariant)
+}
+
+export interface DeviceMetrics {
+  peakRssBytes: number; // native RSS sample (replaces broken resourceMonitor.js, M-H4)
+  thermalState: string; // 'NOMINAL'|'FAIR'|'SERIOUS'|'CRITICAL' (platform thermal API)
+  batteryLevel: number; // 0.0..1.0
+  batteryCharging: boolean;
+}
+
+export interface ModelInfo {
+  paramCount: number; // model dimension d
+  trainableParamCount: number; // requires_grad-filtered count (must match server's P-dim, M-C2)
+  sha256: string; // integrity hash of the .pt (verified before jit::load, M-C4)
+  tier: '1M' | '10M' | '100M';
+}
+
+export interface InferResult {
+  logits: number[];
+  probabilities: number[];
+  argmax: number;
+}
+
+export interface Spec extends TurboModule {
+  // ---- gRPC lifecycle ----
+  registerClient(
+    serverAddress: string,
+    runId: string,
+    clientId: string,
+    enrollmentToken: string,
+    useTls: boolean,
+  ): Promise<RegisterResult>;
+  getServerStatus(runId: string): Promise<ServerStatus>;
+  stop(): Promise<void>; // sets the abort flag; joins threads
+
+  // ---- model ----
+  loadModel(modelPath: string, expectedSha256: string): Promise<ModelInfo>; // integrity-checked
+
+  // ---- one round (the bridge runs ONE round per call; the RN layer loops + checks deadline) ----
+  runDeComFLRound(runId: string, config: RoundConfig): Promise<RoundResult>;
+  runFedAvgRound(runId: string, config: RoundConfig): Promise<RoundResult>;
+
+  // ---- inference (Model Testing screen) — REAL softmax, not exp(-loss) (C5 §3) ----
+  infer(inputJson: string): Promise<InferResult>;
+
+  // ---- telemetry ----
+  getDeviceMetrics(): Promise<DeviceMetrics>;
+}
+
+export default TurboModuleRegistry.getEnforcing<Spec>('NativeFedLearnCore');

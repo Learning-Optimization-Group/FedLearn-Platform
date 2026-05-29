@@ -12,8 +12,8 @@ build order in [`docs/v2/build/90-BUILD-SEQUENCE.md`](../docs/v2/build/90-BUILD-
 
 ## Status — what is built so far
 
-This is **increments 1–3: the determinism contract, the C++ FL core, and the C++ gRPC layer**
-(15-LLD §13 tasks 2–10, plus the framework prerequisite). It is the load-bearing
+This is **increments 1–4: the determinism contract, the C++ FL core, the C++ gRPC layer, and
+the TurboModule bridge** (15-LLD §13 tasks 2–13, plus the framework prerequisite). It is the load-bearing
 foundation everything else depends on: the DeComFL protocol only works if the Python
 server and this C++ client regenerate **identical** perturbation vectors from the same
 seed, and produce matching gradient scalars.
@@ -38,12 +38,19 @@ seed, and produce matching gradient scalars.
 | C++ federated loop | `shared/src/FederatedLoop.cpp` (DeComFL + FedAvg one-round bodies; torch-version gate; deadline/abort checks) — **opt-in** |
 | C++ data loader | `shared/src/DataLoader.cpp` (validated on-device, client-private load) — **opt-in** |
 | gRPC marshal test (gtest) | `shared/tests/grpc_marshal_test.cpp` (server-free; proto↔core + codec whitelist) |
+| TurboModule spec (TS) | `bridge/specs/NativeFedLearnCore.ts` (typed codegen source of truth) |
+| C++ CXX TurboModule | `bridge/common/FedLearnCoreModule.{h,cpp}` + `BridgeTypes.h` (pure `do*` logic + thin JSI layer; real-softmax `infer`) |
+| Android / iOS registration | `bridge/android/jni/{OnLoad.cpp,CMakeLists.txt}`, `bridge/ios/NativeFedLearnCore.mm` |
 | Host build | `CMakeLists.txt`, `shared/CMakeLists.txt`, `shared/tests/CMakeLists.txt` |
 
-**Not yet built** (subsequent increments, 15-LLD §13 tasks 11–19): the TurboModule bridge
-(React Native ↔ C++), the Android/iOS app projects, the RN TypeScript app layer and
-screens, the foreground-service lifecycle, native telemetry wiring, the native-dep prebuild
-scripts (`build_libtorch_arm64.sh`, `build_grpc_arm64.sh`), and `mobile.yml` CI.
+**Not yet built** (subsequent increments, 15-LLD §13 tasks 14–19): the RN TypeScript app
+layer (`src/lib`, `src/navigation`) and the 3 screens (Training / Model Library / Model
+Testing), the Android/iOS app projects (Gradle/Xcode), the foreground-service lifecycle, the
+native device-metrics provider wiring, the native-dep prebuild scripts
+(`build_libtorch_arm64.sh`, `build_grpc_arm64.sh`), and `mobile.yml` CI.
+
+The TurboModule bridge (tasks 11–13) is written in `bridge/` — see `bridge/README.md` for its
+build/codegen/wiring steps and the React Native version-specific caveats.
 
 ### Building the opt-in gRPC layer
 
