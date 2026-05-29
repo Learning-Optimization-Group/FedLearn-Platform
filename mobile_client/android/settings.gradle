@@ -1,0 +1,7 @@
+// VERIFY-BEFORE-USE: RN 0.80 settings autolinking. Pin the React Native Gradle plugin version.
+pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
+plugins { id("com.facebook.react.settings") }
+extensions.configure(com.facebook.react.ReactSettingsExtension) { ex -> ex.autolinkLibrariesFromCommand() }
+rootProject.name = 'FedLearn'
+include ':app'
+includeBuild('../node_modules/@react-native/gradle-plugin')

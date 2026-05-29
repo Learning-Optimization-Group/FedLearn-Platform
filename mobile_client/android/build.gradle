@@ -1,0 +1,24 @@
+// Root Gradle build. VERIFY-BEFORE-USE: pin the exact SDK/NDK/AGP/Kotlin versions for the pinned
+// React Native 0.80 line.
+buildscript {
+  ext {
+    buildToolsVersion = "35.0.0"
+    minSdkVersion = 26          // foreground-service + thermal API (PowerManager.getCurrentThermalStatus is API 29; guarded)
+    compileSdkVersion = 35
+    targetSdkVersion = 35
+    ndkVersion = "27.1.12297006"
+    kotlinVersion = "2.0.21"
+  }
+  repositories { google(); mavenCentral() }
+  dependencies {
+    classpath("com.android.tools.build:gradle")
+    classpath("com.facebook.react:react-native-gradle-plugin")
+    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
+  }
+}
+
+apply plugin: "com.facebook.react.rootproject"
+
+allprojects {
+  repositories { google(); mavenCentral() }
+}

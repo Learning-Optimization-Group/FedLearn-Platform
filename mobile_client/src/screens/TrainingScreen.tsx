@@ -4,6 +4,7 @@ import { Play, Square } from 'lucide-react-native';
 
 import nativeCore, { type DeviceMetrics, type RoundConfig, type RoundResult } from '../lib/nativeCore';
 import { joinRun, type JoinedRun } from '../lib/runJoin';
+import { foregroundService } from '../lib/foregroundService';
 import { StatusBadge, type StatusVariant } from '../components/StatusBadge';
 import { MetricTile } from '../components/MetricTile';
 import { DeviceBanner } from '../components/DeviceBanner';
@@ -69,6 +70,7 @@ export function TrainingScreen() {
     if (!joined) return;
     stopRef.current = false;
     setPhase('training');
+    foregroundService.start(); // Android: survive Doze for the run's lifetime (task 16)
     const config = defaultConfig(joined.manifest.torchVersion);
     try {
       for (;;) {
@@ -102,6 +104,7 @@ export function TrainingScreen() {
       }
     } finally {
       await nativeCore.stop();
+      foregroundService.stop();
     }
   }, [joined]);
 

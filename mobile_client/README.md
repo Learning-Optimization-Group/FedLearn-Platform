@@ -12,9 +12,10 @@ build order in [`docs/v2/build/90-BUILD-SEQUENCE.md`](../docs/v2/build/90-BUILD-
 
 ## Status — what is built so far
 
-This is **increments 1–6: the determinism contract, the C++ FL core, the C++ gRPC layer, the
-TurboModule bridge, the React Native app layer + screens, and the native-dep prebuild scripts +
-mobile CI** (15-LLD §13 tasks 2–15 and 18–19, plus the framework prerequisite). It is the load-bearing
+This is **increments 1–7: the full mobile unit in code** — the determinism contract, the C++ FL
+core, the C++ gRPC layer, the TurboModule bridge, the React Native app layer + screens, the
+native-dep prebuild scripts + mobile CI, and the Android/iOS app projects + foreground service +
+device-metrics provider (15-LLD §13 tasks 2–19, plus the framework prerequisite). It is the load-bearing
 foundation everything else depends on: the DeComFL protocol only works if the Python
 server and this C++ client regenerate **identical** perturbation vectors from the same
 seed, and produce matching gradient scalars.
@@ -47,16 +48,21 @@ seed, and produce matching gradient scalars.
 | RN screens | `src/screens/`: `TrainingScreen` (join + DeComFL round loop + live metrics + device guard), `ModelLibraryScreen`, `ModelTestingScreen` (**real softmax**) — on NativeWind + OKLCH tokens, lucide icons |
 | RN nav + root | `src/navigation/AppNavigator.tsx` (3-tab, lucide), `src/App.tsx`; `src/theme/` (local OKLCH token placeholder for `@fedlearn/tokens`) |
 | Native-dep prebuild scripts | `scripts/`: `build_libtorch_arm64.sh` + `build_grpc_arm64.sh` (pinned cross-compile), `export_model.py` (1M/10M TorchScript — verified), `fetch_demo_data.sh` (MNIST, not committed) |
-| Mobile CI | `../.github/workflows/mobile.yml` — proto-mirror + python-parity + cpp-parity gates (the **golden-vector test gates the build**); `android-so-size` budget job (gated by repo var until task 16) |
+| Mobile CI | `../.github/workflows/mobile.yml` — proto-mirror + python-parity + cpp-parity gates (the **golden-vector test gates the build**); `android-so-size` budget job (gated by repo var) |
+| Android app project | `android/`: Gradle (root + app, `externalNativeBuild`→JNI), `AndroidManifest.xml`, `network_security_config.xml`, `MainApplication`/`MainActivity` (RN New-Arch host + data-dir init) |
+| Foreground service (task 16) | `android/.../FlForegroundService.kt` + `FlServiceModule`/`FlServicePackage` + `src/lib/foregroundService.ts` (started around the round loop in `TrainingScreen`) |
+| Device-metrics provider (task 17) | `android/.../DeviceState.kt` + `bridge/android/jni/DeviceStateJni.cpp`; iOS `DeviceState.swift`; shared `bridge/common/DeviceState.{h,cpp}` → `getDeviceMetrics` |
+| iOS app project | `ios/`: `Podfile`, `FedLearn/Info.plist` (ATS on, foreground-only), `AppDelegate.swift`, bridging header |
 | Host build | `CMakeLists.txt`, `shared/CMakeLists.txt`, `shared/tests/CMakeLists.txt` |
 
-**Not yet built** (subsequent increments, 15-LLD §13 tasks 16–17): the Android/iOS **app
-projects** (the Gradle/Xcode project files + `AndroidManifest.xml`/`Info.plist`/network-security
-config that host the bridge JNI lib and wire the provider), the foreground-service lifecycle
-(task 16), and the native device-metrics provider for thermal/battery (task 17). Once the
-Android app project exists, set the repo variable `MOBILE_NATIVE_CI=true` to enable the
-`android-so-size` CI job. Also pending: the shared `@fedlearn/tokens` design-system package
-(C5 workstream) that replaces the local `src/theme` placeholder.
+**Remaining to make the app projects buildable** (template scaffolding + cross-cutting, not new
+FL logic): the Gradle wrapper (`gradlew` + `gradle/wrapper/*`) and the iOS Xcode project
+(`FedLearn.xcodeproj`/`.xcworkspace`) — normally dropped in from a fresh `react-native@0.80` init
+template; a real release signing config (the app `build.gradle` currently reuses debug signing);
+and the shared `@fedlearn/tokens` design-system package (C5 workstream) replacing the local
+`src/theme` placeholder. Once the Android project builds, set the repo variable
+`MOBILE_NATIVE_CI=true` to enable the `android-so-size` CI job. On-device training data wiring
+(`FedLearnCoreModule::setTrainingDataFromFiles`) is the last app-integration seam.
 
 The TurboModule bridge (tasks 11–13) is in `bridge/` — see `bridge/README.md` for its
 build/codegen/wiring steps and the React Native version-specific caveats.

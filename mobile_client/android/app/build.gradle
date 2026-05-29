@@ -1,0 +1,54 @@
+// App module build. Compiles the JNI native lib (the C++ FL core + bridge) via the bridge's
+// CMakeLists, restricted to arm64-v8a (15-LLD §11.4 / §13 task 12). VERIFY-BEFORE-USE: the
+// GENERATED_PROTO_DIR / LIBTORCH_DIR / GRPC_DIR cmake args must point at the buf-generated stubs
+// and the CI-cached cross-compiled ARM64 artifacts (scripts/build_*_arm64.sh).
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+react {
+  // Autolinking + codegen for the New Architecture; the NativeFedLearnCore spec is in bridge/specs.
+  jsRootDir = file("../../")
+  codegenDir = file("../../node_modules/@react-native/codegen")
+}
+
+android {
+  namespace "com.fedlearn.mobile"
+  compileSdk rootProject.ext.compileSdkVersion
+  ndkVersion rootProject.ext.ndkVersion
+
+  defaultConfig {
+    applicationId "com.fedlearn.mobile"
+    minSdk rootProject.ext.minSdkVersion
+    targetSdk rootProject.ext.targetSdkVersion
+    versionCode 1
+    versionName "2.0.0"
+    ndk { abiFilters "arm64-v8a" }   // the only shipped ABI
+    externalNativeBuild {
+      cmake {
+        arguments "-DANDROID_STL=c++_shared",
+                  "-DLIBTORCH_DIR=${project.properties['LIBTORCH_DIR'] ?: ''}",
+                  "-DGENERATED_PROTO_DIR=${project.properties['GENERATED_PROTO_DIR'] ?: ''}"
+      }
+    }
+  }
+
+  externalNativeBuild {
+    cmake {
+      path "../../bridge/android/jni/CMakeLists.txt"   // builds libfedlearn_jni.so
+    }
+  }
+
+  buildTypes {
+    release {
+      signingConfig signingConfigs.debug   // VERIFY-BEFORE-USE: replace with a real release signing config
+      minifyEnabled true
+      proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+    }
+  }
+}
+
+dependencies {
+  implementation("com.facebook.react:react-android")
+  implementation("com.facebook.react:hermes-android")
+}

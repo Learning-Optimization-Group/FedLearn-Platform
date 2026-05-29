@@ -1,0 +1,6 @@
+<resources>
+  <!-- VERIFY-BEFORE-USE: a minimal RN app theme. Replace with the brand theme if desired. -->
+  <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+  </style>
+</resources>

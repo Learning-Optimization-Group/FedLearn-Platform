@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TLS-only by default (matches gRPC default-secure, 04 §10.3 / E13). No cleartext in release.
+     A dev build overrides this (a debug-only network_security_config under src/debug/) to allow a
+     localhost FL server when FEDLEARN_ALLOW_INSECURE_GRPC=true. -->
+<network-security-config>
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+  </base-config>
+</network-security-config>

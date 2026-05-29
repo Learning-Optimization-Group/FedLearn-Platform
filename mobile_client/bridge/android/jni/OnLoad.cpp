@@ -7,6 +7,8 @@
 // into the app (MainApplication's ReactNativeHost / the generated delegate) per the pinned RN
 // version. `dataDir` MUST be the Android app filesDir (cert/key/CA + on-device data live there);
 // the Java/Kotlin layer passes it at startup.
+#include <jni.h>
+
 #include <memory>
 #include <string>
 
@@ -32,3 +34,13 @@ std::shared_ptr<TurboModule> FedLearnCore_cxxModuleProvider(const std::string& n
 }
 
 }  // namespace facebook::react
+
+// Kotlin (com.fedlearn.mobile.FedLearnNative) calls this at startup with filesDir, before the
+// first TurboModule lookup, so the module is constructed with the app-private cert/data dir.
+extern "C" JNIEXPORT void JNICALL Java_com_fedlearn_mobile_FedLearnNative_nativeSetDataDir(
+    JNIEnv* env, jclass /*clazz*/, jstring dir) {
+  const char* d = env->GetStringUTFChars(dir, nullptr);
+  facebook::react::FedLearnCore_setDataDir(std::string(d ? d : ""));
+  if (d) env->ReleaseStringUTFChars(dir, d);
+}
+

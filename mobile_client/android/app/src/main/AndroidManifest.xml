@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!-- gRPC to the FL server -->
+  <uses-permission android:name="android.permission.INTERNET" />
+  <!-- Foreground service so a multi-round training run survives Doze (E5 / task 16). dataSync type
+       matches "ongoing data transfer to the FL server". -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+  <application
+    android:name=".MainApplication"
+    android:label="@string/app_name"
+    android:allowBackup="false"
+    android:usesCleartextTraffic="false"
+    android:networkSecurityConfig="@xml/network_security_config"
+    android:theme="@style/AppTheme">
+
+    <activity
+      android:name=".MainActivity"
+      android:exported="true"
+      android:launchMode="singleTask"
+      android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+    </activity>
+
+    <!-- Runs for the lifetime of a training run; backgrounding the app does NOT kill the round
+         loop, and stopping the service triggers a clean nativeCore.stop() (task 16). -->
+    <service
+      android:name=".FlForegroundService"
+      android:exported="false"
+      android:foregroundServiceType="dataSync" />
+  </application>
+</manifest>

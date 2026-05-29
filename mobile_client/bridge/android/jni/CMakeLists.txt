@@ -34,7 +34,9 @@ find_library(LOG_LIB log)
 
 add_library(fedlearn_jni SHARED
   OnLoad.cpp
+  DeviceStateJni.cpp
   ${FEDLEARN_ROOT}/bridge/common/FedLearnCoreModule.cpp
+  ${FEDLEARN_ROOT}/bridge/common/DeviceState.cpp
 )
 target_include_directories(fedlearn_jni PRIVATE
   ${FEDLEARN_ROOT}/bridge/common

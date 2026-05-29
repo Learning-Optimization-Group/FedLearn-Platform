@@ -8,6 +8,7 @@
 
 #include <ReactCommon/TurboModuleUtils.h>  // react::createPromiseAsJSIValue, react::Promise (RN)
 
+#include "DeviceState.h"
 #include "fedlearn/DataLoader.h"
 #include "fedlearn/ZerothOrderEstimator.h"
 
@@ -299,7 +300,7 @@ InferResult FedLearnCoreModule::doInfer(const std::string& inputJson) {
 }
 
 DeviceMetrics FedLearnCoreModule::doGetDeviceMetrics() {
-  if (metricsProvider_) return metricsProvider_();  // platform supplies thermal/battery
+  if (metricsProvider_) return metricsProvider_();  // full custom override (rarely needed)
   DeviceMetrics d;
 #if defined(__linux__) || defined(__ANDROID__)
   if (FILE* f = std::fopen("/proc/self/statm", "r")) {
@@ -310,7 +311,12 @@ DeviceMetrics FedLearnCoreModule::doGetDeviceMetrics() {
     std::fclose(f);
   }
 #endif
-  // thermalState/battery require platform APIs (set a metricsProvider_ from the Android/iOS layer).
+  // thermal/battery are pushed in from the platform layer (Android DeviceState.kt / iOS
+  // DeviceState.swift -> FedLearnCoreSetDeviceState). RSS comes from /proc above.
+  const PlatformDeviceState ps = getPlatformDeviceState();
+  d.thermalState = ps.thermalState;
+  d.batteryLevel = ps.batteryLevel;
+  d.batteryCharging = ps.batteryCharging;
   return d;
 }
 
