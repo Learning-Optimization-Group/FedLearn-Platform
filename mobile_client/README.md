@@ -12,8 +12,9 @@ build order in [`docs/v2/build/90-BUILD-SEQUENCE.md`](../docs/v2/build/90-BUILD-
 
 ## Status — what is built so far
 
-This is **increments 1–4: the determinism contract, the C++ FL core, the C++ gRPC layer, and
-the TurboModule bridge** (15-LLD §13 tasks 2–13, plus the framework prerequisite). It is the load-bearing
+This is **increments 1–5: the determinism contract, the C++ FL core, the C++ gRPC layer, the
+TurboModule bridge, and the React Native app layer + screens** (15-LLD §13 tasks 2–15, plus the
+framework prerequisite). It is the load-bearing
 foundation everything else depends on: the DeComFL protocol only works if the Python
 server and this C++ client regenerate **identical** perturbation vectors from the same
 seed, and produce matching gradient scalars.
@@ -41,15 +42,21 @@ seed, and produce matching gradient scalars.
 | TurboModule spec (TS) | `bridge/specs/NativeFedLearnCore.ts` (typed codegen source of truth) |
 | C++ CXX TurboModule | `bridge/common/FedLearnCoreModule.{h,cpp}` + `BridgeTypes.h` (pure `do*` logic + thin JSI layer; real-softmax `infer`) |
 | Android / iOS registration | `bridge/android/jni/{OnLoad.cpp,CMakeLists.txt}`, `bridge/ios/NativeFedLearnCore.mm` |
+| RN project scaffold | `package.json` (codegenConfig), `tsconfig.json`, `babel/metro/tailwind` config, `app.json`, `index.js` |
+| RN app `lib/` | `src/lib/`: `nativeCore` (typed TurboModule wrapper), `clientId` (stable encrypted UUID), `deviceClass` (tier cap; 100M never on mobile), `restClient`, `runJoin` (the §6.1 join flow) |
+| RN screens | `src/screens/`: `TrainingScreen` (join + DeComFL round loop + live metrics + device guard), `ModelLibraryScreen`, `ModelTestingScreen` (**real softmax**) — on NativeWind + OKLCH tokens, lucide icons |
+| RN nav + root | `src/navigation/AppNavigator.tsx` (3-tab, lucide), `src/App.tsx`; `src/theme/` (local OKLCH token placeholder for `@fedlearn/tokens`) |
 | Host build | `CMakeLists.txt`, `shared/CMakeLists.txt`, `shared/tests/CMakeLists.txt` |
 
-**Not yet built** (subsequent increments, 15-LLD §13 tasks 14–19): the RN TypeScript app
-layer (`src/lib`, `src/navigation`) and the 3 screens (Training / Model Library / Model
-Testing), the Android/iOS app projects (Gradle/Xcode), the foreground-service lifecycle, the
-native device-metrics provider wiring, the native-dep prebuild scripts
-(`build_libtorch_arm64.sh`, `build_grpc_arm64.sh`), and `mobile.yml` CI.
+**Not yet built** (subsequent increments, 15-LLD §13 tasks 16–19): the Android/iOS **app
+projects** (the Gradle/Xcode project files + `AndroidManifest.xml`/`Info.plist`/network-security
+config that host the bridge JNI lib), the foreground-service lifecycle (task 16), the native
+device-metrics provider wiring (thermal/battery — task 17), the native-dep prebuild scripts
+(`build_libtorch_arm64.sh`, `build_grpc_arm64.sh` — task 18), and `mobile.yml` CI (task 19).
+Also pending: the shared `@fedlearn/tokens` design-system package (C5 workstream) that replaces
+the local `src/theme` placeholder.
 
-The TurboModule bridge (tasks 11–13) is written in `bridge/` — see `bridge/README.md` for its
+The TurboModule bridge (tasks 11–13) is in `bridge/` — see `bridge/README.md` for its
 build/codegen/wiring steps and the React Native version-specific caveats.
 
 ### Building the opt-in gRPC layer
