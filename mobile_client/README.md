@@ -12,11 +12,11 @@ build order in [`docs/v2/build/90-BUILD-SEQUENCE.md`](../docs/v2/build/90-BUILD-
 
 ## Status — what is built so far
 
-This is **increment 1: the cross-language determinism contract + C++ core foundation**
-(15-LLD §13 tasks 2–5, plus the framework prerequisite). It is the load-bearing
+This is **increments 1–2: the cross-language determinism contract + the C++ FL core**
+(15-LLD §13 tasks 2–8, plus the framework prerequisite). It is the load-bearing
 foundation everything else depends on: the DeComFL protocol only works if the Python
 server and this C++ client regenerate **identical** perturbation vectors from the same
-seed.
+seed, and produce matching gradient scalars.
 
 | Built | File |
 |---|---|
@@ -27,13 +27,20 @@ seed.
 | C++ dtype whitelist | `shared/src/DtypeMap.cpp` + `include/fedlearn/DtypeMap.h` |
 | C++ parity gate (gtest) | `shared/tests/rng_parity_test.cpp` (**release blocker**, 15-LLD §13.4) |
 | C++ dtype test (gtest) | `shared/tests/dtype_map_test.cpp` |
+| C++ SHA-256 (verify-before-load) | `shared/src/Sha256.cpp` + `include/fedlearn/Sha256.h` (NIST KAT in `sha256_test.cpp`) |
+| C++ ModelManager | `shared/src/ModelManager.cpp` (load + requires_grad-filtered flat params + symmetric serialize) |
+| C++ ZerothOrderEstimator | `shared/src/ZerothOrderEstimator.cpp` (double-accumulated loss diff) |
+| C++ DeComFLClient | `shared/src/DeComFLClient.cpp` (`fit()` snapshot-restore + `(eta/P)`; `rebuildModel()` Alg.2) |
+| ZO golden reference | `../framework/tests/fixtures/decomfl_golden/` (`zo_model_tiny.pt`, batch, `zo_manifest.json`) + `generate_zo.py` |
+| C++ FL-core tests (gtest) | `model_manager_test`, `flatparam_filter_test`, `g_scalar_parity_test`, `serialize_roundtrip_test`, `decomfl_equivalence_test` |
 | Host build | `CMakeLists.txt`, `shared/CMakeLists.txt`, `shared/tests/CMakeLists.txt` |
 
-**Not yet built** (subsequent increments, 15-LLD §13 tasks 6–19): `ModelManager`,
-`ZerothOrderEstimator`, `DeComFLClient`, `FederatedLoop`, `FedLearnClient` (gRPC), the
-TurboModule bridge, the Android/iOS app projects, the RN TypeScript app layer and
-screens, the foreground-service lifecycle, telemetry wiring, the native-dep prebuild
-scripts, and `mobile.yml` CI.
+**Not yet built** (subsequent increments, 15-LLD §13 tasks 9–19): `FedLearnClient`
+(gRPC dual-channel + streaming), `FederatedLoop`, `DataLoader`, the TurboModule bridge,
+the Android/iOS app projects, the RN TypeScript app layer and screens, the
+foreground-service lifecycle, telemetry wiring, the native-dep prebuild scripts, and
+`mobile.yml` CI. (`FedLearnClient` and `FederatedLoop` depend on the v2 `fedlearn.proto`,
+which is produced by an earlier milestone — `90-BUILD-SEQUENCE.md` M2.)
 
 ---
 

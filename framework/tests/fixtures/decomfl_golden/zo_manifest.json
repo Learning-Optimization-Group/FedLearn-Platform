@@ -1,0 +1,34 @@
+{
+  "description": "ZerothOrderEstimator g-scalar + flat-param-filter golden reference (C++ mobile core).",
+  "torch_version": "2.12.0+cu130",
+  "architecture": "Linear(4,5)->ReLU->Linear(5,3); fc2 FROZEN (requires_grad=False)",
+  "model_file": "zo_model_tiny.pt",
+  "model_sha256": "31d8fae5b38cc32e22cd3fca200f907dbe65d3df101ba94ba14bda5778c5c796",
+  "total_params": 43,
+  "trainable_params": 25,
+  "flat_dim": 25,
+  "mu": 0.001,
+  "method": "forward",
+  "loss": "cross_entropy",
+  "inputs_file": "zo_inputs.f32",
+  "inputs_shape": [
+    8,
+    4
+  ],
+  "targets_file": "zo_targets.i64",
+  "targets_shape": [
+    8
+  ],
+  "seeds": [
+    11,
+    22,
+    33,
+    4242
+  ],
+  "golden_g": [
+    0.36466118693351746,
+    -0.04482268914580345,
+    -0.6026029586791992,
+    0.5087852478027344
+  ]
+}
