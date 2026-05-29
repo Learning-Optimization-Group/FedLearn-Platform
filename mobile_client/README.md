@@ -33,14 +33,16 @@ seed, and produce matching gradient scalars.
 | C++ DeComFLClient | `shared/src/DeComFLClient.cpp` (`fit()` snapshot-restore + `(eta/P)`; `rebuildModel()` Alg.2) |
 | ZO golden reference | `../framework/tests/fixtures/decomfl_golden/` (`zo_model_tiny.pt`, batch, `zo_manifest.json`) + `generate_zo.py` |
 | C++ FL-core tests (gtest) | `model_manager_test`, `flatparam_filter_test`, `g_scalar_parity_test`, `serialize_roundtrip_test`, `decomfl_equivalence_test` |
+| Canonical gRPC proto | `../proto/fedlearn/v2/fedlearn.proto` (+ `buf.yaml`/`buf.gen.yaml`); mirror at `proto/fedlearn/v2/fedlearn.proto`, gated by `../scripts/check_proto_mirror.sh` |
 | Host build | `CMakeLists.txt`, `shared/CMakeLists.txt`, `shared/tests/CMakeLists.txt` |
 
 **Not yet built** (subsequent increments, 15-LLD §13 tasks 9–19): `FedLearnClient`
 (gRPC dual-channel + streaming), `FederatedLoop`, `DataLoader`, the TurboModule bridge,
 the Android/iOS app projects, the RN TypeScript app layer and screens, the
 foreground-service lifecycle, telemetry wiring, the native-dep prebuild scripts, and
-`mobile.yml` CI. (`FedLearnClient` and `FederatedLoop` depend on the v2 `fedlearn.proto`,
-which is produced by an earlier milestone — `90-BUILD-SEQUENCE.md` M2.)
+`mobile.yml` CI. (The v2 `fedlearn.proto` it depends on now exists — see the canonical
+proto row above; the C++ gRPC stubs are produced by `buf generate` + the cross-compiled
+gRPC runtime from `scripts/build_grpc_arm64.sh`.)
 
 ---
 

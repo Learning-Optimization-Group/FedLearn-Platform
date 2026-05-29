@@ -1,0 +1,23 @@
+# buf module config — the single source of truth for the fedlearn gRPC contract.
+# CI (proto.yml) runs: buf lint  +  buf breaking --against '.git#branch=main'  +  a
+# `buf generate` freshness check. This is the governance that kills the v1 proto drift
+# (the malformed SubmitModelUpdate RPC the audit found across the mobile copies).
+version: v2
+modules:
+  - path: .
+lint:
+  use:
+    - STANDARD
+  except:
+    # The contract in docs/v2/build/04-API-CONTRACTS.md §10.2 is AUTHORITATIVE and
+    # intentionally (a) reuses request/response types across the unary + streaming
+    # variants of GetGlobalModel / SubmitModelUpdate, and (b) uses short enum value
+    # names (ACCEPTED, INITIALIZING, ...) rather than the enum-name-prefixed form.
+    # These are stylistic buf rules; everything else in STANDARD stays enforced.
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+    - ENUM_VALUE_PREFIX
+breaking:
+  use:
+    - FILE

@@ -1,0 +1,35 @@
+# buf codegen — one config generates stubs for all four targets from fedlearn/v2/fedlearn.proto.
+#
+# VERIFY-BEFORE-USE (02-TECH-STACK.md §17): pin the EXACT remote-plugin versions (the `:vX.Y.Z`
+# suffixes below are placeholders) by resolving them against https://buf.build/plugins, then
+# pin the resulting protobuf/grpc runtime versions in each subproject's manifest.
+#
+# Managed mode is intentionally NOT enabled for the Java package: the .proto already declares
+# `option java_package = "com.fedlearn.v2"` (it is part of the authoritative §10.2 contract).
+#
+# NOTE on C++ (B7 / 02-TECH-STACK §17): buf generates the C++/gRPC *stubs* (.pb.cc / .grpc.pb.cc)
+# but NOT the linked gRPC C++ runtime. The mobile runtime is cross-compiled separately by
+# mobile_client/scripts/build_grpc_arm64.sh (pinned); these stubs are compiled against it.
+version: v2
+plugins:
+  # --- Python (framework server + client) ---
+  - remote: buf.build/protocolbuffers/python:v28.3
+    out: gen/python
+  - remote: buf.build/grpc/python:v1.67.1
+    out: gen/python
+
+  # --- Java (Spring Boot control plane / FL server bridge) ---
+  - remote: buf.build/protocolbuffers/java:v28.3
+    out: gen/java
+  - remote: buf.build/grpc/java:v1.68.1
+    out: gen/java
+
+  # --- TypeScript (frontend + desktop; protobuf-es) ---
+  - remote: buf.build/bufbuild/es:v2.2.3
+    out: gen/ts
+
+  # --- C++ (mobile core; stubs only — runtime cross-compiled separately) ---
+  - remote: buf.build/protocolbuffers/cpp:v28.3
+    out: gen/cpp
+  - remote: buf.build/grpc/cpp:v1.67.1
+    out: gen/cpp
