@@ -29,7 +29,7 @@ FedLearn Platform is an **open-source**, end-to-end solution for federated learn
 
 ⚡ **Parallel Heartbeat** - Dual gRPC stub architecture prevents server timeout during long training sessions
 
-🛡️ **DeComFL Integration** - Byzantine-robust aggregation for secure federated learning
+📉 **DeComFL Integration** - Dimension-free communication: O(1) scalar values per round via zeroth-order optimization
 
 🚀 **Full-Stack Integration** - Seamless orchestration from React UI → Spring Boot → Python FL Server → Docker Clients
 
@@ -79,7 +79,7 @@ Built entirely from scratch without relying on existing FL frameworks like Flowe
 **Capabilities**:
 
 - FedAvg (Federated Averaging) aggregation
-- DeComFL (Decomposed Federated Learning) with Byzantine robustness
+- DeComFL (Dimension-Free Communication FL) — O(1)-per-round communication via zeroth-order optimization
 - Support for CNNs, Transformers, and LLMs
 - Non-IID data partitioning via Dirichlet distribution
 - Mixed precision training
@@ -305,7 +305,7 @@ FedLearn-Platform/
 │   ├── requirements.txt       # Python dependencies
 │   └── README.md              # Docker documentation
 │
-├── architecture.svg            # System architecture diagram
+├── architecture.png            # System architecture diagram
 ├── README.md                   # This file
 └── LICENSE                     # Apache 2.0 license
 ```
@@ -369,6 +369,12 @@ Comprehensive documentation for each component:
 | **Backend API**   | [`backend/fl-platform-api/README.md`](backend/fl-platform-api/README.md) |
 | **Docker Client** | [`client-docker/README.md`](client-docker/README.md)                     |
 
+**Cross-cutting docs** (full map: [`docs/README.md`](docs/README.md)):
+
+- **Research papers ↔ implementation**: [`docs/research/papers-and-implementation.md`](docs/research/papers-and-implementation.md)
+- **Design system (Instrument)**: [`docs/design/instrument-design-system.md`](docs/design/instrument-design-system.md)
+- **v2 build status & architecture**: [`docs/v2/STATUS.md`](docs/v2/STATUS.md) · **Deep-dive wikis**: [`docs/wikis/`](docs/wikis/)
+
 ### Operational Guides
 
 - **AWS deployment**: [`docs/guides/aws_deployment_guide.md`](docs/guides/aws_deployment_guide.md)
@@ -382,25 +388,28 @@ Comprehensive documentation for each component:
 
 ## 🔬 Research & Publications
 
-This platform implements algorithms from:
+This platform is grounded in published research. **Full papers-to-code mapping** (DeComFL, FoT, HiSo, DPZV — what's implemented vs. on the roadmap): [`docs/research/papers-and-implementation.md`](docs/research/papers-and-implementation.md).
 
-**DeComFL: Decomposed Federated Learning with Byzantine-Robust Aggregation**
+**Achieving Dimension-Free Communication in Federated Learning via Zeroth-Order Optimization** (ICLR 2025)
 
-- Authors: Haibo Yang, et al.
-- Institution: Rochester Institute of Technology
+- Authors: Zhe Li, Bicheng Ying, Zidong Liu, Chaosheng Dong, Haibo Yang (Rochester Institute of Technology)
+- Paper: [arXiv:2405.15861](https://arxiv.org/abs/2405.15861) · Reference implementation: [ZidongLiu/DeComFL](https://github.com/ZidongLiu/DeComFL) (Apache-2.0)
 - Implementation: [`framework/src/fedlearn/estimators/`](framework/src/fedlearn/estimators/)
+
+**Federation over Text (FoT)** — additive, local-LLM-only text-federation research mode (orthogonal to the gradient path)
+
+- Reference: [arXiv:2604.16778](https://arxiv.org/abs/2604.16778) · Implementation: [`framework/src/fedlearn/fot/`](framework/src/fedlearn/fot/)
 
 ### Citation
 
-If you use FedLearn Platform in your research, please cite:
+If you use FedLearn Platform in your research, please cite the DeComFL paper:
 
 ```bibtex
-@article{yang2024decomfl,
-  title={DeComFL: Decomposed Federated Learning},
-  author={Yang, Haibo and [Co-authors]},
-  journal={[Journal/Conference]},
-  year={2024},
-  institution={Rochester Institute of Technology}
+@inproceedings{li2025decomfl,
+  title={Achieving Dimension-Free Communication in Federated Learning via Zeroth-Order Optimization},
+  author={Li, Zhe and Ying, Bicheng and Liu, Zidong and Dong, Chaosheng and Yang, Haibo},
+  booktitle={International Conference on Learning Representations (ICLR)},
+  year={2025}
 }
 ```
 
@@ -439,9 +448,7 @@ If you use FedLearn Platform in your research, please cite:
 ### Data Privacy
 
 - ✅ Raw data never leaves client devices
-- ✅ Only model updates transmitted
-- ✅ Differential privacy support (optional)
-- ✅ Secure aggregation algorithms
+- ✅ Only model updates (FedAvg) or O(1) gradient scalars + seeds (DeComFL) are transmitted
 
 ### Authentication
 
