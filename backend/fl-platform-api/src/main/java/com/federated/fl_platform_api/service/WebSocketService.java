@@ -75,7 +75,8 @@ public class WebSocketService {
      * delivers only to STOMP sessions authenticated as that user.
      *
      * The user's username is looked up by ID. If the user does not exist we drop
-     * the notification silently — callers should not rely on best-effort delivery.
+     * the notification and log a WARN for observability — callers should not rely
+     * on best-effort delivery.
      */
     public void sendUserNotification(Long userId, com.federated.fl_platform_api.dto.NotificationDto payload) {
         if (userId == null || payload == null) return;
