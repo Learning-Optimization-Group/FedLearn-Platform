@@ -29,6 +29,8 @@ public class AccessRequestService {
     public DecideAccessRequestResponse submit(UUID projectId, String message) {
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        // Org isolation (mutation): out-of-scope projects are a hard 403.
+        authz.requireOrgScope(project.getOrgId());
 
         User caller = authz.currentUser();
 
@@ -78,6 +80,11 @@ public class AccessRequestService {
     public List<AccessRequestDto> listForProject(UUID projectId, AccessRequestStatus filter) {
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        // Org isolation (read path): out-of-scope projects are treated as 404 so
+        // cross-tenant project existence is not leaked.
+        if (!authz.isInOrgScope(project.getOrgId())) {
+            throw ResourceNotFoundException.project(projectId);
+        }
         authz.requireOwnerOrMemberOrAdmin(project);
 
         List<ProjectAccessRequest> rows = (filter != null)
@@ -100,6 +107,8 @@ public class AccessRequestService {
         }
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        // Org isolation (mutation): out-of-scope projects are a hard 403.
+        authz.requireOrgScope(project.getOrgId());
         authz.requireOwnerOrMemberOrAdmin(project);
 
         ProjectAccessRequest req = requestRepository.findById(requestId)

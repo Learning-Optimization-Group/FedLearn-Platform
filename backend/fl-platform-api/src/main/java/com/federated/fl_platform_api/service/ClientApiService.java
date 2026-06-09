@@ -24,14 +24,22 @@ public class ClientApiService {
     @Autowired private ProjectRepository projectRepository;
     @Autowired private ProjectMembershipRepository membershipRepository;
     @Autowired private AuthorizationService authz;
+    @Autowired private com.federated.fl_platform_api.security.OrgScope orgScope;
 
     @Value("${app.fl-server.grpc-host:localhost}")
     private String grpcHost;
 
     public List<ClientProjectDto> listForCurrentUser() {
         User self = authz.currentUser();
+        // Org isolation (read path): constrain to the caller's visible orgs so a
+        // stray cross-org membership row can't surface an out-of-org project.
+        // Platform admins (unrestricted) keep the unscoped union, mirroring
+        // ProjectService.getProjectsForCurrentUser().
+        List<Project> candidates = orgScope.isUnrestricted()
+            ? projectRepository.findOwnedOrMemberOf(self.getId())
+            : projectRepository.findOwnedOrMemberOfInOrgs(self.getId(), orgScope.visibleOrgIds());
         List<ClientProjectDto> result = new ArrayList<>();
-        for (Project p : projectRepository.findOwnedOrMemberOf(self.getId())) {
+        for (Project p : candidates) {
             boolean isOwner = p.getUser() != null && p.getUser().getId().equals(self.getId());
             boolean isClient = membershipRepository
                 .existsByIdProjectIdAndIdUserIdAndRole(p.getId(), self.getId(), MembershipRole.CLIENT);
@@ -46,6 +54,8 @@ public class ClientApiService {
         // same project so partition_id assignment never collides.
         Project project = projectRepository.lockById(projectId)
             .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        // Org isolation (mutation): out-of-scope projects are a hard 403.
+        authz.requireOrgScope(project.getOrgId());
         User self = authz.currentUser();
         boolean isOwner = project.getUser() != null
             && project.getUser().getId().equals(self.getId());

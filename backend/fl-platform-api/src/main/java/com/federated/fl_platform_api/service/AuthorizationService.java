@@ -82,6 +82,17 @@ public class AuthorizationService {
         throw new AccessDeniedException("Project is outside your organization scope");
     }
 
+    /**
+     * Non-throwing form of {@link #requireOrgScope(UUID)}: returns whether the
+     * caller's {@link OrgScope} includes the given org (or is unrestricted).
+     * Read/list paths use this to translate an out-of-scope project into a 404
+     * (existence not leaked) instead of a 403, mirroring
+     * {@code ProjectService.getProject}.
+     */
+    public boolean isInOrgScope(UUID orgId) {
+        return orgScope != null && orgScope.allows(orgId);
+    }
+
     public void requireOwnerOrAdmin(Project project) {
         if (isPlatformAdmin() || isOwner(project)) return;
         throw new AccessDeniedException("You do not have access to this project");
