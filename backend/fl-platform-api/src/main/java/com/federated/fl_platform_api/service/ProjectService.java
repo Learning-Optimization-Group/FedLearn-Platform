@@ -4,13 +4,18 @@ import com.federated.fl_platform_api.dto.*;
 import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
+import com.federated.fl_platform_api.model.MembershipRole;
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.ProjectMembership;
+import com.federated.fl_platform_api.model.ProjectVisibility;
 import com.federated.fl_platform_api.model.RoundResult;
 import com.federated.fl_platform_api.model.User;
+import com.federated.fl_platform_api.repository.OrganizationMembershipRepository;
+import com.federated.fl_platform_api.repository.ProjectAccessRequestRepository;
+import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.flower.FlowerServerManager;
 import com.federated.fl_platform_api.repository.RoundResultRepository;
-import com.federated.fl_platform_api.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,17 +23,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.lang.NonNull;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -44,67 +45,25 @@ public class ProjectService {
     @Autowired
     private ModelInitializer modelInitializer;
     @Autowired
-    private UserRepository userRepository;
+    private ProjectMembershipRepository membershipRepository;
     @Autowired
     private RoundResultRepository roundResultRepository;
     @Autowired
     private WebSocketService webSocketService;
     @Autowired
     private com.federated.fl_platform_api.repository.ServerLogRepository serverLogRepository;
+    @Autowired
+    private AuthorizationService authz;
+    @Autowired
+    private ProjectAccessRequestRepository accessRequestRepository;
+    @Autowired
+    private NotificationService notificationService;
+    @Autowired
+    private OrganizationMembershipRepository orgMembershipRepository;
 
+    /** Default org UUID seeded by V5 migration — fallback when a user has no membership. */
+    private static final UUID DEFAULT_ORG_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
-    // ─── Authorization helpers ──────────────────────────────────────────────
-
-    /**
-     * Resolve the currently authenticated User entity. Spring Security's
-     * filter chain guarantees that any Authentication present in the
-     * SecurityContext at this point came from a successful JWT validation,
-     * so a non-null check here is sufficient — we don't re-check
-     * isAuthenticated().
-     */
-    private User currentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null) {
-            throw new AccessDeniedException("No authenticated principal");
-        }
-        String username = authentication.getName();
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException(
-                        "Authenticated principal has no matching user row: " + username));
-    }
-
-    private static boolean isAdmin(Authentication authentication) {
-        if (authentication == null) return false;
-        for (GrantedAuthority a : authentication.getAuthorities()) {
-            if ("ROLE_ADMIN".equals(a.getAuthority())) return true;
-        }
-        return false;
-    }
-
-    /**
-     * Asserts that the caller either owns the project or is an admin. Returns
-     * 403 (mapped via GlobalExceptionHandler) on mismatch — never 404, since
-     * leaking project-existence to non-owners is itself an information leak.
-     *
-     * Internal callbacks (FL-server → /api/internal/**) bypass this check
-     * entirely because they pass through {@code InternalApiKeyFilter} which
-     * doesn't populate a Spring Security principal.
-     */
-    private void requireOwnerOrAdmin(Project project) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null) {
-            throw new AccessDeniedException("No authenticated principal");
-        }
-        if (isAdmin(authentication)) {
-            return;
-        }
-        User caller = currentUser();
-        User owner = project.getUser();
-        if (owner == null || !owner.getId().equals(caller.getId())) {
-            // Use a generic message; do not echo back the project id or owner.
-            throw new AccessDeniedException("You do not have access to this project");
-        }
-    }
 
     private RoundResultDto convertToDto(RoundResult result) {
         RoundResultDto dto = new RoundResultDto();
@@ -125,15 +84,17 @@ public class ProjectService {
         dto.setServerPort(project.getServerPort());
         dto.setOptimizer(project.getOptimizer());
         dto.setStatus(project.getStatus());
+        dto.setVisibility(project.getVisibility() != null ? project.getVisibility().name() : null);
 
         return dto;
     }
 
     @Transactional
+    @SuppressWarnings("null")
     public ProjectResponseDto createProject(CreateProjectRequest request) throws IOException, InterruptedException {
         log.info("Creating project '{}' (modelType={})", request.getName(), request.getModelType());
 
-        User owner = currentUser();
+        User owner = authz.currentUser();
 
         Project project = new Project();
         project.setName(request.getName());
@@ -141,6 +102,15 @@ public class ProjectService {
         project.setModelName(request.getModelName());
         project.setOptimizer(request.getOptimizer());
         project.setUser(owner);
+        // V5 made projects.org_id NOT NULL. Pin the project to the owner's first
+        // org membership; fall back to the Default org (seeded by V5) for users
+        // that somehow have no membership. Real cross-org selection UI lives in
+        // a later sub-spec.
+        UUID orgId = orgMembershipRepository.findByUserId(owner.getId()).stream()
+                .findFirst()
+                .map(m -> m.getOrgId())
+                .orElse(DEFAULT_ORG_ID);
+        project.setOrgId(orgId);
         project.setStatus("CREATED");
         Project savedProject = projectRepository.save(project);
         log.debug("Persisted project shell with id={}", savedProject.getId());
@@ -179,7 +149,7 @@ public class ProjectService {
 
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        authz.requireOwnerOrAdmin(project);
 
         String strategyToUse = (request != null && request.getStrategy() != null && !request.getStrategy().isEmpty())
                 ? request.getStrategy()
@@ -206,9 +176,9 @@ public class ProjectService {
                             + " on port " + project.getServerPort());
         }
 
-        int port = flowerServerManager.startServerForProject(
+        Optional<Integer> port = flowerServerManager.startServerForProject(
                 project, strategyToUse, numRoundsToUse, minClients);
-        project.setServerPort(port);
+        project.setServerPort(port.orElse(null));
         project.setStatus("RUNNING");
 
         Project updatedProject = projectRepository.save(project);
@@ -216,7 +186,11 @@ public class ProjectService {
         ProjectStatusUpdateDto update = new ProjectStatusUpdateDto(
                 updatedProject.getId(), "RUNNING", updatedProject.getServerPort());
         webSocketService.sendStatusUpdate(update);
-        log.info("Started FL server for project {} on port {}", projectId, port);
+        if (port.isPresent()) {
+            log.info("Started FL server for project {} on port {}", projectId, port.get());
+        } else {
+            log.info("Started FL server for project {} on ECS (port managed externally)", projectId);
+        }
 
         return convertToDto(updatedProject);
     }
@@ -225,7 +199,7 @@ public class ProjectService {
     public ProjectResponseDto stopServerForProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        authz.requireOwnerOrAdmin(project);
 
         boolean stopped = flowerServerManager.stopServerForProject(projectId);
         Project finalProjectState = project;
@@ -242,17 +216,27 @@ public class ProjectService {
     }
 
     public List<ProjectResponseDto> getProjectsForCurrentUser() {
-        User caller = currentUser();
-        List<Project> projects = projectRepository.findByUserId(caller.getId());
-        return projects.stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+        User caller = authz.currentUser();
+        List<Project> projects = projectRepository.findOwnedOrMemberOf(caller.getId());
+        return projects.stream().map(p -> {
+            ProjectResponseDto dto = convertToDto(p);
+            dto.setVisibility(p.getVisibility() != null ? p.getVisibility().name() : null);
+            if (p.getUser() != null && p.getUser().getId().equals(caller.getId())) {
+                dto.setMyRelationship("OWNER");
+            } else {
+                ProjectMembership m = membershipRepository
+                        .findByIdProjectIdAndIdUserId(p.getId(), caller.getId())
+                        .orElse(null);
+                dto.setMyRelationship(m != null && m.getRole() != null ? m.getRole().name() : null);
+            }
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     public List<RoundResultDto> getResultsForProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        authz.requireOwnerOrAdmin(project);
         return roundResultRepository.findByProjectIdOrderByServerRoundAsc(projectId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -276,7 +260,7 @@ public class ProjectService {
     public void deleteProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        authz.requireOwnerOrAdmin(project);
 
         // Best-effort: stop any running FL server before removing the row so
         // we don't leak processes/ECS tasks.
@@ -300,7 +284,7 @@ public class ProjectService {
      */
     public static final int MAX_LOGS_EXPORT_SIZE = 10_000;
 
-    public List<ServerLogDto> getLogsForProject(UUID projectId, Pageable requested) {
+    public List<ServerLogDto> getLogsForProject(@NonNull UUID projectId, Pageable requested) {
         Project project = requireProjectAndOwnership(projectId);
 
         // Clamp to MAX_LOGS_PAGE_SIZE so a caller can't ask for an unbounded
@@ -323,7 +307,7 @@ public class ProjectService {
      * endpoint. The cap protects the JVM from a runaway project; if real
      * users need bigger exports we should ship them to S3 instead.
      */
-    public List<ServerLogDto> getLogsForExport(UUID projectId) {
+    public List<ServerLogDto> getLogsForExport(@NonNull UUID projectId) {
         Project project = requireProjectAndOwnership(projectId);
         Pageable cap = PageRequest.of(0, MAX_LOGS_EXPORT_SIZE, Sort.by("timestamp").ascending());
         return serverLogRepository.findByProjectIdOrderByTimestampAsc(project.getId(), cap)
@@ -332,13 +316,10 @@ public class ProjectService {
                 .collect(Collectors.toList());
     }
 
-    private Project requireProjectAndOwnership(UUID projectId) {
-        if (projectId == null) {
-            throw ResourceNotFoundException.forEntity("Project", null);
-        }
+    private Project requireProjectAndOwnership(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        requireOwnerOrAdmin(project);
+        authz.requireOwnerOrAdmin(project);
         return project;
     }
 
@@ -349,5 +330,109 @@ public class ProjectService {
         dto.setStackTrace(entry.getStackTrace());
         dto.setTimestamp(entry.getTimestamp());
         return dto;
+    }
+
+    @Transactional
+    @SuppressWarnings("null")
+    public ProjectResponseDto updateProject(@NonNull UUID projectId, UpdateProjectRequest req) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        authz.requireOwnerOrAdmin(project);
+
+        if (req.getName() != null && !req.getName().isBlank()) {
+            project.setName(req.getName());
+        }
+        if (req.getDescription() != null) {
+            project.setModelDescription(req.getDescription());
+        }
+        if (req.getVisibility() != null) {
+            ProjectVisibility next = ProjectVisibility.valueOf(req.getVisibility());
+            if (project.getVisibility() != next) {
+                project.setVisibility(next);
+                // Notify current participants (excluding internal OWNER_SELF rows).
+                User actor = authz.currentUser();
+                NotificationDto n = new NotificationDto();
+                n.setType(NotificationDto.Type.PROJECT_VISIBILITY_CHANGED);
+                n.setProjectId(project.getId());
+                n.setProjectName(project.getName());
+                n.setActorId(actor.getId());
+                n.setActorUsername(actor.getUsername());
+                for (ProjectMembership m : membershipRepository.findByIdProjectId(project.getId())) {
+                    if (m.getRole() != MembershipRole.OWNER) {
+                        notificationService.notifyUser(m.getId().getUserId(), n);
+                    }
+                }
+            }
+        }
+        Project saved = projectRepository.save(project);
+        ProjectResponseDto dto = convertToDto(saved);
+        if (authz.isOwner(saved)) {
+            dto.setMyRelationship("OWNER");
+        }
+        return dto;
+    }
+
+    public ProjectResponseDto getProject(@NonNull UUID projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        boolean isAdmin = authz.isAdmin();
+        boolean isOwner = authz.isOwner(project);
+        boolean isParticipant = isAdmin || isOwner
+                || authz.myMembership(project).map(m ->
+                      m.getRole() == MembershipRole.MEMBER
+                   || m.getRole() == MembershipRole.CLIENT).orElse(false);
+
+        if (isParticipant) {
+            ProjectResponseDto dto = convertToDto(project);
+            if (isOwner) {
+                dto.setMyRelationship("OWNER");
+            } else if (!isAdmin) {
+                authz.myMembership(project)
+                        .ifPresent(m -> dto.setMyRelationship(m.getRole().name()));
+            }
+            return dto;
+        }
+
+        if (project.getVisibility() == ProjectVisibility.PUBLIC) {
+            // Outsiders only see the world-readable fields of a PUBLIC project.
+            ProjectResponseDto trimmed = new ProjectResponseDto();
+            trimmed.setId(project.getId());
+            trimmed.setName(project.getName());
+            trimmed.setModelType(project.getModelType());
+            trimmed.setStatus(project.getStatus());
+            trimmed.setVisibility("PUBLIC");
+            return trimmed;
+        }
+        // PRIVATE outsiders get 404 so we don't leak existence.
+        throw ResourceNotFoundException.project(projectId);
+    }
+
+    public List<DiscoverProjectDto> getDiscoverProjects() {
+        User caller = authz.currentUser();
+        return projectRepository.findDiscoverable(caller.getId(), ProjectVisibility.PUBLIC)
+                .stream()
+                .filter(p -> p.getUser() == null || !p.getUser().getId().equals(caller.getId()))
+                .filter(p -> membershipRepository
+                        .findByIdProjectIdAndIdUserId(p.getId(), caller.getId())
+                        .map(m -> m.getRole() != MembershipRole.MEMBER
+                                  && m.getRole() != MembershipRole.CLIENT)
+                        .orElse(true))
+                .map(p -> toDiscoverDto(p, caller.getId()))
+                .collect(Collectors.toList());
+    }
+
+    private DiscoverProjectDto toDiscoverDto(Project p, Long callerId) {
+        DiscoverProjectDto d = new DiscoverProjectDto();
+        d.setId(p.getId());
+        d.setName(p.getName());
+        d.setVisibility(p.getVisibility() != null ? p.getVisibility().name() : null);
+        d.setOwnerUsername(p.getUser() != null ? p.getUser().getUsername() : null);
+        d.setModelType(p.getModelType());
+        d.setDescription(p.getModelDescription());
+        d.setMyRequestStatus(accessRequestRepository
+                .findByProjectIdAndUserId(p.getId(), callerId)
+                .map(r -> r.getStatus().name())
+                .orElse("NONE"));
+        return d;
     }
 }

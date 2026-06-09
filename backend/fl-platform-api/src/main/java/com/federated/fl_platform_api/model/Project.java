@@ -40,8 +40,27 @@ public class Project {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @Column(name = "org_id", nullable = false)
+    private UUID orgId;
+
     @Column(nullable = false)
     private String status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    private ProjectVisibility visibility = ProjectVisibility.PRIVATE;
+
+    @Column(name = "model_published", nullable = false)
+    private boolean modelPublished = false;
+
+    @Column(name = "model_description", columnDefinition = "TEXT")
+    private String modelDescription;
+
+    @Column(name = "model_tags", length = 512)
+    private String modelTags;
+
+    @Column(name = "model_published_at")
+    private java.time.Instant modelPublishedAt;
 
     public UUID getId() {
         return id;
@@ -103,5 +122,47 @@ public class Project {
     }
 
     public String getStatus() { return status; }
-}
 
+    public ProjectVisibility getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(ProjectVisibility visibility) {
+        this.visibility = visibility;
+    }
+
+    public boolean isModelPublished() {
+        return modelPublished;
+    }
+
+    public void setModelPublished(boolean modelPublished) {
+        this.modelPublished = modelPublished;
+    }
+
+    public String getModelDescription() {
+        return modelDescription;
+    }
+
+    public void setModelDescription(String modelDescription) {
+        this.modelDescription = modelDescription;
+    }
+
+    public String getModelTags() {
+        return modelTags;
+    }
+
+    public void setModelTags(String modelTags) {
+        this.modelTags = modelTags;
+    }
+
+    public java.time.Instant getModelPublishedAt() {
+        return modelPublishedAt;
+    }
+
+    public void setModelPublishedAt(java.time.Instant modelPublishedAt) {
+        this.modelPublishedAt = modelPublishedAt;
+    }
+
+    public UUID getOrgId() { return orgId; }
+    public void setOrgId(UUID orgId) { this.orgId = orgId; }
+}

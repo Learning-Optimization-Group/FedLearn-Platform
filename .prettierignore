@@ -1,0 +1,14 @@
+# Prettier ignore file — only format frontend/ and fedlearn-desktop/
+backend/
+framework/
+client-docker/
+dist/
+node_modules/
+*.log
+*.csv
+*.db
+*.jar
+*.class
+architecture.png
+docs/llm_dumps/
+docs/testing/

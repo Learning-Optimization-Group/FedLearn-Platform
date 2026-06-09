@@ -117,17 +117,13 @@ export function DatasetsView() {
                         Unique Models
                       </span>
                     </div>
-                    <span className="text-h4 font-mono tabular-nums text-fg">
-                      {s.uniqueModels}
-                    </span>
+                    <span className="text-h4 font-mono tabular-nums text-fg">{s.uniqueModels}</span>
                   </div>
                   <div className="bg-surface-2 rounded-sm p-3 flex flex-col gap-1">
                     <span className="text-caption uppercase tracking-wide font-semibold text-accent">
                       Running
                     </span>
-                    <span className="text-h4 font-mono tabular-nums text-fg">
-                      {s.runningCount}
-                    </span>
+                    <span className="text-h4 font-mono tabular-nums text-fg">{s.runningCount}</span>
                   </div>
                 </div>
               </Card>

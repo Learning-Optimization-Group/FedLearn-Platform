@@ -54,6 +54,11 @@ class GlobalExceptionHandlerTest {
     private com.federated.fl_platform_api.service.CustomUserDetailsService customUserDetailsService;
     @MockitoBean
     private com.federated.fl_platform_api.security.JwtTokenProvider jwtTokenProvider;
+    // SecurityConfig's @Bean wiring for the auditing handlers transitively requires these.
+    @MockitoBean
+    private com.federated.fl_platform_api.repository.UserRepository userRepository;
+    @MockitoBean
+    private com.federated.fl_platform_api.repository.AuditEventRepository auditEventRepository;
 
     @Test
     @WithMockUser

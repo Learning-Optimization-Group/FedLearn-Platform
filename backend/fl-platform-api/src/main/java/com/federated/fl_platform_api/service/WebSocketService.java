@@ -66,6 +66,26 @@ public class WebSocketService {
         messagingTemplate.convertAndSend(destination, result);
     }
 
+    @Autowired
+    private com.federated.fl_platform_api.repository.UserRepository userRepository;
+
+    /**
+     * Push a notification payload to a specific user's STOMP user-destination queue.
+     * Spring resolves the destination as /user/{username}/queue/notifications and
+     * delivers only to STOMP sessions authenticated as that user.
+     *
+     * The user's username is looked up by ID. If the user does not exist we drop
+     * the notification silently — callers should not rely on best-effort delivery.
+     */
+    public void sendUserNotification(Long userId, com.federated.fl_platform_api.dto.NotificationDto payload) {
+        if (userId == null || payload == null) return;
+        userRepository.findById(userId).ifPresentOrElse(
+            u -> messagingTemplate.convertAndSendToUser(
+                    u.getUsername(), "/queue/notifications", payload),
+            () -> log.warn("sendUserNotification: no user found for id={}", userId)
+        );
+    }
+
     // ─── Private helpers ─────────────────────────────────────────────────────
 
     private void persistLog(UUID projectId, String rawLine) {

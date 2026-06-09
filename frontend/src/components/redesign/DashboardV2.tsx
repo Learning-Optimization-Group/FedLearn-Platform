@@ -19,7 +19,8 @@ import { createLogger } from '../../lib/logger';
 
 const log = createLogger('DashboardV2');
 
-const SERVER_ROOT_URL = import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
+const SERVER_ROOT_URL =
+  import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
 const WEBSOCKET_URL_BASE = SERVER_ROOT_URL.replace(/^http/, 'ws');
 
 interface StatusUpdate {
@@ -38,7 +39,7 @@ export function DashboardV2() {
   const [results, setResults] = useState<ProjectResult[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -60,19 +61,21 @@ export function DashboardV2() {
       const loadedProjects = Array.isArray(response.data) ? response.data : [];
       setProjects(loadedProjects);
       setError('');
-      
+
       // Load historical results for all projects to populate sparklines
       if (loadedProjects.length > 0) {
         Promise.allSettled(
-          loadedProjects.map(p => api.fetchProjectResults(p.id).then(res => ({ id: p.id, results: res.data })))
+          loadedProjects.map((p) =>
+            api.fetchProjectResults(p.id).then((res) => ({ id: p.id, results: res.data }))
+          )
         ).then((resultsData) => {
           const newMap: Record<string, ProjectResult[]> = {};
-          resultsData.forEach(r => {
+          resultsData.forEach((r) => {
             if (r.status === 'fulfilled') {
               newMap[r.value.id] = r.value.results;
             }
           });
-          setResultsMap(prev => ({ ...prev, ...newMap }));
+          setResultsMap((prev) => ({ ...prev, ...newMap }));
         });
       }
     } catch {
@@ -82,7 +85,9 @@ export function DashboardV2() {
     }
   }, []);
 
-  useEffect(() => { loadProjects(); }, [loadProjects]);
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
 
   // WebSocket status updates
   useEffect(() => {
@@ -99,11 +104,17 @@ export function DashboardV2() {
           setProjects((prev) =>
             prev.map((p) =>
               p.id === update.projectId
-                ? { ...p, status: update.newStatus as Project['status'], serverPort: update.serverPort }
+                ? {
+                    ...p,
+                    status: update.newStatus as Project['status'],
+                    serverPort: update.serverPort,
+                  }
                 : p
             )
           );
-        } catch { /* ignore parse errors */ }
+        } catch {
+          /* ignore parse errors */
+        }
       });
       subscriptionStatusRef.current = subStatus;
 
@@ -114,12 +125,14 @@ export function DashboardV2() {
           const destParts = message.headers.destination.split('/');
           const projectId = destParts[destParts.length - 1];
           if (projectId && result) {
-            setResultsMap(prev => ({
+            setResultsMap((prev) => ({
               ...prev,
-              [projectId]: [...(prev[projectId] || []), result]
+              [projectId]: [...(prev[projectId] || []), result],
             }));
           }
-        } catch { /* ignore parse errors */ }
+        } catch {
+          /* ignore parse errors */
+        }
       });
       subscriptionResultsRef.current = subResults;
     };
@@ -217,11 +230,16 @@ export function DashboardV2() {
       <div className="h-24 flex items-center justify-between px-10 border-b border-hairline bg-canvas/80 backdrop-blur-md sticky top-0 z-20">
         <div>
           <h1 className="text-h2 font-semibold tracking-tight text-fg">Active Projects</h1>
-          <p className="text-body text-fg-muted mt-0.5 tracking-tight">Manage and monitor federated tasks.</p>
+          <p className="text-body text-fg-muted mt-0.5 tracking-tight">
+            Manage and monitor federated tasks.
+          </p>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative">
-            <Search className="w-[18px] h-[18px] absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle" strokeWidth={1.5} />
+            <Search
+              className="w-[18px] h-[18px] absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle"
+              strokeWidth={1.5}
+            />
             <input
               type="text"
               placeholder="Search projects"
@@ -263,7 +281,10 @@ export function DashboardV2() {
                 onOpenLogs={() => setLogViewProjectId(project.id)}
                 onOpenResults={() => handleOpenResults(project)}
                 onToggleServer={() => handleToggleServer(project)}
-                onEditProject={() => { setEditProject(project); setIsEditModalOpen(true); }}
+                onEditProject={() => {
+                  setEditProject(project);
+                  setIsEditModalOpen(true);
+                }}
                 onDeleteProject={() => handleDeleteProject(project.id)}
               />
             ))}
@@ -283,22 +304,28 @@ export function DashboardV2() {
         onSubmit={handleCreateProject}
         isLoading={isCreating}
       />
-      
+
       <EditProjectModal
         isOpen={isEditModalOpen}
         project={editProject}
-        onClose={() => { setIsEditModalOpen(false); setEditProject(null); }}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditProject(null);
+        }}
         onSubmit={handleUpdateProject}
         isLoading={isUpdating}
       />
-      
+
       <StartProjectModal
         isOpen={isStartModalOpen}
         project={startProject}
-        onClose={() => { setIsStartModalOpen(false); setStartProject(null); }}
+        onClose={() => {
+          setIsStartModalOpen(false);
+          setStartProject(null);
+        }}
         onSubmit={handleStartSubmit}
       />
-      
+
       {logViewProjectId && (
         <LogViewerV2
           projectId={logViewProjectId}

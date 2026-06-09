@@ -65,25 +65,54 @@ import fedlearn as fl
 from fedlearn.client import DeComFLClient
 logger.info("[BOOT] ✓ fedlearn + DeComFLClient loaded")
 
-logger.info("[BOOT] Importing flwr_datasets...")
-from flwr_datasets import FederatedDataset
-logger.info("[BOOT] ✓ flwr_datasets loaded")
-
-logger.info("[BOOT] Importing torchvision...")
-import torchvision.transforms as transforms
-logger.info("[BOOT] ✓ torchvision loaded")
-
-logger.info("[BOOT] Importing HuggingFace datasets...")
-from datasets import load_dataset
-logger.info("[BOOT] ✓ datasets loaded")
-
-logger.info("[BOOT] Importing transformers (slowest on ARM)...")
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
-logger.info(f"[BOOT] ✓ transformers loaded")
-
 logger.info("[BOOT] Importing models...")
 from models import CnnNet
 logger.info(f"[BOOT] ✓ All imports complete in {_time.time()-_t0:.1f}s")
+
+# Lazy-loaded heavy dependencies, imported only in model-specific code paths.
+FederatedDataset = None
+transforms = None
+load_dataset = None
+AutoModelForSequenceClassification = None
+AutoTokenizer = None
+get_linear_schedule_with_warmup = None
+
+
+def ensure_cnn_imports() -> None:
+    global FederatedDataset, transforms
+    if FederatedDataset is None:
+        logger.info("[BOOT] Importing flwr_datasets...")
+        from flwr_datasets import FederatedDataset as _FederatedDataset
+        FederatedDataset = _FederatedDataset
+        logger.info("[BOOT] ✓ flwr_datasets loaded")
+
+    if transforms is None:
+        logger.info("[BOOT] Importing torchvision...")
+        import torchvision.transforms as _transforms
+        transforms = _transforms
+        logger.info("[BOOT] ✓ torchvision loaded")
+
+
+def ensure_llm_imports() -> None:
+    global load_dataset, AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
+
+    if load_dataset is None:
+        logger.info("[BOOT] Importing HuggingFace datasets...")
+        from datasets import load_dataset as _load_dataset
+        load_dataset = _load_dataset
+        logger.info("[BOOT] ✓ datasets loaded")
+
+    if AutoModelForSequenceClassification is None:
+        logger.info("[BOOT] Importing transformers (slowest on ARM)...")
+        from transformers import (
+            AutoModelForSequenceClassification as _AutoModelForSequenceClassification,
+            AutoTokenizer as _AutoTokenizer,
+            get_linear_schedule_with_warmup as _get_linear_schedule_with_warmup,
+        )
+        AutoModelForSequenceClassification = _AutoModelForSequenceClassification
+        AutoTokenizer = _AutoTokenizer
+        get_linear_schedule_with_warmup = _get_linear_schedule_with_warmup
+        logger.info("[BOOT] ✓ transformers loaded")
 
 
 try:
@@ -244,6 +273,7 @@ def dirichlet_split(labels, num_clients, alpha=1.0, seed=42):
 def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, num_clients: int = 10):
     """Load data with Dirichlet split (LLM/CNN path; ECG uses get_ecg_loaders)."""
     if USE_LLM:
+        ensure_llm_imports()
         from pathlib import Path
         import pickle
         from torch.utils.data import Subset
@@ -328,6 +358,7 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
         )
         return train_loader, test_loader
     else:
+        ensure_cnn_imports()
         # CNN: CIFAR-10
         fds = FederatedDataset(dataset="cifar10", partitioners={"train": NUM_PARTITIONS})
         partition = fds.load_partition(partition_id)
@@ -508,6 +539,7 @@ class ZOSLClient(fl.Client):
                 seed=config.seed,
             )
         elif USE_LLM:
+            ensure_llm_imports()
             config = DATASET_CONFIGS[dataset_name]
             self.net = AutoModelForSequenceClassification.from_pretrained(
                 MODEL_NAME,
@@ -616,7 +648,7 @@ def create_decomfl_compatible_loader(original_loader, is_llm=False):
 # --- Main Execution Block ---
 # ==============================================================================
 def main():
-    global USE_LLM, USE_MLP, DATASET_NAME, BATCH_SIZE, logger
+    global USE_LLM, USE_MLP, DATASET_NAME, BATCH_SIZE, MODEL_NAME, logger
 
     parser = argparse.ArgumentParser(description="FedLearn gRPC Client with Heartbeat")
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
@@ -632,6 +664,9 @@ def main():
                         help="Use LLM (deprecated, use --model-type TRANSFORMER)")
 
     args = parser.parse_args()
+
+    if args.model_name:
+        MODEL_NAME = args.model_name
 
     # Rebind logger with per-client ID
     logger = ClientLogAdapter(
@@ -736,6 +771,7 @@ def main():
                 seed=ecg_config.seed,
             )
         elif USE_LLM:
+            ensure_llm_imports()
             config = DATASET_CONFIGS[args.dataset]
             decomfl_config = get_decomfl_config("default")
 

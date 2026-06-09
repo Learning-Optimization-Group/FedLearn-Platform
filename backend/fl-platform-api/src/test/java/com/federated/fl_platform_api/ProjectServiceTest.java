@@ -8,7 +8,6 @@ import com.federated.fl_platform_api.service.ModelInitializer;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.ProjectRepository;
-import com.federated.fl_platform_api.repository.UserRepository;
 import com.federated.fl_platform_api.service.ProjectService;
 import com.federated.fl_platform_api.service.WebSocketService;
 import com.federated.fl_platform_api.repository.RoundResultRepository;
@@ -18,12 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -41,9 +36,6 @@ class ProjectServiceTest {
     private ProjectRepository projectRepository;
 
     @Mock
-    private UserRepository userRepository;
-
-    @Mock
     private FlowerServerManager flowerServerManager;
 
     @Mock
@@ -56,10 +48,13 @@ class ProjectServiceTest {
     private WebSocketService webSocketService;
 
     @Mock
-    private SecurityContext securityContext;
+    private com.federated.fl_platform_api.service.AuthorizationService authz;
 
     @Mock
-    private Authentication authentication;
+    private com.federated.fl_platform_api.repository.ProjectMembershipRepository membershipRepository;
+
+    @Mock
+    private com.federated.fl_platform_api.repository.OrganizationMembershipRepository orgMembershipRepository;
 
     @InjectMocks
     private ProjectService projectService;
@@ -76,7 +71,7 @@ class ProjectServiceTest {
 
         testUser = new User();
         testUser.setUsername("testuser");
-        
+
         testProject = new Project();
         testProject.setId(UUID.randomUUID());
         testProject.setName(projectName);
@@ -87,11 +82,7 @@ class ProjectServiceTest {
     @Test
     void whenCreateProject_thenShouldSucceedAndReturnProjectWithPortAndPath() throws Exception {
         // --- 1. ARRANGE ---
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getName()).thenReturn("testuser");
-        SecurityContextHolder.setContext(securityContext);
-        
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(authz.currentUser()).thenReturn(testUser);
 
         when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> {
             Project p = invocation.getArgument(0);
@@ -115,7 +106,7 @@ class ProjectServiceTest {
         assertNotNull(createdProject);
         assertEquals(testProject.getId(), createdProject.getId());
         assertEquals(projectName, createdProject.getName());
-        
+
         verify(projectRepository, times(2)).save(any(Project.class));
         verify(modelInitializer, times(1)).initializeModelFile(eq(modelType), any(), any(), anyString(), eq(5));
     }
@@ -123,11 +114,7 @@ class ProjectServiceTest {
     @Test
     void whenModelInitializationFails_thenShouldThrowException() throws Exception {
         // --- ARRANGE ---
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.getName()).thenReturn("testuser");
-        SecurityContextHolder.setContext(securityContext);
-        
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(authz.currentUser()).thenReturn(testUser);
 
         when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> {
             Project p = invocation.getArgument(0);
@@ -154,5 +141,46 @@ class ProjectServiceTest {
                 () -> projectService.createProject(request));
         assertNotNull(ex.getCause());
         assertEquals(IOException.class, ex.getCause().getClass());
+    }
+
+    @Test
+    void getProjectsForCurrentUser_returnsOwnedAndMemberOfWithRelationship() {
+        when(authz.currentUser()).thenReturn(testUser);
+        testUser.setId(42L);
+
+        Project owned = new Project();
+        owned.setId(UUID.randomUUID());
+        owned.setName("owned-by-me");
+        owned.setUser(testUser);
+        owned.setVisibility(com.federated.fl_platform_api.model.ProjectVisibility.PRIVATE);
+
+        User otherOwner = new User();
+        otherOwner.setId(7L);
+        otherOwner.setUsername("someone-else");
+
+        Project joined = new Project();
+        joined.setId(UUID.randomUUID());
+        joined.setName("joined-as-client");
+        joined.setUser(otherOwner);
+        joined.setVisibility(com.federated.fl_platform_api.model.ProjectVisibility.PUBLIC);
+
+        when(projectRepository.findOwnedOrMemberOf(42L))
+            .thenReturn(java.util.List.of(owned, joined));
+
+        com.federated.fl_platform_api.model.ProjectMembership m =
+            new com.federated.fl_platform_api.model.ProjectMembership();
+        m.setRole(com.federated.fl_platform_api.model.MembershipRole.CLIENT);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(joined.getId(), 42L))
+            .thenReturn(java.util.Optional.of(m));
+
+        java.util.List<ProjectResponseDto> dtos = projectService.getProjectsForCurrentUser();
+
+        assertEquals(2, dtos.size());
+        ProjectResponseDto o = dtos.stream().filter(d -> "owned-by-me".equals(d.getName())).findFirst().orElseThrow();
+        assertEquals("OWNER",  o.getMyRelationship());
+        assertEquals("PRIVATE", o.getVisibility());
+        ProjectResponseDto j = dtos.stream().filter(d -> "joined-as-client".equals(d.getName())).findFirst().orElseThrow();
+        assertEquals("CLIENT", j.getMyRelationship());
+        assertEquals("PUBLIC", j.getVisibility());
     }
 }
