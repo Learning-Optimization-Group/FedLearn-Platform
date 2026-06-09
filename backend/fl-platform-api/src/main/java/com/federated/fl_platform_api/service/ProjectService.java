@@ -375,7 +375,7 @@ public class ProjectService {
     public ProjectResponseDto getProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        boolean isAdmin = authz.isAdmin();
+        boolean isAdmin = authz.isPlatformAdmin();
         boolean isOwner = authz.isOwner(project);
         boolean isParticipant = isAdmin || isOwner
                 || authz.myMembership(project).map(m ->

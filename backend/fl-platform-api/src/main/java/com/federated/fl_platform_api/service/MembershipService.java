@@ -53,7 +53,7 @@ public class MembershipService {
             .orElseThrow(() -> ResourceNotFoundException.project(projectId));
 
         // Authorization: owner & admin can add any role. Member can only add CLIENT.
-        if (authz.isAdmin() || authz.isOwner(project)) {
+        if (authz.isPlatformAdmin() || authz.isOwner(project)) {
             // ok
         } else if (role == MembershipRole.CLIENT
                    && authz.hasMembership(project, MembershipRole.MEMBER)) {
@@ -94,7 +94,7 @@ public class MembershipService {
             .orElseThrow(() -> ResourceNotFoundException.forEntity("Membership", userId));
 
         // Same authz rules as add(): owner/admin can remove any; member can remove CLIENT.
-        if (authz.isAdmin() || authz.isOwner(project)) {
+        if (authz.isPlatformAdmin() || authz.isOwner(project)) {
             // ok
         } else if (existing.getRole() == MembershipRole.CLIENT
                    && authz.hasMembership(project, MembershipRole.MEMBER)) {

@@ -29,12 +29,12 @@ public class UserController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     public ResponseEntity<List<User>> getAllUsers() {
         // Admin-only: previously this leaked the entire user table (id, email,
         // timestamps) to any authenticated user, allowing trivial enumeration.
         // Bootstrap the first admin with:
-        //   UPDATE users SET role = 'ADMIN' WHERE username = '<you>';
+        //   UPDATE users SET platform_role = 'PLATFORM_ADMIN' WHERE username = '<you>';
         return ResponseEntity.ok(userRepository.findAll());
     }
 
@@ -51,7 +51,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @SuppressWarnings("null")
     public ResponseEntity<Map<String, String>> deleteUser(@PathVariable Long id) {
         if (!userRepository.existsById(id)) {

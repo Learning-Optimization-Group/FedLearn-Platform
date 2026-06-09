@@ -61,7 +61,7 @@ class AuthorizationServiceTest {
         when(userRepository.findByUsername(u.getUsername())).thenReturn(Optional.of(u));
         if (PlatformRole.PLATFORM_ADMIN.equals(u.getPlatformRole())) {
             when(authentication.getAuthorities())
-                .thenReturn((java.util.Collection) List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+                .thenReturn((java.util.Collection) List.of(new SimpleGrantedAuthority("ROLE_PLATFORM_ADMIN")));
         } else {
             when(authentication.getAuthorities())
                 .thenReturn((java.util.Collection) List.of(new SimpleGrantedAuthority("ROLE_USER")));

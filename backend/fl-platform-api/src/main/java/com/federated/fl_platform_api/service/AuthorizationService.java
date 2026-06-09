@@ -35,11 +35,11 @@ public class AuthorizationService {
                 "Authenticated principal has no matching user row: " + auth.getName()));
     }
 
-    public boolean isAdmin() {
+    public boolean isPlatformAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null) return false;
         for (GrantedAuthority a : auth.getAuthorities()) {
-            if ("ROLE_ADMIN".equals(a.getAuthority())) return true;
+            if ("ROLE_PLATFORM_ADMIN".equals(a.getAuthority())) return true;
         }
         return false;
     }
@@ -61,12 +61,12 @@ public class AuthorizationService {
     }
 
     public void requireOwnerOrAdmin(Project project) {
-        if (isAdmin() || isOwner(project)) return;
+        if (isPlatformAdmin() || isOwner(project)) return;
         throw new AccessDeniedException("You do not have access to this project");
     }
 
     public void requireOwnerOrMemberOrAdmin(Project project) {
-        if (isAdmin() || isOwner(project)) return;
+        if (isPlatformAdmin() || isOwner(project)) return;
         if (hasMembership(project, MembershipRole.MEMBER)) return;
         throw new AccessDeniedException("You do not have access to this project");
     }
@@ -76,7 +76,7 @@ public class AuthorizationService {
      * Used for read endpoints that any project participant may see.
      */
     public void requireParticipant(Project project) {
-        if (isAdmin() || isOwner(project)) return;
+        if (isPlatformAdmin() || isOwner(project)) return;
         Optional<ProjectMembership> m = myMembership(project);
         if (m.isPresent() && (m.get().getRole() == MembershipRole.MEMBER
                            || m.get().getRole() == MembershipRole.CLIENT)) return;
