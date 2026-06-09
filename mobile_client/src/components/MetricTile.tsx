@@ -11,10 +11,13 @@ export function MetricTile({
   hint?: string;
 }) {
   return (
-    <View className="flex-1 m-1 p-3 rounded-2xl bg-surface border border-border">
-      <Text className="text-xs text-muted">{label}</Text>
-      <Text className="text-xl font-bold text-foreground mt-1">{value}</Text>
-      {hint ? <Text className="text-[10px] text-muted mt-0.5">{hint}</Text> : null}
+    <View className="flex-1 m-1 p-3 rounded-card bg-surface-1 border border-hairline">
+      <Text className="text-caption text-fg-muted">{label}</Text>
+      {/* Metric value: mono + tabular figures (NativeWind has no tabular utility). */}
+      <Text className="text-h4 font-mono text-fg mt-1" style={{ fontVariant: ['tabular-nums'] }}>
+        {value}
+      </Text>
+      {hint ? <Text className="text-caption text-fg-subtle mt-0.5">{hint}</Text> : null}
     </View>
   );
 }

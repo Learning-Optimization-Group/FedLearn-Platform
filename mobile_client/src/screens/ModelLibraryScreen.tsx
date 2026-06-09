@@ -4,8 +4,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Boxes } from 'lucide-react-native';
 
 import { listModels, type SavedModel } from '../lib/modelStore';
+import { useThemeTokens } from '../theme/useThemeTokens';
 
 export function ModelLibraryScreen() {
+  const { colors } = useThemeTokens();
   const [models, setModels] = useState<SavedModel[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -25,29 +27,43 @@ export function ModelLibraryScreen() {
   );
 
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1 bg-canvas">
       <View className="px-4 pt-4 pb-2">
-        <Text className="text-2xl font-extrabold text-foreground">Model Library</Text>
-        <Text className="text-xs text-muted mt-1">On-device snapshots, encrypted at rest</Text>
+        <Text className="text-h2 font-sans text-fg">Model Library</Text>
+        <Text className="text-caption text-fg-muted mt-1">On-device snapshots, encrypted at rest</Text>
       </View>
       <FlatList
         data={models}
         keyExtractor={(m) => m.path}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={load}
+            tintColor={colors['fg-muted']}
+          />
+        }
         contentContainerClassName="px-4 pb-8"
         ListEmptyComponent={
           <View className="items-center mt-24">
-            <Boxes color="oklch(0.55 0.02 250)" size={40} />
-            <Text className="text-muted mt-3">No models yet — finish a training run to save one.</Text>
+            <Boxes color={colors['fg-muted']} size={40} strokeWidth={1.5} />
+            <Text className="text-fg-muted text-body mt-3">
+              No models yet — finish a training run to save one.
+            </Text>
           </View>
         }
         renderItem={({ item }) => (
-          <View className="p-4 mb-2 rounded-2xl bg-surface border border-border">
-            <Text className="text-foreground font-semibold">{item.name}</Text>
-            <Text className="text-xs text-muted mt-1">
+          <View className="p-4 mb-2 rounded-card bg-surface-1 border border-hairline">
+            <Text className="text-fg text-body font-sans">{item.name}</Text>
+            {/* IDs/metrics: mono + tabular figures. */}
+            <Text
+              className="text-caption text-fg-muted font-mono mt-1"
+              style={{ fontVariant: ['tabular-nums'] }}>
               tier {item.tier} · round {item.round} · saved {new Date(item.savedAt).toLocaleString()}
             </Text>
-            <Text className="text-[10px] text-muted mt-1" numberOfLines={1}>
+            <Text
+              className="text-caption text-fg-subtle font-mono mt-1"
+              style={{ fontVariant: ['tabular-nums'] }}
+              numberOfLines={1}>
               sha256 {item.sha256}
             </Text>
           </View>

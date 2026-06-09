@@ -8,6 +8,7 @@ import { foregroundService } from '../lib/foregroundService';
 import { StatusBadge, type StatusVariant } from '../components/StatusBadge';
 import { MetricTile } from '../components/MetricTile';
 import { DeviceBanner } from '../components/DeviceBanner';
+import { useThemeTokens } from '../theme/useThemeTokens';
 
 type Phase = 'idle' | 'joining' | 'ready' | 'training' | 'complete' | 'error';
 
@@ -25,6 +26,7 @@ const defaultConfig = (torchVersion: string): RoundConfig => ({
 });
 
 export function TrainingScreen() {
+  const { colors } = useThemeTokens();
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [joined, setJoined] = useState<JoinedRun | null>(null);
@@ -114,57 +116,63 @@ export function TrainingScreen() {
   }, []);
 
   return (
-    <ScrollView className="flex-1 bg-background">
+    <ScrollView className="flex-1 bg-canvas">
       <View className="px-4 pt-4 pb-2 flex-row items-center justify-between">
-        <Text className="text-2xl font-extrabold text-foreground">Training</Text>
+        <Text className="text-h2 font-sans text-fg">Training</Text>
         <StatusBadge label={badge.label} variant={badge.variant} />
       </View>
 
       <DeviceBanner metrics={metrics} />
 
       {!joined ? (
-        <View className="mx-4 mt-2 p-4 rounded-2xl bg-surface border border-border">
-          <Text className="text-sm text-muted mb-2">Join a federated run</Text>
+        <View className="mx-4 mt-2 p-4 rounded-card bg-surface-1 border border-hairline">
+          <Text className="text-body text-fg-muted mb-2">Join a federated run</Text>
           <TextInput
-            className="border border-border rounded-lg px-3 py-2 mb-2 text-foreground"
+            className="border border-hairline rounded-md px-3 py-2 mb-2 text-body text-fg"
             placeholder="Project ID"
+            placeholderTextColor={colors['fg-subtle']}
             value={projectId}
             onChangeText={setProjectId}
             autoCapitalize="none"
           />
           <TextInput
-            className="border border-border rounded-lg px-3 py-2 mb-2 text-foreground"
+            className="border border-hairline rounded-md px-3 py-2 mb-2 text-body text-fg"
             placeholder="Dataset version ID"
+            placeholderTextColor={colors['fg-subtle']}
             value={datasetVersionId}
             onChangeText={setDatasetVersionId}
             autoCapitalize="none"
           />
           <TextInput
-            className="border border-border rounded-lg px-3 py-2 mb-3 text-foreground"
+            className="border border-hairline rounded-md px-3 py-2 mb-3 text-body text-fg"
             placeholder="On-device model path (.pt)"
+            placeholderTextColor={colors['fg-subtle']}
             value={modelPath}
             onChangeText={setModelPath}
             autoCapitalize="none"
           />
           <Pressable
-            className="flex-row items-center justify-center bg-primary rounded-xl py-3"
+            className="flex-row items-center justify-center bg-accent rounded-md py-3"
             disabled={phase === 'joining'}
             onPress={onJoin}>
             {phase === 'joining' ? (
-              <ActivityIndicator color="white" />
+              <ActivityIndicator color={colors['accent-fg']} />
             ) : (
-              <Text className="text-primary-foreground font-semibold">Join run</Text>
+              <Text className="text-accent-fg text-label font-sans">Join run</Text>
             )}
           </Pressable>
         </View>
       ) : (
         <View className="mx-4 mt-2">
-          <View className="p-4 rounded-2xl bg-surface border border-border">
-            <Text className="text-sm text-muted">Run</Text>
-            <Text className="text-foreground font-semibold" numberOfLines={1}>
+          <View className="p-4 rounded-card bg-surface-1 border border-hairline">
+            <Text className="text-body text-fg-muted">Run</Text>
+            <Text
+              className="text-label font-mono text-fg"
+              style={{ fontVariant: ['tabular-nums'] }}
+              numberOfLines={1}>
               {joined.runId}
             </Text>
-            <Text className="text-xs text-muted mt-1">
+            <Text className="text-caption text-fg-muted mt-1">
               DeComFL · model dim {joined.modelInfo.paramCount} · trainable{' '}
               {joined.modelInfo.trainableParamCount} · tier {joined.modelInfo.tier}
             </Text>
@@ -193,17 +201,17 @@ export function TrainingScreen() {
 
           {phase === 'training' ? (
             <Pressable
-              className="flex-row items-center justify-center bg-danger rounded-xl py-3 mt-2"
+              className="flex-row items-center justify-center bg-danger rounded-md py-3 mt-2"
               onPress={onStop}>
-              <Square color="white" size={18} />
-              <Text className="text-primary-foreground font-semibold ml-2">Stop</Text>
+              <Square color={colors['accent-fg']} size={18} strokeWidth={1.5} />
+              <Text className="text-accent-fg text-label font-sans ml-2">Stop</Text>
             </Pressable>
           ) : (
             <Pressable
-              className="flex-row items-center justify-center bg-primary rounded-xl py-3 mt-2"
+              className="flex-row items-center justify-center bg-accent rounded-md py-3 mt-2"
               onPress={onStart}>
-              <Play color="white" size={18} />
-              <Text className="text-primary-foreground font-semibold ml-2">
+              <Play color={colors['accent-fg']} size={18} strokeWidth={1.5} />
+              <Text className="text-accent-fg text-label font-sans ml-2">
                 {phase === 'complete' ? 'Run complete' : 'Start training'}
               </Text>
             </Pressable>
@@ -212,8 +220,8 @@ export function TrainingScreen() {
       )}
 
       {error ? (
-        <View className="mx-4 my-3 p-3 rounded-xl bg-danger">
-          <Text className="text-primary-foreground text-sm">{error}</Text>
+        <View className="mx-4 my-3 p-3 rounded-md bg-danger">
+          <Text className="text-accent-fg text-body">{error}</Text>
         </View>
       ) : null}
       <View className="h-8" />

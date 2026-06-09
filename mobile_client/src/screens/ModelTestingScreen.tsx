@@ -5,11 +5,13 @@ import { Eraser, Sparkles } from 'lucide-react-native';
 
 import nativeCore, { type InferResult } from '../lib/nativeCore';
 import { listModels, type SavedModel } from '../lib/modelStore';
+import { useThemeTokens } from '../theme/useThemeTokens';
 
 const GRID = 8; // 8x8 input grid; the RN layer flattens it for the model (input shape is model-specific)
 const N = GRID * GRID;
 
 export function ModelTestingScreen() {
+  const { colors } = useThemeTokens();
   const [active, setActive] = useState<SavedModel | null>(null);
   const [cells, setCells] = useState<boolean[]>(() => new Array(N).fill(false));
   const [result, setResult] = useState<InferResult | null>(null);
@@ -56,15 +58,15 @@ export function ModelTestingScreen() {
   const rows = useMemo(() => Array.from({ length: GRID }, (_, r) => r), []);
 
   return (
-    <ScrollView className="flex-1 bg-background">
+    <ScrollView className="flex-1 bg-canvas">
       <View className="px-4 pt-4 pb-2">
-        <Text className="text-2xl font-extrabold text-foreground">Model Testing</Text>
-        <Text className="text-xs text-muted mt-1">
+        <Text className="text-h2 font-sans text-fg">Model Testing</Text>
+        <Text className="text-caption text-fg-muted mt-1">
           {active ? `Active: ${active.name}` : 'No saved model — train one first'}
         </Text>
       </View>
 
-      <View className="mx-4 p-2 rounded-2xl bg-surface border border-border">
+      <View className="mx-4 p-2 rounded-card bg-surface-1 border border-hairline">
         {rows.map((r) => (
           <View key={r} className="flex-row">
             {rows.map((c) => {
@@ -73,7 +75,7 @@ export function ModelTestingScreen() {
                 <Pressable
                   key={c}
                   onPress={() => toggle(i)}
-                  className={`flex-1 aspect-square m-0.5 rounded ${cells[i] ? 'bg-primary' : 'bg-surface-muted'}`}
+                  className={`flex-1 aspect-square m-0.5 rounded-sm ${cells[i] ? 'bg-accent' : 'bg-surface-2'}`}
                 />
               );
             })}
@@ -83,44 +85,53 @@ export function ModelTestingScreen() {
 
       <View className="flex-row mx-4 mt-2">
         <Pressable
-          className="flex-1 flex-row items-center justify-center bg-surface-muted rounded-xl py-3 mr-1"
+          className="flex-1 flex-row items-center justify-center bg-surface-2 rounded-card py-3 mr-1"
           onPress={clear}>
-          <Eraser color="oklch(0.22 0.02 250)" size={18} />
-          <Text className="text-foreground font-semibold ml-2">Clear</Text>
+          <Eraser color={colors.fg} size={18} strokeWidth={1.5} />
+          <Text className="text-fg text-label font-sans ml-2">Clear</Text>
         </Pressable>
         <Pressable
-          className="flex-1 flex-row items-center justify-center bg-primary rounded-xl py-3 ml-1"
+          className="flex-1 flex-row items-center justify-center bg-accent rounded-card py-3 ml-1"
           disabled={!active}
           onPress={onInfer}>
-          <Sparkles color="white" size={18} />
-          <Text className="text-primary-foreground font-semibold ml-2">Run inference</Text>
+          <Sparkles color={colors['accent-fg']} size={18} strokeWidth={1.5} />
+          <Text className="text-accent-fg text-label font-sans ml-2">Run inference</Text>
         </Pressable>
       </View>
 
       {result ? (
-        <View className="mx-4 mt-3 p-4 rounded-2xl bg-surface border border-border">
-          <Text className="text-foreground font-semibold mb-2">
+        <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
+          <Text className="text-fg text-body font-sans mb-2">
             Prediction: class {result.argmax}
           </Text>
           {result.probabilities.map((p, i) => (
             <View key={i} className="flex-row items-center mb-1">
-              <Text className="w-6 text-xs text-muted">{i}</Text>
-              <View className="flex-1 h-3 rounded-full bg-surface-muted overflow-hidden mr-2">
+              {/* Class index + probability: mono + tabular figures. */}
+              <Text
+                className="w-6 text-caption text-fg-muted font-mono"
+                style={{ fontVariant: ['tabular-nums'] }}>
+                {i}
+              </Text>
+              <View className="flex-1 h-3 rounded-pill bg-surface-2 overflow-hidden mr-2">
                 <View
-                  className={i === result.argmax ? 'h-3 bg-primary' : 'h-3 bg-accent'}
+                  className={i === result.argmax ? 'h-3 bg-accent' : 'h-3 bg-series-1'}
                   style={{ width: `${Math.max(0, Math.min(1, p)) * 100}%` }}
                 />
               </View>
-              <Text className="w-12 text-right text-xs text-foreground">{(p * 100).toFixed(1)}%</Text>
+              <Text
+                className="w-12 text-right text-caption text-fg font-mono"
+                style={{ fontVariant: ['tabular-nums'] }}>
+                {(p * 100).toFixed(1)}%
+              </Text>
             </View>
           ))}
-          <Text className="text-[10px] text-muted mt-1">Real softmax over model logits.</Text>
+          <Text className="text-caption text-fg-subtle mt-1">Real softmax over model logits.</Text>
         </View>
       ) : null}
 
       {error ? (
-        <View className="mx-4 my-3 p-3 rounded-xl bg-danger">
-          <Text className="text-primary-foreground text-sm">{error}</Text>
+        <View className="mx-4 my-3 p-3 rounded-card bg-danger">
+          <Text className="text-accent-fg text-body">{error}</Text>
         </View>
       ) : null}
       <View className="h-8" />

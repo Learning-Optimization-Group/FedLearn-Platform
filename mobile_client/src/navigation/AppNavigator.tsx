@@ -5,18 +5,21 @@ import { Activity, Boxes, FlaskConical } from 'lucide-react-native';
 import { TrainingScreen } from '../screens/TrainingScreen';
 import { ModelLibraryScreen } from '../screens/ModelLibraryScreen';
 import { ModelTestingScreen } from '../screens/ModelTestingScreen';
-import { tokens } from '../theme/tokens';
+import { useThemeTokens } from '../theme/useThemeTokens';
 
 const Tab = createBottomTabNavigator();
 
 // 3-tab bottom bar with lucide icons (NO emoji tab icons — C5 §9).
+// Tint colors are raw values (not classNames), so they come from the active palette: active tab =
+// `accent`, inactive = `fg-muted`. status table: running→accent, idle→fg-muted.
 export function AppNavigator() {
+  const { colors } = useThemeTokens();
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: tokens.primary,
-        tabBarInactiveTintColor: tokens.muted,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors['fg-muted'],
       }}>
       <Tab.Screen
         name="Training"

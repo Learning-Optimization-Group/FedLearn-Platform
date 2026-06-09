@@ -1,6 +1,7 @@
 import './theme/global.css'; // NativeWind: load the Tailwind layers
 import React, { useEffect } from 'react';
 import { StatusBar } from 'react-native';
+import { useColorScheme } from 'nativewind';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 
@@ -12,13 +13,15 @@ import { configureApi } from './lib/restClient';
 const API_URL = (typeof process !== 'undefined' && process.env.FEDLEARN_API_URL) || '';
 
 export default function App() {
+  const { colorScheme } = useColorScheme();
   useEffect(() => {
     if (API_URL) configureApi(API_URL);
   }, []);
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle="dark-content" />
+      {/* Match the status bar to the OS scheme: dark glyphs on the light canvas, light on dark. */}
+      <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
       <NavigationContainer>
         <AppNavigator />
       </NavigationContainer>
