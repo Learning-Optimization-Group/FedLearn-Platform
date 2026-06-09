@@ -22,6 +22,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import platform
 
 import numpy as np
 import torch
@@ -76,6 +77,10 @@ def main() -> None:
         # build. This lets the CI gate (CPU libtorch) and the device match the fixture.
         "torch_version": torch.__version__.split("+")[0],
         "numpy_version": np.__version__,
+        # CPU arch of the freeze. torch.randn is bit-reproducible on this arch but only ~1-ULP
+        # reproducible across arches (x86-64 <-> arm64), so test_perturbation.py asserts bit-exact
+        # on this arch and ULP-tolerance elsewhere.
+        "platform_machine": platform.machine(),
         "file_format": "raw little-endian float32, C-order, length == num_params",
         "cases": entries,
     }
