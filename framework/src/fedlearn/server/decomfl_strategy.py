@@ -1,6 +1,14 @@
 # src/fedlearn/server/decomfl_strategy.py
 """
-DeComFL Strategy implementing Algorithm 3 from the paper.
+DeComFL server-side aggregation strategy.
+
+Implements the server protocol of DeComFL — "Achieving Dimension-Free
+Communication in Federated Learning via Zeroth-Order Optimization"
+(Li, Ying, Liu, Dong, Yang; ICLR 2025; https://arxiv.org/abs/2405.15861).
+
+Aligned with the authors' reference implementation
+https://github.com/ZidongLiu/DeComFL (Apache-2.0); that attribution and license
+are retained here per Apache-2.0 section 4.
 """
 
 import logging

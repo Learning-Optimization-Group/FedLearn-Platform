@@ -11,7 +11,7 @@ from fedlearn.communication.generated import fedlearn_pb2_grpc
 
 # Import the business logic layer and helpers
 from .coordinator import FLCoordinator
-from fedlearn.communication.serializer import proto_to_parameters, parameters_to_proto, chunks_to_parameters, USE_COMPRESSION
+from fedlearn.communication.serializer import proto_to_parameters, parameters_to_proto, chunks_to_parameters
 from fedlearn.server.decomfl_strategy import DeComFL
 
 
@@ -210,7 +210,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             buffer.close()
             logging.info(f"[Server] Reconstructing model from {len(full_data) / (1024 ** 2):.2f} MB of data...")
 
-            parameters, num_examples = chunks_to_parameters(full_data, compressed=USE_COMPRESSION)
+            # Streamed uploads are raw (uncompressed), matching the client producer
+            # (_generate_model_chunks) and the download path (GetGlobalModelStream). Decompression
+            # is NOT keyed off the per-process FEDLEARN_USE_COMPRESSION env var, which the client
+            # and this server-spawning backend do not necessarily share.
+            parameters, num_examples = chunks_to_parameters(full_data, compressed=False)
 
             logging.info(f"[Server] Model reconstructed successfully. Submitting to coordinator...")
 

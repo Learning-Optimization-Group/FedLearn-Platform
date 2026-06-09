@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+// Federation over Text (FoT) — an ADDITIVE, standalone text-federation service.
+// Intentionally a SEPARATE service/package from FederatedLearningService (the gradient
+// DeComFL/FedAvg contract) so the FoT server cannot perturb the gradient wire. Payloads are
+// plain JSON strings (ReasoningTrace.to_json / InsightLibrary.to_json) — no vector store.
+package fedlearn.fot;
+
+option java_package = "com.fedlearn.fot";
+
+service FoTService {
+  // Client uploads one abstracted reasoning trace (never the raw problem).
+  rpc SubmitReasoningTrace(SubmitReasoningTraceRequest) returns (SubmitReasoningTraceResponse);
+  // Client fetches the current insight library to use in-context next round.
+  rpc GetInsightLibrary(GetInsightLibraryRequest) returns (GetInsightLibraryResponse);
+}
+
+message SubmitReasoningTraceRequest {
+  string client_id = 1;
+  int32 round = 2;
+  string trace_json = 3;   // ReasoningTrace.to_json()
+}
+
+message SubmitReasoningTraceResponse {
+  bool accepted = 1;
+  string reason = 2;       // validator problems if rejected; empty if accepted
+}
+
+message GetInsightLibraryRequest {
+  string client_id = 1;
+  int32 known_version = 2; // the version the client already holds
+}
+
+message GetInsightLibraryResponse {
+  bool unchanged = 1;      // true if known_version == current version
+  int32 version = 2;
+  string library_json = 3; // InsightLibrary.to_json()
+}

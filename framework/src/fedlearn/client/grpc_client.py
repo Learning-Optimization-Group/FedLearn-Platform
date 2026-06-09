@@ -190,8 +190,14 @@ class GrpcClient:
 
     def _generate_model_chunks(self, params: OrderedDict[str, torch.Tensor], num_examples: int,
                                round_number: int, chunk_size: int = 50 * 1024 * 1024):
+        # Serialize a WRAPPED payload — {'parameters', 'num_examples'} — so it matches the server's
+        # chunks_to_parameters() consumer (a bare torch.save(params) here previously made every
+        # chunked/LLM-scale upload abort with KeyError: 'parameters' on the server). Stream the
+        # bytes zero-copy via a memoryview so a multi-GB model is not copied chunk-by-chunk.
+        # NOTE: like the server download path (GetGlobalModelStream), the streamed bytes are raw
+        # (uncompressed); the chunked wire format is not lz4-coupled to FEDLEARN_USE_COMPRESSION.
         buffer = io.BytesIO()
-        torch.save(params, buffer)
+        torch.save({'parameters': params, 'num_examples': num_examples}, buffer)
 
         view = memoryview(buffer.getbuffer())
         total_chunks = (len(view) + chunk_size - 1) // chunk_size

@@ -1,7 +1,15 @@
 # src/fedlearn/estimators/zeroth_order.py
 """
-Zeroth-order gradient estimation for DeComFL.
-Implements Algorithm 4 from the DeComFL paper.
+Zeroth-order (forward finite-difference) gradient estimation for DeComFL.
+
+Implements the client-side ZO gradient estimator of DeComFL — "Achieving
+Dimension-Free Communication in Federated Learning via Zeroth-Order
+Optimization" (Li, Ying, Liu, Dong, Yang; ICLR 2025;
+https://arxiv.org/abs/2405.15861).
+
+Aligned with the authors' reference implementation
+https://github.com/ZidongLiu/DeComFL (Apache-2.0); that attribution and license
+are retained here per Apache-2.0 section 4.
 """
 
 import torch

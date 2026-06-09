@@ -2,11 +2,11 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](../LICENSE)
 
 ## Overview
 
-FedLearn is a flexible and extensible federated learning framework designed for distributed machine learning across multiple clients. **Built from scratch — no Flower / `flwr` dependency.** Communication is direct gRPC over a custom protobuf contract (`fedlearn.proto`, package `fedlearn.v1`); the framework supports CNNs, Transformers, and LLMs with custom aggregation strategies and Byzantine-robust optimization. The legacy `flower/` package name in the Spring Boot backend refers to the `FlowerServerManager` — that's a historical name for the FL-server process supervisor, not a Flower dependency.
+FedLearn is a flexible and extensible federated learning framework designed for distributed machine learning across multiple clients. **Built from scratch — no Flower / `flwr` dependency.** Communication is direct gRPC over a custom protobuf contract (`fedlearn.proto`, package `fedlearn.v1`); the framework supports CNNs, Transformers, and LLMs with pluggable aggregation strategies (FedAvg and DeComFL). The legacy `flower/` package name in the Spring Boot backend refers to the `FlowerServerManager` — that's a historical name for the FL-server process supervisor, not a Flower dependency.
 
 **Key Features:**
 - 🌐 **Server-Client Architecture** - Efficient gRPC-based communication
@@ -199,19 +199,22 @@ framework/
 If you use FedLearn in your research, please cite:
 
 ```bibtex
-@article{yang2024decomfl,
-  title={DeComFL: Decomposed Federated Learning},
-  author={Yang, Haibo and [Co-authors]},
-  journal={[Journal/Conference]},
-  year={2024}
+@inproceedings{li2025decomfl,
+  title={Achieving Dimension-Free Communication in Federated Learning via Zeroth-Order Optimization},
+  author={Li, Zhe and Ying, Bicheng and Liu, Zidong and Dong, Chaosheng and Yang, Haibo},
+  booktitle={International Conference on Learning Representations (ICLR)},
+  year={2025}
 }
 ```
 
 ## Research
 
 This framework implements algorithms from:
-- **DeComFL** - Decomposed Federated Learning with Byzantine-robust aggregation
+- **DeComFL** — *Achieving Dimension-Free Communication in Federated Learning via Zeroth-Order Optimization* (ICLR 2025, [arXiv:2405.15861](https://arxiv.org/abs/2405.15861)); reference implementation [ZidongLiu/DeComFL](https://github.com/ZidongLiu/DeComFL) (Apache-2.0)
+- **Federation over Text (FoT)** — an additive, local-LLM-only text-federation research mode, orthogonal to the gradient path ([arXiv:2604.16778](https://arxiv.org/abs/2604.16778)); see [`src/fedlearn/fot/`](src/fedlearn/fot/)
 - Developed at Rochester Institute of Technology under Professor Haibo Yang
+
+Full papers-to-code mapping (DeComFL, FoT, HiSo, DPZV — implemented vs. roadmap): [`../docs/research/papers-and-implementation.md`](../docs/research/papers-and-implementation.md).
 
 ## Contributing
 
@@ -223,7 +226,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see [LICENSE](LICENSE) for details.
+This project is licensed under the Apache License 2.0 - see [LICENSE](../LICENSE) for details.
 
 ## Support
 
