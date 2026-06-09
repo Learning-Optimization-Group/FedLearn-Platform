@@ -87,6 +87,9 @@ data/
 *.swo
 *~
 .DS_Store
+._*
+.aider*
+.clinerules
 CLAUDE.md
 .claude/
 **/.claude/
@@ -98,10 +101,7 @@ CLAUDE.md
 *.dylib
 *.dll
 
-docs/llm_dumps/
-docs/testing/
-docs/guides/aws_deployment_guide.md
 MULTI_DEVICE_TESTING_GUIDE.md
 
-# v2 build documentation (markdown, not a build artifact — overrides the build/ rule above)
-!docs/v2/build/
+# Documentation folder — only wikis/ (top-level) is committed
+/docs
