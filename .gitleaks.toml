@@ -1,0 +1,18 @@
+# gitleaks config — extends the default ruleset and allowlists known-dummy
+# fixtures so the `security / secrets` CI job (free gitleaks CLI) stays green.
+#
+# Every allowlisted hit is a PUBLIC test-only credential (e.g.
+# base64("dev-only-jwt-secret-do-not-use-in-prod!!"), "test-only-internal-key"),
+# used solely to boot the Spring `test`/`dev` profiles. No real secret is ever
+# committed to these paths by policy.
+title = "FedLearn-Platform gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public test/dev-only fixture credentials (never used outside tests)"
+paths = [
+  '''.*/src/test/.*''',
+  '''.*/application-(test|dev)\.properties$''',
+]

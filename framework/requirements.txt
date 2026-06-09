@@ -3,10 +3,6 @@ torch
 torchvision
 torchaudio
 
-# Federated Learning
-flwr==1.20.0
-flwr-datasets==0.5.0
-
 # Transformers and NLP
 transformers==4.55.2
 datasets==3.1.0
@@ -24,11 +20,11 @@ pyarrow
 # Networking (updated grpcio version)
 grpcio>=1.75.1
 grpcio-health-checking>=1.62.3
-aiohttp==3.12.15
+aiohttp>=3.14.0,<4.0  # CVE-2026-34993/47265 (RCE) + DoS/smuggling fixes
 aiohttp-cors==0.8.1
 aiohappyeyeballs==2.6.1
 aiosignal==1.4.0
-requests==2.32.4
+requests>=2.33.0,<3.0  # CVE-2026-25645
 
 # Google Cloud / Monitoring
 google-api-core==2.25.1
@@ -65,14 +61,16 @@ rich>=13.0,<14.0
 tqdm>=4.65,<5.0
 
 # Cryptography
-cryptography>=41.0,<45.0
+# PYSEC-2026-35 (x2) + CVE-2026-26007 are fixed in 46.0.5+. flwr is no longer a
+# dependency, so its cryptography<45.0.0 cap is gone — pin to the patched 46.x line.
+cryptography>=46.0.6,<47.0
 pycryptodome>=3.19,<4.0
 
 # File handling
-pillow>=10.0,<12.0
+pillow>=12.2.0,<13.0  # PYSEC-2026-165 + CVE-2026-40192/42309/42310/42311 (the <12.0 cap sat below the fix)
 PyYAML>=6.0,<7.0
 
-# Data serialization (protobuf 4.x required by flwr)
+# Data serialization
 protobuf>=4.21.6,<5.0.0
 googleapis-common-protos==1.70.0
 msgpack>=1.0,<2.0

@@ -31,6 +31,11 @@ public class MembershipService {
     public List<MembershipDto> list(UUID projectId, MembershipRole filterRole) {
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        // Org isolation (read path): out-of-scope projects are treated as 404 so
+        // cross-tenant project existence is not leaked.
+        if (!authz.isInOrgScope(project.getOrgId())) {
+            throw ResourceNotFoundException.project(projectId);
+        }
         authz.requireOwnerOrMemberOrAdmin(project);
 
         List<ProjectMembership> rows = (filterRole == null)
@@ -53,6 +58,8 @@ public class MembershipService {
         }
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        // Org isolation (mutation): out-of-scope projects are a hard 403.
+        authz.requireOrgScope(project.getOrgId());
 
         // Authorization: owner & admin can add any role. Member can only add CLIENT.
         if (authz.isPlatformAdmin() || authz.isOwner(project)) {
@@ -91,6 +98,8 @@ public class MembershipService {
     public void remove(UUID projectId, Long userId) {
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        // Org isolation (mutation): out-of-scope projects are a hard 403.
+        authz.requireOrgScope(project.getOrgId());
 
         ProjectMembership existing = membershipRepository
             .findByIdProjectIdAndIdUserId(projectId, userId)
