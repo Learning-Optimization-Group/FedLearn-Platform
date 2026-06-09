@@ -12,7 +12,15 @@ import { Button, Card } from '../ui';
 const SERVER_ROOT_URL =
   import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
 
-function Row({ label, value, copyable }: { label: string; value: string; copyable?: boolean }) {
+function Row({
+  label,
+  value,
+  copyable,
+}: {
+  label: string;
+  value: string;
+  copyable?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -50,11 +58,7 @@ function Row({ label, value, copyable }: { label: string; value: string; copyabl
             )}
             title="Copy value"
           >
-            {copied ? (
-              <Check strokeWidth={1.5} className="w-3.5 h-3.5" />
-            ) : (
-              <Copy strokeWidth={1.5} className="w-3.5 h-3.5" />
-            )}
+            {copied ? <Check strokeWidth={1.5} className="w-3.5 h-3.5" /> : <Copy strokeWidth={1.5} className="w-3.5 h-3.5" />}
             {copied ? 'Copied' : 'Copy'}
           </button>
         )}
@@ -71,7 +75,9 @@ export function SettingsView() {
       <div className="h-24 flex items-center justify-between px-10 border-b border-hairline bg-canvas/65 backdrop-blur-xl sticky top-0 z-20">
         <div>
           <h1 className="text-h2 text-fg">Settings</h1>
-          <p className="text-body text-fg-muted mt-0.5">Session and orchestrator preferences.</p>
+          <p className="text-body text-fg-muted mt-0.5">
+            Session and orchestrator preferences.
+          </p>
         </div>
       </div>
 
@@ -100,7 +106,11 @@ export function SettingsView() {
               <h2 className="text-h4 text-fg">Orchestrator</h2>
             </div>
             <Row label="Server URL" value={SERVER_ROOT_URL} copyable />
-            <Row label="Client bootstrap" value={`--server ${SERVER_ROOT_URL}`} copyable />
+            <Row
+              label="Client bootstrap"
+              value={`--server ${SERVER_ROOT_URL}`}
+              copyable
+            />
           </Card>
 
           {/* About */}
@@ -110,9 +120,9 @@ export function SettingsView() {
               <h2 className="text-h4 text-fg">About</h2>
             </div>
             <p className="text-body leading-relaxed text-fg-muted">
-              FedLearn-Platform coordinates federated training across heterogeneous edge devices
-              (Jetson ARM64, Apple Silicon, x86/CUDA). Provision client credentials from the{' '}
-              <span className="text-accent font-medium">Node Network</span> view.
+              FedLearn-Platform coordinates federated training across heterogeneous edge
+              devices (Jetson ARM64, Apple Silicon, x86/CUDA). Provision client credentials
+              from the <span className="text-accent font-medium">Node Network</span> view.
             </p>
           </Card>
         </div>

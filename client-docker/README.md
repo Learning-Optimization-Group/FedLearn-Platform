@@ -36,12 +36,13 @@ client-docker/
 ## Build
 
 ```bash
+cd client-docker
+
 # Default (x86 CUDA 11.7)
-docker build -f client-docker/Dockerfile -t fedlearn-client:latest -t fedlearn-client:0.1.0 .
+docker build -t fedlearn-client:latest -t fedlearn-client:0.1.0 .
 
 # Jetson AGX Orin
 docker build \
-  -f client-docker/Dockerfile \
   --build-arg BASE_IMAGE=nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3 \
   -t fedlearn-client:jetson .
 ```
@@ -53,42 +54,12 @@ Always tag both `:latest` and a version (`:0.1.0`) — the Electron orchestrator
 ```bash
 docker run --rm -it \
   -v /path/to/data:/data \
-  -e PROJECT_ID=<uuid> \
-  -e SERVER_ADDRESS=<server-host>:<grpc-port> \
-  -e PARTITION_ID=0 \
-  fedlearn-client:latest
-```
-
-Optional pass-through flags (forwarded by `entrypoint.sh`):
-
-```bash
-docker run --rm -it \
-  -v /path/to/data:/data \
-  -e PROJECT_ID=<uuid> \
-  -e SERVER_ADDRESS=<server-host>:<grpc-port> \
-  -e PARTITION_ID=0 \
   fedlearn-client:latest \
-  --use-llm --dataset sst2
+  --server-address <server-host>:<grpc-port> \
+  --client-id 0
 ```
 
-For Jetson, **do not pass `--runtime nvidia`**. Use direct device mounts instead:
-
-```bash
-docker run --rm -it \
-  --device /dev/nvhost-ctrl \
-  --device /dev/nvhost-ctrl-gpu \
-  --device /dev/nvhost-dbg-gpu \
-  --device /dev/nvhost-prof-gpu \
-  --device /dev/nvmap \
-  --device /dev/nvhost-gpu \
-  -v /path/to/data:/data \
-  -e PROJECT_ID=<uuid> \
-  -e SERVER_ADDRESS=<server-host>:<grpc-port> \
-  -e PARTITION_ID=0 \
-  fedlearn-client:jetson
-```
-
-For x86 hosts with a discrete NVIDIA GPU, use `--gpus all` (modern Docker) or `--runtime nvidia` (legacy).
+For Jetson with CUDA, add `--runtime nvidia` (NVIDIA Container Runtime is pre-installed with JetPack).
 
 For multi-platform image distribution (`buildx`, registry pushes, offline export), see `DEPLOYMENT_GUIDE.md`.
 

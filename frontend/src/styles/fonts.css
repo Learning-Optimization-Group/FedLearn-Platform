@@ -1,11 +1,1 @@
 /* Fonts are loaded via <link> tag in index.html for correct ordering with Tailwind. */
-
-:root {
-	--font-family-sans: 'Manrope', 'Segoe UI', sans-serif;
-	--font-family-display: 'Space Grotesk', 'Manrope', 'Segoe UI', sans-serif;
-	--font-family-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
-}
-
-.font-display {
-	font-family: var(--font-family-display);
-}

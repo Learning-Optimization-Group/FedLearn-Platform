@@ -60,10 +60,7 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
       {copied ? (
         <Check className="w-3.5 h-3.5 text-success" strokeWidth={1.5} />
       ) : (
-        <Copy
-          className="w-3.5 h-3.5 opacity-0 group-hover/copy:opacity-100 transition-opacity"
-          strokeWidth={1.5}
-        />
+        <Copy className="w-3.5 h-3.5 opacity-0 group-hover/copy:opacity-100 transition-opacity" strokeWidth={1.5} />
       )}
     </button>
   );
@@ -166,32 +163,15 @@ export function ProjectCard({
         {/* Circular Progress Ring */}
         <div className="relative flex items-center justify-center w-14 h-14 ml-2">
           <svg className="w-full h-full transform -rotate-90">
+            <circle cx="28" cy="28" r={radius} stroke="currentColor" strokeWidth="4.5" fill="transparent" className="text-surface-3" />
             <circle
-              cx="28"
-              cy="28"
-              r={radius}
-              stroke="currentColor"
-              strokeWidth="4.5"
-              fill="transparent"
-              className="text-surface-3"
-            />
-            <circle
-              cx="28"
-              cy="28"
-              r={radius}
-              stroke="currentColor"
-              strokeWidth="4.5"
-              fill="transparent"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              strokeLinecap="round"
-              className={cn('transition-all duration-[240ms] ease-out', ringColor)}
+              cx="28" cy="28" r={radius} stroke="currentColor" strokeWidth="4.5" fill="transparent"
+              strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round"
+              className={cn("transition-all duration-[240ms] ease-out", ringColor)}
             />
           </svg>
           <div className="absolute flex flex-col items-center justify-center text-center">
-            <span className="text-caption font-mono tabular-nums font-bold text-fg">
-              {Math.round(progress)}%
-            </span>
+            <span className="text-caption font-mono tabular-nums font-bold text-fg">{Math.round(progress)}%</span>
           </div>
         </div>
       </div>
@@ -238,14 +218,7 @@ export function ProjectCard({
               <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 <LineChart data={accuracyTrend}>
                   <YAxis domain={['auto', 'auto']} hide />
-                  <Line
-                    type="monotone"
-                    dataKey="accuracy"
-                    stroke="var(--color-series-1)"
-                    strokeWidth={2.5}
-                    dot={false}
-                    isAnimationActive={true}
-                  />
+                  <Line type="monotone" dataKey="accuracy" stroke="var(--color-series-1)" strokeWidth={2.5} dot={false} isAnimationActive={true} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (

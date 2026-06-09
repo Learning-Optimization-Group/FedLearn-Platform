@@ -47,9 +47,7 @@ function CreateClientModal({ isOpen, onClose, onSubmit, isLoading }: CreateClien
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
-          <label className="text-caption font-medium text-fg-muted uppercase tracking-wide">
-            Username
-          </label>
+          <label className="text-caption font-medium text-fg-muted uppercase tracking-wide">Username</label>
           <Input
             type="text"
             value={username}
@@ -60,9 +58,7 @@ function CreateClientModal({ isOpen, onClose, onSubmit, isLoading }: CreateClien
           />
         </div>
         <div className="flex flex-col gap-2">
-          <label className="text-caption font-medium text-fg-muted uppercase tracking-wide">
-            Email
-          </label>
+          <label className="text-caption font-medium text-fg-muted uppercase tracking-wide">Email</label>
           <Input
             type="email"
             value={email}
@@ -72,9 +68,7 @@ function CreateClientModal({ isOpen, onClose, onSubmit, isLoading }: CreateClien
           />
         </div>
         <div className="flex flex-col gap-2">
-          <label className="text-caption font-medium text-fg-muted uppercase tracking-wide">
-            Password
-          </label>
+          <label className="text-caption font-medium text-fg-muted uppercase tracking-wide">Password</label>
           <Input
             type="password"
             value={password}
@@ -127,9 +121,7 @@ export function NodeNetwork() {
     }
   }, []);
 
-  useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+  useEffect(() => { loadUsers(); }, [loadUsers]);
 
   const handleCreate = async (data: RegisterData) => {
     try {
@@ -161,9 +153,7 @@ export function NodeNetwork() {
       <div className="h-24 flex items-center justify-between px-10 border-b border-hairline bg-canvas/65 backdrop-blur-xl sticky top-0 z-20">
         <div>
           <h1 className="text-h2 text-fg">Node Network</h1>
-          <p className="text-body text-fg-muted mt-0.5">
-            Manage edge devices and client credentials.
-          </p>
+          <p className="text-body text-fg-muted mt-0.5">Manage edge devices and client credentials.</p>
         </div>
         <Button onClick={() => setIsModalOpen(true)}>
           <Plus strokeWidth={1.5} className="w-[18px] h-[18px]" />
@@ -185,11 +175,7 @@ export function NodeNetwork() {
         ) : users.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {users.map((user) => (
-              <Card
-                key={user.id}
-                padding="lg"
-                className="flex flex-col gap-4 hover:bg-surface-2 transition-colors duration-[160ms]"
-              >
+              <Card key={user.id} padding="lg" className="flex flex-col gap-4 hover:bg-surface-2 transition-colors duration-[160ms]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-pill bg-surface-2 text-success flex items-center justify-center">

@@ -35,8 +35,6 @@ export interface Project {
     optimizer: string;
     status: 'RUNNING' | 'STOPPED' | 'COMPLETED' | 'FAILED';
     serverPort?: number;
-    visibility?: 'PUBLIC' | 'PRIVATE';
-    myRelationship?: 'OWNER' | 'MEMBER' | 'CLIENT' | null;
 }
 
 export interface ProjectResult {
@@ -129,64 +127,6 @@ export const deleteProject = (projectId: string): Promise<AxiosResponse<{ projec
     return api.delete<{ projectId: string; message: string }>(`/projects/${projectId}`);
 };
 
-export const fetchProject = (projectId: string): Promise<AxiosResponse<Project>> =>
-    api.get<Project>(`/projects/${projectId}`);
-
-export const patchProject = (
-    projectId: string,
-    data: { name?: string; description?: string; visibility?: 'PUBLIC' | 'PRIVATE' }
-): Promise<AxiosResponse<Project>> =>
-    api.patch<Project>(`/projects/${projectId}`, data);
-
-// ─── Discover ───────────────────────────────────────────────────────────────
-export const fetchDiscover = (): Promise<AxiosResponse<DiscoverProject[]>> =>
-    api.get<DiscoverProject[]>('/projects/discover');
-
-// ─── Memberships ────────────────────────────────────────────────────────────
-export const fetchMemberships = (projectId: string): Promise<AxiosResponse<Membership[]>> =>
-    api.get<Membership[]>(`/projects/${projectId}/memberships`);
-
-export const addMembership = (
-    projectId: string,
-    body: { username: string; role: 'MEMBER' | 'CLIENT' }
-): Promise<AxiosResponse<Membership>> =>
-    api.post<Membership>(`/projects/${projectId}/memberships`, body);
-
-export const removeMembership = (projectId: string, userId: number): Promise<AxiosResponse<void>> =>
-    api.delete<void>(`/projects/${projectId}/memberships/${userId}`);
-
-// ─── Access Requests (project-scoped) ───────────────────────────────────────
-export const fetchProjectAccessRequests = (projectId: string): Promise<AxiosResponse<AccessRequest[]>> =>
-    api.get<AccessRequest[]>(`/projects/${projectId}/access-requests`);
-
-export const createAccessRequest = (projectId: string, message?: string): Promise<AxiosResponse<AccessRequest>> =>
-    api.post<AccessRequest>(`/projects/${projectId}/access-requests`, message ? { message } : {});
-
-export const decideAccessRequest = (
-    projectId: string,
-    reqId: number,
-    decision: 'APPROVED' | 'DENIED'
-): Promise<AxiosResponse<AccessRequest>> =>
-    api.put<AccessRequest>(`/projects/${projectId}/access-requests/${reqId}`, { decision });
-
-// ─── My Access Requests ──────────────────────────────────────────────────────
-export const fetchMyAccessRequests = (): Promise<AxiosResponse<AccessRequest[]>> =>
-    api.get<AccessRequest[]>('/my/access-requests');
-
-// ─── Admin ──────────────────────────────────────────────────────────────────
-export const fetchAdminUsers = (): Promise<AxiosResponse<AdminUser[]>> =>
-    api.get<AdminUser[]>('/admin/users');
-
-export const updateUserRole = (userId: number, role: 'USER' | 'ADMIN'): Promise<AxiosResponse<AdminUser>> =>
-    api.put<AdminUser>(`/admin/users/${userId}/role`, { role });
-
-export const fetchAdminProjects = (): Promise<AxiosResponse<Project[]>> =>
-    api.get<Project[]>('/admin/projects');
-
-// ─── User Search ─────────────────────────────────────────────────────────────
-export const searchUsers = (q: string): Promise<AxiosResponse<UserSearchResult[]>> =>
-    api.get<UserSearchResult[]>(`/users/search?q=${encodeURIComponent(q)}`);
-
 // User / Client Management Endpoints
 export interface User {
     id: number;
@@ -194,71 +134,6 @@ export interface User {
     email: string;
     role?: 'USER' | 'ADMIN';
     createdAt?: string;
-}
-
-// ─── RBAC types ─────────────────────────────────────────────────────────────
-
-export interface Membership {
-    projectId: string;
-    userId: number;
-    username: string;
-    role: 'MEMBER' | 'CLIENT' | 'OWNER';
-    partitionId?: number | null;
-    joinedVia: string;
-    addedAt: string;
-}
-
-export interface AccessRequest {
-    id: number;
-    projectId: string;
-    projectName: string;
-    userId: number;
-    username: string;
-    status: 'PENDING' | 'APPROVED' | 'DENIED';
-    message?: string;
-    requestedAt: string;
-    decidedAt?: string;
-    decidedByUsername?: string;
-}
-
-export interface DiscoverProject {
-    id: string;
-    name: string;
-    visibility: 'PUBLIC' | 'PRIVATE';
-    ownerUsername: string;
-    modelType: string;
-    myRequestStatus: 'NONE' | 'PENDING' | 'APPROVED' | 'DENIED';
-    lastAccuracy?: number;
-    description?: string;
-}
-
-export interface AdminUser {
-    id: number;
-    username: string;
-    email: string;
-    role: 'USER' | 'ADMIN';
-    projectsOwned: number;
-    memberships: number;
-    createdAt: string;
-}
-
-export interface UserSearchResult {
-    id: number;
-    username: string;
-}
-
-export interface AppNotification {
-    id: string;
-    type: 'ACCESS_REQUEST_CREATED' | 'ACCESS_REQUEST_DECIDED' | 'MEMBERSHIP_ADDED' | 'MEMBERSHIP_REMOVED' | 'PROJECT_VISIBILITY_CHANGED';
-    projectId: string;
-    projectName: string;
-    actorId: number;
-    actorUsername: string;
-    subjectId?: number;
-    subjectUsername?: string;
-    decision?: string;
-    role?: string;
-    timestamp: string;
 }
 
 /**

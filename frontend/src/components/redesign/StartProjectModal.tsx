@@ -10,10 +10,7 @@ interface StartProjectModalProps {
   isOpen: boolean;
   project: Project | null;
   onClose: () => void;
-  onSubmit: (
-    projectId: string,
-    config: { strategy: string; numRounds: number; minClients: number }
-  ) => Promise<void>;
+  onSubmit: (projectId: string, config: { strategy: string; numRounds: number; minClients: number }) => Promise<void>;
 }
 
 const labelClass = 'text-caption font-semibold text-fg-muted uppercase tracking-wide';
@@ -61,10 +58,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <div className="flex flex-col gap-1 mb-2">
           <h3 className="text-body font-medium text-fg">Configure Run Parameter</h3>
-          <p className="text-label text-fg-muted">
-            Settings for orchestrating clients in project{' '}
-            <strong className="text-fg">{project.name}</strong>.
-          </p>
+          <p className="text-label text-fg-muted">Settings for orchestrating clients in project <strong className="text-fg">{project.name}</strong>.</p>
         </div>
 
         {/* Strategy */}
@@ -113,14 +107,12 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
           >
             Cancel
           </Button>
-          <Button type="submit" disabled={isLoading} className="flex-1">
-            {isLoading ? (
-              'Starting...'
-            ) : (
-              <>
-                <Play strokeWidth={1.5} className="h-4 w-4 fill-current" /> Start Server
-              </>
-            )}
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="flex-1"
+          >
+            {isLoading ? 'Starting...' : <><Play strokeWidth={1.5} className="h-4 w-4 fill-current" /> Start Server</>}
           </Button>
         </div>
       </form>

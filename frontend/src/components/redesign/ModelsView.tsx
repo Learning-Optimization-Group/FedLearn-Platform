@@ -86,7 +86,9 @@ export function ModelsView() {
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-fg-muted">Loading models…</div>
+          <div className="flex items-center justify-center h-64 text-fg-muted">
+            Loading models…
+          </div>
         ) : summaries.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-fg-muted gap-2">
             <p className="text-h4">No models attached yet.</p>
@@ -105,8 +107,12 @@ export function ModelsView() {
                     <Boxes strokeWidth={1.5} className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-h4 text-fg truncate">{m.modelName}</h3>
-                    <p className="text-label text-fg-muted">{m.modelType}</p>
+                    <h3 className="text-h4 text-fg truncate">
+                      {m.modelName}
+                    </h3>
+                    <p className="text-label text-fg-muted">
+                      {m.modelType}
+                    </p>
                   </div>
                 </div>
 
@@ -118,7 +124,9 @@ export function ModelsView() {
                         Total
                       </span>
                     </div>
-                    <span className="text-h4 font-mono tabular-nums text-fg">{m.projectCount}</span>
+                    <span className="text-h4 font-mono tabular-nums text-fg">
+                      {m.projectCount}
+                    </span>
                   </div>
                   <div className="bg-surface-2 rounded-sm p-3 flex flex-col gap-1">
                     <div className="flex items-center gap-1.5 text-accent">
@@ -127,7 +135,9 @@ export function ModelsView() {
                         Running
                       </span>
                     </div>
-                    <span className="text-h4 font-mono tabular-nums text-fg">{m.running}</span>
+                    <span className="text-h4 font-mono tabular-nums text-fg">
+                      {m.running}
+                    </span>
                   </div>
                   <div className="bg-surface-2 rounded-sm p-3 flex flex-col gap-1">
                     <div className="flex items-center gap-1.5 text-success">
@@ -136,7 +146,9 @@ export function ModelsView() {
                         Done
                       </span>
                     </div>
-                    <span className="text-h4 font-mono tabular-nums text-fg">{m.completed}</span>
+                    <span className="text-h4 font-mono tabular-nums text-fg">
+                      {m.completed}
+                    </span>
                   </div>
                 </div>
 

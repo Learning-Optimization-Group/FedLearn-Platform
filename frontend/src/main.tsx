@@ -6,8 +6,6 @@ import './index.css';
 import './styles/tailwind.css';
 import './styles/fonts.css';
 import { AuthProvider } from './context/AuthContext';
-import { NotificationProvider } from './context/NotificationContext';
-import { ThemeProvider } from './context/ThemeContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 if (typeof window !== 'undefined') {
@@ -23,15 +21,11 @@ if (!rootElement) {
 ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
         <ErrorBoundary>
-            <ThemeProvider>
-                <BrowserRouter>
-                    <AuthProvider>
-                        <NotificationProvider>
-                            <App />
-                        </NotificationProvider>
-                    </AuthProvider>
-                </BrowserRouter>
-            </ThemeProvider>
+            <BrowserRouter>
+                <AuthProvider>
+                    <App />
+                </AuthProvider>
+            </BrowserRouter>
         </ErrorBoundary>
     </React.StrictMode>
 );
