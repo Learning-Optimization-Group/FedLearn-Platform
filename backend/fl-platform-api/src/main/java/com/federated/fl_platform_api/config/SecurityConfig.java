@@ -6,6 +6,7 @@ import com.federated.fl_platform_api.security.AuditingAuthenticationFailureHandl
 import com.federated.fl_platform_api.security.AuditingAuthenticationSuccessHandler;
 import com.federated.fl_platform_api.security.InternalApiKeyFilter;
 import com.federated.fl_platform_api.security.JwtAuthenticationFilter;
+import com.federated.fl_platform_api.security.OrgScopeFilter;
 import com.federated.fl_platform_api.service.CustomUserDetailsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +50,9 @@ public class SecurityConfig {
 
     @Autowired
     private InternalApiKeyFilter internalApiKeyFilter;
+
+    @Autowired
+    private OrgScopeFilter orgScopeFilter;
 
     @Autowired
     private Environment environment;
@@ -141,7 +145,10 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(internalApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                // Runs after auth is established so it can resolve the caller's
+                // org memberships and populate the request-scoped OrgScope.
+                .addFilterAfter(orgScopeFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

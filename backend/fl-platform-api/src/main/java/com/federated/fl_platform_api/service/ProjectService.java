@@ -60,9 +60,17 @@ public class ProjectService {
     private NotificationService notificationService;
     @Autowired
     private OrganizationMembershipRepository orgMembershipRepository;
+    @Autowired
+    private com.federated.fl_platform_api.security.OrgScope orgScope;
 
-    /** Default org UUID seeded by V5 migration — fallback when a user has no membership. */
-    private static final UUID DEFAULT_ORG_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    /**
+     * Default org UUID seeded by the V5 migration — the single transitional
+     * bootstrap org. Used as the fallback both for project creation and for the
+     * OrgScope of users that have no explicit org membership yet. Exposed so
+     * {@link com.federated.fl_platform_api.security.OrgScopeFilter} shares the
+     * exact same default (no duplicate UUID literal across the codebase).
+     */
+    public static final UUID DEFAULT_ORG_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
 
     private RoundResultDto convertToDto(RoundResult result) {
@@ -149,6 +157,7 @@ public class ProjectService {
 
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        authz.requireOrgScope(project.getOrgId());
         authz.requireOwnerOrAdmin(project);
 
         String strategyToUse = (request != null && request.getStrategy() != null && !request.getStrategy().isEmpty())
@@ -199,6 +208,7 @@ public class ProjectService {
     public ProjectResponseDto stopServerForProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        authz.requireOrgScope(project.getOrgId());
         authz.requireOwnerOrAdmin(project);
 
         boolean stopped = flowerServerManager.stopServerForProject(projectId);
@@ -217,7 +227,13 @@ public class ProjectService {
 
     public List<ProjectResponseDto> getProjectsForCurrentUser() {
         User caller = authz.currentUser();
-        List<Project> projects = projectRepository.findOwnedOrMemberOf(caller.getId());
+        // Platform admins (unrestricted scope) see all orgs via the unscoped
+        // query; everyone else is constrained to their visible orgs (which falls
+        // back to the single default org for membership-less users).
+        List<Project> projects = orgScope.isUnrestricted()
+                ? projectRepository.findOwnedOrMemberOf(caller.getId())
+                : projectRepository.findOwnedOrMemberOfInOrgs(
+                        caller.getId(), orgScope.visibleOrgIds());
         return projects.stream().map(p -> {
             ProjectResponseDto dto = convertToDto(p);
             dto.setVisibility(p.getVisibility() != null ? p.getVisibility().name() : null);
@@ -236,6 +252,7 @@ public class ProjectService {
     public List<RoundResultDto> getResultsForProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        authz.requireOrgScope(project.getOrgId());
         authz.requireOwnerOrAdmin(project);
         return roundResultRepository.findByProjectIdOrderByServerRoundAsc(projectId).stream()
                 .map(this::convertToDto)
@@ -260,6 +277,7 @@ public class ProjectService {
     public void deleteProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        authz.requireOrgScope(project.getOrgId());
         authz.requireOwnerOrAdmin(project);
 
         // Best-effort: stop any running FL server before removing the row so
@@ -319,6 +337,7 @@ public class ProjectService {
     private Project requireProjectAndOwnership(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        authz.requireOrgScope(project.getOrgId());
         authz.requireOwnerOrAdmin(project);
         return project;
     }
@@ -337,6 +356,7 @@ public class ProjectService {
     public ProjectResponseDto updateProject(@NonNull UUID projectId, UpdateProjectRequest req) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        authz.requireOrgScope(project.getOrgId());
         authz.requireOwnerOrAdmin(project);
 
         if (req.getName() != null && !req.getName().isBlank()) {
@@ -375,6 +395,12 @@ public class ProjectService {
     public ProjectResponseDto getProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        // Org isolation: a project outside the caller's visible orgs is treated
+        // as non-existent (404) so we don't leak cross-tenant existence. Platform
+        // admins are unrestricted and skip this gate.
+        if (!orgScope.allows(project.getOrgId())) {
+            throw ResourceNotFoundException.project(projectId);
+        }
         boolean isAdmin = authz.isPlatformAdmin();
         boolean isOwner = authz.isOwner(project);
         boolean isParticipant = isAdmin || isOwner
@@ -409,7 +435,11 @@ public class ProjectService {
 
     public List<DiscoverProjectDto> getDiscoverProjects() {
         User caller = authz.currentUser();
-        return projectRepository.findDiscoverable(caller.getId(), ProjectVisibility.PUBLIC)
+        List<Project> candidates = orgScope.isUnrestricted()
+                ? projectRepository.findDiscoverable(caller.getId(), ProjectVisibility.PUBLIC)
+                : projectRepository.findDiscoverableInOrgs(
+                        caller.getId(), ProjectVisibility.PUBLIC, orgScope.visibleOrgIds());
+        return candidates
                 .stream()
                 .filter(p -> p.getUser() == null || !p.getUser().getId().equals(caller.getId()))
                 .filter(p -> membershipRepository

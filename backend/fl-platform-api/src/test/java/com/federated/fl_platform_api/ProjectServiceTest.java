@@ -56,6 +56,9 @@ class ProjectServiceTest {
     @Mock
     private com.federated.fl_platform_api.repository.OrganizationMembershipRepository orgMembershipRepository;
 
+    @Mock
+    private com.federated.fl_platform_api.security.OrgScope orgScope;
+
     @InjectMocks
     private ProjectService projectService;
 
@@ -164,6 +167,9 @@ class ProjectServiceTest {
         joined.setUser(otherOwner);
         joined.setVisibility(com.federated.fl_platform_api.model.ProjectVisibility.PUBLIC);
 
+        // Unrestricted scope routes to the unscoped query (org-scoped filtering
+        // is covered separately in OrgIsolationTest).
+        when(orgScope.isUnrestricted()).thenReturn(true);
         when(projectRepository.findOwnedOrMemberOf(42L))
             .thenReturn(java.util.List.of(owned, joined));
 

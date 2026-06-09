@@ -41,6 +41,7 @@ class ProjectServiceExtendedTest {
     @Mock private ServerLogRepository serverLogRepository;
     @Mock private com.federated.fl_platform_api.service.AuthorizationService authz;
     @Mock private com.federated.fl_platform_api.repository.ProjectMembershipRepository membershipRepository;
+    @Mock private com.federated.fl_platform_api.security.OrgScope orgScope;
 
     @InjectMocks
     private ProjectService projectService;
@@ -79,6 +80,9 @@ class ProjectServiceExtendedTest {
         p1.setUser(testUser); p1.setStatus("CREATED");
 
         when(authz.currentUser()).thenReturn(testUser);
+        // Unrestricted scope routes to the unscoped query (the org-scoped path is
+        // covered separately in OrgIsolationTest).
+        when(orgScope.isUnrestricted()).thenReturn(true);
         when(projectRepository.findOwnedOrMemberOf(1L)).thenReturn(List.of(p1));
 
         List<ProjectResponseDto> results = projectService.getProjectsForCurrentUser();
