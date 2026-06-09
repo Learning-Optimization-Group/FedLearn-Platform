@@ -61,7 +61,7 @@ class OrganizationMembershipTest {
         u.setUsername(username);
         u.setEmail(username + "@example.com");
         u.setPassword("x");
-        u.setPlatformRole("USER");
+        u.setPlatformRole(com.federated.fl_platform_api.model.PlatformRole.USER);
         return u;
     }
 }

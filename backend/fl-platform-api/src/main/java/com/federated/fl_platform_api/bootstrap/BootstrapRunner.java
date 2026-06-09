@@ -5,6 +5,7 @@ import com.federated.fl_platform_api.model.AuditEvent;
 import com.federated.fl_platform_api.model.OrgRole;
 import com.federated.fl_platform_api.model.Organization;
 import com.federated.fl_platform_api.model.OrganizationMembership;
+import com.federated.fl_platform_api.model.PlatformRole;
 import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.model.UserStatus;
 import com.federated.fl_platform_api.repository.AuditEventRepository;
@@ -89,7 +90,7 @@ public class BootstrapRunner implements ApplicationRunner {
             return;
         }
 
-        if (users.existsByPlatformRole("PLATFORM_ADMIN")) {
+        if (users.existsByPlatformRole(PlatformRole.PLATFORM_ADMIN)) {
             LOG.info("[bootstrap] platform admin already present; skipping");
             return;
         }
@@ -119,7 +120,7 @@ public class BootstrapRunner implements ApplicationRunner {
         admin.setUsername(username);
         admin.setEmail(props.adminEmail());
         admin.setPassword(encoder.encode(password));
-        admin.setPlatformRole("PLATFORM_ADMIN");
+        admin.setPlatformRole(PlatformRole.PLATFORM_ADMIN);
         admin.setStatus(UserStatus.ACTIVE);
         admin.setEmailVerified(true);
         admin = users.save(admin);

@@ -14,7 +14,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasRole('PLATFORM_ADMIN')")
 public class AdminController {
 
     @Autowired private AdminService adminService;

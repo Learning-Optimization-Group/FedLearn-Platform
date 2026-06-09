@@ -25,7 +25,7 @@ class UserEntityTest {
         u.setUsername("alice");
         u.setEmail("alice@example.com");
         u.setPassword("hash");
-        u.setPlatformRole("USER");
+        u.setPlatformRole(com.federated.fl_platform_api.model.PlatformRole.USER);
         u.setStatus(UserStatus.ACTIVE);
         u.setEmailVerified(true);
         u.setDisplayName("Alice Liddell");
@@ -40,7 +40,7 @@ class UserEntityTest {
         assertThat(found.getDisplayName()).isEqualTo("Alice Liddell");
         assertThat(found.getAvatarUrl()).isEqualTo("https://example.com/a.png");
         assertThat(found.getLastLoginAt()).isNotNull();
-        assertThat(found.getPlatformRole()).isEqualTo("USER");
+        assertThat(found.getPlatformRole()).isEqualTo(com.federated.fl_platform_api.model.PlatformRole.USER);
     }
 
     @Test
@@ -49,7 +49,7 @@ class UserEntityTest {
         u.setUsername("bob");
         u.setEmail("bob@example.com");
         u.setPassword("h");
-        u.setPlatformRole("USER");
+        u.setPlatformRole(com.federated.fl_platform_api.model.PlatformRole.USER);
         repo.saveAndFlush(u);
         assertThat(repo.findById(u.getId()).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
     }

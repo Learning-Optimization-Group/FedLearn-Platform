@@ -44,13 +44,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     Boolean existsByEmail(String email);
 
-    long countByPlatformRole(String platformRole);
+    long countByPlatformRole(com.federated.fl_platform_api.model.PlatformRole platformRole);
 
     /**
      * Existence check used by the bootstrap runner to short-circuit when the
      * first platform admin has already been seeded.
      */
-    boolean existsByPlatformRole(String platformRole);
+    boolean existsByPlatformRole(com.federated.fl_platform_api.model.PlatformRole platformRole);
 
     List<User> findByUsernameStartingWithIgnoreCaseOrderByUsernameAsc(String prefix, Pageable pageable);
 }

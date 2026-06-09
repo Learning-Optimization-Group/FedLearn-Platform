@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.admin;
 
+import com.federated.fl_platform_api.model.PlatformRole;
 import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -25,7 +26,7 @@ class AdminControllerIntegrationTest {
     @Autowired UserRepository userRepository;
     @Autowired PasswordEncoder passwordEncoder;
 
-    private User createUser(String username, String role) {
+    private User createUser(String username, PlatformRole role) {
         User u = new User(username, username + "@example.com", passwordEncoder.encode("Password1!"));
         u.setPlatformRole(role);
         return userRepository.save(u);
@@ -52,7 +53,7 @@ class AdminControllerIntegrationTest {
 
     @Test
     void nonAdmin_gets403OnAdminUsers() {
-        createUser("user_a1", "USER");
+        createUser("user_a1", PlatformRole.USER);
         String cookie = loginAs("user_a1");
 
         ResponseEntity<String> resp = restTemplate.exchange(
@@ -63,8 +64,8 @@ class AdminControllerIntegrationTest {
 
     @Test
     void admin_seesAllUsers() {
-        createUser("admin_a2", "ADMIN");
-        createUser("user_a2", "USER");
+        createUser("admin_a2", PlatformRole.PLATFORM_ADMIN);
+        createUser("user_a2", PlatformRole.USER);
         String cookie = loginAs("admin_a2");
 
         @SuppressWarnings({"unchecked", "rawtypes"})
@@ -78,7 +79,7 @@ class AdminControllerIntegrationTest {
 
     @Test
     void demoteOnlyAdmin_returns409() {
-        createUser("admin_a3", "ADMIN");
+        createUser("admin_a3", PlatformRole.PLATFORM_ADMIN);
         String cookie = loginAs("admin_a3");
 
         Long adminId = userRepository.findByUsername("admin_a3").orElseThrow().getId();
@@ -92,17 +93,17 @@ class AdminControllerIntegrationTest {
 
     @Test
     void promoteUser_thenDemoteOriginalAdmin_succeeds() {
-        User admin = createUser("admin_a4", "ADMIN");
-        User user = createUser("user_a4", "USER");
+        User admin = createUser("admin_a4", PlatformRole.PLATFORM_ADMIN);
+        User user = createUser("user_a4", PlatformRole.USER);
         String cookie = loginAs("admin_a4");
 
-        // Promote user to ADMIN
+        // Promote user to PLATFORM_ADMIN
         @SuppressWarnings({"unchecked", "rawtypes"})
         ResponseEntity<Map> promote = restTemplate.exchange(
             "/api/admin/users/" + user.getId() + "/role", HttpMethod.PUT,
-            new HttpEntity<>(Map.of("role", "ADMIN"), headers(cookie)), Map.class);
+            new HttpEntity<>(Map.of("role", "PLATFORM_ADMIN"), headers(cookie)), Map.class);
         assertEquals(HttpStatus.OK, promote.getStatusCode());
-        assertEquals("ADMIN", promote.getBody().get("role"));
+        assertEquals("PLATFORM_ADMIN", promote.getBody().get("role"));
 
         // Now demote the original admin — should succeed since there are 2 admins
         @SuppressWarnings({"unchecked", "rawtypes"})

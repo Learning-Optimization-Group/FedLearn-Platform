@@ -25,13 +25,14 @@ public class User {
     private String password; // This will store the HASHED password
 
     /**
-     * Coarse platform-level role used for endpoint authorization (USER | ADMIN).
+     * Coarse platform-level role used for endpoint authorization (USER | PLATFORM_ADMIN).
      * Mapped to a Spring Security {@code GrantedAuthority} of
      * {@code ROLE_<value>} by {@link com.federated.fl_platform_api.service.CustomUserDetailsService}.
      * Column renamed from {@code role} to {@code platform_role} in V5 migration.
      */
+    @Enumerated(EnumType.STRING)
     @Column(name = "platform_role", nullable = false, length = 32)
-    private String platformRole = "USER";
+    private PlatformRole platformRole = PlatformRole.USER;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
@@ -92,7 +93,7 @@ public class User {
         return password;
     }
 
-    public String getPlatformRole() {
+    public PlatformRole getPlatformRole() {
         return platformRole;
     }
 
@@ -145,7 +146,7 @@ public class User {
         this.password = password;
     }
 
-    public void setPlatformRole(String platformRole) {
+    public void setPlatformRole(PlatformRole platformRole) {
         this.platformRole = platformRole;
     }
 

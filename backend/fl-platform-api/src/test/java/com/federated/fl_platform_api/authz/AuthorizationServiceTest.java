@@ -45,7 +45,7 @@ class AuthorizationServiceTest {
     void setUp() {
         owner = new User("alice", "alice@example.com", "x"); owner.setId(1L);
         other = new User("bob",   "bob@example.com",   "x"); other.setId(2L);
-        admin = new User("admin", "admin@example.com", "x"); admin.setId(3L); admin.setPlatformRole("ADMIN");
+        admin = new User("admin", "admin@example.com", "x"); admin.setId(3L); admin.setPlatformRole(PlatformRole.PLATFORM_ADMIN);
 
         project = new Project();
         project.setId(UUID.randomUUID());
@@ -59,7 +59,7 @@ class AuthorizationServiceTest {
     private void loggedInAs(User u) {
         when(authentication.getName()).thenReturn(u.getUsername());
         when(userRepository.findByUsername(u.getUsername())).thenReturn(Optional.of(u));
-        if ("ADMIN".equals(u.getPlatformRole())) {
+        if (PlatformRole.PLATFORM_ADMIN.equals(u.getPlatformRole())) {
             when(authentication.getAuthorities())
                 .thenReturn((java.util.Collection) List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
         } else {

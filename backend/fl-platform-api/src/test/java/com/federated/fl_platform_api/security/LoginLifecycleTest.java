@@ -92,7 +92,7 @@ class LoginLifecycleTest {
         u.setUsername(username);
         u.setEmail(username + "@example.com");
         u.setPassword(encoder.encode(password));
-        u.setPlatformRole("USER");
+        u.setPlatformRole(com.federated.fl_platform_api.model.PlatformRole.USER);
         u.setStatus(UserStatus.ACTIVE);
         return u;
     }

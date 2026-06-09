@@ -3,6 +3,7 @@ package com.federated.fl_platform_api.service;
 import com.federated.fl_platform_api.dto.AdminUserDto;
 import com.federated.fl_platform_api.dto.ProjectResponseDto;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
+import com.federated.fl_platform_api.model.PlatformRole;
 import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
@@ -38,14 +39,16 @@ public class AdminService {
         User target = userRepository.findById(id)
             .orElseThrow(() -> ResourceNotFoundException.forEntity("User", id));
 
-        if ("USER".equals(newRole) && "ADMIN".equals(target.getPlatformRole())) {
-            long adminCount = userRepository.countByPlatformRole("ADMIN");
+        PlatformRole role = PlatformRole.valueOf(newRole);
+
+        if (role == PlatformRole.USER && target.getPlatformRole() == PlatformRole.PLATFORM_ADMIN) {
+            long adminCount = userRepository.countByPlatformRole(PlatformRole.PLATFORM_ADMIN);
             if (adminCount <= 1) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Cannot demote the only remaining admin");
             }
         }
-        target.setPlatformRole(newRole);
+        target.setPlatformRole(role);
         return toDto(userRepository.save(target));
     }
 
@@ -69,7 +72,7 @@ public class AdminService {
         d.setId(u.getId());
         d.setUsername(u.getUsername());
         d.setEmail(u.getEmail());
-        d.setRole(u.getPlatformRole());
+        d.setRole(u.getPlatformRole() != null ? u.getPlatformRole().name() : null);
         d.setProjectsOwned(projectRepository.findByUserId(u.getId()).size());
         d.setMemberships(membershipRepository.findByIdUserId(u.getId()).size());
         d.setCreatedAt(u.getCreatedAt());

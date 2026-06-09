@@ -59,7 +59,7 @@ class BootstrapRunnerTest {
     void creates_platform_admin_and_org_with_two_audit_events() {
         // Spring Boot already ran the runner once during context startup.
         User admin = users.findByUsername("root").orElseThrow();
-        assertThat(admin.getPlatformRole()).isEqualTo("PLATFORM_ADMIN");
+        assertThat(admin.getPlatformRole()).isEqualTo(com.federated.fl_platform_api.model.PlatformRole.PLATFORM_ADMIN);
         assertThat(admin.getEmailVerified()).isTrue();
         assertThat(admin.getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(encoder.matches("devpass1234", admin.getPassword())).isTrue();
