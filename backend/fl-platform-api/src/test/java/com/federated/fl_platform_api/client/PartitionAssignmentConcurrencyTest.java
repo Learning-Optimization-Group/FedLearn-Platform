@@ -2,16 +2,22 @@ package com.federated.fl_platform_api.client;
 
 import com.federated.fl_platform_api.model.*;
 import com.federated.fl_platform_api.repository.*;
+import com.federated.fl_platform_api.security.OrgScopeFilter;
 import com.federated.fl_platform_api.service.ClientApiService;
+import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -19,6 +25,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
+
+import static org.mockito.Mockito.mock;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -35,6 +43,7 @@ class PartitionAssignmentConcurrencyTest {
     @Autowired UserRepository userRepository;
     @Autowired ProjectMembershipRepository membershipRepository;
     @Autowired PasswordEncoder passwordEncoder;
+    @Autowired OrgScopeFilter orgScopeFilter;
 
     @Test
     void concurrentConnections_yieldDistinctPartitionIds() throws Exception {
@@ -71,9 +80,21 @@ class PartitionAssignmentConcurrencyTest {
                     new UsernamePasswordAuthenticationToken(
                         u.getUsername(), "x",
                         List.of(new SimpleGrantedAuthority("ROLE_USER"))));
-                ready.countDown();
-                go.await();
-                return clientApiService.getConnection(p.getId()).getPartitionId();
+                // Each worker is its own "request": bind a request scope and run
+                // the real OrgScopeFilter so the request-scoped OrgScope is
+                // populated for this thread (getConnection now enforces it).
+                RequestContextHolder.setRequestAttributes(
+                    new ServletRequestAttributes(new MockHttpServletRequest()));
+                orgScopeFilter.doFilter(new MockHttpServletRequest(),
+                    new MockHttpServletResponse(), mock(FilterChain.class));
+                try {
+                    ready.countDown();
+                    go.await();
+                    return clientApiService.getConnection(p.getId()).getPartitionId();
+                } finally {
+                    RequestContextHolder.resetRequestAttributes();
+                    SecurityContextHolder.clearContext();
+                }
             }));
         }
         ready.await(5, TimeUnit.SECONDS);
