@@ -1,6 +1,6 @@
 # FedLearn Desktop — Developer Guide & Contributing
 
-> **Part of:** [FedLearn Platform Docs](../../README.md) → [Desktop Wiki](./README.md)
+> **Part of:** [FedLearn Platform Docs](../README.md) → [Desktop Wiki](./README.md)
 
 ---
 

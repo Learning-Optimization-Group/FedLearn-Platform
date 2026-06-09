@@ -1,6 +1,6 @@
 # FedLearn Desktop — Wiki
 
-> **Part of:** [FedLearn Platform Docs](../../README.md)
+> **Part of:** [FedLearn Platform Docs](../README.md)
 
 The `fedlearn-desktop` module is the cross-platform Electron application that serves as the local training orchestrator for FedLearn participants. It provides a secure graphical interface to configure, launch, and monitor federated learning training sessions — either through a PyInstaller native binary (macOS MPS, Windows CUDA/CPU) or a Docker container (NVIDIA Jetson SoC).
 

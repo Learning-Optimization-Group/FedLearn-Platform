@@ -34,7 +34,7 @@ Standard federated learning (FedAvg) requires each client to transmit a full cop
 
 For edge devices (mobile phones, laptops, IoT), uploading 500 MB every training round is often impractical.
 
-**DeComFL** (Decomposed Federated Learning) solves this by transmitting only a small number of scalar values per round instead of the full parameter vector.
+**DeComFL** (Dimension-Free Communication Federated Learning) solves this by transmitting only a small number of scalar values per round instead of the full parameter vector.
 
 ---
 
@@ -593,12 +593,13 @@ The implementation maps directly to the algorithms in the DeComFL paper:
 ### Citation
 
 ```bibtex
-@article{yang2024decomfl,
-  title={DeComFL: Decomposed Federated Learning},
-  author={Yang, Haibo and [Co-authors]},
-  journal={[Journal/Conference]},
-  year={2024}
+@inproceedings{li2025decomfl,
+  title={Achieving Dimension-Free Communication in Federated Learning via Zeroth-Order Optimization},
+  author={Li, Zhe and Ying, Bicheng and Liu, Zidong and Dong, Chaosheng and Yang, Haibo},
+  booktitle={International Conference on Learning Representations (ICLR)},
+  year={2025}
 }
 ```
 
 Developed at Rochester Institute of Technology under Professor Haibo Yang.
+Reference implementation: [ZidongLiu/DeComFL](https://github.com/ZidongLiu/DeComFL) (Apache-2.0).

@@ -1,6 +1,6 @@
 # FedLearn Desktop — Preload Script & IPC Bridge
 
-> **Part of:** [FedLearn Platform Docs](../../README.md) → [Desktop Wiki](./README.md)
+> **Part of:** [FedLearn Platform Docs](../README.md) → [Desktop Wiki](./README.md)
 
 ---
 

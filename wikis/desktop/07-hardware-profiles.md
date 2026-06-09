@@ -1,6 +1,6 @@
 # FedLearn Desktop — Hardware Profiles & Training Execution
 
-> **Part of:** [FedLearn Platform Docs](../../README.md) → [Desktop Wiki](./README.md)
+> **Part of:** [FedLearn Platform Docs](../README.md) → [Desktop Wiki](./README.md)
 
 ---
 
