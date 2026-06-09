@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.service;
 
+import com.federated.fl_platform_api.model.PlatformRole;
 import com.federated.fl_platform_api.model.UserStatus;
 import com.federated.fl_platform_api.repository.UserRepository;
 import org.slf4j.Logger;
@@ -48,13 +49,12 @@ public class CustomUserDetailsService implements UserDetailsService {
         }
 
         // Spring Security expects authorities prefixed with "ROLE_" for the
-        // hasRole(...) DSL to match. We store the role on the entity
-        // (USER / PLATFORM_ADMIN) and prefix it here at the boundary.
-        com.federated.fl_platform_api.model.PlatformRole role =
-                applicationUser.getPlatformRole() != null
-                        ? applicationUser.getPlatformRole()
-                        : com.federated.fl_platform_api.model.PlatformRole.USER;
-        SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role.name());
+        // hasRole(...) DSL to match. The PlatformRole enum owns that mapping
+        // via authority() (ROLE_USER / ROLE_PLATFORM_ADMIN).
+        PlatformRole role = applicationUser.getPlatformRole() != null
+                ? applicationUser.getPlatformRole()
+                : PlatformRole.USER;
+        var authority = new SimpleGrantedAuthority(role.authority());
 
         return new org.springframework.security.core.userdetails.User(
                 applicationUser.getUsername(),
