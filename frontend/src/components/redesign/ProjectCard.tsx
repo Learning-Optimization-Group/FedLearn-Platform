@@ -1,12 +1,13 @@
 // =============================================================================
-// FedLearn Frontend — Redesigned ProjectCard (Apple-inspired)
+// FedLearn Frontend — Redesigned ProjectCard (Instrument design system)
 // =============================================================================
 // Full feature parity: delete, copy ID, copy port, start/stop, results, logs.
 
 import { useState } from 'react';
 import { ResponsiveContainer, LineChart, Line, YAxis } from 'recharts';
-import { Activity, Server, Trash2, Copy, Check, MoreHorizontal } from 'lucide-react';
+import { Activity, Server, Trash2, Copy, Check, MoreHorizontal, Edit3 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { Card, Button, StatusPill, ConfirmDialog, type StatusKind } from '../ui';
 import type { Project, ProjectResult } from '../../services/apiServices';
 
 interface ProjectCardProps {
@@ -17,6 +18,20 @@ interface ProjectCardProps {
   onToggleServer: () => void;
   onEditProject: () => void;
   onDeleteProject: () => void;
+}
+
+/** Map domain status -> the 5 Instrument status kinds. */
+function toStatusKind(status: Project['status']): StatusKind {
+  switch (status) {
+    case 'RUNNING':
+      return 'running';
+    case 'COMPLETED':
+      return 'completed';
+    case 'FAILED':
+      return 'error';
+    default:
+      return 'idle';
+  }
 }
 
 function CopyButton({ text, label }: { text: string; label?: string }) {
@@ -35,17 +50,17 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="inline-flex items-center gap-1.5 text-[#86868b] hover:text-[#f5f5f7] transition-colors group/copy"
+      className="inline-flex items-center gap-1.5 text-fg-muted hover:text-fg transition-colors group/copy"
       title={`Copy ${label || text}`}
     >
-      {label && <span className="text-[12px] font-medium">{label}:</span>}
-      <code className="text-[12px] font-mono bg-[#2c2c2e] px-2 py-0.5 rounded-md text-[#f5f5f7] max-w-[120px] truncate">
+      {label && <span className="text-caption font-medium">{label}:</span>}
+      <code className="text-caption font-mono tabular-nums bg-surface-2 px-2 py-0.5 rounded-sm text-fg max-w-[120px] truncate">
         {text}
       </code>
       {copied ? (
-        <Check className="w-3.5 h-3.5 text-[#32d74b]" />
+        <Check className="w-3.5 h-3.5 text-success" strokeWidth={1.5} />
       ) : (
-        <Copy className="w-3.5 h-3.5 opacity-0 group-hover/copy:opacity-100 transition-opacity" />
+        <Copy className="w-3.5 h-3.5 opacity-0 group-hover/copy:opacity-100 transition-opacity" strokeWidth={1.5} />
       )}
     </button>
   );
@@ -83,48 +98,27 @@ export function ProjectCard({
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
-  const statusColor = isRunning
-    ? 'text-[#0a84ff]'
-    : isCompleted
-      ? 'text-[#32d74b]'
-      : isFailed
-        ? 'text-[#ff453a]'
-        : 'text-[#86868b]';
-
+  // Ring uses the status semantics: running -> accent, completed -> success,
+  // failed -> danger, otherwise muted. (text-* drives the SVG currentColor.)
   const ringColor = isRunning
-    ? 'text-[#0a84ff]'
+    ? 'text-accent'
     : isCompleted
-      ? 'text-[#32d74b]'
-      : 'text-[#ff453a]';
-
-  const handleDelete = () => {
-    if (confirmDelete) {
-      onDeleteProject();
-      setConfirmDelete(false);
-      setShowMenu(false);
-    } else {
-      setConfirmDelete(true);
-      setTimeout(() => setConfirmDelete(false), 3000); // Reset after 3s
-    }
-  };
+      ? 'text-success'
+      : isFailed
+        ? 'text-danger'
+        : 'text-fg-muted';
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-md p-6 flex flex-col gap-5 text-slate-200 w-full font-sans transition-all hover:bg-slate-800/50 hover:border-slate-700 duration-300 group relative shadow-md">
+    <Card
+      padding="lg"
+      className="flex flex-col gap-5 text-fg w-full font-sans transition-colors duration-[240ms] hover:bg-surface-2 hover:border-line group relative"
+    >
       {/* Header Row */}
       <div className="flex justify-between items-start">
         <div className="flex-1 min-w-0">
-          <h3 className="text-[20px] font-semibold tracking-tight">{project.name}</h3>
+          <h3 className="text-h4 font-semibold tracking-tight truncate">{project.name}</h3>
           <div className="flex items-center gap-2 mt-1">
-            <span className={cn("inline-flex items-center gap-[6px] text-[13px] font-medium tracking-tight", statusColor)}>
-              <span className={cn(
-                "w-1.5 h-1.5 rounded-full",
-                isRunning && "bg-[#0a84ff] animate-pulse",
-                isCompleted && "bg-[#32d74b]",
-                isFailed && "bg-[#ff453a]",
-                !isRunning && !isCompleted && !isFailed && "bg-[#86868b]"
-              )} />
-              {project.status}
-            </span>
+            <StatusPill status={toStatusKind(project.status)}>{project.status}</StatusPill>
           </div>
         </div>
 
@@ -132,36 +126,34 @@ export function ProjectCard({
         <div className="relative">
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#3a3a3c] text-[#86868b] hover:text-[#f5f5f7] transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-pill hover:bg-surface-3 text-fg-muted hover:text-fg transition-colors"
           >
-            <MoreHorizontal className="w-4 h-4" />
+            <MoreHorizontal className="w-4 h-4" strokeWidth={1.5} />
           </button>
           {showMenu && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => { setShowMenu(false); setConfirmDelete(false); }} />
-              <div className="absolute right-0 top-10 z-20 bg-slate-800 border border-slate-700 rounded-md py-1 w-48 shadow-xl">
+              <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+              <div className="absolute right-0 top-10 z-20 bg-surface-2 border border-hairline rounded-md py-1 w-48">
                 <button
                   onClick={() => {
                     onEditProject();
                     setShowMenu(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-[14px] font-medium transition-colors flex items-center gap-2 text-slate-300 hover:bg-slate-700/50"
+                  className="w-full px-4 py-2 text-left text-body font-medium transition-colors flex items-center gap-2 text-fg hover:bg-surface-3"
                 >
-                  <Activity className="w-4 h-4" /> {/* Or Edit3 imported */}
+                  <Edit3 className="w-4 h-4" strokeWidth={1.5} />
                   Edit Project
                 </button>
-                <div className="h-px bg-slate-700/50 my-1" />
+                <div className="h-px bg-hairline my-1" />
                 <button
-                  onClick={handleDelete}
-                  className={cn(
-                    "w-full px-4 py-2 text-left text-[14px] font-medium transition-colors flex items-center gap-2",
-                    confirmDelete
-                      ? "text-rose-500 bg-rose-500/10"
-                      : "text-rose-500 hover:bg-slate-700/50"
-                  )}
+                  onClick={() => {
+                    setConfirmDelete(true);
+                    setShowMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-body font-medium transition-colors flex items-center gap-2 text-danger hover:bg-surface-3"
                 >
-                  <Trash2 className="w-4 h-4" />
-                  {confirmDelete ? 'Confirm Delete?' : 'Delete Project'}
+                  <Trash2 className="w-4 h-4" strokeWidth={1.5} />
+                  Delete Project
                 </button>
               </div>
             </>
@@ -171,15 +163,15 @@ export function ProjectCard({
         {/* Circular Progress Ring */}
         <div className="relative flex items-center justify-center w-14 h-14 ml-2">
           <svg className="w-full h-full transform -rotate-90">
-            <circle cx="28" cy="28" r={radius} stroke="currentColor" strokeWidth="4.5" fill="transparent" className="text-[#2c2c2e]" />
+            <circle cx="28" cy="28" r={radius} stroke="currentColor" strokeWidth="4.5" fill="transparent" className="text-surface-3" />
             <circle
               cx="28" cy="28" r={radius} stroke="currentColor" strokeWidth="4.5" fill="transparent"
               strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round"
-              className={cn("transition-all duration-1000 ease-out", ringColor)}
+              className={cn("transition-all duration-[240ms] ease-out", ringColor)}
             />
           </svg>
           <div className="absolute flex flex-col items-center justify-center text-center">
-            <span className="text-[12px] font-bold tracking-tighter text-[#f5f5f7]">{Math.round(progress)}%</span>
+            <span className="text-caption font-mono tabular-nums font-bold text-fg">{Math.round(progress)}%</span>
           </div>
         </div>
       </div>
@@ -195,28 +187,28 @@ export function ProjectCard({
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-4">
         {/* Model Info */}
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-md p-4 flex flex-col justify-between gap-3">
-          <div className="flex items-center text-[#86868b] gap-1.5">
-            <Server className="w-[14px] h-[14px]" />
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Model</span>
+        <div className="bg-surface-2 border border-hairline rounded-md p-4 flex flex-col justify-between gap-3">
+          <div className="flex items-center text-fg-muted gap-1.5">
+            <Server className="w-[14px] h-[14px]" strokeWidth={1.5} />
+            <span className="text-caption font-semibold uppercase tracking-wider">Model</span>
           </div>
-          <div className="text-[14px] font-medium text-[#f5f5f7] tracking-tight truncate">
+          <div className="text-body font-medium text-fg tracking-tight truncate">
             {project.modelName}
           </div>
-          <div className="text-[12px] text-[#86868b] tracking-tight">
+          <div className="text-caption text-fg-muted tracking-tight">
             {project.modelType} · {project.optimizer}
           </div>
         </div>
 
         {/* Accuracy Sparkline */}
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-md p-4 flex flex-col justify-between gap-2 relative overflow-hidden">
-          <div className="flex items-center justify-between text-slate-400">
+        <div className="bg-surface-2 border border-hairline rounded-md p-4 flex flex-col justify-between gap-2 relative overflow-hidden">
+          <div className="flex items-center justify-between text-fg-muted">
             <div className="flex items-center gap-1.5">
-              <Activity className="w-[14px] h-[14px]" />
-              <span className="text-[11px] font-semibold uppercase tracking-wider">Accuracy</span>
+              <Activity className="w-[14px] h-[14px]" strokeWidth={1.5} />
+              <span className="text-caption font-semibold uppercase tracking-wider">Accuracy</span>
             </div>
             {accuracyTrend.length > 0 && (
-              <span className="text-[13px] font-semibold tracking-tight text-[#f5f5f7]">
+              <span className="text-label font-mono tabular-nums font-semibold text-fg">
                 {(accuracyTrend[accuracyTrend.length - 1].accuracy * 100).toFixed(1)}%
               </span>
             )}
@@ -226,11 +218,11 @@ export function ProjectCard({
               <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 <LineChart data={accuracyTrend}>
                   <YAxis domain={['auto', 'auto']} hide />
-                  <Line type="monotone" dataKey="accuracy" stroke="#0a84ff" strokeWidth={2.5} dot={false} isAnimationActive={true} />
+                  <Line type="monotone" dataKey="accuracy" stroke="var(--color-series-1)" strokeWidth={2.5} dot={false} isAnimationActive={true} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-[11px] text-[#86868b]">
+              <div className="flex items-center justify-center h-full text-caption text-fg-muted">
                 No data yet
               </div>
             )}
@@ -240,23 +232,34 @@ export function ProjectCard({
 
       {/* Action Buttons */}
       <div className="flex gap-3 mt-1">
-        <button onClick={onOpenResults} className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 py-2.5 px-4 rounded-md text-[14px] font-medium tracking-tight transition-colors">
+        <Button variant="secondary" onClick={onOpenResults} className="flex-1">
           View Results
-        </button>
-        <button onClick={onOpenLogs} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 px-4 rounded-md text-[14px] font-medium border border-slate-700 tracking-tight transition-colors">
+        </Button>
+        <Button variant="secondary" onClick={onOpenLogs} className="flex-1">
           View Logs
-        </button>
-        <button onClick={onToggleServer} disabled={isFailed} className={cn(
-          "py-2.5 px-5 rounded-md text-[14px] font-semibold tracking-tight transition-all border",
-          isFailed
-            ? "bg-slate-800/30 border-slate-700/50 text-slate-500 cursor-not-allowed"
-            : isRunning
-              ? "bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20"
-              : "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20"
-        )}>
+        </Button>
+        <Button
+          variant={isRunning ? 'danger' : 'primary'}
+          onClick={onToggleServer}
+          disabled={isFailed}
+        >
           {isRunning ? 'Stop' : 'Start'}
-        </button>
+        </Button>
       </div>
-    </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete project?"
+        message={`This permanently deletes "${project.name}" and its results. This cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        danger
+        onConfirm={() => {
+          onDeleteProject();
+          setConfirmDelete(false);
+        }}
+        onCancel={() => setConfirmDelete(false)}
+      />
+    </Card>
   );
 }

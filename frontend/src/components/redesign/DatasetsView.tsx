@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Database, Layers } from 'lucide-react';
 import * as api from '../../services/apiServices';
 import type { Project } from '../../services/apiServices';
+import { Card } from '../ui';
 
 interface DatasetSummary {
   modelType: string;
@@ -60,75 +61,76 @@ export function DatasetsView() {
   const summaries = useMemo(() => summarize(projects), [projects]);
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-black text-[#f5f5f7] font-sans">
-      <div className="h-24 flex items-center justify-between px-10 border-b border-[#2c2c2e] bg-[rgba(0,0,0,0.65)] backdrop-blur-3xl saturate-[1.8] sticky top-0 z-20">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-canvas text-fg font-sans">
+      <div className="h-24 flex items-center justify-between px-10 border-b border-hairline bg-canvas/65 backdrop-blur-xl sticky top-0 z-20">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight">Datasets</h1>
-          <p className="text-[15px] text-[#86868b] mt-0.5 tracking-tight">
+          <h1 className="text-h2 text-fg">Datasets</h1>
+          <p className="text-body text-fg-muted mt-0.5">
             Data domains actively consumed by federated projects.
           </p>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-10 py-10 bg-black">
+      <div className="flex-1 overflow-y-auto px-10 py-10 bg-canvas">
         {error && (
-          <div className="mb-6 px-5 py-3 rounded-2xl bg-[#ff453a]/10 text-[#ff453a] text-[14px] font-medium">
+          <div className="mb-6 px-5 py-3 rounded-card bg-surface-1 border border-hairline text-danger text-body font-medium">
             {error}
           </div>
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-[#86868b]">
+          <div className="flex items-center justify-center h-64 text-fg-muted">
             Loading datasets…
           </div>
         ) : summaries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-[#86868b] gap-2">
-            <p className="text-[17px]">No dataset types registered.</p>
-            <p className="text-[14px]">
+          <div className="flex flex-col items-center justify-center h-64 text-fg-muted gap-2">
+            <p className="text-h4">No dataset types registered.</p>
+            <p className="text-body">
               Create a project with a model type to start populating this view.
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {summaries.map((s) => (
-              <div
+              <Card
                 key={s.modelType}
-                className="bg-[#1c1c1e] rounded-[24px] p-6 flex flex-col gap-4 border border-[rgba(255,255,255,0.05)] hover:bg-[#2c2c2e]/60 transition-all"
+                padding="lg"
+                className="flex flex-col gap-4 hover:bg-surface-2 transition-colors duration-[160ms]"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#bf5af2]/10 text-[#bf5af2] flex items-center justify-center">
-                    <Database className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-pill bg-surface-2 text-accent flex items-center justify-center">
+                    <Database strokeWidth={1.5} className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-[17px] font-semibold tracking-tight">{s.modelType}</h3>
-                    <p className="text-[13px] text-[#86868b] tracking-tight">
+                    <h3 className="text-h4 text-fg">{s.modelType}</h3>
+                    <p className="text-label text-fg-muted">
                       {s.projectCount} project{s.projectCount > 1 ? 's' : ''}
                     </p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-[#2c2c2e]/40 rounded-xl p-3 flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5 text-[#0a84ff]">
-                      <Layers className="w-3.5 h-3.5" />
-                      <span className="text-[10px] uppercase tracking-wider font-semibold">
+                  <div className="bg-surface-2 rounded-sm p-3 flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-fg-muted">
+                      <Layers strokeWidth={1.5} className="w-3.5 h-3.5" />
+                      <span className="text-caption uppercase tracking-wide font-semibold">
                         Unique Models
                       </span>
                     </div>
-                    <span className="text-[20px] font-semibold tracking-tight">
+                    <span className="text-h4 font-mono tabular-nums text-fg">
                       {s.uniqueModels}
                     </span>
                   </div>
-                  <div className="bg-[#2c2c2e]/40 rounded-xl p-3 flex flex-col gap-1">
-                    <span className="text-[10px] uppercase tracking-wider font-semibold text-[#32d74b]">
+                  <div className="bg-surface-2 rounded-sm p-3 flex flex-col gap-1">
+                    <span className="text-caption uppercase tracking-wide font-semibold text-accent">
                       Running
                     </span>
-                    <span className="text-[20px] font-semibold tracking-tight">
+                    <span className="text-h4 font-mono tabular-nums text-fg">
                       {s.runningCount}
                     </span>
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}

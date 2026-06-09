@@ -2,13 +2,7 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Link, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
-import ModelsPage from './pages/ModelsPage';
-import TrainingPage from './pages/TrainingPage';
-import SettingsPage from './pages/SettingsPage';
-import ClientsPage from './pages/ClientsPage';
 import './App.css';
-import Layout from './components/Layout';
 import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
@@ -21,16 +15,18 @@ import { DatasetsView } from './components/redesign/DatasetsView';
 import { SettingsView } from './components/redesign/SettingsView';
 
 const AppLoading: React.FC = () => (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+    <div className="flex items-center justify-center h-screen bg-canvas text-fg">
         <DiskLoader message="Loading Application..." />
     </div>
 );
 
 const NotFoundPage: React.FC = () => (
-    <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <h2>404 - Page Not Found</h2>
-        <p>The page you're looking for doesn't exist.</p>
-        <Link to="/">Go Home</Link>
+    <div className="flex flex-col items-center justify-center h-screen gap-3 bg-canvas text-fg p-8 text-center font-sans">
+        <h2 className="text-h2 text-fg">404 — Page Not Found</h2>
+        <p className="text-body text-fg-muted">The page you're looking for doesn't exist.</p>
+        <Link to="/" className="text-label font-medium text-accent hover:text-accent-hover transition-colors">
+            Go Home
+        </Link>
     </div>
 );
 
@@ -58,6 +54,7 @@ function App() {
     return (
         <div className="App">
             <Routes>
+                {/* Public */}
                 <Route path="/" element={<LandingPage />} />
                 <Route
                     path="/login"
@@ -68,25 +65,23 @@ function App() {
                     element={currentUser ? <Navigate to="/dashboard" replace /> : <RegisterPage />}
                 />
 
+                {/* Authenticated — single tokenized UI */}
                 <Route element={<ProtectedRoute />}>
-                    {/* Original UI */}
-                    <Route element={<Layout />}>
-                        <Route path="/dashboard" element={<DashboardPage />} />
-                        <Route path="/clients" element={<ClientsPage />} />
-                        <Route path="/models" element={<ModelsPage />} />
-                        <Route path="/training" element={<TrainingPage />} />
-                        <Route path="/settings" element={<SettingsPage />} />
-                    </Route>
-
-                    {/* Redesigned UI (v2) — Apple-inspired dark theme */}
                     <Route element={<LayoutV2 />}>
-                        <Route path="/v2" element={<DashboardV2 />} />
-                        <Route path="/v2/nodes" element={<NodeNetwork />} />
-                        <Route path="/v2/models" element={<ModelsView />} />
-                        <Route path="/v2/datasets" element={<DatasetsView />} />
-                        <Route path="/v2/settings" element={<SettingsView />} />
+                        <Route path="/dashboard" element={<DashboardV2 />} />
+                        <Route path="/nodes" element={<NodeNetwork />} />
+                        <Route path="/models" element={<ModelsView />} />
+                        <Route path="/datasets" element={<DatasetsView />} />
+                        <Route path="/settings" element={<SettingsView />} />
                     </Route>
                 </Route>
+
+                {/* Retired /v2 split — keep old links working */}
+                <Route path="/v2" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/v2/nodes" element={<Navigate to="/nodes" replace />} />
+                <Route path="/v2/models" element={<Navigate to="/models" replace />} />
+                <Route path="/v2/datasets" element={<Navigate to="/datasets" replace />} />
+                <Route path="/v2/settings" element={<Navigate to="/settings" replace />} />
 
                 <Route path="*" element={<NotFoundPage />} />
             </Routes>

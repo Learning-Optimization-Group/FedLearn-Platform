@@ -1,5 +1,5 @@
 // =============================================================================
-// FedLearn Frontend — Redesigned Sidebar (Apple-inspired dark theme)
+// FedLearn Frontend — Redesigned Sidebar (Instrument design system)
 // =============================================================================
 // Wired to existing AuthContext for user profile and logout.
 
@@ -9,11 +9,11 @@ import { cn } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Overview', path: '/v2' },
-  { icon: Network, label: 'Node Network', path: '/v2/nodes' },
-  { icon: Boxes, label: 'Models', path: '/v2/models' },
-  { icon: Database, label: 'Datasets', path: '/v2/datasets' },
-  { icon: Settings, label: 'Settings', path: '/v2/settings' },
+  { icon: LayoutDashboard, label: 'Overview', path: '/dashboard' },
+  { icon: Network, label: 'Node Network', path: '/nodes' },
+  { icon: Boxes, label: 'Models', path: '/models' },
+  { icon: Database, label: 'Datasets', path: '/datasets' },
+  { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 export function Sidebar() {
@@ -24,34 +24,37 @@ export function Sidebar() {
     : 'U';
 
   return (
-    <div className="w-64 bg-black border-r border-[#2c2c2e] h-screen flex flex-col text-[#f5f5f7] font-sans flex-shrink-0 relative z-10 selection:bg-[#0a84ff] selection:text-white">
+    <div className="w-64 bg-canvas border-r border-hairline h-screen flex flex-col text-fg font-sans flex-shrink-0 relative z-10 selection:bg-accent selection:text-accent-fg">
       <div className="h-20 flex items-center gap-3 px-8">
-        <div className="w-8 h-8 rounded-xl bg-[#1c1c1e] border border-[#2c2c2e] flex items-center justify-center">
-          <Brain className="w-5 h-5 text-[#f5f5f7]" />
+        <div className="w-8 h-8 rounded-md bg-surface-1 border border-hairline flex items-center justify-center">
+          <Brain className="w-5 h-5 text-fg" strokeWidth={1.5} />
         </div>
-        <span className="font-semibold text-lg tracking-tight text-[#f5f5f7]">FedLearn</span>
+        <span className="text-h4 tracking-tight text-fg">FedLearn</span>
       </div>
 
       <div className="flex-1 overflow-y-auto py-4 px-4 flex flex-col gap-1">
-        <div className="text-[11px] font-medium tracking-widest uppercase text-[#86868b] mb-2 px-4 mt-4">Menu</div>
+        <div className="text-caption font-medium tracking-widest uppercase text-fg-muted mb-2 px-4 mt-4">Menu</div>
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
-            end={item.path === '/v2'}
+            end={item.path === '/dashboard'}
             className={({ isActive }) => cn(
-              "flex items-center gap-3 px-4 py-2.5 rounded-xl text-[15px] font-medium transition-all duration-200",
+              "flex items-center gap-3 px-4 py-2.5 rounded-md text-label font-medium transition-colors",
               isActive
-                ? "bg-[#2c2c2e] text-[#f5f5f7]"
-                : "text-[#86868b] hover:bg-[#1c1c1e] hover:text-[#f5f5f7]"
+                ? "bg-surface-2 text-fg"
+                : "text-fg-muted hover:bg-surface-1 hover:text-fg"
             )}
           >
             {({ isActive }) => (
               <>
-                <item.icon className={cn(
-                  "w-[18px] h-[18px]",
-                  isActive ? "text-[#f5f5f7]" : "text-[#86868b]"
-                )} />
+                <item.icon
+                  className={cn(
+                    "w-[18px] h-[18px]",
+                    isActive ? "text-fg" : "text-fg-muted"
+                  )}
+                  strokeWidth={1.5}
+                />
                 {item.label}
               </>
             )}
@@ -60,22 +63,22 @@ export function Sidebar() {
       </div>
 
       <div className="p-4">
-        <div className="rounded-2xl p-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-[#2c2c2e] flex items-center justify-center text-sm font-medium text-[#f5f5f7]">
+        <div className="rounded-card p-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-pill bg-surface-2 flex items-center justify-center text-label font-medium text-fg">
             {initials}
           </div>
           <div className="flex flex-col flex-1 min-w-0">
-            <span className="text-[15px] font-medium text-[#f5f5f7] tracking-tight truncate">
+            <span className="text-label font-medium text-fg tracking-tight truncate">
               {currentUser?.username || 'User'}
             </span>
-            <span className="text-[13px] text-[#86868b]">Admin</span>
+            <span className="text-caption text-fg-muted">Admin</span>
           </div>
           <button
             onClick={logout}
-            className="text-[#86868b] hover:text-[#ff453a] transition-colors p-1"
+            className="text-fg-muted hover:text-danger transition-colors p-1"
             title="Logout"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-4 h-4" strokeWidth={1.5} />
           </button>
         </div>
       </div>

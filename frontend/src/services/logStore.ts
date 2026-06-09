@@ -74,12 +74,16 @@ export const logStore = {
     },
 
     append(projectId: string, entry: LogEntryInput): void {
-        const arr = cache.get(projectId) ?? [];
-        arr.push(stamp(entry));
-        if (arr.length > MAX_LOGS_PER_PROJECT) {
-            arr.splice(0, arr.length - MAX_LOGS_PER_PROJECT);
+        // Build a NEW array (don't mutate the cached one in place): listeners pass this
+        // reference straight into React setState, and an identical reference triggers the
+        // Object.is bailout — so an in-place push would leave the live log pane frozen until
+        // some other state change forced a re-render. Mirrors setAll/mergeHistorical.
+        const prev = cache.get(projectId) ?? [];
+        const next = [...prev, stamp(entry)];
+        if (next.length > MAX_LOGS_PER_PROJECT) {
+            next.splice(0, next.length - MAX_LOGS_PER_PROJECT);
         }
-        cache.set(projectId, arr);
+        cache.set(projectId, next);
         emit(projectId);
     },
 

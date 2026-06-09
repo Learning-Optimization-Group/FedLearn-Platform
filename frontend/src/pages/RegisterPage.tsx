@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Brain } from 'lucide-react';
 import { registerUser } from '../services/apiServices';
 import { createLogger } from '../lib/logger';
-import '../styles/AuthStyles.css';
+import { Button, Card, Input } from '../components/ui';
 
 const log = createLogger('RegisterPage');
 
@@ -107,69 +108,108 @@ const RegisterPage: React.FC = () => {
     };
 
     return (
-        <div className="auth-container">
-            <h2>Register</h2>
-            <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                    <label htmlFor="username">Username</label>
-                    <input
-                        type="text"
-                        id="username"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        required
-                        autoComplete="username"
-                    />
-                </div>
+        <div className="min-h-screen flex items-center justify-center bg-canvas text-fg font-sans px-4 py-12">
+            <Card padding="lg" className="w-full max-w-sm">
+                <Link to="/" className="flex items-center gap-3 mb-8">
+                    <div className="w-8 h-8 rounded-md bg-surface-2 border border-hairline flex items-center justify-center">
+                        <Brain className="w-5 h-5 text-fg" strokeWidth={1.5} />
+                    </div>
+                    <span className="text-h4 tracking-tight text-fg">FedLearn</span>
+                </Link>
 
-                <div className="form-group">
-                    <label htmlFor="email">Email</label>
-                    <input
-                        type="email"
-                        id="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        autoComplete="email"
-                    />
-                </div>
+                <h2 className="text-h3 text-fg mb-1">Create account</h2>
+                <p className="text-body text-fg-muted mb-6">Start training on distributed data.</p>
 
-                <div className="form-group">
-                    <label htmlFor="password">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        autoComplete="new-password"
-                        minLength={MIN_PASSWORD_LENGTH}
-                    />
-                    <small>Minimum {MIN_PASSWORD_LENGTH} characters with uppercase, lowercase, and number</small>
-                </div>
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                        <label htmlFor="username" className="text-label font-medium text-fg-muted">
+                            Username
+                        </label>
+                        <Input
+                            type="text"
+                            id="username"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            required
+                            autoComplete="username"
+                        />
+                    </div>
 
-                <div className="form-group">
-                    <label htmlFor="confirmPassword">Confirm Password</label>
-                    <input
-                        type="password"
-                        id="confirmPassword"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                        autoComplete="new-password"
-                    />
-                </div>
+                    <div className="flex flex-col gap-2">
+                        <label htmlFor="email" className="text-label font-medium text-fg-muted">
+                            Email
+                        </label>
+                        <Input
+                            type="email"
+                            id="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            autoComplete="email"
+                        />
+                    </div>
 
-                {error && <p className="error-message" role="alert">{error}</p>}
-                {successMessage && <p className="success-message" role="status">{successMessage}</p>}
+                    <div className="flex flex-col gap-2">
+                        <label htmlFor="password" className="text-label font-medium text-fg-muted">
+                            Password
+                        </label>
+                        <Input
+                            type="password"
+                            id="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            autoComplete="new-password"
+                            minLength={MIN_PASSWORD_LENGTH}
+                        />
+                        <span className="text-caption text-fg-subtle">
+                            Minimum {MIN_PASSWORD_LENGTH} characters with uppercase, lowercase, and number
+                        </span>
+                    </div>
 
-                <button type="submit" disabled={isLoading} className="auth-button">
-                    {isLoading ? 'Registering...' : 'Register'}
-                </button>
-            </form>
-            <p className="auth-switch">
-                Already have an account? <Link to="/login">Login here</Link>
-            </p>
+                    <div className="flex flex-col gap-2">
+                        <label htmlFor="confirmPassword" className="text-label font-medium text-fg-muted">
+                            Confirm Password
+                        </label>
+                        <Input
+                            type="password"
+                            id="confirmPassword"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            required
+                            autoComplete="new-password"
+                        />
+                    </div>
+
+                    {error && (
+                        <p
+                            className="text-label text-danger bg-surface-2 border border-hairline rounded-sm px-3 py-2"
+                            role="alert"
+                        >
+                            {error}
+                        </p>
+                    )}
+                    {successMessage && (
+                        <p
+                            className="text-label text-success bg-surface-2 border border-hairline rounded-sm px-3 py-2"
+                            role="status"
+                        >
+                            {successMessage}
+                        </p>
+                    )}
+
+                    <Button type="submit" disabled={isLoading} className="w-full mt-2">
+                        {isLoading ? 'Registering…' : 'Register'}
+                    </Button>
+                </form>
+
+                <p className="text-label text-fg-muted text-center mt-6">
+                    Already have an account?{' '}
+                    <Link to="/login" className="text-accent hover:text-accent-hover transition-colors">
+                        Login here
+                    </Link>
+                </p>
+            </Card>
         </div>
     );
 };

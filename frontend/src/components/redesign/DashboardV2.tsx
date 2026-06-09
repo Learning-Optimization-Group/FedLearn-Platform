@@ -13,6 +13,7 @@ import { CreateProjectModalV2 } from './CreateProjectModal';
 import { EditProjectModal } from './EditProjectModal';
 import { StartProjectModal } from './StartProjectModal';
 import { Plus, Search, Filter } from 'lucide-react';
+import { Button } from '../ui';
 import type { Project, ProjectResult } from '../../services/apiServices';
 import { createLogger } from '../../lib/logger';
 
@@ -211,48 +212,45 @@ export function DashboardV2() {
   );
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-950 text-slate-200 font-sans selection:bg-cyan-500/30 selection:text-cyan-50">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-canvas text-fg font-sans selection:bg-accent/30">
       {/* Header */}
-      <div className="h-24 flex items-center justify-between px-10 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-20">
+      <div className="h-24 flex items-center justify-between px-10 border-b border-hairline bg-canvas/80 backdrop-blur-md sticky top-0 z-20">
         <div>
-          <h1 className="text-[24px] font-semibold tracking-tight text-slate-100">Active Projects</h1>
-          <p className="text-[14px] text-slate-400 mt-0.5 tracking-tight">Manage and monitor federated tasks.</p>
+          <h1 className="text-h2 font-semibold tracking-tight text-fg">Active Projects</h1>
+          <p className="text-body text-fg-muted mt-0.5 tracking-tight">Manage and monitor federated tasks.</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative">
-            <Search className="w-[18px] h-[18px] absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+            <Search className="w-[18px] h-[18px] absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle" strokeWidth={1.5} />
             <input
               type="text"
               placeholder="Search projects"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-slate-900 border border-slate-800 pl-11 pr-4 py-2.5 rounded-md text-[14px] text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all w-72"
+              className="bg-surface-2 border border-hairline pl-11 pr-4 h-9 rounded-sm text-body text-fg placeholder:text-fg-subtle transition-colors duration-[120ms] focus:outline-none focus:border-accent w-72"
             />
           </div>
-          <button className="w-10 h-10 flex items-center justify-center bg-slate-900 border border-slate-800 hover:bg-slate-800 hover:text-slate-100 rounded-md text-slate-400 transition-colors">
-            <Filter className="w-4 h-4" />
+          <button className="w-10 h-10 flex items-center justify-center bg-surface-2 border border-hairline hover:bg-surface-3 hover:text-fg rounded-md text-fg-muted transition-colors">
+            <Filter className="w-4 h-4" strokeWidth={1.5} />
           </button>
-          <div className="w-px h-6 bg-slate-800 mx-2" />
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-slate-50 px-5 py-2.5 rounded-md text-[14px] font-medium transition-all duration-200 shadow-lg shadow-cyan-900/40 border border-cyan-500 hover:border-cyan-400"
-          >
-            <Plus className="w-[18px] h-[18px]" />
+          <div className="w-px h-6 bg-hairline mx-2" />
+          <Button onClick={() => setIsCreateModalOpen(true)}>
+            <Plus className="w-[18px] h-[18px]" strokeWidth={1.5} />
             New Project
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Main Content Grid */}
-      <div className="flex-1 overflow-y-auto px-10 py-10 relative z-10 bg-slate-950">
+      <div className="flex-1 overflow-y-auto px-10 py-10 relative z-10 bg-canvas">
         {error && (
-          <div className="mb-6 px-5 py-3 rounded-md border border-rose-500/20 bg-rose-500/10 text-rose-500 text-[14px] font-medium">
+          <div className="mb-6 px-5 py-3 rounded-md border border-hairline bg-surface-1 text-danger text-body font-medium">
             {error}
           </div>
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-slate-500">
+          <div className="flex items-center justify-center h-64 text-fg-muted">
             Loading projects...
           </div>
         ) : filteredProjects.length > 0 ? (
@@ -271,9 +269,9 @@ export function DashboardV2() {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-2">
-            <p className="text-[16px] font-medium text-slate-300">No projects found.</p>
-            <p className="text-[14px]">Create one to get started.</p>
+          <div className="flex flex-col items-center justify-center h-64 text-fg-muted gap-2">
+            <p className="text-body-lg font-medium text-fg">No projects found.</p>
+            <p className="text-body">Create one to get started.</p>
           </div>
         )}
       </div>

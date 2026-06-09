@@ -5,13 +5,13 @@
 // closing & reopening the modal preserves prior session output.
 
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Filter, TerminalSquare, Trash2 } from 'lucide-react';
+import { Play, Pause, Filter, TerminalSquare, Trash2, Activity } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line } from 'recharts';
 import { cn } from '../../lib/utils';
 import { Client as StompClient } from '@stomp/stompjs';
-import { Activity } from 'lucide-react';
 import * as api from '../../services/apiServices';
 import { logStore, StoredLogEntry } from '../../services/logStore';
+import { Button, LogConsole, StatusPill, type StatusKind } from '../ui';
 
 interface TelemetryEntry {
   timestamp: string;
@@ -34,6 +34,17 @@ function normalizeLevel(level?: string): 'INFO' | 'ERROR' | 'WARN' | 'DEBUG' {
   const upper = (level ?? 'INFO').toUpperCase();
   if (upper === 'ERROR' || upper === 'WARN' || upper === 'DEBUG') return upper;
   return 'INFO';
+}
+
+// Map the connection state to the one status-semantics scale: streaming ->
+// running (accent), paused -> pending (warning), connecting -> idle.
+function connectionStatus(isPaused: boolean, isConnected: boolean): {
+  kind: StatusKind;
+  label: string;
+} {
+  if (isPaused) return { kind: 'pending', label: 'Paused' };
+  if (isConnected) return { kind: 'running', label: 'Live Streaming' };
+  return { kind: 'idle', label: 'Connecting…' };
 }
 
 export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
@@ -144,79 +155,67 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
 
   const handleClear = () => logStore.clear(projectId);
 
+  const status = connectionStatus(isPaused, isConnected);
+  const latest = telemetry.length > 0 ? telemetry[telemetry.length - 1] : null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm font-sans">
-      <div className="bg-slate-900 border border-slate-700 w-full max-w-7xl h-[85vh] rounded-md shadow-2xl shadow-cyan-900/10 flex flex-col overflow-hidden text-slate-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-canvas/70 backdrop-blur-sm font-sans">
+      <div className="bg-surface-1 border border-hairline w-full max-w-7xl h-[85vh] rounded-card flex flex-col overflow-hidden text-fg">
 
         {/* Header */}
-        <div className="h-[60px] border-b border-slate-800 flex items-center justify-between px-6 bg-slate-900/50">
+        <div className="h-[60px] border-b border-hairline flex items-center justify-between px-6 bg-surface-1">
           <div className="flex items-center gap-3">
-            <TerminalSquare className="w-[18px] h-[18px] text-slate-400" />
-            <h2 className="text-[17px] font-semibold tracking-tight text-slate-100">Telemetry Dashboard</h2>
-            <div className="w-px h-[18px] bg-slate-700 mx-2" />
-            <span className="flex h-2 w-2 relative">
-              <span className={cn(
-                "animate-ping absolute inline-flex h-2 w-2 rounded-full opacity-75",
-                isPaused ? "bg-amber-500" : isConnected ? "bg-green-500" : "bg-rose-500"
-              )} />
-              <span className={cn(
-                "relative inline-flex rounded-full h-2 w-2",
-                isPaused ? "bg-amber-500" : isConnected ? "bg-green-500" : "bg-rose-500"
-              )} />
-            </span>
-            <span className="text-[13px] text-slate-400 font-medium tracking-tight">
-              {isPaused ? 'Paused' : isConnected ? 'Live Streaming' : 'Connecting…'}
-            </span>
+            <TerminalSquare strokeWidth={1.5} className="w-[18px] h-[18px] text-fg-muted" />
+            <h2 className="text-h4 text-fg">Telemetry Dashboard</h2>
+            <div className="w-px h-[18px] bg-hairline mx-2" />
+            <StatusPill status={status.kind}>{status.label}</StatusPill>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-100 bg-slate-800 hover:bg-slate-700 rounded-sm px-4 py-1.5 text-[13px] font-medium transition-colors border border-slate-700">
+          <Button variant="secondary" size="sm" onClick={onClose}>
             Done
-          </button>
+          </Button>
         </div>
 
         {/* Content */}
         <div className="flex-1 flex overflow-hidden">
 
           {/* Logs Pane */}
-          <div className="flex-1 flex flex-col border-r border-slate-800 bg-slate-950/30">
+          <div className="flex-1 flex flex-col border-r border-hairline bg-canvas">
             {/* Toolbar */}
-            <div className="h-[52px] border-b border-slate-800 flex items-center justify-between px-6">
+            <div className="h-[52px] border-b border-hairline flex items-center justify-between px-6">
               <div className="flex items-center gap-3">
-                <button
+                <Button
+                  variant={isPaused ? 'primary' : 'secondary'}
+                  size="sm"
                   onClick={() => setIsPaused(!isPaused)}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 rounded-sm text-[13px] font-medium transition-colors border border-transparent",
-                    isPaused ? "bg-amber-500/20 text-amber-500 border-amber-500/30" : "bg-slate-800 text-slate-200 hover:bg-slate-700 border-slate-700"
-                  )}
                 >
-                  {isPaused ? <Play className="w-3.5 h-3.5 fill-current" /> : <Pause className="w-3.5 h-3.5 fill-current" />}
+                  {isPaused ? <Play strokeWidth={1.5} className="w-3.5 h-3.5 fill-current" /> : <Pause strokeWidth={1.5} className="w-3.5 h-3.5 fill-current" />}
                   {isPaused ? 'Resume' : 'Pause'}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant={filterError ? 'danger' : 'secondary'}
+                  size="sm"
                   onClick={() => setFilterError(!filterError)}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 rounded-sm text-[13px] font-medium transition-colors border border-transparent",
-                    filterError ? "bg-rose-500/20 text-rose-500 border-rose-500/30" : "bg-slate-800 text-slate-200 hover:bg-slate-700 border-slate-700"
-                  )}
                 >
-                  <Filter className="w-3.5 h-3.5" />
+                  <Filter strokeWidth={1.5} className="w-3.5 h-3.5" />
                   Errors Only
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={handleClear}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-sm text-[13px] font-medium bg-slate-800 text-slate-200 hover:bg-slate-700 transition-colors border border-slate-700"
                   title="Clear cached log entries"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 strokeWidth={1.5} className="w-3.5 h-3.5" />
                   Clear
-                </button>
+                </Button>
               </div>
-              <span className="text-[13px] text-slate-500 font-mono tracking-tight">{logs.length} events</span>
+              <span className="text-label text-fg-subtle font-mono tabular-nums">{logs.length} events</span>
             </div>
 
             {/* Terminal Window */}
-            <div className="flex-1 overflow-y-auto bg-slate-950 m-4 rounded-sm p-5 font-mono text-[13px] leading-relaxed relative scroll-smooth border border-slate-800 shadow-inner">
+            <LogConsole className="flex-1 m-4 scroll-smooth">
               {filteredLogs.length === 0 && (
-                <div className="flex items-center justify-center h-full text-slate-500">
+                <div className="flex items-center justify-center h-full text-fg-subtle">
                   Waiting for logs from project {projectId}…
                 </div>
               )}
@@ -225,21 +224,21 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
                 return (
                   // Keying by store-assigned id so prepended historical
                   // entries don't shift array indexes and confuse React.
-                  <div key={log.id} className="flex hover:bg-slate-900/50 py-[2px] px-2 -mx-2 rounded transition-colors font-mono">
-                    <span className="text-slate-500 w-[90px] shrink-0 select-none">{log.timestamp}</span>
+                  <div key={log.id} className="flex hover:bg-surface-1 py-[2px] px-2 -mx-2 rounded-sm transition-colors font-mono">
+                    <span className="text-fg-subtle w-[90px] shrink-0 select-none tabular-nums">{log.timestamp}</span>
                     <span className={cn(
                       "w-[60px] shrink-0 font-medium select-none",
-                      level === 'INFO' && "text-cyan-400",
-                      level === 'ERROR' && "text-rose-400",
-                      level === 'WARN' && "text-amber-400",
-                      level === 'DEBUG' && "text-slate-400"
+                      level === 'INFO' && "text-accent",
+                      level === 'ERROR' && "text-danger",
+                      level === 'WARN' && "text-warning",
+                      level === 'DEBUG' && "text-fg-muted"
                     )}>
                       {level}
                     </span>
                     <span className={cn(
-                      "flex-1 break-words tracking-tight",
-                      level === 'ERROR' ? "text-rose-400" : "text-slate-300",
-                      level === 'WARN' && "text-amber-400"
+                      "flex-1 break-words",
+                      level === 'ERROR' ? "text-danger" : "text-fg",
+                      level === 'WARN' && "text-warning"
                     )}>
                       {log.message}
                     </span>
@@ -247,49 +246,49 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
                 );
               })}
               <div ref={logsEndRef} />
-            </div>
+            </LogConsole>
           </div>
 
           {/* Telemetry Pane */}
-          <div className="w-[360px] flex flex-col shrink-0 bg-slate-900 border-l border-slate-800">
+          <div className="w-[360px] flex flex-col shrink-0 bg-surface-1 border-l border-hairline">
             <div className="p-6 flex flex-col gap-6 h-full overflow-y-auto">
               <div>
-                <h3 className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-1">Live Metrics</h3>
+                <h3 className="text-caption font-semibold uppercase tracking-widest text-fg-muted mb-1">Live Metrics</h3>
               </div>
 
-              <div className="bg-slate-950/50 rounded-md p-5 flex flex-col gap-4 border border-slate-800">
+              <div className="bg-surface-2 rounded-card p-5 flex flex-col gap-4 border border-hairline">
                 <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <Activity className="w-4 h-4" />
-                    <span className="text-[13px] font-medium">Global Loss</span>
+                  <div className="flex items-center gap-2 text-fg-muted">
+                    <Activity strokeWidth={1.5} className="w-4 h-4" />
+                    <span className="text-label font-medium">Global Loss</span>
                   </div>
-                  <span className="font-mono text-[20px] tracking-tighter font-semibold text-slate-100">
-                    {telemetry.length > 0 ? telemetry[telemetry.length - 1].loss.toFixed(4) : '---'}
+                  <span className="font-mono text-h4 tabular-nums text-fg">
+                    {latest ? latest.loss.toFixed(4) : '---'}
                   </span>
                 </div>
                 <div className="h-[100px] w-full">
                   <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                     <LineChart data={telemetry}>
-                      <Line type="stepAfter" dataKey="loss" stroke="#f43f5e" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+                      <Line type="stepAfter" dataKey="loss" stroke="var(--color-danger)" strokeWidth={2.5} dot={false} isAnimationActive={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              <div className="bg-slate-950/50 rounded-md p-5 flex flex-col gap-4 border border-slate-800">
+              <div className="bg-surface-2 rounded-card p-5 flex flex-col gap-4 border border-hairline">
                 <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <Activity className="w-4 h-4" />
-                    <span className="text-[13px] font-medium">Global Accuracy</span>
+                  <div className="flex items-center gap-2 text-fg-muted">
+                    <Activity strokeWidth={1.5} className="w-4 h-4" />
+                    <span className="text-label font-medium">Global Accuracy</span>
                   </div>
-                  <span className="font-mono text-[20px] tracking-tighter font-semibold text-slate-100">
-                    {telemetry.length > 0 ? (telemetry[telemetry.length - 1].accuracy * 100).toFixed(2) + '%' : '---'}
+                  <span className="font-mono text-h4 tabular-nums text-fg">
+                    {latest ? (latest.accuracy * 100).toFixed(2) + '%' : '---'}
                   </span>
                 </div>
                 <div className="h-[100px] w-full">
                   <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                     <LineChart data={telemetry}>
-                      <Line type="monotone" dataKey="accuracy" stroke="#22c55e" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="accuracy" stroke="var(--color-series-1)" strokeWidth={2.5} dot={false} isAnimationActive={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>

@@ -5,8 +5,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import * as api from '../../services/apiServices';
-import { Plus, Trash2, Shield, Network, X } from 'lucide-react';
+import { Plus, Trash2, Shield, Network } from 'lucide-react';
 import type { User, RegisterData } from '../../services/apiServices';
+import { Button, Card, Input, Modal, ConfirmDialog } from '../ui';
 
 interface CreateClientModalProps {
   isOpen: boolean;
@@ -28,86 +29,74 @@ function CreateClientModal({ isOpen, onClose, onSubmit, isLoading }: CreateClien
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({ username, email, password });
   };
 
-  const inputClass =
-    "w-full bg-[#1c1c1e] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-[15px] text-[#f5f5f7] placeholder-[#86868b] focus:outline-none focus:ring-[3px] focus:ring-[#0a84ff]/30 focus:border-[#0a84ff]/50 transition-all";
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl font-sans"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      title={
+        <span className="flex items-center gap-2">
+          <Shield strokeWidth={1.5} className="w-5 h-5 text-success" />
+          Create Client Node
+        </span>
+      }
     >
-      <div className="bg-[rgba(28,28,30,0.92)] border border-[rgba(255,255,255,0.1)] w-full max-w-md rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden text-[#f5f5f7]">
-        <div className="flex items-center justify-between p-6 pb-4">
-          <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-[#32d74b]" />
-            <h2 className="text-[22px] font-semibold tracking-tight">Create Client Node</h2>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-[#86868b] bg-[#3a3a3c] hover:bg-[rgba(255,255,255,0.2)] rounded-full transition-colors">
-            <X className="w-[18px] h-[18px]" />
-          </button>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <div className="flex flex-col gap-2">
+          <label className="text-caption font-medium text-fg-muted uppercase tracking-wide">Username</label>
+          <Input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="e.g. node-edge-01"
+            required
+            autoFocus
+          />
         </div>
-        <form onSubmit={handleSubmit} className="px-6 pb-6 flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. node-edge-01"
-              className={inputClass}
-              required
-              autoFocus
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="e.g. edge01@fedlearn.internal"
-              className={inputClass}
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-[13px] font-medium text-[#86868b] uppercase tracking-wider">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className={inputClass}
-              required
-            />
-          </div>
-          <div className="flex gap-3 mt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isLoading}
-              className="flex-1 bg-[#2c2c2e] hover:bg-[#3a3a3c] text-[#f5f5f7] py-3 rounded-full text-[15px] font-medium tracking-tight transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading || !username || !email || !password}
-              className="flex-1 bg-[#f5f5f7] text-black hover:bg-white py-3 rounded-full text-[15px] font-medium tracking-tight transition-all duration-200 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Creating...' : 'Create Client'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-caption font-medium text-fg-muted uppercase tracking-wide">Email</label>
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="e.g. edge01@fedlearn.internal"
+            required
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-caption font-medium text-fg-muted uppercase tracking-wide">Password</label>
+          <Input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+          />
+        </div>
+        <div className="flex gap-3 mt-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            disabled={isLoading}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={isLoading || !username || !email || !password}
+            className="flex-1"
+          >
+            {isLoading ? 'Creating...' : 'Create Client'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -117,6 +106,7 @@ export function NodeNetwork() {
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -146,8 +136,10 @@ export function NodeNetwork() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this client?")) return;
+  const confirmDelete = async () => {
+    if (pendingDeleteId === null) return;
+    const id = pendingDeleteId;
+    setPendingDeleteId(null);
     try {
       await api.deleteUser(id);
       setUsers((prev) => prev.filter((u) => u.id !== id));
@@ -157,63 +149,60 @@ export function NodeNetwork() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-black text-[#f5f5f7] font-sans">
-      <div className="h-24 flex items-center justify-between px-10 border-b border-[#2c2c2e] bg-[rgba(0,0,0,0.65)] backdrop-blur-3xl saturate-[1.8] sticky top-0 z-20">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-canvas text-fg font-sans">
+      <div className="h-24 flex items-center justify-between px-10 border-b border-hairline bg-canvas/65 backdrop-blur-xl sticky top-0 z-20">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-[#f5f5f7]">Node Network</h1>
-          <p className="text-[15px] text-[#86868b] mt-0.5 tracking-tight">Manage edge devices and client credentials.</p>
+          <h1 className="text-h2 text-fg">Node Network</h1>
+          <p className="text-body text-fg-muted mt-0.5">Manage edge devices and client credentials.</p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 bg-[#f5f5f7] text-black hover:bg-white px-5 py-2.5 rounded-full text-[15px] font-medium transition-all duration-200 transform active:scale-95"
-        >
-          <Plus className="w-[18px] h-[18px]" />
+        <Button onClick={() => setIsModalOpen(true)}>
+          <Plus strokeWidth={1.5} className="w-[18px] h-[18px]" />
           Add Client
-        </button>
+        </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-10 py-10 relative z-10 bg-black">
+      <div className="flex-1 overflow-y-auto px-10 py-10 relative z-10 bg-canvas">
         {error && (
-          <div className="mb-6 px-5 py-3 rounded-2xl bg-[#ff453a]/10 text-[#ff453a] text-[14px] font-medium">
+          <div className="mb-6 px-5 py-3 rounded-card bg-surface-1 border border-hairline text-danger text-body font-medium">
             {error}
           </div>
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-[#86868b]">
+          <div className="flex items-center justify-center h-64 text-fg-muted">
             Loading network data...
           </div>
         ) : users.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {users.map((user) => (
-              <div key={user.id} className="bg-[#1c1c1e] rounded-[24px] p-6 flex flex-col gap-4 border border-[rgba(255,255,255,0.05)] hover:bg-[#2c2c2e]/60 transition-all">
+              <Card key={user.id} padding="lg" className="flex flex-col gap-4 hover:bg-surface-2 transition-colors duration-[160ms]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#32d74b]/10 text-[#32d74b] flex items-center justify-center">
-                      <Network className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-pill bg-surface-2 text-success flex items-center justify-center">
+                      <Network strokeWidth={1.5} className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="text-[17px] font-semibold tracking-tight">{user.username}</h3>
-                      <p className="text-[13px] text-[#86868b]">{user.email}</p>
+                      <h3 className="text-h4 text-fg">{user.username}</h3>
+                      <p className="text-label text-fg-muted">{user.email}</p>
                     </div>
                   </div>
                   <button
-                    onClick={() => handleDelete(user.id)}
-                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#ff453a]/20 text-[#86868b] hover:text-[#ff453a] transition-colors"
+                    onClick={() => setPendingDeleteId(user.id)}
+                    className="w-8 h-8 flex items-center justify-center rounded-pill hover:bg-surface-2 text-fg-muted hover:text-danger transition-colors duration-[120ms]"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 strokeWidth={1.5} className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="bg-[#2c2c2e]/40 rounded-xl p-3 flex justify-between items-center text-[13px]">
-                  <span className="text-[#86868b]">Node ID:</span>
-                  <span className="font-mono text-[#f5f5f7] tracking-wider">{user.id}</span>
+                <div className="bg-surface-2 rounded-sm p-3 flex justify-between items-center text-label">
+                  <span className="text-fg-muted">Node ID:</span>
+                  <span className="font-mono tabular-nums text-fg">{user.id}</span>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-64 text-[#86868b] gap-2">
-            <p className="text-[17px]">No clients found.</p>
+          <div className="flex flex-col items-center justify-center h-64 text-fg-muted gap-2">
+            <p className="text-h4">No clients found.</p>
           </div>
         )}
       </div>
@@ -223,6 +212,16 @@ export function NodeNetwork() {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleCreate}
         isLoading={isCreating}
+      />
+
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title="Delete client"
+        message="Are you sure you want to delete this client?"
+        confirmLabel="Delete"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDeleteId(null)}
       />
     </div>
   );
