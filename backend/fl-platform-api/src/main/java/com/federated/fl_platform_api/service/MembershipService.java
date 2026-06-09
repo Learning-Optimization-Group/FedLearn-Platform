@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.service;
 
+import com.federated.fl_platform_api.audit.Auditable;
 import com.federated.fl_platform_api.dto.MembershipDto;
 import com.federated.fl_platform_api.dto.NotificationDto;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
@@ -44,6 +45,7 @@ public class MembershipService {
     }
 
     @Transactional
+    @Auditable(action = AuditAction.PROJECT_MEMBER_ADDED, targetIdParam = "projectId", targetType = "PROJECT")
     public MembershipDto add(UUID projectId, String username, MembershipRole role) {
         if (role == MembershipRole.OWNER) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -85,6 +87,7 @@ public class MembershipService {
     }
 
     @Transactional
+    @Auditable(action = AuditAction.PROJECT_MEMBER_REMOVED, targetIdParam = "projectId", targetType = "PROJECT")
     public void remove(UUID projectId, Long userId) {
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> ResourceNotFoundException.project(projectId));

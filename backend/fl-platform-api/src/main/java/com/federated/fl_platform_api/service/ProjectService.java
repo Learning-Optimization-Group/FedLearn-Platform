@@ -1,9 +1,11 @@
 package com.federated.fl_platform_api.service;
 
+import com.federated.fl_platform_api.audit.Auditable;
 import com.federated.fl_platform_api.dto.*;
 import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
+import com.federated.fl_platform_api.model.AuditAction;
 import com.federated.fl_platform_api.model.MembershipRole;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.ProjectMembership;
@@ -99,6 +101,7 @@ public class ProjectService {
 
     @Transactional
     @SuppressWarnings("null")
+    @Auditable(action = AuditAction.PROJECT_CREATED, targetType = "PROJECT")
     public ProjectResponseDto createProject(CreateProjectRequest request) throws IOException, InterruptedException {
         log.info("Creating project '{}' (modelType={})", request.getName(), request.getModelType());
 
@@ -152,6 +155,7 @@ public class ProjectService {
         return convertToDto(finalProject);
     }
 
+    @Auditable(action = AuditAction.RUN_STARTED, targetIdParam = "projectId", targetType = "PROJECT")
     public ProjectResponseDto startServerForProject(@NonNull UUID projectId, StartProject request)
             throws IOException, InterruptedException {
 
@@ -205,6 +209,7 @@ public class ProjectService {
     }
 
     @Transactional
+    @Auditable(action = AuditAction.RUN_STOPPED, targetIdParam = "projectId", targetType = "PROJECT")
     public ProjectResponseDto stopServerForProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
@@ -274,6 +279,7 @@ public class ProjectService {
     }
 
     @Transactional
+    @Auditable(action = AuditAction.PROJECT_DELETED, targetIdParam = "projectId", targetType = "PROJECT")
     public void deleteProject(@NonNull UUID projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
