@@ -4,11 +4,15 @@ import com.federated.fl_platform_api.model.AuditEvent;
 import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.AuditEventRepository;
 import com.federated.fl_platform_api.repository.UserRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,7 +24,6 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * Persists an {@link AuditEvent} after every successful invocation of a method
@@ -40,12 +43,16 @@ import java.util.stream.Collectors;
 @Component
 public class AuditAspect {
 
+    private static final Logger log = LoggerFactory.getLogger(AuditAspect.class);
+
     private final AuditEventRepository repo;
     private final UserRepository users;
+    private final ObjectMapper objectMapper;
 
-    public AuditAspect(AuditEventRepository repo, UserRepository users) {
+    public AuditAspect(AuditEventRepository repo, UserRepository users, ObjectMapper objectMapper) {
         this.repo = repo;
         this.users = users;
+        this.objectMapper = objectMapper;
     }
 
     @Around("@annotation(com.federated.fl_platform_api.audit.Auditable)")
@@ -137,10 +144,25 @@ public class AuditAspect {
         } catch (IllegalStateException e) { return null; }
     }
 
-    private static String serialise(Map<String, String> ctx) {
+    /**
+     * Serialises drained audit metadata to a JSON object string via Jackson, so
+     * keys and values are correctly escaped (backslashes, newlines, control
+     * chars, embedded quotes). Returns {@code null} for an empty map.
+     *
+     * <p>Correctness matters because {@code audit_events.metadata} is JSONB (V6):
+     * an invalid string would fail the insert and — since the aspect writes in
+     * the same transaction as the audited mutation — roll the mutation back. On
+     * the (now unlikely) serialisation failure we fall back to {@code null} and
+     * log a warning, so the audit row still persists and the mutation is never
+     * sacrificed for an unserialisable metadata blob.
+     */
+    private String serialise(Map<String, String> ctx) {
         if (ctx.isEmpty()) return null;
-        return ctx.entrySet().stream()
-                .map(e -> "\"" + e.getKey() + "\":\"" + e.getValue().replace("\"", "\\\"") + "\"")
-                .collect(Collectors.joining(",", "{", "}"));
+        try {
+            return objectMapper.writeValueAsString(ctx);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialise audit metadata to JSON; persisting null metadata", e);
+            return null;
+        }
     }
 }
