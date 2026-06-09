@@ -19,6 +19,24 @@ import { contextBridge, ipcRenderer } from 'electron';
 // NOTE: electron-log cannot be used in sandboxed preload scripts.
 // console.error is forwarded to the main process console automatically.
 
+// ========== Docker daemon-unavailable: eager listener + replay buffer ==========
+// Register the IPC listener at preload injection — BEFORE Main's startup Docker ping can fire —
+// and buffer the message. The renderer subscribes later (React calls onDockerUnavailable inside
+// a useEffect, after the page-load event), and Electron drops un-listened one-shot sends, so a
+// lazily-registered listener races and loses the message. Eager-register + replay-on-subscribe
+// closes that race deterministically.
+let _daemonUnavailableMessage: string | null = null;
+let _daemonUnavailableCallback: ((message: string) => void) | null = null;
+ipcRenderer.on('docker:daemon-unavailable', (_event, value: string) => {
+  if (typeof value !== 'string') {
+    return;
+  }
+  _daemonUnavailableMessage = value;
+  if (_daemonUnavailableCallback) {
+    _daemonUnavailableCallback(value);
+  }
+});
+
 // ========== Validation Constants ==========
 
 const ALLOWED_HARDWARE_PROFILES = ['discrete', 'jetson', 'cpu', 'mps'] as const;
@@ -229,11 +247,12 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
    * Fired once on startup if the Docker socket is unreachable.
    */
   onDockerUnavailable: (callback: (message: string) => void): void => {
-    ipcRenderer.on('docker:daemon-unavailable', (_event, value: string) => {
-      if (typeof value === 'string') {
-        callback(value);
-      }
-    });
+    _daemonUnavailableCallback = callback;
+    // Replay a message that arrived before this subscription (the common case: Main's startup
+    // ping fails and sends before React mounts and registers this callback).
+    if (_daemonUnavailableMessage !== null) {
+      callback(_daemonUnavailableMessage);
+    }
   },
 
   /**

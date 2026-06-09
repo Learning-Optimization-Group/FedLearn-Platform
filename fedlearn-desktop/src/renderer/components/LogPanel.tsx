@@ -7,6 +7,7 @@
 // =============================================================================
 
 import React, { useEffect, useRef, useCallback } from 'react';
+import { ScrollText } from 'lucide-react';
 
 interface LogPanelProps {
   logs: string[];
@@ -42,7 +43,7 @@ const LogPanel: React.FC<LogPanelProps> = ({ logs }) => {
         ref={containerRef}
       >
         <div className="log-empty-state">
-          <span className="log-empty-icon">📋</span>
+          <span className="log-empty-icon"><ScrollText strokeWidth={1.5} size={28} /></span>
           <p className="log-empty-text">
             No container output yet. Start a training session to see real-time logs.
           </p>

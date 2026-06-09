@@ -12,7 +12,7 @@
 import { app, BrowserWindow, session, crashReporter } from 'electron';
 import * as path from 'path';
 import log from 'electron-log';
-import { registerIpcHandlers } from './ipc.handlers';
+import { registerIpcHandlers, getDockerService } from './ipc.handlers';
 import { initializeUpdater } from './updater';
 
 // Crash reports written to disk — visible via app.getPath('crashDumps').
@@ -144,6 +144,46 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+// Drain any running training before exit. Containers are created with AutoRemove:false and the
+// native client is spawned non-detached, so quitting mid-run would otherwise orphan a Jetson
+// Docker container until it is lazily cleaned up on the next run. This covers Cmd+Q and — on
+// non-macOS — closing the last window (window-all-closed -> app.quit() above, which fires
+// before-quit). On macOS, closing the window does NOT quit the app, so training keeps running
+// under the still-live app and nothing is orphaned. We intercept the first quit and best-effort
+// drain, with a hard timeout so a wedged Docker daemon can't make the app unquittable.
+let isDraining = false;
+app.on('before-quit', (event) => {
+  if (isDraining) {
+    return; // drain already in progress; let the eventual app.exit(0) proceed
+  }
+  // getDockerService() is non-undefined whenever IPC handlers registered (the normal case after
+  // startup); it's undefined only if registration threw. stopTraining() is a cheap no-op when
+  // nothing is running, so we don't gate on training state here.
+  const docker = getDockerService();
+  if (!docker) {
+    return;
+  }
+  isDraining = true;
+  event.preventDefault();
+  log.info('[Main] before-quit: draining any active training before exit');
+
+  let exited = false;
+  const exit = () => { if (!exited) { exited = true; app.exit(0); } };
+  // Hard cap: a hung/unresponsive Docker daemon must never make quit hang forever. Must exceed
+  // the Jetson drain's worst responsive case — stopDockerContainer does container.stop({t:10})
+  // (up to ~10s for a SIGTERM-ignoring container) THEN container.remove — so 8s would force-exit
+  // before remove() and orphan the container. 15s covers the slow-but-responsive path; only a
+  // genuinely wedged daemon (where cleanup is impossible anyway) hits this backstop.
+  const hardTimeout = setTimeout(() => {
+    log.warn('[Main] before-quit: drain exceeded timeout; forcing exit');
+    exit();
+  }, 15000);
+
+  Promise.resolve(docker.stopTraining())
+    .catch((err) => log.error('[Main] before-quit: stopTraining failed', err))
+    .finally(() => { clearTimeout(hardTimeout); exit(); });
 });
 
 // ========== Security Hardening ==========

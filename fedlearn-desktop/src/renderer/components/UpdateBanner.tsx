@@ -3,9 +3,15 @@
 // =============================================================================
 // Shows a persistent "Check for Updates" button in idle state.
 // When an update is found/downloading/ready, the banner expands with status.
+//
+// Instrument design system: all color/radius/space/motion comes from token vars
+// via shared classes in styles.css. No inline hex/rgb, no gradients, no glow.
+// State semantics: available/checking/downloading→accent, ready/upToDate→
+// success, error→danger.
 // =============================================================================
 
 import React, { useState, useEffect, useRef } from 'react';
+import { CheckCircle2, AlertTriangle, RefreshCw, Download, Bell, X } from 'lucide-react';
 
 type UpdateState = 'idle' | 'checking' | 'upToDate' | 'available' | 'downloading' | 'ready' | 'error';
 
@@ -19,16 +25,6 @@ interface DownloadProgress {
   transferred: number;
   total: number;
 }
-
-const BTN_BASE: React.CSSProperties = {
-  padding: '4px 12px',
-  border: 'none',
-  borderRadius: '6px',
-  fontSize: '12px',
-  fontWeight: 600,
-  cursor: 'pointer',
-  transition: 'opacity 0.15s ease',
-};
 
 const UpdateBanner: React.FC = () => {
   const [updateState, setUpdateState] = useState<UpdateState>('idle');
@@ -93,27 +89,13 @@ const UpdateBanner: React.FC = () => {
   // ── Idle state: just a small inline "Check for updates" button ──────────────
   if (updateState === 'idle') {
     return (
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          alignItems: 'center',
-          padding: '6px 20px',
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
-          minHeight: '36px',
-        }}
-      >
+      <div className="update-check-row">
         <button
           id="check-for-updates-button"
+          className="btn btn-ghost btn-banner"
           onClick={handleCheck}
-          style={{
-            ...BTN_BASE,
-            background: 'rgba(99, 102, 241, 0.15)',
-            color: '#a5b4fc',
-            border: '1px solid rgba(99, 102, 241, 0.3)',
-          }}
         >
-          🔄 Check for Updates
+          <RefreshCw strokeWidth={1.5} size={16} /> Check for Updates
         </button>
       </div>
     );
@@ -127,55 +109,37 @@ const UpdateBanner: React.FC = () => {
   // ── Active banner ────────────────────────────────────────────────────────────
   const isReady = updateState === 'ready';
   const isError = updateState === 'error';
-  const bannerBg = isReady
-    ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))'
+  const isUpToDate = updateState === 'upToDate';
+  const bannerClass = isReady || isUpToDate
+    ? 'update-banner update-banner-success'
     : isError
-    ? 'linear-gradient(90deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05))'
-    : 'linear-gradient(90deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05))';
-  const bannerBorder = isReady
-    ? '1px solid rgba(16, 185, 129, 0.3)'
-    : isError
-    ? '1px solid rgba(239, 68, 68, 0.3)'
-    : '1px solid rgba(99, 102, 241, 0.3)';
+    ? 'update-banner update-banner-error'
+    : 'update-banner';
 
   return (
-    <div
-      className="update-banner"
-      role="status"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        padding: '10px 20px',
-        background: bannerBg,
-        borderBottom: bannerBorder,
-        fontSize: '13px',
-        color: 'var(--color-text)',
-        minHeight: '44px',
-      }}
-    >
+    <div className={bannerClass} role="status">
       {/* Icon */}
-      <span style={{ fontSize: '16px', flexShrink: 0 }}>
+      <span className="update-banner-icon">
         {updateState === 'ready'
-          ? '✅'
+          ? <CheckCircle2 strokeWidth={1.5} size={16} />
           : updateState === 'downloading'
-          ? '⬇️'
+          ? <Download strokeWidth={1.5} size={16} />
           : updateState === 'upToDate'
-          ? '✅'
+          ? <CheckCircle2 strokeWidth={1.5} size={16} />
           : updateState === 'error'
-          ? '⚠️'
+          ? <AlertTriangle strokeWidth={1.5} size={16} />
           : updateState === 'checking'
-          ? '🔄'
-          : '🔔'}
+          ? <RefreshCw strokeWidth={1.5} size={16} />
+          : <Bell strokeWidth={1.5} size={16} />}
       </span>
 
       {/* Message */}
-      <div style={{ flex: 1 }}>
+      <div className="update-banner-message">
         {updateState === 'checking' && (
-          <span style={{ color: 'var(--color-text-muted)' }}>Checking for updates…</span>
+          <span className="update-banner-muted">Checking for updates…</span>
         )}
         {updateState === 'upToDate' && (
-          <span style={{ color: '#10b981', fontWeight: 600 }}>You're up to date!</span>
+          <span className="update-banner-success-text">You're up to date!</span>
         )}
         {updateState === 'available' && (
           <span>
@@ -186,29 +150,16 @@ const UpdateBanner: React.FC = () => {
           <div>
             <span>
               Downloading update v{updateInfo?.version}…{' '}
-              <strong>{progress.percent.toFixed(1)}%</strong>
+              <strong className="update-banner-percent">{progress.percent.toFixed(1)}%</strong>
               {'  '}
-              <span style={{ color: 'var(--color-text-muted)', fontSize: '11px' }}>
+              <span className="update-banner-rate">
                 ({(progress.bytesPerSecond / 1024).toFixed(0)} KB/s)
               </span>
             </span>
-            <div
-              style={{
-                marginTop: '5px',
-                height: '3px',
-                borderRadius: '2px',
-                background: 'rgba(255,255,255,0.1)',
-                overflow: 'hidden',
-              }}
-            >
+            <div className="update-progress-track">
               <div
-                style={{
-                  height: '100%',
-                  width: `${progress.percent}%`,
-                  background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
-                  transition: 'width 0.3s ease',
-                  borderRadius: '2px',
-                }}
+                className="update-progress-fill"
+                style={{ width: `${progress.percent}%` }}
               />
             </div>
           </div>
@@ -219,7 +170,7 @@ const UpdateBanner: React.FC = () => {
           </span>
         )}
         {updateState === 'error' && (
-          <span style={{ color: '#fca5a5' }}>
+          <span className="update-banner-error-text">
             <strong>Update check failed:</strong>{' '}
             {errorMsg.length > 80 ? errorMsg.slice(0, 80) + '…' : errorMsg}
           </span>
@@ -227,16 +178,12 @@ const UpdateBanner: React.FC = () => {
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+      <div className="update-banner-actions">
         {updateState === 'ready' && (
           <button
             id="update-restart-button"
+            className="btn btn-primary btn-banner"
             onClick={handleInstall}
-            style={{
-              ...BTN_BASE,
-              background: 'linear-gradient(135deg, #10b981, #059669)',
-              color: '#fff',
-            }}
           >
             Restart &amp; Install
           </button>
@@ -245,13 +192,8 @@ const UpdateBanner: React.FC = () => {
         {updateState === 'error' && (
           <button
             id="update-retry-button"
+            className="btn btn-danger btn-banner"
             onClick={handleCheck}
-            style={{
-              ...BTN_BASE,
-              background: 'rgba(239, 68, 68, 0.2)',
-              color: '#fca5a5',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-            }}
           >
             Retry
           </button>
@@ -261,22 +203,16 @@ const UpdateBanner: React.FC = () => {
         {(updateState === 'available' || updateState === 'error' || updateState === 'ready') && (
           <button
             id="update-dismiss-button"
+            className="btn-dismiss"
             onClick={() => {
               if (updateState === 'ready') return; // don't allow dismissing "ready"
               setDismissed(true);
               setUpdateState('idle');
             }}
             title={updateState === 'ready' ? 'Please restart to apply the update' : 'Dismiss'}
-            style={{
-              ...BTN_BASE,
-              background: 'transparent',
-              border: '1px solid rgba(255,255,255,0.15)',
-              color: 'var(--color-text-muted)',
-              opacity: updateState === 'ready' ? 0.4 : 1,
-              cursor: updateState === 'ready' ? 'not-allowed' : 'pointer',
-            }}
+            disabled={updateState === 'ready'}
           >
-            ✕
+            <X strokeWidth={1.5} size={16} />
           </button>
         )}
       </div>

@@ -78,6 +78,16 @@ function sanitizeDatasetPath(raw: unknown): string | null {
 let dockerService: DockerService;
 let authService: AuthService;
 
+/**
+ * Accessor for the singleton DockerService created in registerIpcHandlers.
+ * Used by the main process's before-quit handler to drain a running training
+ * container/native process on app exit. Returns undefined if IPC handlers were
+ * never registered (e.g. registration threw).
+ */
+export function getDockerService(): DockerService | undefined {
+  return dockerService;
+}
+
 function validateHardwareProfile(profile: unknown): profile is HardwareProfile {
   return typeof profile === 'string' && ALLOWED_HARDWARE_PROFILES.has(profile);
 }

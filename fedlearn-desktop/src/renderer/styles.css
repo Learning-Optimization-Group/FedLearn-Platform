@@ -1,74 +1,85 @@
 /* =============================================================================
-   FedLearn Desktop — Design System & Global Styles
+   FedLearn Desktop — Instrument Design System & Global Styles
    =============================================================================
-   Premium dark theme with glassmorphism, smooth gradients, and micro-animations.
-   Typography: Inter (UI) + JetBrains Mono (code/logs).
+   Dark-first instrument UI. Single token source: tokens.css (generated from
+   design/tokens.json). Depth comes from the surface ladder + 1px hairline
+   borders — NO glows, NO blurred orbs, NO violet accent, NO gradients on
+   interactive surfaces. Every color/radius/space/motion value below resolves
+   to a var(--token).
+   Typography: Inter (UI) + JetBrains Mono (logs/IDs/metrics, tnum).
    ============================================================================= */
 
-/* ========== CSS Custom Properties (Design Tokens) ========== */
+/* tokens.css MUST load first so :root / .dark custom properties are global. */
+@import './tokens.css';
+
+/* ========== Token aliases ==========
+   The class definitions below were written against an older violet/glass
+   variable vocabulary. Rather than touch every rule, we re-point the old
+   variable names at the Instrument tokens. New code should consume the
+   tokens.css vars directly; these aliases keep existing markup working. */
 
 :root {
-  /* Surface Colors */
-  --color-bg-primary: #08080d;
-  --color-bg-secondary: #0d0d14;
-  --color-bg-tertiary: #12121c;
-  --color-bg-elevated: #181825;
-  --color-bg-hover: #1e1e2e;
+  /* Surfaces — old bespoke dark ramp → Instrument surface ladder */
+  --color-bg-primary: var(--canvas);
+  --color-bg-secondary: var(--surface-1);
+  --color-bg-tertiary: var(--surface-2);
+  --color-bg-elevated: var(--surface-3);
+  --color-bg-hover: var(--surface-3);
 
-  /* Glass */
-  --glass-bg: rgba(18, 18, 28, 0.75);
-  --glass-border: rgba(255, 255, 255, 0.06);
-  --glass-border-hover: rgba(255, 255, 255, 0.12);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  /* "Glass" — no longer glass: flat surface + hairline, no shadow/blur */
+  --glass-bg: var(--surface-1);
+  --glass-border: var(--hairline);
+  --glass-border-hover: var(--line);
+  --glass-shadow: none;
 
-  /* Brand */
-  --color-accent: #7c5cfc;
-  --color-accent-hover: #9278ff;
-  --color-accent-glow: rgba(124, 92, 252, 0.3);
-  --color-accent-subtle: rgba(124, 92, 252, 0.1);
+  /* Brand — retire violet (#7c5cfc / #6366f1) → Instrument accent */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-glow: transparent; /* glow retired */
+  --color-accent-subtle: var(--surface-3);
 
   /* Semantic */
-  --color-success: #34d399;
-  --color-success-bg: rgba(52, 211, 153, 0.1);
-  --color-warning: #fbbf24;
-  --color-warning-bg: rgba(251, 191, 36, 0.1);
-  --color-danger: #f87171;
-  --color-danger-bg: rgba(248, 113, 113, 0.1);
-  --color-info: #60a5fa;
-  --color-info-bg: rgba(96, 165, 250, 0.1);
+  --color-success: var(--success);
+  --color-success-bg: var(--surface-2);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--surface-2);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--surface-2);
+  --color-info: var(--accent);
+  --color-info-bg: var(--surface-2);
 
   /* Text */
-  --color-text-primary: #e4e4ef;
-  --color-text-secondary: #9494a8;
-  --color-text-muted: #5a5a72;
-  --color-text-inverse: #08080d;
+  --color-text-primary: var(--fg);
+  --color-text-secondary: var(--fg-muted);
+  --color-text-muted: var(--fg-subtle);
+  --color-text-inverse: var(--accent-fg);
 
   /* Borders */
-  --color-border: rgba(255, 255, 255, 0.06);
-  --color-border-strong: rgba(255, 255, 255, 0.12);
+  --color-border: var(--hairline);
+  --color-border-strong: var(--line);
 
-  /* Typography */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  /* Typography — sourced from tokens.css (--font-sans / --font-mono already
+     defined there; do not redefine). */
 
-  /* Spacing */
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 32px;
-  --space-2xl: 48px;
+  /* Spacing — old t-shirt scale → Instrument space scale */
+  --space-xs: var(--space-1);
+  --space-sm: var(--space-2);
+  --space-md: var(--space-4);
+  --space-lg: var(--space-6);
+  --space-xl: var(--space-8);
+  --space-2xl: var(--space-12);
 
-  /* Radii */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  /* Radii — old scale → Instrument radii. Inputs use sm, buttons md, cards/
+     panels/modals card. */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-card);
+  --radius-xl: var(--radius-card);
 
-  /* Transitions */
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* Transitions — color/opacity/transform only, Instrument durations + ease */
+  --transition-fast: var(--duration-fast) var(--ease-out);
+  --transition-normal: var(--duration-base) var(--ease-out);
+  --transition-slow: var(--duration-slow) var(--ease-out);
 }
 
 /* ========== Reset & Base ========== */
@@ -89,8 +100,9 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-bg-primary);
-  color: var(--color-text-primary);
+  font-feature-settings: var(--font-feature-settings);
+  background-color: var(--canvas);
+  color: var(--fg);
   line-height: 1.6;
   overflow: hidden;
   user-select: none;
@@ -109,44 +121,13 @@ body {
   flex-direction: column;
   height: 100vh;
   width: 100vw;
-  background: var(--color-bg-primary);
+  background: var(--canvas);
   position: relative;
   overflow: hidden;
 }
 
-/* Subtle animated gradient background */
-.app-container::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(
-      ellipse at 20% 50%,
-      rgba(124, 92, 252, 0.04) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      ellipse at 80% 20%,
-      rgba(52, 211, 153, 0.03) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      ellipse at 60% 80%,
-      rgba(96, 165, 250, 0.03) 0%,
-      transparent 50%
-    );
-  animation: bgShift 30s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-
-@keyframes bgShift {
-  0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  33% { transform: translate(2%, -1%) rotate(1deg); }
-  66% { transform: translate(-1%, 2%) rotate(-1deg); }
-}
+/* Decorative animated glow background retired — Instrument has no glows.
+   The .app-container::before orb stack and bgShift keyframes are gone. */
 
 /* ========== Header ========== */
 
@@ -154,11 +135,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-md) var(--space-xl);
-  background: var(--glass-bg);
-  border-bottom: 1px solid var(--glass-border);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  padding: var(--space-4) var(--space-8);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--hairline);
   z-index: 10;
   position: relative;
   /* macOS traffic lights */
@@ -168,7 +147,7 @@ body {
 .header-left {
   display: flex;
   align-items: center;
-  gap: var(--space-lg);
+  gap: var(--space-6);
   -webkit-app-region: no-drag;
 }
 
@@ -176,49 +155,58 @@ body {
   -webkit-app-region: no-drag;
 }
 
+.header-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
 .app-logo {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-2);
 }
 
 .logo-icon {
   font-size: 1.4rem;
-  color: var(--color-accent);
-  filter: drop-shadow(0 0 8px var(--color-accent-glow));
+  color: var(--accent);
+  /* drop-shadow glow retired */
 }
 
 .app-title {
   font-size: 1.1rem;
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: var(--color-text-primary);
+  color: var(--fg);
 }
 
 /* ========== Status Indicator ========== */
+/* Semantics: running→accent, completed→success, error→danger,
+   pending/pulling→warning, idle/stopped→fg-muted. */
 
 .status-indicator {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-md);
-  border-radius: 999px;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
   font-size: 0.75rem;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  transition: all var(--transition-normal);
+  transition: color var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out);
 }
 
 .status-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
-  transition: background-color var(--transition-normal);
+  border-radius: var(--radius-pill);
+  transition: background-color var(--duration-base) var(--ease-out);
 }
 
 .status-dot-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation: pulse 2s var(--ease-in-out) infinite;
 }
 
 @keyframes pulse {
@@ -227,43 +215,168 @@ body {
 }
 
 .status-idle {
-  background: var(--color-bg-elevated);
-  color: var(--color-text-muted);
+  background: var(--surface-2);
+  color: var(--fg-muted);
 }
 .status-idle .status-dot {
-  background-color: var(--color-text-muted);
+  background-color: var(--fg-muted);
 }
 
 .status-pulling {
-  background: var(--color-info-bg);
-  color: var(--color-info);
+  background: var(--surface-2);
+  color: var(--warning);
 }
 .status-pulling .status-dot {
-  background-color: var(--color-info);
+  background-color: var(--warning);
 }
 
 .status-running {
-  background: var(--color-success-bg);
-  color: var(--color-success);
+  background: var(--surface-2);
+  color: var(--accent);
 }
 .status-running .status-dot {
-  background-color: var(--color-success);
+  background-color: var(--accent);
 }
 
 .status-completed {
-  background: var(--color-accent-subtle);
-  color: var(--color-accent);
+  background: var(--surface-2);
+  color: var(--success);
 }
 .status-completed .status-dot {
-  background-color: var(--color-accent);
+  background-color: var(--success);
 }
 
 .status-error {
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
+  background: var(--surface-2);
+  color: var(--danger);
 }
 .status-error .status-dot {
-  background-color: var(--color-danger);
+  background-color: var(--danger);
+}
+
+/* ========== Update Banner ========== */
+/* Semantics: available/checking/downloading→accent (running/in-progress),
+   ready/upToDate→success, error→danger. Flat surface + 1px hairline, no glow,
+   no gradient. State accent shown via the left border + text color only. */
+
+.update-check-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: var(--space-2) var(--space-6);
+  border-bottom: 1px solid var(--hairline);
+  min-height: 36px;
+}
+
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--hairline);
+  border-left: 2px solid var(--accent);
+  font-size: 0.8rem;
+  color: var(--fg);
+  min-height: 44px;
+}
+
+.update-banner-success {
+  border-left-color: var(--success);
+}
+
+.update-banner-error {
+  border-left-color: var(--danger);
+}
+
+.update-banner-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.update-banner-message {
+  flex: 1;
+}
+
+.update-banner-muted {
+  color: var(--fg-muted);
+}
+
+.update-banner-success-text {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.update-banner-error-text {
+  color: var(--danger);
+}
+
+.update-banner-rate {
+  color: var(--fg-muted);
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+}
+
+.update-banner-percent {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+}
+
+.update-progress-track {
+  margin-top: var(--space-1);
+  height: 3px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.update-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+  transition: width var(--duration-slow) var(--ease-out);
+}
+
+.update-banner-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* Compact buttons used inside the update banner / check row. Reuse .btn-* for
+   color semantics; this just trims the padding to banner scale. */
+.btn-banner {
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.75rem;
+  border-radius: var(--radius-md);
+}
+
+.btn-dismiss {
+  background: transparent;
+  border: 1px solid var(--hairline);
+  color: var(--fg-muted);
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.75rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  transition: color var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    background-color var(--duration-base) var(--ease-out);
+}
+
+.btn-dismiss:hover:not(:disabled) {
+  color: var(--fg);
+  background: var(--surface-3);
+  border-color: var(--line);
+}
+
+.btn-dismiss:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ========== Docker Warning Banner ========== */
@@ -271,22 +384,28 @@ body {
 .docker-warning {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-xl);
-  background: var(--color-warning-bg);
-  border-bottom: 1px solid rgba(251, 191, 36, 0.2);
-  color: var(--color-warning);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-8);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--hairline);
+  color: var(--warning);
   font-size: 0.8rem;
   font-weight: 500;
   z-index: 10;
   position: relative;
 }
 
+.docker-warning-hint {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--fg-muted);
+}
+
 /* ========== Main Content ========== */
 
 .app-main {
   flex: 1;
-  padding: var(--space-lg);
+  padding: var(--space-6);
   overflow: hidden;
   position: relative;
   z-index: 1;
@@ -295,41 +414,39 @@ body {
 .main-grid {
   display: grid;
   grid-template-columns: 420px 1fr;
-  gap: var(--space-lg);
+  gap: var(--space-6);
   height: 100%;
 }
 
 /* ========== Panels ========== */
 
 .panel {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: border-color var(--transition-normal);
+  transition: border-color var(--duration-base) var(--ease-out);
 }
 
 .panel:hover {
-  border-color: var(--glass-border-hover);
+  border-color: var(--line);
 }
 
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid var(--glass-border);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--hairline);
 }
 
 .panel-title {
   font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--color-text-primary);
+  color: var(--fg);
 }
 
 .panel-badge {
@@ -337,17 +454,19 @@ body {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--color-accent);
-  background: var(--color-accent-subtle);
+  color: var(--accent);
+  background: var(--surface-3);
+  border: 1px solid var(--hairline);
   padding: 2px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .log-count {
   font-size: 0.7rem;
   font-weight: 500;
-  color: var(--color-text-muted);
+  color: var(--fg-muted);
   font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
 }
 
 /* ========== Config Panel ========== */
@@ -359,38 +478,38 @@ body {
 /* ========== Hardware Selector ========== */
 
 .hardware-selector {
-  padding: var(--space-lg);
+  padding: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: var(--space-6);
 }
 
 .profile-cards {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-2);
 }
 
 .profile-card {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-xs);
-  padding: var(--space-md);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  gap: var(--space-1);
+  padding: var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
   cursor: pointer;
-  transition: all var(--transition-normal);
+  transition: background-color var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out);
   text-align: left;
   font-family: var(--font-sans);
-  color: var(--color-text-primary);
+  color: var(--fg);
 }
 
 .profile-card:hover:not(:disabled) {
-  background: var(--color-bg-hover);
-  border-color: var(--color-border-strong);
-  transform: translateY(-1px);
+  background: var(--surface-3);
+  border-color: var(--line);
 }
 
 .profile-card:disabled {
@@ -399,19 +518,18 @@ body {
 }
 
 .profile-card-active {
-  border-color: var(--color-accent);
-  background: var(--color-accent-subtle);
-  box-shadow: 0 0 0 1px var(--color-accent), 0 4px 20px var(--color-accent-glow);
+  border-color: var(--accent);
+  background: var(--surface-3);
 }
 
 .profile-card-active:hover:not(:disabled) {
-  background: var(--color-accent-subtle);
-  border-color: var(--color-accent);
+  background: var(--surface-3);
+  border-color: var(--accent);
 }
 
 .profile-icon {
   font-size: 1.5rem;
-  margin-bottom: var(--space-xs);
+  margin-bottom: var(--space-1);
 }
 
 .profile-label {
@@ -421,18 +539,19 @@ body {
 
 .profile-desc {
   font-size: 0.75rem;
-  color: var(--color-text-secondary);
+  color: var(--fg-muted);
   line-height: 1.5;
 }
 
 .profile-docker {
   font-family: var(--font-mono);
   font-size: 0.65rem;
-  color: var(--color-text-muted);
-  background: rgba(0, 0, 0, 0.3);
+  color: var(--fg-muted);
+  background: var(--code-well);
+  border: 1px solid var(--hairline);
   padding: 2px 8px;
   border-radius: var(--radius-sm);
-  margin-top: var(--space-xs);
+  margin-top: var(--space-1);
 }
 
 /* ========== Config Inputs ========== */
@@ -440,7 +559,7 @@ body {
 .config-inputs {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-4);
 }
 
 /* ========== Form Elements ========== */
@@ -448,32 +567,31 @@ body {
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-1);
 }
 
 .form-label {
   font-size: 0.75rem;
   font-weight: 500;
-  color: var(--color-text-secondary);
+  color: var(--fg-muted);
   letter-spacing: 0.02em;
 }
 
 .form-input {
   width: 100%;
   padding: 10px 14px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
   border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
+  color: var(--fg);
   font-family: var(--font-sans);
   font-size: 0.875rem;
-  transition: all var(--transition-fast);
+  transition: border-color var(--duration-fast) var(--ease-out);
   outline: none;
 }
 
 .form-input:focus {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  border-color: var(--accent);
 }
 
 .form-input:disabled {
@@ -482,7 +600,7 @@ body {
 }
 
 .form-input::placeholder {
-  color: var(--color-text-muted);
+  color: var(--fg-subtle);
 }
 
 /* ========== Buttons ========== */
@@ -491,15 +609,18 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-sm);
+  gap: var(--space-2);
   padding: 10px 20px;
-  border: none;
-  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   font-family: var(--font-sans);
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all var(--transition-normal);
+  transition: background-color var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out),
+    opacity var(--duration-base) var(--ease-out);
   outline: none;
 }
 
@@ -509,44 +630,38 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-accent), #6246ea);
-  color: white;
-  box-shadow: 0 4px 16px var(--color-accent-glow);
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--color-accent-hover), #7358f0);
-  box-shadow: 0 6px 24px var(--color-accent-glow);
-  transform: translateY(-1px);
-}
-
-.btn-primary:active:not(:disabled) {
-  transform: translateY(0);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .btn-danger {
-  background: linear-gradient(135deg, var(--color-danger), #dc3545);
-  color: white;
-  box-shadow: 0 4px 16px rgba(248, 113, 113, 0.3);
+  background: var(--danger);
+  color: var(--accent-fg);
+  border-color: var(--danger);
 }
 
 .btn-danger:hover:not(:disabled) {
-  box-shadow: 0 6px 24px rgba(248, 113, 113, 0.4);
-  transform: translateY(-1px);
+  opacity: 0.9;
 }
 
 .btn-ghost {
   background: transparent;
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
+  color: var(--fg-muted);
+  border: 1px solid var(--hairline);
   padding: 8px 16px;
   font-size: 0.8rem;
 }
 
 .btn-ghost:hover:not(:disabled) {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-  border-color: var(--color-border-strong);
+  color: var(--fg);
+  background: var(--surface-3);
+  border-color: var(--line);
 }
 
 .btn-full {
@@ -560,7 +675,7 @@ body {
 .btn-loading {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-2);
 }
 
 /* ========== Validation / Auth Errors ========== */
@@ -569,12 +684,12 @@ body {
 .auth-error {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-danger-bg);
-  border: 1px solid rgba(248, 113, 113, 0.2);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--danger);
   border-radius: var(--radius-sm);
-  color: var(--color-danger);
+  color: var(--danger);
   font-size: 0.8rem;
   font-weight: 500;
 }
@@ -594,8 +709,9 @@ body {
   overflow-y: scroll;
   overflow-x: hidden;
   scrollbar-gutter: stable;
-  padding: var(--space-md);
+  padding: var(--space-4);
   min-height: 0;
+  background: var(--code-well);
 }
 
 .log-panel-empty {
@@ -606,18 +722,18 @@ body {
 
 .log-empty-state {
   text-align: center;
-  padding: var(--space-2xl);
+  padding: var(--space-12);
 }
 
 .log-empty-icon {
   font-size: 2.5rem;
   display: block;
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-4);
   opacity: 0.4;
 }
 
 .log-empty-text {
-  color: var(--color-text-muted);
+  color: var(--fg-subtle);
   font-size: 0.85rem;
   max-width: 280px;
   margin: 0 auto;
@@ -626,9 +742,10 @@ body {
 
 .log-content {
   font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
   font-size: 0.75rem;
   line-height: 1.7;
-  color: var(--color-text-secondary);
+  color: var(--fg-muted);
   white-space: pre-wrap;
   word-break: break-all;
   margin: 0;
@@ -650,12 +767,12 @@ body {
 }
 
 .log-panel::-webkit-scrollbar-thumb {
-  background: var(--color-border-strong);
-  border-radius: 3px;
+  background: var(--line);
+  border-radius: var(--radius-sm);
 }
 
 .log-panel::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
+  background: var(--fg-subtle);
 }
 
 /* ========== Auth Modal ========== */
@@ -666,47 +783,28 @@ body {
   justify-content: center;
   width: 100%;
   height: 100%;
-  background: var(--color-bg-primary);
+  background: var(--canvas);
   position: relative;
 }
 
 .auth-modal {
   position: relative;
   width: 440px;
-  padding: var(--space-2xl);
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  box-shadow: var(--glass-shadow);
+  padding: var(--space-12);
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
   overflow: hidden;
   z-index: 1;
 }
 
-/* Decorative glows behind the modal */
-.auth-glow {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  pointer-events: none;
-  z-index: -1;
-}
-
-.auth-glow-1 {
-  width: 300px;
-  height: 300px;
-  background: var(--color-accent-glow);
-  top: -100px;
-  right: -80px;
-}
-
+/* Decorative glows behind the modal retired — Instrument has no glows.
+   .auth-glow / .auth-glow-1 / .auth-glow-2 are kept as no-op (hidden) so any
+   stray markup does not paint a blurred orb. */
+.auth-glow,
+.auth-glow-1,
 .auth-glow-2 {
-  width: 250px;
-  height: 250px;
-  background: rgba(52, 211, 153, 0.15);
-  bottom: -80px;
-  left: -60px;
+  display: none;
 }
 
 .auth-content {
@@ -716,41 +814,42 @@ body {
 
 .auth-logo {
   text-align: center;
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-8);
 }
 
 .auth-logo-icon {
   font-size: 2.5rem;
-  color: var(--color-accent);
-  filter: drop-shadow(0 0 16px var(--color-accent-glow));
+  color: var(--accent);
+  /* drop-shadow glow retired */
   display: block;
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-4);
 }
 
 .auth-title {
   font-size: 1.75rem;
   font-weight: 700;
   letter-spacing: -0.03em;
-  margin-bottom: var(--space-xs);
+  margin-bottom: var(--space-1);
+  color: var(--fg);
 }
 
 .auth-subtitle {
   font-size: 0.85rem;
-  color: var(--color-text-muted);
+  color: var(--fg-muted);
   font-weight: 400;
 }
 
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-4);
 }
 
 .auth-footer-text {
   text-align: center;
-  margin-top: var(--space-lg);
+  margin-top: var(--space-6);
   font-size: 0.7rem;
-  color: var(--color-text-muted);
+  color: var(--fg-subtle);
   letter-spacing: 0.04em;
 }
 
@@ -762,15 +861,15 @@ body {
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: var(--space-lg);
+  gap: var(--space-6);
 }
 
 .loading-spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid var(--color-border);
-  border-top-color: var(--color-accent);
-  border-radius: 50%;
+  border: 3px solid var(--hairline);
+  border-top-color: var(--accent);
+  border-radius: var(--radius-pill);
   animation: spin 0.8s linear infinite;
 }
 
@@ -778,9 +877,9 @@ body {
   display: inline-block;
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
+  border: 2px solid var(--hairline);
+  border-top-color: var(--accent-fg);
+  border-radius: var(--radius-pill);
   animation: spin 0.8s linear infinite;
 }
 
@@ -789,7 +888,7 @@ body {
 }
 
 .loading-text {
-  color: var(--color-text-muted);
+  color: var(--fg-subtle);
   font-size: 0.85rem;
 }
 
@@ -799,28 +898,29 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-sm) var(--space-xl);
-  background: var(--glass-bg);
-  border-top: 1px solid var(--glass-border);
+  padding: var(--space-2) var(--space-8);
+  background: var(--surface-1);
+  border-top: 1px solid var(--hairline);
   z-index: 10;
   position: relative;
 }
 
 .footer-text {
   font-size: 0.7rem;
-  color: var(--color-text-muted);
+  color: var(--fg-subtle);
 }
 
 .footer-version {
   font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
   font-size: 0.65rem;
-  color: var(--color-text-muted);
+  color: var(--fg-subtle);
 }
 
 /* ========== Action Buttons Spacing ========== */
 
 .action-buttons {
-  margin-top: var(--space-sm);
+  margin-top: var(--space-2);
 }
 
 /* ========== Server URL Toggle (Auth Modal) ========== */
@@ -828,41 +928,43 @@ body {
 .server-toggle {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-2);
   width: 100%;
   padding: 8px 12px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
   border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
+  color: var(--fg-muted);
   font-family: var(--font-sans);
   font-size: 0.75rem;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
   text-align: left;
 }
 
 .server-toggle:hover {
-  border-color: var(--color-border-strong);
-  color: var(--color-text-primary);
+  border-color: var(--line);
+  color: var(--fg);
 }
 
 .server-toggle-icon {
   font-size: 0.65rem;
-  color: var(--color-text-muted);
+  color: var(--fg-subtle);
   flex-shrink: 0;
 }
 
 .server-toggle-label {
   font-weight: 500;
-  color: var(--color-text-secondary);
+  color: var(--fg-muted);
   flex-shrink: 0;
 }
 
 .server-toggle-url {
   font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
   font-size: 0.7rem;
-  color: var(--color-text-muted);
+  color: var(--fg-subtle);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -870,13 +972,13 @@ body {
 }
 
 .server-config {
-  margin-top: var(--space-sm);
-  animation: slideDown 200ms ease-out;
+  margin-top: var(--space-2);
+  animation: slideDown var(--duration-slow) var(--ease-out);
 }
 
 .server-input-row {
   display: flex;
-  gap: var(--space-sm);
+  gap: var(--space-2);
 }
 
 .server-input-row .form-input {
@@ -889,21 +991,21 @@ body {
 }
 
 .btn-secondary {
-  background: var(--color-bg-elevated);
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
+  background: var(--surface-2);
+  color: var(--fg-muted);
+  border: 1px solid var(--hairline);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
-  border-color: var(--color-border-strong);
+  background: var(--surface-3);
+  color: var(--fg);
+  border-color: var(--line);
 }
 
 .server-hint {
   font-size: 0.65rem;
-  color: var(--color-text-muted);
-  margin-top: var(--space-xs);
+  color: var(--fg-subtle);
+  margin-top: var(--space-1);
   padding-left: 2px;
 }
 

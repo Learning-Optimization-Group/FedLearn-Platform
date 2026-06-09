@@ -7,6 +7,15 @@
 // =============================================================================
 
 import React, { useState, useCallback, useEffect } from 'react';
+import {
+  MonitorCog,
+  CircuitBoard,
+  Command,
+  Cpu,
+  AlertTriangle,
+  Play,
+  Square,
+} from 'lucide-react';
 
 interface HardwareSelectorProps {
   onStart: (config: {
@@ -25,7 +34,7 @@ interface HardwareProfileOption {
   id: string;
   label: string;
   description: string;
-  icon: string;
+  icon: React.ComponentType<{ strokeWidth?: number | string; size?: number | string }>;
   dockerConfig: string;
 }
 
@@ -34,28 +43,28 @@ const HARDWARE_PROFILES: HardwareProfileOption[] = [
     id: 'discrete',
     label: 'Discrete GPU',
     description: 'NVIDIA workstation with dedicated PCIe GPU. Uses --gpus all via DeviceRequests.',
-    icon: '🖥️',
+    icon: MonitorCog,
     dockerConfig: 'DeviceRequests: --gpus all',
   },
   {
     id: 'jetson',
     label: 'Jetson SoC',
     description: 'NVIDIA Jetson edge device with integrated Tegra GPU. Uses direct /dev/nvhost-* mounts.',
-    icon: '🔧',
+    icon: CircuitBoard,
     dockerConfig: 'Devices: /dev/nvhost-ctrl, nvhost-ctrl-gpu, ...',
   },
   {
     id: 'mps',
     label: 'Apple Silicon',
     description: 'Mac M1/M2/M3/M4 with Metal GPU. Runs natively (no Docker) for MPS acceleration.',
-    icon: '🍎',
+    icon: Command,
     dockerConfig: 'Native process (no Docker)',
   },
   {
     id: 'cpu',
     label: 'CPU Only',
     description: 'Standard CPU training without GPU acceleration. Compatible with any hardware.',
-    icon: '💻',
+    icon: Cpu,
     dockerConfig: 'No GPU configuration',
   },
 ];
@@ -171,7 +180,7 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
   return (
     <div className="hardware-selector">
       {detectionLabel && (
-        <div className="detection-label" role="status" style={{ fontSize: '12px', opacity: 0.7, marginBottom: '8px' }}>
+        <div className="detection-label" role="status" style={{ fontSize: '0.75rem', color: 'var(--fg-muted)', marginBottom: 'var(--space-2)' }}>
           Detected: {detectionLabel}
         </div>
       )}
@@ -186,7 +195,7 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
             disabled={isRunning}
             type="button"
           >
-            <span className="profile-icon">{profile.icon}</span>
+            <span className="profile-icon"><profile.icon strokeWidth={1.5} size={20} /></span>
             <span className="profile-label">{profile.label}</span>
             <span className="profile-desc">{profile.description}</span>
             <span className="profile-docker">{profile.dockerConfig}</span>
@@ -265,7 +274,7 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
           <label className="form-label" htmlFor="config-dataset-path">
             Local Dataset Path (Optional)
           </label>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
             <input
               id="config-dataset-path"
               className="form-input"
@@ -291,7 +300,7 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
       {/* Validation Error */}
       {validationError && (
         <div className="validation-error" role="alert">
-          <span className="error-icon">⚠</span>
+          <span className="error-icon"><AlertTriangle strokeWidth={1.5} size={16} /></span>
           {validationError}
         </div>
       )}
@@ -305,7 +314,7 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
             onClick={handleStart}
             type="button"
           >
-            <span className="btn-icon">▶</span>
+            <span className="btn-icon"><Play strokeWidth={1.5} size={16} /></span>
             Start Training
           </button>
         ) : (
@@ -315,7 +324,7 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
             onClick={onStop}
             type="button"
           >
-            <span className="btn-icon">■</span>
+            <span className="btn-icon"><Square strokeWidth={1.5} size={16} /></span>
             Stop Training
           </button>
         )}

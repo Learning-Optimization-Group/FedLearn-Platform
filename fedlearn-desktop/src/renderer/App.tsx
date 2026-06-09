@@ -3,6 +3,7 @@
 // =============================================================================
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Network, Settings, AlertTriangle } from 'lucide-react';
 import AuthModal from './components/AuthModal';
 import HardwareSelector from './components/HardwareSelector';
 import LogPanel from './components/LogPanel';
@@ -224,14 +225,14 @@ const App: React.FC = () => {
       <header className="app-header">
         <div className="header-left">
           <div className="app-logo">
-            <span className="logo-icon">◆</span>
+            <span className="logo-icon"><Network strokeWidth={1.5} size={20} /></span>
             <h1 className="app-title">FedLearn Desktop</h1>
           </div>
           <StatusIndicator status={containerStatus} />
         </div>
-        <div className="header-right" style={{ display: 'flex', gap: '12px' }}>
+        <div className="header-right header-actions">
           <button className="btn btn-ghost" onClick={() => setShowSettings(true)} id="settings-button">
-            <span>⚙️ Settings</span>
+            <span><Settings strokeWidth={1.5} size={16} /> Settings</span>
           </button>
           <button className="btn btn-ghost" onClick={handleLogout} id="logout-button">
             Sign Out
@@ -242,9 +243,9 @@ const App: React.FC = () => {
       {/* Docker Warning Banner */}
       {dockerWarning && (
         <div className="docker-warning" role="alert">
-          <span className="error-icon">⚠</span>
+          <span className="error-icon"><AlertTriangle strokeWidth={1.5} size={16} /></span>
           <span>{dockerWarning}</span>
-          <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+          <span className="docker-warning-hint">
             Start Docker Desktop and restart the app.
           </span>
         </div>

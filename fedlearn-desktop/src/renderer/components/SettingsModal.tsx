@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Settings, AlertTriangle, Check } from 'lucide-react';
 
 // Re-declare the window.fedLearnAPI interface locally for this component 
 // if it is not exported from App.tsx or available globally in this file's context.
@@ -53,12 +54,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   return (
     <div className="auth-overlay" style={{ position: 'absolute', top: 0, left: 0, zIndex: 100 }}>
       <div className="auth-modal" style={{ width: '480px' }}>
-        <div className="auth-glow auth-glow-1" />
-        <div className="auth-glow auth-glow-2" />
-
         <div className="auth-content">
           <div className="auth-logo">
-            <span className="auth-logo-icon">⚙️</span>
+            <span className="auth-logo-icon"><Settings strokeWidth={1.5} size={24} /></span>
             <h2 className="auth-title">Settings</h2>
             <p className="auth-subtitle">Configure advanced properties</p>
           </div>
@@ -81,14 +79,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
             {error && (
               <div className="auth-error" role="alert">
-                <span className="error-icon">⚠</span>
+                <span className="error-icon"><AlertTriangle strokeWidth={1.5} size={16} /></span>
                 {error}
               </div>
             )}
             
             {successMsg && (
-              <div className="validation-error" style={{ background: 'var(--color-success-bg)', color: 'var(--color-success)', borderColor: 'rgba(52, 211, 153, 0.2)' }} role="alert">
-                <span className="error-icon">✓</span>
+              <div className="validation-error" style={{ background: 'var(--surface-2)', color: 'var(--success)', borderColor: 'var(--success)' }} role="alert">
+                <span className="error-icon"><Check strokeWidth={1.5} size={16} /></span>
                 {successMsg}
               </div>
             )}

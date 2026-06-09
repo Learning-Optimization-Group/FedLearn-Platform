@@ -7,6 +7,7 @@
 // =============================================================================
 
 import React, { useState, useCallback, useEffect } from 'react';
+import { Network, ChevronDown, ChevronRight, Check, AlertTriangle } from 'lucide-react';
 
 interface AuthModalProps {
   onLoginSuccess: () => void;
@@ -96,14 +97,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
   return (
     <div className="auth-overlay">
       <div className="auth-modal">
-        {/* Decorative background elements */}
-        <div className="auth-glow auth-glow-1" />
-        <div className="auth-glow auth-glow-2" />
-
         <div className="auth-content">
           {/* Logo */}
           <div className="auth-logo">
-            <span className="auth-logo-icon">◆</span>
+            <span className="auth-logo-icon">
+              <Network strokeWidth={1.5} size={22} />
+            </span>
             <h1 className="auth-title">FedLearn</h1>
             <p className="auth-subtitle">Privacy-Preserving Federated Learning</p>
           </div>
@@ -117,7 +116,13 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
                 className="server-toggle"
                 onClick={() => setShowServerConfig(!showServerConfig)}
               >
-                <span className="server-toggle-icon">{showServerConfig ? '▾' : '▸'}</span>
+                <span className="server-toggle-icon">
+                  {showServerConfig ? (
+                    <ChevronDown strokeWidth={1.5} size={16} />
+                  ) : (
+                    <ChevronRight strokeWidth={1.5} size={16} />
+                  )}
+                </span>
                 <span className="server-toggle-label">Server</span>
                 <span className="server-toggle-url">{serverUrl}</span>
               </button>
@@ -144,7 +149,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
                       onClick={handleSaveServer}
                       disabled={isLoading}
                     >
-                      {serverSaved ? '✓' : 'Save'}
+                      {serverSaved ? <Check strokeWidth={1.5} size={16} /> : 'Save'}
                     </button>
                   </div>
                   <p className="server-hint">/api is appended automatically</p>
@@ -188,7 +193,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
 
             {error && (
               <div className="auth-error" role="alert">
-                <span className="error-icon">⚠</span>
+                <span className="error-icon">
+                  <AlertTriangle strokeWidth={1.5} size={16} />
+                </span>
                 {error}
               </div>
             )}

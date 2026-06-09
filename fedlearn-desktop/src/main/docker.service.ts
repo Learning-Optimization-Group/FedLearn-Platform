@@ -73,14 +73,39 @@ export class DockerService {
     this.docker = new Docker({ socketPath });
     log.info(`[DockerService] Initialized with socket: ${socketPath}`);
 
-    // Non-blocking daemon probe. Only surfaced to the renderer if the user
-    // actually needs Docker (Jetson profile) — native-path users should not
-    // see a scary "Docker unavailable" banner when they never needed it.
+    // Non-blocking daemon probe. Docker is only needed for the Jetson profile; surfacing the
+    // warning to native-path users is informational (a future refinement could gate the banner
+    // on the selected profile in the renderer — not done today).
     this.docker.ping().then(() => {
       log.info('[DockerService] Docker daemon is reachable');
     }).catch((err: Error) => {
       log.warn(`[DockerService] Docker daemon unreachable (only needed for Jetson profile): ${err.message}`);
+      this.emitDaemonUnavailable(err.message);
     });
+  }
+
+  /**
+   * Relay a "Docker daemon unavailable" notice to the renderer's banner. The constructor's
+   * ping() resolves within a few ms — BEFORE the renderer has finished loading and registered
+   * its ipcRenderer.on('docker:daemon-unavailable') listener — and Electron drops un-listened
+   * messages. So if the page is still loading we defer the send until 'did-finish-load'; otherwise
+   * send immediately. Without this the banner never appeared (the event was always lost to the race).
+   */
+  private emitDaemonUnavailable(reason: string): void {
+    const wc = this.mainWindow?.webContents;
+    if (!wc || wc.isDestroyed()) {
+      return;
+    }
+    const send = () => {
+      if (!wc.isDestroyed()) {
+        wc.send('docker:daemon-unavailable', reason);
+      }
+    };
+    if (wc.isLoading()) {
+      wc.once('did-finish-load', send);
+    } else {
+      send();
+    }
   }
 
   /**
@@ -101,12 +126,33 @@ export class DockerService {
    */
   async stopTraining(): Promise<void> {
     if (this.nativeProcess) {
-      log.info('[DockerService] Stopping native process');
-      this.nativeProcess.kill('SIGTERM');
       const proc = this.nativeProcess;
-      setTimeout(() => {
-        if (proc && !proc.killed) proc.kill('SIGKILL');
-      }, 5000);
+      // Already exited? (exitCode set on normal exit; signalCode set when killed by a signal.)
+      // proc.killed is NOT an "exited" signal — it's true the instant .kill() delivers a signal —
+      // so we must not use it to detect liveness.
+      if (proc.exitCode !== null || proc.signalCode !== null) {
+        this.nativeProcess = null;
+        return; // nothing to wait for (avoids a spurious 5s grace on quit)
+      }
+      log.info('[DockerService] Stopping native process (SIGTERM, then SIGKILL after 5s grace)');
+      proc.kill('SIGTERM');
+      // WAIT for the child to actually exit (up to a 5s grace), then escalate to SIGKILL. Keep
+      // this.nativeProcess SET during the drain: clearing it early would let a concurrent
+      // docker:get-status poll observe `idle` and re-enable the Start button, allowing a second
+      // spawn onto the same partition (startNativeProcess's dedup guard also keys on nativeProcess).
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(() => {
+          // Gate the escalation on EXIT status, not proc.killed (which is already true from the
+          // SIGTERM above) — otherwise SIGKILL would never be sent to a SIGTERM-ignoring child.
+          if (proc.exitCode === null && proc.signalCode === null) {
+            log.warn('[DockerService] native process did not exit on SIGTERM; sending SIGKILL');
+            try { proc.kill('SIGKILL'); } catch { /* already gone */ }
+          }
+          resolve();
+        }, 5000);
+        proc.once('exit', () => { clearTimeout(timer); resolve(); });
+      });
+      this.nativeProcess = null; // clear only AFTER the drain completes
       return;
     }
 
