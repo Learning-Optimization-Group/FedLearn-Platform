@@ -207,7 +207,7 @@ public class ProjectService {
         }
 
         int port = flowerServerManager.startServerForProject(
-                project, true, strategyToUse, numRoundsToUse, minClients);
+                project, strategyToUse, numRoundsToUse, minClients);
         project.setServerPort(port);
         project.setStatus("RUNNING");
 

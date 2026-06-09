@@ -49,6 +49,7 @@ public class ResultsController {
         result.setServerRound(resultDto.getServerRound());
         result.setLoss(resultDto.getLoss());
         result.setAccuracy(resultDto.getAccuracy());
+        result.setGpuUtilization(resultDto.getGpuUtilization());
 
         RoundResult saved = roundResultRepository.save(result);
         

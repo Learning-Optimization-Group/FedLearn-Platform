@@ -9,17 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import software.amazon.awssdk.services.ecs.EcsClient;
-import software.amazon.awssdk.services.ecs.model.AssignPublicIp;
-import software.amazon.awssdk.services.ecs.model.AwsVpcConfiguration;
-import software.amazon.awssdk.services.ecs.model.ContainerOverride;
-import software.amazon.awssdk.services.ecs.model.Failure;
-import software.amazon.awssdk.services.ecs.model.KeyValuePair;
-import software.amazon.awssdk.services.ecs.model.LaunchType;
-import software.amazon.awssdk.services.ecs.model.NetworkConfiguration;
-import software.amazon.awssdk.services.ecs.model.RunTaskRequest;
-import software.amazon.awssdk.services.ecs.model.RunTaskResponse;
-import software.amazon.awssdk.services.ecs.model.TaskOverride;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -27,7 +16,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,23 +27,8 @@ public class FlowerServerManager {
 
     private static final Logger log = LoggerFactory.getLogger(FlowerServerManager.class);
 
-    @Value("${ecs.cluster-name}")
+    @Value("${ecs.cluster-name:}")
     private String ecsClusterName;
-
-    @Value("${ecs.task-definition}")
-    private String ecsTaskDefinition;
-
-    @Value("${ecs.subnets}")
-    private String ecsSubnetsCsv;
-
-    @Value("${ecs.security-groups}")
-    private String ecsSecurityGroupsCsv;
-
-    @Value("${ecs.assign-public-ip:DISABLED}")
-    private String ecsAssignPublicIp;
-
-    @Value("${ecs.container-name:fl-server-container}")
-    private String ecsContainerName;
 
     @Value("${app.internal.api-key:}")
     private String internalApiKey;
@@ -65,6 +38,9 @@ public class FlowerServerManager {
 
     @Value("${python.script.fl-server.path:src/main/resources/scripts/run_fl_server.sh}")
     private String flServerWrapperPath;
+
+    @Value("${python.script.fot-server.path:src/main/resources/scripts/run_fot_server.sh}")
+    private String fotServerWrapperPath;
 
     @Value("${fl.server.port-range.start:50000}")
     private int portRangeStart;
@@ -77,98 +53,73 @@ public class FlowerServerManager {
 
     private final Map<UUID, Process> runningServers = new ConcurrentHashMap<>();
 
-    public int startServerForProject(Project project, boolean isPretrained, String strategy,
+    public int startServerForProject(Project project, String strategy,
                                      Integer numRounds, Integer minClients) {
         if (!isBlank(ecsClusterName)) {
-            return startEcsFargateServer(project, isPretrained, strategy, numRounds, minClients);
-        } else {
-            return startLocalServer(project, isPretrained, strategy, numRounds);
+            // The ECS/Fargate production path is not implemented: runTask returned no reachable
+            // host:port (it handed back 0), the task was never tracked in runningServers, and
+            // stop/delete could not terminate it — so it would leak a running, billing task while
+            // the project was marked RUNNING on an unreachable port. Fail closed rather than record
+            // that bogus state. Unset ecs.cluster-name to use the local-process path.
+            // See docs/guides/AWS_AUDIT.md before implementing the managed-task path.
+            throw new UnsupportedOperationException(
+                    "ECS/Fargate FL-server orchestration is not implemented yet "
+                            + "(tasks cannot be tracked or stopped). "
+                            + "Unset ecs.cluster-name to run FL servers as local processes.");
         }
+        return startLocalServer(project, strategy, numRounds, minClients);
     }
 
-    private int startEcsFargateServer(Project project, boolean isPretrained, String strategy,
-                                      Integer numRounds, Integer minClients) {
-        validateEcsConfig();
-        if (isBlank(internalApiKey)) {
-            throw new IllegalStateException(
-                    "APP_INTERNAL_API_KEY is not configured; FL-server tasks cannot report results back.");
-        }
-
-        List<KeyValuePair> envVars = buildEnvOverrides(project, isPretrained, strategy, numRounds, minClients);
-
-        RunTaskRequest request = RunTaskRequest.builder()
-                .cluster(ecsClusterName)
-                .taskDefinition(ecsTaskDefinition)
-                .launchType(LaunchType.FARGATE)
-                .networkConfiguration(NetworkConfiguration.builder()
-                        .awsvpcConfiguration(AwsVpcConfiguration.builder()
-                                .subnets(splitCsv(ecsSubnetsCsv))
-                                .securityGroups(splitCsv(ecsSecurityGroupsCsv))
-                                .assignPublicIp(AssignPublicIp.fromValue(ecsAssignPublicIp))
-                                .build())
-                        .build())
-                .overrides(TaskOverride.builder()
-                        .containerOverrides(ContainerOverride.builder()
-                                .name(ecsContainerName)
-                                .environment(envVars)
-                                .build())
-                        .build())
-                .build();
-
-        try (EcsClient ecsClient = EcsClient.builder().build()) {
-            RunTaskResponse response = ecsClient.runTask(request);
-            if (response.hasFailures() && !response.failures().isEmpty()) {
-                String joined = response.failures().stream()
-                        .map(Failure::toString)
-                        .reduce((a, b) -> a + "; " + b)
-                        .orElse("unknown failure");
-                throw new IllegalStateException("ECS runTask reported failures: " + joined);
-            }
-            String taskArn = response.tasks().isEmpty() ? "<none>" : response.tasks().get(0).taskArn();
-            log.info("Dispatched Fargate task {} for project {}", taskArn, project.getId());
-            return 0;
-        } catch (RuntimeException e) {
-            log.error("Failed to dispatch Fargate task for project {}: {}", project.getId(), e.getMessage());
-            throw e;
-        }
-    }
-
-    private int startLocalServer(Project project, boolean isPretrained, String strategy, Integer numRounds) {
+    private int startLocalServer(Project project, String strategy, Integer numRounds, Integer minClients) {
         Process process = null;
         try {
             stopServerForProject(project.getId());
 
             int freePort = findFreePort();
-            File scriptFile = new File(flServerWrapperPath);
-            String absoluteScriptPath = scriptFile.getAbsolutePath();
+            // Federation over Text (FoT) is a SEPARATE text-federation server spawned through the
+            // same seam as the gradient FL server. This is purely ADDITIVE: the FoT branch selects
+            // its own wrapper + flag contract, and the gradient (FedAvg/DeComFL) spawn is the
+            // else-branch below (unaffected by adding this branch).
+            boolean isFoT = "FoT".equalsIgnoreCase(strategy);
+            String wrapperPath = isFoT ? fotServerWrapperPath : flServerWrapperPath;
+            String absoluteScriptPath = new File(wrapperPath).getAbsolutePath();
 
             List<String> command = new ArrayList<>();
             String os = System.getProperty("os.name").toLowerCase();
             if (!os.contains("win")) {
                 command.add("bash");
             }
-
             command.add(absoluteScriptPath);
-            command.add("--project-id");
-            command.add(project.getId().toString());
-            command.add("--model-path");
-            command.add(project.getModelPath());
-            command.add("--port");
-            command.add(String.valueOf(freePort));
-            command.add("--strategy");
-            command.add(strategy);
-            command.add("--num-rounds");
-            command.add(String.valueOf(numRounds));
-            command.add("--model-type");
-            command.add(project.getModelType());
-            command.add("--model-name");
-            command.add(project.getModelName());
+
+            if (isFoT) {
+                // FoT has no global model: no model/strategy/min-clients args. round-seconds,
+                // quorum and backend use the entrypoint defaults until exposed in StartProject.
+                command.add("--project-id");
+                command.add(project.getId().toString());
+                command.add("--port");
+                command.add(String.valueOf(freePort));
+                command.add("--num-rounds");
+                command.add(String.valueOf(numRounds));
+            } else {
+                command.add("--project-id");
+                command.add(project.getId().toString());
+                command.add("--model-path");
+                command.add(project.getModelPath());
+                command.add("--port");
+                command.add(String.valueOf(freePort));
+                command.add("--strategy");
+                command.add(strategy);
+                command.add("--num-rounds");
+                command.add(String.valueOf(numRounds));
+                command.add("--model-type");
+                command.add(project.getModelType());
+                command.add("--model-name");
+                command.add(project.getModelName());
+                command.add("--min-clients");
+                command.add(String.valueOf(minClients));
+            }
 
             ProcessBuilder pb = new ProcessBuilder(command);
-
-            if (!isPretrained) {
-                pb.command().add("--pretrain");
-            }
 
             Map<String, String> env = pb.environment();
             env.put("FEDLEARN_INTERNAL_API_KEY", internalApiKey == null ? "" : internalApiKey);
@@ -293,47 +244,6 @@ public class FlowerServerManager {
         }
         throw new IllegalStateException(
             "No free port in range " + portRangeStart + "–" + portRangeEnd);
-    }
-
-    private void validateEcsConfig() {
-        if (isBlank(ecsClusterName) || isBlank(ecsTaskDefinition)
-                || isBlank(ecsSubnetsCsv) || isBlank(ecsSecurityGroupsCsv)) {
-            throw new IllegalStateException(
-                    "ECS configuration incomplete. Required: ECS_CLUSTER_NAME, ECS_TASK_DEFINITION, "
-                            + "ECS_SUBNETS, ECS_SECURITY_GROUPS.");
-        }
-    }
-
-    private List<KeyValuePair> buildEnvOverrides(Project project, boolean isPretrained, String strategy,
-                                                 Integer numRounds, Integer minClients) {
-        List<KeyValuePair> envVars = new ArrayList<>();
-        envVars.add(kv("PROJECT_ID", project.getId().toString()));
-        envVars.add(kv("MODEL_PATH", project.getModelPath()));
-        envVars.add(kv("STRATEGY", strategy));
-        envVars.add(kv("NUM_ROUNDS", String.valueOf(numRounds)));
-        envVars.add(kv("MIN_CLIENTS", String.valueOf(minClients)));
-        envVars.add(kv("MODEL_TYPE", project.getModelType()));
-        envVars.add(kv("MODEL_NAME", project.getModelName()));
-        if (!isPretrained) {
-            envVars.add(kv("PRETRAIN", "true"));
-        }
-
-        envVars.add(kv("FEDLEARN_INTERNAL_API_KEY", internalApiKey));
-        if (!isBlank(backendInternalUrl)) {
-            envVars.add(kv("FEDLEARN_BACKEND_URL", backendInternalUrl));
-        }
-        return envVars;
-    }
-
-    private static KeyValuePair kv(String name, String value) {
-        return KeyValuePair.builder().name(name).value(value).build();
-    }
-
-    private static List<String> splitCsv(String csv) {
-        return Arrays.stream(csv.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toList();
     }
 
     private static boolean isBlank(String s) {

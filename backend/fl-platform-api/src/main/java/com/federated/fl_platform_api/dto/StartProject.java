@@ -15,14 +15,15 @@ import jakarta.validation.constraints.Pattern;
 public class StartProject {
 
     /**
-     * Allowed values mirror the strategies registered in
-     * {@code framework/src/fedlearn/server/strategy.py} +
-     * {@code decomfl_strategy.py}. Keep this regex in sync if a new
-     * strategy is added on the Python side.
+     * Gradient strategies (FedAvg, DeComFL) mirror those registered in
+     * {@code framework/src/fedlearn/server/strategy.py} + {@code decomfl_strategy.py} and spawn
+     * the gradient FL server. {@code FoT} (Federation over Text) is a SEPARATE, additive
+     * text-federation mode that spawns the standalone {@code fl_fot_server.py} instead. Keep this
+     * regex in sync when a strategy/mode is added on the Python side.
      */
     @Pattern(
-            regexp = "FedAvg|FedProx|DeComFL",
-            message = "strategy must be one of: FedAvg, FedProx, DeComFL"
+            regexp = "FedAvg|DeComFL|FoT",
+            message = "strategy must be one of: FedAvg, DeComFL, FoT"
     )
     private String strategy;
 
