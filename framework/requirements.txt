@@ -3,10 +3,6 @@ torch
 torchvision
 torchaudio
 
-# Federated Learning
-flwr==1.20.0
-flwr-datasets==0.5.0
-
 # Transformers and NLP
 transformers==4.55.2
 datasets==3.1.0
@@ -65,18 +61,16 @@ rich>=13.0,<14.0
 tqdm>=4.65,<5.0
 
 # Cryptography
-# NOTE: the cryptography fix for PYSEC-2026-35 / CVE-2026-26007 is only in 46.0.5+,
-# but flwr==1.20.0 hard-requires cryptography<45.0.0 (Requires-Dist: cryptography>=44.0.1,<45.0.0).
-# Bumping to 46.x makes the resolution impossible. Pin to the highest flwr-allowed version (44.0.x);
-# the residual cryptography CVEs cannot be cleared without also bumping flwr off 1.20.0.
-cryptography>=44.0.1,<45.0
+# PYSEC-2026-35 (x2) + CVE-2026-26007 are fixed in 46.0.5+. flwr is no longer a
+# dependency, so its cryptography<45.0.0 cap is gone — pin to the patched 46.x line.
+cryptography>=46.0.6,<47.0
 pycryptodome>=3.19,<4.0
 
 # File handling
 pillow>=12.2.0,<13.0  # PYSEC-2026-165 + CVE-2026-40192/42309/42310/42311 (the <12.0 cap sat below the fix)
 PyYAML>=6.0,<7.0
 
-# Data serialization (protobuf 4.x required by flwr)
+# Data serialization
 protobuf>=4.21.6,<5.0.0
 googleapis-common-protos==1.70.0
 msgpack>=1.0,<2.0
