@@ -49,6 +49,12 @@ useEffect(() => {
 }, [logout]);
 ```
 
+### Roles & Backend RBAC (UI deferred)
+
+Authentication is **cookie-only** — the frontend never reads or sends a token; the single role carried on the session is `platform_role` (`USER` / `PLATFORM_ADMIN`).
+
+The backend additionally exposes identity/RBAC endpoints (membership, admin, access-request, and discover surfaces). **These are not yet surfaced in the web UI** — the web client currently ships the Instrument design system unchanged, with no membership/admin/access-request/discover screens. They exist server-side only; building the corresponding UI is deferred.
+
 ## Routing Configuration
 
 We use `react-router-dom` v7 to handle application routing. The router distinguishes between public and protected routes.

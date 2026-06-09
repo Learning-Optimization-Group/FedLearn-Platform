@@ -20,3 +20,6 @@ This section of the wiki covers the Spring Boot 3 API, the PostgreSQL database i
 
 5. **[WebSocket Log Streaming](05_websocket_logs_streaming.md)**
    Explains the real-time observability pipeline. Shows how the backend captures standard output from the Python FL servers, routes it via STOMP topics to the React frontend, and persists it for export.
+
+6. **[Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md)**
+   Documents the identity subsystem: the three-layer role model (platform / organization / project), organization-scoped multi-tenant isolation (`OrgScope`), the `@Auditable` audit trail, the email + first-run bootstrap plumbing, the V4–V6 migrations, and the new membership/admin/access-request REST endpoints. (Backend-first; the client RBAC UI is deferred.)

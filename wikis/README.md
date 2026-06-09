@@ -1,9 +1,11 @@
 # FedLearn Platform — Master Wiki
 
 > **Repository:** `FedLearn-Platform`  
-> **Last Updated:** 2026-04-28
+> **Last Updated:** 2026-06-09
 
 This is the top-level technical wiki for the **FedLearn Platform** — a privacy-preserving, distributed machine learning system that enables federated learning across heterogeneous hardware. Use this page as your starting point and navigate into any subsection for in-depth documentation.
+
+> **Recent hardening (2026-06):** dependency/security pass — npm and pip audits cleared, Electron upgraded 34 → 42, gitleaks secret scanning added via the free CLI, and the unused `flwr` dependency removed.
 
 ---
 
@@ -121,11 +123,13 @@ The backend is the central control plane. It owns the REST API, user authenticat
 | [Project Management Lifecycle](./backend/03_project_management.md) | `ProjectService`, `ProjectController`, round configuration, model initialization |
 | [Federated Orchestration](./backend/04_federated_orchestration.md) | `FlowerServerManager` — local `ProcessBuilder` vs. AWS ECS Fargate provisioning |
 | [WebSocket Log Streaming](./backend/05_websocket_logs_streaming.md) | Stdout capture → STOMP topics → frontend real-time observability |
+| [Identity, Multi-Tenancy & Audit](./backend/06_identity_multitenancy_and_audit.md) | Organizations + org/project memberships, platform/org/project role model (`PlatformRole` enum), org-scoped data isolation, `@Auditable` audit trail (backend-first; RBAC frontend UI deferred) |
 
 **Key cross-component interfaces:**
 - Exposes `POST /api/projects/{id}/start` → triggers Framework server spawn.
 - Streams logs to Frontend via STOMP topic `/topic/logs/{projectId}`.
 - Desktop authenticates against `POST /api/auth/login` before initiating training.
+- Owns multi-tenant identity: organizations, org/project memberships, and a platform/org/project role model that scopes all project data per organization; sensitive actions are recorded by the `@Auditable` audit trail (backend-first — the RBAC frontend UI is deferred).
 
 ---
 

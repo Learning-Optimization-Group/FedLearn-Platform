@@ -235,6 +235,12 @@ asarUnpack:
 
 `asar: true` packages most files into an archive for faster load times and to obscure the source. `asarUnpack` for `dockerode` is necessary because it contains a native `.node` addon that must be on the filesystem (not inside the archive) to be loaded by Node.js.
 
+### Dependency Audit Posture
+
+The shipped dependency tree is gated by `npm audit`. Electron is pinned to `^42.4.0` (bumped from `^34.5.8`) to clear all high/critical Chromium/Electron CVEs that `npm audit` flagged against the older `34.x` line — `tsc` and the Jest suite pass against Electron 42 with no application-code changes. The tree is now **clean at `--audit-level=high`**.
+
+Four **moderate** advisories remain (the `uuid` buffer-bounds-check issue, reached transitively via `dockerode` 4.0.x and `webpack-dev-server`/`sockjs`). Their only fix is a breaking `dockerode@5.0.0` major, so they are deferred and tracked for a future `dockerode` upgrade rather than force-fixed. See [Security Model → Dependency Vulnerability Posture](./02-security-model.md#dependency-vulnerability-posture) for detail.
+
 ---
 
 ## Native Client Bundle (PyInstaller)

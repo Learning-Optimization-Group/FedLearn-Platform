@@ -102,3 +102,79 @@ protected void doFilterInternal(HttpServletRequest request, HttpServletResponse 
 ```
 
 The Spring Boot backend securely passes this `FEDLEARN_INTERNAL_API_KEY` to the Python server via environment variables during the orchestration phase (see `FlowerServerManager`), ensuring that only backend-spawned ML processes can hit the internal endpoints.
+
+---
+
+## 4. Authorization: Roles & Org-Scoped Isolation
+
+Once a request is *authenticated* (sections 1–2), a second layer decides what it
+is *allowed* to do. Authorization spans three independent role layers and an
+organization-scoped tenant boundary. This section is a summary; the full
+treatment lives in [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md).
+
+### The three role layers
+
+| Layer | Column | Enum | Values |
+|---|---|---|---|
+| **Platform** | `users.platform_role` | `PlatformRole` | `USER`, `PLATFORM_ADMIN` |
+| **Organization** | `organization_memberships.org_role` | `OrgRole` | `OWNER`, `ADMIN`, `MEMBER` |
+| **Project** | `project_memberships.role` | `MembershipRole` | `OWNER`, `MEMBER`, `CLIENT` |
+
+`CustomUserDetailsService` maps the user's `PlatformRole` to a single Spring
+authority via `PlatformRole.authority()` (`ROLE_USER` / `ROLE_PLATFORM_ADMIN`), so
+admin-only routes gate with `@PreAuthorize("hasRole('PLATFORM_ADMIN')")`
+(`@EnableMethodSecurity` is on in `SecurityConfig`). `PLATFORM_ADMIN` is the
+privileged tier and **bypasses org-scope checks**. The same service also enforces
+a lifecycle gate: it throws `DisabledException` (→ 401) for any user whose
+`status != ACTIVE` or who is soft-deleted, *before* the password check.
+
+> **Note (fixed):** `AuthorizationService.isAdmin` formerly checked the literal
+> `"ROLE_ADMIN"` — a string that no longer existed after the role rename, so the
+> check silently failed. It is now `isPlatformAdmin()` and checks
+> `ROLE_PLATFORM_ADMIN`.
+
+### Org-scoped multi-tenant isolation
+
+The P0 data-isolation mechanism guarantees a caller only sees/mutates projects in
+organizations they belong to:
+
+- **`OrgScope`** — a `@RequestScope` bean holding `Set<UUID> visibleOrgIds` plus an
+  `unrestricted` flag; `allows(orgId)` is the single decision point.
+- **`OrgScopeFilter`** — an `OncePerRequestFilter` registered to run *after*
+  `JwtAuthenticationFilter`. It loads the caller's org ids from
+  `organization_memberships` into `OrgScope`; a platform admin is marked
+  `unrestricted`. A user with **no** memberships falls back to the single
+  bootstrap `DEFAULT_ORG_ID` — a transitional rule so the current single-org demo
+  keeps returning projects.
+- **`AuthorizationService.requireOrgScope(UUID)`** — used on **mutation** paths;
+  throws **403** when the project's org is out of scope.
+- **`AuthorizationService.isInOrgScope(UUID)`** — the boolean form used on **read**
+  paths to instead return **404**, so cross-tenant project *existence* is not
+  leaked.
+
+These gates are applied uniformly across `ProjectService`, `MembershipService`,
+`AccessRequestService`, and `ClientApiService`; list queries are pushed down
+org-scoped (`ProjectRepository.findOwnedOrMemberOfInOrgs` /
+`findDiscoverableInOrgs`).
+
+---
+
+## 5. The `@Auditable` Audit Trail
+
+Security-relevant mutations emit an `audit_events` row through a declarative
+annotation + AOP advice (no audit logic smeared across services):
+
+- `@Auditable(action = ..., targetIdParam = ..., targetType = ...)` marks a method.
+- `AuditAspect` is an `@Around` advice that runs the method **first** and persists
+  the audit row only on success (a thrown exception writes no row). It writes in
+  the **same transaction** as the audited mutation, so a rollback drops the audit
+  row too — and clears the `AuditContext` thread-local on the exception path so
+  staged metadata can't leak across pooled threads. Metadata is serialised to the
+  JSONB `metadata` column via Jackson.
+
+Login is audited *outside* the aspect (credential failures throw before any
+`@Auditable` body runs): `AuditingAuthenticationSuccessHandler` (also stamps
+`last_login_at`) and `AuditingAuthenticationFailureHandler` write
+`USER_LOGIN_SUCCEEDED` / `USER_LOGIN_FAILED`. Full detail — including the
+`AuditAction` vocabulary and the JSON-serialisation fix — is in
+[06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md).

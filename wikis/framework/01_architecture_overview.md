@@ -34,6 +34,8 @@ The library is intentionally decoupled from the platform orchestration layer. Yo
 
 The library has **zero dependency on the Spring Boot backend**. Its only external communication is gRPC between the Python server and Python clients.
 
+> **No Flower / `flwr` dependency.** Despite the historical `flower` package name on the Java side (`FlowerServerManager`), the FL framework is entirely custom — its own protobuf contract (`fedlearn.v1`) and its own FedAvg / DeComFL strategies. `framework/requirements.txt` has **no `flwr` / `flwr-datasets`** entry (they carried zero imports and were removed). `transformers` *is* still pinned — it backs the FoT (federated optimisation / LLM) path and the HuggingFace model loaders.
+
 ---
 
 ## Package Layout

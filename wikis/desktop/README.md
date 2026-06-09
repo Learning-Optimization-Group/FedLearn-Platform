@@ -26,7 +26,7 @@ The `fedlearn-desktop` module is the cross-platform Electron application that se
 ### Technology Stack
 
 ```
-Electron 34.x  ←→  React 18 + TypeScript 5.7
+Electron 42.x  ←→  React 18 + TypeScript 5.7
      │
      ├── Main Process (Node.js)
      │   ├── dockerode  — Docker Engine API

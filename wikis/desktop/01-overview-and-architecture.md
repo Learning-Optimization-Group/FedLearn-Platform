@@ -35,7 +35,7 @@ The desktop app is the bridge between the **end user's machine** (with its local
 
 | Layer | Technology | Version | Purpose |
 |---|---|---|---|
-| Application Shell | Electron | `^34.5.8` | Cross-platform desktop container |
+| Application Shell | Electron | `^42.4.0` | Cross-platform desktop container |
 | UI Framework | React | `18.3.1` | Renderer UI components |
 | Language | TypeScript | `5.7.3` | Type-safe development across all processes |
 | Build Tool | Webpack | `^5.106.2` | Bundles main, preload, and renderer separately |

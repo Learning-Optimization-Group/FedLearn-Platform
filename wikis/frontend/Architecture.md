@@ -8,8 +8,8 @@ The frontend is built for performance, security, and developer experience. The c
 - **Language**: TypeScript 5.7+
 - **Build Tool**: Vite 6.3+ (Extremely fast HMR and optimized builds)
 - **Styling**: Tailwind CSS 4.x (Utility-first CSS), standard CSS modules.
-- **Routing**: React Router DOM 7.5+
-- **Data Fetching**: Axios 1.11+
+- **Routing**: React Router DOM 7.17+ (patched within the v7 major to clear an npm-audit high vuln)
+- **Data Fetching**: Axios 1.17+ (patched within the v1 major to clear an npm-audit high vuln)
 - **Real-time / Telemetry**: StompJS 7+ (WebSockets)
 - **Charting**: Recharts 2.15+
 

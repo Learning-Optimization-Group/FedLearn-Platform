@@ -17,6 +17,7 @@
 9. [Docker Socket Confinement](#docker-socket-confinement)
 10. [Log Rendering — XSS Prevention](#log-rendering--xss-prevention)
 11. [Threat Model Summary](#threat-model-summary)
+12. [Dependency Vulnerability Posture](#dependency-vulnerability-posture)
 
 ---
 
@@ -444,6 +445,15 @@ React's JSX rendering **automatically escapes** all string content — `<script>
 | Stale/decryptable JWT on disk | `safeStorage` uses OS keychain; if unavailable, no disk persistence |
 | Token replay after OS user password change | Decryption failure triggers `logout()` and graceful re-auth prompt |
 | Crash data exfiltration | `crashReporter.start({ uploadToServer: false })` — dumps stay local |
+| Known Chromium/Electron CVEs in the runtime | Electron pinned to `^42.4.0` (bumped from `^34.5.8`) to clear all high/critical advisories flagged by `npm audit` |
+
+---
+
+## Dependency Vulnerability Posture
+
+The desktop app's dependency tree is audited via `npm audit`. As of the Electron `^42.4.0` bump, the tree is **clean at `--audit-level=high`** — no high- or critical-severity advisories remain. The Electron upgrade (from `^34.5.8`) was driven specifically by high/critical Chromium/Electron CVEs that `npm audit` surfaced against the older `34.x` line; `tsc` and the Jest suite pass against Electron 42 with no application-code changes.
+
+Four **moderate** advisories remain, all the same `uuid` missing-buffer-bounds-check issue ([GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq)) reached transitively through `dockerode` (4.0.x) and `sockjs`/`webpack-dev-server`. The only published fix pulls in `dockerode@5.0.0`, a breaking major, so these are deliberately **deferred and tracked for a future `dockerode` major upgrade** rather than force-fixed.
 
 ---
 

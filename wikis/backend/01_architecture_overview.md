@@ -24,15 +24,18 @@ The source code is located at `backend/fl-platform-api/src/main/java/com/federat
 
 | Directory / Package | Purpose |
 |---|---|
+| `audit/` | Declarative audit trail. The `@Auditable` annotation, the `AuditAspect` `@Around` advice that writes `audit_events` rows after successful mutations, and the `AuditContext` thread-local metadata sidecar. See [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md). |
+| `bootstrap/` | First-run seeding. `BootstrapRunner` idempotently creates the first `PLATFORM_ADMIN` user and a default `Organization` from `app.bootstrap.*` env vars. |
 | `config/` | Application configuration. Contains CORS settings (`WebConfig`), WebSocket broker configuration (`WebSocketConfig`), and Spring Security filter chains (`SecurityConfig`). |
-| `controller/` | REST API endpoints. Exposes routes for authentication (`AuthController`), projects (`ProjectController`), and results (`ResultsController`). |
+| `controller/` | REST API endpoints. Exposes routes for authentication (`AuthController`), projects (`ProjectController`), results (`ResultsController`), plus the identity surface: memberships, access requests, admin console, user search, and the FL-client API. |
 | `dto/` | Data Transfer Objects. POJOs used to decouple the external JSON payloads from the internal JPA entities. |
+| `email/` | Pluggable email layer. The `EmailService` interface with a `LoggingEmailService` (dev) and `SmtpEmailService` (prod) adapter, selected by `EmailConfig` on `app.email.provider`. |
 | `exception/` | Custom runtime exceptions and the `@ControllerAdvice` global exception handler that translates them into standardized HTTP responses. |
 | `flower/` | The core orchestration layer. Contains `FlowerServerManager` which interfaces with AWS or local processes to spawn the ML servers. |
-| `model/` | JPA Entities defining the PostgreSQL database schema (e.g., `Project.java`, `User.java`). |
+| `model/` | JPA Entities defining the PostgreSQL database schema (e.g., `Project.java`, `User.java`, `Organization.java`, `AuditEvent.java`). |
 | `repository/` | Spring Data JPA interfaces extending `JpaRepository` for database access. |
-| `security/` | JWT generation, API Key filters, and WebSocket handshake interceptors. |
-| `service/` | Business logic layer. Controllers delegate to services (like `ProjectService`) to handle complex operations and transactional boundaries. |
+| `security/` | JWT generation, API Key filters, WebSocket handshake interceptors, the request-scoped `OrgScope`/`OrgScopeFilter` multi-tenant gate, and the login auditing success/failure handlers. |
+| `service/` | Business logic layer. Controllers delegate to services (like `ProjectService`) to handle complex operations and transactional boundaries. `AuthorizationService` centralises the role/org-scope checks. |
 
 ---
 
@@ -42,13 +45,25 @@ The PostgreSQL database is organized around the following core entities:
 
 ### `User`
 Represents an authenticated platform user.
-- Contains credentials (hashed password) and `roles`.
-- Has a one-to-many relationship with `Project`.
+- Contains credentials (hashed password) and a single `platformRole` (a `PlatformRole` enum — `USER` or `PLATFORM_ADMIN`). The old single `role` column was renamed to `platform_role` in the V5 migration.
+- **Lifecycle / profile columns:** `status` (`UserStatus` — `PENDING`/`ACTIVE`/`SUSPENDED`, defaults `ACTIVE`), `deletedAt` (soft-delete tombstone), `emailVerified`, `displayName`, `avatarUrl`, `lastLoginAt`.
+- Has a one-to-many relationship with `Project`. See [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md) for the full role model.
 
 ### `Project`
 The central entity for an FL experiment.
 - **Key Fields:** `modelType` (e.g., CNN, LLM), `optimizer`, `status` (CREATED, RUNNING, STOPPED, COMPLETED), and `serverPort` (if running locally).
-- **Relationships:** Owned by a `User`. Contains many `RoundResult` and `ServerLog` entries.
+- **Multi-tenancy:** `orgId` (a `UUID`, **NOT NULL**) pins every project to an `Organization`; `visibility` (`ProjectVisibility` — `PRIVATE` default / `PUBLIC`) controls discoverability. Plus Model-Hub publish columns (`modelPublished`, `modelDescription`, `modelTags`, `modelPublishedAt`).
+- **Relationships:** Owned by a `User`. Contains many `RoundResult`, `ServerLog`, and `ProjectMembership` entries.
+
+### Identity & Multi-Tenancy Entities
+
+Added by the identity subsystem (full detail in [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md)):
+
+- **`Organization`** — tenant boundary. `UUID` PK, unique `slug`, soft-delete `deletedAt`.
+- **`OrganizationMembership`** — per-user org role (`OrgRole`: `OWNER`/`ADMIN`/`MEMBER`), composite PK `(org_id, user_id)`.
+- **`ProjectMembership`** — per-user project role (`MembershipRole`: `OWNER`/`MEMBER`/`CLIENT`), composite PK `(project_id, user_id)`; carries `partitionId` and `joinedVia` provenance.
+- **`ProjectAccessRequest`** — the join-request workflow for PRIVATE projects (`PENDING`/`APPROVED`/`DENIED`).
+- **`AuditEvent`** — append-only audit log row: `action` (`AuditAction` enum), `actorUserId`, `orgId`, `targetType`/`targetId`, JSONB `metadata`, `requestIp`, `userAgent`.
 
 ### `RoundResult`
 Stores the output of a single federated learning round (e.g., FedAvg).
