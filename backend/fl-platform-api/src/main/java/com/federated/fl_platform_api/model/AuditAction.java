@@ -22,5 +22,13 @@ public enum AuditAction {
     ORG_OWNERSHIP_TRANSFERRED,
     // System — instrumented in foundations
     BOOTSTRAP_ADMIN_CREATED,    // [F]
-    BOOTSTRAP_ORG_CREATED       // [F]
+    BOOTSTRAP_ORG_CREATED,      // [F]
+    // Projects / runs / project memberships — instrumented in phase 3
+    PROJECT_CREATED,
+    PROJECT_DELETED,
+    RUN_STARTED,
+    RUN_STOPPED,
+    PROJECT_MEMBER_ADDED,
+    PROJECT_MEMBER_REMOVED,
+    PLATFORM_ADMIN_ORG_BYPASS
 }

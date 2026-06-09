@@ -50,7 +50,16 @@ public class AuditAspect {
 
     @Around("@annotation(com.federated.fl_platform_api.audit.Auditable)")
     public Object record(ProceedingJoinPoint pjp) throws Throwable {
-        Object result = pjp.proceed();      // run first; audit only after success
+        Object result;
+        try {
+            result = pjp.proceed();         // run first; audit only after success
+        } catch (Throwable t) {
+            // No audit row on failure. Drain to clear any metadata the method
+            // staged before throwing, so it can't leak onto the next request
+            // that reuses this pooled thread.
+            AuditContext.drain();
+            throw t;
+        }
 
         MethodSignature sig = (MethodSignature) pjp.getSignature();
         Method method = sig.getMethod();
