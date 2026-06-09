@@ -6,6 +6,7 @@ import com.federated.fl_platform_api.model.ProjectMembership;
 import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.UserRepository;
+import com.federated.fl_platform_api.security.OrgScope;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -15,6 +16,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Central authorization helpers. All project-scoped checks across the
@@ -26,6 +28,15 @@ public class AuthorizationService {
 
     @Autowired private UserRepository userRepository;
     @Autowired private ProjectMembershipRepository membershipRepository;
+    @Autowired private OrgScope orgScope;
+
+    /**
+     * Test seam: lets unit tests inject a plain {@link OrgScope} without a Spring
+     * request context. Not part of the public contract.
+     */
+    public void setOrgScope(OrgScope orgScope) {
+        this.orgScope = orgScope;
+    }
 
     public User currentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -58,6 +69,17 @@ public class AuthorizationService {
     public Optional<ProjectMembership> myMembership(Project project) {
         User self = currentUser();
         return membershipRepository.findByIdProjectIdAndIdUserId(project.getId(), self.getId());
+    }
+
+    /**
+     * Enforces org-level multi-tenant isolation: the caller's request-scoped
+     * {@link OrgScope} must include the given org (or be unrestricted, i.e. a
+     * platform admin). Throws {@link AccessDeniedException} otherwise. This is
+     * an additional gate layered on top of the ownership/membership checks.
+     */
+    public void requireOrgScope(UUID orgId) {
+        if (orgScope != null && orgScope.allows(orgId)) return;
+        throw new AccessDeniedException("Project is outside your organization scope");
     }
 
     public void requireOwnerOrAdmin(Project project) {
