@@ -1,6 +1,8 @@
 package com.federated.fl_platform_api.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -32,9 +34,12 @@ public class AuditEvent {
     @Column(name = "target_id", length = 64)
     private String targetId;
 
-    @Lob
-    @Column
-    private String metadata;        // JSON string; not indexable until Postgres + JSONB
+    // Stored as a JSON string in Java. The V6 migration promotes the Postgres
+    // column to JSONB for indexability; under H2 (test profile, create-drop) the
+    // JSON jdbc-type maps to H2's native JSON type, which accepts the same string.
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "json")
+    private String metadata;
 
     @Column(name = "request_ip", length = 45)
     private String requestIp;
