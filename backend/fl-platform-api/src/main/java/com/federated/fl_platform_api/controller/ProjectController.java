@@ -2,10 +2,12 @@ package com.federated.fl_platform_api.controller;
 
 
 import com.federated.fl_platform_api.dto.CreateProjectRequest;
+import com.federated.fl_platform_api.dto.DiscoverProjectDto;
 import com.federated.fl_platform_api.dto.ProjectResponseDto;
 import com.federated.fl_platform_api.dto.RoundResultDto;
 import com.federated.fl_platform_api.dto.ServerLogDto;
 import com.federated.fl_platform_api.dto.StartProject;
+import com.federated.fl_platform_api.dto.UpdateProjectRequest;
 import com.federated.fl_platform_api.service.ProjectService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -41,6 +43,23 @@ public class ProjectController {
     @GetMapping
     public ResponseEntity<List<ProjectResponseDto>> getAllProjects() {
         return ResponseEntity.ok(projectService.getProjectsForCurrentUser());
+    }
+
+    @GetMapping("/discover")
+    public ResponseEntity<List<DiscoverProjectDto>> discover() {
+        return ResponseEntity.ok(projectService.getDiscoverProjects());
+    }
+
+    @GetMapping("/{projectId}")
+    public ResponseEntity<ProjectResponseDto> getProject(@PathVariable @NonNull UUID projectId) {
+        return ResponseEntity.ok(projectService.getProject(projectId));
+    }
+
+    @PatchMapping("/{projectId}")
+    public ResponseEntity<ProjectResponseDto> updateProject(
+            @PathVariable @NonNull UUID projectId,
+            @Valid @RequestBody UpdateProjectRequest body) {
+        return ResponseEntity.ok(projectService.updateProject(projectId, body));
     }
 
     @PostMapping("/{projectId}/start")

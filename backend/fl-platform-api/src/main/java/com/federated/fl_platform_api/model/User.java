@@ -25,12 +25,33 @@ public class User {
     private String password; // This will store the HASHED password
 
     /**
-     * Coarse role used for endpoint authorization (USER | ADMIN).
+     * Coarse platform-level role used for endpoint authorization (USER | PLATFORM_ADMIN).
      * Mapped to a Spring Security {@code GrantedAuthority} of
      * {@code ROLE_<value>} by {@link com.federated.fl_platform_api.service.CustomUserDetailsService}.
+     * Column renamed from {@code role} to {@code platform_role} in V5 migration.
      */
-    @Column(nullable = false, length = 32)
-    private String role = "USER";
+    @Enumerated(EnumType.STRING)
+    @Column(name = "platform_role", nullable = false, length = 32)
+    private PlatformRole platformRole = PlatformRole.USER;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private UserStatus status = UserStatus.ACTIVE;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
+    @Column(name = "email_verified", nullable = false)
+    private Boolean emailVerified = false;
+
+    @Column(name = "display_name", length = 120)
+    private String displayName;
+
+    @Column(name = "avatar_url", length = 512)
+    private String avatarUrl;
+
+    @Column(name = "last_login_at")
+    private Instant lastLoginAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -72,8 +93,32 @@ public class User {
         return password;
     }
 
-    public String getRole() {
-        return role;
+    public PlatformRole getPlatformRole() {
+        return platformRole;
+    }
+
+    public UserStatus getStatus() {
+        return status;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
+    }
+
+    public Boolean getEmailVerified() {
+        return emailVerified;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public Instant getLastLoginAt() {
+        return lastLoginAt;
     }
 
     public Instant getCreatedAt() {
@@ -101,8 +146,32 @@ public class User {
         this.password = password;
     }
 
-    public void setRole(String role) {
-        this.role = role;
+    public void setPlatformRole(PlatformRole platformRole) {
+        this.platformRole = platformRole;
+    }
+
+    public void setStatus(UserStatus status) {
+        this.status = status;
+    }
+
+    public void setDeletedAt(Instant deletedAt) {
+        this.deletedAt = deletedAt;
+    }
+
+    public void setEmailVerified(Boolean emailVerified) {
+        this.emailVerified = emailVerified;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
+    }
+
+    public void setLastLoginAt(Instant lastLoginAt) {
+        this.lastLoginAt = lastLoginAt;
     }
 
     public void setCreatedAt(Instant createdAt) {

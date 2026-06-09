@@ -107,3 +107,45 @@ MULTI_DEVICE_TESTING_GUIDE.md
 
 # Documentation folder — only wikis/ (top-level) is committed
 /docs
+
+# Cline CLI config (dir form; .clinerules covered above)
+.cline/
+
+# ========================
+# Additional Standard Ignores
+# ========================
+# Node
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.eslintcache
+*.tsbuildinfo
+.next/
+out/
+
+# Python
+.tox/
+.coverage
+htmlcov/
+wheels/
+*.egg
+
+# OS
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Security
+*.pem
+*.key
+*.cert
+*.crt
+id_rsa*

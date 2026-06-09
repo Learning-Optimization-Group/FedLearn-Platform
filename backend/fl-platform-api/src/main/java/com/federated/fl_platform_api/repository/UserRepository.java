@@ -7,7 +7,10 @@ Used to Interact with the users table
  */
 
 import com.federated.fl_platform_api.model.User;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
@@ -40,4 +43,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @return true if a user with the email exists, false otherwise
      */
     Boolean existsByEmail(String email);
+
+    long countByPlatformRole(com.federated.fl_platform_api.model.PlatformRole platformRole);
+
+    /**
+     * Existence check used by the bootstrap runner to short-circuit when the
+     * first platform admin has already been seeded.
+     */
+    boolean existsByPlatformRole(com.federated.fl_platform_api.model.PlatformRole platformRole);
+
+    List<User> findByUsernameStartingWithIgnoreCaseOrderByUsernameAsc(String prefix, Pageable pageable);
 }

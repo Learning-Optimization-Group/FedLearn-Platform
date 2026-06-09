@@ -1,7 +1,12 @@
 package com.federated.fl_platform_api.config;
 
+import com.federated.fl_platform_api.repository.AuditEventRepository;
+import com.federated.fl_platform_api.repository.UserRepository;
+import com.federated.fl_platform_api.security.AuditingAuthenticationFailureHandler;
+import com.federated.fl_platform_api.security.AuditingAuthenticationSuccessHandler;
 import com.federated.fl_platform_api.security.InternalApiKeyFilter;
 import com.federated.fl_platform_api.security.JwtAuthenticationFilter;
+import com.federated.fl_platform_api.security.OrgScopeFilter;
 import com.federated.fl_platform_api.service.CustomUserDetailsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +52,9 @@ public class SecurityConfig {
     private InternalApiKeyFilter internalApiKeyFilter;
 
     @Autowired
+    private OrgScopeFilter orgScopeFilter;
+
+    @Autowired
     private Environment environment;
 
     @Value("${app.cors.allowed-origins}")
@@ -55,6 +63,18 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuditingAuthenticationSuccessHandler auditingAuthenticationSuccessHandler(
+            UserRepository users, AuditEventRepository audits) {
+        return new AuditingAuthenticationSuccessHandler(users, audits);
+    }
+
+    @Bean
+    public AuditingAuthenticationFailureHandler auditingAuthenticationFailureHandler(
+            AuditEventRepository audits) {
+        return new AuditingAuthenticationFailureHandler(audits);
     }
 
     @Bean
@@ -125,7 +145,10 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(internalApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                // Runs after auth is established so it can resolve the caller's
+                // org memberships and populate the request-scoped OrgScope.
+                .addFilterAfter(orgScopeFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

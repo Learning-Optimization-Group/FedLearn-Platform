@@ -18,6 +18,7 @@ import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -48,13 +49,33 @@ public class FlowerServerManager {
     @Value("${fl.server.port-range.end:50010}")
     private int portRangeEnd;
 
+    @Value("${fl.server.startup-probe-seconds:3}")
+    private long startupProbeSeconds;
+
+    @Value("${fl.server.stdout-drain-millis:5000}")
+    private long stdoutDrainMillis;
+
     @Autowired
     private WebSocketService logBroadcaster;
 
     private final Map<UUID, Process> runningServers = new ConcurrentHashMap<>();
 
-    public int startServerForProject(Project project, String strategy,
-                                     Integer numRounds, Integer minClients) {
+    // Ports that have been picked by findFreePort() but whose Python child
+    // has not yet bound — see findFreePort/releasePort. Without this,
+    // concurrent project starts can race: both probes find the same port
+    // free, both close their probe socket, and both spawn Python on it.
+    private final java.util.Set<Integer> reservedPorts = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Object portReservationLock = new Object();
+
+    /**
+     * Start the FL server for a project and return the reserved local port.
+     *
+     * <p>Returns {@link Optional#empty()} only on the managed/ECS path, which is
+     * deliberately unimplemented here (see the fail-closed block below). On the
+     * local-process path a port is always reserved, so the result is present.</p>
+     */
+    public Optional<Integer> startServerForProject(Project project, String strategy,
+                                                   Integer numRounds, Integer minClients) {
         if (!isBlank(ecsClusterName)) {
             // The ECS/Fargate production path is not implemented: runTask returned no reachable
             // host:port (it handed back 0), the task was never tracked in runningServers, and
@@ -70,12 +91,14 @@ public class FlowerServerManager {
         return startLocalServer(project, strategy, numRounds, minClients);
     }
 
-    private int startLocalServer(Project project, String strategy, Integer numRounds, Integer minClients) {
+    private Optional<Integer> startLocalServer(Project project, String strategy,
+                                               Integer numRounds, Integer minClients) {
         Process process = null;
+        int freePort = -1;
         try {
             stopServerForProject(project.getId());
 
-            int freePort = findFreePort();
+            freePort = findFreePort();
             // Federation over Text (FoT) is a SEPARATE text-federation server spawned through the
             // same seam as the gradient FL server. This is purely ADDITIVE: the FoT branch selects
             // its own wrapper + flag contract, and the gradient (FedAvg/DeComFL) spawn is the
@@ -162,22 +185,30 @@ public class FlowerServerManager {
             outputReaderThread.setDaemon(true);
             outputReaderThread.start();
 
-            boolean exited = process.waitFor(3, TimeUnit.SECONDS);
+            boolean exited = process.waitFor(startupProbeSeconds, TimeUnit.SECONDS);
 
             if (exited) {
-                outputReaderThread.join(1000);
+                // Stdout is buffered: give the reader a generous window to
+                // drain remaining output before we surface the failure.
+                // Truncating here is the difference between "Python crashed"
+                // and a usable stack trace.
+                outputReaderThread.join(stdoutDrainMillis);
+                runningServers.remove(project.getId());
                 throw new ServerProcessException(
                         "FL server exited during startup for project " + project.getId()
                                 + " (exit code " + process.exitValue() + ")\nOutput:\n" + startupOutput);
             }
             if (errorOccurred[0]) {
-                outputReaderThread.join(1000);
+                outputReaderThread.join(stdoutDrainMillis);
+                process.destroyForcibly();
+                runningServers.remove(project.getId());
                 throw new ServerProcessException(
-                        "FL server stdout reader failed for project " + project.getId());
+                        "FL server stdout reader failed for project " + project.getId()
+                                + "\nOutput:\n" + startupOutput);
             }
 
             log.info("Started FL server for project {} on port {}", project.getId(), freePort);
-            return freePort;
+            return Optional.of(freePort);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             if (process != null) {
@@ -187,8 +218,19 @@ public class FlowerServerManager {
             throw new ServerProcessException(
                     "Interrupted while starting FL server for project " + project.getId(), e);
         } catch (IOException e) {
+            // pb.start() is the only IOException source in this try; it
+            // throws before `process` is assigned, so there is nothing to
+            // tear down here.
             throw new ServerProcessException(
                     "Failed to spawn FL server process for project " + project.getId(), e);
+        } finally {
+            // Release the reservation regardless of outcome. On success the
+            // Python child is now bound, so the next findFreePort() probe
+            // will naturally skip this port via the ServerSocket check; on
+            // failure no one holds the port and it's free for reuse.
+            if (freePort != -1) {
+                releasePort(freePort);
+            }
         }
     }
 
@@ -197,6 +239,12 @@ public class FlowerServerManager {
         if (process != null && process.isAlive()) {
             log.info("Stopping FL server for project {}", projectId);
             process.destroyForcibly();
+            try {
+                process.waitFor(stopWaitSeconds(), TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                log.warn("Interrupted while waiting for FL server {} to terminate", projectId);
+                Thread.currentThread().interrupt();
+            }
             runningServers.remove(projectId);
             return true;
         }
@@ -220,7 +268,11 @@ public class FlowerServerManager {
             try {
                 if (p.isAlive()) {
                     p.destroyForcibly();
+                    p.waitFor(stopWaitSeconds(), TimeUnit.SECONDS);
                 }
+            } catch (InterruptedException e) {
+                log.warn("Interrupted while waiting for FL server {} to terminate during shutdown", id);
+                Thread.currentThread().interrupt();
             } catch (RuntimeException e) {
                 log.warn("Failed to terminate FL server for project {}: {}",
                         id, e.getClass().getSimpleName());
@@ -234,16 +286,37 @@ public class FlowerServerManager {
         return (p != null && p.isAlive());
     }
 
+    /**
+     * Reserve a free port in [portRangeStart, portRangeEnd]. The port is
+     * tracked in {@link #reservedPorts} so concurrent callers cannot pick
+     * the same port between probe-close and Python bind. Callers MUST call
+     * {@link #releasePort(int)} once the spawned process has bound or has
+     * failed to start.
+     */
     private int findFreePort() {
-        for (int port = portRangeStart; port <= portRangeEnd; port++) {
-            try (ServerSocket s = new ServerSocket(port)) {
-                return port;
-            } catch (IOException ignored) {
-                // port in use, try next
+        synchronized (portReservationLock) {
+            for (int port = portRangeStart; port <= portRangeEnd; port++) {
+                if (reservedPorts.contains(port)) {
+                    continue;
+                }
+                try (ServerSocket s = new ServerSocket(port)) {
+                    reservedPorts.add(port);
+                    return port;
+                } catch (IOException ignored) {
+                    // port in use, try next
+                }
             }
+            throw new IllegalStateException(
+                "No free port in range " + portRangeStart + "–" + portRangeEnd);
         }
-        throw new IllegalStateException(
-            "No free port in range " + portRangeStart + "–" + portRangeEnd);
+    }
+
+    private void releasePort(int port) {
+        reservedPorts.remove(port);
+    }
+
+    private long stopWaitSeconds() {
+        return Math.max(1L, TimeUnit.MILLISECONDS.toSeconds(stdoutDrainMillis));
     }
 
     private static boolean isBlank(String s) {
