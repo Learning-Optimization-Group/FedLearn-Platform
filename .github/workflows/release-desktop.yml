@@ -23,11 +23,13 @@ name: Build & Release Electron Desktop
 on:
   push:
     tags:
-      - 'v*'
+      # Per-unit release prefix: only desktop tags build the desktop app.
+      # (Frontend/mobile use their own prefixes so they don't trigger this.)
+      - 'desktop-v*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g. v1.0.0)'
+        description: 'Release tag (e.g. desktop-v3.1.0-beta)'
         required: false
         default: ''
 
@@ -191,20 +193,28 @@ jobs:
 
       - name: Determine version
         id: version
+        env:
+          DISPATCH_VERSION: ${{ github.event.inputs.version }}
         run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            echo "tag=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          # The pushed tag (e.g. desktop-v3.1.0-beta) is the release tag; the
+          # display version strips the per-unit prefix (-> v3.1.0-beta).
+          if [ -n "$DISPATCH_VERSION" ]; then
+            TAG="$DISPATCH_VERSION"
           else
-            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            TAG="${GITHUB_REF#refs/tags/}"
           fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          # Strip the desktop-v prefix to the bare semver electron-builder uses
+          # in its artifact filenames (e.g. 3.1.0-beta).
+          echo "version=${TAG#desktop-v}" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: FedLearn Desktop ${{ steps.version.outputs.tag }}
+          name: FedLearn Desktop ${{ steps.version.outputs.version }}
           body: |
-            ## FedLearn Desktop ${{ steps.version.outputs.tag }}
+            ## FedLearn Desktop ${{ steps.version.outputs.version }}
 
             Each installer bundles a standalone PyInstaller-built Python
             training client — **no Docker, no Python, no repo checkout**
@@ -219,8 +229,8 @@ jobs:
             | Platform | Architecture | File |
             |----------|-------------|------|
             | macOS    | Apple Silicon (M1/M2/M3/M4) | `.dmg` (arm64) — MPS-accelerated |
-            | Windows  | x64 (NVIDIA GPU) | `-Setup-${{ steps.version.outputs.tag }}-cuda.exe` |
-            | Windows  | x64 (no GPU) | `-Setup-${{ steps.version.outputs.tag }}-cpu.exe` |
+            | Windows  | x64 (NVIDIA GPU) | `-Setup-${{ steps.version.outputs.version }}-cuda.exe` |
+            | Windows  | x64 (no GPU) | `-Setup-${{ steps.version.outputs.version }}-cpu.exe` |
             | Linux    | x86_64 | `.deb` / `.AppImage` — CPU-only native |
             | Linux    | arm64  | `.deb` / `.AppImage` — CPU-only native |
 
