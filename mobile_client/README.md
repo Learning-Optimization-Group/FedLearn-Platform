@@ -49,20 +49,43 @@ seed, and produce matching gradient scalars.
 | RN nav + root | `src/navigation/AppNavigator.tsx` (3-tab, lucide), `src/App.tsx`; `src/theme/` (local OKLCH token placeholder for `@fedlearn/tokens`) |
 | Native-dep prebuild scripts | `scripts/`: `build_libtorch_arm64.sh` + `build_grpc_arm64.sh` (pinned cross-compile), `export_model.py` (1M/10M TorchScript — verified), `fetch_demo_data.sh` (MNIST, not committed) |
 | Mobile CI | `../.github/workflows/mobile.yml` — proto-mirror + python-parity + cpp-parity gates (the **golden-vector test gates the build**); `android-so-size` budget job (gated by repo var) |
-| Android app project | `android/`: Gradle (root + app, `externalNativeBuild`→JNI), `AndroidManifest.xml`, `network_security_config.xml`, `MainApplication`/`MainActivity` (RN New-Arch host + data-dir init) |
+| Android app project | `android/`: Gradle (root + app, `externalNativeBuild`→JNI) + committed **Gradle wrapper** (`gradlew` + `gradle/wrapper/*`, Gradle 8.14.1), `AndroidManifest.xml`, `network_security_config.xml`, `MainApplication`/`MainActivity` (RN New-Arch host + data-dir init) |
 | Foreground service (task 16) | `android/.../FlForegroundService.kt` + `FlServiceModule`/`FlServicePackage` + `src/lib/foregroundService.ts` (started around the round loop in `TrainingScreen`) |
 | Device-metrics provider (task 17) | `android/.../DeviceState.kt` + `bridge/android/jni/DeviceStateJni.cpp`; iOS `DeviceState.swift`; shared `bridge/common/DeviceState.{h,cpp}` → `getDeviceMetrics` |
-| iOS app project | `ios/`: `Podfile`, `FedLearn/Info.plist` (ATS on, foreground-only), `AppDelegate.swift`, bridging header |
+| iOS app project | `ios/`: committed **`FedLearn.xcodeproj`** (generated from the RN 0.80 template by `ios/generate_xcodeproj.sh`), `Podfile` (with `react_native_post_install`), `FedLearn/` (`AppDelegate.swift` RN-0.80 factory, `Info.plist` ATS-on + foreground-only, `LaunchScreen.storyboard`, `PrivacyInfo.xcprivacy`, `DeviceState.swift`, bridging header, app-icon assets), `.xcode.env` |
 | Host build | `CMakeLists.txt`, `shared/CMakeLists.txt`, `shared/tests/CMakeLists.txt` |
 
-**Remaining to make the app projects buildable** (template scaffolding + cross-cutting, not new
-FL logic): the Gradle wrapper (`gradlew` + `gradle/wrapper/*`) and the iOS Xcode project
-(`FedLearn.xcodeproj`/`.xcworkspace`) — normally dropped in from a fresh `react-native@0.80` init
-template; a real release signing config (the app `build.gradle` currently reuses debug signing);
-and the shared `@fedlearn/tokens` design-system package (C5 workstream) replacing the local
-`src/theme` placeholder. Once the Android project builds, set the repo variable
-`MOBILE_NATIVE_CI=true` to enable the `android-so-size` CI job. On-device training data wiring
-(`FedLearnCoreModule::setTrainingDataFromFiles`) is the last app-integration seam.
+**Buildability status.** The two template-scaffolding blockers are now resolved and committed: the
+Android **Gradle wrapper** (`./gradlew` bootstraps Gradle 8.14.1 — verified) and the iOS
+**`FedLearn.xcodeproj`** (generated from the pinned RN 0.80 template by `ios/generate_xcodeproj.sh`;
+regenerate any time with that script). Per-machine bring-up:
+
+```bash
+npm install --legacy-peer-deps     # RN 0.80 deps (a react-navigation peer range needs this flag)
+# Android (needs Android SDK/NDK + cross-compiled ARM64 libtorch/gRPC):
+(cd android && ./gradlew assembleRelease -PLIBTORCH_DIR=… -PGENERATED_PROTO_DIR=…)
+# iOS (needs full Xcode + CocoaPods):
+(cd ios && pod install)            # or re-run ios/generate_xcodeproj.sh, which also pod-installs
+```
+
+**Native FL core — wired into both targets:**
+- **Android** — `app/build.gradle` `externalNativeBuild` builds `libfedlearn_jni.so` from
+  `bridge/android/jni/CMakeLists.txt` (core + gRPC + bridge), and `bridge/android/jni/OnLoad.cpp`
+  now registers the `cxxModuleProvider` in `JNI_OnLoad` so JS
+  `getEnforcing('NativeFedLearnCore')` resolves. Needs `-PLIBTORCH_DIR`/`-PGENERATED_PROTO_DIR`
+  (cross-compiled ARM64 artifacts) to assemble.
+- **iOS** — `ios/FedLearnCore.podspec` compiles `shared/` + `bridge/` + the gRPC layer into the app
+  target; `bridge/ios/FedLearnFactoryDelegate.mm` is the New-Arch TurboModule hook (wired in
+  `AppDelegate.swift` via `#if canImport(FedLearnCore)`); `ios/wire_native.rb` adds
+  `DeviceState.swift` + the bridging header to the target. Enable with `FEDLEARN_NATIVE_IOS=1` +
+  the libtorch/gRPC xcframework env vars (see the podspec); otherwise the JS shell builds without it.
+
+**Still remaining** (build inputs + release): the cross-compiled **ARM64 libtorch + gRPC** artifacts
+and buf-generated stubs for both platforms (`scripts/build_*_arm64.sh`, `buf generate`); a real
+**release signing config** for both (Android app `build.gradle` and iOS currently use debug/none);
+the shared `@fedlearn/tokens` package replacing the local `src/theme` placeholder; and on-device
+training-data wiring (`FedLearnCoreModule::setTrainingDataFromFiles`). Once the Android project
+assembles, set the repo variable `MOBILE_NATIVE_CI=true` to enable the `android-so-size` CI job.
 
 The TurboModule bridge (tasks 11–13) is in `bridge/` — see `bridge/README.md` for its
 build/codegen/wiring steps and the React Native version-specific caveats.

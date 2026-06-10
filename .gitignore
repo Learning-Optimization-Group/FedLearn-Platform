@@ -155,10 +155,3 @@ id_rsa*
 
 # Playwright MCP browser session artifacts (local tooling output)
 .playwright-mcp/
-
-# React Native iOS — reproducible build output from ios/generate_xcodeproj.sh
-# (the script commits only its declarative inputs: the script, ios/FedLearn/*, ios/Podfile)
-mobile_client/ios/FedLearn.xcodeproj/
-mobile_client/ios/FedLearn.xcworkspace/
-mobile_client/ios/Pods/
-mobile_client/ios/.xcode.env.local

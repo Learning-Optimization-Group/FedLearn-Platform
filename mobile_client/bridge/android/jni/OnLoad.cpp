@@ -14,6 +14,10 @@
 
 #include <ReactCommon/CallInvoker.h>
 #include <ReactCommon/TurboModule.h>
+// VERIFY-BEFORE-BUILD: this header path is RN-version-specific. In RN 0.80 the `reactnative` prefab
+// exposes the default delegate on the include path; if it fails, locate it under the RN android
+// prefab headers (e.g. <react/nativemodule/defaults/DefaultTurboModuleManagerDelegate.h>).
+#include <DefaultTurboModuleManagerDelegate.h>
 
 #include "FedLearnCoreModule.h"
 
@@ -34,6 +38,21 @@ std::shared_ptr<TurboModule> FedLearnCore_cxxModuleProvider(const std::string& n
 }
 
 }  // namespace facebook::react
+
+// JNI_OnLoad — registers FedLearnCore_cxxModuleProvider with the New-Architecture default delegate
+// so that JS `TurboModuleRegistry.getEnforcing('NativeFedLearnCore')` resolves to FedLearnCoreModule.
+// Runs once when System.loadLibrary("fedlearn_jni") loads this .so (FedLearnNative.kt's init block).
+// VERIFY-BEFORE-BUILD: `DefaultTurboModuleManagerDelegate::cxxModuleProvider` is the RN 0.80 hook;
+// its exact type/namespace is RN-version-specific — reconcile against the pinned RN headers.
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* /*vm*/, void* /*reserved*/) {
+  facebook::react::DefaultTurboModuleManagerDelegate::cxxModuleProvider =
+      [](const std::string& name,
+         const std::shared_ptr<facebook::react::CallInvoker>& jsInvoker)
+      -> std::shared_ptr<facebook::react::TurboModule> {
+    return facebook::react::FedLearnCore_cxxModuleProvider(name, jsInvoker);
+  };
+  return JNI_VERSION_1_6;
+}
 
 // Kotlin (com.fedlearn.mobile.FedLearnNative) calls this at startup with filesDir, before the
 // first TurboModule lookup, so the module is constructed with the app-private cert/data dir.
