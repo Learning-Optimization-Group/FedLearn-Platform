@@ -235,7 +235,7 @@ const App: React.FC = () => {
             <span><Settings strokeWidth={1.5} size={16} /> Settings</span>
           </button>
           <button className="btn btn-ghost" onClick={handleLogout} id="logout-button">
-            Sign Out
+            Sign out
           </button>
         </div>
       </header>
@@ -260,8 +260,8 @@ const App: React.FC = () => {
           {/* Left Panel: Configuration */}
           <section className="panel config-panel">
             <div className="panel-header">
-              <h2 className="panel-title">Training Configuration</h2>
-              <span className="panel-badge">Docker Orchestration</span>
+              <h2 className="panel-title">Set up training</h2>
+              <span className="panel-badge">This device</span>
             </div>
             <HardwareSelector
               onStart={handleStartTraining}
@@ -273,7 +273,7 @@ const App: React.FC = () => {
           {/* Right Panel: Logs */}
           <section className="panel log-panel-container">
             <div className="panel-header">
-              <h2 className="panel-title">Container Output</h2>
+              <h2 className="panel-title">Activity log</h2>
               <span className="log-count">{logs.length} lines</span>
             </div>
             <LogPanel logs={logs} />
@@ -283,7 +283,7 @@ const App: React.FC = () => {
 
       {/* Footer */}
       <footer className="app-footer">
-        <span className="footer-text">FedLearn Platform — Privacy-Preserving Federated Learning</span>
+        <span className="footer-text">FedLearn — Train AI together. Share nothing.</span>
         <span className="footer-version">v1.0.0</span>
       </footer>
 
