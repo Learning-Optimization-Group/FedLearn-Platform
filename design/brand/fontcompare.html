@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Unbounded:wght@400..600&family=Schibsted+Grotesk:wght@400..700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        width: 1440px; background: #000; color: #F5F1EA;
+        padding: 56px 64px; font-family: 'Hanken Grotesk', sans-serif;
+      }
+      .row { padding: 22px 0; border-bottom: 1px solid rgba(255,244,232,0.08); }
+      .tag {
+        font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.12em;
+        text-transform: uppercase; color: #F7A35C; margin-bottom: 14px;
+      }
+      .hero {
+        font-size: 72px; line-height: 1.02; letter-spacing: -0.025em; color: #F5F1EA;
+      }
+      .hero .em { color: #F7A35C; }
+      .br { font-family: 'Bricolage Grotesque', sans-serif; }
+      .un { font-family: 'Unbounded', sans-serif; }
+      .sc { font-family: 'Schibsted Grotesk', sans-serif; }
+      .w500 { font-variation-settings: 'opsz' 96, 'wght' 500; }
+      .w575 { font-variation-settings: 'opsz' 96, 'wght' 575; }
+      .w650 { font-variation-settings: 'opsz' 96, 'wght' 650; }
+      .un500 { font-weight: 500; letter-spacing: -0.01em; font-size: 60px; }
+      .sc600 { font-weight: 600; }
+      .sample { margin-top: 8px; }
+      .sample h2 { font-family: 'Bricolage Grotesque'; font-variation-settings: 'opsz' 36, 'wght' 600; font-size: 30px; letter-spacing: -0.01em; }
+      .sample p { color: #A8A096; font-size: 16px; line-height: 1.5; margin-top: 8px; max-width: 640px; }
+      .mono { font-family: 'JetBrains Mono'; color: #A8A096; font-size: 14px; margin-top: 10px; }
+      .btn { display:inline-block; margin-top:16px; background: linear-gradient(180deg,#FFB877,#F7A35C); color:#1C0F03; font-weight:600; padding:10px 18px; border-radius:10px; font-size:15px; }
+    </style>
+  </head>
+  <body>
+    <div class="row"><div class="tag">Bricolage Grotesque · opsz 96 · wght 500</div>
+      <div class="hero br w500">Train AI together.<br/>Keep your data <span class="em">home</span>.</div></div>
+    <div class="row"><div class="tag">Bricolage Grotesque · opsz 96 · wght 575  ◄ recommended</div>
+      <div class="hero br w575">Train AI together.<br/>Keep your data <span class="em">home</span>.</div></div>
+    <div class="row"><div class="tag">Bricolage Grotesque · opsz 96 · wght 650</div>
+      <div class="hero br w650">Train AI together.<br/>Keep your data <span class="em">home</span>.</div></div>
+    <div class="row"><div class="tag">Unbounded · wght 500 (alt)</div>
+      <div class="hero un un500">Train AI together.<br/>Keep your data <span class="em">home</span>.</div></div>
+    <div class="row"><div class="tag">Schibsted Grotesk · wght 600 (alt)</div>
+      <div class="hero sc sc600">Train AI together.<br/>Keep your data <span class="em">home</span>.</div></div>
+    <div class="row sample">
+      <div class="tag">UI sample — Bricolage title · Hanken body · JetBrains mono</div>
+      <h2>Everything you need to train AI, together.</h2>
+      <p>FedLearn lets many devices improve one shared model — without any of them handing over private data. Open, simple, and private from the start.</p>
+      <div class="mono">round 14 · loss 0.0421 · accuracy 91.7% · client 50002</div>
+      <span class="btn">Get started — it's free</span>
+    </div>
+  </body>
+</html>

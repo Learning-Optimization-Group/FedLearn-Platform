@@ -42,7 +42,11 @@ function webCss() {
   for (const k of Object.keys(T.color.light)) L.push(`  --color-${k}: var(--${k});`);
   T.color.series.forEach((_, i) => L.push(`  --color-series-${i + 1}: var(--series-${i + 1});`));
   for (const k of Object.keys(T.radius)) L.push(`  --radius-${k}: var(--radius-${k});`);
-  L.push(`  --font-sans: ${T.font.sans};`, `  --font-mono: ${T.font.mono};`);
+  L.push(
+    `  --font-sans: ${T.font.sans};`,
+    `  --font-display: ${T.font.display};`,
+    `  --font-mono: ${T.font.mono};`,
+  );
   for (const [k, s] of Object.entries(T.text)) {
     L.push(`  --text-${k}: ${s.size};`);
     L.push(`  --text-${k}--line-height: ${s.line};`);
@@ -60,7 +64,11 @@ function desktopCss() {
   for (const [k, v] of Object.entries(T.space)) L.push(`  --space-${cssKey(k)}: ${v};`);
   for (const [k, v] of Object.entries(T.duration)) L.push(`  --duration-${k}: ${v};`);
   for (const [k, v] of Object.entries(T.ease)) L.push(`  --ease-${k}: ${v};`);
-  L.push(`  --font-sans: ${T.font.sans};`, `  --font-mono: ${T.font.mono};`);
+  L.push(
+    `  --font-sans: ${T.font.sans};`,
+    `  --font-display: ${T.font.display};`,
+    `  --font-mono: ${T.font.mono};`,
+  );
   L.push(`  --font-feature-settings: ${T.font['feature-settings']};`, '}');
   L.push('.dark, :root.dark {', ...colorVars('dark'), '}');
   return L.join('\n') + '\n';
@@ -76,7 +84,7 @@ function mobileTs() {
     duration: Object.fromEntries(
       Object.entries(T.duration).map(([k, v]) => [k, Number(String(v).replace('ms', ''))]),
     ),
-    font: { sans: 'Inter', mono: 'JetBrains Mono' },
+    font: { sans: 'Hanken Grotesk', display: 'Hanken Grotesk', mono: 'JetBrains Mono' },
     text: Object.fromEntries(
       Object.entries(T.text).map(([k, s]) => [k, {
         size: stripPx(s.size), line: stripPx(s.line),
