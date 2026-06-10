@@ -1,13 +1,15 @@
 // =============================================================================
-// FedLearn Frontend — V2 Datasets View
+// FedLearn Frontend — Data View (Ember design system)
 // =============================================================================
 // Aggregates dataset types (modelType) currently referenced by active projects.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Database, Layers } from 'lucide-react';
+import { Database, Layers, AlertCircle } from 'lucide-react';
 import * as api from '../../services/apiServices';
 import type { Project } from '../../services/apiServices';
-import { Card } from '../ui';
+import { Card, Skeleton } from '../ui';
+import { BrandMark } from '../brand';
+import { PageHeader } from './PageHeader';
 
 interface DatasetSummary {
   modelType: string;
@@ -51,7 +53,7 @@ export function DatasetsView() {
         const res = await api.fetchProjects();
         setProjects(Array.isArray(res.data) ? res.data : []);
       } catch {
-        setError('Failed to fetch datasets.');
+        setError('Failed to load data.');
       } finally {
         setIsLoading(false);
       }
@@ -62,32 +64,39 @@ export function DatasetsView() {
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-canvas text-fg font-sans">
-      <div className="h-24 flex items-center justify-between px-10 border-b border-hairline bg-canvas/65 backdrop-blur-xl sticky top-0 z-20">
-        <div>
-          <h1 className="text-h2 text-fg">Datasets</h1>
-          <p className="text-body text-fg-muted mt-0.5">
-            Data domains actively consumed by federated projects.
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Data" subtitle="The kinds of data your projects learn from — never shared, only learned from." />
 
-      <div className="flex-1 overflow-y-auto px-10 py-10 bg-canvas">
+      <div className="flex-1 overflow-y-auto px-6 md:px-10 py-8 bg-canvas">
         {error && (
-          <div className="mb-6 px-5 py-3 rounded-card bg-surface-1 border border-hairline text-danger text-body font-medium">
+          <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
             {error}
           </div>
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-fg-muted">
-            Loading datasets…
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[0, 1, 2].map((i) => (
+              <Card key={i} padding="lg" className="flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-11 w-11 rounded-xl" />
+                  <Skeleton className="h-5 w-28" />
+                </div>
+                <Skeleton className="h-16 w-full" />
+              </Card>
+            ))}
           </div>
         ) : summaries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-fg-muted gap-2">
-            <p className="text-h4">No dataset types registered.</p>
-            <p className="text-body">
-              Create a project with a model type to start populating this view.
-            </p>
+          <div className="flex flex-col items-center justify-center text-center gap-5 mt-16 md:mt-24">
+            <div className="grid h-20 w-20 place-items-center rounded-card border border-hairline bg-surface-1">
+              <BrandMark size={48} />
+            </div>
+            <div className="max-w-sm">
+              <p className="text-h4 font-display text-fg">No data yet</p>
+              <p className="text-body text-fg-muted mt-1.5">
+                Create a project and the data it learns from will show up here.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -95,14 +104,14 @@ export function DatasetsView() {
               <Card
                 key={s.modelType}
                 padding="lg"
-                className="flex flex-col gap-4 hover:bg-surface-2 transition-colors duration-[160ms]"
+                className="flex flex-col gap-4 transition-colors duration-[160ms] hover:bg-surface-2 hover:border-accent/25"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-pill bg-surface-2 text-accent flex items-center justify-center">
+                  <span className="icon-tile flex-shrink-0">
                     <Database strokeWidth={1.5} className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-h4 text-fg">{s.modelType}</h3>
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="text-h4 font-display text-fg">{s.modelType}</h3>
                     <p className="text-label text-fg-muted">
                       {s.projectCount} project{s.projectCount > 1 ? 's' : ''}
                     </p>
@@ -110,24 +119,16 @@ export function DatasetsView() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-surface-2 rounded-sm p-3 flex flex-col gap-1">
+                  <div className="bg-surface-2 border border-hairline rounded-lg p-3 flex flex-col gap-1">
                     <div className="flex items-center gap-1.5 text-fg-muted">
                       <Layers strokeWidth={1.5} className="w-3.5 h-3.5" />
-                      <span className="text-caption uppercase tracking-wide font-semibold">
-                        Unique Models
-                      </span>
+                      <span className="text-caption uppercase tracking-wide font-semibold">Models</span>
                     </div>
-                    <span className="text-h4 font-mono tabular-nums text-fg">
-                      {s.uniqueModels}
-                    </span>
+                    <span className="text-h4 font-mono tabular-nums text-fg">{s.uniqueModels}</span>
                   </div>
-                  <div className="bg-surface-2 rounded-sm p-3 flex flex-col gap-1">
-                    <span className="text-caption uppercase tracking-wide font-semibold text-accent">
-                      Running
-                    </span>
-                    <span className="text-h4 font-mono tabular-nums text-fg">
-                      {s.runningCount}
-                    </span>
+                  <div className="bg-surface-2 border border-hairline rounded-lg p-3 flex flex-col gap-1">
+                    <span className="text-caption uppercase tracking-wide font-semibold text-accent">Training</span>
+                    <span className="text-h4 font-mono tabular-nums text-fg">{s.runningCount}</span>
                   </div>
                 </div>
               </Card>

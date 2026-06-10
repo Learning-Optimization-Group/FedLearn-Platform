@@ -33,15 +33,15 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
   const finalLoss = hasResults ? results[results.length - 1].loss : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-canvas/70 backdrop-blur-sm font-sans">
-      <div className="bg-surface-1 border border-hairline w-full max-w-6xl h-full max-h-[90vh] rounded-card flex flex-col overflow-hidden text-fg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-black/75 backdrop-blur-md font-sans">
+      <div className="bg-surface-1 border border-line w-full max-w-6xl h-full max-h-[90vh] rounded-card flex flex-col overflow-hidden text-fg shadow-[0_30px_90px_-24px_rgba(0,0,0,0.95)]">
 
         {/* Header */}
         <div className="flex items-center justify-between p-8 pb-6 border-b border-hairline">
           <div>
-            <h2 className="text-h2 text-fg">{projectName} — Results</h2>
+            <h2 className="text-h2 font-display text-fg">{projectName} — Results</h2>
             <p className="text-body text-fg-muted mt-1">
-              {hasResults ? `${results.length} rounds completed.` : 'No training rounds recorded yet.'}
+              {hasResults ? `${results.length} training rounds done.` : 'No training rounds recorded yet.'}
             </p>
           </div>
           <Button
@@ -82,7 +82,7 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
             <div className="bg-surface-2 rounded-card p-8 border border-hairline">
               <div className="flex items-center gap-2 text-success mb-3">
                 <Trophy strokeWidth={1.5} className="w-5 h-5" />
-                <span className="text-caption font-semibold tracking-wide uppercase text-fg-muted">Best Accuracy</span>
+                <span className="text-caption font-semibold tracking-wide uppercase text-fg-muted">Best accuracy</span>
               </div>
               <MetricTile label="" value={`${(bestAccuracy * 100).toFixed(2)}%`} />
             </div>
@@ -90,7 +90,7 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
             <div className="bg-surface-2 rounded-card p-8 border border-hairline">
               <div className="flex items-center gap-2 text-danger mb-3">
                 <TrendingDown strokeWidth={1.5} className="w-5 h-5" />
-                <span className="text-caption font-semibold tracking-wide uppercase text-fg-muted">Final Loss</span>
+                <span className="text-caption font-semibold tracking-wide uppercase text-fg-muted">Final loss</span>
               </div>
               <MetricTile label="" value={finalLoss.toFixed(4)} />
             </div>
@@ -98,7 +98,7 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
             <div className="bg-surface-2 rounded-card p-8 border border-hairline">
               <div className="flex items-center gap-2 text-accent mb-3">
                 <Timer strokeWidth={1.5} className="w-5 h-5" />
-                <span className="text-caption font-semibold tracking-wide uppercase text-fg-muted">Total Rounds</span>
+                <span className="text-caption font-semibold tracking-wide uppercase text-fg-muted">Rounds done</span>
               </div>
               <MetricTile label="" value={results.length} />
             </div>

@@ -1,5 +1,5 @@
 // =============================================================================
-// FedLearn Frontend — V2 Models View
+// FedLearn Frontend — Models View (Ember design system)
 // =============================================================================
 // Aggregates model architectures currently in rotation across all projects.
 
@@ -7,7 +7,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Boxes, Activity, Play, CheckCircle2, AlertCircle } from 'lucide-react';
 import * as api from '../../services/apiServices';
 import type { Project } from '../../services/apiServices';
-import { Card } from '../ui';
+import { Card, Skeleton } from '../ui';
+import { BrandMark } from '../brand';
+import { PageHeader } from './PageHeader';
 
 interface ModelSummary {
   modelName: string;
@@ -58,7 +60,7 @@ export function ModelsView() {
         const res = await api.fetchProjects();
         setProjects(Array.isArray(res.data) ? res.data : []);
       } catch {
-        setError('Failed to fetch models.');
+        setError('Failed to load models.');
       } finally {
         setIsLoading(false);
       }
@@ -69,30 +71,39 @@ export function ModelsView() {
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-canvas text-fg font-sans">
-      <div className="h-24 flex items-center justify-between px-10 border-b border-hairline bg-canvas/65 backdrop-blur-xl sticky top-0 z-20">
-        <div>
-          <h1 className="text-h2 text-fg">Models</h1>
-          <p className="text-body text-fg-muted mt-0.5">
-            Architectures currently running across federated projects.
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Models" subtitle="The models you're training across your projects." />
 
-      <div className="flex-1 overflow-y-auto px-10 py-10 bg-canvas">
+      <div className="flex-1 overflow-y-auto px-6 md:px-10 py-8 bg-canvas">
         {error && (
-          <div className="mb-6 px-5 py-3 rounded-card bg-surface-1 border border-hairline text-danger text-body font-medium">
+          <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
             {error}
           </div>
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center h-64 text-fg-muted">
-            Loading models…
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[0, 1, 2].map((i) => (
+              <Card key={i} padding="lg" className="flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-11 w-11 rounded-xl" />
+                  <Skeleton className="h-5 w-32" />
+                </div>
+                <Skeleton className="h-16 w-full" />
+              </Card>
+            ))}
           </div>
         ) : summaries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-fg-muted gap-2">
-            <p className="text-h4">No models attached yet.</p>
-            <p className="text-body">Create a project to start tracking a model here.</p>
+          <div className="flex flex-col items-center justify-center text-center gap-5 mt-16 md:mt-24">
+            <div className="grid h-20 w-20 place-items-center rounded-card border border-hairline bg-surface-1">
+              <BrandMark size={48} />
+            </div>
+            <div className="max-w-sm">
+              <p className="text-h4 font-display text-fg">No models yet</p>
+              <p className="text-body text-fg-muted mt-1.5">
+                Create a project and your models will show up here.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -100,62 +111,46 @@ export function ModelsView() {
               <Card
                 key={`${m.modelType}-${m.modelName}`}
                 padding="lg"
-                className="flex flex-col gap-4 hover:bg-surface-2 transition-colors duration-[160ms]"
+                className="flex flex-col gap-4 transition-colors duration-[160ms] hover:bg-surface-2 hover:border-accent/25"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-pill bg-surface-2 text-accent flex items-center justify-center">
+                  <span className="icon-tile flex-shrink-0">
                     <Boxes strokeWidth={1.5} className="w-5 h-5" />
-                  </div>
+                  </span>
                   <div className="min-w-0">
-                    <h3 className="text-h4 text-fg truncate">
-                      {m.modelName}
-                    </h3>
-                    <p className="text-label text-fg-muted">
-                      {m.modelType}
-                    </p>
+                    <h3 className="text-h4 font-display text-fg truncate">{m.modelName}</h3>
+                    <p className="text-label text-fg-muted">{m.modelType}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-surface-2 rounded-sm p-3 flex flex-col gap-1">
+                  <div className="bg-surface-2 border border-hairline rounded-lg p-3 flex flex-col gap-1">
                     <div className="flex items-center gap-1.5 text-fg-muted">
                       <Activity strokeWidth={1.5} className="w-3.5 h-3.5" />
-                      <span className="text-caption uppercase tracking-wide font-semibold">
-                        Total
-                      </span>
+                      <span className="text-caption uppercase tracking-wide font-semibold">Total</span>
                     </div>
-                    <span className="text-h4 font-mono tabular-nums text-fg">
-                      {m.projectCount}
-                    </span>
+                    <span className="text-h4 font-mono tabular-nums text-fg">{m.projectCount}</span>
                   </div>
-                  <div className="bg-surface-2 rounded-sm p-3 flex flex-col gap-1">
+                  <div className="bg-surface-2 border border-hairline rounded-lg p-3 flex flex-col gap-1">
                     <div className="flex items-center gap-1.5 text-accent">
                       <Play strokeWidth={1.5} className="w-3.5 h-3.5" />
-                      <span className="text-caption uppercase tracking-wide font-semibold">
-                        Running
-                      </span>
+                      <span className="text-caption uppercase tracking-wide font-semibold">Training</span>
                     </div>
-                    <span className="text-h4 font-mono tabular-nums text-fg">
-                      {m.running}
-                    </span>
+                    <span className="text-h4 font-mono tabular-nums text-fg">{m.running}</span>
                   </div>
-                  <div className="bg-surface-2 rounded-sm p-3 flex flex-col gap-1">
+                  <div className="bg-surface-2 border border-hairline rounded-lg p-3 flex flex-col gap-1">
                     <div className="flex items-center gap-1.5 text-success">
                       <CheckCircle2 strokeWidth={1.5} className="w-3.5 h-3.5" />
-                      <span className="text-caption uppercase tracking-wide font-semibold">
-                        Done
-                      </span>
+                      <span className="text-caption uppercase tracking-wide font-semibold">Done</span>
                     </div>
-                    <span className="text-h4 font-mono tabular-nums text-fg">
-                      {m.completed}
-                    </span>
+                    <span className="text-h4 font-mono tabular-nums text-fg">{m.completed}</span>
                   </div>
                 </div>
 
                 {m.failed > 0 && (
                   <div className="flex items-center gap-2 text-danger text-label font-medium">
                     <AlertCircle strokeWidth={1.5} className="w-4 h-4" />
-                    {m.failed} failed run{m.failed > 1 ? 's' : ''}
+                    {m.failed} run{m.failed > 1 ? 's' : ''} had an error
                   </div>
                 )}
 
@@ -164,7 +159,7 @@ export function ModelsView() {
                     {m.optimizers.map((o) => (
                       <span
                         key={o}
-                        className="text-caption font-medium px-2.5 py-1 rounded-pill bg-surface-2 border border-hairline text-fg"
+                        className="text-caption font-medium px-2.5 py-1 rounded-pill bg-surface-2 border border-hairline text-fg-muted"
                       >
                         {o}
                       </span>

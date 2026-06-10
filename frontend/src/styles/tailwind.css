@@ -1,7 +1,8 @@
 @import "tailwindcss";
 @import "./theme.css";
-/* Instrument design system — single source of truth (generated from design/tokens.json by
+/* Ember design system — single source of truth (generated from design/tokens.json by
    design/build-tokens.mjs). Imported after theme.css so its semantic tokens/values take
-   precedence; the legacy theme.css token layer is retired during the Phase-1 conversion. */
+   precedence; theme.css aliases the legacy shadcn names to these Ember tokens. */
 @import "./tokens.css";
+@import "./brand.css";
 @import "./fonts.css";
