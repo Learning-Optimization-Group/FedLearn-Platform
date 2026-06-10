@@ -37,7 +37,11 @@ FedLearn Platform is an **open-source**, end-to-end solution for federated learn
 
 ## 🏗️ Architecture
 
-![FedLearn Platform Architecture](architecture.png)
+![FedLearn Platform — System Architecture](wikis/assets/architecture.png)
+
+**How a training run flows — from "create a project" to a trained model:**
+
+![FedLearn Platform — Training Run Flow](wikis/assets/architecture-flow.png)
 
 ### System Components
 
@@ -298,6 +302,14 @@ FedLearn-Platform/
 │       │   └── scripts/       # Python FL server scripts
 │       └── README.md          # Backend documentation
 │
+├── fedlearn-desktop/           # Electron host-side orchestrator (TS + dockerode)
+│   ├── src/                   # main / preload / renderer
+│   └── README.md              # Desktop documentation
+│
+├── mobile_client/              # React Native client + native C++ (libtorch) core
+│   ├── proto/                 # Byte-mirror of /proto (checked in CI)
+│   └── README.md              # Mobile documentation
+│
 ├── client-docker/              # Docker client package
 │   ├── fedlearn/              # Framework copy
 │   ├── scripts/               # Client scripts
@@ -305,7 +317,16 @@ FedLearn-Platform/
 │   ├── requirements.txt       # Python dependencies
 │   └── README.md              # Docker documentation
 │
-├── architecture.png            # System architecture diagram
+├── proto/                      # Canonical gRPC contract (package fedlearn.v2, buf-governed)
+├── design/                     # Design system: tokens + build script
+├── scripts/                    # Repo helper scripts (deploy, proto-mirror, multi-client test)
+├── wikis/                      # Committed technical docs (master wiki)
+│   ├── assets/                # Architecture + flow diagrams
+│   ├── backend/ frontend/ framework/ desktop/   # Per-unit deep docs
+│   └── VERSIONS.md            # Per-component release versions (single source of truth)
+│
+├── .github/                    # CI workflows + renovate.json
+├── launch_all.sh               # macOS one-shot launcher (backend + frontend + desktop + clients)
 ├── README.md                   # This file
 └── LICENSE                     # Apache 2.0 license
 ```
