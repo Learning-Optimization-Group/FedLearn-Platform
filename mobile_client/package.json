@@ -1,6 +1,6 @@
 {
   "name": "fedlearn-mobile",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "FedLearn v2 mobile federated-learning client (React Native + native C++ core).",
   "scripts": {
