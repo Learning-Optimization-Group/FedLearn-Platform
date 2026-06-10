@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Brain } from 'lucide-react';
+import { ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { registerUser } from '../services/apiServices';
 import { createLogger } from '../lib/logger';
 import { Button, Card, Input } from '../components/ui';
+import { Wordmark } from '../components/brand';
 
 const log = createLogger('RegisterPage');
 
@@ -108,108 +109,136 @@ const RegisterPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-canvas text-fg font-sans px-4 py-12">
-            <Card padding="lg" className="w-full max-w-sm">
-                <Link to="/" className="flex items-center gap-3 mb-8">
-                    <div className="w-8 h-8 rounded-md bg-surface-2 border border-hairline flex items-center justify-center">
-                        <Brain className="w-5 h-5 text-fg" strokeWidth={1.5} />
-                    </div>
-                    <span className="text-h4 tracking-tight text-fg">FedLearn</span>
-                </Link>
-
-                <h2 className="text-h3 text-fg mb-1">Create account</h2>
-                <p className="text-body text-fg-muted mb-6">Start training on distributed data.</p>
-
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-2">
-                        <label htmlFor="username" className="text-label font-medium text-fg-muted">
-                            Username
-                        </label>
-                        <Input
-                            type="text"
-                            id="username"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            required
-                            autoComplete="username"
-                        />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                        <label htmlFor="email" className="text-label font-medium text-fg-muted">
-                            Email
-                        </label>
-                        <Input
-                            type="email"
-                            id="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            autoComplete="email"
-                        />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                        <label htmlFor="password" className="text-label font-medium text-fg-muted">
-                            Password
-                        </label>
-                        <Input
-                            type="password"
-                            id="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            autoComplete="new-password"
-                            minLength={MIN_PASSWORD_LENGTH}
-                        />
-                        <span className="text-caption text-fg-subtle">
-                            Minimum {MIN_PASSWORD_LENGTH} characters with uppercase, lowercase, and number
-                        </span>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                        <label htmlFor="confirmPassword" className="text-label font-medium text-fg-muted">
-                            Confirm Password
-                        </label>
-                        <Input
-                            type="password"
-                            id="confirmPassword"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            required
-                            autoComplete="new-password"
-                        />
-                    </div>
-
-                    {error && (
-                        <p
-                            className="text-label text-danger bg-surface-2 border border-hairline rounded-sm px-3 py-2"
-                            role="alert"
-                        >
-                            {error}
-                        </p>
-                    )}
-                    {successMessage && (
-                        <p
-                            className="text-label text-success bg-surface-2 border border-hairline rounded-sm px-3 py-2"
-                            role="status"
-                        >
-                            {successMessage}
-                        </p>
-                    )}
-
-                    <Button type="submit" disabled={isLoading} className="w-full mt-2">
-                        {isLoading ? 'Registering…' : 'Register'}
-                    </Button>
-                </form>
-
-                <p className="text-label text-fg-muted text-center mt-6">
-                    Already have an account?{' '}
-                    <Link to="/login" className="text-accent hover:text-accent-hover transition-colors">
-                        Login here
+        <div className="bg-ambient relative flex min-h-screen items-center justify-center bg-canvas px-4 py-12 font-sans text-fg">
+            <div className="bg-grid pointer-events-none absolute inset-0 opacity-50" />
+            <div className="relative w-full max-w-md">
+                <div className="mb-8 flex justify-center">
+                    <Link to="/" aria-label="FedLearn home">
+                        <Wordmark size={32} />
                     </Link>
+                </div>
+
+                <Card padding="lg" className="p-7">
+                    <h1 className="font-display text-h2 text-fg">Create your account</h1>
+                    <p className="mt-1.5 text-body text-fg-muted">
+                        Start training AI together — it's free.
+                    </p>
+
+                    <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">
+                        <div className="flex flex-col gap-1.5">
+                            <label htmlFor="username" className="text-label font-medium text-fg">
+                                Username
+                            </label>
+                            <Input
+                                type="text"
+                                id="username"
+                                className="h-11"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                required
+                                autoComplete="username"
+                                placeholder="yourname"
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label htmlFor="email" className="text-label font-medium text-fg">
+                                Email
+                            </label>
+                            <Input
+                                type="email"
+                                id="email"
+                                className="h-11"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                autoComplete="email"
+                                placeholder="you@example.com"
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label htmlFor="password" className="text-label font-medium text-fg">
+                                Password
+                            </label>
+                            <Input
+                                type="password"
+                                id="password"
+                                className="h-11"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                autoComplete="new-password"
+                                minLength={MIN_PASSWORD_LENGTH}
+                                placeholder="••••••••"
+                            />
+                            <span className="text-caption text-fg-subtle">
+                                At least {MIN_PASSWORD_LENGTH} characters, with an uppercase letter, a
+                                lowercase letter, and a number.
+                            </span>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                            <label htmlFor="confirmPassword" className="text-label font-medium text-fg">
+                                Confirm password
+                            </label>
+                            <Input
+                                type="password"
+                                id="confirmPassword"
+                                className="h-11"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                                autoComplete="new-password"
+                                placeholder="••••••••"
+                            />
+                        </div>
+
+                        {error && (
+                            <p
+                                className="flex items-start gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2.5 text-label text-danger"
+                                role="alert"
+                            >
+                                <AlertCircle className="mt-px h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
+                                {error}
+                            </p>
+                        )}
+                        {successMessage && (
+                            <p
+                                className="flex items-start gap-2 rounded-md border border-success/30 bg-success/10 px-3 py-2.5 text-label text-success"
+                                role="status"
+                            >
+                                <CheckCircle2 className="mt-px h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
+                                {successMessage}
+                            </p>
+                        )}
+
+                        <Button
+                            type="submit"
+                            size="lg"
+                            disabled={isLoading}
+                            className="mt-2 w-full"
+                        >
+                            {isLoading ? 'Creating account…' : 'Create account'}
+                        </Button>
+                    </form>
+
+                    <p className="mt-6 text-center text-label text-fg-muted">
+                        Already have an account?{' '}
+                        <Link
+                            to="/login"
+                            className="font-medium text-accent transition-colors hover:text-accent-hover"
+                        >
+                            Sign in
+                        </Link>
+                    </p>
+                </Card>
+
+                <p className="mt-6 flex items-center justify-center gap-2 text-caption text-fg-subtle">
+                    <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    Private by design — your data stays on your devices.
                 </p>
-            </Card>
+            </div>
         </div>
     );
 };

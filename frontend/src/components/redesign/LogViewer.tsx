@@ -159,14 +159,14 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
   const latest = telemetry.length > 0 ? telemetry[telemetry.length - 1] : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-canvas/70 backdrop-blur-sm font-sans">
-      <div className="bg-surface-1 border border-hairline w-full max-w-7xl h-[85vh] rounded-card flex flex-col overflow-hidden text-fg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md font-sans">
+      <div className="bg-surface-1 border border-line w-full max-w-7xl h-[85vh] rounded-card flex flex-col overflow-hidden text-fg shadow-[0_30px_90px_-24px_rgba(0,0,0,0.95)]">
 
         {/* Header */}
         <div className="h-[60px] border-b border-hairline flex items-center justify-between px-6 bg-surface-1">
           <div className="flex items-center gap-3">
-            <TerminalSquare strokeWidth={1.5} className="w-[18px] h-[18px] text-fg-muted" />
-            <h2 className="text-h4 text-fg">Telemetry Dashboard</h2>
+            <TerminalSquare strokeWidth={1.5} className="w-[18px] h-[18px] text-accent" />
+            <h2 className="text-h4 font-display text-fg">Training activity</h2>
             <div className="w-px h-[18px] bg-hairline mx-2" />
             <StatusPill status={status.kind}>{status.label}</StatusPill>
           </div>
@@ -253,14 +253,14 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
           <div className="w-[360px] flex flex-col shrink-0 bg-surface-1 border-l border-hairline">
             <div className="p-6 flex flex-col gap-6 h-full overflow-y-auto">
               <div>
-                <h3 className="text-caption font-semibold uppercase tracking-widest text-fg-muted mb-1">Live Metrics</h3>
+                <h3 className="text-caption font-semibold uppercase tracking-widest text-fg-muted mb-1">Live numbers</h3>
               </div>
 
               <div className="bg-surface-2 rounded-card p-5 flex flex-col gap-4 border border-hairline">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2 text-fg-muted">
                     <Activity strokeWidth={1.5} className="w-4 h-4" />
-                    <span className="text-label font-medium">Global Loss</span>
+                    <span className="text-label font-medium">Loss</span>
                   </div>
                   <span className="font-mono text-h4 tabular-nums text-fg">
                     {latest ? latest.loss.toFixed(4) : '---'}
@@ -279,7 +279,7 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2 text-fg-muted">
                     <Activity strokeWidth={1.5} className="w-4 h-4" />
-                    <span className="text-label font-medium">Global Accuracy</span>
+                    <span className="text-label font-medium">Accuracy</span>
                   </div>
                   <span className="font-mono text-h4 tabular-nums text-fg">
                     {latest ? (latest.accuracy * 100).toFixed(2) + '%' : '---'}

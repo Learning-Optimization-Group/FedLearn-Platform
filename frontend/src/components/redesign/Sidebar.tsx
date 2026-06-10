@@ -1,87 +1,113 @@
 // =============================================================================
-// FedLearn Frontend — Redesigned Sidebar (Instrument design system)
+// FedLearn Frontend — Sidebar (Ember design system)
 // =============================================================================
-// Wired to existing AuthContext for user profile and logout.
+// Wired to existing AuthContext for user profile and logout. Plain-language
+// nav labels grouped under quiet uppercase section headers.
 
-import { Brain, LayoutDashboard, Settings, Boxes, Network, Database, LogOut } from 'lucide-react';
+import { LayoutDashboard, Settings, Boxes, Network, Database, LogOut } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
+import { Wordmark } from '../brand';
 
-const navItems = [
-  { icon: LayoutDashboard, label: 'Overview', path: '/dashboard' },
-  { icon: Network, label: 'Node Network', path: '/nodes' },
-  { icon: Boxes, label: 'Models', path: '/models' },
-  { icon: Database, label: 'Datasets', path: '/datasets' },
-  { icon: Settings, label: 'Settings', path: '/settings' },
+const navGroups: {
+    heading: string;
+    items: { icon: typeof LayoutDashboard; label: string; path: string; end?: boolean }[];
+}[] = [
+    {
+        heading: 'Workspace',
+        items: [
+            { icon: LayoutDashboard, label: 'Overview', path: '/dashboard', end: true },
+            { icon: Network, label: 'Devices', path: '/nodes' },
+            { icon: Boxes, label: 'Models', path: '/models' },
+            { icon: Database, label: 'Data', path: '/datasets' },
+        ],
+    },
+    {
+        heading: 'Account',
+        items: [{ icon: Settings, label: 'Settings', path: '/settings' }],
+    },
 ];
 
 export function Sidebar() {
-  const { currentUser, logout } = useAuth();
+    const { currentUser, logout } = useAuth();
 
-  const initials = currentUser?.username
-    ? currentUser.username.slice(0, 2).toUpperCase()
-    : 'U';
+    const initials = currentUser?.username ? currentUser.username.slice(0, 2).toUpperCase() : 'U';
+    const role = currentUser?.role ? currentUser.role.toLowerCase() : 'member';
 
-  return (
-    <div className="w-64 bg-canvas border-r border-hairline h-screen flex flex-col text-fg font-sans flex-shrink-0 relative z-10 selection:bg-accent selection:text-accent-fg">
-      <div className="h-20 flex items-center gap-3 px-8">
-        <div className="w-8 h-8 rounded-md bg-surface-1 border border-hairline flex items-center justify-center">
-          <Brain className="w-5 h-5 text-fg" strokeWidth={1.5} />
-        </div>
-        <span className="text-h4 tracking-tight text-fg">FedLearn</span>
-      </div>
+    return (
+        <aside className="relative z-10 flex h-screen w-64 flex-shrink-0 flex-col border-r border-hairline bg-canvas font-sans text-fg">
+            <div className="flex h-16 items-center px-6">
+                <NavLink to="/dashboard" aria-label="FedLearn">
+                    <Wordmark size={26} />
+                </NavLink>
+            </div>
 
-      <div className="flex-1 overflow-y-auto py-4 px-4 flex flex-col gap-1">
-        <div className="text-caption font-medium tracking-widest uppercase text-fg-muted mb-2 px-4 mt-4">Menu</div>
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.path === '/dashboard'}
-            className={({ isActive }) => cn(
-              "flex items-center gap-3 px-4 py-2.5 rounded-md text-label font-medium transition-colors",
-              isActive
-                ? "bg-surface-2 text-fg"
-                : "text-fg-muted hover:bg-surface-1 hover:text-fg"
-            )}
-          >
-            {({ isActive }) => (
-              <>
-                <item.icon
-                  className={cn(
-                    "w-[18px] h-[18px]",
-                    isActive ? "text-fg" : "text-fg-muted"
-                  )}
-                  strokeWidth={1.5}
-                />
-                {item.label}
-              </>
-            )}
-          </NavLink>
-        ))}
-      </div>
+            <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 py-4">
+                {navGroups.map((group) => (
+                    <div key={group.heading} className="flex flex-col gap-1">
+                        <div className="mb-1 px-3 text-[11px] font-medium uppercase tracking-[0.16em] text-fg-subtle">
+                            {group.heading}
+                        </div>
+                        {group.items.map((item) => (
+                            <NavLink
+                                key={item.path}
+                                to={item.path}
+                                end={item.end}
+                                className={({ isActive }) =>
+                                    cn(
+                                        'group relative flex items-center gap-3 rounded-md px-3 py-2.5 text-label font-medium',
+                                        'transition-colors duration-[140ms]',
+                                        isActive
+                                            ? 'bg-accent/10 text-fg'
+                                            : 'text-fg-muted hover:bg-surface-1 hover:text-fg',
+                                    )
+                                }
+                            >
+                                {({ isActive }) => (
+                                    <>
+                                        {isActive && (
+                                            <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-pill bg-accent" />
+                                        )}
+                                        <item.icon
+                                            className={cn(
+                                                'h-[18px] w-[18px] transition-colors',
+                                                isActive
+                                                    ? 'text-accent'
+                                                    : 'text-fg-subtle group-hover:text-fg',
+                                            )}
+                                            strokeWidth={1.5}
+                                        />
+                                        {item.label}
+                                    </>
+                                )}
+                            </NavLink>
+                        ))}
+                    </div>
+                ))}
+            </nav>
 
-      <div className="p-4">
-        <div className="rounded-card p-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-pill bg-surface-2 flex items-center justify-center text-label font-medium text-fg">
-            {initials}
-          </div>
-          <div className="flex flex-col flex-1 min-w-0">
-            <span className="text-label font-medium text-fg tracking-tight truncate">
-              {currentUser?.username || 'User'}
-            </span>
-            <span className="text-caption text-fg-muted">Admin</span>
-          </div>
-          <button
-            onClick={logout}
-            className="text-fg-muted hover:text-danger transition-colors p-1"
-            title="Logout"
-          >
-            <LogOut className="w-4 h-4" strokeWidth={1.5} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+            <div className="p-3">
+                <div className="flex items-center gap-3 rounded-card border border-hairline bg-surface-1 p-3">
+                    <div className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-pill bg-accent text-label font-semibold text-accent-fg">
+                        {initials}
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-label font-medium tracking-tight text-fg">
+                            {currentUser?.username || 'User'}
+                        </span>
+                        <span className="text-caption capitalize text-fg-muted">{role}</span>
+                    </div>
+                    <button
+                        onClick={logout}
+                        className="rounded-md p-1.5 text-fg-muted transition-colors hover:bg-surface-2 hover:text-danger"
+                        title="Sign out"
+                        aria-label="Sign out"
+                    >
+                        <LogOut className="h-4 w-4" strokeWidth={1.5} />
+                    </button>
+                </div>
+            </div>
+        </aside>
+    );
 }

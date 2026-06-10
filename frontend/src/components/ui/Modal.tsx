@@ -68,8 +68,8 @@ export function Modal({
             aria-modal="true"
             className={cn(
                 'fixed inset-0 z-50 flex items-center justify-center p-4',
-                'bg-canvas/70 backdrop-blur-sm',
-                'transition-opacity duration-[160ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
+                'bg-black/75 backdrop-blur-md',
+                'transition-opacity duration-[180ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
                 mounted ? 'opacity-100' : 'opacity-0',
             )}
             onClick={(e) => {
@@ -78,9 +78,12 @@ export function Modal({
         >
             <div
                 className={cn(
-                    'w-full bg-surface-1 border border-hairline rounded-card',
-                    'transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
-                    mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-[2px]',
+                    'relative w-full bg-surface-1 border border-line rounded-card',
+                    'shadow-[0_30px_90px_-24px_rgba(0,0,0,0.95)]',
+                    'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px',
+                    'before:bg-gradient-to-r before:from-transparent before:via-accent/30 before:to-transparent before:rounded-t-card',
+                    'transition-[opacity,transform] duration-[180ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
+                    mounted ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-[0.99]',
                     SIZES[size],
                     className,
                 )}
@@ -89,7 +92,7 @@ export function Modal({
                 {(title || showClose) && (
                     <div className="flex items-center justify-between gap-4 px-6 pt-5 pb-4">
                         {title ? (
-                            <h2 className="text-h4 text-fg">{title}</h2>
+                            <h2 className="text-h4 font-display text-fg">{title}</h2>
                         ) : (
                             <span />
                         )}

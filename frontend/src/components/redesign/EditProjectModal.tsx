@@ -1,5 +1,5 @@
 // =============================================================================
-// FedLearn Frontend — EditProjectModal
+// FedLearn Frontend — EditProjectModal (Ember design system)
 // =============================================================================
 
 import { useState, useEffect } from 'react';
@@ -18,6 +18,11 @@ const modelOptions = {
   },
 };
 
+const ARCH_LABELS: Record<keyof typeof modelOptions, string> = {
+  CNN: 'Image model (CNN)',
+  Transformer: 'Text model (Transformer)',
+};
+
 type ModelType = keyof typeof modelOptions;
 
 interface EditProjectModalProps {
@@ -28,7 +33,7 @@ interface EditProjectModalProps {
   isLoading?: boolean;
 }
 
-const labelClass = 'text-caption font-semibold text-fg-muted uppercase tracking-wide';
+const labelClass = 'text-label font-medium text-fg';
 
 export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading = false }: EditProjectModalProps) {
   const [name, setName] = useState('');
@@ -75,46 +80,45 @@ export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading
       title={
         <span className="flex items-center gap-2">
           <Edit3 strokeWidth={1.5} className="h-5 w-5 text-accent" />
-          Edit Project
+          Edit project
         </span>
       }
     >
-      {/* Form */}
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         {/* Project Name */}
-        <div className="flex flex-col gap-2">
-          <label className={labelClass}>Project Name</label>
+        <div className="flex flex-col gap-1.5">
+          <label className={labelClass}>Project name</label>
           <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. ResNet50 Imaging"
+            placeholder="e.g. My first model"
             required
             autoFocus
           />
         </div>
 
         {/* Model Architecture */}
-        <div className="flex flex-col gap-2">
-          <label className={labelClass}>Architecture</label>
+        <div className="flex flex-col gap-1.5">
+          <label className={labelClass}>What kind of model?</label>
           <Select value={modelType} onChange={(e) => setModelType(e.target.value as ModelType)}>
-            {Object.keys(modelOptions).map((type) => (
-              <option key={type} value={type}>{type}</option>
+            {(Object.keys(modelOptions) as ModelType[]).map((type) => (
+              <option key={type} value={type}>{ARCH_LABELS[type]}</option>
             ))}
           </Select>
         </div>
 
         {/* Model + Optimizer row */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-2">
-            <label className={labelClass}>Model</label>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>Base model</label>
             <Select value={modelName} onChange={(e) => setModelName(e.target.value)}>
               {modelOptions[modelType]?.models.map((m) => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </Select>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <label className={labelClass}>Optimizer</label>
             <Select value={optimizer} onChange={(e) => setOptimizer(e.target.value)}>
               {modelOptions[modelType]?.optimizers.map((o) => (
@@ -125,7 +129,7 @@ export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading
         </div>
 
         {/* Buttons */}
-        <div className="flex gap-3 mt-4 pt-4 border-t border-hairline">
+        <div className="flex gap-3 mt-2 pt-4 border-t border-hairline">
           <Button
             type="button"
             variant="secondary"
@@ -140,7 +144,7 @@ export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading
             disabled={isLoading || !name.trim()}
             className="flex-1"
           >
-            {isLoading ? 'Saving...' : 'Save Changes'}
+            {isLoading ? 'Saving…' : 'Save changes'}
           </Button>
         </div>
       </form>

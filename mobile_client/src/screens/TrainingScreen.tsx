@@ -126,7 +126,8 @@ export function TrainingScreen() {
 
       {!joined ? (
         <View className="mx-4 mt-2 p-4 rounded-card bg-surface-1 border border-hairline">
-          <Text className="text-body text-fg-muted mb-2">Join a federated run</Text>
+          <Text className="text-body font-sans text-fg mb-1">Join a training run</Text>
+          <Text className="text-caption text-fg-muted mb-3">Your data stays on this device — only learning updates are shared.</Text>
           <TextInput
             className="border border-hairline rounded-md px-3 py-2 mb-2 text-body text-fg"
             placeholder="Project ID"

@@ -2,25 +2,64 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleDisplayName</key>
-  <string>FedLearn</string>
-  <key>CFBundleName</key>
-  <string>FedLearn</string>
-  <key>CFBundleShortVersionString</key>
-  <string>2.0.0</string>
-  <key>CFBundleVersion</key>
-  <string>1</string>
-
-  <!-- App Transport Security ON: no arbitrary cleartext (matches gRPC TLS+mTLS default, E13). -->
-  <key>NSAppTransportSecurity</key>
-  <dict>
-    <key>NSAllowsArbitraryLoads</key>
-    <false/>
-  </dict>
-
-  <!-- Foreground-only: iOS does not permit arbitrary background compute, so training runs only
-       while the app is foregrounded (E5). No background-mode entitlement is requested. -->
-  <key>UIBackgroundModes</key>
-  <array/>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>FedLearn</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<!-- App Transport Security ON: no arbitrary cleartext (matches gRPC TLS+mTLS default, E13).
+	     NSAllowsLocalNetworking permits the dev Metro bundler / LAN FL server over http. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string></string>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+	<!-- Foreground-only: iOS does not permit arbitrary background compute, so training runs only
+	     while the app is foregrounded (E5). No background-mode entitlement is requested. -->
+	<key>UIBackgroundModes</key>
+	<array/>
+	<!-- Bundled brand fonts (Ember design system). The .ttf files live in src/assets/fonts and are
+	     copied into the app target by `react-native-asset`. Reference them in JS by family name:
+	     "Hanken Grotesk" / "JetBrains Mono". -->
+	<key>UIAppFonts</key>
+	<array>
+		<string>Hanken Grotesk.ttf</string>
+		<string>JetBrains Mono.ttf</string>
+	</array>
 </dict>
 </plist>

@@ -149,3 +149,9 @@ Icon
 *.cert
 *.crt
 id_rsa*
+
+# Local scratch / crash-recovery workspace (never commit)
+.temp/
+
+# Playwright MCP browser session artifacts (local tooling output)
+.playwright-mcp/

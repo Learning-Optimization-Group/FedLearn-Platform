@@ -14,8 +14,8 @@ export type StatusKind =
  *  running -> accent · completed -> success · error -> danger ·
  *  pending -> warning · idle/stopped -> fg-muted
  */
-const STATUS: Record<StatusKind, { text: string; dot: string }> = {
-    running: { text: 'text-accent', dot: 'bg-accent' },
+const STATUS: Record<StatusKind, { text: string; dot: string; live?: boolean }> = {
+    running: { text: 'text-accent', dot: 'bg-accent', live: true },
     completed: { text: 'text-success', dot: 'bg-success' },
     error: { text: 'text-danger', dot: 'bg-danger' },
     pending: { text: 'text-warning', dot: 'bg-warning' },
@@ -42,7 +42,10 @@ export function StatusPill({ status, children, className }: StatusPillProps) {
                 className,
             )}
         >
-            <span className={cn('h-1.5 w-1.5 rounded-pill', tone.dot)} aria-hidden />
+            <span
+                className={cn('h-1.5 w-1.5 rounded-pill', tone.dot, tone.live && 'dot-pulse')}
+                aria-hidden
+            />
             {label}
         </span>
     );

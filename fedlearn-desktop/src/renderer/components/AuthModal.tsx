@@ -103,8 +103,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
             <span className="auth-logo-icon">
               <Network strokeWidth={1.5} size={22} />
             </span>
-            <h1 className="auth-title">FedLearn</h1>
-            <p className="auth-subtitle">Privacy-Preserving Federated Learning</p>
+            <h1 className="auth-title">Fed<span style={{ color: 'var(--accent)' }}>Learn</span></h1>
+            <p className="auth-subtitle">Train AI together. Share nothing.</p>
           </div>
 
           {/* Login Form */}

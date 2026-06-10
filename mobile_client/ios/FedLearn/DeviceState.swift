@@ -32,6 +32,10 @@ final class DeviceStateSampler {
     }
     let level = Double(UIDevice.current.batteryLevel) // -1 if unknown
     let charging = UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full
+    // The C entry point is provided by the FedLearnCore pod (bridge/common/DeviceState.cpp); compile
+    // the call out when the native core isn't linked so the JS-only app still links.
+#if canImport(FedLearnCore)
     thermal.withCString { FedLearnCoreSetDeviceState($0, level, charging) }
+#endif
   }
 }

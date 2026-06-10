@@ -1,5 +1,5 @@
 // =============================================================================
-// FedLearn Frontend — CreateProjectModal V2
+// FedLearn Frontend — CreateProjectModal (Ember design system)
 // =============================================================================
 
 import { useState, useEffect } from 'react';
@@ -17,6 +17,12 @@ const modelOptions = {
   },
 };
 
+// Plain-language labels for the architecture choice (values stay CNN/Transformer).
+const ARCH_LABELS: Record<keyof typeof modelOptions, string> = {
+  CNN: 'Image model (CNN)',
+  Transformer: 'Text model (Transformer)',
+};
+
 type ModelType = keyof typeof modelOptions;
 
 interface CreateProjectModalProps {
@@ -32,7 +38,8 @@ interface CreateProjectModalProps {
   isLoading?: boolean;
 }
 
-const labelClass = 'text-caption font-semibold text-fg-muted uppercase tracking-wide';
+const labelClass = 'text-label font-medium text-fg';
+const helpClass = 'text-caption text-fg-subtle';
 
 export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = false }: CreateProjectModalProps) {
   const [name, setName] = useState('');
@@ -67,46 +74,49 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
       title={
         <span className="flex items-center gap-2">
           <Sparkles strokeWidth={1.5} className="h-5 w-5 text-accent" />
-          New Project
+          New project
         </span>
       }
     >
-      {/* Form */}
+      <p className="-mt-1 mb-5 text-body text-fg-muted">
+        A project is one model you'll train together with your devices.
+      </p>
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         {/* Project Name */}
-        <div className="flex flex-col gap-2">
-          <label className={labelClass}>Project Name</label>
+        <div className="flex flex-col gap-1.5">
+          <label className={labelClass}>Project name</label>
           <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. ResNet50 Imaging"
+            placeholder="e.g. My first model"
             required
             autoFocus
           />
         </div>
 
         {/* Model Architecture */}
-        <div className="flex flex-col gap-2">
-          <label className={labelClass}>Architecture</label>
+        <div className="flex flex-col gap-1.5">
+          <label className={labelClass}>What kind of model?</label>
           <Select value={modelType} onChange={(e) => setModelType(e.target.value as ModelType)}>
-            {Object.keys(modelOptions).map((type) => (
-              <option key={type} value={type}>{type}</option>
+            {(Object.keys(modelOptions) as ModelType[]).map((type) => (
+              <option key={type} value={type}>{ARCH_LABELS[type]}</option>
             ))}
           </Select>
         </div>
 
         {/* Model + Optimizer row */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-2">
-            <label className={labelClass}>Model</label>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>Base model</label>
             <Select value={modelName} onChange={(e) => setModelName(e.target.value)}>
               {modelOptions[modelType].models.map((m) => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </Select>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <label className={labelClass}>Optimizer</label>
             <Select value={optimizer} onChange={(e) => setOptimizer(e.target.value)}>
               {modelOptions[modelType].optimizers.map((o) => (
@@ -117,18 +127,21 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
         </div>
 
         {/* Pre-train Epochs */}
-        <div className="flex flex-col gap-2">
-          <label className={labelClass}>Pre-train Epochs</label>
+        <div className="flex flex-col gap-1.5">
+          <label className={labelClass}>Warm-up rounds</label>
           <Input
             type="number"
             value={pretrainEpochs}
             onChange={(e) => setPretrainEpochs(Number(e.target.value))}
             min="0"
           />
+          <span className={helpClass}>
+            Give the model a head start before devices join. Leave at 0 if unsure.
+          </span>
         </div>
 
         {/* Buttons */}
-        <div className="flex gap-3 mt-4 pt-4 border-t border-hairline">
+        <div className="flex gap-3 mt-2 pt-4 border-t border-hairline">
           <Button
             type="button"
             variant="secondary"
@@ -143,7 +156,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
             disabled={isLoading || !name.trim()}
             className="flex-1"
           >
-            {isLoading ? 'Creating...' : 'Create Project'}
+            {isLoading ? 'Creating…' : 'Create project'}
           </Button>
         </div>
       </form>

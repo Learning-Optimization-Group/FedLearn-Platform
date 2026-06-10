@@ -13,7 +13,15 @@ interface StartProjectModalProps {
   onSubmit: (projectId: string, config: { strategy: string; numRounds: number; minClients: number }) => Promise<void>;
 }
 
-const labelClass = 'text-caption font-semibold text-fg-muted uppercase tracking-wide';
+const labelClass = 'text-label font-medium text-fg';
+const helpClass = 'text-caption text-fg-subtle';
+
+// Plain-language descriptions for each training method (values stay as-is).
+const STRATEGIES: { value: string; label: string }[] = [
+  { value: 'FedAvg', label: 'Standard — averages everyone\'s learning (recommended)' },
+  { value: 'DeComFL', label: 'Low-bandwidth — sends tiny updates' },
+  { value: 'FoT', label: 'For text models' },
+];
 
 export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartProjectModalProps) {
   const [strategy, setStrategy] = useState('FedAvg');
@@ -50,31 +58,30 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       title={
         <span className="flex items-center gap-2">
           <Play strokeWidth={1.5} className="h-5 w-5 text-accent" />
-          Start Project Server
+          Start training
         </span>
       }
     >
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-        <div className="flex flex-col gap-1 mb-2">
-          <h3 className="text-body font-medium text-fg">Configure Run Parameter</h3>
-          <p className="text-label text-fg-muted">Settings for orchestrating clients in project <strong className="text-fg">{project.name}</strong>.</p>
-        </div>
+      <p className="-mt-1 mb-5 text-body text-fg-muted">
+        Set up this training run for <strong className="font-medium text-fg">{project.name}</strong>.
+        You can change these any time you start again.
+      </p>
 
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         {/* Strategy */}
-        <div className="flex flex-col gap-2">
-          <label className={labelClass}>Aggregation Strategy</label>
+        <div className="flex flex-col gap-1.5">
+          <label className={labelClass}>Training method</label>
           <Select value={strategy} onChange={(e) => setStrategy(e.target.value)}>
-            <option value="FedAvg">FedAvg</option>
-            <option value="DeComFL">DeComFL</option>
-            <option value="FoT">FoT (text federation)</option>
+            {STRATEGIES.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
           </Select>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           {/* Rounds */}
-          <div className="flex flex-col gap-2">
-            <label className={labelClass}>Total Rounds</label>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>Training rounds</label>
             <Input
               type="number"
               min="1"
@@ -82,10 +89,11 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
               onChange={(e) => setNumRounds(Number(e.target.value))}
               required
             />
+            <span className={helpClass}>How many times devices share progress.</span>
           </div>
           {/* Min Clients */}
-          <div className="flex flex-col gap-2">
-            <label className={labelClass}>Min. Clients</label>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>Devices needed to start</label>
             <Input
               type="number"
               min="1"
@@ -93,11 +101,12 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
               onChange={(e) => setMinClients(Number(e.target.value))}
               required
             />
+            <span className={helpClass}>Training begins once this many join.</span>
           </div>
         </div>
 
         {/* Buttons */}
-        <div className="flex gap-3 mt-4 pt-4 border-t border-hairline">
+        <div className="flex gap-3 mt-2 pt-4 border-t border-hairline">
           <Button
             type="button"
             variant="secondary"
@@ -112,7 +121,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
             disabled={isLoading}
             className="flex-1"
           >
-            {isLoading ? 'Starting...' : <><Play strokeWidth={1.5} className="h-4 w-4 fill-current" /> Start Server</>}
+            {isLoading ? 'Starting…' : <><Play strokeWidth={2} className="h-4 w-4 fill-current" /> Start training</>}
           </Button>
         </div>
       </form>

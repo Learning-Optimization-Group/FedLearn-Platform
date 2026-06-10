@@ -14,10 +14,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             <select
                 ref={ref}
                 className={cn(
-                    'w-full appearance-none bg-surface-2 border border-hairline rounded-sm h-9 pl-3 pr-9',
-                    'text-body text-fg',
-                    'transition-colors duration-[120ms]',
-                    'focus:outline-none focus:border-accent',
+                    'w-full appearance-none bg-surface-2 border border-hairline rounded-md h-9 pl-3 pr-9',
+                    'text-body text-fg cursor-pointer',
+                    'transition-[border-color,box-shadow,background-color] duration-[140ms]',
+                    'hover:border-line',
+                    'focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20',
                     'disabled:opacity-50 disabled:pointer-events-none',
                     className,
                 )}

@@ -10,41 +10,41 @@
  * tailwind.config.js maps each semantic color to var(--color-<name>).
  */
 :root {
-  --color-canvas: #FCFCFD;
+  --color-canvas: #FBF9F6;
   --color-surface-1: #FFFFFF;
-  --color-surface-2: #F6F7F9;
-  --color-surface-3: #F0F2F5;
-  --color-code-well: #F4F6F8;
-  --color-hairline: #E6E8EC;
-  --color-line: #D5D8DE;
-  --color-fg: #16181D;
-  --color-fg-muted: #5B6470;
-  --color-fg-subtle: #8A93A0;
-  --color-accent: #0E8FB8;
-  --color-accent-hover: #0B7D9F;
+  --color-surface-2: #F4F1EC;
+  --color-surface-3: #ECE7DF;
+  --color-code-well: #F6F3EE;
+  --color-hairline: #E7E1D8;
+  --color-line: #D8D1C5;
+  --color-fg: #1A1714;
+  --color-fg-muted: #6B6358;
+  --color-fg-subtle: #938A7D;
+  --color-accent: #C56A1E;
+  --color-accent-hover: #A9591A;
   --color-accent-fg: #FFFFFF;
   --color-success: #1F9D57;
-  --color-warning: #B8860B;
-  --color-danger: #D23F3F;
-  --color-running: #0E8FB8;
+  --color-warning: #B07D0A;
+  --color-danger: #CE3F38;
+  --color-running: #C56A1E;
 }
 
 .dark {
-  --color-canvas: #0A0C10;
-  --color-surface-1: #0F1216;
-  --color-surface-2: #14181D;
-  --color-surface-3: #191E24;
-  --color-code-well: #06080B;
-  --color-hairline: rgba(255, 255, 255, 0.07);
-  --color-line: rgba(255, 255, 255, 0.13);
-  --color-fg: #ECEEF2;
-  --color-fg-muted: #8A93A0;
-  --color-fg-subtle: #5B6470;
-  --color-accent: #22B8D6;
-  --color-accent-hover: #3FC6E0;
-  --color-accent-fg: #06121A;
-  --color-success: #34D399;
-  --color-warning: #FBBF24;
-  --color-danger: #F87171;
-  --color-running: #22B8D6;
+  --color-canvas: #000000;
+  --color-surface-1: #0B0A09;
+  --color-surface-2: #141210;
+  --color-surface-3: #1E1B17;
+  --color-code-well: #050504;
+  --color-hairline: rgba(255, 244, 232, 0.08);
+  --color-line: rgba(255, 244, 232, 0.15);
+  --color-fg: #F5F1EA;
+  --color-fg-muted: #A8A096;
+  --color-fg-subtle: #6E665C;
+  --color-accent: #F7A35C;
+  --color-accent-hover: #FFB877;
+  --color-accent-fg: #1C0F03;
+  --color-success: #5FD39B;
+  --color-warning: #EBC152;
+  --color-danger: #FF6B5E;
+  --color-running: #F7A35C;
 }

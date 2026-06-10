@@ -11,8 +11,8 @@ tagged release. Versions follow [Semantic Versioning](https://semver.org).
 | **backend** (Spring Boot API) | `1.4.1-beta` | `backend/fl-platform-api/build.gradle` |
 | **framework** (Python FL core) | `0.1.0` | `framework/setup.py` |
 | **frontend** (React web app) | `1.4.1-beta` | `frontend/package.json` |
-| **desktop** (Electron app) | `3.0.4-beta` | `fedlearn-desktop/package.json` |
-| **mobile** (React Native app) | `2.0.0` | `mobile_client/package.json` |
+| **desktop** (Electron app) | `3.1.0-beta` | `fedlearn-desktop/package.json` |
+| **mobile** (React Native app) | `2.1.0` | `mobile_client/package.json` |
 | **client-docker** (container) | — | `client-docker/Dockerfile` (inherits framework) |
 
 ## Versioning policy
@@ -30,9 +30,22 @@ tagged release. Versions follow [Semantic Versioning](https://semver.org).
 
 1. Update the version string in the package file listed above.
 2. Update the table in this file.
-3. Tag the commit: `git tag <component>/v<version>` (e.g. `backend/v1.5.0`).
+3. Tag the commit with the per-unit release prefix: `git tag <component>-v<version>`
+   (e.g. `desktop-v3.1.0-beta`, `mobile-v2.1.0`). The prefix scopes the CI
+   release workflow so only the matching unit builds.
 
 ## Release history
+
+### 2026-06-10
+
+| Component | Version | Notes |
+|-----------|---------|-------|
+| desktop | `3.1.0-beta` | Ember design-system rebrand (renderer + rebranded icons) |
+| mobile | `2.1.0` | Ember theme + brand fonts; buildable iOS/Android app projects with native FL-core wiring |
+
+Frontend also received the Ember rollout this cycle but stays `1.4.1-beta`
+(versioned as a pair with the unchanged backend). Repository root was
+reorganized (diagrams/VERSIONS into `wikis/`, `renovate.json` into `.github/`).
 
 ### 2026-06-09
 

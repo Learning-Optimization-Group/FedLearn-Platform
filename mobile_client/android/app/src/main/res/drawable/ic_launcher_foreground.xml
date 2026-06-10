@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FedLearn ember-node mark, scaled to the adaptive-icon safe zone (0.82 of the
+     108dp foreground). Flat ember fills (VectorDrawable has no blur/gradient-glow). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group
+        android:scaleX="0.82"
+        android:scaleY="0.82"
+        android:pivotX="512"
+        android:pivotY="512">
+        <!-- spokes: device updates flowing inward -->
+        <path
+            android:strokeColor="#F7A35C"
+            android:strokeWidth="9"
+            android:strokeAlpha="0.5"
+            android:strokeLineCap="round"
+            android:pathData="M512,512 L512,212 M512,512 L772,362 M512,512 L772,662 M512,512 L512,812 M512,512 L252,662 M512,512 L252,362" />
+        <!-- satellite device nodes -->
+        <path
+            android:fillColor="#F7A35C"
+            android:pathData="M464,212 a48,48 0 1,1 96,0 a48,48 0 1,1 -96,0 Z M738,362 a34,34 0 1,1 68,0 a34,34 0 1,1 -68,0 Z M728,662 a44,44 0 1,1 88,0 a44,44 0 1,1 -88,0 Z M478,812 a34,34 0 1,1 68,0 a34,34 0 1,1 -68,0 Z M208,662 a44,44 0 1,1 88,0 a44,44 0 1,1 -88,0 Z M218,362 a34,34 0 1,1 68,0 a34,34 0 1,1 -68,0 Z" />
+        <!-- central shared model -->
+        <path
+            android:fillColor="#FFC58C"
+            android:pathData="M394,512 a118,118 0 1,1 236,0 a118,118 0 1,1 -236,0 Z" />
+    </group>
+</vector>
