@@ -47,8 +47,16 @@ FetchContent_MakeAvailable(googletest)
 add_executable(fedlearn_et_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/../executorch_forward_test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../et_g_scalar_test.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../dtype_map_test.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../safetensors_test.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../model_manager_test.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../flatparam_filter_test.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../serialize_roundtrip_test.cpp
   ${SHARED}/src/ExecutorchModel.cpp
   ${SHARED}/src/Sha256.cpp
+  ${SHARED}/src/DtypeMap.cpp
+  ${SHARED}/src/Safetensors.cpp
+  ${SHARED}/src/ModelManager.cpp
 )
 
 get_filename_component(ET_SRC_PARENT "${ET_SRC}" DIRECTORY)

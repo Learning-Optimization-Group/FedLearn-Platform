@@ -1,34 +1,39 @@
-// flatparam_filter_test.cpp — the requires_grad filter must exclude frozen layers, and the
-// trainable count must equal Python's (15-LLD §13 task 6; fixes A6 M-C2 #3).
+// flatparam_filter_test.cpp — the trainable flat dim must equal Python's 25 (frozen fc2 excluded
+// at export time), and get/set must be lossless (15-LLD §13 task 6). ExecuTorch, torch-free.
 #include "fedlearn/ModelManager.h"
 
 #include <gtest/gtest.h>
-#include <torch/torch.h>
+
+#include <vector>
 
 #include "fixtures.h"
 
-TEST(FlatParamFilter, ExcludesFrozenLayer) {
-  fedlearn::ModelManager mm;
-  torch::jit::Module model = fedtest::loadTinyModel();
-
-  // TinyNet: fc1 trainable (25), fc2 FROZEN (18). Total 43, trainable 25.
-  EXPECT_EQ(mm.trainableParamCount(model), 25);
-  EXPECT_EQ(mm.getFlatParams(model).numel(), 25);
-
-  int64_t total = 0;
-  for (const auto& p : model.parameters()) total += p.numel();
-  EXPECT_EQ(total, 43);
+TEST(FlatParamFilter, TrainableFlatDimMatchesManifest) {
+  fedlearn::ModelInfo info;
+  fedlearn::ModelManager mm = fedtest::makeManager(&info);
+  // TinyNet: fc1 trainable (25), fc2 FROZEN (18) — frozen params are baked into the .pte, so the
+  // trainable flat vector is exactly 25; total 43 comes from the manifest.
+  EXPECT_EQ(mm.trainableParamCount(), 25);
+  EXPECT_EQ(mm.getFlatParams().size(), 25u);
+  EXPECT_EQ(info.paramCount, 43);
 }
 
 TEST(FlatParamFilter, GetSetIsLossless) {
-  fedlearn::ModelManager mm;
-  torch::jit::Module model = fedtest::loadTinyModel();
+  fedlearn::ModelManager mm = fedtest::makeManager();
+  const std::vector<float> before = mm.getFlatParams();
+  ASSERT_EQ(before.size(), 25u);
 
-  torch::Tensor before = mm.getFlatParams(model).clone();
-  torch::Tensor modified = before + 1.0;
-  mm.setFlatParams(model, modified);
-  EXPECT_TRUE(torch::allclose(mm.getFlatParams(model), modified, 1e-6, 1e-6));
+  std::vector<float> modified = before;
+  for (auto& v : modified) v += 1.0f;
+  mm.setFlatParams(modified);
+  EXPECT_EQ(mm.getFlatParams(), modified);
 
-  mm.setFlatParams(model, before);  // restore
-  EXPECT_TRUE(torch::allclose(mm.getFlatParams(model), before, 1e-6, 1e-6));
+  mm.setFlatParams(before);  // restore
+  EXPECT_EQ(mm.getFlatParams(), before);
+}
+
+TEST(FlatParamFilter, SetFlatParamsRejectsWrongSize) {
+  fedlearn::ModelManager mm = fedtest::makeManager();
+  EXPECT_THROW(mm.setFlatParams(std::vector<float>(24, 0.0f)), std::runtime_error);
+  EXPECT_THROW(mm.setFlatParams(std::vector<float>(26, 0.0f)), std::runtime_error);
 }

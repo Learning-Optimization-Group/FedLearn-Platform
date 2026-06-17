@@ -6,8 +6,6 @@
 #include <string>
 #include <vector>
 
-#include <torch/torch.h>
-
 namespace fedlearn {
 
 using Seeds2D = std::vector<std::vector<int64_t>>;            // [K][P] perturbation seeds
@@ -15,10 +13,15 @@ using GradientScalars2D = std::vector<std::vector<double>>;   // [K][P] g scalar
 
 enum class GradEstimateMethod { Forward, Central };
 
-// One on-device training batch. inputs: float tensor; targets: int64 class indices (CNN/MLP path).
+// One on-device training batch (non-owning, torch-free). inputs: row-major float features with
+// shape inputShape (e.g. {batch, features}); targets: int64 class indices, length numSamples.
+// The producer (DataLoader / fixtures / bridge) owns the backing std::vector storage and points
+// these at it; matches the ExecutorchModel::loss ABI exactly (zero-copy at the hot path).
 struct DataBatch {
-  torch::Tensor inputs;
-  torch::Tensor targets;
+  const float* inputs = nullptr;
+  std::vector<int64_t> inputShape;
+  const int64_t* targets = nullptr;
+  int64_t numSamples = 0;
 };
 
 // One missed round to replay in rebuildModel (Algorithm 2). gradients are the
