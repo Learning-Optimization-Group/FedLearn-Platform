@@ -13,6 +13,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DockerService, TrainingConfig, HardwareProfile } from './docker.service';
 import { AuthService } from './auth.service';
+import { InferenceService, InferencePayload } from './inference.service';
 import { detectHardware } from './hardware.probe';
 
 const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> = new Set(['discrete', 'jetson', 'cpu', 'mps']);
@@ -20,6 +21,8 @@ const PROJECT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
 const PARTITION_ID_PATTERN = /^[0-9]{1,10}$/;
 const SERVER_ADDRESS_PATTERN = /^[a-zA-Z0-9._:/-]{1,256}$/;
 const MAX_DATASET_PATH_LEN = 2048;
+const MAX_IMAGE_BASE64_LEN = 14 * 1024 * 1024; // ~10 MB decoded
+const MAX_VECTOR_LEN = 100_000;
 
 /**
  * Normalizes and validates a dataset path before it's bind-mounted into a
@@ -77,6 +80,29 @@ function sanitizeDatasetPath(raw: unknown): string | null {
 
 let dockerService: DockerService;
 let authService: AuthService;
+let inferenceService: InferenceService;
+
+/**
+ * Validates a renderer-supplied inference payload (defense-in-depth — preload
+ * validates too). Exactly one of imageBase64 / values must be present and within
+ * bounds. Returns a clean payload or null on rejection.
+ */
+function sanitizeInferencePayload(raw: unknown): InferencePayload | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const p = raw as Record<string, unknown>;
+
+  if (typeof p.imageBase64 === 'string') {
+    const b64 = p.imageBase64;
+    if (b64.length === 0 || b64.length > MAX_IMAGE_BASE64_LEN) return null;
+    return { imageBase64: b64 };
+  }
+  if (Array.isArray(p.values)) {
+    if (p.values.length === 0 || p.values.length > MAX_VECTOR_LEN) return null;
+    if (!p.values.every((v) => typeof v === 'number' && Number.isFinite(v))) return null;
+    return { values: p.values as number[] };
+  }
+  return null;
+}
 
 /**
  * Accessor for the singleton DockerService created in registerIpcHandlers.
@@ -111,6 +137,7 @@ function validateStringInput(val: unknown, maxLength: number): val is string {
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   dockerService = new DockerService(mainWindow);
   authService = new AuthService();
+  inferenceService = new InferenceService(authService);
 
   // ===================== File Dialogs =====================
   ipcMain.handle('dialog:open-directory', async () => {
@@ -329,6 +356,41 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  // ===================== Inference ("Use a model") =====================
+
+  ipcMain.handle('inference:list-models', async () => {
+    try {
+      return await inferenceService.listModels();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:inference:list-models] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
+  ipcMain.handle('inference:run', async (_event, args: unknown) => {
+    try {
+      if (!args || typeof args !== 'object') {
+        return { success: false, error: 'Invalid request' };
+      }
+      const a = args as Record<string, unknown>;
+      if (!validateProjectId(a.projectId)) {
+        log.error(`[IPC:inference:run] Rejected invalid project ID: ${String(a.projectId)}`);
+        return { success: false, error: 'Invalid project ID' };
+      }
+      const payload = sanitizeInferencePayload(a.payload);
+      if (payload === null) {
+        log.error('[IPC:inference:run] Rejected invalid payload');
+        return { success: false, error: 'Invalid input payload' };
+      }
+      return await inferenceService.runInference(a.projectId as string, payload);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:inference:run] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
   // ===================== Auto Updater =====================
   ipcMain.handle('updater:install', async () => {
     try {
@@ -365,5 +427,5 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, hardware:detect, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory, updater:install');
+  log.info('[IPC] All handlers registered: docker:start-training, docker:stop-training, docker:get-status, hardware:detect, auth:login, auth:logout, auth:check, auth:set-server-url, auth:get-server-url, dialog:open-directory, inference:list-models, inference:run, updater:install');
 }

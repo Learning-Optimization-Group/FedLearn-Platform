@@ -1104,3 +1104,116 @@ body {
 .log-panel::-webkit-scrollbar-thumb:hover {
   background: color-mix(in oklab, var(--accent) 40%, var(--line));
 }
+
+/* ===================== View tabs (Train / Use a model) ===================== */
+.view-tabs {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 16px;
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+}
+.view-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+.view-tab:hover { color: var(--fg); }
+.view-tab-active {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* ===================== Model Playground ===================== */
+.pg-muted { color: var(--fg-muted); font-size: 13px; }
+.pg-hint { color: var(--fg-subtle); font-size: 12px; }
+.pg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--fg-subtle);
+  padding: 40px 16px;
+  flex: 1;
+}
+.pg-empty p { color: var(--fg-muted); font-size: 14px; max-width: 280px; }
+
+.pg-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  min-height: 160px;
+  padding: 20px;
+  color: var(--fg-muted);
+  background: var(--surface-2);
+  border: 1px dashed var(--hairline);
+  border-radius: var(--radius-card);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+.pg-dropzone:hover {
+  border-color: color-mix(in oklab, var(--accent) 40%, var(--hairline));
+  background: var(--surface-3);
+}
+.pg-preview {
+  max-height: 120px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  object-fit: contain;
+}
+
+.pg-result { display: flex; flex-direction: column; gap: 16px; padding: 4px; }
+.pg-top {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px;
+  background: color-mix(in oklab, var(--accent) 10%, var(--surface-2));
+  border: 1px solid color-mix(in oklab, var(--accent) 25%, var(--hairline));
+  border-radius: var(--radius-card);
+}
+.pg-top-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+.pg-top-value {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--fg);
+  text-transform: capitalize;
+}
+.pg-top-conf { font-family: var(--font-mono); font-size: 13px; color: var(--fg-muted); }
+
+.pg-bars { display: flex; flex-direction: column; gap: 8px; }
+.pg-bar-row { display: flex; flex-direction: column; gap: 4px; }
+.pg-bar-head { display: flex; justify-content: space-between; font-size: 13px; }
+.pg-bar-label { color: var(--fg-muted); text-transform: capitalize; }
+.pg-bar-label-top { color: var(--fg); font-weight: 500; text-transform: capitalize; }
+.pg-bar-pct { font-family: var(--font-mono); color: var(--fg-muted); }
+.pg-bar-track {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.pg-bar-fill { height: 100%; border-radius: var(--radius-pill); background: color-mix(in oklab, var(--fg-subtle) 50%, transparent); }
+.pg-bar-fill-top { height: 100%; border-radius: var(--radius-pill); background: var(--accent); }

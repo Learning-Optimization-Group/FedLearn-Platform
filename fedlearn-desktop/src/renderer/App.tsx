@@ -10,6 +10,8 @@ import LogPanel from './components/LogPanel';
 import StatusIndicator from './components/StatusIndicator';
 import SettingsModal from './components/SettingsModal';
 import UpdateBanner from './components/UpdateBanner';
+import ModelPlayground from './components/ModelPlayground';
+import type { InferableModel, InferenceResult } from './inference.types';
 import './styles.css';
 
 // Type declaration for the secure preload API
@@ -35,6 +37,11 @@ declare global {
       setServerUrl: (url: string) => Promise<{ success: boolean; url?: string; error?: string }>;
       getServerUrl: () => Promise<{ success: boolean; url?: string }>;
       selectDatasetPath: () => Promise<{ success: boolean; path?: string; error?: string }>;
+      listModels: () => Promise<{ success: boolean; models?: InferableModel[]; error?: string }>;
+      runInference: (
+        projectId: string,
+        payload: { imageBase64?: string; values?: number[] },
+      ) => Promise<{ success: boolean; result?: InferenceResult; error?: string }>;
       detectHardware: () => Promise<{
         success: boolean;
         detection?: {
@@ -72,6 +79,7 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [dockerWarning, setDockerWarning] = useState<string | null>(null);
+  const [view, setView] = useState<'train' | 'use'>('train');
 
   // Listen for Docker daemon unavailability (fired once on startup)
   useEffect(() => {
@@ -229,6 +237,24 @@ const App: React.FC = () => {
             <h1 className="app-title">FedLearn Desktop</h1>
           </div>
           <StatusIndicator status={containerStatus} />
+          <nav className="view-tabs" role="tablist" aria-label="View">
+            <button
+              role="tab"
+              aria-selected={view === 'train'}
+              className={`view-tab ${view === 'train' ? 'view-tab-active' : ''}`}
+              onClick={() => setView('train')}
+            >
+              Train
+            </button>
+            <button
+              role="tab"
+              aria-selected={view === 'use'}
+              className={`view-tab ${view === 'use' ? 'view-tab-active' : ''}`}
+              onClick={() => setView('use')}
+            >
+              Use a model
+            </button>
+          </nav>
         </div>
         <div className="header-right header-actions">
           <button className="btn btn-ghost" onClick={() => setShowSettings(true)} id="settings-button">
@@ -256,29 +282,33 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="app-main">
-        <div className="main-grid">
-          {/* Left Panel: Configuration */}
-          <section className="panel config-panel">
-            <div className="panel-header">
-              <h2 className="panel-title">Set up training</h2>
-              <span className="panel-badge">This device</span>
-            </div>
-            <HardwareSelector
-              onStart={handleStartTraining}
-              onStop={handleStopTraining}
-              isRunning={containerStatus === 'running' || containerStatus === 'pulling'}
-            />
-          </section>
+        {view === 'train' ? (
+          <div className="main-grid">
+            {/* Left Panel: Configuration */}
+            <section className="panel config-panel">
+              <div className="panel-header">
+                <h2 className="panel-title">Set up training</h2>
+                <span className="panel-badge">This device</span>
+              </div>
+              <HardwareSelector
+                onStart={handleStartTraining}
+                onStop={handleStopTraining}
+                isRunning={containerStatus === 'running' || containerStatus === 'pulling'}
+              />
+            </section>
 
-          {/* Right Panel: Logs */}
-          <section className="panel log-panel-container">
-            <div className="panel-header">
-              <h2 className="panel-title">Activity log</h2>
-              <span className="log-count">{logs.length} lines</span>
-            </div>
-            <LogPanel logs={logs} />
-          </section>
-        </div>
+            {/* Right Panel: Logs */}
+            <section className="panel log-panel-container">
+              <div className="panel-header">
+                <h2 className="panel-title">Activity log</h2>
+                <span className="log-count">{logs.length} lines</span>
+              </div>
+              <LogPanel logs={logs} />
+            </section>
+          </div>
+        ) : (
+          <ModelPlayground />
+        )}
       </main>
 
       {/* Footer */}

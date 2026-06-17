@@ -41,6 +41,8 @@ ipcRenderer.on('docker:daemon-unavailable', (_event, value: string) => {
 
 const ALLOWED_HARDWARE_PROFILES = ['discrete', 'jetson', 'cpu', 'mps'] as const;
 const PROJECT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
+const MAX_IMAGE_BASE64_LEN = 14 * 1024 * 1024; // ~10 MB decoded
+const MAX_VECTOR_LEN = 100_000;
 const PARTITION_ID_PATTERN = /^[0-9]{1,10}$/;
 const SERVER_ADDRESS_PATTERN = /^[a-zA-Z0-9._:/-]{1,256}$/;
 const MAX_STRING_LENGTH = 256;
@@ -141,6 +143,31 @@ export interface TrainingConfigInput {
   partitionId: string;
   modelType: string;
   datasetPath: string;
+}
+
+interface InferencePayloadInput {
+  imageBase64?: string;
+  values?: number[];
+}
+
+function isValidInferencePayload(payload: unknown): payload is InferencePayloadInput {
+  if (!payload || typeof payload !== 'object') {
+    console.error('[Preload:Validation] Inference payload is not an object');
+    return false;
+  }
+  const p = payload as Record<string, unknown>;
+  if (typeof p.imageBase64 === 'string') {
+    return p.imageBase64.length > 0 && p.imageBase64.length <= MAX_IMAGE_BASE64_LEN;
+  }
+  if (Array.isArray(p.values)) {
+    return (
+      p.values.length > 0 &&
+      p.values.length <= MAX_VECTOR_LEN &&
+      p.values.every((v) => typeof v === 'number' && Number.isFinite(v))
+    );
+  }
+  console.error('[Preload:Validation] Inference payload has neither imageBase64 nor values');
+  return false;
 }
 
 contextBridge.exposeInMainWorld('fedLearnAPI', {
@@ -278,6 +305,32 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
    */
   selectDatasetPath: async (): Promise<{ success: boolean; path?: string; error?: string }> => {
     return ipcRenderer.invoke('dialog:open-directory');
+  },
+
+  // ===================== Inference ("Use a model") =====================
+
+  /**
+   * List the authenticated user's trained models that can be run interactively.
+   */
+  listModels: async (): Promise<{ success: boolean; models?: unknown[]; error?: string }> => {
+    return ipcRenderer.invoke('inference:list-models');
+  },
+
+  /**
+   * Run inference against a project's trained model. The payload carries either
+   * a base64 image (image models) or a numeric vector (tabular models).
+   */
+  runInference: async (
+    projectId: string,
+    payload: InferencePayloadInput,
+  ): Promise<{ success: boolean; result?: unknown; error?: string }> => {
+    if (!isValidProjectId(projectId)) {
+      return { success: false, error: 'Invalid project ID' };
+    }
+    if (!isValidInferencePayload(payload)) {
+      return { success: false, error: 'Invalid input payload' };
+    }
+    return ipcRenderer.invoke('inference:run', { projectId, payload });
   },
 
   /**
