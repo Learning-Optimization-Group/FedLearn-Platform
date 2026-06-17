@@ -40,4 +40,26 @@ inline double etGScalarForward(ExecutorchModel& model,
   return (lossPerturbed - lossRef) / mu;
 }
 
+// Central-difference g-scalar: g = (L(flat + mu*z) - L(flat - mu*z)) / (2*mu). Lower O(mu^2)
+// bias than the forward difference; same float32 perturbation discipline. `z` must be
+// flat_randn(seed, flat.size()). Satisfies the identity central(z) = (forward(z) - forward(-z))/2.
+inline double etGScalarCentral(ExecutorchModel& model,
+                               const std::vector<float>& flat,
+                               const std::vector<float>& z, double mu,
+                               const float* x, const std::vector<int64_t>& xShape,
+                               const int64_t* y, int64_t n) {
+  if (z.size() != flat.size()) {
+    throw std::invalid_argument("etGScalarCentral: perturbation size != parameter size");
+  }
+  const float muf = static_cast<float>(mu);
+  std::vector<float> plus(flat.size()), minus(flat.size());
+  for (size_t i = 0; i < flat.size(); ++i) {
+    plus[i] = flat[i] + muf * z[i];
+    minus[i] = flat[i] - muf * z[i];
+  }
+  const double lossPlus = static_cast<double>(model.loss(plus, x, xShape, y, n));
+  const double lossMinus = static_cast<double>(model.loss(minus, x, xShape, y, n));
+  return (lossPlus - lossMinus) / (2.0 * mu);
+}
+
 }  // namespace fedlearn

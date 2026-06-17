@@ -70,3 +70,29 @@ TEST(EtGScalar, MatchesGoldenG) {
     EXPECT_NEAR(g, c.golden_g, 2e-3) << "ExecuTorch g-scalar parity broke at seed " << c.seed;
   }
 }
+
+TEST(EtGScalar, CentralMatchesForwardIdentity) {
+  fedlearn::ExecutorchModel model(ptePath(), kPteSha256);
+  const auto flat = ReadBin<float>(std::string(GOLDEN_DIR) + "/zo_flat.f32");
+  const auto x = ReadBin<float>(std::string(GOLDEN_DIR) + "/zo_inputs.f32");
+  const auto y = ReadBin<int64_t>(std::string(GOLDEN_DIR) + "/zo_targets.i64");
+  ASSERT_EQ(flat.size(), 25u);
+
+  for (const auto& c : kCases) {
+    const std::vector<float> z = fedlearn::flat_randn(c.seed, static_cast<int64_t>(flat.size()));
+    std::vector<float> negZ(z.size());
+    for (size_t i = 0; i < z.size(); ++i) negZ[i] = -z[i];
+
+    const double central =
+        fedlearn::etGScalarCentral(model, flat, z, kMu, x.data(), {8, 4}, y.data(), 8);
+    const double fwdPos =
+        fedlearn::etGScalarForward(model, flat, z, kMu, x.data(), {8, 4}, y.data(), 8);
+    const double fwdNeg =
+        fedlearn::etGScalarForward(model, flat, negZ, kMu, x.data(), {8, 4}, y.data(), 8);
+
+    // Exact identity (up to float rounding): central(z) = (forward(z) - forward(-z)) / 2.
+    // forward(z) is already golden-gated, so this transitively validates etGScalarCentral.
+    EXPECT_NEAR(central, 0.5 * (fwdPos - fwdNeg), 1e-5)
+        << "central-difference identity broke at seed " << c.seed;
+  }
+}
