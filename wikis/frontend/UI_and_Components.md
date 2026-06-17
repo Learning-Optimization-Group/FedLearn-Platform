@@ -1,5 +1,7 @@
 # UI and Components
 
+> **Current design system: Ember.** As of the `1.4.1-beta` Ember rollout, the redesign track described below now uses the **Ember** design system — warm canvas (`#FBF9F6`), burnt-orange accent (`#C56A1E`), Bricolage Grotesque / Hanken Grotesk / JetBrains Mono — driven by CSS variables in `src/styles/tokens.css`. Ember superseded the earlier "Instrument" tokens; the glassmorphic dark "V2" styling discussed here was the design language that preceded it.
+
 The FedLearn frontend is transitioning from a traditional custom-CSS layout to a modern, utility-first (Tailwind CSS) approach. 
 
 ## Two UI Paradigms
@@ -9,8 +11,8 @@ The application currently supports two distinct visual languages side-by-side:
 ### 1. Legacy UI (Standard Routes)
 Located in `src/components/` and `src/pages/`, the legacy UI relies on standard CSS files located in `src/styles/`. Components like `ProjectCard`, `ModelCard`, and standard forms utilize classes defined in files like `Dashboard.css` and `Layout.css`.
 
-### 2. Redesign V2 (Apple-inspired Dark Theme)
-Located in `src/components/redesign/`, this is the future direction of the platform. The V2 interface leverages **Tailwind CSS 4.x** to construct a sleek, glassmorphic, and dynamic UI without custom CSS files.
+### 2. Redesign V2 (now the Ember design system)
+Located in `src/components/redesign/`, this is the current direction of the platform — now themed by the **Ember** design system. The V2 interface leverages **Tailwind CSS 4.x** to construct a dynamic UI from design-token CSS variables rather than custom CSS files.
 These components are accessed via the `/v2` routes.
 
 ## The V2 Design System

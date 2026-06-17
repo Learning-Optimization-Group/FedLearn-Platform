@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 - Architecture & Core Concepts · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Backend</summary><ul>
+<li><a href="README.html">Backend Architecture Wiki</a></li>
+<li><a class="active" href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Backend</b> &nbsp;·&nbsp; 01 - Architecture & Core Concepts</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="01-architecture-core-concepts">01 - Architecture &amp; Core Concepts<a class="headerlink" href="#01-architecture-core-concepts" title="Permanent link">&para;</a></h1>
+<p>This document outlines the foundational architecture of the FedLearn Spring Boot 3 API.</p>
+<h2 id="1-high-level-architecture">1. High-Level Architecture<a class="headerlink" href="#1-high-level-architecture" title="Permanent link">&para;</a></h2>
+<p>The FedLearn backend is designed as an <strong>Orchestration API</strong>. It does not perform the heavy mathematical computations required for Machine Learning itself; instead, it manages users, projects, and security, and then dynamically provisions Python-based Federated Learning (FL) aggregation servers to handle the ML workloads.</p>
+<p>The backend acts as the central control plane connecting the React web interface to the distributed Python FL ecosystem.</p>
+<blockquote class="callout warn"><p>⚠️ <strong>Branch reality.</strong> Two parts of this overview describe designed-but-not-yet-committed work:
+1. <strong>Database</strong> — the running backend uses <strong>H2</strong> (file-mode in <code>dev</code>/<code>ec2demo</code>, in-memory in <code>test</code>). <strong>PostgreSQL is the intended production / ECS-Fargate target and that path is unfinished.</strong>
+2. <strong>Identity / multi-tenancy / audit</strong> — the <code>audit/</code>, <code>bootstrap/</code>, and <code>email/</code> packages, the <code>Organization</code> / <code>OrganizationMembership</code> / <code>ProjectMembership</code> / <code>ProjectAccessRequest</code> / <code>AuditEvent</code> entities, <code>PlatformRole</code> / <code>OrgScope</code> / <code>AuthorizationService</code>, and the <code>V4</code>–<code>V6</code> migrations live on a <strong>separate identity-foundations branch and are <em>not present</em> on this branch.</strong> This branch ships only <code>users.role IN (USER, ADMIN)</code> (migration <code>V2</code>); the highest committed migration is <code>V3</code>. See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</p>
+<p>The orchestration (<code>flower/</code>), project, results, logging, security-filter, config, controller, and DTO machinery described below is current.</p>
+</blockquote>
+<h3 id="tech-stack">Tech Stack<a class="headerlink" href="#tech-stack" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Language:</strong> Java 21</li>
+<li><strong>Framework:</strong> Spring Boot 3.4.1</li>
+<li><strong>Database:</strong> H2 (file-mode; accessed via Spring Data JPA / Hibernate). PostgreSQL is the intended production/Fargate target — that path is unfinished.</li>
+<li><strong>Authentication:</strong> Stateless JWT (JSON Web Tokens)</li>
+<li><strong>Real-time Comms:</strong> Spring WebSocket (STOMP protocol)</li>
+<li><strong>Cloud Integration:</strong> AWS SDK v2 (ECS/Fargate)</li>
+</ul>
+<hr />
+<h2 id="2-directory-structure">2. Directory Structure<a class="headerlink" href="#2-directory-structure" title="Permanent link">&para;</a></h2>
+<p>The source code is located at <code>backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Directory / Package</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>audit/</code></td>
+<td>Declarative audit trail. The <code>@Auditable</code> annotation, the <code>AuditAspect</code> <code>@Around</code> advice that writes <code>audit_events</code> rows after successful mutations, and the <code>AuditContext</code> thread-local metadata sidecar. See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</td>
+</tr>
+<tr>
+<td><code>bootstrap/</code></td>
+<td>First-run seeding. <code>BootstrapRunner</code> idempotently creates the first <code>PLATFORM_ADMIN</code> user and a default <code>Organization</code> from <code>app.bootstrap.*</code> env vars.</td>
+</tr>
+<tr>
+<td><code>config/</code></td>
+<td>Application configuration. Contains CORS settings (<code>WebConfig</code>), WebSocket broker configuration (<code>WebSocketConfig</code>), and Spring Security filter chains (<code>SecurityConfig</code>).</td>
+</tr>
+<tr>
+<td><code>controller/</code></td>
+<td>REST API endpoints. Exposes routes for authentication (<code>AuthController</code>), projects (<code>ProjectController</code>), results (<code>ResultsController</code>), plus the identity surface: memberships, access requests, admin console, user search, and the FL-client API.</td>
+</tr>
+<tr>
+<td><code>dto/</code></td>
+<td>Data Transfer Objects. POJOs used to decouple the external JSON payloads from the internal JPA entities.</td>
+</tr>
+<tr>
+<td><code>email/</code></td>
+<td>Pluggable email layer. The <code>EmailService</code> interface with a <code>LoggingEmailService</code> (dev) and <code>SmtpEmailService</code> (prod) adapter, selected by <code>EmailConfig</code> on <code>app.email.provider</code>.</td>
+</tr>
+<tr>
+<td><code>exception/</code></td>
+<td>Custom runtime exceptions and the <code>@ControllerAdvice</code> global exception handler that translates them into standardized HTTP responses.</td>
+</tr>
+<tr>
+<td><code>flower/</code></td>
+<td>The core orchestration layer. Contains <code>FlowerServerManager</code> which interfaces with AWS or local processes to spawn the ML servers.</td>
+</tr>
+<tr>
+<td><code>model/</code></td>
+<td>JPA Entities defining the database schema. On this branch: <code>Project.java</code>, <code>User.java</code>, <code>RoundResult.java</code>, <code>ServerLog.java</code>. The identity entities (<code>Organization.java</code>, <code>AuditEvent.java</code>, …) belong to the designed identity-foundations branch — see the banner above.</td>
+</tr>
+<tr>
+<td><code>repository/</code></td>
+<td>Spring Data JPA interfaces extending <code>JpaRepository</code> for database access.</td>
+</tr>
+<tr>
+<td><code>security/</code></td>
+<td>JWT generation, API Key filters, WebSocket handshake interceptors, the request-scoped <code>OrgScope</code>/<code>OrgScopeFilter</code> multi-tenant gate, and the login auditing success/failure handlers.</td>
+</tr>
+<tr>
+<td><code>service/</code></td>
+<td>Business logic layer. Controllers delegate to services (like <code>ProjectService</code>) to handle complex operations and transactional boundaries. <code>AuthorizationService</code> centralises the role/org-scope checks.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-core-domain-models-jpa-entities">3. Core Domain Models (JPA Entities)<a class="headerlink" href="#3-core-domain-models-jpa-entities" title="Permanent link">&para;</a></h2>
+<p>The database is organized around the following core entities (the identity/multi-tenancy entities below belong to the designed identity-foundations branch — see the banner above):</p>
+<h3 id="user"><code>User</code><a class="headerlink" href="#user" title="Permanent link">&para;</a></h3>
+<p>Represents an authenticated platform user.
+- Contains credentials (hashed password) and a single <code>platformRole</code> (a <code>PlatformRole</code> enum — <code>USER</code> or <code>PLATFORM_ADMIN</code>). The old single <code>role</code> column was renamed to <code>platform_role</code> in the V5 migration.
+- <strong>Lifecycle / profile columns:</strong> <code>status</code> (<code>UserStatus</code> — <code>PENDING</code>/<code>ACTIVE</code>/<code>SUSPENDED</code>, defaults <code>ACTIVE</code>), <code>deletedAt</code> (soft-delete tombstone), <code>emailVerified</code>, <code>displayName</code>, <code>avatarUrl</code>, <code>lastLoginAt</code>.
+- Has a one-to-many relationship with <code>Project</code>. See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a> for the full role model.</p>
+<h3 id="project"><code>Project</code><a class="headerlink" href="#project" title="Permanent link">&para;</a></h3>
+<p>The central entity for an FL experiment.
+- <strong>Key Fields:</strong> <code>modelType</code> (e.g., CNN, LLM), <code>optimizer</code>, <code>status</code> (CREATED, RUNNING, STOPPED, COMPLETED), and <code>serverPort</code> (if running locally).
+- <strong>Multi-tenancy:</strong> <code>orgId</code> (a <code>UUID</code>, <strong>NOT NULL</strong>) pins every project to an <code>Organization</code>; <code>visibility</code> (<code>ProjectVisibility</code> — <code>PRIVATE</code> default / <code>PUBLIC</code>) controls discoverability. Plus Model-Hub publish columns (<code>modelPublished</code>, <code>modelDescription</code>, <code>modelTags</code>, <code>modelPublishedAt</code>).
+- <strong>Relationships:</strong> Owned by a <code>User</code>. Contains many <code>RoundResult</code>, <code>ServerLog</code>, and <code>ProjectMembership</code> entries.</p>
+<h3 id="identity-multi-tenancy-entities">Identity &amp; Multi-Tenancy Entities<a class="headerlink" href="#identity-multi-tenancy-entities" title="Permanent link">&para;</a></h3>
+<p>Added by the identity subsystem (full detail in <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>):</p>
+<ul>
+<li><strong><code>Organization</code></strong> — tenant boundary. <code>UUID</code> PK, unique <code>slug</code>, soft-delete <code>deletedAt</code>.</li>
+<li><strong><code>OrganizationMembership</code></strong> — per-user org role (<code>OrgRole</code>: <code>OWNER</code>/<code>ADMIN</code>/<code>MEMBER</code>), composite PK <code>(org_id, user_id)</code>.</li>
+<li><strong><code>ProjectMembership</code></strong> — per-user project role (<code>MembershipRole</code>: <code>OWNER</code>/<code>MEMBER</code>/<code>CLIENT</code>), composite PK <code>(project_id, user_id)</code>; carries <code>partitionId</code> and <code>joinedVia</code> provenance.</li>
+<li><strong><code>ProjectAccessRequest</code></strong> — the join-request workflow for PRIVATE projects (<code>PENDING</code>/<code>APPROVED</code>/<code>DENIED</code>).</li>
+<li><strong><code>AuditEvent</code></strong> — append-only audit log row: <code>action</code> (<code>AuditAction</code> enum), <code>actorUserId</code>, <code>orgId</code>, <code>targetType</code>/<code>targetId</code>, JSONB <code>metadata</code>, <code>requestIp</code>, <code>userAgent</code>.</li>
+</ul>
+<h3 id="roundresult"><code>RoundResult</code><a class="headerlink" href="#roundresult" title="Permanent link">&para;</a></h3>
+<p>Stores the output of a single federated learning round (e.g., FedAvg).
+- <strong>Key Fields:</strong> <code>serverRound</code>, <code>loss</code>, <code>accuracy</code>, <code>gpuUtilization</code>.
+- These are written by the Python FL server calling the <code>/api/internal/projects/{id}/results</code> endpoint.</p>
+<h3 id="serverlog"><code>ServerLog</code><a class="headerlink" href="#serverlog" title="Permanent link">&para;</a></h3>
+<p>Persistent storage for stdout logs generated by the Python FL Server.
+- <strong>Key Fields:</strong> <code>level</code> (INFO, ERROR, etc.), <code>message</code>, <code>stackTrace</code>, <code>timestamp</code>.
+- Used to export logs to text files or display historical data on the React dashboard after a project finishes.</p>
+<hr />
+<h2 id="4-the-data-flow-summary">4. The Data Flow Summary<a class="headerlink" href="#4-the-data-flow-summary" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>User Action:</strong> A user clicks "Start Project" on the React dashboard.</li>
+<li><strong>REST Request:</strong> The React app sends an HTTP POST to the Spring Boot <code>ProjectController</code> with a valid JWT.</li>
+<li><strong>Service Logic:</strong> <code>ProjectService</code> validates ownership and asks the <code>ModelInitializer</code> to build a local <code>.npz</code> weights file.</li>
+<li><strong>Orchestration:</strong> <code>FlowerServerManager</code> provisions a Python FL Server (either locally via <code>ProcessBuilder</code> or on AWS Fargate).</li>
+<li><strong>Real-time Observability:</strong> The Python FL Server streams its logs back to Spring Boot. <code>WebSocketService</code> intercepts these logs, saves them to the <code>server_logs</code> table, and broadcasts them via STOMP to the React dashboard.</li>
+<li><strong>Results Storage:</strong> As the Python FL Server completes training rounds, it sends POST requests to Spring Boot's internal endpoints (secured by API Key) to save <code>RoundResult</code> data.</li>
+</ol></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

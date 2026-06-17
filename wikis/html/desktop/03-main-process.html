@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FedLearn Desktop — Main Process Deep Dive · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Desktop</summary><ul>
+<li><a href="README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a class="active" href="03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Desktop</b> &nbsp;·&nbsp; FedLearn Desktop — Main Process Deep Dive</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="fedlearn-desktop-main-process-deep-dive">FedLearn Desktop — Main Process Deep Dive<a class="headerlink" href="#fedlearn-desktop-main-process-deep-dive" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a> → <a href="README.html">Desktop Wiki</a></p>
+</blockquote>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#entry-point-maints">Entry Point: <code>main.ts</code></a></li>
+<li><a href="#ipc-handler-registry-ipchandlersts">IPC Handler Registry: <code>ipc.handlers.ts</code></a></li>
+<li><a href="#training-orchestration-dockerservicets">Training Orchestration: <code>docker.service.ts</code></a></li>
+<li><a href="#authentication-service-authservicets">Authentication Service: <code>auth.service.ts</code></a></li>
+<li><a href="#hardware-probe-hardwareprobets">Hardware Probe: <code>hardware.probe.ts</code></a></li>
+<li><a href="#ipc-channel-reference">IPC Channel Reference</a></li>
+</ol>
+<hr />
+<h2 id="entry-point-maints">Entry Point: <code>main.ts</code><a class="headerlink" href="#entry-point-maints" title="Permanent link">&para;</a></h2>
+<p><code>main.ts</code> is the first file executed by Electron's Main Process. It sets up the entire application shell: window creation, Content Security Policy, IPC handler registration, and app lifecycle management.</p>
+<h3 id="window-creation">Window Creation<a class="headerlink" href="#window-creation" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/main/main.ts</span>
+<span class="kd">function</span><span class="w"> </span><span class="nx">createWindow</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">mainWindow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">BrowserWindow</span><span class="p">({</span>
+<span class="w">    </span><span class="nx">width</span><span class="o">:</span><span class="w"> </span><span class="kt">1280</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">height</span><span class="o">:</span><span class="w"> </span><span class="kt">820</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">minWidth</span><span class="o">:</span><span class="w"> </span><span class="kt">960</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">minHeight</span><span class="o">:</span><span class="w"> </span><span class="kt">640</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">title</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;FedLearn Desktop&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">backgroundColor</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;#0a0a0f&#39;</span><span class="p">,</span><span class="w">   </span><span class="c1">// Dark background, prevents flash on load</span>
+<span class="w">    </span><span class="nx">titleBarStyle</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;hiddenInset&#39;</span><span class="p">,</span><span class="w"> </span><span class="c1">// macOS native traffic lights inset into app</span>
+<span class="w">    </span><span class="nx">trafficLightPosition</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">x</span><span class="o">:</span><span class="w"> </span><span class="kt">16</span><span class="p">,</span><span class="w"> </span><span class="nx">y</span><span class="o">:</span><span class="w"> </span><span class="kt">16</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nx">webPreferences</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">nodeIntegration</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">contextIsolation</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">sandbox</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">preload</span><span class="o">:</span><span class="w"> </span><span class="kt">path.join</span><span class="p">(</span><span class="nx">__dirname</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;..&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;preload&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;preload.js&#39;</span><span class="p">),</span>
+<span class="w">      </span><span class="nx">devTools</span><span class="o">:</span><span class="w"> </span><span class="kt">isDev</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">webSecurity</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">allowRunningInsecureContent</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">experimentalFeatures</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><strong>Notable choices:</strong>
+- <code>backgroundColor: '#0a0a0f'</code> — Sets the window background to the app's dark theme color <em>before</em> the renderer loads. This prevents the white flash that would otherwise appear while HTML/CSS is being parsed.
+- <code>titleBarStyle: 'hiddenInset'</code> — macOS only. Hides the title bar chrome but keeps the traffic-light buttons (close/minimize/maximize) in the window, positioned at the specified offsets.
+- <code>minWidth: 960, minHeight: 640</code> — Enforces a minimum usable window size, preventing layout breakage on very small displays.</p>
+<h3 id="dev-vs-production-loading">Dev vs. Production Loading<a class="headerlink" href="#dev-vs-production-loading" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">isDev</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Dev: Load from webpack-dev-server (supports HMR)</span>
+<span class="w">  </span><span class="nx">mainWindow</span><span class="p">.</span><span class="nx">loadURL</span><span class="p">(</span><span class="s1">&#39;http://localhost:9000&#39;</span><span class="p">);</span>
+<span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Production: Load from packaged asar bundle</span>
+<span class="w">  </span><span class="nx">mainWindow</span><span class="p">.</span><span class="nx">loadFile</span><span class="p">(</span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">__dirname</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;..&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;renderer&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;index.html&#39;</span><span class="p">));</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><code>isDev</code> is computed as:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">isDev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">NODE_ENV</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;production&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="nx">app</span><span class="p">.</span><span class="nx">isPackaged</span><span class="p">;</span>
+</code></pre></div>
+
+<p>The double check (<code>NODE_ENV</code> AND <code>!app.isPackaged</code>) prevents development-only code paths from running if the app is accidentally built without setting <code>NODE_ENV=production</code>.</p>
+<h3 id="logging-setup">Logging Setup<a class="headerlink" href="#logging-setup" title="Permanent link">&para;</a></h3>
+<p><code>electron-log</code> is the sole logging mechanism. It replaces the built-in <code>console</code> in Main so all <code>console.log</code>, <code>console.error</code>, etc. calls go through the structured logger:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">log</span><span class="p">.</span><span class="nx">transports</span><span class="p">.</span><span class="nx">file</span><span class="p">.</span><span class="nx">level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;info&#39;</span><span class="p">;</span><span class="w">    </span><span class="c1">// File log level</span>
+<span class="nx">log</span><span class="p">.</span><span class="nx">transports</span><span class="p">.</span><span class="nx">console</span><span class="p">.</span><span class="nx">level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;debug&#39;</span><span class="p">;</span><span class="w"> </span><span class="c1">// Console log level (more verbose in dev)</span>
+<span class="nx">log</span><span class="p">.</span><span class="nx">initialize</span><span class="p">();</span>
+<span class="nb">Object</span><span class="p">.</span><span class="nx">assign</span><span class="p">(</span><span class="nx">console</span><span class="p">,</span><span class="w"> </span><span class="nx">log</span><span class="p">.</span><span class="nx">functions</span><span class="p">);</span><span class="w"> </span><span class="c1">// Replace console with electron-log</span>
+</code></pre></div>
+
+<p>Log files are written to the OS app data directory:
+- <strong>macOS:</strong> <code>~/Library/Logs/FedLearn Desktop/main.log</code>
+- <strong>Windows:</strong> <code>%USERPROFILE%\AppData\Roaming\FedLearn Desktop\logs\main.log</code>
+- <strong>Linux:</strong> <code>~/.config/FedLearn Desktop/logs/main.log</code></p>
+<h3 id="crash-reporter">Crash Reporter<a class="headerlink" href="#crash-reporter" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nx">crashReporter</span><span class="p">.</span><span class="nx">start</span><span class="p">({</span><span class="w"> </span><span class="nx">uploadToServer</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="w"> </span><span class="p">});</span>
+</code></pre></div>
+
+<p>Crash dumps are written to <code>app.getPath('crashDumps')</code> but <strong>not uploaded</strong> anywhere. This prevents telemetry from leaking sensitive environment information (environment variables, memory contents, etc.) to a remote server.</p>
+<h3 id="app-lifecycle">App Lifecycle<a class="headerlink" href="#app-lifecycle" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Re-create window on macOS dock click (standard macOS behavior)</span>
+<span class="nx">app</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;activate&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">BrowserWindow</span><span class="p">.</span><span class="nx">getAllWindows</span><span class="p">().</span><span class="nx">length</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">createWindow</span><span class="p">();</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">});</span>
+
+<span class="c1">// Quit on all windows closed (except macOS — dock app stays running)</span>
+<span class="nx">app</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;window-all-closed&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">platform</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;darwin&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">app</span><span class="p">.</span><span class="nx">quit</span><span class="p">();</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">});</span>
+
+<span class="c1">// Disable GPU hardware acceleration</span>
+<span class="c1">// GPU compute happens inside Docker/native process — Electron&#39;s UI doesn&#39;t need it</span>
+<span class="nx">app</span><span class="p">.</span><span class="nx">disableHardwareAcceleration</span><span class="p">();</span>
+</code></pre></div>
+
+<hr />
+<h2 id="ipc-handler-registry-ipchandlersts">IPC Handler Registry: <code>ipc.handlers.ts</code><a class="headerlink" href="#ipc-handler-registry-ipchandlersts" title="Permanent link">&para;</a></h2>
+<p>All <code>ipcMain.handle</code> registrations are centralized in <code>registerIpcHandlers()</code>. This is called once from <code>main.ts</code> after the window is created.</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/main/ipc.handlers.ts</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">registerIpcHandlers</span><span class="p">(</span><span class="nx">mainWindow</span><span class="o">:</span><span class="w"> </span><span class="kt">BrowserWindow</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">dockerService</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">DockerService</span><span class="p">(</span><span class="nx">mainWindow</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">authService</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">AuthService</span><span class="p">();</span>
+
+<span class="w">  </span><span class="c1">// Register each IPC channel...</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>The function is wrapped in a try/catch in <code>main.ts</code> so that a registration failure (e.g., a crash in <code>DockerService</code> constructor) <strong>does not prevent the renderer from loading</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// main.ts</span>
+<span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">registerIpcHandlers</span><span class="p">(</span><span class="nx">mainWindow</span><span class="p">);</span>
+<span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">err</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">log</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;[Main] registerIpcHandlers failed; renderer will still load&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>This is important because if the window stays black (no renderer), the user has no way to recover — they can't even log out or change the server URL.</p>
+<h3 id="validation-constants">Validation Constants<a class="headerlink" href="#validation-constants" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">ALLOWED_HARDWARE_PROFILES</span><span class="o">:</span><span class="w"> </span><span class="kt">ReadonlySet</span><span class="o">&lt;</span><span class="kt">string</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Set</span><span class="p">([</span><span class="s1">&#39;discrete&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="p">]);</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">PROJECT_ID_PATTERN</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[a-zA-Z0-9_-]{1,128}$/</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">PARTITION_ID_PATTERN</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[0-9]{1,10}$/</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">SERVER_ADDRESS_PATTERN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[a-zA-Z0-9._:/-]{1,256}$/</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">MAX_DATASET_PATH_LEN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">2048</span><span class="p">;</span>
+</code></pre></div>
+
+<p>These mirror the constants in <code>preload.ts</code>. Keeping them in sync is important; they're the second line of defense.</p>
+<h3 id="channel-dialogopen-directory">Channel: <code>dialog:open-directory</code><a class="headerlink" href="#channel-dialogopen-directory" title="Permanent link">&para;</a></h3>
+<p>Opens a native OS directory picker dialog:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">ipcMain</span><span class="p">.</span><span class="nx">handle</span><span class="p">(</span><span class="s1">&#39;dialog:open-directory&#39;</span><span class="p">,</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">dialog</span><span class="p">.</span><span class="nx">showOpenDialog</span><span class="p">(</span><span class="nx">mainWindow</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">properties</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;openDirectory&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;createDirectory&#39;</span><span class="p">],</span>
+<span class="w">    </span><span class="nx">title</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Select Dataset Directory&#39;</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">canceled</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">result</span><span class="p">.</span><span class="nx">filePaths</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;User canceled.&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w"> </span><span class="nx">path</span><span class="o">:</span><span class="w"> </span><span class="kt">result.filePaths</span><span class="p">[</span><span class="mf">0</span><span class="p">]</span><span class="w"> </span><span class="p">};</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<p>Using the <strong>native dialog</strong> for path selection (rather than a text input) is a security choice — paths chosen through the OS dialog are guaranteed to be valid, existing paths that the user intentionally selected. The raw path is still sanitized by <code>sanitizeDatasetPath</code> in the <code>docker:start-training</code> handler before use.</p>
+<hr />
+<h2 id="training-orchestration-dockerservicets">Training Orchestration: <code>docker.service.ts</code><a class="headerlink" href="#training-orchestration-dockerservicets" title="Permanent link">&para;</a></h2>
+<p><code>DockerService</code> is the core of the desktop application. It manages the full lifecycle of a training session, routing between two execution backends based on the hardware profile.</p>
+<h3 id="constructor">Constructor<a class="headerlink" href="#constructor" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">class</span><span class="w"> </span><span class="nx">DockerService</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">private</span><span class="w"> </span><span class="nx">docker</span><span class="o">:</span><span class="w"> </span><span class="kt">Docker</span><span class="p">;</span>
+<span class="w">  </span><span class="k">private</span><span class="w"> </span><span class="nx">mainWindow</span><span class="o">:</span><span class="w"> </span><span class="kt">BrowserWindow</span><span class="p">;</span>
+<span class="w">  </span><span class="k">private</span><span class="w"> </span><span class="nx">activeContainerId</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">  </span><span class="k">private</span><span class="w"> </span><span class="nx">logStream</span><span class="o">:</span><span class="w"> </span><span class="kt">NodeJS.ReadableStream</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">  </span><span class="k">private</span><span class="w"> </span><span class="nx">nativeProcess</span><span class="o">:</span><span class="w"> </span><span class="kt">ChildProcess</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+
+<span class="w">  </span><span class="kr">constructor</span><span class="p">(</span><span class="nx">mainWindow</span><span class="o">:</span><span class="w"> </span><span class="kt">BrowserWindow</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">mainWindow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">mainWindow</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// Platform-appropriate Docker socket</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">socketPath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">platform</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;win32&#39;</span>
+<span class="w">      </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;//./pipe/docker_engine&#39;</span>
+<span class="w">      </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/var/run/docker.sock&#39;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">docker</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Docker</span><span class="p">({</span><span class="w"> </span><span class="nx">socketPath</span><span class="w"> </span><span class="p">});</span>
+
+<span class="w">    </span><span class="c1">// Non-blocking probe — logged but not surfaced to renderer unless needed</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">docker</span><span class="p">.</span><span class="nx">ping</span><span class="p">()</span>
+<span class="w">      </span><span class="p">.</span><span class="nx">then</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">log</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s1">&#39;[DockerService] Docker daemon is reachable&#39;</span><span class="p">))</span>
+<span class="w">      </span><span class="p">.</span><span class="k">catch</span><span class="p">((</span><span class="nx">err</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">log</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="sb">`[DockerService] Docker daemon unreachable: </span><span class="si">${</span><span class="nx">err</span><span class="p">.</span><span class="nx">message</span><span class="si">}</span><span class="sb">`</span><span class="p">));</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>The daemon ping is <strong>non-blocking</strong> — it doesn't wait for a response before creating the window. The result is logged so developers can see connectivity status, but native-path users (MPS/CPU) should never see a Docker-related warning unless they click the Jetson profile.</p>
+<h3 id="execution-routing">Execution Routing<a class="headerlink" href="#execution-routing" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">async</span><span class="w"> </span><span class="nx">startTraining</span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">TrainingConfig</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="ow">void</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">startDockerTraining</span><span class="p">(</span><span class="nx">config</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">startNativeProcess</span><span class="p">(</span><span class="nx">config</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>Simple: <code>jetson</code> → Docker, everything else → native binary.</p>
+<h3 id="native-process-resolution">Native Process Resolution<a class="headerlink" href="#native-process-resolution" title="Permanent link">&para;</a></h3>
+<p>The native client can be in two locations depending on runtime context:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">private</span><span class="w"> </span><span class="nx">resolveNativeInvocation</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">binaryName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">platform</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;win32&#39;</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;fedlearn-client.exe&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;fedlearn-client&#39;</span><span class="p">;</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">app</span><span class="p">.</span><span class="nx">isPackaged</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// PRODUCTION: Use the PyInstaller bundle shipped in extraResources</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">bundleDir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">resourcesPath</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;fedlearn-client&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">binary</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">bundleDir</span><span class="p">,</span><span class="w"> </span><span class="nx">binaryName</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">fs</span><span class="p">.</span><span class="nx">existsSync</span><span class="p">(</span><span class="nx">binary</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">log</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="sb">`[Native] Packaged bundle missing at </span><span class="si">${</span><span class="nx">binary</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span><span class="w">  </span><span class="c1">// Caller surfaces a clear error</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">command</span><span class="o">:</span><span class="w"> </span><span class="kt">binary</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">baseArgs</span><span class="o">:</span><span class="w"> </span><span class="p">[],</span>
+<span class="w">      </span><span class="nx">cwd</span><span class="o">:</span><span class="w"> </span><span class="kt">bundleDir</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">env</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">,</span><span class="w"> </span><span class="nx">PYTHONUNBUFFERED</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;1&#39;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="c1">// DEVELOPMENT: Use system python3 + source tree</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">repoRoot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">resolve</span><span class="p">(</span><span class="nx">__dirname</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;..&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;..&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;..&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">clientScript</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">repoRoot</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;client-docker&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;scripts&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;client.py&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">frameworkSrc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">repoRoot</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;framework&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;src&#39;</span><span class="p">);</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">command</span><span class="o">:</span><span class="w"> </span><span class="kt">process.platform</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;win32&#39;</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;python&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;python3&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">baseArgs</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;-u&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">clientScript</span><span class="p">],</span><span class="w">  </span><span class="c1">// -u: unbuffered output (critical for real-time logs)</span>
+<span class="w">    </span><span class="nx">cwd</span><span class="o">:</span><span class="w"> </span><span class="kt">path.dirname</span><span class="p">(</span><span class="nx">clientScript</span><span class="p">),</span>
+<span class="w">    </span><span class="nx">env</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="p">...</span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">PYTHONPATH</span><span class="o">:</span><span class="w"> </span><span class="kt">frameworkSrc</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">PYTHONUNBUFFERED</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;1&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">  </span><span class="p">};</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="starting-a-native-process">Starting a Native Process<a class="headerlink" href="#starting-a-native-process" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">private</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="nx">startNativeProcess</span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">TrainingConfig</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="ow">void</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Kill any previous process</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="p">.</span><span class="nx">kill</span><span class="p">(</span><span class="s1">&#39;SIGTERM&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">invocation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">resolveNativeInvocation</span><span class="p">();</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">invocation</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">app</span><span class="p">.</span><span class="nx">isPackaged</span>
+<span class="w">      </span><span class="o">?</span><span class="w"> </span><span class="sb">`Native training bundle not found at &lt;resources&gt;/fedlearn-client.`</span>
+<span class="w">      </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Dev-mode client.py not found. Run the app from the repo root.&#39;</span><span class="p">;</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">sendLog</span><span class="p">(</span><span class="sb">`[System] </span><span class="si">${</span><span class="nx">msg</span><span class="si">}</span><span class="sb">\n`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="nx">msg</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">args</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">...</span><span class="nx">invocation</span><span class="p">.</span><span class="nx">baseArgs</span><span class="p">,</span>
+<span class="w">    </span><span class="s1">&#39;--project-id&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">projectId</span><span class="p">,</span>
+<span class="w">    </span><span class="s1">&#39;--server-address&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">serverAddress</span><span class="p">,</span>
+<span class="w">    </span><span class="s1">&#39;--partition-id&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">partitionId</span><span class="p">,</span>
+<span class="w">  </span><span class="p">];</span>
+
+<span class="w">  </span><span class="c1">// LLM flag for large model architectures</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;OPT-125M&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;Transformer&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s1">&#39;--use-llm&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">child</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">spawn</span><span class="p">(</span><span class="nx">invocation</span><span class="p">.</span><span class="nx">command</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">env</span><span class="o">:</span><span class="w"> </span><span class="kt">invocation.env</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">cwd</span><span class="o">:</span><span class="w"> </span><span class="kt">invocation.cwd</span><span class="p">,</span>
+<span class="w">  </span><span class="p">});</span>
+
+<span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">child</span><span class="p">;</span>
+
+<span class="w">  </span><span class="c1">// Pipe stdout/stderr to renderer log panel</span>
+<span class="w">  </span><span class="nx">child</span><span class="p">.</span><span class="nx">stdout</span><span class="o">?</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">data</span><span class="o">:</span><span class="w"> </span><span class="kt">Buffer</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">sendLog</span><span class="p">(</span><span class="nx">data</span><span class="p">.</span><span class="nx">toString</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)));</span>
+<span class="w">  </span><span class="nx">child</span><span class="p">.</span><span class="nx">stderr</span><span class="o">?</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">data</span><span class="o">:</span><span class="w"> </span><span class="kt">Buffer</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">sendLog</span><span class="p">(</span><span class="sb">`[stderr] </span><span class="si">${</span><span class="nx">data</span><span class="p">.</span><span class="nx">toString</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span><span class="si">}</span><span class="sb">`</span><span class="p">));</span>
+
+<span class="w">  </span><span class="nx">child</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">err</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">sendLog</span><span class="p">(</span><span class="sb">`[System] Native process error: </span><span class="si">${</span><span class="nx">err</span><span class="p">.</span><span class="nx">message</span><span class="si">}</span><span class="sb">\n`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">  </span><span class="p">});</span>
+
+<span class="w">  </span><span class="nx">child</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;exit&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">code</span><span class="p">,</span><span class="w"> </span><span class="nx">signal</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">sendLog</span><span class="p">(</span><span class="sb">`[System] Native process exited (code=</span><span class="si">${</span><span class="nx">code</span><span class="si">}</span><span class="sb">, signal=</span><span class="si">${</span><span class="nx">signal</span><span class="si">}</span><span class="sb">)\n`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><strong>Why <code>PYTHONUNBUFFERED=1</code>?</strong> Python buffers its output by default when stdout is not a TTY (which it isn't when spawned by Node). Without unbuffered mode, log lines would only appear after the buffer fills up (typically 8KB), making real-time logging useless.</p>
+<h3 id="stopping-training-sigterm-sigkill-fallback">Stopping Training (SIGTERM + SIGKILL Fallback)<a class="headerlink" href="#stopping-training-sigterm-sigkill-fallback" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">async</span><span class="w"> </span><span class="nx">stopTraining</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="ow">void</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="p">.</span><span class="nx">kill</span><span class="p">(</span><span class="s1">&#39;SIGTERM&#39;</span><span class="p">);</span><span class="w">         </span><span class="c1">// Graceful shutdown first</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">proc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">setTimeout</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">proc</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="nx">proc</span><span class="p">.</span><span class="nx">killed</span><span class="p">)</span><span class="w"> </span><span class="nx">proc</span><span class="p">.</span><span class="nx">kill</span><span class="p">(</span><span class="s1">&#39;SIGKILL&#39;</span><span class="p">);</span><span class="w"> </span><span class="c1">// Force kill after 5s</span>
+<span class="w">    </span><span class="p">},</span><span class="w"> </span><span class="mf">5000</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">activeContainerId</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">stopDockerContainer</span><span class="p">();</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>A 5-second grace period allows the Python client to checkpoint its model state and perform clean shutdown before being forcefully terminated.</p>
+<h3 id="docker-container-lifecycle">Docker Container Lifecycle<a class="headerlink" href="#docker-container-lifecycle" title="Permanent link">&para;</a></h3>
+<h4 id="creating-and-starting">Creating and Starting<a class="headerlink" href="#creating-and-starting" title="Permanent link">&para;</a></h4>
+<div class="codehilite"><pre><span></span><code><span class="k">private</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="nx">startDockerTraining</span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">TrainingConfig</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="ow">void</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// 1. Verify Docker is reachable</span>
+<span class="w">  </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">docker</span><span class="p">.</span><span class="nx">ping</span><span class="p">();</span>
+
+<span class="w">  </span><span class="c1">// 2. Clean up any leftover container from a previous session</span>
+<span class="w">  </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">cleanupExistingContainer</span><span class="p">();</span>
+
+<span class="w">  </span><span class="c1">// 3. Build HostConfig based on hardware profile</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">hostConfig</span><span class="o">:</span><span class="w"> </span><span class="kt">Docker.HostConfig</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">AutoRemove</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">Binds</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="sb">`</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">datasetPath</span><span class="si">}</span><span class="sb">:/data`</span><span class="p">],</span><span class="w">  </span><span class="c1">// Dataset bind mount</span>
+<span class="w">  </span><span class="p">};</span>
+
+<span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="o">:</span>
+<span class="w">      </span><span class="c1">// Direct device mounts — DO NOT use --runtime nvidia on Jetson</span>
+<span class="w">      </span><span class="nx">hostConfig</span><span class="p">.</span><span class="nx">Devices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">JETSON_DEVICE_MOUNTS</span><span class="p">;</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;discrete&#39;</span><span class="o">:</span>
+<span class="w">      </span><span class="c1">// PCIe GPU — standard DeviceRequests (equivalent to --gpus all)</span>
+<span class="w">      </span><span class="nx">hostConfig</span><span class="p">.</span><span class="nx">DeviceRequests</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nx">Count</span><span class="o">:</span><span class="w"> </span><span class="o">-</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="nx">Capabilities</span><span class="o">:</span><span class="w"> </span><span class="p">[[</span><span class="s1">&#39;gpu&#39;</span><span class="p">]]</span><span class="w"> </span><span class="p">}];</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="o">:</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span><span class="w"> </span><span class="c1">// No GPU config</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="o">:</span>
+<span class="w">      </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;MPS profile cannot run under Docker&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="c1">// 4. Pass config as environment variables</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">env</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="sb">`PROJECT_ID=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">projectId</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
+<span class="w">    </span><span class="sb">`SERVER_ADDRESS=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">serverAddress</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
+<span class="w">    </span><span class="sb">`PARTITION_ID=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">partitionId</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
+<span class="w">    </span><span class="sb">`MODEL_TYPE=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
+<span class="w">    </span><span class="sb">`DATASET_PATH=/data`</span><span class="p">,</span>
+<span class="w">  </span><span class="p">];</span>
+
+<span class="w">  </span><span class="c1">// 5. Create + start container</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">container</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">docker</span><span class="p">.</span><span class="nx">createContainer</span><span class="p">({</span>
+<span class="w">    </span><span class="nx">Image</span><span class="o">:</span><span class="w"> </span><span class="kt">DOCKER_IMAGE</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="kt">CONTAINER_NAME</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">Env</span><span class="o">:</span><span class="w"> </span><span class="kt">env</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">HostConfig</span><span class="o">:</span><span class="w"> </span><span class="kt">hostConfig</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">Tty</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">AttachStdout</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">AttachStderr</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span>
+<span class="w">  </span><span class="p">});</span>
+
+<span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">activeContainerId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">container</span><span class="p">.</span><span class="nx">id</span><span class="p">;</span>
+<span class="w">  </span><span class="k">await</span><span class="w"> </span><span class="nx">container</span><span class="p">.</span><span class="nx">start</span><span class="p">();</span>
+<span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">attachLogStream</span><span class="p">(</span><span class="nx">container</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><strong>Why <code>AutoRemove: false</code>?</strong> If set to <code>true</code>, Docker removes the container immediately on exit — before the log stream has fully drained. With <code>false</code>, the container stays around until explicitly removed in <code>stopDockerContainer()</code>, giving the log stream time to deliver the final bytes.</p>
+<h4 id="jetson-specific-device-mounts">Jetson-Specific Device Mounts<a class="headerlink" href="#jetson-specific-device-mounts" title="Permanent link">&para;</a></h4>
+<p>NVIDIA Jetson SoCs use a Tegra GPU that does not present as a standard PCIe device. The <code>--runtime nvidia</code> Docker flag (used for discrete GPUs) searches for PCIe device metadata in the kernel device tree and <strong>hangs indefinitely</strong> on Jetson. The correct approach is direct device node mapping:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">JETSON_DEVICE_MOUNTS</span><span class="o">:</span><span class="w"> </span><span class="kt">Docker.DeviceMapping</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">PathOnHost</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-ctrl&#39;</span><span class="p">,</span><span class="w">     </span><span class="nx">PathInContainer</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-ctrl&#39;</span><span class="p">,</span><span class="w">     </span><span class="nx">CgroupPermissions</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;rwm&#39;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">PathOnHost</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-ctrl-gpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">PathInContainer</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-ctrl-gpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">CgroupPermissions</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;rwm&#39;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">PathOnHost</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-dbg-gpu&#39;</span><span class="p">,</span><span class="w">  </span><span class="nx">PathInContainer</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-dbg-gpu&#39;</span><span class="p">,</span><span class="w">  </span><span class="nx">CgroupPermissions</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;rwm&#39;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">PathOnHost</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-prof-gpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">PathInContainer</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-prof-gpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">CgroupPermissions</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;rwm&#39;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">PathOnHost</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvmap&#39;</span><span class="p">,</span><span class="w">           </span><span class="nx">PathInContainer</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvmap&#39;</span><span class="p">,</span><span class="w">           </span><span class="nx">CgroupPermissions</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;rwm&#39;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">PathOnHost</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-gpu&#39;</span><span class="p">,</span><span class="w">      </span><span class="nx">PathInContainer</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-gpu&#39;</span><span class="p">,</span><span class="w">      </span><span class="nx">CgroupPermissions</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;rwm&#39;</span><span class="w"> </span><span class="p">},</span>
+<span class="p">];</span>
+</code></pre></div>
+
+<p>All six device nodes must be mounted. Missing any one of them causes the container to hang or crash silently.</p>
+<h3 id="docker-multiplexed-log-stream-demultiplexing">Docker Multiplexed Log Stream Demultiplexing<a class="headerlink" href="#docker-multiplexed-log-stream-demultiplexing" title="Permanent link">&para;</a></h3>
+<p>Docker's attach/log stream uses a <strong>multiplexed binary protocol</strong> where each chunk is prefixed with an 8-byte header:</p>
+<div class="codehilite"><pre><span></span><code>[stream_type: 1 byte][padding: 3 bytes][payload_size: 4 bytes][payload: payload_size bytes]
+</code></pre></div>
+
+<p>Where <code>stream_type</code> is <code>1</code> for stdout and <code>2</code> for stderr. Raw chunks must be demultiplexed before they can be displayed as text:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">private</span><span class="w"> </span><span class="nx">demuxDockerStream</span><span class="p">(</span><span class="nx">chunk</span><span class="o">:</span><span class="w"> </span><span class="kt">Buffer</span><span class="p">,</span><span class="w"> </span><span class="nx">state</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">partial</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">})</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">state</span><span class="p">.</span><span class="nx">partial</span><span class="p">;</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span>
+
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="nx">offset</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="nx">chunk</span><span class="p">.</span><span class="nx">length</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Not enough bytes for a full header</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">offset</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">8</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nx">chunk</span><span class="p">.</span><span class="nx">length</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">output</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="nx">chunk</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="nx">offset</span><span class="p">).</span><span class="nx">toString</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">);</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Read payload size from bytes 4-7 (big-endian uint32)</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">payloadSize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">chunk</span><span class="p">.</span><span class="nx">readUInt32BE</span><span class="p">(</span><span class="nx">offset</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">4</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">payloadSize</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">offset</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mf">8</span><span class="p">;</span>
+<span class="w">      </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Read payload</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">offset</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">8</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">payloadSize</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nx">chunk</span><span class="p">.</span><span class="nx">length</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">output</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="nx">chunk</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="nx">offset</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">8</span><span class="p">).</span><span class="nx">toString</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">);</span>
+<span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nx">output</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="nx">chunk</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="nx">offset</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">8</span><span class="p">,</span><span class="w"> </span><span class="nx">offset</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">8</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">payloadSize</span><span class="p">).</span><span class="nx">toString</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="nx">offset</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mf">8</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">payloadSize</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="nx">state</span><span class="p">.</span><span class="nx">partial</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">output</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="status-polling">Status Polling<a class="headerlink" href="#status-polling" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">async</span><span class="w"> </span><span class="nx">getStatus</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="kt">string</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Native process takes priority</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="p">.</span><span class="nx">exitCode</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;running&#39;</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="p">.</span><span class="nx">exitCode</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;completed&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;error&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">activeContainerId</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;idle&#39;</span><span class="p">;</span>
+
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">container</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">docker</span><span class="p">.</span><span class="nx">getContainer</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">activeContainerId</span><span class="p">);</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">info</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">container</span><span class="p">.</span><span class="nx">inspect</span><span class="p">();</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">Running</span><span class="p">)</span><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;running&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">Restarting</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;restarting&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">Paused</span><span class="p">)</span><span class="w">     </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;paused&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">Dead</span><span class="p">)</span><span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;error&#39;</span><span class="p">;</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">ExitCode</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;completed&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;error&#39;</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>The renderer polls this every 3 seconds via <code>getDockerStatus()</code> IPC call.</p>
+<hr />
+<h2 id="authentication-service-authservicets">Authentication Service: <code>auth.service.ts</code><a class="headerlink" href="#authentication-service-authservicets" title="Permanent link">&para;</a></h2>
+<h3 id="state-machine">State Machine<a class="headerlink" href="#state-machine" title="Permanent link">&para;</a></h3>
+<p><code>AuthService</code> maintains authentication state through two storage levels:</p>
+<div class="codehilite"><pre><span></span><code>Login attempt
+    │
+    ▼
+axios.post(&#39;/api/auth/login&#39;, { username, password })
+    │
+    ├── status !== 200 → return false
+    │
+    └── status 200 → extract JWT
+          │
+          ├── From response body (accessToken field) [preferred]
+          └── From Set-Cookie header (jwtToken cookie) [fallback]
+                │
+                ▼
+         safeStorage.isEncryptionAvailable()?
+                │
+           ┌────┴────┐
+          YES        NO
+           │          │
+    encrypt → disk   memory only
+    (OS keychain)    (no disk persist)
+</code></pre></div>
+
+<h3 id="jwt-extraction-strategy">JWT Extraction Strategy<a class="headerlink" href="#jwt-extraction-strategy" title="Permanent link">&para;</a></h3>
+<p>The backend sends the token in two places (for compatibility):</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// 1. Check response body first (always present)</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">response</span><span class="p">.</span><span class="nx">data</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="ow">typeof</span><span class="w"> </span><span class="nx">response</span><span class="p">.</span><span class="nx">data</span><span class="p">.</span><span class="nx">accessToken</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;string&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">jwt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">response</span><span class="p">.</span><span class="nx">data</span><span class="p">.</span><span class="nx">accessToken</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// 2. Fallback: parse the Set-Cookie header</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">jwt</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">setCookieHeaders</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">response</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="s1">&#39;set-cookie&#39;</span><span class="p">];</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">setCookieHeaders</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">const</span><span class="w"> </span><span class="nx">cookie</span><span class="w"> </span><span class="k">of</span><span class="w"> </span><span class="nx">setCookieHeaders</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">cookie</span><span class="p">.</span><span class="nx">match</span><span class="p">(</span><span class="sr">/jwtToken=([^;]+)/</span><span class="p">);</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">match</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">jwt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">match</span><span class="p">[</span><span class="mf">1</span><span class="p">];</span>
+<span class="w">        </span><span class="k">break</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="server-url-persistence">Server URL Persistence<a class="headerlink" href="#server-url-persistence" title="Permanent link">&para;</a></h3>
+<p>The backend URL is persisted to <code>electron-store</code> across restarts:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">DEFAULT_API_BASE_URL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;http://localhost:8081/api&#39;</span><span class="p">;</span>
+
+<span class="kr">constructor</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">store</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Store</span><span class="p">({</span>
+<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;fedlearn-auth&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">clearInvalidConfig</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w">  </span><span class="c1">// Recover from corrupt store (e.g., schema changes)</span>
+<span class="w">  </span><span class="p">});</span>
+
+<span class="w">  </span><span class="c1">// Priority: saved URL &gt; env var &gt; localhost default</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">savedUrl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">store</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="nx">SERVER_URL_KEY</span><span class="p">)</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">undefined</span><span class="p">;</span>
+<span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">apiBaseUrl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">savedUrl</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">FEDLEARN_API_URL</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">DEFAULT_API_BASE_URL</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><code>clearInvalidConfig: true</code> is important — without it, a <code>SyntaxError</code> reading a corrupt store file would crash the IPC handler registration chain, leaving a black window.</p>
+<h3 id="url-normalization-in-ipc-handler">URL Normalization in IPC Handler<a class="headerlink" href="#url-normalization-in-ipc-handler" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// ipc.handlers.ts</span>
+<span class="nx">ipcMain</span><span class="p">.</span><span class="nx">handle</span><span class="p">(</span><span class="s1">&#39;auth:set-server-url&#39;</span><span class="p">,</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">_event</span><span class="p">,</span><span class="w"> </span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Require http(s):// protocol</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="sr">/^https?:\/\//i</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">url</span><span class="p">.</span><span class="nx">trim</span><span class="p">()))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;URL must start with http:// or https://&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="c1">// Normalize: strip trailing slashes, ensure /api suffix</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">normalized</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">url</span><span class="p">.</span><span class="nx">trim</span><span class="p">().</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/\/+$/</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">normalized</span><span class="p">.</span><span class="nx">endsWith</span><span class="p">(</span><span class="s1">&#39;/api&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">normalized</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="s1">&#39;/api&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="nx">authService</span><span class="p">.</span><span class="nx">setApiUrl</span><span class="p">(</span><span class="nx">normalized</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w"> </span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="kt">normalized</span><span class="w"> </span><span class="p">};</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<p>This means a user entering <code>http://192.168.1.100:8081</code> automatically becomes <code>http://192.168.1.100:8081/api</code>.</p>
+<hr />
+<h2 id="hardware-probe-hardwareprobets">Hardware Probe: <code>hardware.probe.ts</code><a class="headerlink" href="#hardware-probe-hardwareprobets" title="Permanent link">&para;</a></h2>
+<p>The hardware probe runs once on startup to detect the local GPU environment and pre-select the appropriate training profile.</p>
+<h3 id="detection-logic">Detection Logic<a class="headerlink" href="#detection-logic" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">detectHardware</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="nx">HardwareDetection</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">platform</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">platform</span><span class="p">;</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">arch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">arch</span><span class="p">;</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">bundleAvailable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">nativeBundleExists</span><span class="p">();</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">available</span><span class="o">:</span><span class="w"> </span><span class="kt">cudaAvailable</span><span class="p">,</span><span class="w"> </span><span class="nx">info</span><span class="o">:</span><span class="w"> </span><span class="kt">cudaInfo</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">probeNvidiaSmi</span><span class="p">();</span>
+
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">recommendedProfile</span><span class="o">:</span><span class="w"> </span><span class="kt">HardwareProfile</span><span class="p">;</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">platform</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;darwin&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">arch</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;arm64&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">recommendedProfile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="p">;</span><span class="w">          </span><span class="c1">// Apple Silicon → MPS</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">cudaAvailable</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">platform</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;linux&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">recommendedProfile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;discrete&#39;</span><span class="p">;</span><span class="w">     </span><span class="c1">// Windows CUDA → Discrete GPU</span>
+<span class="w">    </span><span class="c1">// Note: Linux CUDA falls through to &#39;cpu&#39; — no shipped Linux CUDA bundle yet</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">recommendedProfile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="p">;</span><span class="w">          </span><span class="c1">// Default</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">platform</span><span class="p">,</span><span class="w"> </span><span class="nx">arch</span><span class="p">,</span><span class="w"> </span><span class="nx">recommendedProfile</span><span class="p">,</span><span class="w"> </span><span class="nx">nativeBundleAvailable</span><span class="o">:</span><span class="w"> </span><span class="kt">bundleAvailable</span><span class="p">,</span><span class="w"> </span><span class="nx">cudaAvailable</span><span class="p">,</span><span class="w"> </span><span class="nx">cudaInfo</span><span class="w"> </span><span class="p">};</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="nvidia-smi-probe">nvidia-smi Probe<a class="headerlink" href="#nvidia-smi-probe" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kd">function</span><span class="w"> </span><span class="nx">probeNvidiaSmi</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">available</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w"> </span><span class="nx">info?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Promise</span><span class="p">((</span><span class="nx">resolve</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// 2-second timeout — nvidia-smi can hang on degraded driver installs</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">timeout</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">setTimeout</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">resolve</span><span class="p">({</span><span class="w"> </span><span class="nx">available</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="w"> </span><span class="p">}),</span><span class="w"> </span><span class="mf">2000</span><span class="p">);</span>
+
+<span class="w">    </span><span class="nx">execFile</span><span class="p">(</span><span class="s1">&#39;nvidia-smi&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;--query-gpu=name&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;--format=csv,noheader&#39;</span><span class="p">],</span><span class="w"> </span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="nx">stdout</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">clearTimeout</span><span class="p">(</span><span class="nx">timeout</span><span class="p">);</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">err</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">resolve</span><span class="p">({</span><span class="w"> </span><span class="nx">available</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="w"> </span><span class="p">});</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">info</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">stdout</span><span class="p">.</span><span class="nx">trim</span><span class="p">().</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;\n&#39;</span><span class="p">)[</span><span class="mf">0</span><span class="p">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="s1">&#39;NVIDIA GPU&#39;</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">resolve</span><span class="p">({</span><span class="w"> </span><span class="nx">available</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w"> </span><span class="nx">info</span><span class="w"> </span><span class="p">});</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>The 2-second timeout is critical. On machines with a problematic NVIDIA driver (e.g., driver installed but display adapter disabled), <code>nvidia-smi</code> can block for 30+ seconds. The timeout ensures the UI loads promptly even on degraded configurations.</p>
+<h3 id="native-bundle-check">Native Bundle Check<a class="headerlink" href="#native-bundle-check" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kd">function</span><span class="w"> </span><span class="nx">nativeBundleExists</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">app</span><span class="p">.</span><span class="nx">isPackaged</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span><span class="w"> </span><span class="c1">// Dev mode: always true (uses python3 fallback)</span>
+
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">binaryName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">platform</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;win32&#39;</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;fedlearn-client.exe&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;fedlearn-client&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">binary</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">resourcesPath</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;fedlearn-client&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">binaryName</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">fs</span><span class="p">.</span><span class="nx">existsSync</span><span class="p">(</span><span class="nx">binary</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>If <code>nativeBundleAvailable</code> is <code>false</code> in a packaged build, the <code>HardwareSelector</code> shows a warning label and the Docker path may be required.</p>
+<hr />
+<h2 id="ipc-channel-reference">IPC Channel Reference<a class="headerlink" href="#ipc-channel-reference" title="Permanent link">&para;</a></h2>
+<p>A complete reference of all registered IPC channels:</p>
+<table>
+<thead>
+<tr>
+<th>Channel</th>
+<th>Direction</th>
+<th>Handler</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dialog:open-directory</code></td>
+<td>invoke → handle</td>
+<td><code>ipc.handlers.ts</code></td>
+<td>Opens native directory picker; returns <code>{ success, path }</code></td>
+</tr>
+<tr>
+<td><code>docker:start-training</code></td>
+<td>invoke → handle</td>
+<td><code>DockerService.startTraining()</code></td>
+<td>Starts Docker container or native process</td>
+</tr>
+<tr>
+<td><code>docker:stop-training</code></td>
+<td>invoke → handle</td>
+<td><code>DockerService.stopTraining()</code></td>
+<td>Stops active container or native process</td>
+</tr>
+<tr>
+<td><code>docker:get-status</code></td>
+<td>invoke → handle</td>
+<td><code>DockerService.getStatus()</code></td>
+<td>Returns current training state</td>
+</tr>
+<tr>
+<td><code>docker:training-log</code></td>
+<td><strong>push</strong> (Main → Renderer)</td>
+<td><code>DockerService.sendLog()</code></td>
+<td>Streams training output to renderer</td>
+</tr>
+<tr>
+<td><code>docker:daemon-unavailable</code></td>
+<td><strong>push</strong> (Main → Renderer)</td>
+<td><em>(planned)</em></td>
+<td>Notifies renderer if Docker is not running</td>
+</tr>
+<tr>
+<td><code>hardware:detect</code></td>
+<td>invoke → handle</td>
+<td><code>detectHardware()</code></td>
+<td>Returns platform, GPU, recommended profile</td>
+</tr>
+<tr>
+<td><code>auth:login</code></td>
+<td>invoke → handle</td>
+<td><code>AuthService.login()</code></td>
+<td>Authenticates and stores JWT</td>
+</tr>
+<tr>
+<td><code>auth:logout</code></td>
+<td>invoke → handle</td>
+<td><code>AuthService.logout()</code></td>
+<td>Clears JWT from store and memory</td>
+</tr>
+<tr>
+<td><code>auth:check</code></td>
+<td>invoke → handle</td>
+<td><code>AuthService.isAuthenticated()</code></td>
+<td>Returns <code>{ authenticated: boolean }</code></td>
+</tr>
+<tr>
+<td><code>auth:set-server-url</code></td>
+<td>invoke → handle</td>
+<td><code>AuthService.setApiUrl()</code></td>
+<td>Saves backend URL with normalization</td>
+</tr>
+<tr>
+<td><code>auth:get-server-url</code></td>
+<td>invoke → handle</td>
+<td><code>AuthService.getApiUrl()</code></td>
+<td>Returns current backend URL</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Push channels</strong> (<code>docker:training-log</code>, <code>docker:daemon-unavailable</code>) are unidirectional — Main pushes to Renderer via <code>mainWindow.webContents.send()</code>. The renderer registers listeners via the preload bridge's <code>onTrainingLog()</code> and <code>onDockerUnavailable()</code> callbacks.</p>
+</blockquote>
+<hr />
+<p><em>Next: <a href="04-preload-ipc-bridge.html">04 — Preload &amp; IPC Bridge</a></em><br />
+<em>Previous: <a href="02-security-model.html">02 — Security Model</a></em></p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FedLearn Client (Docker) — Wiki · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Client (Docker)</summary><ul>
+<li><a class="active" href="README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Client (Docker)</b> &nbsp;·&nbsp; FedLearn Client (Docker) — Wiki</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="fedlearn-client-docker-wiki">FedLearn Client (Docker) — Wiki<a class="headerlink" href="#fedlearn-client-docker-wiki" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a><br />
+<strong>Stack:</strong> Docker, multi-arch base images, thin wrapper around <code>framework/</code></p>
+</blockquote>
+<p><code>client-docker/</code> is the <strong>containerised FL client</strong>. It bundles the <code>framework/</code> library plus a thin <code>scripts/client.py</code> entry point so a client can join training <strong>without a Python toolchain on the host</strong>. End users don't usually run it directly — the <strong>Electron desktop orchestrator</strong> (<code>fedlearn-desktop/</code>) launches it via <code>dockerode</code>. Developers and Jetson operators run it manually.</p>
+<blockquote>
+<p><strong>Thin wrapper, by design.</strong> <code>framework/</code> is <code>pip install</code>-ed inside the image. The container carries <strong>no FL logic of its own</strong> — don't duplicate framework code into <code>client-docker/scripts/</code>.</p>
+</blockquote>
+<hr />
+<h2 id="layout">Layout<a class="headerlink" href="#layout" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>client-docker/
+├── Dockerfile                 # Multi-arch via the BASE_IMAGE build arg
+├── entrypoint.sh              # Single CLI surface; parses flags + env
+├── run-client.sh              # Helper wrapper for ad-hoc local runs
+├── requirements.txt           # Pinned client deps (framework installs its own)
+├── scripts/
+│   ├── client.py              # FL client entry point (thin — logic lives in framework/)
+│   ├── config.py
+│   ├── data_loaders/  ecg_data/  models/
+├── packaging/                 # PyInstaller bundling for the desktop installer (Mac / Win)
+└── DEPLOYMENT_GUIDE.md        # Canonical Jetson + native deployment procedure
+</code></pre></div>
+
+<hr />
+<h2 id="hardware-variants-base_image-build-arg">Hardware variants (<code>BASE_IMAGE</code> build arg)<a class="headerlink" href="#hardware-variants-base_image-build-arg" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th>Base image</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Default</strong> (x86 + CUDA 11.7)</td>
+<td><code>pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime</code></td>
+</tr>
+<tr>
+<td><strong>Jetson</strong> (ARM64, L4T)</td>
+<td><code>nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3</code></td>
+</tr>
+<tr>
+<td><strong>Newer x86 hosts</strong> (CUDA 12.4)</td>
+<td><code>pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime</code></td>
+</tr>
+<tr>
+<td><strong>CPU-only</strong></td>
+<td>any standard CPU PyTorch image</td>
+</tr>
+</tbody>
+</table>
+<h3 id="jetson-path">⚠️ Jetson path<a class="headerlink" href="#jetson-path" title="Permanent link">&para;</a></h3>
+<p>Jetson clients <strong>must</strong> use the L4T base image (<code>nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3</code>) and <strong>must not</strong> pass the <code>--runtime nvidia</code> Docker flag — on Jetson it hangs indefinitely searching the device tree for discrete-GPU PCIe metadata. The desktop app's <code>DockerService</code> uses direct <code>/dev/nvhost-*</code> <strong>device mounts</strong> for the Jetson profile instead of the NVIDIA runtime. (Note: the in-repo <code>client-docker/DEPLOYMENT_GUIDE.md</code> is the canonical operational reference; follow the device-mount approach the platform uses.)</p>
+<hr />
+<h2 id="build">Build<a class="headerlink" href="#build" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>client-docker
+
+<span class="c1"># Default (x86 CUDA 11.7) — tag both :latest and a version</span>
+docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>fedlearn-client:latest<span class="w"> </span>-t<span class="w"> </span>fedlearn-client:0.1.0<span class="w"> </span>.
+
+<span class="c1"># Jetson AGX Orin (ARM64, L4T)</span>
+docker<span class="w"> </span>build<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--build-arg<span class="w"> </span><span class="nv">BASE_IMAGE</span><span class="o">=</span>nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-t<span class="w"> </span>fedlearn-client:jetson<span class="w"> </span>.
+</code></pre></div>
+
+<p>Always tag both <code>:latest</code> and a version — the desktop orchestrator (<code>fedlearn-desktop/src/main/docker.service.ts</code>) resolves <code>:latest</code> by default; pinned tags are consumed via <code>FEDLEARN_CLIENT_IMAGE</code> overrides for per-environment testing. The image tag mirrors the <strong>framework</strong> version it bundles (client-docker is not independently versioned — see <a href="../VERSIONS.html"><code>VERSIONS.md</code></a>).</p>
+<h2 id="run">Run<a class="headerlink" href="#run" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-v<span class="w"> </span>/path/to/data:/data<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>fedlearn-client:latest<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--server-address<span class="w"> </span>&lt;server-host&gt;:&lt;grpc-port&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--client-id<span class="w"> </span><span class="m">0</span>
+</code></pre></div>
+
+<p>For multi-platform image distribution (<code>buildx</code>, registry pushes, offline export) see the in-repo <code>DEPLOYMENT_GUIDE.md</code>.</p>
+<hr />
+<h2 id="how-it-connects-to-the-rest-of-the-system">How it connects to the rest of the system<a class="headerlink" href="#how-it-connects-to-the-rest-of-the-system" title="Permanent link">&para;</a></h2>
+<ul>
+<li>The <strong>Backend</strong> (<code>fl-platform-api</code>) spawns a Python FL server on a dynamic port in <code>50000-50010</code> when a project starts; the port is surfaced in the dashboard's live telemetry. Clients connect to <code>&lt;server-host&gt;:&lt;port&gt;</code>.</li>
+<li>gRPC currently uses <code>insecure_channel</code> — <strong>gradients fly plaintext over the WAN</strong> (repo audit item #37). Do not add behaviour that assumes encryption between the FL server and clients.</li>
+<li>For cross-network demos (e.g. a classroom Jetson + a home Mac), use <strong>Tailscale</strong> to skip NAT/firewall issues.</li>
+</ul>
+<h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../framework/README.html">Framework Wiki</a> — the FL engine this container wraps</li>
+<li><a href="../desktop/README.html">Desktop Wiki</a> — the Electron orchestrator that launches this image for end users</li>
+<li><a href="../desktop/07-hardware-profiles.html">Desktop: Hardware Profiles</a> — the Jetson Docker device-mount path in detail</li>
+</ul></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

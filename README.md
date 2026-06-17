@@ -588,7 +588,7 @@ limitations under the License.
 **Institution**: Rochester Institute of Technology
 **Research Group**: Learning Optimization Group
 
-**Developer**: Chinmay (MS Computer Science, RIT)
+**Developer**: Anurag Lnu (MS Computer Science, RIT)
 
 ---
 

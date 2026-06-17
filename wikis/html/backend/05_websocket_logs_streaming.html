@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 - WebSocket Logs Streaming · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Backend</summary><ul>
+<li><a href="README.html">Backend Architecture Wiki</a></li>
+<li><a href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a class="active" href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Backend</b> &nbsp;·&nbsp; 05 - WebSocket Logs Streaming</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="05-websocket-logs-streaming">05 - WebSocket Logs Streaming<a class="headerlink" href="#05-websocket-logs-streaming" title="Permanent link">&para;</a></h1>
+<p>Providing real-time observability into the Federated Learning process is critical, as ML tasks can run for long periods and edge clients need assurance that the server is actively processing their model weights.</p>
+<p>This is achieved via a pipeline consisting of process standard output capture, STOMP WebSockets, and asynchronous database persistence.</p>
+<h2 id="1-the-pipeline-architecture">1. The Pipeline Architecture<a class="headerlink" href="#1-the-pipeline-architecture" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Log Generation:</strong> The Python FL Server (whether running locally or on AWS) writes structured JSON logs to its standard output.</li>
+<li><strong>Capture:</strong> The Spring Boot backend reads these logs. For local execution, this is handled by a daemon thread attached to the <code>Process</code> output stream. For AWS, logs are shipped via CloudWatch or internal REST callbacks.</li>
+<li><strong>Distribution (<code>WebSocketService</code>):</strong> The <code>WebSocketService.sendLogs()</code> method routes the raw string.</li>
+<li><strong>WebSocket Push:</strong> Spring's <code>SimpMessagingTemplate</code> pushes the string over an open STOMP WebSocket channel.</li>
+<li><strong>Persistence:</strong> The backend parses the JSON string and saves the structured data to the <code>server_logs</code> table (H2 on this branch) for permanent storage.</li>
+</ol>
+<hr />
+<h2 id="2-spring-websocket-configuration">2. Spring WebSocket Configuration<a class="headerlink" href="#2-spring-websocket-configuration" title="Permanent link">&para;</a></h2>
+<p>The WebSocket endpoints are registered in <code>WebSocketConfig.java</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@Configuration</span>
+<span class="nd">@EnableWebSocketMessageBroker</span>
+<span class="kd">public</span><span class="w"> </span><span class="kd">class</span> <span class="nc">WebSocketConfig</span><span class="w"> </span><span class="kd">implements</span><span class="w"> </span><span class="n">WebSocketMessageBrokerConfigurer</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nd">@Override</span>
+<span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">registerStompEndpoints</span><span class="p">(</span><span class="n">StompEndpointRegistry</span><span class="w"> </span><span class="n">registry</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Exposes the initial HTTP endpoint for the protocol upgrade</span>
+<span class="w">        </span><span class="n">registry</span><span class="p">.</span><span class="na">addEndpoint</span><span class="p">(</span><span class="s">&quot;/ws-logs&quot;</span><span class="p">)</span>
+<span class="w">                </span><span class="p">.</span><span class="na">setAllowedOrigins</span><span class="p">(</span><span class="s">&quot;http://localhost:5173&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;https://fedlearn.production.com&quot;</span><span class="p">)</span>
+<span class="w">                </span><span class="p">.</span><span class="na">withSockJS</span><span class="p">();</span><span class="w"> </span><span class="c1">// Fallback for browsers that don&#39;t support raw WebSockets</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nd">@Override</span>
+<span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">configureMessageBroker</span><span class="p">(</span><span class="n">MessageBrokerRegistry</span><span class="w"> </span><span class="n">config</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// STOMP clients subscribe to topics starting with /topic</span>
+<span class="w">        </span><span class="n">config</span><span class="p">.</span><span class="na">enableSimpleBroker</span><span class="p">(</span><span class="s">&quot;/topic&quot;</span><span class="p">);</span>
+<span class="w">        </span><span class="c1">// STOMP clients send messages to endpoints starting with /app</span>
+<span class="w">        </span><span class="n">config</span><span class="p">.</span><span class="na">setApplicationDestinationPrefixes</span><span class="p">(</span><span class="s">&quot;/app&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>The React frontend establishes a connection to <code>/ws-logs</code>. Security interceptors (documented in <a href="02_security_and_auth.html">02 - Security and Auth</a>) ensure that the token is validated before the connection upgrades from HTTP to TCP.</p>
+<hr />
+<h2 id="3-the-websocketservice">3. The <code>WebSocketService</code><a class="headerlink" href="#3-the-websocketservice" title="Permanent link">&para;</a></h2>
+<p>The <code>WebSocketService</code> handles both distribution and persistence.</p>
+<h3 id="broadcasting-via-stomp">Broadcasting via STOMP<a class="headerlink" href="#broadcasting-via-stomp" title="Permanent link">&para;</a></h3>
+<p>Every project has a unique, dynamically generated topic endpoint.</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">public</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">sendLogs</span><span class="p">(</span><span class="n">UUID</span><span class="w"> </span><span class="n">projectId</span><span class="p">,</span><span class="w"> </span><span class="n">String</span><span class="w"> </span><span class="n">logMessage</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// The destination topic is unique for each project.</span>
+<span class="w">    </span><span class="n">String</span><span class="w"> </span><span class="n">destination</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;/topic/logs/&quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">projectId</span><span class="p">.</span><span class="na">toString</span><span class="p">();</span>
+<span class="w">    </span><span class="n">messagingTemplate</span><span class="p">.</span><span class="na">convertAndSend</span><span class="p">(</span><span class="n">destination</span><span class="p">,</span><span class="w"> </span><span class="n">logMessage</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Concurrently persist to DB</span>
+<span class="w">    </span><span class="n">persistLog</span><span class="p">(</span><span class="n">projectId</span><span class="p">,</span><span class="w"> </span><span class="n">logMessage</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>When the React frontend opens the dashboard for project <code>1234</code>, it sends a STOMP <code>SUBSCRIBE</code> frame to <code>/topic/logs/1234</code>. It then passively receives all strings sent to that destination.</p>
+<h3 id="json-parsing-and-persistence">JSON Parsing and Persistence<a class="headerlink" href="#json-parsing-and-persistence" title="Permanent link">&para;</a></h3>
+<p>The backend attempts to parse the incoming log line. If the Python server successfully emitted valid JSON, the backend extracts the <code>level</code>, <code>message</code>, and optional <code>stackTrace</code>. If the line isn't JSON (e.g., raw error output from a crash), it falls back to saving the entire line as a plain <code>INFO</code> string.</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">private</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">persistLog</span><span class="p">(</span><span class="n">UUID</span><span class="w"> </span><span class="n">projectId</span><span class="p">,</span><span class="w"> </span><span class="n">String</span><span class="w"> </span><span class="n">rawLine</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">ServerLog</span><span class="w"> </span><span class="n">log</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">ServerLog</span><span class="p">();</span>
+<span class="w">    </span><span class="n">log</span><span class="p">.</span><span class="na">setProjectId</span><span class="p">(</span><span class="n">projectId</span><span class="p">);</span>
+<span class="w">    </span><span class="n">log</span><span class="p">.</span><span class="na">setTimestamp</span><span class="p">(</span><span class="n">Instant</span><span class="p">.</span><span class="na">now</span><span class="p">());</span>
+
+<span class="w">    </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Attempt to parse FL server JSON: {&quot;timestamp&quot;:&quot;...&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;message&quot;:&quot;...&quot;}</span>
+<span class="w">        </span><span class="n">JsonNode</span><span class="w"> </span><span class="n">node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">objectMapper</span><span class="p">.</span><span class="na">readTree</span><span class="p">(</span><span class="n">rawLine</span><span class="p">);</span>
+<span class="w">        </span><span class="n">log</span><span class="p">.</span><span class="na">setLevel</span><span class="p">(</span><span class="n">node</span><span class="p">.</span><span class="na">has</span><span class="p">(</span><span class="s">&quot;level&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">node</span><span class="p">.</span><span class="na">get</span><span class="p">(</span><span class="s">&quot;level&quot;</span><span class="p">).</span><span class="na">asText</span><span class="p">()</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="s">&quot;INFO&quot;</span><span class="p">);</span>
+<span class="w">        </span><span class="n">log</span><span class="p">.</span><span class="na">setMessage</span><span class="p">(</span><span class="n">node</span><span class="p">.</span><span class="na">has</span><span class="p">(</span><span class="s">&quot;message&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">node</span><span class="p">.</span><span class="na">get</span><span class="p">(</span><span class="s">&quot;message&quot;</span><span class="p">).</span><span class="na">asText</span><span class="p">()</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">rawLine</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="n">Exception</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Fallback: Not JSON — store as a plain INFO message.</span>
+<span class="w">        </span><span class="n">log</span><span class="p">.</span><span class="na">setLevel</span><span class="p">(</span><span class="s">&quot;INFO&quot;</span><span class="p">);</span>
+<span class="w">        </span><span class="n">log</span><span class="p">.</span><span class="na">setMessage</span><span class="p">(</span><span class="n">rawLine</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">serverLogRepository</span><span class="p">.</span><span class="na">save</span><span class="p">(</span><span class="n">log</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h2 id="4-log-export">4. Log Export<a class="headerlink" href="#4-log-export" title="Permanent link">&para;</a></h2>
+<p>Once a project has finished, the user can download a complete text file of all logs generated during the training session. </p>
+<p>Because ML processes can generate enormous amounts of logging data, the <code>ProjectController</code> enforces a hard limit <code>MAX_LOGS_EXPORT_SIZE = 10_000</code> to prevent memory exhaustion on the JVM.</p>
+<p>The export builds a downloadable <code>.txt</code> file constructed from the persisted <code>server_logs</code> table rows, mapping the <code>ServerLog</code> entities to formatted strings.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

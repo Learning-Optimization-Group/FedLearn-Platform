@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FedLearn Mobile — Wiki · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Mobile</summary><ul>
+<li><a class="active" href="README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Mobile</b> &nbsp;·&nbsp; FedLearn Mobile — Wiki</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="fedlearn-mobile-wiki">FedLearn Mobile — Wiki<a class="headerlink" href="#fedlearn-mobile-wiki" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a><br />
+<strong>Stack:</strong> React Native 0.80, TypeScript, native C++ (libtorch) via a TurboModule (JSI) bridge, Android + iOS<br />
+<strong>Version:</strong> <code>2.1.0</code> (adopted the <strong>Ember</strong> design system + brand fonts this cycle)</p>
+</blockquote>
+<p>The mobile client (<code>mobile_client/</code>) is an <strong>on-device</strong> federated-learning participant for phones and tablets. The React Native / TypeScript layer owns the UI, authentication, and round orchestration; the heavy lifting — the <strong>DeComFL zeroth-order (ZO) training path</strong> — runs <strong>natively in C++ on libtorch</strong>, reached through a TurboModule bridge. Training data never leaves the device.</p>
+<p>The single product name is <strong>FedLearn</strong> (the v1 <code>FedMob</code> / <code>com.mobileclientnew</code> names are retired). "Ember" is the design system/theme adopted in <code>2.1.0</code>, not a product rename.</p>
+<hr />
+<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>React Native app (TS)         bridge/                 shared/ (C++ FL core)
+┌──────────────────┐   JSI   ┌──────────────────┐   ┌──────────────────────────┐
+│ screens / nav     │◄──────►│ NativeFedLearnCore │──►│ Perturbation (canonical RNG)│
+│ runJoin (§6.1)    │ Turbo  │  (codegen spec +   │   │ ModelManager / ZerothOrder  │
+│ nativeCore wrapper│ Module │   thin JSI layer)  │   │ DeComFLClient / FederatedLoop│
+│ device guard      │        │ Android JNI / iOS  │   │ FedLearnClient (gRPC, opt-in)│
+└──────────────────┘        │  .mm registration  │   └──────────────────────────┘
+                             └──────────────────┘
+</code></pre></div>
+
+<ul>
+<li><strong>JS/TS layer</strong> (<code>src/</code>) — <code>TrainingScreen</code> (join + DeComFL round loop + live metrics + device-class guard), <code>ModelLibraryScreen</code>, <code>ModelTestingScreen</code> (real softmax). NativeWind + token theme, lucide icons, a 3-tab navigator.</li>
+<li><strong>TurboModule bridge</strong> (<code>bridge/</code>) — <code>specs/NativeFedLearnCore.ts</code> is the typed codegen source of truth; <code>bridge/common/FedLearnCoreModule.{h,cpp}</code> is pure <code>do*</code> logic with a thin JSI layer. Android registers the <code>cxxModuleProvider</code> in <code>JNI_OnLoad</code> (<code>bridge/android/jni/OnLoad.cpp</code>); iOS wires it via <code>bridge/ios/</code> + the New-Arch factory delegate. The bridge separates JSI glue from the core logic so the C++ core stays platform-agnostic.</li>
+<li><strong>Native C++ core</strong> (<code>shared/</code>) — the FL engine: canonical perturbation RNG, dtype whitelist, SHA-256 verify-before-load, <code>ModelManager</code>, <code>ZerothOrderEstimator</code>, <code>DeComFLClient</code>, and an <strong>opt-in</strong> gRPC layer (<code>FedLearnClient</code> / <code>FederatedLoop</code> / <code>DataLoader</code>).</li>
+</ul>
+<hr />
+<h2 id="the-determinism-contract-the-load-bearing-invariant">The determinism contract (the load-bearing invariant)<a class="headerlink" href="#the-determinism-contract-the-load-bearing-invariant" title="Permanent link">&para;</a></h2>
+<p>DeComFL only works if the Python server and this C++ client regenerate <strong>identical</strong> perturbation vectors from the same seed and produce matching gradient scalars. <code>canonical_perturbation(seed, n)</code> generates <code>z ~ N(0, I_d)</code> <strong>on the CPU</strong> with a <em>local</em> generator; callers then move it to their device.</p>
+<ul>
+<li>The <strong>Python</strong> implementation (<code>framework/src/fedlearn/estimators/perturbation.py</code>) is the <strong>source of truth</strong>.</li>
+<li>The <strong>golden vectors</strong> (<code>framework/tests/fixtures/decomfl_golden/</code>, frozen at torch 2.12.0) are derived from it.</li>
+<li>The <strong>C++ parity gate</strong> (<code>shared/tests/rng_parity_test.cpp</code>) is a <strong>release blocker</strong> — if <code>z</code> diverges, the build must not ship, because a divergent <code>z</code> silently corrupts aggregation.</li>
+</ul>
+<hr />
+<h2 id="project-layout">Project layout<a class="headerlink" href="#project-layout" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>mobile_client/
+├── shared/             # C++ FL core (libtorch) + gtest parity/dtype/marshal tests
+│   ├── src/  include/  tests/
+│   └── CMakeLists.txt
+├── bridge/             # TurboModule: TS spec, common C++ module, Android JNI + iOS .mm
+├── src/                # React Native app: lib/, screens/, navigation/, theme/
+├── android/            # Gradle project (+ committed wrapper), externalNativeBuild → JNI
+├── ios/                # FedLearn.xcodeproj (generated), Podfile, Swift AppDelegate
+├── proto/              # byte-mirror of canonical proto/fedlearn/v2 (mirror-checked)
+├── scripts/            # ARM64 libtorch/gRPC cross-compile, model export, demo data
+└── CMakeLists.txt      # host build (parity gate)
+</code></pre></div>
+
+<hr />
+<h2 id="build-status">Build status<a class="headerlink" href="#build-status" title="Permanent link">&para;</a></h2>
+<p>Both app projects are now <strong>buildable</strong>: the two prior template-scaffolding blockers were resolved and committed — the Android <strong>Gradle wrapper</strong> (<code>./gradlew</code> bootstraps Gradle 8.14.1) and the iOS <strong><code>FedLearn.xcodeproj</code></strong> (regenerate with <code>ios/generate_xcodeproj.sh</code>). The native FL core is wired into both targets (Android <code>externalNativeBuild</code> → <code>libfedlearn_jni.so</code>; iOS <code>FedLearnCore.podspec</code>, enabled with <code>FEDLEARN_NATIVE_IOS=1</code>).</p>
+<p>The <strong>C++ core is fully implemented and tested</strong> (parity, dtype, serialize round-trip, DeComFL equivalence, gRPC marshal). What still gates a shippable release: the cross-compiled <strong>ARM64 libtorch + gRPC</strong> artifacts and buf-generated stubs, real <strong>signing configs</strong> for both platforms, the shared <code>@fedlearn/tokens</code> package replacing the local theme placeholder, and on-device training-data wiring.</p>
+<h3 id="host-parity-gate-run-the-c-core-tests-in-isolation">Host parity gate (run the C++ core tests in isolation)<a class="headerlink" href="#host-parity-gate-run-the-c-core-tests-in-isolation" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">LIBTORCH_DIR</span><span class="o">=</span>/path/to/libtorch<span class="w">      </span><span class="c1"># CPU build is fine; must match torch 2.12.0</span>
+cmake<span class="w"> </span>-S<span class="w"> </span>mobile_client<span class="w"> </span>-B<span class="w"> </span>mobile_client/build<span class="w"> </span>-DLIBTORCH_DIR<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$LIBTORCH_DIR</span><span class="s2">&quot;</span>
+cmake<span class="w"> </span>--build<span class="w"> </span>mobile_client/build<span class="w"> </span>-j
+ctest<span class="w"> </span>--test-dir<span class="w"> </span>mobile_client/build<span class="w"> </span>--output-on-failure
+<span class="c1"># Python side of the same contract:</span>
+<span class="nb">cd</span><span class="w"> </span>framework<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>pytest<span class="w"> </span>tests/test_perturbation.py<span class="w"> </span>-v
+</code></pre></div>
+
+<p>CI (<code>.github/workflows/mobile.yml</code>) runs the proto-mirror, Python-parity, and C++-parity gates; the golden-vector test gates the build.</p>
+<hr />
+<h2 id="key-cross-component-interfaces">Key cross-component interfaces<a class="headerlink" href="#key-cross-component-interfaces" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Authenticates against the <strong>Backend</strong> <code>POST /api/auth/login</code> (same cookie/JWT contract as the web client).</li>
+<li>Connects to a <strong>Framework</strong> FL server over gRPC and runs the native DeComFL client path.</li>
+<li>Shares the <strong>canonical</strong> <code>proto/fedlearn/v2</code> contract (byte-mirrored into <code>mobile_client/proto/</code>, enforced by <code>scripts/check_proto_mirror.sh</code>). Note: the running Python framework still generates from the older <code>fedlearn.v1</code> proto — the v2 contract is ahead of the framework implementation.</li>
+<li>The C++ <code>SAFE_DTYPES</code> whitelist stays in lockstep with the Python serializer whitelist.</li>
+</ul>
+<h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../framework/README.html">Framework Wiki</a> — the FL engine and the DeComFL algorithm this client implements natively</li>
+<li><a href="../framework/06_decomfl.html">Framework: DeComFL</a> — zeroth-order estimation, seed/gradient protocol</li>
+<li><a href="../backend/02_security_and_auth.html">Backend: Security &amp; Authentication</a> — the auth contract the client uses</li>
+</ul></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

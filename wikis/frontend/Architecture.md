@@ -22,7 +22,7 @@ src/
 ├── api/             # Axios configuration and base API clients
 ├── assets/          # Static images, icons, SVGs
 ├── components/      # Reusable UI components
-│   └── redesign/    # V2 components (modern Apple-inspired UI)
+│   └── redesign/    # V2 components (now on the Ember design system)
 ├── context/         # React Contexts (e.g., AuthContext)
 ├── lib/             # Utility libraries and helpers (logger, generic utils)
 ├── pages/           # Route-level components / Views

@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>06 — DeComFL: Dimension-Free Federated Learning · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Framework</summary><ul>
+<li><a href="README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a class="active" href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Framework</b> &nbsp;·&nbsp; 06 — DeComFL: Dimension-Free Federated Learning</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="06-decomfl-dimension-free-federated-learning">06 — DeComFL: Dimension-Free Federated Learning<a class="headerlink" href="#06-decomfl-dimension-free-federated-learning" title="Permanent link">&para;</a></h1>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#motivation-and-background">Motivation and Background</a></li>
+<li><a href="#the-core-idea-zeroth-order-gradient-estimation">The Core Idea: Zeroth-Order Gradient Estimation</a></li>
+<li><a href="#communication-comparison">Communication Comparison</a></li>
+<li><a href="#algorithm-overview">Algorithm Overview</a></li>
+<li><a href="#algorithm-3-server-protocol">Algorithm 3: Server Protocol</a></li>
+<li><a href="#algorithm-4-client-protocol">Algorithm 4: Client Protocol</a></li>
+<li><a href="#implementation-deep-dive">Implementation Deep Dive</a></li>
+<li><a href="#seed-generation-and-sharing">Seed Generation and Sharing</a></li>
+<li><a href="#zerothorderestimator">ZerothOrderEstimator</a></li>
+<li><a href="#decomflclientfit">DeComFLClient.fit()</a></li>
+<li><a href="#decomflaggregate_fit">DeComFL.aggregate_fit()</a></li>
+<li><a href="#model-rebuild-for-missed-rounds">Model Rebuild for Missed Rounds</a></li>
+<li><a href="#grpc-protocol-for-decomfl">gRPC Protocol for DeComFL</a></li>
+<li><a href="#hyperparameter-guide">Hyperparameter Guide</a></li>
+<li><a href="#trade-offs-and-limitations">Trade-offs and Limitations</a></li>
+<li><a href="#running-a-decomfl-experiment">Running a DeComFL Experiment</a></li>
+<li><a href="#connection-to-the-decomfl-paper">Connection to the DeComFL Paper</a></li>
+</ul>
+<hr />
+<h2 id="motivation-and-background">Motivation and Background<a class="headerlink" href="#motivation-and-background" title="Permanent link">&para;</a></h2>
+<p>Standard federated learning (FedAvg) requires each client to transmit a full copy of the model parameters after every round. For large language models:</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Parameters</th>
+<th>Size (float32)</th>
+<th>Bandwidth per round per client</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CNN (MNIST)</td>
+<td>1.2M</td>
+<td>4.8 MB</td>
+<td>Negligible</td>
+</tr>
+<tr>
+<td>GPT-2 Small</td>
+<td>117M</td>
+<td>468 MB</td>
+<td>468 MB upload + 468 MB download</td>
+</tr>
+<tr>
+<td>OPT-125M</td>
+<td>125M</td>
+<td>500 MB</td>
+<td>500 MB upload + 500 MB download</td>
+</tr>
+<tr>
+<td>LLaMA-7B</td>
+<td>7B</td>
+<td>28 GB</td>
+<td>28 GB upload + 28 GB download</td>
+</tr>
+</tbody>
+</table>
+<p>For edge devices (mobile phones, laptops, IoT), uploading 500 MB every training round is often impractical.</p>
+<p><strong>DeComFL</strong> (Dimension-Free Communication Federated Learning) solves this by transmitting only a small number of scalar values per round instead of the full parameter vector.</p>
+<hr />
+<h2 id="the-core-idea-zeroth-order-gradient-estimation">The Core Idea: Zeroth-Order Gradient Estimation<a class="headerlink" href="#the-core-idea-zeroth-order-gradient-estimation" title="Permanent link">&para;</a></h2>
+<p>Instead of computing gradients via backpropagation and transmitting the gradient vector (which has the same dimension <code>d</code> as the model), DeComFL uses <strong>zeroth-order (ZO) gradient estimation</strong>:</p>
+<div class="codehilite"><pre><span></span><code>g = (f(x + μz; ξ) - f(x; ξ)) / μ
+</code></pre></div>
+
+<p>Where:
+- <code>f(x; ξ)</code> = loss on mini-batch <code>ξ</code> with parameters <code>x</code>
+- <code>z ~ N(0, I_d)</code> = random perturbation vector
+- <code>μ</code> = small smoothing parameter (e.g., 0.001)
+- <code>g</code> = <strong>a single scalar</strong> — the estimated directional gradient along <code>z</code></p>
+<p>This requires only <strong>two forward passes</strong>, no backward pass, and produces a scalar <code>g</code> that can be transmitted in bytes.</p>
+<p>The update direction is then reconstructed as <code>g × z</code>. The key insight is that if both server and client know the seed used to generate <code>z</code>, they can both regenerate <code>z</code> independently — so only the scalar <code>g</code> needs to be transmitted.</p>
+<hr />
+<h2 id="communication-comparison">Communication Comparison<a class="headerlink" href="#communication-comparison" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Upload per round</th>
+<th>Download per round</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FedAvg</td>
+<td>d × 4 bytes</td>
+<td>d × 4 bytes</td>
+<td>d = number of parameters</td>
+</tr>
+<tr>
+<td>DeComFL</td>
+<td>K × P × 8 bytes</td>
+<td>K × P × (4+8) bytes</td>
+<td>K=local steps, P=perturbations</td>
+</tr>
+</tbody>
+</table>
+<p>For OPT-125M (d=125M) with K=5 local steps and P=10 perturbations:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>FedAvg</th>
+<th>DeComFL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Upload</td>
+<td>500 MB</td>
+<td>400 bytes (5×10×8B)</td>
+</tr>
+<tr>
+<td>Download</td>
+<td>500 MB</td>
+<td>~1.6 KB (seeds + scalars)</td>
+</tr>
+<tr>
+<td>Reduction</td>
+<td>—</td>
+<td><strong>~1.25 million× smaller</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The communication is truly <strong>O(K×P)</strong> — independent of model dimension <code>d</code>.</p>
+<hr />
+<h2 id="algorithm-overview">Algorithm Overview<a class="headerlink" href="#algorithm-overview" title="Permanent link">&para;</a></h2>
+<h3 id="algorithm-3-server-protocol">Algorithm 3: Server Protocol<a class="headerlink" href="#algorithm-3-server-protocol" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>Inputs: T (rounds), K (local steps), P (perturbations), η (lr), μ (smoothing)
+Initialize: x_0 (model), seed_history = [], gradient_history = []
+
+For round t = 1, ..., T:
+  1. Generate seeds S^t[k][p] for k=1..K, p=1..P
+  2. Store seeds: seed_history.append(S^t)
+  3. Send S^t and rebuild_history to each client
+  4. Receive gradient scalars G^t_i[k][p] from each client i
+  5. Compute average: G^t[k][p] = mean_i(G^t_i[k][p])
+  6. Store averages: gradient_history.append(G^t)
+  7. For k = 1..K:
+       Δ = (1/(N×P)) × Σ_i Σ_p G^t_i[k][p] × z(S^t[k][p])
+       x_t = x_{t-1} - η × Δ   (Δ already averaged by 1/(N×P); matches the client&#39;s (η/P)×δ)
+  8. Broadcast updated seed_history + gradient_history for rebuild
+</code></pre></div>
+
+<h3 id="algorithm-4-client-protocol">Algorithm 4: Client Protocol<a class="headerlink" href="#algorithm-4-client-protocol" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>Inputs: local model x (maintained across rounds), seeds S^t from server
+
+Procedure per round:
+  1. (If missed rounds) Rebuild model from seed+gradient history
+  2. For k = 1..K:
+     a. Sample mini-batch ξ
+     b. For p = 1..P:
+          z = randn(seed=S^t[k][p])   ← regenerated, NOT transmitted
+          g = (f(x + μz; ξ) - f(x; ξ)) / μ
+          δ += g × z
+     c. x_local = x_local - (η/P) × δ
+  3. Revert x_local to pre-round state (server will advance it)
+  4. Submit gradient_scalars G[k][p] = {g for each k, p}
+</code></pre></div>
+
+<hr />
+<h2 id="implementation-deep-dive">Implementation Deep Dive<a class="headerlink" href="#implementation-deep-dive" title="Permanent link">&para;</a></h2>
+<h3 id="seed-generation-and-sharing">Seed Generation and Sharing<a class="headerlink" href="#seed-generation-and-sharing" title="Permanent link">&para;</a></h3>
+<p>Seeds are generated by the server at the start of each round and sent to all clients:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># decomfl_strategy.py — DeComFL.generate_seeds()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">generate_seeds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">round_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns seeds[k][p] = seed for local step k, perturbation p</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">seeds</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="p">):</span>
+        <span class="n">k_seeds</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="p">):</span>
+            <span class="n">seed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">31</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># 31-bit seed for int32 compatibility</span>
+            <span class="n">k_seeds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">seed</span><span class="p">))</span>
+        <span class="n">seeds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">k_seeds</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">seeds</span>
+</code></pre></div>
+
+<p>The server stores these seeds in <code>strategy.seed_history</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># grpc_servicer.py — GetDeComFLConfig handler</span>
+<span class="n">seeds</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">generate_seeds</span><span class="p">(</span><span class="n">current_round</span><span class="p">)</span>
+<span class="n">strategy</span><span class="o">.</span><span class="n">seed_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">seeds</span><span class="p">)</span>   <span class="c1"># stored for rebuild history</span>
+</code></pre></div>
+
+<p>Clients receive seeds via <code>GetDeComFLConfig</code> RPC:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># GetDeComFLConfigResponse</span>
+<span class="p">{</span>
+    <span class="n">current_round</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="n">current_seeds</span><span class="p">:</span> <span class="n">PerturbationSeeds</span> <span class="p">{</span>
+        <span class="n">local_steps</span><span class="p">:</span> <span class="p">[</span>
+            <span class="n">LocalStepSeeds</span> <span class="p">{</span> <span class="n">seeds</span><span class="p">:</span> <span class="p">[</span><span class="mi">1234567</span><span class="p">,</span> <span class="mi">8901234</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="p">},</span>   <span class="c1"># k=0</span>
+            <span class="n">LocalStepSeeds</span> <span class="p">{</span> <span class="n">seeds</span><span class="p">:</span> <span class="p">[</span><span class="mi">5678901</span><span class="p">,</span> <span class="mi">2345678</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="p">},</span>   <span class="c1"># k=1</span>
+            <span class="o">...</span>  <span class="c1"># K steps total</span>
+        <span class="p">]</span>
+    <span class="p">},</span>
+    <span class="n">rebuild_history</span><span class="p">:</span> <span class="n">RebuildHistory</span> <span class="p">{</span> <span class="n">rounds</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span><span class="p">]</span> <span class="p">},</span>
+    <span class="n">config</span><span class="p">:</span> <span class="p">{</span> <span class="n">learning_rate</span><span class="p">:</span> <span class="s2">&quot;0.001&quot;</span><span class="p">,</span> <span class="n">smoothing_param</span><span class="p">:</span> <span class="s2">&quot;0.001&quot;</span><span class="p">,</span> <span class="o">...</span> <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="zerothorderestimator">ZerothOrderEstimator<a class="headerlink" href="#zerothorderestimator" title="Permanent link">&para;</a></h3>
+<p>The estimator provides two core primitives:</p>
+<p><strong>Perturbation generation</strong> — deterministic from seed:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">generate_perturbation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_params</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+    <span class="n">generator</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">generator</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="c1"># N(0, I_d) sample — same device, same generator, same output</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">num_params</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+</code></pre></div>
+
+<p>The canonical, device-independent source of truth for this <code>z</code> is <code>canonical_perturbation(seed, num_params)</code> in <code>framework/src/fedlearn/estimators/perturbation.py</code> — it generates on the <strong>CPU</strong> with a <em>local</em> <code>torch.Generator</code> (never the process-global RNG), so the result is bit-stable across CPU/CUDA/MPS for a given seed; callers move the result to their compute device afterwards. Both the server (<code>decomfl_strategy.py</code>) and client (<code>estimators/zeroth_order.py</code>) delegate here, and the native C++ (libtorch) mobile core reproduces it in <code>mobile_client/shared/src/Perturbation.cpp</code>.</p>
+<h4 id="cross-architecture-determinism-golden-vector-parity">Cross-Architecture Determinism (golden-vector parity)<a class="headerlink" href="#cross-architecture-determinism-golden-vector-parity" title="Permanent link">&para;</a></h4>
+<p>The Python↔C++ RNG contract is pinned by a frozen golden-vector fixture under <code>framework/tests/fixtures/decomfl_golden/</code> (raw little-endian float32 vectors + a <code>manifest.json</code> of seeds, lengths, and SHA-256s), regenerated by <code>generate.py</code> from <code>canonical_perturbation</code>. The parity test <code>framework/tests/test_perturbation.py</code> is <strong>architecture-aware</strong>:</p>
+<ul>
+<li><code>torch.randn</code>'s CPU kernel is <strong>bit-reproducible on the same CPU architecture</strong>, but only <strong>~1-ULP reproducible across architectures</strong> — its vectorized Box–Muller transcendentals differ by a last bit between x86-64 and Apple-Silicon arm64.</li>
+<li>The fixtures are frozen on <strong>one arch</strong>, recorded as <code>manifest.platform_machine</code> (currently <code>x86_64</code>, the CI runner). So the test asserts:</li>
+<li><strong>Bit-exact</strong> (<code>assert_array_equal</code>) when <code>platform.machine() == manifest.platform_machine</code> — the strongest guarantee and the <strong>CI gate</strong>.</li>
+<li><strong>ULP-tolerance</strong> (<code>assert_allclose</code>, <code>atol=2e-6</code>, <code>rtol=0</code>) on any other arch (e.g. Apple Silicon) — the empirical x86↔arm64 spread peaks at ~1.4e-6, so 2e-6 gives margin. Real RNG drift is still caught bit-exact on the freeze arch.</li>
+</ul>
+<p>This mirrors the C++ mobile release gate <code>mobile_client/shared/tests/rng_parity_test.cpp</code> (<code>ASSERT_NEAR(..., 1e-6f)</code>). A companion check, <code>test_torch_version_matches_manifest</code>, guards against an unintentional <code>torch</code> bump silently changing the contract — re-freezing the fixture must be deliberate, with the new <code>torch_version</code> recorded in the manifest so the C++ parity gate re-validates.</p>
+<p><strong>Gradient scalar computation</strong> — two forward passes:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_gradient_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">flat_params</span><span class="p">,</span> <span class="n">perturbation</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="c1"># Baseline: f(x; ξ)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_flat_params</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">flat_params</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>   <span class="c1"># LLM</span>
+            <span class="n">loss_x</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">targets</span><span class="p">)</span><span class="o">.</span><span class="n">loss</span>
+        <span class="k">else</span><span class="p">:</span>                          <span class="c1"># CNN / MLP</span>
+            <span class="n">loss_x</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()(</span><span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">),</span> <span class="n">targets</span><span class="p">)</span>
+
+        <span class="c1"># Perturbed: f(x + μz; ξ)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_flat_params</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">flat_params</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">*</span> <span class="n">perturbation</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">loss_perturbed</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">targets</span><span class="p">)</span><span class="o">.</span><span class="n">loss</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">loss_perturbed</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()(</span><span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">),</span> <span class="n">targets</span><span class="p">)</span>
+
+    <span class="c1"># Forward-difference ZO estimate</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="p">(</span><span class="n">loss_perturbed</span> <span class="o">-</span> <span class="n">loss_x</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span>
+    <span class="k">return</span> <span class="n">g</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>   <span class="c1"># scalar float</span>
+</code></pre></div>
+
+<p><strong>Flat parameter helpers</strong> — the estimator operates on flat (1D) parameter vectors:</p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@staticmethod</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_flat_params</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract all trainable parameters as a 1D tensor.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">p</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">])</span>
+
+<span class="nd">@staticmethod</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_set_flat_params</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">flat_params</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Set all trainable parameters from a 1D tensor.&quot;&quot;&quot;</span>
+    <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">:</span>
+            <span class="n">numel</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">flat_params</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span> <span class="o">+</span> <span class="n">numel</span><span class="p">]</span><span class="o">.</span><span class="n">view_as</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">data</span><span class="p">))</span>
+            <span class="n">offset</span> <span class="o">+=</span> <span class="n">numel</span>
+</code></pre></div>
+
+<h3 id="decomflclientfit">DeComFLClient.fit()<a class="headerlink" href="#decomflclientfit" title="Permanent link">&para;</a></h3>
+<p>The full training loop with annotations matching the algorithm:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+    <span class="n">seeds</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;seeds&#39;</span><span class="p">]</span>  <span class="c1"># List[List[int]] — KxP</span>
+    <span class="n">K</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">)</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">eta</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;learning_rate&#39;</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">))</span>
+
+    <span class="c1"># Track cumulative update for clean revert at end</span>
+    <span class="n">total_perturbation</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
+    <span class="n">gradient_scalars</span> <span class="o">=</span> <span class="p">[]</span>   <span class="c1"># Will be KxP list of floats</span>
+    <span class="n">data_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">)</span>
+
+    <span class="c1"># Algorithm 4, Line 14: For each local step k = 1..K</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">K</span><span class="p">):</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>  <span class="c1"># Σ g×z for this step</span>
+        <span class="n">k_gradient_scalars</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Get data batch (cycling through loader)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">batch</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">data_iter</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+            <span class="n">data_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">)</span>
+            <span class="n">batch</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">data_iter</span><span class="p">)</span>
+
+        <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="n">batch</span>
+        <span class="c1"># Handle both tensor inputs (CNN) and dict inputs (LLM)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">inputs</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">inputs</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="c1"># Progress update for heartbeat</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;training&quot;</span><span class="p">,</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">K</span><span class="p">)</span>
+
+        <span class="c1"># Algorithm 4, Line 16: For each perturbation p = 1..P</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">P</span><span class="p">):</span>
+            <span class="c1"># Line 17: Generate z from shared seed (server has same z)</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">generate_perturbation</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">))</span>
+
+            <span class="c1"># Line 18: Compute ZO gradient scalar</span>
+            <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">compute_gradient_scalar</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span>
+            <span class="p">)</span>
+            <span class="n">k_gradient_scalars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>  <span class="c1"># this scalar is what we&#39;ll transmit</span>
+
+            <span class="c1"># Line 19: Accumulate update direction</span>
+            <span class="n">delta</span> <span class="o">+=</span> <span class="n">g</span> <span class="o">*</span> <span class="n">z</span>
+
+        <span class="c1"># Line 21: Apply local step</span>
+        <span class="n">step_update</span> <span class="o">=</span> <span class="p">(</span><span class="n">eta</span> <span class="o">/</span> <span class="n">P</span><span class="p">)</span> <span class="o">*</span> <span class="n">delta</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span> <span class="o">-=</span> <span class="n">step_update</span>
+        <span class="n">total_perturbation</span> <span class="o">-=</span> <span class="n">step_update</span>  <span class="c1"># track cumulative for revert</span>
+
+        <span class="n">gradient_scalars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">k_gradient_scalars</span><span class="p">)</span>
+
+    <span class="c1"># CRITICAL: Revert to pre-round state</span>
+    <span class="c1"># The server will advance the global model independently.</span>
+    <span class="c1"># The client syncs via rebuild_model() at the start of the next round.</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span> <span class="o">-=</span> <span class="n">total_perturbation</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">_set_flat_params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
+
+    <span class="c1"># Algorithm 4, Line 24: Return scalar gradients (KxP floats, not d-dimensional)</span>
+    <span class="k">return</span> <span class="n">gradient_scalars</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="o">.</span><span class="n">dataset</span><span class="p">)</span>
+</code></pre></div>
+
+<blockquote>
+<p><strong>Memory note:</strong> The critical insight is that <code>z</code> (shape <code>[d]</code>) is generated and immediately used to compute <code>g</code> (a scalar) and update <code>delta</code>. The <code>z</code> tensor is then released by Python's garbage collector. No KxP tensors of size d are ever held in memory simultaneously.</p>
+</blockquote>
+<h3 id="decomflaggregate_fit">DeComFL.aggregate_fit()<a class="headerlink" href="#decomflaggregate_fit" title="Permanent link">&para;</a></h3>
+<p>The server aggregates gradient scalars and reconstructs the global model update:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># decomfl_strategy.py</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">aggregate_fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Args:</span>
+<span class="sd">        results: List of (client_id, gradient_scalars[K][P], num_examples)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># 1. Organize scalars by client</span>
+    <span class="n">client_gradients</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">grad_scalars</span><span class="p">,</span> <span class="n">num_examples</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+        <span class="n">client_gradients</span><span class="p">[</span><span class="n">client_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">grad_scalars</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client_last_round</span><span class="p">[</span><span class="n">client_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">server_round</span>
+
+    <span class="c1"># 2. Reconstruct update direction using averaged scalars</span>
+    <span class="n">x_current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">global_params_flat</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="p">):</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x_current</span><span class="p">)</span>
+        <span class="n">num_clients</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">client_gradients</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">grad_scalars</span> <span class="ow">in</span> <span class="n">client_gradients</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="p">):</span>
+                <span class="c1"># Regenerate SAME perturbation using SAME seed</span>
+                <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_perturbation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed_history</span><span class="p">[</span><span class="n">server_round</span><span class="p">][</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">])</span>
+                <span class="n">g</span> <span class="o">=</span> <span class="n">grad_scalars</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">]</span>
+
+                <span class="c1"># Accumulate: g × z</span>
+                <span class="n">delta</span> <span class="o">+=</span> <span class="n">g</span> <span class="o">*</span> <span class="n">z</span>
+
+        <span class="c1"># Average across clients and perturbations, then apply update</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="n">delta</span> <span class="o">/</span> <span class="p">(</span><span class="n">num_clients</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="p">)</span>
+        <span class="n">x_current</span> <span class="o">=</span> <span class="n">x_current</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">eta</span> <span class="o">*</span> <span class="n">delta</span>  <span class="c1"># delta already averaged by 1/(N*P)</span>
+
+    <span class="c1"># 3. Store updated flat params</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">global_params_flat</span> <span class="o">=</span> <span class="n">x_current</span>
+
+    <span class="c1"># 4. Unflatten back to state_dict format</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unflatten_params</span><span class="p">(</span><span class="n">x_current</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>Why seed_history is indexed by server_round:</strong> The <code>GetDeComFLConfig</code> handler appends seeds to <code>strategy.seed_history</code> when it serves them to clients. By round index <code>t</code>, <code>seed_history[t]</code> contains the K×P seeds for that round. When <code>aggregate_fit(t, ...)</code> runs, it looks up <code>seed_history[t]</code> to regenerate the correct perturbation vectors.</p>
+<h3 id="model-rebuild-for-missed-rounds">Model Rebuild for Missed Rounds<a class="headerlink" href="#model-rebuild-for-missed-rounds" title="Permanent link">&para;</a></h3>
+<p>If a client disconnects and reconnects, it must reconstruct the global model updates for all missed rounds:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># decomfl_client.py</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">rebuild_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rebuild_history</span><span class="p">,</span> <span class="n">learning_rate</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Replays missed rounds deterministically.</span>
+
+<span class="sd">    rebuild_history = [</span>
+<span class="sd">        { &#39;round_number&#39;: 5, &#39;seeds&#39;: [[...], ...], &#39;gradients&#39;: [[...], ...] },</span>
+<span class="sd">        { &#39;round_number&#39;: 6, &#39;seeds&#39;: [[...], ...], &#39;gradients&#39;: [[...], ...] },</span>
+<span class="sd">    ]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">round_data</span> <span class="ow">in</span> <span class="n">rebuild_history</span><span class="p">:</span>
+        <span class="n">seeds</span> <span class="o">=</span> <span class="n">round_data</span><span class="p">[</span><span class="s1">&#39;seeds&#39;</span><span class="p">]</span>              <span class="c1"># K×P ints from server</span>
+        <span class="n">avg_gradients</span> <span class="o">=</span> <span class="n">round_data</span><span class="p">[</span><span class="s1">&#39;gradients&#39;</span><span class="p">]</span>  <span class="c1"># K×P floats (server-averaged)</span>
+
+        <span class="n">K</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">)</span>
+        <span class="n">P</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">K</span><span class="p">):</span>
+            <span class="n">delta</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">P</span><span class="p">):</span>
+                <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">generate_perturbation</span><span class="p">(</span>
+                    <span class="n">seeds</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">g</span> <span class="o">=</span> <span class="n">avg_gradients</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">]</span>   <span class="c1"># averaged gradient from server logs</span>
+                <span class="n">delta</span> <span class="o">+=</span> <span class="n">g</span> <span class="o">*</span> <span class="n">z</span>
+
+            <span class="c1"># Apply the global update for this missed step</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span> <span class="o">-=</span> <span class="p">(</span><span class="n">learning_rate</span> <span class="o">/</span> <span class="n">P</span><span class="p">)</span> <span class="o">*</span> <span class="n">delta</span>
+
+    <span class="c1"># Sync model weights from rebuilt flat params</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">_set_flat_params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
+</code></pre></div>
+
+<p>The rebuild requires:
+- The seeds (small: 2 int32s × K × P)
+- The averaged gradient scalars (small: 2 float64s × K × P)</p>
+<p>Both are stored on the server and sent via the <code>RebuildHistory</code> proto message. The full perturbation vectors (<code>d</code>-dimensional) are <strong>never stored</strong> — they are regenerated from seeds on demand.</p>
+<hr />
+<h2 id="grpc-protocol-for-decomfl">gRPC Protocol for DeComFL<a class="headerlink" href="#grpc-protocol-for-decomfl" title="Permanent link">&para;</a></h2>
+<p>DeComFL uses two dedicated RPCs that bypass the standard model parameter path:</p>
+<h3 id="round-protocol-flow">Round Protocol Flow<a class="headerlink" href="#round-protocol-flow" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>Client                              Server
+  │                                   │
+  │  GetDeComFLConfig(client_id)       │
+  │──────────────────────────────────►│
+  │                                   │ generate_seeds(round)
+  │                                   │ seed_history.append(seeds)
+  │                                   │ get_rebuild_history(client_id, round)
+  │  GetDeComFLConfigResponse          │
+  │◄──────────────────────────────────│
+  │  { round, seeds, rebuild_history, config }
+  │                                   │
+  │ (if rebuild_history not empty)    │
+  │   rebuild_model(history, lr)      │
+  │                                   │
+  │ fit(config) → grad_scalars[K][P]  │
+  │                                   │
+  │  SubmitGradientScalars(scalars)   │
+  │──────────────────────────────────►│
+  │                                   │ submit_decomfl_update(client_id, scalars, n, round)
+  │                                   │ (when all clients submitted):
+  │                                   │   aggregate_fit()
+  │                                   │   round_complete_event.set()
+  │  SubmitGradientScalarsResponse    │
+  │◄──────────────────────────────────│
+  │                                   │
+  │  (sleep 2s, poll again)           │
+  │──────────────────────────────────►│
+</code></pre></div>
+
+<h3 id="wire-format-for-gradient-scalars">Wire Format for Gradient Scalars<a class="headerlink" href="#wire-format-for-gradient-scalars" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Upload: K×P float64 scalars (~400 bytes for K=5, P=10)</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">SubmitGradientScalarsRequest</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">client_id</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">trained_on_round</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">  </span><span class="n">GradientScalars</span><span class="w"> </span><span class="na">gradients</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w">  </span><span class="c1">// K×P doubles</span>
+<span class="w">  </span><span class="kt">int64</span><span class="w">  </span><span class="na">num_examples</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kd">message</span><span class="w"> </span><span class="nc">GradientScalars</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="n">LocalStepGradients</span><span class="w"> </span><span class="na">local_steps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kd">message</span><span class="w"> </span><span class="nc">LocalStepGradients</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">scalars</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">   </span><span class="c1">// P gradient scalars for this local step</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="wire-format-for-seed-download">Wire Format for Seed Download<a class="headerlink" href="#wire-format-for-seed-download" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Download: K×P int32 seeds (~200 bytes for K=5, P=10) + rebuild history</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">GetDeComFLConfigResponse</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w"> </span><span class="na">current_round</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="n">PerturbationSeeds</span><span class="w"> </span><span class="na">current_seeds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">  </span><span class="n">RebuildHistory</span><span class="w"> </span><span class="na">rebuild_history</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="n">map</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">string</span><span class="p">&gt;</span><span class="w"> </span><span class="na">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span><span class="w">   </span><span class="c1">// lr, mu, K, P</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<hr />
+<h2 id="hyperparameter-guide">Hyperparameter Guide<a class="headerlink" href="#hyperparameter-guide" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Symbol</th>
+<th>Typical Range</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>num_local_steps</code></td>
+<td>K</td>
+<td>1–10</td>
+<td>More steps = more computation per round, less communication overhead</td>
+</tr>
+<tr>
+<td><code>num_perturbations</code></td>
+<td>P</td>
+<td>5–50</td>
+<td>More perturbations = better gradient estimation, more computation</td>
+</tr>
+<tr>
+<td><code>learning_rate</code></td>
+<td>η</td>
+<td>1e-4 to 1e-2</td>
+<td>Standard learning rate; tune as in regular training</td>
+</tr>
+<tr>
+<td><code>smoothing_param</code></td>
+<td>μ</td>
+<td>1e-4 to 1e-2</td>
+<td>Smaller = more accurate ZO estimate but noisier; 0.001 is a good default</td>
+</tr>
+<tr>
+<td><code>seed</code></td>
+<td>—</td>
+<td>Any int</td>
+<td>Sets NumPy + PyTorch random state for reproducibility</td>
+</tr>
+</tbody>
+</table>
+<h3 id="communication-vs-convergence-trade-off">Communication vs. Convergence Trade-off<a class="headerlink" href="#communication-vs-convergence-trade-off" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>Increasing P (perturbations):
+  ✓ Better gradient estimate (lower variance)
+  ✗ More computation (2P forward passes per local step)
+  = Same communication (K×P scalars)
+
+Increasing K (local steps):
+  ✓ More model update per round (faster convergence)
+  ✗ More computation (K data batches)
+  = Same communication (K×P scalars)
+
+Decreasing μ (smoothing):
+  ✓ More accurate gradient direction
+  ✗ Noisier estimates (finite-difference approximation error)
+  = No effect on communication
+</code></pre></div>
+
+<hr />
+<h2 id="trade-offs-and-limitations">Trade-offs and Limitations<a class="headerlink" href="#trade-offs-and-limitations" title="Permanent link">&para;</a></h2>
+<h3 id="advantages">Advantages<a class="headerlink" href="#advantages" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Massive communication reduction:</strong> O(K×P) vs. O(d) — ~1M× for LLMs</li>
+<li><strong>Backprop-free:</strong> Can work on devices/APIs where gradients are unavailable (black-box models)</li>
+<li><strong>Memory-efficient:</strong> No gradient tensors stored during training</li>
+<li><strong>Natural compatibility with model rebuilding:</strong> Missed rounds can be replayed without full model transmission</li>
+</ul>
+<h3 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Convergence rate:</strong> ZO methods converge ~1/d× slower than gradient-based methods in the worst case. In practice, the gap is much smaller.</li>
+<li><strong>Two forward passes per perturbation:</strong> Computational cost is 2×P×K forward passes per round (vs. 1 forward + 1 backward for FedAvg).</li>
+<li><strong>High variance with small P:</strong> If P is too small (P &lt; 5), gradient estimates are noisy and training can be unstable.</li>
+<li><strong>Smoothing bias:</strong> The ZO estimator introduces a bias term proportional to μ². Smaller μ reduces bias but increases variance.</li>
+<li><strong>Seed history growth:</strong> The server accumulates <code>seed_history</code> for all rounds. For very long training (1000+ rounds), this becomes a non-trivial memory cost (K×P×4 bytes per round).</li>
+</ol>
+<hr />
+<h2 id="running-a-decomfl-experiment">Running a DeComFL Experiment<a class="headerlink" href="#running-a-decomfl-experiment" title="Permanent link">&para;</a></h2>
+<h3 id="ecg-classification-example">ECG Classification Example<a class="headerlink" href="#ecg-classification-example" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Terminal 1: Start server</span>
+<span class="nb">cd</span><span class="w"> </span>examples/ecg_decomfl_multiclient
+
+python<span class="w"> </span>run_server.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--num_clients<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--num_rounds<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--num_local_steps<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--num_perturbations<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--learning_rate<span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--smoothing_param<span class="w"> </span><span class="m">0</span>.001
+
+<span class="c1"># Terminal 2-4: Start clients</span>
+python<span class="w"> </span>run_client.py<span class="w"> </span>--id<span class="w"> </span><span class="m">0</span><span class="w"> </span>--data_path<span class="w"> </span>ecg_data/ecg.csv<span class="w"> </span>--server_address<span class="w"> </span>localhost:50051
+python<span class="w"> </span>run_client.py<span class="w"> </span>--id<span class="w"> </span><span class="m">1</span><span class="w"> </span>--data_path<span class="w"> </span>ecg_data/ecg.csv<span class="w"> </span>--server_address<span class="w"> </span>localhost:50051
+python<span class="w"> </span>run_client.py<span class="w"> </span>--id<span class="w"> </span><span class="m">2</span><span class="w"> </span>--data_path<span class="w"> </span>ecg_data/ecg.csv<span class="w"> </span>--server_address<span class="w"> </span>localhost:50051
+</code></pre></div>
+
+<h3 id="minimal-custom-decomfl-setup">Minimal Custom DeComFL Setup<a class="headerlink" href="#minimal-custom-decomfl-setup" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># server side</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">fedlearn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">MyModel</span><span class="p">()</span>
+
+<span class="n">strategy</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">DeComFL</span><span class="p">(</span>
+    <span class="n">initial_parameters</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+    <span class="n">evaluate_fn</span><span class="o">=</span><span class="n">my_eval_fn</span><span class="p">,</span>
+    <span class="n">min_fit_clients</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">clients_per_round</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">num_local_steps</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>       <span class="c1"># K</span>
+    <span class="n">num_perturbations</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>    <span class="c1"># P</span>
+    <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span>     <span class="c1"># η</span>
+    <span class="n">smoothing_param</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span>   <span class="c1"># μ</span>
+<span class="p">)</span>
+
+<span class="n">fl</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">start_server</span><span class="p">(</span>
+    <span class="n">server_address</span><span class="o">=</span><span class="s2">&quot;0.0.0.0:50051&quot;</span><span class="p">,</span>
+    <span class="n">config</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">ServerConfig</span><span class="p">(</span><span class="n">num_rounds</span><span class="o">=</span><span class="mi">20</span><span class="p">),</span>
+    <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># client side</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeComFLClient</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.client.decomfl_start</span><span class="w"> </span><span class="kn">import</span> <span class="n">start_decomfl_client</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MyDeComFLClient</span><span class="p">(</span><span class="n">DeComFLClient</span><span class="p">):</span>
+    <span class="k">pass</span>  <span class="c1"># DeComFLClient.fit() is already fully implemented</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">MyDeComFLClient</span><span class="p">(</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">MyModel</span><span class="p">(),</span>
+    <span class="n">train_loader</span><span class="o">=</span><span class="n">my_loader</span><span class="p">,</span>
+    <span class="n">smoothing_param</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span>
+    <span class="n">device</span><span class="o">=</span><span class="s2">&quot;mps&quot;</span><span class="p">,</span>   <span class="c1"># Apple Silicon</span>
+<span class="p">)</span>
+
+<span class="n">start_decomfl_client</span><span class="p">(</span>
+    <span class="n">server_address</span><span class="o">=</span><span class="s2">&quot;localhost:50051&quot;</span><span class="p">,</span>
+    <span class="n">client</span><span class="o">=</span><span class="n">client</span><span class="p">,</span>
+    <span class="n">client_id</span><span class="o">=</span><span class="s2">&quot;client_0&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+
+<hr />
+<h2 id="connection-to-the-decomfl-paper">Connection to the DeComFL Paper<a class="headerlink" href="#connection-to-the-decomfl-paper" title="Permanent link">&para;</a></h2>
+<p>The implementation maps directly to the algorithms in the DeComFL paper:</p>
+<table>
+<thead>
+<tr>
+<th>Paper Reference</th>
+<th>Code Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Algorithm 3, Server protocol</td>
+<td><code>decomfl_strategy.py</code> <code>aggregate_fit()</code> + <code>generate_seeds()</code></td>
+</tr>
+<tr>
+<td>Algorithm 4, Client protocol</td>
+<td><code>decomfl_client.py</code> <code>fit()</code></td>
+</tr>
+<tr>
+<td>Algorithm 2, Model rebuilding</td>
+<td><code>decomfl_client.py</code> <code>rebuild_model()</code></td>
+</tr>
+<tr>
+<td>ZO estimator (Eq. 1)</td>
+<td><code>estimators/zeroth_order.py</code> <code>compute_gradient_scalar()</code></td>
+</tr>
+<tr>
+<td>Seed history <code>S^t</code></td>
+<td><code>decomfl_strategy.py</code> <code>self.seed_history</code></td>
+</tr>
+<tr>
+<td>Gradient history <code>G^t</code></td>
+<td><code>coordinator.py</code> <code>strategy.gradient_history</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="citation">Citation<a class="headerlink" href="#citation" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nc">@inproceedings</span><span class="p">{</span><span class="nl">li2025decomfl</span><span class="p">,</span>
+<span class="w">  </span><span class="na">title</span><span class="p">=</span><span class="s">{Achieving Dimension-Free Communication in Federated Learning via Zeroth-Order Optimization}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">author</span><span class="p">=</span><span class="s">{Li, Zhe and Ying, Bicheng and Liu, Zidong and Dong, Chaosheng and Yang, Haibo}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">booktitle</span><span class="p">=</span><span class="s">{International Conference on Learning Representations (ICLR)}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">year</span><span class="p">=</span><span class="s">{2025}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>Developed at Rochester Institute of Technology under Professor Haibo Yang.
+Reference implementation: <a href="https://github.com/ZidongLiu/DeComFL">ZidongLiu/DeComFL</a> (Apache-2.0).</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

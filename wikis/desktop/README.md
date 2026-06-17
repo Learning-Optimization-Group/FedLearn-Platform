@@ -4,6 +4,8 @@
 
 The `fedlearn-desktop` module is the cross-platform Electron application that serves as the local training orchestrator for FedLearn participants. It provides a secure graphical interface to configure, launch, and monitor federated learning training sessions — either through a PyInstaller native binary (macOS MPS, Windows CUDA/CPU) or a Docker container (NVIDIA Jetson SoC).
 
+> **Ember rebrand (`3.1.0-beta`).** The renderer migrated to the **Ember** design system and ships rebranded icons. The three-process security model, IPC contract, and execution paths below are unchanged.
+
 ---
 
 ## Document Index
@@ -81,4 +83,4 @@ npm run package:linux        # Linux AppImage + deb
 
 - [Backend Wiki](../backend/README.md) — Spring Boot API that coordinates federated learning rounds
 - [Frontend Wiki](../frontend/README.md) — Web dashboard for project management
-- [Framework Wiki](../framework/README.md) — Python federated learning framework (Flower-based)
+- [Framework Wiki](../framework/README.md) — Python federated learning framework (custom; **no Flower / `flwr`**)

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 - Security and Authentication · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Backend</summary><ul>
+<li><a href="README.html">Backend Architecture Wiki</a></li>
+<li><a href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a class="active" href="02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Backend</b> &nbsp;·&nbsp; 02 - Security and Authentication</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="02-security-and-authentication">02 - Security and Authentication<a class="headerlink" href="#02-security-and-authentication" title="Permanent link">&para;</a></h1>
+<p>The FedLearn backend implements a robust, multi-layered security architecture designed to handle both standard REST API clients (React) and internal Machine Learning servers (Python).</p>
+<blockquote class="callout warn"><p>⚠️ <strong>Branch reality.</strong> The JWT / cookie / WebSocket-handshake / internal-API-key mechanics on this page are <strong>current</strong>. The <strong>role and org-scope material</strong> — <code>PlatformRole</code> / <code>PLATFORM_ADMIN</code>, the three role layers, <code>OrgScope</code> / <code>OrgScopeFilter</code>, <code>organization_memberships</code>, and the <code>@Auditable</code> audit trail — is <strong>designed on a separate identity-foundations branch and is <em>not present</em> here.</strong> This branch ships a single coarse <code>users.role IN (USER, ADMIN)</code> column (migration <code>V2</code>; highest committed migration <code>V3</code>). See the banner on <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</p>
+</blockquote>
+<h2 id="1-rest-api-security-jwt">1. REST API Security (JWT)<a class="headerlink" href="#1-rest-api-security-jwt" title="Permanent link">&para;</a></h2>
+<p>The platform uses <strong>JSON Web Tokens (JWT)</strong> for stateless user authentication. When a user logs in via <code>/api/auth/login</code>, the <code>AuthController</code> generates a token using <code>JwtTokenProvider</code> and returns it to the client.</p>
+<h3 id="token-extraction-strategy">Token Extraction Strategy<a class="headerlink" href="#token-extraction-strategy" title="Permanent link">&para;</a></h3>
+<p>The <code>JwtAuthenticationFilter</code> intercepts every incoming HTTP request and attempts to extract the token from two potential sources in priority order:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">String</span><span class="w"> </span><span class="n">authHeader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">request</span><span class="p">.</span><span class="na">getHeader</span><span class="p">(</span><span class="s">&quot;Authorization&quot;</span><span class="p">);</span>
+<span class="n">String</span><span class="w"> </span><span class="n">jwt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+
+<span class="c1">// 1. Check Authorization Header (used by programmatic clients)</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">authHeader</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">authHeader</span><span class="p">.</span><span class="na">startsWith</span><span class="p">(</span><span class="s">&quot;Bearer &quot;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">jwt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">authHeader</span><span class="p">.</span><span class="na">substring</span><span class="p">(</span><span class="mi">7</span><span class="p">);</span>
+<span class="p">}</span><span class="w"> </span>
+<span class="c1">// 2. Check HttpOnly Cookies (used securely by the browser)</span>
+<span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">request</span><span class="p">.</span><span class="na">getCookies</span><span class="p">()</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">jakarta</span><span class="p">.</span><span class="na">servlet</span><span class="p">.</span><span class="na">http</span><span class="p">.</span><span class="na">Cookie</span><span class="w"> </span><span class="n">cookie</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">request</span><span class="p">.</span><span class="na">getCookies</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="s">&quot;jwtToken&quot;</span><span class="p">.</span><span class="na">equals</span><span class="p">(</span><span class="n">cookie</span><span class="p">.</span><span class="na">getName</span><span class="p">()))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">jwt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cookie</span><span class="p">.</span><span class="na">getValue</span><span class="p">();</span>
+<span class="w">            </span><span class="k">break</span><span class="p">;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>By supporting both mechanisms, the backend is highly flexible while remaining secure against Cross-Site Scripting (XSS) when using <code>HttpOnly</code> cookies on the web.</p>
+<hr />
+<h2 id="2-websocket-security-stomp">2. WebSocket Security (STOMP)<a class="headerlink" href="#2-websocket-security-stomp" title="Permanent link">&para;</a></h2>
+<p>WebSockets present a unique security challenge because the initial connection is an HTTP Upgrade request, but subsequent messages flow over a persistent, non-HTTP TCP channel.</p>
+<p>We secure WebSockets at <strong>two distinct layers</strong>:</p>
+<h3 id="layer-1-handshake-interception-jwthandshakeinterceptorjava">Layer 1: Handshake Interception (<code>JwtHandshakeInterceptor.java</code>)<a class="headerlink" href="#layer-1-handshake-interception-jwthandshakeinterceptorjava" title="Permanent link">&para;</a></h3>
+<p>This is the most critical defense. Before the WebSocket channel is even opened, the <code>JwtHandshakeInterceptor</code> validates the token on the initial HTTP upgrade request.</p>
+<p>If the token is invalid or missing, the handshake is rejected with a <code>401 Unauthorized</code> status, completely preventing an unauthenticated client from opening a socket.</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Inside JwtHandshakeInterceptor.java</span>
+<span class="nd">@Override</span>
+<span class="kd">public</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="nf">beforeHandshake</span><span class="p">(</span><span class="n">ServerHttpRequest</span><span class="w"> </span><span class="n">request</span><span class="p">,</span><span class="w"> </span><span class="n">ServerHttpResponse</span><span class="w"> </span><span class="n">response</span><span class="p">,</span>
+<span class="w">                               </span><span class="n">WebSocketHandler</span><span class="w"> </span><span class="n">wsHandler</span><span class="p">,</span><span class="w"> </span><span class="n">Map</span><span class="o">&lt;</span><span class="n">String</span><span class="p">,</span><span class="w"> </span><span class="n">Object</span><span class="o">&gt;</span><span class="w"> </span><span class="n">attributes</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">String</span><span class="w"> </span><span class="n">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">extractToken</span><span class="p">(</span><span class="n">request</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">token</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="n">jwtTokenProvider</span><span class="p">.</span><span class="na">validateToken</span><span class="p">(</span><span class="n">token</span><span class="p">,</span><span class="w"> </span><span class="n">userDetails</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">reject</span><span class="p">(</span><span class="n">response</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span><span class="w"> </span><span class="c1">// Connection dropped before socket opens</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Store authenticated principal in attributes to pass to STOMP layer</span>
+<span class="w">    </span><span class="n">attributes</span><span class="p">.</span><span class="na">put</span><span class="p">(</span><span class="n">PRINCIPAL_ATTR</span><span class="p">,</span><span class="w"> </span><span class="n">auth</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span><span class="w"> </span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="layer-2-stomp-channel-interception-jwtchannelinterceptorjava">Layer 2: STOMP Channel Interception (<code>JwtChannelInterceptor.java</code>)<a class="headerlink" href="#layer-2-stomp-channel-interception-jwtchannelinterceptorjava" title="Permanent link">&para;</a></h3>
+<p>Once the socket is open, STOMP clients send <code>CONNECT</code> frames. The <code>JwtChannelInterceptor</code> takes the <code>PRINCIPAL_ATTR</code> saved during the handshake and officially promotes it into the STOMP message header context. This ensures that any <code>@SubscribeMapping</code> or message routing logic has access to the user's identity.</p>
+<hr />
+<h2 id="3-machine-to-machine-security-internal-api-key">3. Machine-to-Machine Security (Internal API Key)<a class="headerlink" href="#3-machine-to-machine-security-internal-api-key" title="Permanent link">&para;</a></h2>
+<p>The Python Federated Learning server (spawned by AWS ECS or <code>ProcessBuilder</code>) needs to send training results and status updates back to the Spring Boot API.</p>
+<p><strong>Problem:</strong> The Python script is not a "User". It doesn't have a username/password, and generating temporary JWTs for the script introduces unnecessary complexity.</p>
+<p><strong>Solution:</strong> The <code>InternalApiKeyFilter</code>.</p>
+<p>All internal reporting endpoints are placed under <code>/api/internal/**</code>. The <code>SecurityConfig</code> allows these endpoints to bypass the standard JWT checks. Instead, they are intercepted by the <code>InternalApiKeyFilter</code>.</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Inside InternalApiKeyFilter.java</span>
+<span class="nd">@Override</span>
+<span class="kd">protected</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">doFilterInternal</span><span class="p">(</span><span class="n">HttpServletRequest</span><span class="w"> </span><span class="n">request</span><span class="p">,</span><span class="w"> </span><span class="n">HttpServletResponse</span><span class="w"> </span><span class="n">response</span><span class="p">,</span>
+<span class="w">                                </span><span class="n">FilterChain</span><span class="w"> </span><span class="n">filterChain</span><span class="p">)</span><span class="w"> </span><span class="kd">throws</span><span class="w"> </span><span class="n">ServletException</span><span class="p">,</span><span class="w"> </span><span class="n">IOException</span><span class="w"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="n">String</span><span class="w"> </span><span class="n">requestApiKey</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">request</span><span class="p">.</span><span class="na">getHeader</span><span class="p">(</span><span class="s">&quot;X-Internal-API-Key&quot;</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">internalApiKey</span><span class="p">.</span><span class="na">equals</span><span class="p">(</span><span class="n">requestApiKey</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Authenticate the request as an internal service</span>
+<span class="w">        </span><span class="n">UsernamePasswordAuthenticationToken</span><span class="w"> </span><span class="n">authentication</span><span class="w"> </span><span class="o">=</span>
+<span class="w">                </span><span class="k">new</span><span class="w"> </span><span class="n">UsernamePasswordAuthenticationToken</span><span class="p">(</span><span class="s">&quot;internal-service&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">                        </span><span class="n">Collections</span><span class="p">.</span><span class="na">singletonList</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="n">SimpleGrantedAuthority</span><span class="p">(</span><span class="s">&quot;ROLE_INTERNAL&quot;</span><span class="p">)));</span>
+<span class="w">        </span><span class="n">SecurityContextHolder</span><span class="p">.</span><span class="na">getContext</span><span class="p">().</span><span class="na">setAuthentication</span><span class="p">(</span><span class="n">authentication</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">response</span><span class="p">.</span><span class="na">setStatus</span><span class="p">(</span><span class="n">HttpServletResponse</span><span class="p">.</span><span class="na">SC_UNAUTHORIZED</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">filterChain</span><span class="p">.</span><span class="na">doFilter</span><span class="p">(</span><span class="n">request</span><span class="p">,</span><span class="w"> </span><span class="n">response</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>The Spring Boot backend securely passes this <code>FEDLEARN_INTERNAL_API_KEY</code> to the Python server via environment variables during the orchestration phase (see <code>FlowerServerManager</code>), ensuring that only backend-spawned ML processes can hit the internal endpoints.</p>
+<hr />
+<h2 id="4-authorization-roles-org-scoped-isolation">4. Authorization: Roles &amp; Org-Scoped Isolation<a class="headerlink" href="#4-authorization-roles-org-scoped-isolation" title="Permanent link">&para;</a></h2>
+<p>Once a request is <em>authenticated</em> (sections 1–2), a second layer decides what it
+is <em>allowed</em> to do. Authorization spans three independent role layers and an
+organization-scoped tenant boundary. This section is a summary; the full
+treatment lives in <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</p>
+<h3 id="the-three-role-layers">The three role layers<a class="headerlink" href="#the-three-role-layers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Column</th>
+<th>Enum</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Platform</strong></td>
+<td><code>users.platform_role</code></td>
+<td><code>PlatformRole</code></td>
+<td><code>USER</code>, <code>PLATFORM_ADMIN</code></td>
+</tr>
+<tr>
+<td><strong>Organization</strong></td>
+<td><code>organization_memberships.org_role</code></td>
+<td><code>OrgRole</code></td>
+<td><code>OWNER</code>, <code>ADMIN</code>, <code>MEMBER</code></td>
+</tr>
+<tr>
+<td><strong>Project</strong></td>
+<td><code>project_memberships.role</code></td>
+<td><code>MembershipRole</code></td>
+<td><code>OWNER</code>, <code>MEMBER</code>, <code>CLIENT</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>CustomUserDetailsService</code> maps the user's <code>PlatformRole</code> to a single Spring
+authority via <code>PlatformRole.authority()</code> (<code>ROLE_USER</code> / <code>ROLE_PLATFORM_ADMIN</code>), so
+admin-only routes gate with <code>@PreAuthorize("hasRole('PLATFORM_ADMIN')")</code>
+(<code>@EnableMethodSecurity</code> is on in <code>SecurityConfig</code>). <code>PLATFORM_ADMIN</code> is the
+privileged tier and <strong>bypasses org-scope checks</strong>. The same service also enforces
+a lifecycle gate: it throws <code>DisabledException</code> (→ 401) for any user whose
+<code>status != ACTIVE</code> or who is soft-deleted, <em>before</em> the password check.</p>
+<blockquote>
+<p><strong>Note (fixed):</strong> <code>AuthorizationService.isAdmin</code> formerly checked the literal
+<code>"ROLE_ADMIN"</code> — a string that no longer existed after the role rename, so the
+check silently failed. It is now <code>isPlatformAdmin()</code> and checks
+<code>ROLE_PLATFORM_ADMIN</code>.</p>
+</blockquote>
+<h3 id="org-scoped-multi-tenant-isolation">Org-scoped multi-tenant isolation<a class="headerlink" href="#org-scoped-multi-tenant-isolation" title="Permanent link">&para;</a></h3>
+<p>The P0 data-isolation mechanism guarantees a caller only sees/mutates projects in
+organizations they belong to:</p>
+<ul>
+<li><strong><code>OrgScope</code></strong> — a <code>@RequestScope</code> bean holding <code>Set&lt;UUID&gt; visibleOrgIds</code> plus an
+  <code>unrestricted</code> flag; <code>allows(orgId)</code> is the single decision point.</li>
+<li><strong><code>OrgScopeFilter</code></strong> — an <code>OncePerRequestFilter</code> registered to run <em>after</em>
+  <code>JwtAuthenticationFilter</code>. It loads the caller's org ids from
+  <code>organization_memberships</code> into <code>OrgScope</code>; a platform admin is marked
+  <code>unrestricted</code>. A user with <strong>no</strong> memberships falls back to the single
+  bootstrap <code>DEFAULT_ORG_ID</code> — a transitional rule so the current single-org demo
+  keeps returning projects.</li>
+<li><strong><code>AuthorizationService.requireOrgScope(UUID)</code></strong> — used on <strong>mutation</strong> paths;
+  throws <strong>403</strong> when the project's org is out of scope.</li>
+<li><strong><code>AuthorizationService.isInOrgScope(UUID)</code></strong> — the boolean form used on <strong>read</strong>
+  paths to instead return <strong>404</strong>, so cross-tenant project <em>existence</em> is not
+  leaked.</li>
+</ul>
+<p>These gates are applied uniformly across <code>ProjectService</code>, <code>MembershipService</code>,
+<code>AccessRequestService</code>, and <code>ClientApiService</code>; list queries are pushed down
+org-scoped (<code>ProjectRepository.findOwnedOrMemberOfInOrgs</code> /
+<code>findDiscoverableInOrgs</code>).</p>
+<hr />
+<h2 id="5-the-auditable-audit-trail">5. The <code>@Auditable</code> Audit Trail<a class="headerlink" href="#5-the-auditable-audit-trail" title="Permanent link">&para;</a></h2>
+<p>Security-relevant mutations emit an <code>audit_events</code> row through a declarative
+annotation + AOP advice (no audit logic smeared across services):</p>
+<ul>
+<li><code>@Auditable(action = ..., targetIdParam = ..., targetType = ...)</code> marks a method.</li>
+<li><code>AuditAspect</code> is an <code>@Around</code> advice that runs the method <strong>first</strong> and persists
+  the audit row only on success (a thrown exception writes no row). It writes in
+  the <strong>same transaction</strong> as the audited mutation, so a rollback drops the audit
+  row too — and clears the <code>AuditContext</code> thread-local on the exception path so
+  staged metadata can't leak across pooled threads. Metadata is serialised to the
+  JSONB <code>metadata</code> column via Jackson.</li>
+</ul>
+<p>Login is audited <em>outside</em> the aspect (credential failures throw before any
+<code>@Auditable</code> body runs): <code>AuditingAuthenticationSuccessHandler</code> (also stamps
+<code>last_login_at</code>) and <code>AuditingAuthenticationFailureHandler</code> write
+<code>USER_LOGIN_SUCCEEDED</code> / <code>USER_LOGIN_FAILED</code>. Full detail — including the
+<code>AuditAction</code> vocabulary and the JSON-serialisation fix — is in
+<a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

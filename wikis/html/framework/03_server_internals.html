@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 — Server Internals · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Framework</summary><ul>
+<li><a href="README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a class="active" href="03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Framework</b> &nbsp;·&nbsp; 03 — Server Internals</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="03-server-internals">03 — Server Internals<a class="headerlink" href="#03-server-internals" title="Permanent link">&para;</a></h1>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#entry-point-start_server">Entry Point: start_server()</a></li>
+<li><a href="#server-configuration">Server Configuration</a></li>
+<li><a href="#json-structured-logging">JSON Structured Logging</a></li>
+<li><a href="#the-flcoordinator">The FLCoordinator</a></li>
+<li><a href="#state-machine">State Machine</a></li>
+<li><a href="#thread-safety-model">Thread Safety Model</a></li>
+<li><a href="#round-lifecycle">Round Lifecycle</a></li>
+<li><a href="#update-submission-and-aggregation-trigger">Update Submission and Aggregation Trigger</a></li>
+<li><a href="#stale-update-rejection">Stale Update Rejection</a></li>
+<li><a href="#client-registration">Client Registration</a></li>
+<li><a href="#heartbeat-management">Heartbeat Management</a></li>
+<li><a href="#decomfl-path-in-the-coordinator">DeComFL Path in the Coordinator</a></li>
+<li><a href="#the-grpc-servicer">The gRPC Servicer</a></li>
+<li><a href="#server-thread-pool-sizing">Server Thread Pool Sizing</a></li>
+<li><a href="#graceful-shutdown">Graceful Shutdown</a></li>
+<li><a href="#environment-variables-reference">Environment Variables Reference</a></li>
+</ul>
+<hr />
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>The server-side of the framework comprises three cooperating objects:</p>
+<div class="codehilite"><pre><span></span><code>start_server()
+    │
+    ├── creates FLCoordinator       (business logic / state)
+    ├── creates grpc.Server          (network I/O)
+    └── creates FederatedLearningServiceServicer (RPC dispatcher)
+                │
+                └── delegates all calls to FLCoordinator
+</code></pre></div>
+
+<p>The key architectural principle is <strong>strict separation of concerns</strong>:
+- <strong><code>FLCoordinator</code></strong> never touches networking.
+- <strong><code>FederatedLearningServiceServicer</code></strong> never touches model parameters directly — it only calls coordinator methods.
+- <strong><code>start_server()</code></strong> only sets up infrastructure and runs the outer training loop.</p>
+<hr />
+<h2 id="entry-point-start_server">Entry Point: start_server()<a class="headerlink" href="#entry-point-start_server" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># server.py</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">start_server</span><span class="p">(</span>
+    <span class="n">server_address</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">ServerConfig</span><span class="p">,</span>
+    <span class="n">strategy</span><span class="p">:</span> <span class="n">Strategy</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Args:</span>
+<span class="sd">        server_address: e.g. &quot;0.0.0.0:50051&quot;</span>
+<span class="sd">        config: ServerConfig(num_rounds=10)</span>
+<span class="sd">        strategy: An instance of FedAvg, DeComFL, or a custom Strategy subclass</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        history: List of (round_num, metrics_dict) for each completed round</span>
+<span class="sd">        final_parameters: The global model state_dict after all rounds</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+</code></pre></div>
+
+<p>Call sequence:</p>
+<ol>
+<li><strong>Create coordinator</strong> — initialized with the strategy and client count settings</li>
+<li><strong>Set initial parameters</strong> — pushes <code>strategy.initialize_parameters()</code> into coordinator</li>
+<li><strong>Create gRPC server</strong> — with ThreadPoolExecutor sized for expected client count</li>
+<li><strong>Register servicer</strong> — <code>add_FederatedLearningServiceServicer_to_server(servicer, grpc_server)</code></li>
+<li><strong>Bind address</strong> — insecure or TLS depending on env vars</li>
+<li><strong>Start server</strong> — <code>grpc_server.start()</code> begins accepting connections</li>
+<li><strong>Run training loop</strong> — iterates rounds, blocking on <code>coordinator.wait_for_round_to_complete()</code></li>
+<li><strong>Return</strong> history and final parameters</li>
+<li><strong>Cleanup</strong> — <code>grpc_server.stop(grace=5)</code> in the finally block</li>
+</ol>
+<hr />
+<h2 id="server-configuration">Server Configuration<a class="headerlink" href="#server-configuration" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ServerConfig</span><span class="p">:</span>
+    <span class="n">num_rounds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
+</code></pre></div>
+
+<p>Currently a minimal dataclass. Extended configuration (e.g., client selection fraction, convergence criteria) is expected to be passed through the <code>Strategy</code> object's constructor arguments rather than <code>ServerConfig</code>.</p>
+<p>Typical usage:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">fedlearn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">MyCNN</span><span class="p">()</span>
+<span class="n">strategy</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">FedAvg</span><span class="p">(</span>
+    <span class="n">initial_parameters</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+    <span class="n">evaluate_fn</span><span class="o">=</span><span class="n">evaluate_global_model</span><span class="p">,</span>
+    <span class="n">min_fit_clients</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">clients_per_round</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">history</span><span class="p">,</span> <span class="n">final_params</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">start_server</span><span class="p">(</span>
+    <span class="n">server_address</span><span class="o">=</span><span class="s2">&quot;0.0.0.0:50051&quot;</span><span class="p">,</span>
+    <span class="n">config</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">ServerConfig</span><span class="p">(</span><span class="n">num_rounds</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span>
+    <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+
+<hr />
+<h2 id="json-structured-logging">JSON Structured Logging<a class="headerlink" href="#json-structured-logging" title="Permanent link">&para;</a></h2>
+<p>The server configures Python's root logger to emit JSON on startup:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">JSONFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
+        <span class="n">log_obj</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;timestamp&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span> <span class="o">+</span> <span class="s2">&quot;Z&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">record</span><span class="o">.</span><span class="n">levelname</span><span class="p">,</span>
+            <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="n">record</span><span class="o">.</span><span class="n">getMessage</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">exc_info</span><span class="p">:</span>
+            <span class="n">log_obj</span><span class="p">[</span><span class="s2">&quot;stackTrace&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">formatException</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">exc_info</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">log_obj</span><span class="p">)</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+<span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+<span class="n">handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">JSONFormatter</span><span class="p">())</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">handler</span><span class="p">]</span>
+</code></pre></div>
+
+<p><strong>Why JSON logging?</strong> The Spring Boot backend captures the Python process's stdout and parses it line-by-line to extract structured log objects, which are then broadcast to the React frontend via STOMP WebSocket. Plain text logs would require fragile regex parsing.</p>
+<p>Example output:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2024-01-15T10:23:45.123Z&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Starting round 1/10&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2024-01-15T10:23:46.456Z&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;All 3 clients reported for round 1; aggregating&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2024-01-15T10:23:46.789Z&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;[Server] Round 1 complete. Metrics: {&#39;loss&#39;: 0.43, &#39;accuracy&#39;: 0.87}&quot;</span><span class="p">}</span>
+</code></pre></div>
+
+<hr />
+<h2 id="the-flcoordinator">The FLCoordinator<a class="headerlink" href="#the-flcoordinator" title="Permanent link">&para;</a></h2>
+<p><code>FLCoordinator</code> is the stateful core of the server. It owns:
+- The current global model parameters
+- The current round number
+- The list of received updates for the current round
+- Client registration and heartbeat records</p>
+<h3 id="state-machine">State Machine<a class="headerlink" href="#state-machine" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>              start_round()
+                   │
+    ┌──────────────▼──────────────┐
+    │         COLLECTING          │ ← waiting for client updates
+    │                             │
+    │  submit_client_update() ────┤
+    │  (called per client)        │
+    └──────────────┬──────────────┘
+                   │ len(updates) == clients_per_round
+                   ▼
+    ┌──────────────────────────────┐
+    │   AGGREGATING (brief)        │
+    │                             │
+    │  strategy.aggregate_fit()   │
+    │  strategy.evaluate()        │
+    │  current_round += 1         │
+    │  _round_complete_event.set()│
+    └──────────────┬──────────────┘
+                   │
+    ┌──────────────▼──────────────┐
+    │  wait_for_round_to_complete  │
+    │  unblocks in server.py loop  │
+    └─────────────────────────────┘
+</code></pre></div>
+
+<h3 id="thread-safety-model">Thread Safety Model<a class="headerlink" href="#thread-safety-model" title="Permanent link">&para;</a></h3>
+<p>The coordinator is accessed concurrently by:
+- <strong>The main server thread</strong> — calling <code>start_round()</code>, <code>wait_for_round_to_complete()</code>, <code>get_latest_metrics()</code>
+- <strong>One gRPC thread per active client</strong> — calling <code>submit_client_update()</code>, <code>get_global_model_for_client()</code>, <code>register_client()</code>, <code>update_client_heartbeat()</code></p>
+<p>Two separate locks protect different parts of the state:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FLCoordinator</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>        <span class="c1"># protects round state + model params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>  <span class="c1"># signals round completion</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_lock</span> <span class="o">=</span> <span class="n">Lock</span><span class="p">()</span>         <span class="c1"># protects heartbeat dict only</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client_heartbeats</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</code></pre></div>
+
+<blockquote>
+<p><strong>Critical threading contract:</strong> <code>_trigger_aggregation_and_evaluation()</code> is always called <strong>while <code>_lock</code> is held</strong> (inside <code>submit_client_update</code>). The round counter increment and <code>_round_complete_event.set()</code> are therefore atomic — no waiting thread can observe an inconsistent state.</p>
+</blockquote>
+<h3 id="round-lifecycle">Round Lifecycle<a class="headerlink" href="#round-lifecycle" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">start_round</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Called by main loop to begin a new round.&quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># flush any stale updates</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>          <span class="c1"># reset completion signal</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">wait_for_round_to_complete</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Blocking wait on main loop thread. Checks stop flag every 1 second.&quot;&quot;&quot;</span>
+    <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop_requested</span><span class="p">:</span>
+            <span class="k">break</span>
+</code></pre></div>
+
+<p>The 1-second timeout in <code>wait()</code> allows the server to respond to <code>signal_stop()</code> without hanging indefinitely.</p>
+<h3 id="update-submission-and-aggregation-trigger">Update Submission and Aggregation Trigger<a class="headerlink" href="#update-submission-and-aggregation-trigger" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">submit_client_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">trained_on_round</span><span class="p">):</span>
+    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+        <span class="c1"># Stale update rejection (see below)</span>
+        <span class="k">if</span> <span class="n">trained_on_round</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="n">trained_on_round</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Sanitise num_examples</span>
+        <span class="k">if</span> <span class="n">num_examples</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Invalid num_examples from </span><span class="si">%s</span><span class="s2">; skipping&quot;</span><span class="p">,</span> <span class="n">client_id</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="n">num_examples</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">num_examples</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_NUM_EXAMPLES</span><span class="p">)</span>  <span class="c1"># cap at 100,000</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">))</span>
+
+        <span class="c1"># Trigger aggregation when we have all expected updates</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">clients_per_round</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_aggregation_and_evaluation</span><span class="p">()</span>
+            <span class="c1"># Note: this is still inside _lock — intentional</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_trigger_aggregation_and_evaluation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;MUST be called while self._lock is held.&quot;&quot;&quot;</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># free memory immediately</span>
+
+    <span class="n">aggregated_parameters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">aggregate_fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">aggregated_parameters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_global_model_params</span> <span class="o">=</span> <span class="n">aggregated_parameters</span>
+        <span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_model_params</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">latest_metrics</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="n">loss</span><span class="p">,</span> <span class="o">**</span><span class="n">metrics</span><span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Aggregation for round </span><span class="si">%d</span><span class="s2"> failed&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">latest_metrics</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Advance round counter LAST, then signal</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+</code></pre></div>
+
+<blockquote>
+<p><strong>Memory note:</strong> <code>self._client_updates_received.clear()</code> is called immediately after copying to <code>results</code>. This frees all client parameter tensors as soon as aggregation completes, which is critical when training large models across many clients.</p>
+</blockquote>
+<h3 id="stale-update-rejection">Stale Update Rejection<a class="headerlink" href="#stale-update-rejection" title="Permanent link">&para;</a></h3>
+<p>The coordinator rejects updates that don't match the current round:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">trained_on_round</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">:</span>
+    <span class="k">return</span>  <span class="c1"># Stale: client trained on an old model, ignore</span>
+<span class="k">if</span> <span class="n">trained_on_round</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">:</span>
+    <span class="k">return</span>  <span class="c1"># Illegal: client is claiming to be ahead of the server</span>
+</code></pre></div>
+
+<p><strong>Why stale updates happen:</strong> If a client is slow and submits its update after the round has already advanced (because other clients submitted faster), the update is stale. Accepting it would corrupt the next round's aggregation with parameters from a different global model version.</p>
+<p><strong>Why "ahead" updates are rejected:</strong> This shouldn't happen in correct protocol execution. If it does, it indicates a bug or a malicious client. Rejecting silently is safe.</p>
+<h3 id="client-registration">Client Registration<a class="headerlink" href="#client-registration" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">register_client</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_registered_clients</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">client_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span>  <span class="c1"># currently always accepts</span>
+</code></pre></div>
+
+<p>The registration is lightweight — it just records the client ID. Future versions could implement capacity limits (reject if <code>len(registered_clients) &gt;= max_clients</code>).</p>
+<hr />
+<h2 id="heartbeat-management">Heartbeat Management<a class="headerlink" href="#heartbeat-management" title="Permanent link">&para;</a></h2>
+<p>The coordinator maintains a <code>client_heartbeats</code> dictionary keyed by <code>client_id</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+    <span class="s2">&quot;client_0&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;training&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;current_step&quot;</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span>
+        <span class="s2">&quot;total_steps&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
+        <span class="s2">&quot;current_round&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="s2">&quot;last_seen&quot;</span><span class="p">:</span> <span class="mf">1705312345.678</span>  <span class="c1"># unix timestamp</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>Updated by <code>update_client_heartbeat()</code> on every heartbeat RPC (every 5 seconds per client):</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">update_client_heartbeat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">current_step</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">,</span> <span class="n">current_round</span><span class="p">):</span>
+    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_lock</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">client_heartbeats</span><span class="p">[</span><span class="n">client_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="n">status</span><span class="p">,</span>
+            <span class="s1">&#39;current_step&#39;</span><span class="p">:</span> <span class="n">current_step</span><span class="p">,</span>
+            <span class="s1">&#39;total_steps&#39;</span><span class="p">:</span> <span class="n">total_steps</span><span class="p">,</span>
+            <span class="s1">&#39;current_round&#39;</span><span class="p">:</span> <span class="n">current_round</span><span class="p">,</span>
+            <span class="s1">&#39;last_seen&#39;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="p">}</span>
+    <span class="c1"># ...</span>
+    <span class="n">should_stop</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">should_stop</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Heartbeat received for </span><span class="si">{</span><span class="n">client_id</span><span class="si">}</span><span class="s2">&quot;</span>
+</code></pre></div>
+
+<blockquote>
+<p><strong><code>should_stop</code> field:</strong> Included for future use — the server can signal a client to stop mid-training by returning <code>should_stop=True</code> from the heartbeat response. Currently always <code>False</code>.</p>
+</blockquote>
+<p>Active client detection uses a 300-second timeout:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_active_clients</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="n">current_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_lock</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">client_id</span>
+            <span class="k">for</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_heartbeats</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">current_time</span> <span class="o">-</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;last_seen&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_timeout</span>  <span class="c1"># 300 seconds</span>
+        <span class="p">]</span>
+</code></pre></div>
+
+<hr />
+<h2 id="decomfl-path-in-the-coordinator">DeComFL Path in the Coordinator<a class="headerlink" href="#decomfl-path-in-the-coordinator" title="Permanent link">&para;</a></h2>
+<p>When <code>DeComFL</code> is the active strategy, the coordinator has a separate update path:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">submit_decomfl_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">gradient_scalars</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">trained_on_round</span><span class="p">):</span>
+    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+        <span class="c1"># same stale rejection logic as FedAvg path</span>
+        <span class="o">...</span>
+        <span class="c1"># Store as 3-tuple: (client_id, gradient_scalars, num_examples)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">client_id</span><span class="p">,</span> <span class="n">gradient_scalars</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clients_per_round</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_decomfl_aggregation_and_evaluation</span><span class="p">()</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_trigger_decomfl_aggregation_and_evaluation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+    <span class="n">aggregated_parameters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">aggregate_fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">aggregated_parameters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_global_model_params</span> <span class="o">=</span> <span class="n">aggregated_parameters</span>
+
+        <span class="c1"># Store gradient history for client model rebuilding</span>
+        <span class="n">avg_gradients</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_average_gradients</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s1">&#39;gradient_history&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">gradient_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">avg_gradients</span><span class="p">)</span>
+
+        <span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">latest_metrics</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="n">loss</span><span class="p">,</span> <span class="o">**</span><span class="n">metrics</span><span class="p">}</span>
+
+    <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+</code></pre></div>
+
+<p>The <code>_calculate_average_gradients()</code> computes element-wise average gradient scalars across all clients:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_calculate_average_gradients</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+    <span class="c1"># results = [(client_id, grad_scalars[K][P], num_examples), ...]</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">first_grads</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">K</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">first_grads</span><span class="p">)</span>   <span class="c1"># local steps</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">first_grads</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="c1"># perturbations</span>
+
+    <span class="n">avg</span> <span class="o">=</span> <span class="p">[[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">P</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">K</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">grads</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">K</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">P</span><span class="p">):</span>
+                <span class="n">avg</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">]</span> <span class="o">+=</span> <span class="n">grads</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">]</span>
+
+    <span class="n">num_clients</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">K</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">P</span><span class="p">):</span>
+            <span class="n">avg</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">]</span> <span class="o">/=</span> <span class="n">num_clients</span>
+
+    <span class="k">return</span> <span class="n">avg</span>
+</code></pre></div>
+
+<p>These averaged gradients are stored in <code>strategy.gradient_history</code> so that late-joining clients can replay missed rounds and rebuild their local model to match the current global state.</p>
+<hr />
+<h2 id="the-grpc-servicer">The gRPC Servicer<a class="headerlink" href="#the-grpc-servicer" title="Permanent link">&para;</a></h2>
+<p><code>FederatedLearningServiceServicer</code> is a thin I/O adapter. Every method:
+1. Deserialises the protobuf request
+2. Calls the appropriate coordinator method
+3. Serialises the protobuf response</p>
+<p>There is intentionally no business logic in the servicer. Example:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FederatedLearningServiceServicer</span><span class="p">(</span><span class="n">fedlearn_pb2_grpc</span><span class="o">.</span><span class="n">FederatedLearningServiceServicer</span><span class="p">):</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coordinator</span><span class="p">:</span> <span class="n">FLCoordinator</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span> <span class="o">=</span> <span class="n">coordinator</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">RegisterClient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+        <span class="n">success</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span><span class="o">.</span><span class="n">register_client</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">client_id</span><span class="p">)</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="p">(</span><span class="n">RegisterClientResponse</span><span class="o">.</span><span class="n">Status</span><span class="o">.</span><span class="n">ACCEPTED</span> <span class="k">if</span> <span class="n">success</span>
+                  <span class="k">else</span> <span class="n">RegisterClientResponse</span><span class="o">.</span><span class="n">Status</span><span class="o">.</span><span class="n">REJECTED</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">RegisterClientResponse</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">SubmitModelUpdate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+        <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span> <span class="o">=</span> <span class="n">proto_to_parameters</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span><span class="o">.</span><span class="n">submit_client_update</span><span class="p">(</span>
+            <span class="n">request</span><span class="o">.</span><span class="n">client_id</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">trained_on_round</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">SubmitModelUpdateResponse</span><span class="p">(</span><span class="n">received</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+
+<p>The <code>GetGlobalModelStream</code> and <code>SubmitModelUpdateStream</code> RPCs use Python generators — <code>yield</code> for server streaming, iterator consumption for client streaming.</p>
+<hr />
+<h2 id="server-thread-pool-sizing">Server Thread Pool Sizing<a class="headerlink" href="#server-thread-pool-sizing" title="Permanent link">&para;</a></h2>
+<p>The thread pool must be large enough to handle all concurrent RPCs:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">max_expected_clients</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;MAX_CLIENTS&#39;</span><span class="p">,</span> <span class="mi">50</span><span class="p">))</span>
+<span class="n">optimal_workers</span> <span class="o">=</span> <span class="p">(</span><span class="n">max_expected_clients</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="mi">10</span>
+<span class="c1"># 50 clients → 110 workers</span>
+<span class="c1"># 10 clients → 30 workers</span>
+</code></pre></div>
+
+<p>The <code>* 2</code> factor accounts for the fact that each client typically has <strong>two concurrent RPCs</strong> at any point:
+1. The primary training RPC (e.g., a long-running <code>GetGlobalModelStream</code>)
+2. The heartbeat RPC (fires every 5 seconds)</p>
+<p>The <code>+ 10</code> provides overhead for registration RPCs, status polls, etc.</p>
+<hr />
+<h2 id="graceful-shutdown">Graceful Shutdown<a class="headerlink" href="#graceful-shutdown" title="Permanent link">&para;</a></h2>
+<p>The server shuts down in a controlled sequence:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># server.py</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">history</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">round_num</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">num_rounds</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">coordinator</span><span class="o">.</span><span class="n">start_round</span><span class="p">()</span>
+        <span class="n">coordinator</span><span class="o">.</span><span class="n">wait_for_round_to_complete</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">stop_requested</span><span class="p">:</span>
+            <span class="k">break</span>
+
+        <span class="n">metrics</span> <span class="o">=</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">get_latest_metrics</span><span class="p">()</span>
+        <span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">round_num</span><span class="p">,</span> <span class="n">metrics</span><span class="p">))</span>
+
+    <span class="n">final_parameters</span> <span class="o">=</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">get_global_model_params</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">history</span><span class="p">,</span> <span class="n">final_parameters</span>
+
+<span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+    <span class="k">return</span> <span class="p">[],</span> <span class="p">{}</span>
+<span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="n">coordinator</span><span class="o">.</span><span class="n">signal_stop</span><span class="p">()</span>   <span class="c1"># releases any waiting threads</span>
+    <span class="k">return</span> <span class="p">[],</span> <span class="p">{}</span>
+<span class="k">finally</span><span class="p">:</span>
+    <span class="n">grpc_server</span><span class="o">.</span><span class="n">stop</span><span class="p">(</span><span class="n">grace</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>   <span class="c1"># waits up to 5s for active RPCs to complete</span>
+</code></pre></div>
+
+<p><code>signal_stop()</code> sets <code>stop_requested = True</code> and also calls <code>_round_complete_event.set()</code> to unblock <code>wait_for_round_to_complete()</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">signal_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">stop_requested</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>  <span class="c1"># unblock the waiting main thread</span>
+</code></pre></div>
+
+<p>After training completes, the server broadcasts a completion signal to clients by returning <code>current_round = -1</code> from <code>get_global_model_for_client()</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_global_model_for_client</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop_requested</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">{}</span>   <span class="c1"># sentinel: -1 means &quot;training complete&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_model_params</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">,</span> <span class="p">{}</span>
+</code></pre></div>
+
+<p>Clients detect this and exit cleanly:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># client.py</span>
+<span class="n">parameters</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">get_global_model</span><span class="p">()</span>
+<span class="k">if</span> <span class="n">server_round</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Server signalled training complete; shutting down&quot;</span><span class="p">)</span>
+    <span class="k">break</span>
+</code></pre></div>
+
+<hr />
+<h2 id="environment-variables-reference">Environment Variables Reference<a class="headerlink" href="#environment-variables-reference" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MAX_CLIENTS</code></td>
+<td><code>50</code></td>
+<td>Used to size the gRPC thread pool</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_GRPC_USE_TLS</code></td>
+<td><code>"0"</code></td>
+<td>Set to <code>"1"</code> to enable TLS</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_GRPC_SERVER_KEY</code></td>
+<td>—</td>
+<td>Path to server private key (PEM)</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_GRPC_SERVER_CERT</code></td>
+<td>—</td>
+<td>Path to server certificate (PEM)</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_GRPC_ROOT_CERT</code></td>
+<td>—</td>
+<td>CA cert for verifying clients (mTLS)</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_GRPC_REQUIRE_CLIENT_AUTH</code></td>
+<td><code>"0"</code></td>
+<td><code>"1"</code> to require client certs</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_USE_COMPRESSION</code></td>
+<td><code>"0"</code></td>
+<td><code>"1"</code> to enable LZ4 compression</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_CHUNK_SIZE_MB</code></td>
+<td><code>"4"</code></td>
+<td>Chunk size for streaming serialisation</td>
+</tr>
+</tbody>
+</table></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

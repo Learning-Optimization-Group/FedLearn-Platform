@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FedLearn Desktop — Renderer & React Components · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Desktop</summary><ul>
+<li><a href="README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a class="active" href="05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Desktop</b> &nbsp;·&nbsp; FedLearn Desktop — Renderer & React Components</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="fedlearn-desktop-renderer-react-components">FedLearn Desktop — Renderer &amp; React Components<a class="headerlink" href="#fedlearn-desktop-renderer-react-components" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a> → <a href="README.html">Desktop Wiki</a></p>
+</blockquote>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#renderer-architecture-overview">Renderer Architecture Overview</a></li>
+<li><a href="#apptsx--root-component--state-machine">App.tsx — Root Component &amp; State Machine</a></li>
+<li><a href="#authmodal--login--server-configuration">AuthModal — Login &amp; Server Configuration</a></li>
+<li><a href="#hardwareselector--training-configuration-ui">HardwareSelector — Training Configuration UI</a></li>
+<li><a href="#logpanel--real-time-log-stream">LogPanel — Real-Time Log Stream</a></li>
+<li><a href="#statusindicator--container-state-badge">StatusIndicator — Container State Badge</a></li>
+<li><a href="#settingsmodal--server-url-management">SettingsModal — Server URL Management</a></li>
+<li><a href="#styles-architecture">Styles Architecture</a></li>
+<li><a href="#performance-patterns">Performance Patterns</a></li>
+</ol>
+<hr />
+<h2 id="renderer-architecture-overview">Renderer Architecture Overview<a class="headerlink" href="#renderer-architecture-overview" title="Permanent link">&para;</a></h2>
+<p>The renderer is a single-page React application mounted in the Electron Chromium window. It communicates exclusively through <code>window.fedLearnAPI</code> (provided by the preload bridge).</p>
+<div class="codehilite"><pre><span></span><code>src/renderer/
+├── index.tsx          ← React root (ReactDOM.createRoot)
+├── index.html         ← HTML shell (CSP meta tag for packaged builds)
+├── styles.css         ← Global CSS (dark theme, component styles, animations)
+├── App.tsx            ← Root component, application state machine
+└── components/
+    ├── AuthModal.tsx       ← Login form (shown before authentication)
+    ├── HardwareSelector.tsx ← Training config + start/stop controls
+    ├── LogPanel.tsx        ← Streaming log viewer
+    ├── StatusIndicator.tsx ← Training status badge in header
+    └── SettingsModal.tsx   ← Server URL settings overlay
+</code></pre></div>
+
+<h3 id="application-states">Application States<a class="headerlink" href="#application-states" title="Permanent link">&para;</a></h3>
+<p>The app has three top-level rendering states:</p>
+<div class="codehilite"><pre><span></span><code>App start
+    │
+    ▼
+isAuthChecking = true
+    │
+    ▼  (checkAuth IPC call resolves)
+    ├── authenticated = false → &lt;AuthModal /&gt;
+    │
+    └── authenticated = true  → Dashboard
+                                  ├── Header (logo + StatusIndicator + Settings + Logout)
+                                  ├── Docker Warning Banner (conditional)
+                                  ├── Left Panel: &lt;HardwareSelector /&gt;
+                                  ├── Right Panel: &lt;LogPanel /&gt;
+                                  └── Footer
+</code></pre></div>
+
+<hr />
+<h2 id="apptsx-root-component-state-machine">App.tsx — Root Component &amp; State Machine<a class="headerlink" href="#apptsx-root-component-state-machine" title="Permanent link">&para;</a></h2>
+<p><code>App.tsx</code> is the root of the application. It owns all shared state and orchestrates communication between components.</p>
+<h3 id="state">State<a class="headerlink" href="#state" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">isAuthenticated</span><span class="p">,</span><span class="w"> </span><span class="nx">setIsAuthenticated</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="p">(</span><span class="kc">false</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">isAuthChecking</span><span class="p">,</span><span class="w"> </span><span class="nx">setIsAuthChecking</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="p">(</span><span class="kc">true</span><span class="p">);</span><span class="w">     </span><span class="c1">// Show loading spinner</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">containerStatus</span><span class="p">,</span><span class="w"> </span><span class="nx">setContainerStatus</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="o">&lt;</span><span class="nx">ContainerStatus</span><span class="o">&gt;</span><span class="p">(</span><span class="s1">&#39;idle&#39;</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">logs</span><span class="p">,</span><span class="w"> </span><span class="nx">setLogs</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">[]</span><span class="o">&gt;</span><span class="p">([]);</span><span class="w">                 </span><span class="c1">// Log buffer</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">showSettings</span><span class="p">,</span><span class="w"> </span><span class="nx">setShowSettings</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="p">(</span><span class="kc">false</span><span class="p">);</span><span class="w">         </span><span class="c1">// Settings overlay</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">dockerWarning</span><span class="p">,</span><span class="w"> </span><span class="nx">setDockerWarning</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="o">&lt;</span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">null</span><span class="p">);</span><span class="w">  </span><span class="c1">// Banner</span>
+</code></pre></div>
+
+<h3 id="containerstatus-type">ContainerStatus Type<a class="headerlink" href="#containerstatus-type" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Shared type — also imported by StatusIndicator</span>
+<span class="k">export</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="nx">ContainerStatus</span><span class="w"> </span><span class="o">=</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;idle&#39;</span><span class="w">        </span><span class="c1">// No training running</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;pulling&#39;</span><span class="w">     </span><span class="c1">// Image pull or process startup in progress</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;running&#39;</span><span class="w">     </span><span class="c1">// Container/process actively training</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;completed&#39;</span><span class="w">   </span><span class="c1">// Training finished successfully</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;error&#39;</span><span class="w">       </span><span class="c1">// Training failed</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;restarting&#39;</span><span class="w">  </span><span class="c1">// Docker restart policy triggered</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;paused&#39;</span><span class="w">      </span><span class="c1">// Container paused</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;stopped&#39;</span><span class="p">;</span><span class="w">    </span><span class="c1">// Manually stopped</span>
+</code></pre></div>
+
+<h3 id="startup-effects">Startup Effects<a class="headerlink" href="#startup-effects" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Effect 1: Docker daemon warning listener (registers on mount, never re-registers)</span>
+<span class="nx">useEffect</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">onDockerUnavailable</span><span class="p">((</span><span class="nx">msg</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">setDockerWarning</span><span class="p">(</span><span class="sb">`Docker is not running: </span><span class="si">${</span><span class="nx">msg</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[]);</span>
+
+<span class="c1">// Effect 2: Auth check on startup</span>
+<span class="nx">useEffect</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">checkAuth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">checkAuth</span><span class="p">();</span>
+<span class="w">      </span><span class="nx">setIsAuthenticated</span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">authenticated</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="kc">true</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">setIsAuthenticated</span><span class="p">(</span><span class="kc">false</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">finally</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">setIsAuthChecking</span><span class="p">(</span><span class="kc">false</span><span class="p">);</span><span class="w">  </span><span class="c1">// Always exit loading state</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">};</span>
+<span class="w">  </span><span class="nx">checkAuth</span><span class="p">();</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[]);</span>
+</code></pre></div>
+
+<p>The <code>finally</code> block is critical — even if <code>checkAuth()</code> throws, <code>isAuthChecking</code> must be set to <code>false</code> to exit the loading screen. Otherwise the app is stuck on the spinner indefinitely.</p>
+<h3 id="log-batching-with-requestanimationframe">Log Batching with requestAnimationFrame<a class="headerlink" href="#log-batching-with-requestanimationframe" title="Permanent link">&para;</a></h3>
+<p>Container output can arrive at very high rates (hundreds of lines per second during model training). Without batching, each incoming log line would trigger a <code>setState</code> → reconcile → re-render cycle, which at 60fps would cap at 60 updates/second and still thrash the layout engine.</p>
+<p>The solution: batch all logs received within a single animation frame into one <code>setState</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">logBufferRef</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useRef</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">[]</span><span class="o">&gt;</span><span class="p">([]);</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">rafIdRef</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useRef</span><span class="o">&lt;</span><span class="kt">number</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">null</span><span class="p">);</span>
+
+<span class="nx">useEffect</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isAuthenticated</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="p">;</span>
+
+<span class="w">  </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">onTrainingLog</span><span class="p">((</span><span class="nx">logLine</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// 1. Push to the buffer ref (no re-render)</span>
+<span class="w">    </span><span class="nx">logBufferRef</span><span class="p">.</span><span class="nx">current</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">logLine</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// 2. Schedule a flush on the next frame (if not already scheduled)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">rafIdRef</span><span class="p">.</span><span class="nx">current</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">rafIdRef</span><span class="p">.</span><span class="nx">current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">requestAnimationFrame</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">batch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">logBufferRef</span><span class="p">.</span><span class="nx">current</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">logBufferRef</span><span class="p">.</span><span class="nx">current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span><span class="w">      </span><span class="c1">// Clear buffer</span>
+<span class="w">        </span><span class="nx">rafIdRef</span><span class="p">.</span><span class="nx">current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span><span class="w">        </span><span class="c1">// Mark as unscheduled</span>
+
+<span class="w">        </span><span class="c1">// 3. Single setState with entire batch</span>
+<span class="w">        </span><span class="nx">setLogs</span><span class="p">((</span><span class="nx">prev</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="kd">const</span><span class="w"> </span><span class="nx">merged</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[...</span><span class="nx">prev</span><span class="p">,</span><span class="w"> </span><span class="p">...</span><span class="nx">batch</span><span class="p">];</span>
+<span class="w">          </span><span class="c1">// 4. Cap log buffer at 10K lines (prevents unbounded memory growth)</span>
+<span class="w">          </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">merged</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nx">MAX_LOG_LINES</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nx">merged</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="nx">merged</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nx">MAX_LOG_LINES</span><span class="p">);</span>
+<span class="w">          </span><span class="p">}</span>
+<span class="w">          </span><span class="k">return</span><span class="w"> </span><span class="nx">merged</span><span class="p">;</span>
+<span class="w">        </span><span class="p">});</span>
+<span class="w">      </span><span class="p">});</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">});</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">removeTrainingLogListener</span><span class="p">();</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">rafIdRef</span><span class="p">.</span><span class="nx">current</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">cancelAnimationFrame</span><span class="p">(</span><span class="nx">rafIdRef</span><span class="p">.</span><span class="nx">current</span><span class="p">);</span>
+<span class="w">      </span><span class="nx">rafIdRef</span><span class="p">.</span><span class="nx">current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">};</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[</span><span class="nx">isAuthenticated</span><span class="p">]);</span>
+</code></pre></div>
+
+<p><strong>Why <code>useRef</code> instead of <code>useState</code> for the buffer?</strong> <code>useRef</code> mutations don't trigger re-renders. If we used <code>useState</code> for the buffer, every <code>push</code> would cause a re-render — defeating the entire purpose of batching.</p>
+<p><strong>Why <code>MAX_LOG_LINES = 10_000</code>?</strong> Each log line can be up to several hundred characters. At 10K lines that's potentially several MB of strings in memory. Without this cap, a training run that lasts hours could accumulate gigabytes of log data, eventually causing OOM or severe slowdowns.</p>
+<h3 id="status-polling">Status Polling<a class="headerlink" href="#status-polling" title="Permanent link">&para;</a></h3>
+<p>Container status is polled every 3 seconds via IPC:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">useEffect</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isAuthenticated</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="p">;</span>
+
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">pollStatus</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">getDockerStatus</span><span class="p">();</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">success</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">result</span><span class="p">.</span><span class="nx">status</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">setContainerStatus</span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">status</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="nx">ContainerStatus</span><span class="p">);</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="c1">// Silently ignore polling failures (network hiccup, etc.)</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">};</span>
+
+<span class="w">  </span><span class="nx">pollStatus</span><span class="p">();</span><span class="w">                           </span><span class="c1">// Immediate first poll</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">interval</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">setInterval</span><span class="p">(</span><span class="nx">pollStatus</span><span class="p">,</span><span class="w"> </span><span class="mf">3000</span><span class="p">);</span><span class="w"> </span><span class="c1">// Then every 3s</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">clearInterval</span><span class="p">(</span><span class="nx">interval</span><span class="p">);</span><span class="w">   </span><span class="c1">// Cleanup</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[</span><span class="nx">isAuthenticated</span><span class="p">]);</span>
+</code></pre></div>
+
+<p>3 seconds is a reasonable interval — fast enough to reflect state changes promptly, slow enough to not hammer the IPC layer.</p>
+<h3 id="event-handlers">Event Handlers<a class="headerlink" href="#event-handlers" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">handleLogin</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useCallback</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">setIsAuthenticated</span><span class="p">(</span><span class="kc">true</span><span class="p">);</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[]);</span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">handleLogout</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useCallback</span><span class="p">(</span><span class="k">async</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">logout</span><span class="p">();</span>
+<span class="w">  </span><span class="nx">setIsAuthenticated</span><span class="p">(</span><span class="kc">false</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">setLogs</span><span class="p">([]);</span><span class="w">                           </span><span class="c1">// Clear log buffer</span>
+<span class="w">  </span><span class="nx">setContainerStatus</span><span class="p">(</span><span class="s1">&#39;idle&#39;</span><span class="p">);</span><span class="w">            </span><span class="c1">// Reset status</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[]);</span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">handleStartTraining</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useCallback</span><span class="p">(</span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">setLogs</span><span class="p">([]);</span><span class="w">                           </span><span class="c1">// Clear previous logs</span>
+<span class="w">  </span><span class="nx">setContainerStatus</span><span class="p">(</span><span class="s1">&#39;pulling&#39;</span><span class="p">);</span><span class="w">         </span><span class="c1">// Optimistic status update</span>
+<span class="w">  </span><span class="nx">setLogs</span><span class="p">((</span><span class="nx">prev</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">[...</span><span class="nx">prev</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;[System] Starting training container...\n&#39;</span><span class="p">]);</span>
+
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">startTraining</span><span class="p">(</span><span class="nx">config</span><span class="p">);</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">result</span><span class="p">.</span><span class="nx">success</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">setContainerStatus</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="nx">setLogs</span><span class="p">((</span><span class="nx">prev</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">[...</span><span class="nx">prev</span><span class="p">,</span><span class="w"> </span><span class="sb">`[System] Failed to start: </span><span class="si">${</span><span class="nx">result</span><span class="p">.</span><span class="nx">error</span><span class="si">}</span><span class="sb">\n`</span><span class="p">]);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="c1">// Success: status will be updated by the polling effect</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[]);</span>
+</code></pre></div>
+
+<p><code>handleStartTraining</code> uses <strong>optimistic updates</strong> — it sets status to <code>'pulling'</code> immediately before the IPC call completes. This gives the user immediate visual feedback rather than waiting for the next status poll to detect the running state.</p>
+<hr />
+<h2 id="authmodal-login-server-configuration">AuthModal — Login &amp; Server Configuration<a class="headerlink" href="#authmodal-login-server-configuration" title="Permanent link">&para;</a></h2>
+<p><code>AuthModal</code> is rendered as a full-screen overlay when the user is not authenticated.</p>
+<h3 id="component-state">Component State<a class="headerlink" href="#component-state" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">serverUrl</span><span class="p">,</span><span class="w"> </span><span class="nx">setServerUrl</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="p">(</span><span class="s1">&#39;http://localhost:8081&#39;</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">username</span><span class="p">,</span><span class="w"> </span><span class="nx">setUsername</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">password</span><span class="p">,</span><span class="w"> </span><span class="nx">setPassword</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">error</span><span class="p">,</span><span class="w"> </span><span class="nx">setError</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">isLoading</span><span class="p">,</span><span class="w"> </span><span class="nx">setIsLoading</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="p">(</span><span class="kc">false</span><span class="p">);</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">showServerConfig</span><span class="p">,</span><span class="w"> </span><span class="nx">setShowServerConfig</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="p">(</span><span class="kc">false</span><span class="p">);</span><span class="w">  </span><span class="c1">// Collapsible section</span>
+<span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">serverSaved</span><span class="p">,</span><span class="w"> </span><span class="nx">setServerSaved</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="p">(</span><span class="kc">false</span><span class="p">);</span><span class="w">            </span><span class="c1">// ✓ confirmation</span>
+</code></pre></div>
+
+<h3 id="server-url-loading">Server URL Loading<a class="headerlink" href="#server-url-loading" title="Permanent link">&para;</a></h3>
+<p>On mount, the component fetches the persisted server URL from Main and strips the <code>/api</code> suffix for display:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">useEffect</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">loadUrl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">getServerUrl</span><span class="p">();</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">success</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">result</span><span class="p">.</span><span class="nx">url</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Strip /api suffix — show user-friendly URL without the API path</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">displayUrl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">result</span><span class="p">.</span><span class="nx">url</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/\/api$/</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">);</span>
+<span class="w">        </span><span class="nx">setServerUrl</span><span class="p">(</span><span class="nx">displayUrl</span><span class="p">);</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* Use default */</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">};</span>
+<span class="w">  </span><span class="nx">loadUrl</span><span class="p">();</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[]);</span>
+</code></pre></div>
+
+<h3 id="login-flow">Login Flow<a class="headerlink" href="#login-flow" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">handleSubmit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useCallback</span><span class="p">(</span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">e</span><span class="o">:</span><span class="w"> </span><span class="kt">React.FormEvent</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">e</span><span class="p">.</span><span class="nx">preventDefault</span><span class="p">();</span>
+<span class="w">  </span><span class="nx">setError</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">);</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">username</span><span class="p">.</span><span class="nx">trim</span><span class="p">()</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="nx">password</span><span class="p">.</span><span class="nx">trim</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">setError</span><span class="p">(</span><span class="s1">&#39;Please enter both username and password.&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="nx">setIsLoading</span><span class="p">(</span><span class="kc">true</span><span class="p">);</span>
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Save server URL first (in case user changed it before clicking Sign In)</span>
+<span class="w">    </span><span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">setServerUrl</span><span class="p">(</span><span class="nx">serverUrl</span><span class="p">.</span><span class="nx">trim</span><span class="p">());</span>
+
+<span class="w">    </span><span class="c1">// Attempt login</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">login</span><span class="p">(</span><span class="nx">username</span><span class="p">,</span><span class="w"> </span><span class="nx">password</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">success</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">onLoginSuccess</span><span class="p">();</span><span class="w">  </span><span class="c1">// Notify parent → setIsAuthenticated(true)</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">setError</span><span class="p">(</span><span class="s1">&#39;Invalid credentials. Please try again.&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">err</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">setError</span><span class="p">(</span><span class="sb">`Connection failed: </span><span class="si">${</span><span class="nx">err</span><span class="p">.</span><span class="nx">message</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">finally</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">setIsLoading</span><span class="p">(</span><span class="kc">false</span><span class="p">);</span><span class="w">  </span><span class="c1">// Always reset loading state</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[</span><span class="nx">username</span><span class="p">,</span><span class="w"> </span><span class="nx">password</span><span class="p">,</span><span class="w"> </span><span class="nx">serverUrl</span><span class="p">,</span><span class="w"> </span><span class="nx">onLoginSuccess</span><span class="p">]);</span>
+</code></pre></div>
+
+<h3 id="ux-design-choices">UX Design Choices<a class="headerlink" href="#ux-design-choices" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Collapsible server config:</strong> The server URL is hidden under a toggle button by default. Most users don't need to change it, and hiding it reduces visual noise.</li>
+<li><strong>Server URL shown in toggle button:</strong> Even when collapsed, the current server URL is visible in the toggle label, so the user can confirm which backend they're connecting to.</li>
+<li><strong>Save confirmation:</strong> A <code>✓</code> replaces the "Save" button text for 2 seconds after saving, providing subtle feedback.</li>
+<li><strong>Loading state disables all inputs:</strong> Prevents double-submit and UX confusion during the async login call.</li>
+</ul>
+<hr />
+<h2 id="hardwareselector-training-configuration-ui">HardwareSelector — Training Configuration UI<a class="headerlink" href="#hardwareselector-training-configuration-ui" title="Permanent link">&para;</a></h2>
+<p><code>HardwareSelector</code> is the most complex UI component. It displays four hardware profile cards and a set of form inputs for configuring a training job.</p>
+<h3 id="hardware-profiles">Hardware Profiles<a class="headerlink" href="#hardware-profiles" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">HARDWARE_PROFILES</span><span class="o">:</span><span class="w"> </span><span class="kt">HardwareProfileOption</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;discrete&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Discrete GPU&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">description</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;NVIDIA workstation with dedicated PCIe GPU. Uses --gpus all via DeviceRequests.&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">icon</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;🖥️&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">dockerConfig</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;DeviceRequests: --gpus all&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Jetson SoC&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">description</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;NVIDIA Jetson edge device with integrated Tegra GPU.&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">icon</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;🔧&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">dockerConfig</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Devices: /dev/nvhost-ctrl, nvhost-ctrl-gpu, ...&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Apple Silicon&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">description</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Mac M1/M2/M3/M4 with Metal GPU. Runs natively (no Docker) for MPS acceleration.&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">icon</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;🍎&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">dockerConfig</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Native process (no Docker)&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;CPU Only&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">description</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Standard CPU training without GPU acceleration.&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">icon</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;💻&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">dockerConfig</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;No GPU configuration&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="p">];</span>
+</code></pre></div>
+
+<h3 id="auto-detection-on-mount">Auto-Detection on Mount<a class="headerlink" href="#auto-detection-on-mount" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nx">useEffect</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">cancelled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span><span class="w">  </span><span class="c1">// Cancellation flag for component unmount</span>
+<span class="w">  </span><span class="p">(</span><span class="k">async</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">detectHardware</span><span class="p">();</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">cancelled</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="nx">result</span><span class="p">.</span><span class="nx">success</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="nx">result</span><span class="p">.</span><span class="nx">detection</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="p">;</span>
+
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">result</span><span class="p">.</span><span class="nx">detection</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">setSelectedProfile</span><span class="p">(</span><span class="nx">d</span><span class="p">.</span><span class="nx">recommendedProfile</span><span class="p">);</span><span class="w">  </span><span class="c1">// Auto-select best profile</span>
+
+<span class="w">      </span><span class="c1">// Build human-readable detection summary</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">parts</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="p">.</span><span class="nx">platform</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;darwin&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">d</span><span class="p">.</span><span class="nx">arch</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;arm64&#39;</span><span class="p">)</span><span class="w"> </span><span class="nx">parts</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s1">&#39;Apple Silicon&#39;</span><span class="p">);</span>
+<span class="w">      </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="p">.</span><span class="nx">platform</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;win32&#39;</span><span class="p">)</span><span class="w"> </span><span class="nx">parts</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s1">&#39;Windows x64&#39;</span><span class="p">);</span>
+<span class="w">      </span><span class="k">else</span><span class="w"> </span><span class="nx">parts</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="sb">`</span><span class="si">${</span><span class="nx">d</span><span class="p">.</span><span class="nx">platform</span><span class="si">}</span><span class="sb">/</span><span class="si">${</span><span class="nx">d</span><span class="p">.</span><span class="nx">arch</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="p">.</span><span class="nx">cudaAvailable</span><span class="p">)</span><span class="w"> </span><span class="nx">parts</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="sb">`CUDA — </span><span class="si">${</span><span class="nx">d</span><span class="p">.</span><span class="nx">cudaInfo</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="s1">&#39;NVIDIA GPU&#39;</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">d</span><span class="p">.</span><span class="nx">nativeBundleAvailable</span><span class="p">)</span><span class="w"> </span><span class="nx">parts</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s1">&#39;native bundle missing — falling back to Docker&#39;</span><span class="p">);</span>
+
+<span class="w">      </span><span class="nx">setDetectionLabel</span><span class="p">(</span><span class="nx">parts</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39; · &#39;</span><span class="p">));</span><span class="w">  </span><span class="c1">// e.g., &quot;Apple Silicon · CUDA — RTX 4090&quot;</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* Detection is best-effort */</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">})();</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">cancelled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span><span class="w"> </span><span class="p">};</span><span class="w">  </span><span class="c1">// Prevent setState after unmount</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[]);</span>
+</code></pre></div>
+
+<p>The cancellation flag (<code>cancelled</code>) prevents a <code>setState</code> call after the component has unmounted — which would be a no-op but would generate a React warning.</p>
+<h3 id="dataset-path-selection">Dataset Path Selection<a class="headerlink" href="#dataset-path-selection" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">handleSelectDataset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">selectDatasetPath</span><span class="p">();</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">success</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">result</span><span class="p">.</span><span class="nx">path</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">setDatasetPath</span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">path</span><span class="p">);</span>
+<span class="w">      </span><span class="nx">setValidationError</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">setValidationError</span><span class="p">(</span><span class="sb">`Dataset selection failed: </span><span class="si">${</span><span class="nx">result</span><span class="p">.</span><span class="nx">error</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">err</span><span class="o">:</span><span class="w"> </span><span class="kt">any</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">setValidationError</span><span class="p">(</span><span class="sb">`Error opening dialog: </span><span class="si">${</span><span class="nx">err</span><span class="p">.</span><span class="nx">message</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">};</span>
+</code></pre></div>
+
+<p>The dataset path input is <code>readOnly</code> — users can only set it via the native dialog, never by typing. This prevents path injection via keyboard input and guarantees the path shown in the UI is the same path passed through the native dialog.</p>
+<h3 id="client-side-validation-before-ipc">Client-Side Validation Before IPC<a class="headerlink" href="#client-side-validation-before-ipc" title="Permanent link">&para;</a></h3>
+<p>Before calling <code>startTraining</code>, the component validates all fields locally. This is the <strong>first</strong> of three validation layers (preload and Main being the other two):</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">handleStart</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useCallback</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">setValidationError</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Presence checks</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">projectId</span><span class="p">.</span><span class="nx">trim</span><span class="p">())</span><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nx">setValidationError</span><span class="p">(</span><span class="s1">&#39;Project ID is required.&#39;</span><span class="p">);</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">serverAddress</span><span class="p">.</span><span class="nx">trim</span><span class="p">())</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">setValidationError</span><span class="p">(</span><span class="s1">&#39;Server address is required.&#39;</span><span class="p">);</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">partitionId</span><span class="p">.</span><span class="nx">trim</span><span class="p">())</span><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">setValidationError</span><span class="p">(</span><span class="s1">&#39;Partition ID is required.&#39;</span><span class="p">);</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">modelType</span><span class="p">.</span><span class="nx">trim</span><span class="p">())</span><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nx">setValidationError</span><span class="p">(</span><span class="s1">&#39;Model Architecture is required.&#39;</span><span class="p">);</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">datasetPath</span><span class="p">.</span><span class="nx">trim</span><span class="p">())</span><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">setValidationError</span><span class="p">(</span><span class="s1">&#39;Local Dataset Path is required.&#39;</span><span class="p">);</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">  </span><span class="c1">// Pattern validation — mirrors preload allowlists for consistent UX error messages</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="sr">/^[a-zA-Z0-9_-]{1,128}$/</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">projectId</span><span class="p">))</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nx">setValidationError</span><span class="p">(</span><span class="s1">&#39;Project ID must be alphanumeric (max 128 chars).&#39;</span><span class="p">);</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="sr">/^[a-zA-Z0-9._:/-]{1,256}$/</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">serverAddress</span><span class="p">))</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nx">setValidationError</span><span class="p">(</span><span class="s1">&#39;Invalid server address format.&#39;</span><span class="p">);</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="sr">/^[0-9]{1,10}$/</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">partitionId</span><span class="p">))</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nx">setValidationError</span><span class="p">(</span><span class="s1">&#39;Partition ID must be a number.&#39;</span><span class="p">);</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">  </span><span class="c1">// All valid — call the API bridge</span>
+<span class="w">  </span><span class="nx">onStart</span><span class="p">({</span>
+<span class="w">    </span><span class="nx">hardwareProfile</span><span class="o">:</span><span class="w"> </span><span class="kt">selectedProfile</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">projectId</span><span class="o">:</span><span class="w"> </span><span class="kt">projectId.trim</span><span class="p">(),</span>
+<span class="w">    </span><span class="nx">serverAddress</span><span class="o">:</span><span class="w"> </span><span class="kt">serverAddress.trim</span><span class="p">(),</span>
+<span class="w">    </span><span class="nx">partitionId</span><span class="o">:</span><span class="w"> </span><span class="kt">partitionId.trim</span><span class="p">(),</span>
+<span class="w">    </span><span class="nx">modelType</span><span class="o">:</span><span class="w"> </span><span class="kt">modelType.trim</span><span class="p">(),</span>
+<span class="w">    </span><span class="nx">datasetPath</span><span class="o">:</span><span class="w"> </span><span class="kt">datasetPath.trim</span><span class="p">(),</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[</span><span class="cm">/* deps */</span><span class="p">]);</span>
+</code></pre></div>
+
+<h3 id="props-interface">Props Interface<a class="headerlink" href="#props-interface" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kd">interface</span><span class="w"> </span><span class="nx">HardwareSelectorProps</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">onStart</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">hardwareProfile</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">projectId</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">serverAddress</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">partitionId</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">modelType</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">datasetPath</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">  </span><span class="p">})</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">onStop</span><span class="o">:</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">isRunning</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w">  </span><span class="c1">// Disables all inputs and profile cards when true</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>When <code>isRunning</code> is <code>true</code>, all profile cards and input fields are disabled, and the "Start Training" button is replaced by "Stop Training".</p>
+<hr />
+<h2 id="logpanel-real-time-log-stream">LogPanel — Real-Time Log Stream<a class="headerlink" href="#logpanel-real-time-log-stream" title="Permanent link">&para;</a></h2>
+<p><code>LogPanel</code> is intentionally minimal by design — its simplicity is a security feature.</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">LogPanel</span><span class="o">:</span><span class="w"> </span><span class="kt">React.FC</span><span class="o">&lt;</span><span class="nx">LogPanelProps</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">({</span><span class="w"> </span><span class="nx">logs</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">containerRef</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useRef</span><span class="o">&lt;</span><span class="nx">HTMLDivElement</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">null</span><span class="p">);</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">isAutoScrollRef</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useRef</span><span class="p">(</span><span class="kc">true</span><span class="p">);</span><span class="w">  </span><span class="c1">// Track whether user has scrolled up</span>
+
+<span class="w">  </span><span class="c1">// Detect user scroll position</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">handleScroll</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useCallback</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">scrollTop</span><span class="p">,</span><span class="w"> </span><span class="nx">scrollHeight</span><span class="p">,</span><span class="w"> </span><span class="nx">clientHeight</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">containerRef</span><span class="p">.</span><span class="nx">current</span><span class="o">!</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">// &quot;At bottom&quot; = within 50px of the scroll end</span>
+<span class="w">    </span><span class="nx">isAutoScrollRef</span><span class="p">.</span><span class="nx">current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">scrollHeight</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nx">scrollTop</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nx">clientHeight</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mf">50</span><span class="p">;</span>
+<span class="w">  </span><span class="p">},</span><span class="w"> </span><span class="p">[]);</span>
+
+<span class="w">  </span><span class="c1">// Auto-scroll when new logs arrive (only if user is at the bottom)</span>
+<span class="w">  </span><span class="nx">useEffect</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">isAutoScrollRef</span><span class="p">.</span><span class="nx">current</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">containerRef</span><span class="p">.</span><span class="nx">current</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">containerRef</span><span class="p">.</span><span class="nx">current</span><span class="p">.</span><span class="nx">scrollTop</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">containerRef</span><span class="p">.</span><span class="nx">current</span><span class="p">.</span><span class="nx">scrollHeight</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">},</span><span class="w"> </span><span class="p">[</span><span class="nx">logs</span><span class="p">]);</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="nx">div</span><span class="w"> </span><span class="nx">className</span><span class="o">=</span><span class="s2">&quot;log-panel&quot;</span><span class="w"> </span><span class="nx">ref</span><span class="o">=</span><span class="p">{</span><span class="nx">containerRef</span><span class="p">}</span><span class="w"> </span><span class="nx">onScroll</span><span class="o">=</span><span class="p">{</span><span class="nx">handleScroll</span><span class="p">}</span><span class="o">&gt;</span>
+<span class="w">      </span><span class="o">&lt;</span><span class="nx">pre</span><span class="w"> </span><span class="nx">className</span><span class="o">=</span><span class="s2">&quot;log-content&quot;</span><span class="o">&gt;</span>
+<span class="w">        </span><span class="p">{</span><span class="nx">logs</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)}</span><span class="w">  </span><span class="p">{</span><span class="cm">/* Plain text — no HTML interpretation */</span><span class="p">}</span>
+<span class="w">      </span><span class="o">&lt;</span><span class="err">/pre&gt;</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="err">/div&gt;</span>
+<span class="w">  </span><span class="p">);</span>
+<span class="p">};</span>
+</code></pre></div>
+
+<h3 id="auto-scroll-with-user-override">Auto-Scroll with User Override<a class="headerlink" href="#auto-scroll-with-user-override" title="Permanent link">&para;</a></h3>
+<p>The auto-scroll behavior uses a ref (<code>isAutoScrollRef</code>) rather than state because:
+1. Changing it should not trigger a re-render
+2. The scroll handler fires frequently and needs to be fast</p>
+<p>The 50px threshold for "at bottom" is intentional — it handles the case where the user is at the bottom but a pixel or two off due to fractional scroll positions.</p>
+<h3 id="performance-single-join-vs-many-span-elements">Performance: Single <code>join('')</code> vs. Many <code>&lt;span&gt;</code> Elements<a class="headerlink" href="#performance-single-join-vs-many-span-elements" title="Permanent link">&para;</a></h3>
+<p>An alternative implementation would map each log line to a <code>&lt;span&gt;</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="nx">logs</span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">line</span><span class="p">,</span><span class="w"> </span><span class="nx">i</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">span</span><span class="w"> </span><span class="nx">key</span><span class="o">=</span><span class="p">{</span><span class="nx">i</span><span class="p">}</span><span class="o">&gt;</span><span class="p">{</span><span class="nx">line</span><span class="p">}</span><span class="o">&lt;</span><span class="err">/span&gt;)}</span>
+</code></pre></div>
+
+<p>At 10,000 log lines this creates <strong>10,000 DOM nodes</strong>, each requiring a React fiber, reconciliation, and layout. With <code>join('')</code>, there is <strong>exactly one DOM node</strong> (<code>&lt;pre&gt;</code>) containing all the text. This makes log rendering O(1) in DOM nodes regardless of log count.</p>
+<h3 id="security-no-dangerouslysetinnerhtml">Security: No <code>dangerouslySetInnerHTML</code><a class="headerlink" href="#security-no-dangerouslysetinnerhtml" title="Permanent link">&para;</a></h3>
+<p>The <code>LogPanel</code> explicitly documents its XSS-safe design:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="cm">/*</span>
+<span class="cm">  SECURITY: Each log line is rendered as a plain text node.</span>
+<span class="cm">  React&#39;s default behavior escapes all content — no HTML is interpreted.</span>
+<span class="cm">  This prevents any XSS payload from container output from executing.</span>
+<span class="cm">*/</span><span class="p">}</span>
+<span class="p">{</span><span class="nx">logs</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)}</span>
+</code></pre></div>
+
+<p>React escapes all JSX text content by default. <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> in a log line becomes the literal escaped text <code>&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;</code> in the DOM.</p>
+<hr />
+<h2 id="statusindicator-container-state-badge">StatusIndicator — Container State Badge<a class="headerlink" href="#statusindicator-container-state-badge" title="Permanent link">&para;</a></h2>
+<p>A simple stateless component that maps <code>ContainerStatus</code> to a visual badge.</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">STATUS_CONFIG</span><span class="o">:</span><span class="w"> </span><span class="kt">Record</span><span class="o">&lt;</span><span class="nx">ContainerStatus</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w"> </span><span class="nx">colorClass</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w"> </span><span class="nx">animate</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">idle</span><span class="o">:</span><span class="w">       </span><span class="p">{</span><span class="w"> </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Idle&#39;</span><span class="p">,</span><span class="w">          </span><span class="nx">colorClass</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;status-idle&#39;</span><span class="p">,</span><span class="w">     </span><span class="nx">animate</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">pulling</span><span class="o">:</span><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Pulling Image&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">colorClass</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;status-pulling&#39;</span><span class="p">,</span><span class="w">  </span><span class="nx">animate</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">running</span><span class="o">:</span><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Training&#39;</span><span class="p">,</span><span class="w">      </span><span class="nx">colorClass</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;status-running&#39;</span><span class="p">,</span><span class="w">  </span><span class="nx">animate</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">completed</span><span class="o">:</span><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Completed&#39;</span><span class="p">,</span><span class="w">     </span><span class="nx">colorClass</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;status-completed&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">animate</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">error</span><span class="o">:</span><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Error&#39;</span><span class="p">,</span><span class="w">         </span><span class="nx">colorClass</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;status-error&#39;</span><span class="p">,</span><span class="w">    </span><span class="nx">animate</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">restarting</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Restarting&#39;</span><span class="p">,</span><span class="w">    </span><span class="nx">colorClass</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;status-pulling&#39;</span><span class="p">,</span><span class="w">  </span><span class="nx">animate</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">paused</span><span class="o">:</span><span class="w">     </span><span class="p">{</span><span class="w"> </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Paused&#39;</span><span class="p">,</span><span class="w">        </span><span class="nx">colorClass</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;status-idle&#39;</span><span class="p">,</span><span class="w">     </span><span class="nx">animate</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">stopped</span><span class="o">:</span><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Stopped&#39;</span><span class="p">,</span><span class="w">       </span><span class="nx">colorClass</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;status-idle&#39;</span><span class="p">,</span><span class="w">     </span><span class="nx">animate</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="w"> </span><span class="p">},</span>
+<span class="p">};</span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">StatusIndicator</span><span class="o">:</span><span class="w"> </span><span class="kt">React.FC</span><span class="o">&lt;</span><span class="nx">StatusIndicatorProps</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">({</span><span class="w"> </span><span class="nx">status</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">STATUS_CONFIG</span><span class="p">[</span><span class="nx">status</span><span class="p">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">STATUS_CONFIG</span><span class="p">.</span><span class="nx">idle</span><span class="p">;</span><span class="w">  </span><span class="c1">// Safe fallback</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="nx">div</span><span class="w"> </span><span class="nx">className</span><span class="o">=</span><span class="p">{</span><span class="sb">`status-indicator </span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">colorClass</span><span class="si">}</span><span class="sb">`</span><span class="p">}</span><span class="w"> </span><span class="nx">id</span><span class="o">=</span><span class="s2">&quot;status-indicator&quot;</span><span class="o">&gt;</span>
+<span class="w">      </span><span class="o">&lt;</span><span class="nx">span</span><span class="w"> </span><span class="nx">className</span><span class="o">=</span><span class="p">{</span><span class="sb">`status-dot </span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">animate</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;status-dot-pulse&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="si">}</span><span class="sb">`</span><span class="p">}</span><span class="w"> </span><span class="o">/&gt;</span>
+<span class="w">      </span><span class="o">&lt;</span><span class="nx">span</span><span class="w"> </span><span class="nx">className</span><span class="o">=</span><span class="s2">&quot;status-label&quot;</span><span class="o">&gt;</span><span class="p">{</span><span class="nx">config</span><span class="p">.</span><span class="nx">label</span><span class="p">}</span><span class="o">&lt;</span><span class="err">/span&gt;</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="err">/div&gt;</span>
+<span class="w">  </span><span class="p">);</span>
+<span class="p">};</span>
+</code></pre></div>
+
+<p>The <code>status-dot-pulse</code> CSS class applies a CSS <code>@keyframes</code> animation that creates a pulsing glow effect for active states (<code>running</code>, <code>pulling</code>, <code>restarting</code>).</p>
+<p>The <code>|| STATUS_CONFIG.idle</code> fallback handles any unexpected status string values gracefully, always rendering a valid badge.</p>
+<hr />
+<h2 id="settingsmodal-server-url-management">SettingsModal — Server URL Management<a class="headerlink" href="#settingsmodal-server-url-management" title="Permanent link">&para;</a></h2>
+<p><code>SettingsModal</code> is a settings overlay available from the main dashboard (after login). It allows users to update the backend server URL without logging out.</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">SettingsModal</span><span class="o">:</span><span class="w"> </span><span class="kt">React.FC</span><span class="o">&lt;</span><span class="nx">SettingsModalProps</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">({</span><span class="w"> </span><span class="nx">onClose</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">serverUrl</span><span class="p">,</span><span class="w"> </span><span class="nx">setServerUrl</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Load current URL on mount</span>
+<span class="w">  </span><span class="nx">useEffect</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">getServerUrl</span><span class="p">().</span><span class="nx">then</span><span class="p">((</span><span class="nx">result</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">success</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">result</span><span class="p">.</span><span class="nx">url</span><span class="p">)</span><span class="w"> </span><span class="nx">setServerUrl</span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">url</span><span class="p">);</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="w">  </span><span class="p">},</span><span class="w"> </span><span class="p">[]);</span>
+
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">handleSave</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">e</span><span class="o">:</span><span class="w"> </span><span class="kt">React.FormEvent</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">e</span><span class="p">.</span><span class="nx">preventDefault</span><span class="p">();</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">setServerUrl</span><span class="p">(</span><span class="nx">serverUrl</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">success</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">setSuccessMsg</span><span class="p">(</span><span class="s1">&#39;Server URL updated successfully.&#39;</span><span class="p">);</span>
+<span class="w">      </span><span class="nx">setTimeout</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">onClose</span><span class="p">(),</span><span class="w"> </span><span class="mf">1500</span><span class="p">);</span><span class="w">  </span><span class="c1">// Auto-close after confirmation</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">setError</span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">error</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="s1">&#39;Failed to update server URL.&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">};</span>
+<span class="p">};</span>
+</code></pre></div>
+
+<p><strong>Note:</strong> Unlike <code>AuthModal</code>, <code>SettingsModal</code> shows the URL <strong>with</strong> the <code>/api</code> suffix (the raw stored value). This is intentional — settings panels typically show the actual stored value for transparency. <code>AuthModal</code> strips it for a cleaner first-time user experience.</p>
+<hr />
+<h2 id="styles-architecture">Styles Architecture<a class="headerlink" href="#styles-architecture" title="Permanent link">&para;</a></h2>
+<p>All styles are in a single <code>styles.css</code> file (18KB). The architecture uses:</p>
+<h3 id="css-custom-properties-design-tokens">CSS Custom Properties (Design Tokens)<a class="headerlink" href="#css-custom-properties-design-tokens" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="p">:</span><span class="nd">root</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nv">--color-bg-primary</span><span class="p">:</span><span class="w"> </span><span class="mh">#0a0a0f</span><span class="p">;</span>
+<span class="w">  </span><span class="nv">--color-bg-secondary</span><span class="p">:</span><span class="w"> </span><span class="mh">#12121a</span><span class="p">;</span>
+<span class="w">  </span><span class="nv">--color-accent</span><span class="p">:</span><span class="w"> </span><span class="mh">#6366f1</span><span class="p">;</span>
+<span class="w">  </span><span class="nv">--color-accent-hover</span><span class="p">:</span><span class="w"> </span><span class="mh">#4f46e5</span><span class="p">;</span>
+<span class="w">  </span><span class="nv">--color-text-primary</span><span class="p">:</span><span class="w"> </span><span class="mh">#e2e8f0</span><span class="p">;</span>
+<span class="w">  </span><span class="nv">--color-text-muted</span><span class="p">:</span><span class="w"> </span><span class="mh">#64748b</span><span class="p">;</span>
+<span class="w">  </span><span class="nv">--color-success</span><span class="p">:</span><span class="w"> </span><span class="mh">#34d399</span><span class="p">;</span>
+<span class="w">  </span><span class="nv">--color-error</span><span class="p">:</span><span class="w"> </span><span class="mh">#f87171</span><span class="p">;</span>
+<span class="w">  </span><span class="c">/* ... */</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="key-component-classes">Key Component Classes<a class="headerlink" href="#key-component-classes" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Component</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.app-container</code></td>
+<td>Root</td>
+<td>Full-height flex column layout</td>
+</tr>
+<tr>
+<td><code>.app-header</code></td>
+<td>Header</td>
+<td>Fixed top bar with logo + controls</td>
+</tr>
+<tr>
+<td><code>.main-grid</code></td>
+<td>Main</td>
+<td>Two-column panel layout</td>
+</tr>
+<tr>
+<td><code>.panel</code></td>
+<td>Panels</td>
+<td>Glassmorphism card with border</td>
+</tr>
+<tr>
+<td><code>.profile-card</code></td>
+<td>HardwareSelector</td>
+<td>Hardware profile selection button</td>
+</tr>
+<tr>
+<td><code>.profile-card-active</code></td>
+<td>HardwareSelector</td>
+<td>Selected profile highlight</td>
+</tr>
+<tr>
+<td><code>.log-panel</code></td>
+<td>LogPanel</td>
+<td>Scrollable log output area</td>
+</tr>
+<tr>
+<td><code>.status-indicator</code></td>
+<td>StatusIndicator</td>
+<td>Status badge container</td>
+</tr>
+<tr>
+<td><code>.status-dot-pulse</code></td>
+<td>StatusIndicator</td>
+<td>CSS keyframe pulse animation</td>
+</tr>
+<tr>
+<td><code>.auth-overlay</code></td>
+<td>AuthModal/SettingsModal</td>
+<td>Full-screen backdrop</td>
+</tr>
+<tr>
+<td><code>.auth-modal</code></td>
+<td>AuthModal/SettingsModal</td>
+<td>Centered modal card</td>
+</tr>
+<tr>
+<td><code>.auth-glow</code></td>
+<td>AuthModal</td>
+<td>Decorative radial gradient elements</td>
+</tr>
+<tr>
+<td><code>.form-input</code></td>
+<td>Form inputs</td>
+<td>Consistent dark input styling</td>
+</tr>
+<tr>
+<td><code>.btn-primary</code></td>
+<td>Buttons</td>
+<td>Accent-colored action button</td>
+</tr>
+<tr>
+<td><code>.btn-ghost</code></td>
+<td>Buttons</td>
+<td>Transparent border button</td>
+</tr>
+<tr>
+<td><code>.docker-warning</code></td>
+<td>App</td>
+<td>Orange warning banner</td>
+</tr>
+<tr>
+<td><code>.validation-error</code></td>
+<td>HardwareSelector</td>
+<td>Red error message box</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="performance-patterns">Performance Patterns<a class="headerlink" href="#performance-patterns" title="Permanent link">&para;</a></h2>
+<h3 id="1-usecallback-for-event-handlers">1. <code>useCallback</code> for Event Handlers<a class="headerlink" href="#1-usecallback-for-event-handlers" title="Permanent link">&para;</a></h3>
+<p>All event handlers passed to child components are wrapped in <code>useCallback</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">handleStartTraining</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useCallback</span><span class="p">(</span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">[]);</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">handleStopTraining</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="nx">useCallback</span><span class="p">(</span><span class="k">async</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">[]);</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">handleLogout</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="nx">useCallback</span><span class="p">(</span><span class="k">async</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="p">[]);</span>
+</code></pre></div>
+
+<p>This prevents child components from re-rendering when the parent re-renders (for unrelated reasons like new log lines).</p>
+<h3 id="2-useref-for-high-frequency-values">2. <code>useRef</code> for High-Frequency Values<a class="headerlink" href="#2-useref-for-high-frequency-values" title="Permanent link">&para;</a></h3>
+<p>Values that change frequently but don't need to trigger re-renders are stored in refs:
+- <code>logBufferRef</code> — accumulating log lines between animation frames
+- <code>rafIdRef</code> — tracking the pending <code>requestAnimationFrame</code> ID
+- <code>isAutoScrollRef</code> (in LogPanel) — tracking scroll position</p>
+<h3 id="3-log-buffer-cap">3. Log Buffer Cap<a class="headerlink" href="#3-log-buffer-cap" title="Permanent link">&para;</a></h3>
+<p>The <code>MAX_LOG_LINES = 10_000</code> cap prevents the log array from growing indefinitely. Old lines are evicted from the front when the cap is exceeded:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">setLogs</span><span class="p">((</span><span class="nx">prev</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">merged</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[...</span><span class="nx">prev</span><span class="p">,</span><span class="w"> </span><span class="p">...</span><span class="nx">batch</span><span class="p">];</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">merged</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nx">MAX_LOG_LINES</span>
+<span class="w">    </span><span class="o">?</span><span class="w"> </span><span class="nx">merged</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="nx">merged</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nx">MAX_LOG_LINES</span><span class="p">)</span>
+<span class="w">    </span><span class="o">:</span><span class="w"> </span><span class="nx">merged</span><span class="p">;</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<h3 id="4-single-pre-text-node-for-logs">4. Single <code>&lt;pre&gt;</code> Text Node for Logs<a class="headerlink" href="#4-single-pre-text-node-for-logs" title="Permanent link">&para;</a></h3>
+<p>Using <code>logs.join('')</code> in a single <code>&lt;pre&gt;</code> instead of mapping to <code>&lt;span&gt;</code> elements keeps the DOM size constant at O(1) nodes regardless of log count.</p>
+<h3 id="5-status-poll-cleanup">5. Status Poll Cleanup<a class="headerlink" href="#5-status-poll-cleanup" title="Permanent link">&para;</a></h3>
+<p>The <code>setInterval</code> for status polling is cleaned up in the effect's return function:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">interval</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">setInterval</span><span class="p">(</span><span class="nx">pollStatus</span><span class="p">,</span><span class="w"> </span><span class="mf">3000</span><span class="p">);</span>
+<span class="k">return</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">clearInterval</span><span class="p">(</span><span class="nx">interval</span><span class="p">);</span>
+</code></pre></div>
+
+<p>This prevents interval accumulation if <code>isAuthenticated</code> flips multiple times.</p>
+<hr />
+<p><em>Next: <a href="06-build-and-packaging.html">06 — Build, Packaging &amp; Distribution</a></em><br />
+<em>Previous: <a href="04-preload-ipc-bridge.html">04 — Preload &amp; IPC Bridge</a></em></p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

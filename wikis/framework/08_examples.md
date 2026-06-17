@@ -465,5 +465,5 @@ python run_platform_e2e_test.py \
 Exercises:
 - Backend-triggered FL server spawn
 - WebSocket log streaming from Python server to frontend
-- Project result persistence to PostgreSQL
+- Project result persistence to the backend database (H2)
 - Full round-trip through the platform API

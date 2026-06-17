@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backend Architecture Wiki · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Backend</summary><ul>
+<li><a class="active" href="README.html">Backend Architecture Wiki</a></li>
+<li><a href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Backend</b> &nbsp;·&nbsp; Backend Architecture Wiki</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="backend-architecture-wiki">Backend Architecture Wiki<a class="headerlink" href="#backend-architecture-wiki" title="Permanent link">&para;</a></h1>
+<p>Welcome to the internal documentation for the <strong>FedLearn-Platform Backend</strong>.</p>
+<p>This section of the wiki covers the Spring Boot 3 API, the database interactions, security, WebSockets, and how the federated learning python processes are orchestrated natively or scaled on AWS ECS Fargate.</p>
+<blockquote class="callout warn"><p>⚠️ <strong>Branch reality.</strong> The running backend uses <strong>H2</strong> (file-mode in <code>dev</code>/<code>ec2demo</code>, in-memory in <code>test</code>); PostgreSQL is the intended production/Fargate target and that path is unfinished. Authorization on this branch is the single coarse <code>users.role IN (USER, ADMIN)</code> column (migration <code>V2</code>; highest committed migration <code>V3</code>). The identity / multi-tenancy / audit subsystem documented in page 06 is <strong>designed on a separate identity-foundations branch and is not present here.</strong></p>
+</blockquote>
+<h2 id="documentation-index">Documentation Index<a class="headerlink" href="#documentation-index" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong><a href="01_architecture_overview.html">Architecture &amp; Core Concepts</a></strong>
+   Provides a high-level overview of the backend's directory structure, the technology stack, and the primary domain models (Projects, Results, Logs).</p>
+</li>
+<li>
+<p><strong><a href="02_security_and_auth.html">Security &amp; Authentication</a></strong>
+   Explains how stateless JWT validation works via filters, how WebSocket connections are secured during the HTTP upgrade handshake, and the internal API key mechanism used by FL servers.</p>
+</li>
+<li>
+<p><strong><a href="03_project_management.html">Project Management Lifecycle</a></strong>
+   Details the <code>ProjectService</code> and <code>ProjectController</code> logic. Explains how training rounds are configured, how projects are persisted to the database, and how models are initialized.</p>
+</li>
+<li>
+<p><strong><a href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></strong>
+   The most complex component. Documents how the Java API dynamically provisions the Python FL aggregation servers, differentiating between local machine <code>ProcessBuilder</code> execution and cloud-native AWS ECS Fargate orchestration.</p>
+</li>
+<li>
+<p><strong><a href="05_websocket_logs_streaming.html">WebSocket Log Streaming</a></strong>
+   Explains the real-time observability pipeline. Shows how the backend captures standard output from the Python FL servers, routes it via STOMP topics to the React frontend, and persists it for export.</p>
+</li>
+<li>
+<p><strong><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy &amp; Audit</a></strong> — ⚠️ <strong>designed on a separate identity-foundations branch; not present on this branch.</strong>
+   Documents the identity subsystem: the three-layer role model (platform / organization / project), organization-scoped multi-tenant isolation (<code>OrgScope</code>), the <code>@Auditable</code> audit trail, the email + first-run bootstrap plumbing, the V4–V6 migrations, and the membership/admin/access-request REST endpoints. None of this is committed on the current branch — it is included for reference.</p>
+</li>
+</ol></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

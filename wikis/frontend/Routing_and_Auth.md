@@ -49,11 +49,11 @@ useEffect(() => {
 }, [logout]);
 ```
 
-### Roles & Backend RBAC (UI deferred)
+### Roles & Backend RBAC
 
-Authentication is **cookie-only** — the frontend never reads or sends a token; the single role carried on the session is `platform_role` (`USER` / `PLATFORM_ADMIN`).
+Authentication is **cookie-only** — the frontend never reads or sends a token; the single role carried on the session is `users.role` (`USER` / `ADMIN`).
 
-The backend additionally exposes identity/RBAC endpoints (membership, admin, access-request, and discover surfaces). **These are not yet surfaced in the web UI** — the web client currently ships the Instrument design system unchanged, with no membership/admin/access-request/discover screens. They exist server-side only; building the corresponding UI is deferred.
+> ⚠️ **Branch reality.** The identity/RBAC endpoints (membership, admin, access-request, discover) and the three-layer `platform_role` model are part of the identity-foundations work that is **designed on a separate branch and is _not present_ here** (see the backend [Identity, Multi-Tenancy & Audit](../backend/06_identity_multitenancy_and_audit.md) banner). On the current branch there is only the coarse `USER` / `ADMIN` role and no membership/admin/access-request/discover screens. The web client ships the **Ember** design system.
 
 ## Routing Configuration
 

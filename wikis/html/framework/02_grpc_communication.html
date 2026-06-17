@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 — gRPC Communication Layer · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Framework</summary><ul>
+<li><a href="README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a class="active" href="02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Framework</b> &nbsp;·&nbsp; 02 — gRPC Communication Layer</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="02-grpc-communication-layer">02 — gRPC Communication Layer<a class="headerlink" href="#02-grpc-communication-layer" title="Permanent link">&para;</a></h1>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#the-protocol-buffer-contract">The Protocol Buffer Contract</a></li>
+<li><a href="#service-definition--all-9-rpcs">Service Definition — All 9 RPCs</a></li>
+<li><a href="#message-types-in-depth">Message Types In Depth</a></li>
+<li><a href="#serializer--tensor--proto-conversion">Serializer — Tensor ↔ Proto Conversion</a></li>
+<li><a href="#chunked-streaming-for-large-models">Chunked Streaming for Large Models</a></li>
+<li><a href="#lz4-compression-optional">LZ4 Compression (Optional)</a></li>
+<li><a href="#tls-configuration">TLS Configuration</a></li>
+<li><a href="#retry-logic-and-backoff">Retry Logic and Backoff</a></li>
+<li><a href="#keepalive-tuning">Keepalive Tuning</a></li>
+<li><a href="#connection-limits-and-message-sizes">Connection Limits and Message Sizes</a></li>
+<li><a href="#dual-channel-heartbeat-architecture">Dual-Channel Heartbeat Architecture</a></li>
+<li><a href="#regenerating-generated-code">Regenerating Generated Code</a></li>
+<li><a href="#common-errors-and-debugging">Common Errors and Debugging</a></li>
+</ul>
+<hr />
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>All communication between the Python FL server and its clients goes through a single gRPC service defined in <code>fedlearn.proto</code>. The design goals were:</p>
+<ol>
+<li><strong>Support arbitrarily large models</strong> — LLMs can exceed 10 GB; plain unary gRPC fails above ~4 MB by default. The framework auto-detects model size and switches to bidirectional chunked streaming.</li>
+<li><strong>Survive flaky networks</strong> — exponential backoff retries on all transient gRPC errors.</li>
+<li><strong>Heartbeat without blocking training</strong> — a second dedicated gRPC channel is used exclusively for heartbeats so they never queue behind large model uploads.</li>
+<li><strong>Optional TLS</strong> — controlled entirely by environment variables; zero code changes needed to flip between insecure and mTLS.</li>
+</ol>
+<hr />
+<h2 id="the-protocol-buffer-contract">The Protocol Buffer Contract<a class="headerlink" href="#the-protocol-buffer-contract" title="Permanent link">&para;</a></h2>
+<p><strong>Source of truth:</strong> <code>framework/src/fedlearn/communication/protos/fedlearn.proto</code></p>
+<p>The <code>.proto</code> file is compiled to Python stubs stored in <code>communication/generated/</code>:
+- <code>fedlearn_pb2.py</code> — message classes
+- <code>fedlearn_pb2_grpc.py</code> — stub and servicer base class</p>
+<div class="codehilite"><pre><span></span><code><span class="k">syntax</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;proto3&quot;</span><span class="p">;</span>
+<span class="kn">package</span><span class="w"> </span><span class="nn">fedlearn</span><span class="o">.</span><span class="n">v1</span><span class="p">;</span>
+
+<span class="kd">service</span><span class="w"> </span><span class="n">FederatedLearningService</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Client registration</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">RegisterClient</span><span class="p">(</span><span class="n">RegisterClientRequest</span><span class="p">)</span><span class="w"> </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">RegisterClientResponse</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Model distribution (server → clients)</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">GetGlobalModel</span><span class="p">(</span><span class="n">GetGlobalModelRequest</span><span class="p">)</span><span class="w">       </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">GetGlobalModelResponse</span><span class="p">);</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">GetGlobalModelStream</span><span class="p">(</span><span class="n">GetGlobalModelRequest</span><span class="p">)</span><span class="w"> </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">stream</span><span class="w"> </span><span class="n">ModelChunk</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Model update collection (clients → server)</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">SubmitModelUpdate</span><span class="p">(</span><span class="n">SubmitModelUpdateRequest</span><span class="p">)</span><span class="w">          </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">SubmitModelUpdateResponse</span><span class="p">);</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">SubmitModelUpdateStream</span><span class="p">(</span><span class="n">stream</span><span class="w"> </span><span class="n">ModelUpdateChunk</span><span class="p">)</span><span class="w">     </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">SubmitModelUpdateResponse</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Status and liveness</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">GetServerStatus</span><span class="p">(</span><span class="n">GetServerStatusRequest</span><span class="p">)</span><span class="w"> </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">GetServerStatusResponse</span><span class="p">);</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">Heartbeat</span><span class="p">(</span><span class="n">HeartbeatRequest</span><span class="p">)</span><span class="w">             </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">HeartbeatResponse</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// DeComFL-specific</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">GetDeComFLConfig</span><span class="p">(</span><span class="n">GetDeComFLConfigRequest</span><span class="p">)</span><span class="w">          </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">GetDeComFLConfigResponse</span><span class="p">);</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">SubmitGradientScalars</span><span class="p">(</span><span class="n">SubmitGradientScalarsRequest</span><span class="p">)</span><span class="w"> </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">SubmitGradientScalarsResponse</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<hr />
+<h2 id="service-definition-all-9-rpcs">Service Definition — All 9 RPCs<a class="headerlink" href="#service-definition-all-9-rpcs" title="Permanent link">&para;</a></h2>
+<h3 id="standard-fl-rpcs">Standard FL RPCs<a class="headerlink" href="#standard-fl-rpcs" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>RPC</th>
+<th>Direction</th>
+<th>Pattern</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RegisterClient</code></td>
+<td>client → server</td>
+<td>Unary</td>
+<td>Registers a client ID; returns ACCEPTED/REJECTED</td>
+</tr>
+<tr>
+<td><code>GetGlobalModel</code></td>
+<td>server → client</td>
+<td>Unary</td>
+<td>Download model parameters (small models only)</td>
+</tr>
+<tr>
+<td><code>GetGlobalModelStream</code></td>
+<td>server → client</td>
+<td><strong>Server streaming</strong></td>
+<td>Download model in 50 MB chunks</td>
+</tr>
+<tr>
+<td><code>SubmitModelUpdate</code></td>
+<td>client → server</td>
+<td>Unary</td>
+<td>Upload updated parameters (small models)</td>
+</tr>
+<tr>
+<td><code>SubmitModelUpdateStream</code></td>
+<td>client → server</td>
+<td><strong>Client streaming</strong></td>
+<td>Upload model in 50 MB chunks</td>
+</tr>
+<tr>
+<td><code>GetServerStatus</code></td>
+<td>client → server</td>
+<td>Unary</td>
+<td>Poll current round number and update count</td>
+</tr>
+<tr>
+<td><code>Heartbeat</code></td>
+<td>client → server</td>
+<td>Unary</td>
+<td>Report liveness + training progress</td>
+</tr>
+</tbody>
+</table>
+<h3 id="decomfl-rpcs">DeComFL RPCs<a class="headerlink" href="#decomfl-rpcs" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>RPC</th>
+<th>Direction</th>
+<th>Pattern</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GetDeComFLConfig</code></td>
+<td>client → server</td>
+<td>Unary</td>
+<td>Download random seeds + missed-round history</td>
+</tr>
+<tr>
+<td><code>SubmitGradientScalars</code></td>
+<td>client → server</td>
+<td>Unary</td>
+<td>Upload O(K×P) scalars instead of full model</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Why two separate model-download RPCs?</strong> <code>GetGlobalModel</code> exists as a fast path for small CNN models where a single unary call is sufficient. For any Transformer-class model, the client always calls <code>GetGlobalModelStream</code>. The server-side servicer implements both.</p>
+</blockquote>
+<hr />
+<h2 id="message-types-in-depth">Message Types In Depth<a class="headerlink" href="#message-types-in-depth" title="Permanent link">&para;</a></h2>
+<h3 id="core-data-types">Core Data Types<a class="headerlink" href="#core-data-types" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// A single named tensor</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">Tensor</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">bytes</span><span class="w">  </span><span class="na">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">       </span><span class="c1">// raw numpy bytes (e.g., float32 little-endian)</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="kt">int64</span><span class="w"> </span><span class="na">dims</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="c1">// shape, e.g., [256, 512]</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">dtype</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w">       </span><span class="c1">// e.g., &quot;float32&quot; — validated against whitelist</span>
+<span class="p">}</span>
+
+<span class="c1">// A full model state_dict</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">ModelParameters</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">map</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="n">Tensor</span><span class="p">&gt;</span><span class="w"> </span><span class="na">tensors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">       </span><span class="c1">// key = parameter name</span>
+<span class="w">  </span><span class="kt">int64</span><span class="w"> </span><span class="na">num_examples_trained</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">        </span><span class="c1">// for weighted aggregation</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="streaming-chunk-messages">Streaming Chunk Messages<a class="headerlink" href="#streaming-chunk-messages" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Server → Client: one chunk of a model download</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">ModelChunk</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">chunk_index</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">total_chunks</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">bytes</span><span class="w">  </span><span class="na">chunk_data</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w">   </span><span class="c1">// raw bytes of a torch.save() buffer</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w">   </span><span class="na">is_final_chunk</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">current_round</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+<span class="w">  </span><span class="n">map</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">string</span><span class="p">&gt;</span><span class="w"> </span><span class="na">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span><span class="w">  </span><span class="c1">// only sent with chunk_index == 0</span>
+<span class="p">}</span>
+
+<span class="c1">// Client → Server: one chunk of a model upload</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">ModelUpdateChunk</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">client_id</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">trained_on_round</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">chunk_index</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">total_chunks</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">bytes</span><span class="w">  </span><span class="na">chunk_data</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w">   </span><span class="na">is_final_chunk</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int64</span><span class="w">  </span><span class="na">num_examples</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="decomfl-messages">DeComFL Messages<a class="headerlink" href="#decomfl-messages" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Seeds organized [local_step][perturbation]</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">PerturbationSeeds</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="n">LocalStepSeeds</span><span class="w"> </span><span class="na">local_steps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">LocalStepSeeds</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="kt">int32</span><span class="w"> </span><span class="na">seeds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">   </span><span class="c1">// P int32 seeds for this step</span>
+<span class="p">}</span>
+
+<span class="c1">// Gradient scalars organized [local_step][perturbation]</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">GradientScalars</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="n">LocalStepGradients</span><span class="w"> </span><span class="na">local_steps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">LocalStepGradients</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="na">scalars</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="c1">// P float64 scalars</span>
+<span class="p">}</span>
+
+<span class="c1">// Used to help a rejoining client rebuild its local model</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">RebuildHistory</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="n">RoundHistory</span><span class="w"> </span><span class="na">rounds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="kd">message</span><span class="w"> </span><span class="nc">RoundHistory</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w"> </span><span class="na">round_number</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="n">PerturbationSeeds</span><span class="w"> </span><span class="na">seeds</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">  </span><span class="n">GradientScalars</span><span class="w"> </span><span class="na">average_gradients</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w"> </span><span class="c1">// server-averaged across all clients</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<hr />
+<h2 id="serializer-tensor-proto-conversion">Serializer — Tensor ↔ Proto Conversion<a class="headerlink" href="#serializer-tensor-proto-conversion" title="Permanent link">&para;</a></h2>
+<p><code>communication/serializer.py</code> is the bridge between PyTorch <code>OrderedDict[str, Tensor]</code> and protobuf messages.</p>
+<h3 id="serialization-pytorch-proto">Serialization (PyTorch → Proto)<a class="headerlink" href="#serialization-pytorch-proto" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">parameters_to_proto</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+    <span class="n">num_examples</span><span class="p">:</span> <span class="nb">int</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelParameters</span><span class="p">:</span>
+    <span class="n">tensors</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">tensor</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">np_array</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="n">tensors</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">Tensor</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">np_array</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span>     <span class="c1"># raw bytes, no pickle</span>
+            <span class="n">dims</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">np_array</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span>
+            <span class="n">dtype</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">np_array</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">ModelParameters</span><span class="p">(</span><span class="n">tensors</span><span class="o">=</span><span class="n">tensors</span><span class="p">,</span> <span class="n">num_examples_trained</span><span class="o">=</span><span class="n">num_examples</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>Key design decision:</strong> Raw <code>tobytes()</code> instead of pickle. This is intentional — pickle can execute arbitrary code, making it a security risk in a federated setting where a malicious client could send crafted payloads.</p>
+<h3 id="deserialization-proto-pytorch">Deserialization (Proto → PyTorch)<a class="headerlink" href="#deserialization-proto-pytorch" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Whitelist of allowed dtypes — prevents dtype injection attacks</span>
+<span class="n">_SAFE_DTYPES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;float16&#39;</span><span class="p">,</span> <span class="s1">&#39;float32&#39;</span><span class="p">,</span> <span class="s1">&#39;float64&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;int8&#39;</span><span class="p">,</span> <span class="s1">&#39;int16&#39;</span><span class="p">,</span> <span class="s1">&#39;int32&#39;</span><span class="p">,</span> <span class="s1">&#39;int64&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;uint8&#39;</span><span class="p">,</span> <span class="s1">&#39;bool&#39;</span><span class="p">,</span> <span class="s1">&#39;bfloat16&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">proto_to_parameters</span><span class="p">(</span><span class="n">proto</span><span class="p">:</span> <span class="n">ModelParameters</span><span class="p">):</span>
+    <span class="n">parameters</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">tensor_proto</span> <span class="ow">in</span> <span class="n">proto</span><span class="o">.</span><span class="n">tensors</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="c1"># Security: reject unknown dtypes</span>
+        <span class="k">if</span> <span class="n">tensor_proto</span><span class="o">.</span><span class="n">dtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_SAFE_DTYPES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsafe dtype &#39;</span><span class="si">{</span><span class="n">tensor_proto</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+
+        <span class="n">np_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">tensor_proto</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">tensor_proto</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
+
+        <span class="c1"># Security: validate shape vs. data length</span>
+        <span class="n">expected_size</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">tensor_proto</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">expected_size</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">np_array</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Shape mismatch&quot;</span><span class="p">)</span>
+
+        <span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np_array</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">tensor_proto</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">proto</span><span class="o">.</span><span class="n">num_examples_trained</span>
+</code></pre></div>
+
+<hr />
+<h2 id="chunked-streaming-for-large-models">Chunked Streaming for Large Models<a class="headerlink" href="#chunked-streaming-for-large-models" title="Permanent link">&para;</a></h2>
+<p>The framework uses <code>torch.save()</code> / <code>torch.load()</code> for streaming, bypassing the protobuf <code>Tensor</code> message type entirely for large transfers. This has a significant memory advantage:</p>
+<h3 id="why-torchsave-instead-of-proto-for-streaming">Why torch.save() Instead of Proto for Streaming?<a class="headerlink" href="#why-torchsave-instead-of-proto-for-streaming" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>Memory for a 10 GB model</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Proto message (all-at-once)</td>
+<td>~30 GB peak (3× amplification from alloc + copy)</td>
+</tr>
+<tr>
+<td><code>torch.save()</code> to <code>BytesIO</code> + chunked</td>
+<td>~12 GB (1.2× — only one extra copy)</td>
+</tr>
+<tr>
+<td><code>torch.save()</code> + <code>memoryview</code> for send</td>
+<td>~10 GB (near zero-copy send)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="server-side-streaming-getglobalmodelstream">Server-Side Streaming (GetGlobalModelStream)<a class="headerlink" href="#server-side-streaming-getglobalmodelstream" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># grpc_servicer.py — GetGlobalModelStream</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">GetGlobalModelStream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="n">params</span><span class="p">,</span> <span class="n">current_round</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span><span class="o">.</span><span class="n">get_global_model_for_client</span><span class="p">()</span>
+
+    <span class="c1"># Serialize with torch.save — much more memory-efficient than proto for large models</span>
+    <span class="n">buffer</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">({</span><span class="s1">&#39;parameters&#39;</span><span class="p">:</span> <span class="n">params</span><span class="p">,</span> <span class="s1">&#39;num_examples&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span> <span class="n">buffer</span><span class="p">)</span>
+    <span class="n">data_to_send</span> <span class="o">=</span> <span class="n">buffer</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span>
+    <span class="n">buffer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="n">chunk_size</span> <span class="o">=</span> <span class="mi">50</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span>  <span class="c1"># 50 MB per chunk</span>
+    <span class="n">num_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data_to_send</span><span class="p">)</span> <span class="o">+</span> <span class="n">chunk_size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">chunk_size</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_chunks</span><span class="p">):</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="n">chunk_size</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">start</span> <span class="o">+</span> <span class="n">chunk_size</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_to_send</span><span class="p">))</span>
+        <span class="k">yield</span> <span class="n">fedlearn_pb2</span><span class="o">.</span><span class="n">ModelChunk</span><span class="p">(</span>
+            <span class="n">chunk_index</span><span class="o">=</span><span class="n">i</span><span class="p">,</span>
+            <span class="n">total_chunks</span><span class="o">=</span><span class="n">num_chunks</span><span class="p">,</span>
+            <span class="n">chunk_data</span><span class="o">=</span><span class="n">data_to_send</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span>
+            <span class="n">is_final_chunk</span><span class="o">=</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">num_chunks</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span>
+            <span class="n">current_round</span><span class="o">=</span><span class="n">current_round</span><span class="p">,</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">config</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">{}</span>   <span class="c1"># config only in first chunk</span>
+        <span class="p">)</span>
+</code></pre></div>
+
+<h3 id="client-side-streaming-reception-get_global_model">Client-Side Streaming Reception (get_global_model)<a class="headerlink" href="#client-side-streaming-reception-get_global_model" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># grpc_client.py — get_global_model</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_global_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">req</span> <span class="o">=</span> <span class="n">fedlearn_pb2</span><span class="o">.</span><span class="n">GetGlobalModelRequest</span><span class="p">(</span><span class="n">client_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">client_id</span><span class="p">)</span>
+
+    <span class="c1"># Stream directly into BytesIO — avoids 3× memory from chunks.append() + b&#39;&#39;.join()</span>
+    <span class="n">buffer</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span>
+    <span class="n">current_round</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stub</span><span class="o">.</span><span class="n">GetGlobalModelStream</span><span class="p">(</span><span class="n">req</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">3600</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">chunk_index</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">current_round</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">current_round</span>
+            <span class="n">config</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+
+        <span class="n">buffer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">chunk_data</span><span class="p">)</span>
+
+    <span class="n">buffer</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">model_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">buffer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">model_data</span><span class="p">[</span><span class="s1">&#39;parameters&#39;</span><span class="p">],</span> <span class="n">current_round</span><span class="p">,</span> <span class="n">config</span>
+</code></pre></div>
+
+<blockquote>
+<p><strong><code>weights_only=True</code></strong> — This flag, added in PyTorch 2.0, prevents arbitrary pickle execution during <code>torch.load</code>. Always required.</p>
+</blockquote>
+<h3 id="client-upload-auto-select-unary-vs-streaming">Client Upload: Auto-Select Unary vs. Streaming<a class="headerlink" href="#client-upload-auto-select-unary-vs-streaming" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># grpc_client.py — submit_update()</span>
+<span class="n">STREAMING_THRESHOLD_MB</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">ALWAYS_STREAM_TRANSFORMERS</span> <span class="o">=</span> <span class="kc">True</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">submit_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">round_number</span><span class="p">):</span>
+    <span class="n">total_params</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+    <span class="n">size_mb</span> <span class="o">=</span> <span class="p">(</span><span class="n">total_params</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">)</span>
+
+    <span class="c1"># Detect transformer architecture by parameter naming conventions</span>
+    <span class="n">is_transformer</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span>
+        <span class="n">keyword</span> <span class="ow">in</span> <span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;transformer&#39;</span><span class="p">,</span> <span class="s1">&#39;bert&#39;</span><span class="p">,</span> <span class="s1">&#39;gpt&#39;</span><span class="p">,</span> <span class="s1">&#39;opt&#39;</span><span class="p">,</span> <span class="s1">&#39;attention&#39;</span><span class="p">,</span> <span class="s1">&#39;encoder&#39;</span><span class="p">,</span> <span class="s1">&#39;decoder&#39;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">is_transformer</span> <span class="ow">and</span> <span class="n">ALWAYS_STREAM_TRANSFORMERS</span><span class="p">)</span> <span class="ow">or</span> <span class="n">size_mb</span> <span class="o">&gt;</span> <span class="n">STREAMING_THRESHOLD_MB</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_submit_update_stream</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">round_number</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_submit_update_unary</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">round_number</span><span class="p">)</span>
+</code></pre></div>
+
+<p>The streaming upload uses <code>memoryview</code> to achieve near-zero-copy chunking:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_generate_model_chunks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">round_number</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="mi">50</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">):</span>
+    <span class="n">buffer</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">buffer</span><span class="p">)</span>
+
+    <span class="n">view</span> <span class="o">=</span> <span class="nb">memoryview</span><span class="p">(</span><span class="n">buffer</span><span class="o">.</span><span class="n">getbuffer</span><span class="p">())</span>  <span class="c1"># zero-copy view of the buffer</span>
+    <span class="n">total_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">view</span><span class="p">)</span> <span class="o">+</span> <span class="n">chunk_size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">chunk_size</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">view</span><span class="p">),</span> <span class="n">chunk_size</span><span class="p">):</span>
+            <span class="n">chunk_index</span> <span class="o">=</span> <span class="n">i</span> <span class="o">//</span> <span class="n">chunk_size</span>
+            <span class="k">yield</span> <span class="n">fedlearn_pb2</span><span class="o">.</span><span class="n">ModelUpdateChunk</span><span class="p">(</span>
+                <span class="n">client_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">client_id</span><span class="p">,</span>
+                <span class="n">trained_on_round</span><span class="o">=</span><span class="n">round_number</span><span class="p">,</span>
+                <span class="n">chunk_index</span><span class="o">=</span><span class="n">chunk_index</span><span class="p">,</span>
+                <span class="n">total_chunks</span><span class="o">=</span><span class="n">total_chunks</span><span class="p">,</span>
+                <span class="n">chunk_data</span><span class="o">=</span><span class="n">view</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="n">chunk_size</span><span class="p">]</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span>  <span class="c1"># only copies this slice</span>
+                <span class="n">is_final_chunk</span><span class="o">=</span><span class="p">(</span><span class="n">chunk_index</span> <span class="o">==</span> <span class="n">total_chunks</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span>
+                <span class="n">num_examples</span><span class="o">=</span><span class="n">num_examples</span><span class="p">,</span>
+            <span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">view</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>  <span class="c1"># always release the memoryview</span>
+</code></pre></div>
+
+<hr />
+<h2 id="lz4-compression-optional">LZ4 Compression (Optional)<a class="headerlink" href="#lz4-compression-optional" title="Permanent link">&para;</a></h2>
+<p>Compression is <strong>off by default</strong> to preserve backward compatibility. Enable it by setting:</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">FEDLEARN_USE_COMPRESSION</span><span class="o">=</span><span class="m">1</span>
+</code></pre></div>
+
+<p>LZ4 is used for its extreme speed (compression happens in milliseconds even for large tensors) at the cost of moderate compression ratios (~1.5–3× for typical model weights):</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># serializer.py</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">lz4.frame</span>
+    <span class="n">LZ4_AVAILABLE</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">LZ4_AVAILABLE</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="n">USE_COMPRESSION</span> <span class="o">=</span> <span class="n">LZ4_AVAILABLE</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FEDLEARN_USE_COMPRESSION&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;1&quot;</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">parameters_to_chunks</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">compress</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="o">...</span>
+    <span class="k">if</span> <span class="n">compress</span> <span class="ow">and</span> <span class="n">LZ4_AVAILABLE</span><span class="p">:</span>
+        <span class="n">compressed</span> <span class="o">=</span> <span class="n">lz4</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">compress</span><span class="p">(</span><span class="n">serialized</span><span class="p">,</span> <span class="n">compression_level</span><span class="o">=</span><span class="n">lz4</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">COMPRESSIONLEVEL_MIN</span><span class="p">)</span>
+        <span class="n">data_to_send</span> <span class="o">=</span> <span class="n">compressed</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">data_to_send</span> <span class="o">=</span> <span class="n">serialized</span>
+</code></pre></div>
+
+<blockquote>
+<p><strong>Note:</strong> Both server and client must agree on whether compression is active. If only one side compresses, deserialization will fail. The <code>USE_COMPRESSION</code> flag is read at module import time, so set the env var before starting either process.</p>
+</blockquote>
+<hr />
+<h2 id="tls-configuration">TLS Configuration<a class="headerlink" href="#tls-configuration" title="Permanent link">&para;</a></h2>
+<p>TLS is controlled entirely by environment variables. The framework supports both server-only TLS and mutual TLS (mTLS).</p>
+<h3 id="server-side-tls-setup">Server-Side TLS Setup<a class="headerlink" href="#server-side-tls-setup" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># server.py</span>
+<span class="n">use_tls</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FEDLEARN_GRPC_USE_TLS&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;1&quot;</span>
+
+<span class="k">if</span> <span class="n">use_tls</span><span class="p">:</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;FEDLEARN_GRPC_SERVER_KEY&quot;</span><span class="p">],</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">server_key</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;FEDLEARN_GRPC_SERVER_CERT&quot;</span><span class="p">],</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">server_cert</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+    <span class="c1"># Optional: root CA cert for mTLS</span>
+    <span class="n">root_cert</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">root_cert_path</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FEDLEARN_GRPC_ROOT_CERT&quot;</span><span class="p">):</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">root_cert_path</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">root_cert</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+    <span class="n">require_client_auth</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FEDLEARN_GRPC_REQUIRE_CLIENT_AUTH&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;1&quot;</span>
+
+    <span class="n">credentials</span> <span class="o">=</span> <span class="n">grpc</span><span class="o">.</span><span class="n">ssl_server_credentials</span><span class="p">(</span>
+        <span class="p">[(</span><span class="n">server_key</span><span class="p">,</span> <span class="n">server_cert</span><span class="p">)],</span>
+        <span class="n">root_certificates</span><span class="o">=</span><span class="n">root_cert</span><span class="p">,</span>
+        <span class="n">require_client_auth</span><span class="o">=</span><span class="n">require_client_auth</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">grpc_server</span><span class="o">.</span><span class="n">add_secure_port</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">credentials</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">grpc_server</span><span class="o">.</span><span class="n">add_insecure_port</span><span class="p">(</span><span class="n">server_address</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Running without TLS. Set FEDLEARN_GRPC_USE_TLS=1 for production.&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="client-side-tls-setup">Client-Side TLS Setup<a class="headerlink" href="#client-side-tls-setup" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># grpc_client.py — _build_channel()</span>
+<span class="n">use_tls</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FEDLEARN_GRPC_USE_TLS&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;1&quot;</span>
+
+<span class="k">if</span> <span class="ow">not</span> <span class="n">use_tls</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">grpc</span><span class="o">.</span><span class="n">insecure_channel</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">grpc_options</span><span class="p">)</span>
+
+<span class="n">credentials</span> <span class="o">=</span> <span class="n">grpc</span><span class="o">.</span><span class="n">ssl_channel_credentials</span><span class="p">(</span>
+    <span class="n">root_certificates</span><span class="o">=</span><span class="n">_read</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FEDLEARN_GRPC_ROOT_CERT&quot;</span><span class="p">)),</span>
+    <span class="n">private_key</span><span class="o">=</span><span class="n">_read</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FEDLEARN_GRPC_CLIENT_KEY&quot;</span><span class="p">)),</span>     <span class="c1"># for mTLS</span>
+    <span class="n">certificate_chain</span><span class="o">=</span><span class="n">_read</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FEDLEARN_GRPC_CLIENT_CERT&quot;</span><span class="p">)),</span> <span class="c1"># for mTLS</span>
+<span class="p">)</span>
+<span class="k">return</span> <span class="n">grpc</span><span class="o">.</span><span class="n">secure_channel</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">credentials</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">grpc_options</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="environment-variable-reference">Environment Variable Reference<a class="headerlink" href="#environment-variable-reference" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Server</th>
+<th>Client</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FEDLEARN_GRPC_USE_TLS</code></td>
+<td>✓</td>
+<td>✓</td>
+<td><code>"1"</code> to enable TLS</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_GRPC_SERVER_KEY</code></td>
+<td>✓</td>
+<td>—</td>
+<td>Path to server private key (PEM)</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_GRPC_SERVER_CERT</code></td>
+<td>✓</td>
+<td>—</td>
+<td>Path to server certificate (PEM)</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_GRPC_ROOT_CERT</code></td>
+<td>optional</td>
+<td>optional</td>
+<td>Path to CA root cert (for mTLS verification)</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_GRPC_REQUIRE_CLIENT_AUTH</code></td>
+<td>optional</td>
+<td>—</td>
+<td><code>"1"</code> to require client certificates</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_GRPC_CLIENT_KEY</code></td>
+<td>—</td>
+<td>optional</td>
+<td>Client private key for mTLS</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_GRPC_CLIENT_CERT</code></td>
+<td>—</td>
+<td>optional</td>
+<td>Client certificate for mTLS</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="retry-logic-and-backoff">Retry Logic and Backoff<a class="headerlink" href="#retry-logic-and-backoff" title="Permanent link">&para;</a></h2>
+<p>All unary client calls go through <code>_retry_unary()</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">_RETRYABLE_CODES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">grpc</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">UNAVAILABLE</span><span class="p">,</span>
+    <span class="n">grpc</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">DEADLINE_EXCEEDED</span><span class="p">,</span>
+    <span class="n">grpc</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">RESOURCE_EXHAUSTED</span><span class="p">,</span>
+    <span class="n">grpc</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">ABORTED</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_retry_unary</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">op_name</span><span class="p">,</span> <span class="n">max_attempts</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">base_delay</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">max_delay</span><span class="o">=</span><span class="mf">8.0</span><span class="p">):</span>
+    <span class="n">attempt</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">fn</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">grpc</span><span class="o">.</span><span class="n">RpcError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">attempt</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">code</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_RETRYABLE_CODES</span> <span class="ow">or</span> <span class="n">attempt</span> <span class="o">&gt;=</span> <span class="n">max_attempts</span><span class="p">:</span>
+                <span class="k">raise</span>
+            <span class="c1"># Exponential backoff: 0.5s, 1s, 2s, 4s (capped at 8s)</span>
+            <span class="n">delay</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">max_delay</span><span class="p">,</span> <span class="n">base_delay</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="p">(</span><span class="n">attempt</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)))</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> retry attempt=</span><span class="si">%d</span><span class="s2"> in </span><span class="si">%.1f</span><span class="s2">s&quot;</span><span class="p">,</span> <span class="n">op_name</span><span class="p">,</span> <span class="n">attempt</span><span class="p">,</span> <span class="n">delay</span><span class="p">)</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">delay</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>Retryable codes</strong> are those that represent transient network conditions:
+- <code>UNAVAILABLE</code> — server temporarily down or restarting
+- <code>DEADLINE_EXCEEDED</code> — request timed out (will retry with fresh timeout)
+- <code>RESOURCE_EXHAUSTED</code> — server under load
+- <code>ABORTED</code> — concurrent modification detected</p>
+<p><strong>Non-retryable codes</strong> (e.g., <code>FAILED_PRECONDITION</code>, <code>NOT_FOUND</code>, <code>INTERNAL</code>) propagate immediately as they indicate logical errors.</p>
+<p>The outer <code>start_client()</code> loop has its own retry at 10-second intervals for <code>UNAVAILABLE</code>, allowing clients to reconnect if the server briefly goes down between rounds.</p>
+<hr />
+<h2 id="keepalive-tuning">Keepalive Tuning<a class="headerlink" href="#keepalive-tuning" title="Permanent link">&para;</a></h2>
+<p>Both server and client are tuned to survive AWS NLB/ALB idle timeout (default 350 seconds) and NAT gateway idle timeout:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Server options (server.py)</span>
+<span class="n">options</span><span class="o">=</span><span class="p">[</span>
+    <span class="p">(</span><span class="s1">&#39;grpc.keepalive_time_ms&#39;</span><span class="p">,</span> <span class="mi">120000</span><span class="p">),</span>             <span class="c1"># send keepalive every 2 min</span>
+    <span class="p">(</span><span class="s1">&#39;grpc.keepalive_timeout_ms&#39;</span><span class="p">,</span> <span class="mi">60000</span><span class="p">),</span>            <span class="c1"># wait 60s for keepalive ACK</span>
+    <span class="p">(</span><span class="s1">&#39;grpc.keepalive_permit_without_calls&#39;</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>   <span class="c1"># keepalive even with no active RPCs</span>
+    <span class="p">(</span><span class="s1">&#39;grpc.http2.max_pings_without_data&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>        <span class="c1"># allow unlimited pings</span>
+    <span class="p">(</span><span class="s1">&#39;grpc.http2.min_time_between_pings_ms&#39;</span><span class="p">,</span> <span class="mi">120000</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">&#39;grpc.http2.min_ping_interval_without_data_ms&#39;</span><span class="p">,</span> <span class="mi">120000</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">&#39;grpc.http2.bdp_probe&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>                 <span class="c1"># disable BDP probing (saves RTTs)</span>
+    <span class="p">(</span><span class="s1">&#39;grpc.http2.max_ping_strikes&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>              <span class="c1"># never disconnect for too many pings</span>
+<span class="p">]</span>
+
+<span class="c1"># Client options (grpc_client.py)</span>
+<span class="n">grpc_options</span><span class="o">=</span><span class="p">[</span>
+    <span class="p">(</span><span class="s1">&#39;grpc.keepalive_time_ms&#39;</span><span class="p">,</span> <span class="mi">60000</span><span class="p">),</span>   <span class="c1"># more aggressive on client side</span>
+    <span class="p">(</span><span class="s1">&#39;grpc.keepalive_timeout_ms&#39;</span><span class="p">,</span> <span class="mi">20000</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">&#39;grpc.keepalive_permit_without_calls&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">&#39;grpc.http2.max_pings_without_data&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+<span class="p">]</span>
+</code></pre></div>
+
+<hr />
+<h2 id="connection-limits-and-message-sizes">Connection Limits and Message Sizes<a class="headerlink" href="#connection-limits-and-message-sizes" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Both server and client must agree on message sizes</span>
+<span class="p">(</span><span class="s1">&#39;grpc.max_send_message_length&#39;</span><span class="p">,</span>    <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">),</span>  <span class="c1"># 1 GB</span>
+<span class="p">(</span><span class="s1">&#39;grpc.max_receive_message_length&#39;</span><span class="p">,</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">),</span>  <span class="c1"># 1 GB</span>
+
+<span class="c1"># Server connection age limits</span>
+<span class="p">(</span><span class="s1">&#39;grpc.max_connection_idle_ms&#39;</span><span class="p">,</span>       <span class="mi">7200000</span><span class="p">),</span>   <span class="c1"># 2 hours</span>
+<span class="p">(</span><span class="s1">&#39;grpc.max_connection_age_ms&#39;</span><span class="p">,</span>       <span class="mi">14400000</span><span class="p">),</span>   <span class="c1"># 4 hours</span>
+<span class="p">(</span><span class="s1">&#39;grpc.max_connection_age_grace_ms&#39;</span><span class="p">,</span>   <span class="mi">600000</span><span class="p">),</span>   <span class="c1"># 10 min grace period</span>
+</code></pre></div>
+
+<p>The 1 GB message limit applies per gRPC message, not per streaming chunk. Since the streaming API uses 50 MB chunks, you could in theory serve a 50+ GB model without hitting the limit.</p>
+<p>The server creates <code>(max_clients * 2) + 10</code> thread-pool workers:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">max_expected_clients</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;MAX_CLIENTS&#39;</span><span class="p">,</span> <span class="mi">50</span><span class="p">))</span>
+<span class="n">optimal_workers</span> <span class="o">=</span> <span class="p">(</span><span class="n">max_expected_clients</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="mi">10</span>  <span class="c1"># 2 threads per client + overhead</span>
+<span class="n">grpc_server</span> <span class="o">=</span> <span class="n">grpc</span><span class="o">.</span><span class="n">server</span><span class="p">(</span><span class="n">futures</span><span class="o">.</span><span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">optimal_workers</span><span class="p">),</span> <span class="o">...</span><span class="p">)</span>
+</code></pre></div>
+
+<hr />
+<h2 id="dual-channel-heartbeat-architecture">Dual-Channel Heartbeat Architecture<a class="headerlink" href="#dual-channel-heartbeat-architecture" title="Permanent link">&para;</a></h2>
+<p>A critical design choice: the <code>GrpcClient</code> opens <strong>two separate gRPC channels</strong> to the same server address.</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">GrpcClient</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">server_address</span><span class="p">):</span>
+        <span class="c1"># Primary channel — used for all heavy operations:</span>
+        <span class="c1"># RegisterClient, GetGlobalModelStream, SubmitModelUpdateStream</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel</span> <span class="o">=</span> <span class="n">_build_channel</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">grpc_options</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stub</span> <span class="o">=</span> <span class="n">FederatedLearningServiceStub</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">)</span>
+
+        <span class="c1"># Dedicated heartbeat channel — never blocked by ongoing transfers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span> <span class="o">=</span> <span class="n">_build_channel</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">grpc_options</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_stub</span> <span class="o">=</span> <span class="n">FederatedLearningServiceStub</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>Why this matters:</strong> During a multi-GB model download or upload, the primary gRPC channel's HTTP/2 connection is saturated with data frames. If heartbeats shared this channel, they would queue behind the data and could appear to time out even though the client is healthy. The server would then incorrectly mark the client as dead.</p>
+<p>The heartbeat thread runs on a 5-second interval:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_heartbeat_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_active</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">send_heartbeat</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Heartbeat loop exception&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_interval</span><span class="p">)</span>
+</code></pre></div>
+
+<p>It is launched as a daemon thread (exits automatically when the main process exits) immediately after client registration.</p>
+<hr />
+<h2 id="regenerating-generated-code">Regenerating Generated Code<a class="headerlink" href="#regenerating-generated-code" title="Permanent link">&para;</a></h2>
+<p>If you modify <code>fedlearn.proto</code>, regenerate the Python stubs:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># From the framework/ directory</span>
+pip<span class="w"> </span>install<span class="w"> </span>grpcio-tools
+
+python<span class="w"> </span>-m<span class="w"> </span>grpc_tools.protoc<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-I<span class="w"> </span>src/fedlearn/communication/protos<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--python_out<span class="o">=</span>src/fedlearn/communication/generated<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--grpc_python_out<span class="o">=</span>src/fedlearn/communication/generated<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>src/fedlearn/communication/protos/fedlearn.proto
+
+<span class="c1"># Fix import path in generated file (protoc generates absolute imports)</span>
+sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/import fedlearn_pb2/from . import fedlearn_pb2/&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>src/fedlearn/communication/generated/fedlearn_pb2_grpc.py
+</code></pre></div>
+
+<p>The generated files are <strong>committed to the repository</strong> so that users don't need <code>grpcio-tools</code> installed at runtime.</p>
+<hr />
+<h2 id="common-errors-and-debugging">Common Errors and Debugging<a class="headerlink" href="#common-errors-and-debugging" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Error</th>
+<th>Likely Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>StatusCode.UNAVAILABLE</code></td>
+<td>Server not running / wrong address</td>
+<td>Verify <code>--server_address</code> and server logs</td>
+</tr>
+<tr>
+<td><code>StatusCode.RESOURCE_EXHAUSTED</code></td>
+<td>Message exceeds 1 GB limit (unary)</td>
+<td>Switch to streaming; model should auto-detect</td>
+</tr>
+<tr>
+<td><code>StatusCode.DEADLINE_EXCEEDED</code></td>
+<td>Model download timed out</td>
+<td>Increase <code>timeout=3600</code> in stub calls; check network</td>
+</tr>
+<tr>
+<td><code>ValueError: Unsafe dtype</code></td>
+<td>Client sent malicious/malformed proto</td>
+<td>Security rejection; investigate client code</td>
+</tr>
+<tr>
+<td><code>ValueError: Shape mismatch</code></td>
+<td>Corrupted proto payload</td>
+<td>Retry; if persistent, check serializer on sender side</td>
+</tr>
+<tr>
+<td><code>torch.load</code> fails with <code>weights_only=True</code></td>
+<td>Payload contains non-tensor objects</td>
+<td>Do not pickle non-tensor data into model state dicts</td>
+</tr>
+<tr>
+<td>Heartbeat timeout on server</td>
+<td>Client dead / network split</td>
+<td>Normal — server logs will show stale clients; reduce <code>heartbeat_timeout</code> from 300s if desired</td>
+</tr>
+</tbody>
+</table>
+<p>Enable verbose gRPC tracing with:</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">GRPC_VERBOSITY</span><span class="o">=</span>debug<span class="w"> </span><span class="nv">GRPC_TRACE</span><span class="o">=</span>all<span class="w"> </span>python<span class="w"> </span>run_server.py<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-100
+</code></pre></div></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

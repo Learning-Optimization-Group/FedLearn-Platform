@@ -27,6 +27,6 @@ The FedLearn frontend is a modern Single Page Application (SPA) built with React
 - Authenticate and manage access securely using HttpOnly cookies.
 - View and manage projects, models, and federated learning datasets.
 - Monitor live training sessions across multiple clients via WebSockets.
-- Seamlessly transition between a legacy UI and a redesigned (Apple-inspired) V2 interface.
+- Use the current **Ember** design system (warm canvas, burnt-orange accent, Bricolage Grotesque / Hanken Grotesk / JetBrains Mono), which superseded the earlier "Instrument" tokens and the original Apple-inspired V2 redesign.
 
 Start by exploring the [Architecture](./Architecture.md) guide to understand the fundamental building blocks of the application.

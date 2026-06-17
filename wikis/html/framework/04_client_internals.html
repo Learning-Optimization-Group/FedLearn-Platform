@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 — Client Internals · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Framework</summary><ul>
+<li><a href="README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="03_server_internals.html">03 — Server Internals</a></li>
+<li><a class="active" href="04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Framework</b> &nbsp;·&nbsp; 04 — Client Internals</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="04-client-internals">04 — Client Internals<a class="headerlink" href="#04-client-internals" title="Permanent link">&para;</a></h1>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#the-client-abc">The Client ABC</a></li>
+<li><a href="#the-start_client-loop">The start_client() Loop</a></li>
+<li><a href="#registration-phase">Registration Phase</a></li>
+<li><a href="#heartbeat-thread">Heartbeat Thread</a></li>
+<li><a href="#training-loop">Training Loop</a></li>
+<li><a href="#polling-strategy-and-known-limitations">Polling Strategy and Known Limitations</a></li>
+<li><a href="#error-handling-and-reconnection">Error Handling and Reconnection</a></li>
+<li><a href="#grpcclient--the-transport-layer">GrpcClient — The Transport Layer</a></li>
+<li><a href="#channel-lifecycle">Channel Lifecycle</a></li>
+<li><a href="#status-tracking">Status Tracking</a></li>
+<li><a href="#implementing-a-custom-client">Implementing a Custom Client</a></li>
+<li><a href="#standard-fedavg-client-example-cnn">Standard FedAvg Client Example (CNN)</a></li>
+<li><a href="#standard-fedavg-client-example-llm">Standard FedAvg Client Example (LLM)</a></li>
+<li><a href="#decomfl-client">DeComFL Client</a></li>
+<li><a href="#start_decomfl_client">start_decomfl_client()</a></li>
+<li><a href="#decomflclientfit-mechanics">DeComFLClient.fit() Mechanics</a></li>
+<li><a href="#model-rebuild-protocol">Model Rebuild Protocol</a></li>
+<li><a href="#progress-reporting-to-the-backend">Progress Reporting to the Backend</a></li>
+<li><a href="#data-loading-patterns">Data Loading Patterns</a></li>
+</ul>
+<hr />
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>The client side of the framework has two flavours:</p>
+<table>
+<thead>
+<tr>
+<th>Flavour</th>
+<th>Entry Point</th>
+<th>Client Class</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Standard FL</td>
+<td><code>start_client()</code></td>
+<td><code>Client</code> ABC</td>
+<td>FedAvg, any gradient-based optimizer</td>
+</tr>
+<tr>
+<td>DeComFL</td>
+<td><code>start_decomfl_client()</code></td>
+<td><code>DeComFLClient</code></td>
+<td>Zeroth-order, communication-efficient</td>
+</tr>
+</tbody>
+</table>
+<p>Both flavours share the same <code>GrpcClient</code> transport layer and the same outer loop structure. The difference is <em>what</em> gets exchanged: standard clients exchange full parameter tensors; DeComFL clients exchange tiny gradient scalar arrays.</p>
+<hr />
+<h2 id="the-client-abc">The Client ABC<a class="headerlink" href="#the-client-abc" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># client/client.py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Client</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract base class for federated learning clients.&quot;&quot;&quot;</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the current local model parameters.&quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Train the local model using the provided global parameters.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameters: Global model weights from the server</span>
+<span class="sd">            config:     Round-specific configuration dict</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tuple of (updated_parameters, num_training_examples)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+</code></pre></div>
+
+<p><strong>Design rationale:</strong> By requiring only these two methods, the framework remains compatible with any training approach — backpropagation, meta-learning, quantisation-aware training, etc. The user controls the optimizer, loss function, number of local epochs, and data loading.</p>
+<hr />
+<h2 id="the-start_client-loop">The start_client() Loop<a class="headerlink" href="#the-start_client-loop" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>start_client(server_address, client, client_id)
+    │
+    ├── 1. Register with server
+    │       GrpcClient.register()
+    │       → RegisterClient RPC
+    │
+    ├── 2. Start heartbeat daemon thread
+    │       GrpcClient.start_heartbeat()
+    │
+    ├── 3. Pass GrpcClient to client (for progress updates)
+    │       if hasattr(client, &#39;set_grpc_client&#39;): ...
+    │
+    └── 4. Training loop (forever until completion signal)
+            │
+            ├── a. Fetch global model
+            │       GrpcClient.get_global_model()
+            │       → GetGlobalModelStream RPC
+            │
+            ├── b. Check completion signal (server_round == -1)
+            │
+            ├── c. Check for new round (server_round &gt; last_completed_round)
+            │
+            ├── d. Local training
+            │       client.fit(parameters, config)
+            │
+            ├── e. Submit update
+            │       GrpcClient.submit_update(new_params, num_examples, round)
+            │       → SubmitModelUpdate or SubmitModelUpdateStream RPC
+            │
+            └── f. Wait 2 seconds, then poll again
+</code></pre></div>
+
+<h3 id="registration-phase">Registration Phase<a class="headerlink" href="#registration-phase" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">comm_client</span> <span class="o">=</span> <span class="n">GrpcClient</span><span class="p">(</span><span class="n">client_id</span><span class="o">=</span><span class="n">client_id</span><span class="p">,</span> <span class="n">server_address</span><span class="o">=</span><span class="n">server_address</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="ow">not</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">register</span><span class="p">():</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;[</span><span class="si">%s</span><span class="s2">] Could not register with server; exiting&quot;</span><span class="p">,</span> <span class="n">client_id</span><span class="p">)</span>
+    <span class="k">return</span>   <span class="c1"># exit cleanly</span>
+
+<span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;[</span><span class="si">%s</span><span class="s2">] Registered with server; starting heartbeat&quot;</span><span class="p">,</span> <span class="n">client_id</span><span class="p">)</span>
+<span class="n">comm_client</span><span class="o">.</span><span class="n">start_heartbeat</span><span class="p">()</span>
+</code></pre></div>
+
+<p>If registration fails (e.g., server is not yet running), the client exits rather than entering a broken loop. The orchestrator (Electron app or Spring Boot backend) is responsible for ensuring the server is ready before clients attempt to connect.</p>
+<h3 id="heartbeat-thread">Heartbeat Thread<a class="headerlink" href="#heartbeat-thread" title="Permanent link">&para;</a></h3>
+<p>The heartbeat daemon thread is started immediately after registration:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># GrpcClient.start_heartbeat()</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_active</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_heartbeat_loop</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</code></pre></div>
+
+<p><code>daemon=True</code> means the thread exits automatically when the main process exits, with no explicit cleanup needed. The interval is 5 seconds by default (<code>heartbeat_interval = 5</code>).</p>
+<p>The heartbeat payload includes real-time progress:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">send_heartbeat</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="n">req</span> <span class="o">=</span> <span class="n">HeartbeatRequest</span><span class="p">(</span>
+        <span class="n">client_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">client_id</span><span class="p">,</span>
+        <span class="n">status</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">current_status</span><span class="p">,</span>   <span class="c1"># &quot;idle&quot;, &quot;training&quot;, &quot;submitting_update&quot;, etc.</span>
+        <span class="n">current_step</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">current_step</span><span class="p">,</span>
+        <span class="n">total_steps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">total_steps</span><span class="p">,</span>
+        <span class="n">current_round</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_stub</span><span class="o">.</span><span class="n">Heartbeat</span><span class="p">(</span><span class="n">req</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>   <span class="c1"># server wants us to stop</span>
+    <span class="k">return</span> <span class="n">res</span><span class="o">.</span><span class="n">acknowledged</span>
+</code></pre></div>
+
+<h3 id="training-loop">Training Loop<a class="headerlink" href="#training-loop" title="Permanent link">&para;</a></h3>
+<p>The main loop is a <code>while True</code> that polls continuously:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">last_completed_round</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+
+<span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+    <span class="c1"># Phase 1: Fetch model</span>
+    <span class="n">comm_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;fetching_model&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">parameters</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">get_global_model</span><span class="p">()</span>
+
+    <span class="c1"># Phase 2: Check for completion</span>
+    <span class="k">if</span> <span class="n">server_round</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+        <span class="k">break</span>
+
+    <span class="c1"># Phase 3: Check if this is a new round</span>
+    <span class="k">if</span> <span class="n">server_round</span> <span class="o">&gt;</span> <span class="n">last_completed_round</span><span class="p">:</span>
+        <span class="n">comm_client</span><span class="o">.</span><span class="n">current_round</span> <span class="o">=</span> <span class="n">server_round</span>
+        <span class="n">comm_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;training&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Phase 4: Local training</span>
+        <span class="n">new_parameters</span><span class="p">,</span> <span class="n">num_examples</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+        <span class="c1"># Phase 5: Submit update</span>
+        <span class="n">comm_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;submitting_update&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">success</span> <span class="o">=</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">submit_update</span><span class="p">(</span><span class="n">new_parameters</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">server_round</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">success</span><span class="p">:</span>
+            <span class="n">last_completed_round</span> <span class="o">=</span> <span class="n">server_round</span>
+            <span class="n">comm_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;idle&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">comm_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Server hasn&#39;t advanced yet — other clients are still training</span>
+        <span class="n">comm_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;waiting&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># poll interval</span>
+</code></pre></div>
+
+<p>Status values flow through as heartbeat <code>status</code> strings:</p>
+<table>
+<thead>
+<tr>
+<th>Status String</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"fetching_model"</code></td>
+<td>Downloading global model from server</td>
+</tr>
+<tr>
+<td><code>"training"</code></td>
+<td>Running <code>client.fit()</code></td>
+</tr>
+<tr>
+<td><code>"submitting_update"</code></td>
+<td>Uploading updated parameters</td>
+</tr>
+<tr>
+<td><code>"idle"</code></td>
+<td>Waiting for next round to start</td>
+</tr>
+<tr>
+<td><code>"waiting"</code></td>
+<td>Submitted update, waiting for other clients</td>
+</tr>
+<tr>
+<td><code>"error"</code></td>
+<td>Last operation failed</td>
+</tr>
+</tbody>
+</table>
+<h3 id="polling-strategy-and-known-limitations">Polling Strategy and Known Limitations<a class="headerlink" href="#polling-strategy-and-known-limitations" title="Permanent link">&para;</a></h3>
+<p>Currently, clients determine if a new round is available by <strong>polling</strong> <code>GetGlobalModelStream</code> every 2 seconds. This has two drawbacks:</p>
+<ol>
+<li><strong>Wasteful:</strong> Each poll downloads the full model again even if the round hasn't changed.</li>
+<li><strong>Latency:</strong> There's a 0–2 second delay between the server advancing a round and the client discovering it.</li>
+</ol>
+<p>A better design (noted as a TODO in the code) would use a <strong>server-streaming RPC</strong> called <code>WaitForNextRound</code> that blocks until <code>coordinator._round_complete_event</code> fires and then pushes the new round metadata. This would give near-instant round notification with zero polling overhead.</p>
+<h3 id="error-handling-and-reconnection">Error Handling and Reconnection<a class="headerlink" href="#error-handling-and-reconnection" title="Permanent link">&para;</a></h3>
+<p>The loop catches errors at two levels:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">try</span><span class="p">:</span>
+    <span class="c1"># inner loop</span>
+    <span class="o">...</span>
+<span class="k">except</span> <span class="n">grpc</span><span class="o">.</span><span class="n">RpcError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">code</span><span class="p">()</span> <span class="o">==</span> <span class="n">grpc</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">UNAVAILABLE</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;[</span><span class="si">%s</span><span class="s2">] Server unavailable; shutting down&quot;</span><span class="p">,</span> <span class="n">client_id</span><span class="p">)</span>
+        <span class="k">break</span>  <span class="c1"># server has shut down after training — exit cleanly</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;[</span><span class="si">%s</span><span class="s2">] gRPC error (code=</span><span class="si">%s</span><span class="s2">): </span><span class="si">%s</span><span class="s2">. Retrying in 10s&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+    <span class="n">comm_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>   <span class="c1"># backoff before retrying</span>
+<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;[</span><span class="si">%s</span><span class="s2">] Unexpected client error; shutting down&quot;</span><span class="p">,</span> <span class="n">client_id</span><span class="p">)</span>
+    <span class="n">comm_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">break</span>  <span class="c1"># unknown error = exit so orchestrator can restart cleanly</span>
+</code></pre></div>
+
+<p><code>UNAVAILABLE</code> from <code>GetGlobalModel</code> typically means the server's <code>grpc_server.stop()</code> was called (normal post-training shutdown). This is treated as a clean exit.</p>
+<p>All other <code>grpc.RpcError</code> codes get a 10-second retry. Non-gRPC exceptions (Python bugs, out-of-memory) exit immediately — letting the orchestrator restart with a clean slate is safer than continuing in an unknown state.</p>
+<hr />
+<h2 id="grpcclient-the-transport-layer">GrpcClient — The Transport Layer<a class="headerlink" href="#grpcclient-the-transport-layer" title="Permanent link">&para;</a></h2>
+<p><code>GrpcClient</code> wraps all network I/O and presents a clean Python API to the <code>start_client()</code> loop:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">GrpcClient</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_global_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="nb">round</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">submit_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">round_number</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">send_heartbeat</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start_heartbeat</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop_heartbeat</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">current_step</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="c1"># DeComFL-specific</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_decomfl_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="nb">round</span><span class="p">,</span> <span class="n">seeds</span><span class="p">,</span> <span class="n">rebuild_history</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">submit_gradient_scalars</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gradient_scalars</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">round_num</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
+</code></pre></div>
+
+<h3 id="channel-lifecycle">Channel Lifecycle<a class="headerlink" href="#channel-lifecycle" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">server_address</span><span class="p">):</span>
+    <span class="n">grpc_options</span> <span class="o">=</span> <span class="p">[</span><span class="o">...</span><span class="p">]</span>
+
+    <span class="c1"># Primary channel for all heavy operations</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">channel</span> <span class="o">=</span> <span class="n">_build_channel</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">grpc_options</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">stub</span> <span class="o">=</span> <span class="n">FederatedLearningServiceStub</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">)</span>
+
+    <span class="c1"># Dedicated heartbeat channel</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span> <span class="o">=</span> <span class="n">_build_channel</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">grpc_options</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_stub</span> <span class="o">=</span> <span class="n">FederatedLearningServiceStub</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">stop_heartbeat</span><span class="p">()</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</code></pre></div>
+
+<p>Channels are created once and reused for the lifetime of the client. gRPC handles connection pooling and reconnection internally.</p>
+<h3 id="status-tracking">Status Tracking<a class="headerlink" href="#status-tracking" title="Permanent link">&para;</a></h3>
+<p>The client maintains a small piece of mutable state for heartbeat payloads:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">update_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">current_step</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">current_status</span> <span class="o">=</span> <span class="n">status</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">current_step</span> <span class="o">=</span> <span class="n">current_step</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">total_steps</span> <span class="o">=</span> <span class="n">total_steps</span>
+</code></pre></div>
+
+<p>This is called from two places:
+1. <strong><code>start_client()</code> loop</strong> — for coarse-grained status transitions (<code>"training"</code>, <code>"idle"</code>, etc.)
+2. <strong>Inside <code>client.fit()</code></strong> — for fine-grained step-level progress, if the client has a reference to <code>grpc_client</code></p>
+<hr />
+<h2 id="implementing-a-custom-client">Implementing a Custom Client<a class="headerlink" href="#implementing-a-custom-client" title="Permanent link">&para;</a></h2>
+<h3 id="standard-fedavg-client-example-cnn">Standard FedAvg Client Example (CNN)<a class="headerlink" href="#standard-fedavg-client-example-cnn" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">fedlearn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torchvision</span><span class="w"> </span><span class="kn">import</span> <span class="n">datasets</span><span class="p">,</span> <span class="n">transforms</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">CNNModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span>   <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">9216</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span>   <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv2</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc1</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MNISTClient</span><span class="p">(</span><span class="n">fl</span><span class="o">.</span><span class="n">Client</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span> <span class="o">=</span> <span class="n">train_loader</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">device</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.001</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">criterion</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># set by framework via set_grpc_client()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_grpc_client</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grpc_client</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Optional: receive reference to GrpcClient for progress updates.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span> <span class="o">=</span> <span class="n">grpc_client</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return current model weights.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load global parameters, run local training, return updated params.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameters: Global model state_dict from server</span>
+<span class="sd">            config:     Dict with round-specific settings (currently empty for FedAvg)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            (updated_state_dict, num_training_samples)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># 1. Load global parameters into local model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+
+        <span class="n">local_epochs</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">total_steps</span> <span class="o">=</span> <span class="n">local_epochs</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">)</span>
+        <span class="n">step</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># 2. Local training</span>
+        <span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">local_epochs</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">batch_idx</span><span class="p">,</span> <span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">):</span>
+                <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">),</span> <span class="n">targets</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+                <span class="n">outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+                <span class="n">loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">criterion</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
+                <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+
+                <span class="n">step</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="c1"># 3. Report progress back to server via heartbeat</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;training&quot;</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">)</span>
+
+        <span class="c1"># 4. Return updated weights and dataset size</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="o">.</span><span class="n">dataset</span><span class="p">)</span>
+
+
+<span class="c1"># ─── Entry point ────────────────────────────────────────────────────────────</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--id&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;client_0&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--server_address&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;localhost:50051&quot;</span><span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="n">transform</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">([</span><span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">()])</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">MNIST</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="s2">&quot;./data&quot;</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">)</span>
+    <span class="n">train_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">model</span> <span class="o">=</span> <span class="n">CNNModel</span><span class="p">()</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">MNISTClient</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+
+    <span class="n">fl</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">start_client</span><span class="p">(</span>
+        <span class="n">server_address</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">server_address</span><span class="p">,</span>
+        <span class="n">client</span><span class="o">=</span><span class="n">client</span><span class="p">,</span>
+        <span class="n">client_id</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+    <span class="p">)</span>
+</code></pre></div>
+
+<h3 id="standard-fedavg-client-example-llm">Standard FedAvg Client Example (LLM)<a class="headerlink" href="#standard-fedavg-client-example-llm" title="Permanent link">&para;</a></h3>
+<p>LLM clients are nearly identical, but <code>fit()</code> works with a HuggingFace <code>Trainer</code> or custom loop:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelForSequenceClassification</span><span class="p">,</span> <span class="n">AutoTokenizer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">LLMClient</span><span class="p">(</span><span class="n">fl</span><span class="o">.</span><span class="n">Client</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">,</span> <span class="n">train_dataset</span><span class="p">,</span> <span class="n">device</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">AutoModelForSequenceClassification</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">device</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_dataset</span> <span class="o">=</span> <span class="n">train_dataset</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_grpc_client</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gc</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span> <span class="o">=</span> <span class="n">gc</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+        <span class="c1"># Load global parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">AdamW</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">2e-5</span><span class="p">)</span>
+        <span class="n">loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">loader</span><span class="p">:</span>
+            <span class="n">batch</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+            <span class="n">outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">batch</span><span class="p">)</span>  <span class="c1"># HuggingFace returns a dict with &#39;loss&#39;</span>
+            <span class="n">outputs</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_dataset</span><span class="p">)</span>
+</code></pre></div>
+
+<blockquote>
+<p><strong>Important:</strong> When using HuggingFace models, the <code>GrpcClient.submit_update()</code> will automatically detect transformer parameter names (containing <code>attention</code>, <code>encoder</code>, etc.) and use streaming upload. No special handling needed.</p>
+</blockquote>
+<hr />
+<h2 id="decomfl-client">DeComFL Client<a class="headerlink" href="#decomfl-client" title="Permanent link">&para;</a></h2>
+<h3 id="start_decomfl_client">start_decomfl_client()<a class="headerlink" href="#start_decomfl_client" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># client/decomfl_start.py</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">start_decomfl_client</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">client_id</span><span class="p">):</span>
+    <span class="n">comm_client</span> <span class="o">=</span> <span class="n">GrpcClient</span><span class="p">(</span><span class="n">client_id</span><span class="o">=</span><span class="n">client_id</span><span class="p">,</span> <span class="n">server_address</span><span class="o">=</span><span class="n">server_address</span><span class="p">)</span>
+    <span class="n">last_completed_round</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">register</span><span class="p">():</span>
+        <span class="k">return</span>
+
+    <span class="n">comm_client</span><span class="o">.</span><span class="n">start_heartbeat</span><span class="p">()</span>
+    <span class="n">client</span><span class="o">.</span><span class="n">set_grpc_client</span><span class="p">(</span><span class="n">comm_client</span><span class="p">)</span>
+
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Fetch seeds and rebuild history instead of model weights</span>
+            <span class="n">current_round</span><span class="p">,</span> <span class="n">seeds</span><span class="p">,</span> <span class="n">rebuild_history</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">get_decomfl_config</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="n">current_round</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="k">break</span>   <span class="c1"># training complete</span>
+
+            <span class="k">if</span> <span class="n">current_round</span> <span class="o">&gt;</span> <span class="n">last_completed_round</span><span class="p">:</span>
+                <span class="c1"># Replay missed rounds (rebuilds local model from seeds+gradients)</span>
+                <span class="k">if</span> <span class="n">rebuild_history</span><span class="p">:</span>
+                    <span class="n">client</span><span class="o">.</span><span class="n">rebuild_model</span><span class="p">(</span><span class="n">rebuild_history</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;learning_rate&#39;</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">)))</span>
+
+                <span class="c1"># Inject seeds into config for fit()</span>
+                <span class="n">config</span><span class="p">[</span><span class="s1">&#39;seeds&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">seeds</span>
+
+                <span class="c1"># Local training (returns gradient scalars, not updated weights)</span>
+                <span class="n">gradient_scalars</span><span class="p">,</span> <span class="n">num_examples</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+
+                <span class="c1"># Submit O(K×P) scalars instead of full model</span>
+                <span class="n">success</span> <span class="o">=</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">submit_gradient_scalars</span><span class="p">(</span>
+                    <span class="n">gradient_scalars</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">current_round</span>
+                <span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">success</span><span class="p">:</span>
+                    <span class="n">last_completed_round</span> <span class="o">=</span> <span class="n">current_round</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>   <span class="c1"># wait for other clients</span>
+
+        <span class="k">except</span> <span class="n">grpc</span><span class="o">.</span><span class="n">RpcError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">code</span><span class="p">()</span> <span class="o">==</span> <span class="n">grpc</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">UNAVAILABLE</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+
+    <span class="n">comm_client</span><span class="o">.</span><span class="n">stop_heartbeat</span><span class="p">()</span>
+    <span class="n">comm_client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</code></pre></div>
+
+<h3 id="decomflclientfit-mechanics">DeComFLClient.fit() Mechanics<a class="headerlink" href="#decomflclientfit-mechanics" title="Permanent link">&para;</a></h3>
+<p>The <code>fit()</code> method on <code>DeComFLClient</code> implements <strong>Algorithm 4</strong> from the DeComFL paper. Instead of computing gradients via backpropagation, it uses a <strong>forward-difference zeroth-order gradient estimator</strong>:</p>
+<div class="codehilite"><pre><span></span><code>g = (f(x + μz; ξ) - f(x; ξ)) / μ
+</code></pre></div>
+
+<p>where:
+- <code>x</code> = current flat model parameters
+- <code>z</code> = random perturbation vector sampled from N(0, I)
+- <code>μ</code> (mu) = smoothing parameter (typically 0.001)
+- <code>ξ</code> = mini-batch of training data
+- <code>f(·)</code> = loss function</p>
+<p>Full implementation:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+    <span class="n">seeds</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;seeds&#39;</span><span class="p">]</span>    <span class="c1"># List[List[int]] — [local_step][perturbation]</span>
+    <span class="n">K</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">)</span>             <span class="c1"># Number of local steps</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>          <span class="c1"># Number of perturbations per step</span>
+    <span class="n">eta</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;learning_rate&#39;</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">))</span>
+
+    <span class="n">total_perturbation</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
+    <span class="n">gradient_scalars</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">data_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">K</span><span class="p">):</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
+        <span class="n">k_gradient_scalars</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Get data batch</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">batch</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">data_iter</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+            <span class="n">data_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">)</span>
+            <span class="n">batch</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">data_iter</span><span class="p">)</span>
+
+        <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="n">batch</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="c1"># Progress reporting</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;training&quot;</span><span class="p">,</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">K</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">P</span><span class="p">):</span>
+            <span class="c1"># Generate z from shared seed (reproducible on server + client)</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">generate_perturbation</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">))</span>
+
+            <span class="c1"># Compute ZO gradient scalar</span>
+            <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">compute_gradient_scalar</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span>
+            <span class="p">)</span>
+            <span class="n">k_gradient_scalars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+
+            <span class="c1"># Accumulate update direction</span>
+            <span class="n">delta</span> <span class="o">+=</span> <span class="n">g</span> <span class="o">*</span> <span class="n">z</span>
+
+        <span class="c1"># Apply local step update</span>
+        <span class="n">step_update</span> <span class="o">=</span> <span class="p">(</span><span class="n">eta</span> <span class="o">/</span> <span class="n">P</span><span class="p">)</span> <span class="o">*</span> <span class="n">delta</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span> <span class="o">-=</span> <span class="n">step_update</span>
+        <span class="n">total_perturbation</span> <span class="o">-=</span> <span class="n">step_update</span>
+
+        <span class="n">gradient_scalars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">k_gradient_scalars</span><span class="p">)</span>
+
+    <span class="c1"># CRITICAL: Revert x_current to pre-round state</span>
+    <span class="c1"># The server will apply the update using its own reconstruction.</span>
+    <span class="c1"># The client must NOT keep the locally perturbed model.</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span> <span class="o">-=</span> <span class="n">total_perturbation</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">_set_flat_params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">gradient_scalars</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="o">.</span><span class="n">dataset</span><span class="p">)</span>
+</code></pre></div>
+
+<blockquote>
+<p><strong>Why revert <code>x_current</code>?</strong> After local training, the client reverts its model to the state before this round's perturbations. This is necessary because the client's model will be advanced by the server's averaged update (communicated as seeds + average gradients) through the <code>rebuild_model()</code> call at the start of the <em>next</em> round. If the client kept its locally perturbed model, it would diverge from the global model that the server constructs.</p>
+</blockquote>
+<h3 id="zerothorderestimatorcompute_gradient_scalar">ZerothOrderEstimator.compute_gradient_scalar()<a class="headerlink" href="#zerothorderestimatorcompute_gradient_scalar" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_gradient_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">flat_params</span><span class="p">,</span> <span class="n">perturbation</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="c1"># Baseline loss: f(x; ξ)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_flat_params</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">flat_params</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>   <span class="c1"># LLM path</span>
+            <span class="n">loss_x</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">targets</span><span class="p">)</span><span class="o">.</span><span class="n">loss</span>
+        <span class="k">else</span><span class="p">:</span>                          <span class="c1"># CNN/MLP path</span>
+            <span class="n">loss_x</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()(</span><span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">),</span> <span class="n">targets</span><span class="p">)</span>
+
+        <span class="c1"># Perturbed loss: f(x + μz; ξ)</span>
+        <span class="n">perturbed_params</span> <span class="o">=</span> <span class="n">flat_params</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">*</span> <span class="n">perturbation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_flat_params</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">perturbed_params</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">loss_x_perturbed</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">targets</span><span class="p">)</span><span class="o">.</span><span class="n">loss</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">loss_x_perturbed</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()(</span><span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">),</span> <span class="n">targets</span><span class="p">)</span>
+
+        <span class="c1"># ZO gradient scalar</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="p">(</span><span class="n">loss_x_perturbed</span> <span class="o">-</span> <span class="n">loss_x</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span>
+
+    <span class="k">return</span> <span class="n">g</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>   <span class="c1"># Python float</span>
+</code></pre></div>
+
+<p>This requires <strong>two forward passes</strong> per perturbation and <strong>no backward pass</strong>. For a model with <code>d</code> parameters and <code>P</code> perturbations, communication is <code>O(K × P)</code> scalars vs. <code>O(d)</code> for standard FL — a massive reduction for LLMs.</p>
+<h3 id="model-rebuild-protocol">Model Rebuild Protocol<a class="headerlink" href="#model-rebuild-protocol" title="Permanent link">&para;</a></h3>
+<p>When a client joins late or misses rounds (e.g., temporary network disconnection), it must replay the missed rounds to synchronise its local model:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rebuild_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rebuild_history</span><span class="p">,</span> <span class="n">learning_rate</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Replays missed rounds using server-provided seeds and averaged gradients.</span>
+<span class="sd">    Each missed round is re-simulated deterministically.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">round_data</span> <span class="ow">in</span> <span class="n">rebuild_history</span><span class="p">:</span>
+        <span class="n">seeds</span> <span class="o">=</span> <span class="n">round_data</span><span class="p">[</span><span class="s1">&#39;seeds&#39;</span><span class="p">]</span>       <span class="c1"># List[List[int]]</span>
+        <span class="n">avg_gradients</span> <span class="o">=</span> <span class="n">round_data</span><span class="p">[</span><span class="s1">&#39;gradients&#39;</span><span class="p">]</span>  <span class="c1"># List[List[float]]</span>
+
+        <span class="n">K</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">)</span>
+        <span class="n">P</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">K</span><span class="p">):</span>
+            <span class="n">delta</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">P</span><span class="p">):</span>
+                <span class="c1"># Regenerate exact same perturbation vector</span>
+                <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">generate_perturbation</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">))</span>
+                <span class="n">g</span> <span class="o">=</span> <span class="n">avg_gradients</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">]</span>   <span class="c1"># averaged gradient from server</span>
+                <span class="n">delta</span> <span class="o">+=</span> <span class="n">g</span> <span class="o">*</span> <span class="n">z</span>
+
+            <span class="c1"># Apply the averaged global update for this step</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span> <span class="o">-=</span> <span class="p">(</span><span class="n">learning_rate</span> <span class="o">/</span> <span class="n">P</span><span class="p">)</span> <span class="o">*</span> <span class="n">delta</span>
+
+    <span class="c1"># Sync model weights</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">_set_flat_params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
+</code></pre></div>
+
+<p>The rebuild is deterministic because both the client and server use the same random seeds to regenerate perturbation vectors. The only information transmitted is the scalar gradient values — the full perturbation vectors are regenerated locally.</p>
+<hr />
+<h2 id="progress-reporting-to-the-backend">Progress Reporting to the Backend<a class="headerlink" href="#progress-reporting-to-the-backend" title="Permanent link">&para;</a></h2>
+<p>The Spring Boot backend displays real-time training progress to the user. This works through a chain:</p>
+<div class="codehilite"><pre><span></span><code>client.fit() step N
+    │
+    ▼
+grpc_client.update_status(&quot;training&quot;, N, total_steps)
+    │
+    ▼ (every 5s, heartbeat thread)
+HeartbeatRequest { status=&quot;training&quot;, current_step=N, total_steps=total_steps }
+    │
+    ▼ (gRPC to Python server)
+FLCoordinator.update_client_heartbeat()
+    │ updates client_heartbeats dict
+    │
+    ▼ (Spring backend polls /api/projects/{id}/clients or reads server stdout logs)
+React frontend receives progress update
+</code></pre></div>
+
+<p>For the <code>GrpcClient</code> reference to be available inside <code>fit()</code>, the client must implement <code>set_grpc_client()</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">MyClient</span><span class="p">(</span><span class="n">fl</span><span class="o">.</span><span class="n">Client</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span> <span class="o">=</span> <span class="kc">None</span>   <span class="c1"># will be set by framework</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_grpc_client</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gc</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span> <span class="o">=</span> <span class="n">gc</span>     <span class="c1"># called by start_client() before training loop</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="n">batch</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">):</span>
+            <span class="c1"># ... training ...</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;training&quot;</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">))</span>
+</code></pre></div>
+
+<hr />
+<h2 id="data-loading-patterns">Data Loading Patterns<a class="headerlink" href="#data-loading-patterns" title="Permanent link">&para;</a></h2>
+<h3 id="non-iid-dirichlet-partitioning">Non-IID Dirichlet Partitioning<a class="headerlink" href="#non-iid-dirichlet-partitioning" title="Permanent link">&para;</a></h3>
+<p>For realistic federated scenarios, data should be non-uniformly distributed across clients:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">Subset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torchvision</span><span class="w"> </span><span class="kn">import</span> <span class="n">datasets</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">partition_dataset_dirichlet</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">num_clients</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Partition dataset using Dirichlet distribution for non-IID splits.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        dataset:     Full dataset</span>
+<span class="sd">        num_clients: Number of clients</span>
+<span class="sd">        alpha:       Dirichlet concentration parameter</span>
+<span class="sd">                     - alpha → 0: one class per client (extreme non-IID)</span>
+<span class="sd">                     - alpha → ∞: uniform IID split</span>
+<span class="sd">        seed:        Random seed for reproducibility</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        List of indices for each client</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">dataset</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">))])</span>
+    <span class="n">num_classes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">labels</span><span class="p">))</span>
+
+    <span class="n">client_indices</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_clients</span><span class="p">)]</span>
+
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_classes</span><span class="p">):</span>
+        <span class="n">class_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">labels</span> <span class="o">==</span> <span class="n">c</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">class_indices</span><span class="p">)</span>
+
+        <span class="c1"># Dirichlet distribution determines how this class is split</span>
+        <span class="n">proportions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">dirichlet</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">num_clients</span><span class="p">))</span>
+        <span class="n">proportions</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">proportions</span><span class="p">)</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">class_indices</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">split_indices</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">class_indices</span><span class="p">,</span> <span class="n">proportions</span><span class="p">)):</span>
+            <span class="n">client_indices</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">split_indices</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+
+    <span class="k">return</span> <span class="p">[</span><span class="n">Subset</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span> <span class="k">for</span> <span class="n">indices</span> <span class="ow">in</span> <span class="n">client_indices</span><span class="p">]</span>
+
+
+<span class="c1"># Usage</span>
+<span class="n">full_dataset</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">MNIST</span><span class="p">(</span><span class="s2">&quot;./data&quot;</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">)</span>
+<span class="n">client_datasets</span> <span class="o">=</span> <span class="n">partition_dataset_dirichlet</span><span class="p">(</span><span class="n">full_dataset</span><span class="p">,</span> <span class="n">num_clients</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+
+<span class="c1"># Client 0 gets a DataLoader over its personal partition</span>
+<span class="n">client_0_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">client_datasets</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

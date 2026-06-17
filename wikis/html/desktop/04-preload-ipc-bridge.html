@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FedLearn Desktop — Preload Script & IPC Bridge · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Desktop</summary><ul>
+<li><a href="README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a class="active" href="04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Desktop</b> &nbsp;·&nbsp; FedLearn Desktop — Preload Script & IPC Bridge</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="fedlearn-desktop-preload-script-ipc-bridge">FedLearn Desktop — Preload Script &amp; IPC Bridge<a class="headerlink" href="#fedlearn-desktop-preload-script-ipc-bridge" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a> → <a href="README.html">Desktop Wiki</a></p>
+</blockquote>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#the-role-of-the-preload-script">The Role of the Preload Script</a></li>
+<li><a href="#contextbridge-api-surface">contextBridge API Surface</a></li>
+<li><a href="#validation-strategy-in-depth">Validation Strategy in Depth</a></li>
+<li><a href="#complete-windowfedlearnapi-reference">Complete <code>window.fedLearnAPI</code> Reference</a></li>
+<li><a href="#event-based-ipc-push-channels">Event-Based IPC (Push Channels)</a></li>
+<li><a href="#typescript-integration-in-the-renderer">TypeScript Integration in the Renderer</a></li>
+<li><a href="#common-pitfalls">Common Pitfalls</a></li>
+</ol>
+<hr />
+<h2 id="the-role-of-the-preload-script">The Role of the Preload Script<a class="headerlink" href="#the-role-of-the-preload-script" title="Permanent link">&para;</a></h2>
+<p>The preload script (<code>src/preload/preload.ts</code>) executes in a <strong>special sandboxed context</strong> — it has access to <code>ipcRenderer</code> (to talk to the Main Process) but runs in an isolated JavaScript world separate from the renderer's page context. This isolation is enforced by <code>contextIsolation: true</code> in <code>BrowserWindow</code>.</p>
+<div class="codehilite"><pre><span></span><code>                  ┌─────────────────────────────────────────┐
+                  │  Renderer World (window.js context)     │
+                  │  React App, Components, etc.            │
+                  │                                         │
+                  │  window.fedLearnAPI ← (read-only view)  │
+                  └──────────────────┬──────────────────────┘
+                                     │ structured clone
+                  ┌──────────────────▼──────────────────────┐
+                  │  Preload World (isolated context)        │
+                  │  preload.ts                              │
+                  │  ├── contextBridge.exposeInMainWorld()  │
+                  │  ├── Validation functions               │
+                  │  └── ipcRenderer.invoke() calls         │
+                  └──────────────────┬──────────────────────┘
+                                     │ IPC
+                  ┌──────────────────▼──────────────────────┐
+                  │  Main Process (Node.js)                  │
+                  │  ipcMain.handle() registrations          │
+                  └─────────────────────────────────────────┘
+</code></pre></div>
+
+<p><strong>Key invariant:</strong> The renderer cannot call <code>ipcRenderer.invoke</code> directly. It can only call the functions exposed via <code>contextBridge</code>, which means every IPC message goes through the validation layer in the preload first.</p>
+<hr />
+<h2 id="contextbridge-api-surface">contextBridge API Surface<a class="headerlink" href="#contextbridge-api-surface" title="Permanent link">&para;</a></h2>
+<p>The entire exposed API is declared in a single <code>contextBridge.exposeInMainWorld('fedLearnAPI', { ... })</code> call. This registers a named object on <code>window</code> that the renderer can access as <code>window.fedLearnAPI</code>.</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/preload/preload.ts</span>
+<span class="nx">contextBridge</span><span class="p">.</span><span class="nx">exposeInMainWorld</span><span class="p">(</span><span class="s1">&#39;fedLearnAPI&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">startTraining</span><span class="o">:</span><span class="w">             </span><span class="kt">async</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">)</span><span class="w">           </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">stopTraining</span><span class="o">:</span><span class="w">              </span><span class="kt">async</span><span class="w"> </span><span class="p">()</span><span class="w">                 </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">getDockerStatus</span><span class="o">:</span><span class="w">           </span><span class="kt">async</span><span class="w"> </span><span class="p">()</span><span class="w">                 </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">login</span><span class="o">:</span><span class="w">                     </span><span class="kt">async</span><span class="w"> </span><span class="p">(</span><span class="nx">username</span><span class="p">,</span><span class="w"> </span><span class="nx">password</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">logout</span><span class="o">:</span><span class="w">                    </span><span class="kt">async</span><span class="w"> </span><span class="p">()</span><span class="w">                 </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">checkAuth</span><span class="o">:</span><span class="w">                 </span><span class="kt">async</span><span class="w"> </span><span class="p">()</span><span class="w">                 </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">onTrainingLog</span><span class="o">:</span><span class="w">             </span><span class="p">(</span><span class="nx">callback</span><span class="p">)</span><span class="w">               </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">removeTrainingLogListener</span><span class="o">:</span><span class="w"> </span><span class="p">()</span><span class="w">                       </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">onDockerUnavailable</span><span class="o">:</span><span class="w">       </span><span class="p">(</span><span class="nx">callback</span><span class="p">)</span><span class="w">               </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">setServerUrl</span><span class="o">:</span><span class="w">              </span><span class="kt">async</span><span class="w"> </span><span class="p">(</span><span class="nx">url</span><span class="p">)</span><span class="w">              </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">getServerUrl</span><span class="o">:</span><span class="w">              </span><span class="kt">async</span><span class="w"> </span><span class="p">()</span><span class="w">                 </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">selectDatasetPath</span><span class="o">:</span><span class="w">         </span><span class="kt">async</span><span class="w"> </span><span class="p">()</span><span class="w">                 </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">detectHardware</span><span class="o">:</span><span class="w">            </span><span class="kt">async</span><span class="w"> </span><span class="p">()</span><span class="w">                 </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<p><strong>Important:</strong> <code>contextBridge</code> serializes all values using the <strong>structured clone algorithm</strong>. This means:
+- Functions passed TO the renderer are callable but not inspectable
+- Objects passed FROM the renderer are deep-cloned before reaching the preload/main
+- Prototype chains are NOT preserved — class instances become plain objects
+- This prevents prototype pollution attacks from the renderer</p>
+<hr />
+<h2 id="validation-strategy-in-depth">Validation Strategy in Depth<a class="headerlink" href="#validation-strategy-in-depth" title="Permanent link">&para;</a></h2>
+<h3 id="allowlist-constants">Allowlist Constants<a class="headerlink" href="#allowlist-constants" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Explicit enum of valid profiles — not derived from any runtime data</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">ALLOWED_HARDWARE_PROFILES</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;discrete&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="p">]</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kd">const</span><span class="p">;</span>
+
+<span class="c1">// Regex patterns with explicit length bounds</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">PROJECT_ID_PATTERN</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[a-zA-Z0-9_-]{1,128}$/</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">PARTITION_ID_PATTERN</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[0-9]{1,10}$/</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">SERVER_ADDRESS_PATTERN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[a-zA-Z0-9._:/-]{1,256}$/</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">MAX_STRING_LENGTH</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">256</span><span class="p">;</span>
+</code></pre></div>
+
+<p>All patterns use <strong>anchored regex</strong> (both <code>^</code> and <code>$</code>) to prevent partial matches. Every pattern includes an explicit <strong>maximum length</strong> to prevent resource exhaustion from arbitrarily long strings.</p>
+<h3 id="validation-function-pattern">Validation Function Pattern<a class="headerlink" href="#validation-function-pattern" title="Permanent link">&para;</a></h3>
+<p>Each validator follows the same pattern: check type first (to avoid exceptions), then check constraints:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">function</span><span class="w"> </span><span class="nx">isValidHardwareProfile</span><span class="p">(</span><span class="nx">profile</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// 1. Type guard — protect against undefined, number, object, etc.</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nx">profile</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;string&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">console</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="sb">`[Preload:Validation] Hardware profile is not a string: </span><span class="si">${</span><span class="ow">typeof</span><span class="w"> </span><span class="nx">profile</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="c1">// 2. Allowlist check — only explicit known values</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">valid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">ALLOWED_HARDWARE_PROFILES</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="k">readonly</span><span class="w"> </span><span class="kt">string</span><span class="p">[]).</span><span class="nx">includes</span><span class="p">(</span><span class="nx">profile</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">valid</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">console</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="sb">`[Preload:Validation] Rejected hardware profile: &quot;</span><span class="si">${</span><span class="nx">profile</span><span class="si">}</span><span class="sb">&quot;`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">valid</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kd">function</span><span class="w"> </span><span class="nx">isValidProjectId</span><span class="p">(</span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nx">id</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;string&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">valid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">PROJECT_ID_PATTERN</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">id</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">valid</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">valid</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kd">function</span><span class="w"> </span><span class="nx">isValidDatasetPath</span><span class="p">(</span><span class="nx">val</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nx">val</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;string&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="c1">// Length-only check here — deep path validation happens in Main</span>
+<span class="w">  </span><span class="c1">// (Main has access to fs.statSync; preload doesn&#39;t in sandbox mode)</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">val</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">val</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">2048</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><strong>Why does <code>isValidDatasetPath</code> only check length, not the actual path?</strong> Because <code>preload.ts</code> runs in the Electron sandboxed renderer context — it has access to <code>ipcRenderer</code> but NOT to <code>fs</code>. The full path sanitization (resolve, stat, directory check) happens in Main where <code>fs</code> is available. The preload's job is only to block obviously invalid inputs.</p>
+<h3 id="the-starttraining-validation-flow">The <code>startTraining</code> Validation Flow<a class="headerlink" href="#the-starttraining-validation-flow" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nx">startTraining</span><span class="o">:</span><span class="w"> </span><span class="kt">async</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">TrainingConfigInput</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Validate all 6 fields before ANY ipcRenderer call</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidHardwareProfile</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid hardware profile&#39;</span><span class="w"> </span><span class="p">};</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidProjectId</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">projectId</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid project ID&#39;</span><span class="w"> </span><span class="p">};</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidServerAddress</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">serverAddress</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid server address&#39;</span><span class="w"> </span><span class="p">};</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidPartitionId</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">partitionId</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid partition ID&#39;</span><span class="w"> </span><span class="p">};</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidModelType</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid model type&#39;</span><span class="w"> </span><span class="p">};</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidDatasetPath</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">datasetPath</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid dataset path&#39;</span><span class="w"> </span><span class="p">};</span>
+
+<span class="w">  </span><span class="c1">// All checks passed — forward to Main</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">ipcRenderer</span><span class="p">.</span><span class="nx">invoke</span><span class="p">(</span><span class="s1">&#39;docker:start-training&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Explicitly reconstruct the object — DO NOT spread config directly.</span>
+<span class="w">    </span><span class="c1">// Explicit fields prevent additional unexpected properties from being forwarded.</span>
+<span class="w">    </span><span class="nx">hardwareProfile</span><span class="o">:</span><span class="w"> </span><span class="kt">config.hardwareProfile</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">projectId</span><span class="o">:</span><span class="w">       </span><span class="kt">config.projectId</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">serverAddress</span><span class="o">:</span><span class="w">   </span><span class="kt">config.serverAddress</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">partitionId</span><span class="o">:</span><span class="w">     </span><span class="kt">config.partitionId</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">modelType</span><span class="o">:</span><span class="w">       </span><span class="kt">config.modelType</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">datasetPath</span><span class="o">:</span><span class="w">     </span><span class="kt">config.datasetPath</span><span class="p">,</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="p">},</span>
+</code></pre></div>
+
+<p><strong>Why reconstruct the object instead of spreading?</strong> Spreading <code>{ ...config }</code> would forward any extra properties on the <code>config</code> object to Main. While Main validates the expected fields, it's cleaner to be explicit about what gets sent.</p>
+<hr />
+<h2 id="complete-windowfedlearnapi-reference">Complete <code>window.fedLearnAPI</code> Reference<a class="headerlink" href="#complete-windowfedlearnapi-reference" title="Permanent link">&para;</a></h2>
+<h3 id="starttrainingconfig"><code>startTraining(config)</code><a class="headerlink" href="#starttrainingconfig" title="Permanent link">&para;</a></h3>
+<p>Starts a federated learning training session.</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">startTraining</span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">hardwareProfile</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;discrete&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">projectId</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">       </span><span class="c1">// Pattern: /^[a-zA-Z0-9_-]{1,128}$/</span>
+<span class="w">  </span><span class="nx">serverAddress</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">   </span><span class="c1">// Pattern: /^[a-zA-Z0-9._:/-]{1,256}$/</span>
+<span class="w">  </span><span class="nx">partitionId</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">     </span><span class="c1">// Pattern: /^[0-9]{1,10}$/</span>
+<span class="w">  </span><span class="nx">modelType</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">       </span><span class="c1">// Pattern: /^[a-zA-Z0-9_\-\.]{1,128}$/</span>
+<span class="w">  </span><span class="nx">datasetPath</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">     </span><span class="c1">// Existing directory on the local filesystem</span>
+<span class="p">})</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w"> </span><span class="nx">error?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span>
+</code></pre></div>
+
+<p><strong>Returns:</strong>
+- <code>{ success: true }</code> — training started successfully
+- <code>{ success: false, error: string }</code> — validation failed or Docker error</p>
+<hr />
+<h3 id="stoptraining"><code>stopTraining()</code><a class="headerlink" href="#stoptraining" title="Permanent link">&para;</a></h3>
+<p>Stops the currently running training container or native process.</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">stopTraining</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w"> </span><span class="nx">error?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span>
+</code></pre></div>
+
+<hr />
+<h3 id="getdockerstatus"><code>getDockerStatus()</code><a class="headerlink" href="#getdockerstatus" title="Permanent link">&para;</a></h3>
+<p>Returns the current status of the training process (polled every 3 seconds by <code>App.tsx</code>).</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">getDockerStatus</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span>
+<span class="w">  </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">status</span><span class="o">?:</span><span class="w"> </span><span class="s1">&#39;idle&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;running&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;completed&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;error&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;restarting&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;paused&#39;</span><span class="p">;</span>
+<span class="p">}</span><span class="o">&gt;</span>
+</code></pre></div>
+
+<hr />
+<h3 id="loginusername-password"><code>login(username, password)</code><a class="headerlink" href="#loginusername-password" title="Permanent link">&para;</a></h3>
+<p>Authenticates with the FedLearn backend. The JWT is stored in Main and <strong>never returned to the renderer</strong>.</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">login</span><span class="p">(</span><span class="nx">username</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">password</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span>
+</code></pre></div>
+
+<ul>
+<li><code>username</code> and <code>password</code> must each be non-empty strings up to 256 characters</li>
+<li>Returns <code>{ success: true }</code> on success, <code>{ success: false }</code> on failure (no error details to prevent credential enumeration)</li>
+</ul>
+<hr />
+<h3 id="logout"><code>logout()</code><a class="headerlink" href="#logout" title="Permanent link">&para;</a></h3>
+<p>Clears the stored JWT from the OS keychain and in-memory fallback.</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">logout</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span>
+</code></pre></div>
+
+<hr />
+<h3 id="checkauth"><code>checkAuth()</code><a class="headerlink" href="#checkauth" title="Permanent link">&para;</a></h3>
+<p>Checks whether a valid (non-expired) JWT is currently stored.</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">checkAuth</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w"> </span><span class="nx">authenticated?</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span>
+</code></pre></div>
+
+<p>Called on app startup in <code>App.tsx</code> to determine whether to show the login screen or the dashboard.</p>
+<hr />
+<h3 id="ontraininglogcallback"><code>onTrainingLog(callback)</code><a class="headerlink" href="#ontraininglogcallback" title="Permanent link">&para;</a></h3>
+<p>Registers a callback to receive real-time log output from the training process.</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">onTrainingLog</span><span class="p">(</span><span class="nx">callback</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">logLine</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span>
+</code></pre></div>
+
+<p>This is a one-way push channel — the Main Process sends log lines via <code>mainWindow.webContents.send('docker:training-log', text)</code> and the preload forwards them to the registered callback.</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Preload implementation</span>
+<span class="nx">onTrainingLog</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">callback</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">logLine</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">ipcRenderer</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;docker:training-log&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">_event</span><span class="p">,</span><span class="w"> </span><span class="nx">value</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nx">value</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;string&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">  </span><span class="c1">// Type guard on the incoming value</span>
+<span class="w">      </span><span class="nx">callback</span><span class="p">(</span><span class="nx">value</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="p">},</span>
+</code></pre></div>
+
+<p><strong>Note:</strong> Multiple calls to <code>onTrainingLog</code> register multiple listeners. Call <code>removeTrainingLogListener()</code> before re-registering to avoid duplicates.</p>
+<hr />
+<h3 id="removetrainingloglistener"><code>removeTrainingLogListener()</code><a class="headerlink" href="#removetrainingloglistener" title="Permanent link">&para;</a></h3>
+<p>Removes all listeners registered for the <code>docker:training-log</code> event. Should be called in <code>useEffect</code> cleanup:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">removeTrainingLogListener</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span>
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code><span class="c1">// Usage in App.tsx</span>
+<span class="nx">useEffect</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">onTrainingLog</span><span class="p">((</span><span class="nx">logLine</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">});</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">removeTrainingLogListener</span><span class="p">();</span><span class="w"> </span><span class="c1">// Cleanup on unmount</span>
+<span class="w">  </span><span class="p">};</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[</span><span class="nx">isAuthenticated</span><span class="p">]);</span>
+</code></pre></div>
+
+<hr />
+<h3 id="ondockerunavailablecallback"><code>onDockerUnavailable(callback)</code><a class="headerlink" href="#ondockerunavailablecallback" title="Permanent link">&para;</a></h3>
+<p>Registers a callback for when the Docker daemon is unreachable. Fired by Main if the initial ping fails.</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">onDockerUnavailable</span><span class="p">(</span><span class="nx">callback</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">message</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span>
+</code></pre></div>
+
+<hr />
+<h3 id="setserverurlurl"><code>setServerUrl(url)</code><a class="headerlink" href="#setserverurlurl" title="Permanent link">&para;</a></h3>
+<p>Sets the backend server URL. The URL is validated (must start with <code>http://</code> or <code>https://</code>) and <code>/api</code> is appended automatically if not present.</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">setServerUrl</span><span class="p">(</span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span>
+<span class="w">  </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">url?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">    </span><span class="c1">// The normalized URL that was saved</span>
+<span class="w">  </span><span class="nx">error?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="p">}</span><span class="o">&gt;</span>
+</code></pre></div>
+
+<p><strong>Example:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">await</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">setServerUrl</span><span class="p">(</span><span class="s1">&#39;http://192.168.1.50:8081&#39;</span><span class="p">);</span>
+<span class="c1">// Stored as: &#39;http://192.168.1.50:8081/api&#39;</span>
+</code></pre></div>
+
+<hr />
+<h3 id="getserverurl"><code>getServerUrl()</code><a class="headerlink" href="#getserverurl" title="Permanent link">&para;</a></h3>
+<p>Returns the currently configured backend URL (includes <code>/api</code> suffix).</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">getServerUrl</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w"> </span><span class="nx">url?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span>
+</code></pre></div>
+
+<hr />
+<h3 id="selectdatasetpath"><code>selectDatasetPath()</code><a class="headerlink" href="#selectdatasetpath" title="Permanent link">&para;</a></h3>
+<p>Triggers the native OS directory picker dialog.</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">selectDatasetPath</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span>
+<span class="w">  </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">path?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">   </span><span class="c1">// Absolute path to selected directory</span>
+<span class="w">  </span><span class="nx">error?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="p">}</span><span class="o">&gt;</span>
+</code></pre></div>
+
+<p>Returns <code>{ success: false, error: 'User canceled.' }</code> if the user closes the dialog.</p>
+<hr />
+<h3 id="detecthardware"><code>detectHardware()</code><a class="headerlink" href="#detecthardware" title="Permanent link">&para;</a></h3>
+<p>Runs a one-shot hardware detection probe.</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">detectHardware</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span>
+<span class="w">  </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">detection</span><span class="o">?:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">platform</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">                </span><span class="c1">// &#39;darwin&#39; | &#39;win32&#39; | &#39;linux&#39;</span>
+<span class="w">    </span><span class="nx">arch</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">                    </span><span class="c1">// &#39;arm64&#39; | &#39;x64&#39;</span>
+<span class="w">    </span><span class="nx">recommendedProfile</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">      </span><span class="c1">// &#39;mps&#39; | &#39;discrete&#39; | &#39;cpu&#39;</span>
+<span class="w">    </span><span class="nx">nativeBundleAvailable</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w">  </span><span class="c1">// Is the PyInstaller bundle present?</span>
+<span class="w">    </span><span class="nx">cudaAvailable</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w">          </span><span class="c1">// Was nvidia-smi successful?</span>
+<span class="w">    </span><span class="nx">cudaInfo?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">               </span><span class="c1">// GPU name from nvidia-smi, e.g., &#39;NVIDIA RTX 4090&#39;</span>
+<span class="w">  </span><span class="p">};</span>
+<span class="w">  </span><span class="nx">error?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="p">}</span><span class="o">&gt;</span>
+</code></pre></div>
+
+<hr />
+<h2 id="event-based-ipc-push-channels">Event-Based IPC (Push Channels)<a class="headerlink" href="#event-based-ipc-push-channels" title="Permanent link">&para;</a></h2>
+<p>Unlike <code>ipcRenderer.invoke</code> (request-response), some IPC communication is <strong>unidirectional push</strong> from Main to Renderer. This is used for real-time log streaming where efficiency matters.</p>
+<h3 id="how-push-works">How Push Works<a class="headerlink" href="#how-push-works" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>Main Process                          Renderer Process
+     │                                      │
+     │  mainWindow.webContents              │
+     │    .send(&#39;docker:training-log&#39;, txt) │
+     │ ──────────────────────────────────► │
+     │                                      │
+     │                         ipcRenderer.on(&#39;docker:training-log&#39;,
+     │                                     (_event, value) =&gt; callback(value))
+     │                                      │
+     │                                 callback(txt)  → setState → re-render
+</code></pre></div>
+
+<p>The preload wraps <code>ipcRenderer.on</code> in the <code>onTrainingLog</code> function to:
+1. Validate the incoming value is a string
+2. Present a clean callback-based API to the renderer instead of raw event emitter</p>
+<h3 id="why-push-instead-of-polling">Why Push Instead of Polling?<a class="headerlink" href="#why-push-instead-of-polling" title="Permanent link">&para;</a></h3>
+<p>For log streaming, push is significantly more efficient than polling:
+- <strong>Low latency:</strong> Logs appear within milliseconds of being written
+- <strong>No wasted requests:</strong> Polling at 100ms with empty results = 10 empty IPC calls per second
+- <strong>Batching:</strong> The renderer's <code>requestAnimationFrame</code> batching works better with push since it batches everything received in a 16ms window</p>
+<hr />
+<h2 id="typescript-integration-in-the-renderer">TypeScript Integration in the Renderer<a class="headerlink" href="#typescript-integration-in-the-renderer" title="Permanent link">&para;</a></h2>
+<p>Since <code>window.fedLearnAPI</code> is injected at runtime by the preload, TypeScript doesn't know it exists by default. <code>App.tsx</code> declares it as a global interface augmentation:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/renderer/App.tsx</span>
+<span class="kr">declare</span><span class="w"> </span><span class="nb">global</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">interface</span><span class="w"> </span><span class="nx">Window</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">fedLearnAPI</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">startTraining</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">hardwareProfile</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">projectId</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">serverAddress</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">partitionId</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">modelType</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">datasetPath</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">      </span><span class="p">})</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w"> </span><span class="nx">error?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">      </span><span class="nx">stopTraining</span><span class="o">:</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w"> </span><span class="nx">error?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">getDockerStatus</span><span class="o">:</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w"> </span><span class="nx">status?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">login</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">username</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">password</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">logout</span><span class="o">:</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">checkAuth</span><span class="o">:</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w"> </span><span class="nx">authenticated?</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">onTrainingLog</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">callback</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">logLine</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">removeTrainingLogListener</span><span class="o">:</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">onDockerUnavailable</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">callback</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">message</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">setServerUrl</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w"> </span><span class="nx">url?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w"> </span><span class="nx">error?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">getServerUrl</span><span class="o">:</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w"> </span><span class="nx">url?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">selectDatasetPath</span><span class="o">:</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w"> </span><span class="nx">path?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w"> </span><span class="nx">error?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">      </span><span class="nx">detectHardware</span><span class="o">:</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span>
+<span class="w">        </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="w">        </span><span class="nx">detection</span><span class="o">?:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="nx">platform</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">          </span><span class="nx">arch</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">          </span><span class="nx">recommendedProfile</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">          </span><span class="nx">nativeBundleAvailable</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="w">          </span><span class="nx">cudaAvailable</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="w">          </span><span class="nx">cudaInfo?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">        </span><span class="nx">error?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>This declaration should ideally live in a separate <code>src/renderer/global.d.ts</code> file for cleaner separation, but is currently co-located in <code>App.tsx</code>.</p>
+<blockquote>
+<p><strong>Important:</strong> Keep this declaration in sync with the actual <code>preload.ts</code> implementation. Drift between the two will only be caught at runtime.</p>
+</blockquote>
+<hr />
+<h2 id="common-pitfalls">Common Pitfalls<a class="headerlink" href="#common-pitfalls" title="Permanent link">&para;</a></h2>
+<h3 id="1-adding-a-new-ipc-channel-three-files-to-update">1. Adding a New IPC Channel — Three Files to Update<a class="headerlink" href="#1-adding-a-new-ipc-channel-three-files-to-update" title="Permanent link">&para;</a></h3>
+<p>Adding any new capability requires updating <strong>three files</strong> in a specific order:</p>
+<ol>
+<li><strong><code>ipc.handlers.ts</code></strong> — Register <code>ipcMain.handle('new:channel', ...)</code> with validation</li>
+<li><strong><code>preload.ts</code></strong> — Add a typed wrapper to <code>contextBridge.exposeInMainWorld</code> with validation</li>
+<li><strong><code>App.tsx</code> (or <code>global.d.ts</code>)</strong> — Add the TypeScript declaration to <code>Window.fedLearnAPI</code></li>
+</ol>
+<p>Missing any one of these causes either a silent failure (no channel registered), a TypeScript error (missing type), or a security gap (no preload validation).</p>
+<h3 id="2-electron-log-cannot-be-used-in-sandboxed-preload">2. <code>electron-log</code> Cannot Be Used in Sandboxed Preload<a class="headerlink" href="#2-electron-log-cannot-be-used-in-sandboxed-preload" title="Permanent link">&para;</a></h3>
+<p>The preload comment explicitly notes:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// NOTE: electron-log cannot be used in sandboxed preload scripts.</span>
+<span class="c1">// console.error is forwarded to the main process console automatically.</span>
+</code></pre></div>
+
+<p>In sandbox mode (<code>sandbox: true</code>), the preload runs in a highly restricted environment that doesn't allow native module loading. <code>electron-log</code> is a native-adjacent module. Use <code>console.error</code> in the preload — Electron forwards it to the Main Process console.</p>
+<h3 id="3-removing-listeners-on-cleanup">3. Removing Listeners on Cleanup<a class="headerlink" href="#3-removing-listeners-on-cleanup" title="Permanent link">&para;</a></h3>
+<p><code>ipcRenderer.on()</code> registrations <strong>stack</strong> — calling <code>onTrainingLog</code> twice registers two listeners. The <code>useEffect</code> cleanup in <code>App.tsx</code> calls <code>removeTrainingLogListener()</code> (which calls <code>ipcRenderer.removeAllListeners('docker:training-log')</code>) to avoid duplicate log entries or memory leaks on re-mount.</p>
+<h3 id="4-structured-clone-limitations">4. Structured Clone Limitations<a class="headerlink" href="#4-structured-clone-limitations" title="Permanent link">&para;</a></h3>
+<p><code>contextBridge</code> uses structured clone, which means:
+- <strong>No functions</strong> can be passed through the bridge as data (they ARE callable as exposed API methods, but cannot be transferred as properties of objects)
+- <strong>No class instances</strong> — they become plain objects
+- <strong>No Symbols</strong>, <strong>no <code>undefined</code> in objects</strong> (becomes missing key)
+- <strong>No Error objects with custom properties</strong> — only standard <code>Error</code> properties survive</p>
+<p>This is why all IPC responses use plain <code>{ success: boolean, ...data }</code> objects rather than typed class instances.</p>
+<hr />
+<p><em>Next: <a href="05-renderer-components.html">05 — Renderer &amp; Components</a></em><br />
+<em>Previous: <a href="03-main-process.html">03 — Main Process Deep Dive</a></em></p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

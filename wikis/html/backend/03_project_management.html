@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 - Project Management Lifecycle · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Backend</summary><ul>
+<li><a href="README.html">Backend Architecture Wiki</a></li>
+<li><a href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="02_security_and_auth.html">Security and Authentication</a></li>
+<li><a class="active" href="03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Backend</b> &nbsp;·&nbsp; 03 - Project Management Lifecycle</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="03-project-management-lifecycle">03 - Project Management Lifecycle<a class="headerlink" href="#03-project-management-lifecycle" title="Permanent link">&para;</a></h1>
+<p>This document explains how a Federated Learning Project is created, initialized, and managed within the Spring Boot backend.</p>
+<blockquote class="callout warn"><p>⚠️ <strong>Branch reality.</strong> The project CRUD, model initialization, and FL-server start/stop flows on this page are <strong>current</strong>. The <strong>org-scoping and audit layers</strong> described here — <code>projects.org_id</code> (the V5 migration), <code>authz.requireOrgScope(...)</code>, <code>OrgScope</code>, <code>isPlatformAdmin()</code>, and the <code>@Auditable</code> annotations — are <strong>designed on a separate identity-foundations branch and are <em>not present</em> here.</strong> On this branch a project is owned by a <code>User</code> with no org pinning, and authorization is the coarse <code>users.role IN (USER, ADMIN)</code> model. See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</p>
+</blockquote>
+<h2 id="1-project-creation-flow">1. Project Creation Flow<a class="headerlink" href="#1-project-creation-flow" title="Permanent link">&para;</a></h2>
+<p>The lifecycle begins when a user submits a configuration via the React dashboard.</p>
+<h3 id="projectcontroller"><code>ProjectController</code><a class="headerlink" href="#projectcontroller" title="Permanent link">&para;</a></h3>
+<p>The <code>POST /api/projects</code> endpoint accepts a <code>CreateProjectRequest</code> payload containing:
+- <code>name</code> (e.g., "Pneumonia Detection")
+- <code>modelType</code> (e.g., "CNN")
+- <code>modelName</code> (e.g., "net")
+- <code>optimizer</code> (e.g., "Adam")
+- <code>pretrainEpochs</code> (int)</p>
+<h3 id="projectservicecreateproject"><code>ProjectService.createProject()</code><a class="headerlink" href="#projectservicecreateproject" title="Permanent link">&para;</a></h3>
+<p>This service method is annotated with <code>@Transactional</code>. If any step fails, the entire database transaction rolls back, preventing "orphaned" projects.</p>
+<ol>
+<li><strong>Persist the Shell:</strong> An empty <code>Project</code> entity is saved to the database to generate a UUID.</li>
+<li><strong>Pin to an Organization:</strong> Since the V5 migration made <code>projects.org_id</code> <strong>NOT NULL</strong>, the new project is pinned to the owner's first org membership, falling back to the single <code>DEFAULT_ORG_ID</code> for membership-less users. Its <code>visibility</code> defaults to <code>PRIVATE</code>.</li>
+<li><strong>Determine File Path:</strong> A target file path is generated (e.g., <code>models/&lt;uuid&gt;.npz</code>).</li>
+<li><strong>Model Initialization:</strong> <code>ModelInitializer.initializeModelFile()</code> is invoked. It executes a local Python script (<code>run_init_model.sh</code>) that constructs the initial model architecture (PyTorch) based on the <code>modelType</code> and saves it to the <code>.npz</code> file.</li>
+<li><strong>Finalize DB Entry:</strong> The <code>Project</code> entity is updated with the absolute path to the <code>.npz</code> file and its status is set to <code>CREATED</code>.</li>
+</ol>
+<p><code>createProject</code> is also annotated <code>@Auditable(action = PROJECT_CREATED)</code>, so a successful creation writes an <code>audit_events</code> row in the same transaction (see <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>).</p>
+<h2 id="2-project-ownership-membership-and-org-isolation">2. Project Ownership, Membership, and Org Isolation<a class="headerlink" href="#2-project-ownership-membership-and-org-isolation" title="Permanent link">&para;</a></h2>
+<p>A project is no longer just "owned by one user." It belongs to an
+<strong>Organization</strong> (<code>org_id</code> NOT NULL), has a <strong>visibility</strong> (<code>PRIVATE</code>/<code>PUBLIC</code>),
+and can have <strong>project memberships</strong> (<code>OWNER</code>/<code>MEMBER</code>/<code>CLIENT</code>) and <strong>access
+requests</strong>. Authorization is centralised in <code>AuthorizationService</code> and applies two
+layers in sequence.</p>
+<h3 id="layer-1-org-scope-multi-tenant-isolation">Layer 1 — Org-scope (multi-tenant isolation)<a class="headerlink" href="#layer-1-org-scope-multi-tenant-isolation" title="Permanent link">&para;</a></h3>
+<p>Before any ownership check, mutating paths call <code>authz.requireOrgScope(project.getOrgId())</code>,
+which throws <strong>403</strong> if the project's org is outside the caller's request-scoped
+<code>OrgScope</code>. Pure-read paths use the boolean <code>authz.isInOrgScope(...)</code> (or
+<code>orgScope.allows(...)</code>) and instead return <strong>404</strong>, so a caller can't even learn
+that a cross-tenant project exists.</p>
+<h3 id="layer-2-ownership-membership">Layer 2 — Ownership / membership<a class="headerlink" href="#layer-2-ownership-membership" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kd">public</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">requireOwnerOrAdmin</span><span class="p">(</span><span class="n">Project</span><span class="w"> </span><span class="n">project</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">isPlatformAdmin</span><span class="p">()</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">isOwner</span><span class="p">(</span><span class="n">project</span><span class="p">))</span><span class="w"> </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">AccessDeniedException</span><span class="p">(</span><span class="s">&quot;You do not have access to this project&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><code>isPlatformAdmin()</code> checks the <code>ROLE_PLATFORM_ADMIN</code> authority (platform admins
+bypass both layers). The service also offers <code>requireOwnerOrMemberOrAdmin</code> and
+<code>requireParticipant</code> for read endpoints that members/clients may see. An
+unauthorized <code>start</code>/<code>stop</code>/<code>delete</code> throws <code>AccessDeniedException</code> → 403.</p>
+<h3 id="visibility-memberships-access-requests">Visibility, memberships &amp; access requests<a class="headerlink" href="#visibility-memberships-access-requests" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Visibility</strong> (<code>PATCH /api/projects/{id}</code>) flips a project between <code>PRIVATE</code>
+  and <code>PUBLIC</code>; participants are notified on change.</li>
+<li><strong>Memberships</strong> (<code>/api/projects/{id}/memberships</code>) — owners/admins add/remove
+  any role; a <code>MEMBER</code> may add/remove only <code>CLIENT</code>. Member add/remove are
+  <code>@Auditable</code>.</li>
+<li><strong>Access requests</strong> (<code>/api/projects/{id}/access-requests</code>) — joining a PUBLIC
+  project creates a <code>CLIENT</code> membership immediately; requesting a PRIVATE project
+  files a <code>PENDING</code> request the owner decides.</li>
+</ul>
+<p>See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>
+for the full membership/access-request workflow and the org-scope mechanism.</p>
+<h3 id="list-views-are-org-scoped">List views are org-scoped<a class="headerlink" href="#list-views-are-org-scoped" title="Permanent link">&para;</a></h3>
+<p><code>getProjectsForCurrentUser()</code> no longer returns a flat owned-or-joined list:
+unless the caller is an unrestricted platform admin, it runs the org-scoped
+<code>ProjectRepository.findOwnedOrMemberOfInOrgs(userId, orgScope.visibleOrgIds())</code>,
+so the "My Projects" dashboard only shows projects from the caller's visible
+orgs. The discover feed (<code>GET /api/projects/discover</code>) is likewise constrained via
+<code>findDiscoverableInOrgs</code>.</p>
+<h2 id="3-starting-the-training-server">3. Starting the Training Server<a class="headerlink" href="#3-starting-the-training-server" title="Permanent link">&para;</a></h2>
+<p>The <code>POST /api/projects/{projectId}/start</code> endpoint kicks off the machine learning phase.</p>
+<ol>
+<li>The user specifies the training <code>strategy</code> (e.g., <code>FedAvg</code>), the <code>minClients</code> required, and the <code>numRounds</code>.</li>
+<li>The <code>ProjectService</code> enforces org-scope then ownership (<code>requireOrgScope</code> → <code>requireOwnerOrAdmin</code>) and ensures the server isn't already running. <code>startServerForProject</code> is <code>@Auditable(action = RUN_STARTED)</code>; <code>stopServerForProject</code> is <code>@Auditable(action = RUN_STOPPED)</code>.</li>
+<li>It calls <code>FlowerServerManager.startServerForProject(...)</code>. (See <a href="04_federated_orchestration.html">04 - Federated Orchestration</a> for full details on this component).</li>
+<li>The backend updates the project's status to <code>RUNNING</code> and saves the network <code>serverPort</code> where the FL Server is listening.</li>
+<li>A real-time <code>ProjectStatusUpdateDto</code> is fired over WebSockets to instantly update the React dashboard UI.</li>
+</ol>
+<h2 id="4-completion-and-cleanup">4. Completion and Cleanup<a class="headerlink" href="#4-completion-and-cleanup" title="Permanent link">&para;</a></h2>
+<h3 id="marking-as-completed">Marking as Completed<a class="headerlink" href="#marking-as-completed" title="Permanent link">&para;</a></h3>
+<p>When the FL Server successfully finishes all its federated rounds, it sends a final REST call to the internal API endpoint.
+<code>ProjectService.markProjectAsCompleted()</code> clears the active <code>serverPort</code> and sets the status to <code>COMPLETED</code>.</p>
+<h3 id="deletion">Deletion<a class="headerlink" href="#deletion" title="Permanent link">&para;</a></h3>
+<p>When a user deletes a project (<code>DELETE /api/projects/{projectId}</code>):
+1. The service enforces org-scope (<code>requireOrgScope</code>) then ownership (<code>requireOwnerOrAdmin</code>). <code>deleteProject</code> is <code>@Auditable(action = PROJECT_DELETED)</code>.
+2. It makes a best-effort attempt to terminate any actively running FL Server processes via <code>FlowerServerManager.stopServerForProject()</code>. This prevents ghost processes or orphaned AWS Fargate tasks from lingering and consuming resources.
+3. The database row is deleted. Cascade rules automatically delete the associated <code>ServerLog</code>, <code>RoundResult</code>, <code>ProjectMembership</code>, and <code>ProjectAccessRequest</code> entries.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

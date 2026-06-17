@@ -2,6 +2,8 @@
 
 The FedLearn backend implements a robust, multi-layered security architecture designed to handle both standard REST API clients (React) and internal Machine Learning servers (Python).
 
+> ⚠️ **Branch reality.** The JWT / cookie / WebSocket-handshake / internal-API-key mechanics on this page are **current**. The **role and org-scope material** — `PlatformRole` / `PLATFORM_ADMIN`, the three role layers, `OrgScope` / `OrgScopeFilter`, `organization_memberships`, and the `@Auditable` audit trail — is **designed on a separate identity-foundations branch and is _not present_ here.** This branch ships a single coarse `users.role IN (USER, ADMIN)` column (migration `V2`; highest committed migration `V3`). See the banner on [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md).
+
 ## 1. REST API Security (JWT)
 
 The platform uses **JSON Web Tokens (JWT)** for stateless user authentication. When a user logs in via `/api/auth/login`, the `AuthController` generates a token using `JwtTokenProvider` and returns it to the client.

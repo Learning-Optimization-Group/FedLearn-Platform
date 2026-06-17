@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 — Aggregation Strategies · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Framework</summary><ul>
+<li><a href="README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="04_client_internals.html">04 — Client Internals</a></li>
+<li><a class="active" href="05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Framework</b> &nbsp;·&nbsp; 05 — Aggregation Strategies</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="05-aggregation-strategies">05 — Aggregation Strategies<a class="headerlink" href="#05-aggregation-strategies" title="Permanent link">&para;</a></h1>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#the-strategy-abstract-base-class">The Strategy Abstract Base Class</a></li>
+<li><a href="#fedavg--federated-averaging">FedAvg — Federated Averaging</a></li>
+<li><a href="#mathematical-foundation">Mathematical Foundation</a></li>
+<li><a href="#fedavg-constructor-parameters">FedAvg Constructor Parameters</a></li>
+<li><a href="#fedavgaggregator--weighted-averaging">FedAvgAggregator — Weighted Averaging</a></li>
+<li><a href="#security-num_examples-sanitisation">Security: num_examples Sanitisation</a></li>
+<li><a href="#memory-management-in-aggregation">Memory Management in Aggregation</a></li>
+<li><a href="#evaluation-hook">Evaluation Hook</a></li>
+<li><a href="#fedavg-vs-local-training">FedAvg vs. Local Training</a></li>
+<li><a href="#implementing-a-custom-strategy">Implementing a Custom Strategy</a></li>
+<li><a href="#fedprox-example">FedProx Example</a></li>
+<li><a href="#trimmed-mean-byzantine-robust-example">Trimmed Mean (Byzantine-Robust) Example</a></li>
+<li><a href="#strategy-lifecycle-in-the-server">Strategy Lifecycle in the Server</a></li>
+<li><a href="#strategy-selection-decision-tree">Strategy Selection Decision Tree</a></li>
+</ul>
+<hr />
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>The strategy system is the primary extension point for the FedLearn framework. A <code>Strategy</code> object controls:
+1. <strong>Initialization:</strong> How the global model is initially distributed
+2. <strong>Aggregation:</strong> How client updates are combined into a new global model
+3. <strong>Evaluation:</strong> How the global model is evaluated after each round</p>
+<p>The framework ships with two built-in strategies:
+- <strong><code>FedAvg</code></strong> — Weighted federated averaging (McMahan et al., 2017)
+- <strong><code>DeComFL</code></strong> — Dimension-free gradient scalar aggregation (documented separately in <a href="06_decomfl.html">06 — DeComFL</a>)</p>
+<hr />
+<h2 id="the-strategy-abstract-base-class">The Strategy Abstract Base Class<a class="headerlink" href="#the-strategy-abstract-base-class" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># server/strategy.py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Strategy</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract base class for aggregation strategies.&quot;&quot;&quot;</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the initial global model parameters.</span>
+<span class="sd">        Called once before the first round.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">aggregate_fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">server_round</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="nb">int</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Aggregate training results from multiple clients.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            server_round: Current round number (1-indexed)</span>
+<span class="sd">            results:      List of (parameters, num_examples) tuples</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Aggregated global model parameters, or None if aggregation failed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">server_round</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Evaluate the global model after aggregation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            server_round: Current round number</span>
+<span class="sd">            parameters:   Global model parameters to evaluate</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            (loss, metrics_dict) or None if no evaluation function is set</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+</code></pre></div>
+
+<h3 id="method-call-order-per-round">Method Call Order (Per Round)<a class="headerlink" href="#method-call-order-per-round" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>coordinator._trigger_aggregation_and_evaluation()
+    │
+    ├── strategy.aggregate_fit(round, results)
+    │       → new global parameters
+    │
+    └── strategy.evaluate(round, new_parameters)
+            → (loss, metrics)
+</code></pre></div>
+
+<h3 id="return-type-contract">Return Type Contract<a class="headerlink" href="#return-type-contract" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Return Value</th>
+<th>Effect if None Returned</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>initialize_parameters()</code></td>
+<td>Initial state_dict</td>
+<td>Server aborts with <code>UNAVAILABLE</code></td>
+</tr>
+<tr>
+<td><code>aggregate_fit()</code></td>
+<td>Updated state_dict</td>
+<td>Round marked as failed; metrics=None</td>
+</tr>
+<tr>
+<td><code>evaluate()</code></td>
+<td>(loss, metrics dict)</td>
+<td>Logged as warning; training continues</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="fedavg-federated-averaging">FedAvg — Federated Averaging<a class="headerlink" href="#fedavg-federated-averaging" title="Permanent link">&para;</a></h2>
+<h3 id="mathematical-foundation">Mathematical Foundation<a class="headerlink" href="#mathematical-foundation" title="Permanent link">&para;</a></h3>
+<p><strong>FedAvg</strong> (Federated Averaging) computes a weighted average of client model parameters:</p>
+<div class="codehilite"><pre><span></span><code>w_global = Σ(n_i / N) × w_i
+
+where:
+  w_i = parameters submitted by client i
+  n_i = number of training examples used by client i
+  N   = total training examples = Σ n_i
+</code></pre></div>
+
+<p>This is mathematically equivalent to gradient descent on the global objective function when:
+- All clients train for exactly one local step (E=1)
+- Data distribution is IID across clients</p>
+<p>In practice, multiple local epochs (E&gt;1) and non-IID data make FedAvg approximate, but it remains effective in most federated settings.</p>
+<h3 id="fedavg-constructor-parameters">FedAvg Constructor Parameters<a class="headerlink" href="#fedavg-constructor-parameters" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FedAvg</span><span class="p">(</span><span class="n">Strategy</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">initial_parameters</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">evaluate_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">min_fit_clients</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">clients_per_round</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span> <span class="o">=</span> <span class="n">initial_parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="o">=</span> <span class="n">evaluate_fn</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_fit_clients</span> <span class="o">=</span> <span class="n">min_fit_clients</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clients_per_round</span> <span class="o">=</span> <span class="n">clients_per_round</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aggregator</span> <span class="o">=</span> <span class="n">FedAvgAggregator</span><span class="p">()</span>
+</code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>initial_parameters</code></td>
+<td><code>OrderedDict[str, Tensor]</code></td>
+<td>Starting model state_dict</td>
+</tr>
+<tr>
+<td><code>evaluate_fn</code></td>
+<td><code>Callable(round, params) → (loss, dict)</code></td>
+<td>Optional evaluation function</td>
+</tr>
+<tr>
+<td><code>min_fit_clients</code></td>
+<td><code>int</code></td>
+<td>Minimum clients for aggregation (guards against premature rounds)</td>
+</tr>
+<tr>
+<td><code>clients_per_round</code></td>
+<td><code>int</code></td>
+<td>Exact number of clients expected per round</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note:</strong> <code>min_fit_clients</code> is currently read by the <code>FLCoordinator</code> for its <code>min_clients</code> attribute, but the coordinator uses <code>clients_per_round</code> for the actual aggregation trigger. Semantically, <code>clients_per_round</code> should always be ≥ <code>min_fit_clients</code>.</p>
+</blockquote>
+<h3 id="fedavgaggregator-weighted-averaging">FedAvgAggregator — Weighted Averaging<a class="headerlink" href="#fedavgaggregator-weighted-averaging" title="Permanent link">&para;</a></h3>
+<p>The <code>FedAvgAggregator</code> is separated from the <code>FedAvg</code> strategy to allow reuse:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FedAvgAggregator</span><span class="p">:</span>
+    <span class="n">MAX_SAMPLES</span> <span class="o">=</span> <span class="mi">100_000</span>  <span class="c1"># Security cap — prevents poisoning via inflated counts</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">aggregate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">updates</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            updates: List of (params, num_examples) OR (client_id, params, num_examples)</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Weighted average of params</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">updates</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot aggregate an empty list of updates.&quot;</span><span class="p">)</span>
+
+        <span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span>
+
+        <span class="c1"># Normalise to 3-tuple format</span>
+        <span class="n">deserialized_updates</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">updates</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="n">client_id</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span> <span class="o">=</span> <span class="n">entry</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span> <span class="o">=</span> <span class="n">entry</span>
+                <span class="n">client_id</span> <span class="o">=</span> <span class="kc">None</span>
+
+            <span class="c1"># Handle JSON-serialised params (from proto round-trip)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+
+            <span class="n">deserialized_updates</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">client_id</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">))</span>
+
+        <span class="c1"># Security: discard updates with invalid num_examples</span>
+        <span class="n">sanitized</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">cid</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_SAMPLES</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">cid</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">deserialized_updates</span> <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sanitized</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No valid updates after sanitisation.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Compute weighted sum</span>
+        <span class="n">total_examples</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">n</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">sanitized</span><span class="p">)</span>
+
+        <span class="c1"># Initialise accumulator to zeros matching the template tensor shapes</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">template_params</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sanitized</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">template_params</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">template_params</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">aggregated</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">tensor</span> <span class="ow">in</span> <span class="n">template_params</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span> <span class="ow">in</span> <span class="n">sanitized</span><span class="p">:</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="n">num_examples</span> <span class="o">/</span> <span class="n">total_examples</span>  <span class="c1"># normalised weight</span>
+
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">aggregated</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+                        <span class="n">aggregated</span><span class="p">[</span><span class="n">key</span><span class="p">],</span>
+                        <span class="n">params</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">(),</span>
+                        <span class="n">alpha</span><span class="o">=</span><span class="n">weight</span><span class="p">,</span>           <span class="c1"># in-place weighted accumulation</span>
+                        <span class="n">out</span><span class="o">=</span><span class="n">aggregated</span><span class="p">[</span><span class="n">key</span><span class="p">],</span>
+                    <span class="p">)</span>
+
+            <span class="c1"># Free client buffer immediately after use</span>
+            <span class="n">params</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">aggregated</span>
+</code></pre></div>
+
+<p><strong>Step-by-step walkthrough for 3 clients:</strong></p>
+<div class="codehilite"><pre><span></span><code>Client A: 100 examples, weight = 100/250 = 0.40
+Client B:  75 examples, weight =  75/250 = 0.30
+Client C:  75 examples, weight =  75/250 = 0.30
+
+For each parameter key &quot;layer.weight&quot;:
+  aggregated[&quot;layer.weight&quot;] = 0
+  aggregated[&quot;layer.weight&quot;] += 0.40 × A[&quot;layer.weight&quot;]
+  aggregated[&quot;layer.weight&quot;] += 0.30 × B[&quot;layer.weight&quot;]
+  aggregated[&quot;layer.weight&quot;] += 0.30 × C[&quot;layer.weight&quot;]
+</code></pre></div>
+
+<h3 id="security-num_examples-sanitisation">Security: num_examples Sanitisation<a class="headerlink" href="#security-num_examples-sanitisation" title="Permanent link">&para;</a></h3>
+<p>The aggregation contains two layers of protection against <strong>model poisoning via inflated dataset size</strong>:</p>
+<ol>
+<li>
+<p><strong>In <code>FLCoordinator.submit_client_update()</code>:</strong>
+   <code>python
+   MAX_NUM_EXAMPLES = 100_000
+   num_examples = min(num_examples, self.MAX_NUM_EXAMPLES)</code></p>
+</li>
+<li>
+<p><strong>In <code>FedAvgAggregator.aggregate()</code>:</strong>
+   <code>python
+   MAX_SAMPLES = 100_000
+   sanitized = [(cid, p, min(n, self.MAX_SAMPLES)) for cid, p, n in updates if n &gt; 0]</code></p>
+</li>
+</ol>
+<p>Without these caps, a malicious client could claim to have trained on 10 billion examples, making its parameters dominate the weighted average (weight ≈ 1.0, others ≈ 0.0), effectively replacing the global model.</p>
+<h3 id="memory-management-in-aggregation">Memory Management in Aggregation<a class="headerlink" href="#memory-management-in-aggregation" title="Permanent link">&para;</a></h3>
+<p>After each client's parameters are incorporated into the weighted sum, they are explicitly freed:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">for</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span> <span class="ow">in</span> <span class="n">sanitized</span><span class="p">:</span>
+    <span class="c1"># ... accumulate weighted sum ...</span>
+    <span class="n">params</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>   <span class="c1"># free the OrderedDict immediately</span>
+</code></pre></div>
+
+<p>For large models (e.g., OPT-125M at ~500 MB), keeping all client copies in memory simultaneously would require <code>num_clients × model_size</code> RAM. This <code>params.clear()</code> pattern ensures each client's memory is released as soon as its contribution is folded in.</p>
+<h3 id="evaluation-hook">Evaluation Hook<a class="headerlink" href="#evaluation-hook" title="Permanent link">&para;</a></h3>
+<p>The <code>evaluate_fn</code> callback is optional. If provided, it is called after each aggregation:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">parameters</span><span class="p">):</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span><span class="p">(</span><span class="n">server_round</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;FedAvg eval round=</span><span class="si">%d</span><span class="s2"> loss=</span><span class="si">%.4f</span><span class="s2"> metrics=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span>
+</code></pre></div>
+
+<p>The evaluation function signature:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">my_evaluation_function</span><span class="p">(</span>
+    <span class="n">server_round</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Evaluate the global model on a held-out test set.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        (loss, metrics) where metrics is any JSON-serialisable dict</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+    <span class="n">total_loss</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">correct</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span> <span class="ow">in</span> <span class="n">test_loader</span><span class="p">:</span>
+            <span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+            <span class="n">total_loss</span> <span class="o">+=</span> <span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+            <span class="n">correct</span> <span class="o">+=</span> <span class="p">(</span><span class="n">outputs</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="n">targets</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">total_loss</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">test_loader</span><span class="p">)</span>
+    <span class="n">accuracy</span> <span class="o">=</span> <span class="n">correct</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">test_loader</span><span class="o">.</span><span class="n">dataset</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="n">accuracy</span><span class="p">}</span>
+</code></pre></div>
+
+<hr />
+<h2 id="fedavg-vs-local-training">FedAvg vs. Local Training<a class="headerlink" href="#fedavg-vs-local-training" title="Permanent link">&para;</a></h2>
+<p>It's useful to understand the difference between what each client does and what the strategy computes:</p>
+<div class="codehilite"><pre><span></span><code>Client A trains locally for E=3 epochs:
+  w_A_start (global) → [3 local gradient steps] → w_A_end
+
+Client B trains locally for E=3 epochs:
+  w_B_start (global) → [3 local gradient steps] → w_B_end
+
+FedAvg aggregation:
+  w_global_new = 0.5 × w_A_end + 0.5 × w_B_end   (assuming equal samples)
+
+Next round, both clients start from w_global_new, NOT from their own w_A_end or w_B_end.
+</code></pre></div>
+
+<p>This "reset to global" behaviour at the start of each round is what prevents client models from diverging permanently. It also means the local optimizer state (momentum, Adam's m/v buffers) is discarded between rounds — or must be explicitly preserved by the client implementation.</p>
+<hr />
+<h2 id="implementing-a-custom-strategy">Implementing a Custom Strategy<a class="headerlink" href="#implementing-a-custom-strategy" title="Permanent link">&para;</a></h2>
+<p>Any class inheriting from <code>Strategy</code> and implementing the three abstract methods is a valid strategy.</p>
+<h3 id="fedprox-example">FedProx Example<a class="headerlink" href="#fedprox-example" title="Permanent link">&para;</a></h3>
+<p>FedProx adds a proximal term <code>μ/2 ||w - w_global||²</code> to the local loss to limit client drift:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.server.strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Strategy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">FedProx</span><span class="p">(</span><span class="n">Strategy</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    FedProx strategy: FedAvg with proximal regularisation.</span>
+<span class="sd">    Reduces client drift in non-IID settings.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">initial_parameters</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">evaluate_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">min_fit_clients</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">clients_per_round</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">proximal_mu</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>   <span class="c1"># regularisation strength</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span> <span class="o">=</span> <span class="n">initial_parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="o">=</span> <span class="n">evaluate_fn</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_fit_clients</span> <span class="o">=</span> <span class="n">min_fit_clients</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clients_per_round</span> <span class="o">=</span> <span class="n">clients_per_round</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">proximal_mu</span> <span class="o">=</span> <span class="n">proximal_mu</span>   <span class="c1"># passed to clients via config</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">aggregate_fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">server_round</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">results</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">OrderedDict</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OrderedDict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;FedProx uses same weighted averaging as FedAvg.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">total_examples</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">n</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">results</span><span class="p">)</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span>
+
+        <span class="c1"># Initialise accumulator</span>
+        <span class="n">template</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">aggregated</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">template</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="n">num_examples</span> <span class="o">/</span> <span class="n">total_examples</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">aggregated</span><span class="p">:</span>
+                <span class="n">aggregated</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">+=</span> <span class="n">weight</span> <span class="o">*</span> <span class="n">params</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+            <span class="n">params</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">aggregated</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">parameters</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span><span class="p">(</span><span class="n">server_round</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+</code></pre></div>
+
+<p>For FedProx to work, the client's <code>fit()</code> method must add the proximal term to its loss:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FedProxClient</span><span class="p">(</span><span class="n">fl</span><span class="o">.</span><span class="n">Client</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+        <span class="n">global_weights</span> <span class="o">=</span> <span class="n">parameters</span>  <span class="c1"># save for proximal term</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">:</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+            <span class="n">outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
+
+            <span class="c1"># Proximal term: μ/2 × ||w - w_global||²</span>
+            <span class="n">proximal_term</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+                <span class="n">proximal_term</span> <span class="o">+=</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">param</span> <span class="o">-</span> <span class="n">global_weights</span><span class="p">[</span><span class="n">name</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span>
+            <span class="n">loss</span> <span class="o">+=</span> <span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;proximal_mu&#39;</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">proximal_term</span>
+
+            <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="o">.</span><span class="n">dataset</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="trimmed-mean-byzantine-robust-example">Trimmed Mean (Byzantine-Robust) Example<a class="headerlink" href="#trimmed-mean-byzantine-robust-example" title="Permanent link">&para;</a></h3>
+<p>For Byzantine-robust aggregation, replace FedAvg's weighted mean with a coordinate-wise trimmed mean:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TrimmedMeanStrategy</span><span class="p">(</span><span class="n">Strategy</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Coordinate-wise trimmed mean for Byzantine robustness.</span>
+<span class="sd">    Removes the top and bottom `trim_fraction` of updates per coordinate.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initial_parameters</span><span class="p">,</span> <span class="n">evaluate_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">min_fit_clients</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">clients_per_round</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">trim_fraction</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span> <span class="o">=</span> <span class="n">initial_parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="o">=</span> <span class="n">evaluate_fn</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_fit_clients</span> <span class="o">=</span> <span class="n">min_fit_clients</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clients_per_round</span> <span class="o">=</span> <span class="n">clients_per_round</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">trim_fraction</span> <span class="o">=</span> <span class="n">trim_fraction</span>   <span class="c1"># remove 10% from each end by default</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">aggregate_fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">trim_fraction</span><span class="p">)</span>  <span class="c1"># number to trim from each end</span>
+
+        <span class="n">aggregated</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="n">param_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">param_names</span><span class="p">:</span>
+            <span class="n">stacked</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">params</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="k">for</span> <span class="n">params</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">results</span><span class="p">])</span>
+            <span class="c1"># stacked shape: [n_clients, *param_shape]</span>
+
+            <span class="c1"># Sort along client dimension, trim k from each end</span>
+            <span class="n">sorted_stacked</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">stacked</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">trimmed</span> <span class="o">=</span> <span class="n">sorted_stacked</span><span class="p">[</span><span class="n">k</span><span class="p">:</span><span class="n">n</span><span class="o">-</span><span class="n">k</span><span class="p">]</span>   <span class="c1"># shape: [n-2k, *param_shape]</span>
+
+            <span class="n">aggregated</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">trimmed</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">params</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">params</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">aggregated</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">parameters</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span><span class="p">(</span><span class="n">server_round</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+</code></pre></div>
+
+<hr />
+<h2 id="strategy-lifecycle-in-the-server">Strategy Lifecycle in the Server<a class="headerlink" href="#strategy-lifecycle-in-the-server" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># server.py — full strategy usage trace</span>
+
+<span class="c1"># 1. Strategy is instantiated by user code</span>
+<span class="n">strategy</span> <span class="o">=</span> <span class="n">FedAvg</span><span class="p">(</span>
+    <span class="n">initial_parameters</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+    <span class="n">evaluate_fn</span><span class="o">=</span><span class="n">evaluate_fn</span><span class="p">,</span>
+    <span class="n">min_fit_clients</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">clients_per_round</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># 2. Coordinator is created, strategy is injected</span>
+<span class="n">coordinator</span> <span class="o">=</span> <span class="n">FLCoordinator</span><span class="p">(</span>
+    <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">,</span>
+    <span class="n">min_clients_for_aggregation</span><span class="o">=</span><span class="n">strategy</span><span class="o">.</span><span class="n">min_fit_clients</span><span class="p">,</span>
+    <span class="n">clients_per_round</span><span class="o">=</span><span class="n">strategy</span><span class="o">.</span><span class="n">clients_per_round</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># 3. Initial parameters from strategy are set on coordinator</span>
+<span class="n">coordinator</span><span class="o">.</span><span class="n">set_initial_parameters</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">initial_parameters</span><span class="p">)</span>
+<span class="c1"># equivalent to: strategy.initialize_parameters()</span>
+
+<span class="c1"># 4. Training loop</span>
+<span class="k">for</span> <span class="n">round_num</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">num_rounds</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+    <span class="n">coordinator</span><span class="o">.</span><span class="n">start_round</span><span class="p">()</span>
+    <span class="n">coordinator</span><span class="o">.</span><span class="n">wait_for_round_to_complete</span><span class="p">()</span>
+    <span class="c1"># ... inside coordinator, during this wait:</span>
+    <span class="c1">#   strategy.aggregate_fit(round_num, results) is called</span>
+    <span class="c1">#   strategy.evaluate(round_num, new_params) is called</span>
+
+    <span class="n">metrics</span> <span class="o">=</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">get_latest_metrics</span><span class="p">()</span>
+    <span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">round_num</span><span class="p">,</span> <span class="n">metrics</span><span class="p">))</span>
+</code></pre></div>
+
+<hr />
+<h2 id="strategy-selection-decision-tree">Strategy Selection Decision Tree<a class="headerlink" href="#strategy-selection-decision-tree" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>Are you training LLMs or very large models?
+│
+├── YES → DeComFL (06_decomfl.md)
+│           - Communication: O(K×P) scalars per round
+│           - No backpropagation required
+│           - Works on memory-constrained devices
+│
+└── NO  → FedAvg (this document)
+            │
+            ├── Is your data IID and clients trusted?
+            │   └── YES → Standard FedAvg
+            │
+            ├── Do you have many local epochs (E&gt;1) and non-IID data?
+            │   └── YES → FedProx (add proximal term)
+            │
+            └── Do you have potentially malicious/Byzantine clients?
+                └── YES → TrimmedMean or Krum (custom strategy)
+</code></pre></div></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

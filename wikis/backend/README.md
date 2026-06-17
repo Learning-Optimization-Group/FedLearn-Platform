@@ -2,7 +2,9 @@
 
 Welcome to the internal documentation for the **FedLearn-Platform Backend**.
 
-This section of the wiki covers the Spring Boot 3 API, the PostgreSQL database interactions, security, WebSockets, and how the federated learning python processes are orchestrated natively or scaled on AWS ECS Fargate.
+This section of the wiki covers the Spring Boot 3 API, the database interactions, security, WebSockets, and how the federated learning python processes are orchestrated natively or scaled on AWS ECS Fargate.
+
+> ⚠️ **Branch reality.** The running backend uses **H2** (file-mode in `dev`/`ec2demo`, in-memory in `test`); PostgreSQL is the intended production/Fargate target and that path is unfinished. Authorization on this branch is the single coarse `users.role IN (USER, ADMIN)` column (migration `V2`; highest committed migration `V3`). The identity / multi-tenancy / audit subsystem documented in page 06 is **designed on a separate identity-foundations branch and is not present here.**
 
 ## Documentation Index
 
@@ -13,7 +15,7 @@ This section of the wiki covers the Spring Boot 3 API, the PostgreSQL database i
    Explains how stateless JWT validation works via filters, how WebSocket connections are secured during the HTTP upgrade handshake, and the internal API key mechanism used by FL servers.
 
 3. **[Project Management Lifecycle](03_project_management.md)**
-   Details the `ProjectService` and `ProjectController` logic. Explains how training rounds are configured, how projects are persisted to PostgreSQL, and how models are initialized.
+   Details the `ProjectService` and `ProjectController` logic. Explains how training rounds are configured, how projects are persisted to the database, and how models are initialized.
 
 4. **[Federated Orchestration (FlowerServerManager)](04_federated_orchestration.md)**
    The most complex component. Documents how the Java API dynamically provisions the Python FL aggregation servers, differentiating between local machine `ProcessBuilder` execution and cloud-native AWS ECS Fargate orchestration.
@@ -21,5 +23,5 @@ This section of the wiki covers the Spring Boot 3 API, the PostgreSQL database i
 5. **[WebSocket Log Streaming](05_websocket_logs_streaming.md)**
    Explains the real-time observability pipeline. Shows how the backend captures standard output from the Python FL servers, routes it via STOMP topics to the React frontend, and persists it for export.
 
-6. **[Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md)**
-   Documents the identity subsystem: the three-layer role model (platform / organization / project), organization-scoped multi-tenant isolation (`OrgScope`), the `@Auditable` audit trail, the email + first-run bootstrap plumbing, the V4–V6 migrations, and the new membership/admin/access-request REST endpoints. (Backend-first; the client RBAC UI is deferred.)
+6. **[Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md)** — ⚠️ **designed on a separate identity-foundations branch; not present on this branch.**
+   Documents the identity subsystem: the three-layer role model (platform / organization / project), organization-scoped multi-tenant isolation (`OrgScope`), the `@Auditable` audit trail, the email + first-run bootstrap plumbing, the V4–V6 migrations, and the membership/admin/access-request REST endpoints. None of this is committed on the current branch — it is included for reference.

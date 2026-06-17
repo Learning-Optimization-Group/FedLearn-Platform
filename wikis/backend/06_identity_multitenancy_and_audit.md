@@ -7,13 +7,24 @@ plumbing that seeds the first administrator. It is the deepest part of the
 backend's authorization story; the JWT/cookie/WebSocket mechanics that establish
 *who* the caller is live in [02 - Security and Authentication](02_security_and_auth.md).
 
-> **Scope note (read this first).** This subsystem is **backend-first**. The new
-> membership, admin, access-request, user-search, and client endpoints exist and
-> are enforced on the server, but the **frontend and desktop RBAC UI for them is
-> deferred** — the web/desktop clients still ship the existing Instrument design
-> system unchanged and do not yet surface organizations, memberships, or the
-> admin console. Everything below describes server behaviour that is live today;
-> it does not describe a UI you can click.
+> ⚠️ **Branch reality (read this first).** This entire subsystem is **designed on a
+> separate identity-foundations branch and is _not present_ on the current branch
+> (`feat/ember-rebrand`).** On this branch, authorization is a single coarse column —
+> `users.role IN (USER, ADMIN)` (added by migration `V2`); `users.id` is `BIGINT`,
+> `projects.id` is `UUID`, and the **highest committed Flyway migration is `V3`**.
+> There are **no `V4`/`V5`/`V6` migrations and no corresponding Java** here: the
+> three-layer platform/org/project role model, `organization_memberships` /
+> `project_memberships`, `users.platform_role` / `PLATFORM_ADMIN`, `projects.org_id`,
+> the `audit_events` table + `@Auditable` / `AuditAction` aspect, the `EmailService`
+> stack, and the `APP_BOOTSTRAP_ADMIN_*` bootstrap **do not exist on this branch**.
+> Everything below documents that **designed** system for reference — it is not what
+> is currently committed here.
+>
+> On the identity-foundations branch the subsystem is **backend-first**: the
+> membership/admin/access-request/user-search/client endpoints are enforced on the
+> server, but the web/desktop RBAC UI is deferred (those clients ship the **Ember**
+> design system unchanged and do not yet surface organizations, memberships, or the
+> admin console).
 
 ---
 

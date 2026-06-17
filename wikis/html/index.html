@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FedLearn Platform — Master Wiki · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="fonts/fonts.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a class="active" href="index.html">Master Wiki</a></li>
+<li><a href="VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Overview</b> &nbsp;·&nbsp; FedLearn Platform — Master Wiki</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="fedlearn-platform-master-wiki">FedLearn Platform — Master Wiki<a class="headerlink" href="#fedlearn-platform-master-wiki" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Repository:</strong> <code>FedLearn-Platform</code><br />
+<strong>Last Updated:</strong> 2026-06-10</p>
+</blockquote>
+<p>This is the top-level technical wiki for the <strong>FedLearn Platform</strong> — a privacy-preserving, distributed machine learning system that enables federated learning across heterogeneous hardware. Use this page as your starting point and navigate into any subsection for in-depth documentation.</p>
+<blockquote>
+<p><strong>Recent hardening (2026-06):</strong> dependency/security pass — npm and pip audits cleared, Electron upgraded 34 → 42, gitleaks secret scanning added via the free CLI, and the unused <code>flwr</code> dependency removed.</p>
+<p><strong>Ember design-system rebrand (2026-06-10):</strong> the frontend, the desktop renderer, and the mobile client adopted the <strong>Ember</strong> design system — warm canvas (<code>#FBF9F6</code>), burnt-orange accent (<code>#C56A1E</code>), and the Bricolage Grotesque / Hanken Grotesk / JetBrains Mono type family — along with rebranded icons. "Ember" is the name of the <strong>design system / theme</strong>; the platform itself is still <strong>FedLearn</strong> (a product-domain rename is a separate, in-progress effort). This wiki ships an Ember-themed HTML rendering under <a href="index.html"><code>html/</code></a>.</p>
+</blockquote>
+<hr />
+<h2 id="platform-overview">Platform Overview<a class="headerlink" href="#platform-overview" title="Permanent link">&para;</a></h2>
+<p>FedLearn is built around four core components — backend, frontend, framework, desktop — plus a <strong>mobile client</strong> and a <strong>containerised client</strong>, for <strong>six deployable units</strong> in total. They work together to provide an end-to-end federated learning experience:</p>
+<div class="codehilite"><pre><span></span><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                        FedLearn Platform                                │
+│                                                                         │
+│  ┌──────────────┐    REST / WebSocket    ┌──────────────────────────┐   │
+│  │   Frontend   │◄──────────────────────►│      Backend (API)       │   │
+│  │  React SPA   │                        │  Spring Boot 3 / H2      │   │
+│  └──────────────┘                        └──────────┬───────────────┘   │
+│                                                     │ ProcessBuilder /  │
+│  ┌──────────────┐    gRPC (Python)                  │ AWS ECS Fargate   │
+│  │   Desktop    │◄──────────────────────►┌──────────▼───────────────┐   │
+│  │  Electron 42 │   PyInstaller / Docker │  Framework (Python FL)   │   │
+│  └──────────────┘                        │  fedlearn + PyTorch gRPC │   │
+│                                          └──────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Primary Language</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#backend"><strong>Backend</strong></a></td>
+<td>Java (Spring Boot 3)</td>
+<td>REST API, JWT auth, project lifecycle, FL orchestration, WebSocket log streaming</td>
+</tr>
+<tr>
+<td><a href="#frontend"><strong>Frontend</strong></a></td>
+<td>TypeScript (React 19 + Vite)</td>
+<td>Web dashboard, real-time monitoring, project management, auth flows</td>
+</tr>
+<tr>
+<td><a href="#framework"><strong>Framework</strong></a></td>
+<td>Python (PyTorch + gRPC)</td>
+<td>Core FL engine — FedAvg, DeComFL, data partitioning, gRPC client/server</td>
+</tr>
+<tr>
+<td><a href="#desktop"><strong>Desktop</strong></a></td>
+<td>TypeScript (Electron 42)</td>
+<td>Local training orchestrator, hardware detection, Docker/PyInstaller execution</td>
+</tr>
+<tr>
+<td><a href="#mobile"><strong>Mobile</strong></a></td>
+<td>React Native 0.80 + native C++ (libtorch)</td>
+<td>On-device FL client; runs the DeComFL zeroth-order path natively in C++ via a TurboModule bridge (iOS + Android)</td>
+</tr>
+<tr>
+<td><a href="#client-docker"><strong>Client (Docker)</strong></a></td>
+<td>Docker (multi-arch)</td>
+<td>Containerised FL client; thin wrapper around the framework for Jetson / CUDA / CPU deployments</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="how-the-components-connect">How the Components Connect<a class="headerlink" href="#how-the-components-connect" title="Permanent link">&para;</a></h2>
+<h3 id="training-round-end-to-end-flow">Training Round — End-to-End Flow<a class="headerlink" href="#training-round-end-to-end-flow" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>User (Browser / Desktop)
+   │
+   │  1. Create / configure a training project
+   ▼
+Backend (Spring Boot API)
+   │
+   │  2. Persist project config to the database (H2)
+   │  3. Spawn Python FL Server via ProcessBuilder or AWS ECS Fargate
+   ▼
+Framework — FL Server (Python / gRPC)
+   │
+   │  4. Broadcast global model parameters to all connected clients
+   ▼
+Framework — FL Client (Python / gRPC)   ◄── invoked by Desktop or client-docker
+   │
+   │  5. Train locally on private data; compute gradients / updates
+   │  6. Upload aggregated gradient or delta to server
+   ▼
+Framework — FL Server (aggregation)
+   │
+   │  7. Aggregate updates (FedAvg / DeComFL) → new global model
+   │  8. Emit training logs to stdout
+   ▼
+Backend (WebSocket bridge)
+   │
+   │  9. Capture Python stdout; route via STOMP topics
+   ▼
+Frontend / Desktop (real-time log panel)
+   │
+   │  10. Render live training metrics to the user
+   ▼
+Backend
+      11. Persist final model checkpoint &amp; round results to the database (H2)
+</code></pre></div>
+
+<h3 id="authentication-flow">Authentication Flow<a class="headerlink" href="#authentication-flow" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>Browser / Desktop
+   │  POST /api/auth/login  (username + password)
+   ▼
+Backend  →  validates credentials  →  issues JWT (HttpOnly cookie or JSON)
+   │
+   ├── Frontend: stores JWT in HttpOnly cookie; axios interceptor attaches on every request
+   └── Desktop: stores JWT via Electron safeStorage (OS keychain); never exposed to renderer
+</code></pre></div>
+
+<h3 id="fl-server-provisioning-local-vs-cloud">FL Server Provisioning — Local vs. Cloud<a class="headerlink" href="#fl-server-provisioning-local-vs-cloud" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>Backend (FlowerServerManager)
+   │
+   ├── LOCAL MODE
+   │     ProcessBuilder.start()  →  python run_server.py --port &lt;N&gt;
+   │     stdout piped  →  WebSocket log streaming
+   │
+   └── CLOUD MODE (AWS ECS Fargate)
+         RunTask API  →  framework Docker image on Fargate
+         CloudWatch Logs  →  polled and re-streamed to WebSocket clients
+</code></pre></div>
+
+<hr />
+<h2 id="component-wikis">Component Wikis<a class="headerlink" href="#component-wikis" title="Permanent link">&para;</a></h2>
+<h3 id="backend">Backend<a class="headerlink" href="#backend" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Path:</strong> <a href="backend/README.html"><code>wikis/backend/</code></a><br />
+<strong>Stack:</strong> Java 21, Spring Boot 3, Spring Security 6, H2 (file-mode), STOMP WebSocket</p>
+</blockquote>
+<p>The backend is the central control plane. It owns the REST API, user authentication, project management, and acts as the bridge between the web clients and the Python FL processes.</p>
+<table>
+<thead>
+<tr>
+<th>Document</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="backend/01_architecture_overview.html">Architecture &amp; Core Concepts</a></td>
+<td>Directory structure, domain models (Projects, Results, Logs), technology stack</td>
+</tr>
+<tr>
+<td><a href="backend/02_security_and_auth.html">Security &amp; Authentication</a></td>
+<td>Stateless JWT filter chain, WebSocket handshake security, internal API key mechanism</td>
+</tr>
+<tr>
+<td><a href="backend/03_project_management.html">Project Management Lifecycle</a></td>
+<td><code>ProjectService</code>, <code>ProjectController</code>, round configuration, model initialization</td>
+</tr>
+<tr>
+<td><a href="backend/04_federated_orchestration.html">Federated Orchestration</a></td>
+<td><code>FlowerServerManager</code> — local <code>ProcessBuilder</code> vs. AWS ECS Fargate provisioning</td>
+</tr>
+<tr>
+<td><a href="backend/05_websocket_logs_streaming.html">WebSocket Log Streaming</a></td>
+<td>Stdout capture → STOMP topics → frontend real-time observability</td>
+</tr>
+<tr>
+<td><a href="backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy &amp; Audit</a></td>
+<td>⚠️ <strong>Designed on a separate identity-foundations branch — not present here.</strong> Organizations + org/project memberships, platform/org/project role model (<code>PlatformRole</code> enum), org-scoped data isolation, <code>@Auditable</code> audit trail. This branch ships only the coarse <code>users.role IN (USER, ADMIN)</code> model.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key cross-component interfaces:</strong>
+- Exposes <code>POST /api/projects/{id}/start</code> → triggers Framework server spawn.
+- Streams logs to Frontend via STOMP topic <code>/topic/logs/{projectId}</code>.
+- Desktop authenticates against <code>POST /api/auth/login</code> before initiating training.
+- Authorization on this branch is a single coarse column — <code>users.role IN (USER, ADMIN)</code> (highest committed migration is <code>V3</code>). The multi-tenant identity model (organizations, org/project memberships, platform/org/project roles, the <code>@Auditable</code> audit trail) is <strong>designed on a separate identity-foundations branch and is not present here</strong> — see the banner on <a href="backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy &amp; Audit</a>.</p>
+<hr />
+<h3 id="frontend">Frontend<a class="headerlink" href="#frontend" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Path:</strong> <a href="frontend/README.html"><code>wikis/frontend/</code></a><br />
+<strong>Stack:</strong> React 19, TypeScript, Vite, Tailwind CSS, Axios, SockJS / STOMP</p>
+</blockquote>
+<p>The frontend is a single-page application providing the primary web-based control plane. It handles project management, live training monitoring, and user authentication entirely in the browser.</p>
+<table>
+<thead>
+<tr>
+<th>Document</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="frontend/Architecture.html">Architecture &amp; State Management</a></td>
+<td>Tech stack overview, project structure, global contexts</td>
+</tr>
+<tr>
+<td><a href="frontend/Routing_and_Auth.html">Routing &amp; Authentication</a></td>
+<td>React Router config, protected routes, HttpOnly cookie auth</td>
+</tr>
+<tr>
+<td><a href="frontend/API_and_Services.html">API &amp; Services</a></td>
+<td>Axios configuration, interceptors, WebSocket integration, log store</td>
+</tr>
+<tr>
+<td><a href="frontend/UI_and_Components.html">UI &amp; Components</a></td>
+<td>Design system, legacy vs. V2 components, reusable patterns</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key cross-component interfaces:</strong>
+- Connects to Backend REST API via Axios (<code>/api/**</code>).
+- Subscribes to <code>STOMP /topic/logs/{projectId}</code> for live Framework training output.
+- No direct connection to Framework or Desktop — all routing via Backend.</p>
+<hr />
+<h3 id="framework">Framework<a class="headerlink" href="#framework" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Path:</strong> <a href="framework/README.html"><code>wikis/framework/</code></a><br />
+<strong>Stack:</strong> Python 3.10+, PyTorch, gRPC / Protocol Buffers — <strong>custom FL engine (no Flower / <code>flwr</code>)</strong></p>
+</blockquote>
+<p>The framework is the heart of the platform — a standalone Python library (<code>fedlearn</code>) that implements the full federated learning lifecycle using gRPC for communication and PyTorch for model training. The <code>flower</code> package name on the Java side (<code>FlowerServerManager</code>) is historical — there is no Flower/<code>flwr</code> dependency anywhere.</p>
+<table>
+<thead>
+<tr>
+<th>Document</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="framework/01_architecture_overview.html">Architecture &amp; Package Overview</a></td>
+<td>Module map, package layout, component interaction</td>
+</tr>
+<tr>
+<td><a href="framework/02_grpc_communication.html">gRPC Communication Layer</a></td>
+<td>Proto definitions, serialization, streaming, TLS, retry logic</td>
+</tr>
+<tr>
+<td><a href="framework/03_server_internals.html">Server Internals</a></td>
+<td><code>start_server</code>, <code>FLCoordinator</code>, round lifecycle, heartbeat management</td>
+</tr>
+<tr>
+<td><a href="framework/04_client_internals.html">Client Internals</a></td>
+<td><code>Client</code> ABC, <code>GrpcClient</code>, polling loop, large model streaming</td>
+</tr>
+<tr>
+<td><a href="framework/05_strategies.html">Aggregation Strategies</a></td>
+<td><code>Strategy</code> ABC, <code>FedAvg</code> deep-dive, weighted aggregation, extensibility</td>
+</tr>
+<tr>
+<td><a href="framework/06_decomfl.html">DeComFL — Dimension-Free FL</a></td>
+<td>Zeroth-order gradient estimation, seed/gradient protocol, Algorithms 3 &amp; 4</td>
+</tr>
+<tr>
+<td><a href="framework/07_data_partitioning.html">Data Partitioning &amp; Non-IID</a></td>
+<td>Dirichlet distribution, heterogeneous splits, practical setup</td>
+</tr>
+<tr>
+<td><a href="framework/08_examples.html">Examples Walkthrough</a></td>
+<td>End-to-end traces for MNIST, LLM, and ECG federation</td>
+</tr>
+<tr>
+<td><a href="framework/09_developer_guide.html">Developer Guide</a></td>
+<td>Custom strategies, custom clients, testing, contributing</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key cross-component interfaces:</strong>
+- Consumed by <strong>Backend</strong> via <code>ProcessBuilder</code> (<code>run_server.py</code>) or AWS ECS Fargate Docker image.
+- Consumed by <strong>Desktop</strong> via PyInstaller-bundled binaries (<code>run_server.py</code>, <code>run_client.py</code>).
+- Consumed by <strong><code>client-docker</code></strong> image for containerised Jetson / CUDA deployments.</p>
+<hr />
+<h3 id="desktop">Desktop<a class="headerlink" href="#desktop" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Path:</strong> <a href="desktop/README.html"><code>wikis/desktop/</code></a><br />
+<strong>Stack:</strong> Electron 42, React 18, TypeScript 5.7, Webpack, PyInstaller, dockerode</p>
+</blockquote>
+<p>The desktop application is the local training orchestrator for FL participants. It provides a secure GUI to configure hardware profiles, launch Framework training processes (native binary or Docker), and stream logs — all while keeping the JWT confined to the OS keychain.</p>
+<table>
+<thead>
+<tr>
+<th>Document</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="desktop/01-overview-and-architecture.html">Overview &amp; Architecture</a></td>
+<td>Three-process model (main / preload / renderer), execution paths, data flow</td>
+</tr>
+<tr>
+<td><a href="desktop/02-security-model.html">Security Model</a></td>
+<td>BrowserWindow hardening, CSP, contextBridge, double input validation, JWT confinement</td>
+</tr>
+<tr>
+<td><a href="desktop/03-main-process.html">Main Process Deep Dive</a></td>
+<td><code>main.ts</code>, <code>ipc.handlers.ts</code>, <code>docker.service.ts</code>, <code>auth.service.ts</code>, <code>hardware.probe.ts</code></td>
+</tr>
+<tr>
+<td><a href="desktop/04-preload-ipc-bridge.html">Preload &amp; IPC Bridge</a></td>
+<td>contextBridge API design, full <code>window.fedLearnAPI</code> reference</td>
+</tr>
+<tr>
+<td><a href="desktop/05-renderer-components.html">Renderer &amp; React Components</a></td>
+<td><code>App.tsx</code> state machine, <code>AuthModal</code>, <code>HardwareSelector</code>, <code>LogPanel</code>, <code>StatusIndicator</code></td>
+</tr>
+<tr>
+<td><a href="desktop/06-build-and-packaging.html">Build, Packaging &amp; Distribution</a></td>
+<td>Webpack configs, electron-builder, PyInstaller bundling, code signing</td>
+</tr>
+<tr>
+<td><a href="desktop/07-hardware-profiles.html">Hardware Profiles &amp; Training Execution</a></td>
+<td>MPS, CUDA, CPU, Jetson profiles; Docker device mounts; lifecycle state machine</td>
+</tr>
+<tr>
+<td><a href="desktop/08-developer-guide.html">Developer Guide &amp; Contributing</a></td>
+<td>Prerequisites, setup, script reference, adding IPC channels/components/profiles</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key cross-component interfaces:</strong>
+- Authenticates against <strong>Backend</strong> <code>POST /api/auth/login</code>; JWT stored via Electron <code>safeStorage</code>.
+- Spawns <strong>Framework</strong> <code>run_server.py</code> and <code>run_client.py</code> as child processes (PyInstaller binaries) or Docker containers.
+- Does not connect to the <strong>Frontend</strong> — both are independent clients of the Backend API.</p>
+<hr />
+<h3 id="mobile">Mobile<a class="headerlink" href="#mobile" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Path:</strong> <a href="mobile/README.html"><code>wikis/mobile/</code></a><br />
+<strong>Stack:</strong> React Native 0.80, TypeScript, native C++ (libtorch) via a TurboModule bridge, Android + iOS</p>
+</blockquote>
+<p>The mobile client is an on-device FL participant for phones and tablets. The JS/TS layer handles UI, auth, and orchestration; the heavy lifting — the <strong>DeComFL zeroth-order training path</strong> — runs natively in C++ on libtorch through a TurboModule (JSI) bridge, keeping training data on-device. It adopted the <strong>Ember</strong> design system and brand fonts in <code>2.1.0</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Document</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="mobile/README.html">Mobile Client Overview</a></td>
+<td>Architecture (RN + native C++), the TurboModule bridge, DeComFL on-device path, iOS/Android project layout, current build status</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key cross-component interfaces:</strong>
+- Authenticates against <strong>Backend</strong> <code>POST /api/auth/login</code> (same cookie/JWT contract as the web client).
+- Connects to a <strong>Framework</strong> FL server over gRPC and runs the native DeComFL client path.
+- Shares the canonical <code>proto/</code> contract (byte-mirrored into <code>mobile_client/proto/</code>).</p>
+<hr />
+<h3 id="client-docker">Client (Docker)<a class="headerlink" href="#client-docker" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Path:</strong> <a href="client-docker/README.html"><code>wikis/client-docker/</code></a><br />
+<strong>Stack:</strong> Docker, multi-arch base images, thin wrapper around <code>framework/</code></p>
+</blockquote>
+<p><code>client-docker</code> is the containerised FL client — a thin wrapper that <code>pip install -e</code>'s the framework and runs <code>run_client.py</code>. It exists so a client can be deployed without a local Python toolchain, and it is the execution path the desktop app uses for the <strong>Jetson</strong> profile.</p>
+<table>
+<thead>
+<tr>
+<th>Document</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="client-docker/README.html">Client (Docker) Overview</a></td>
+<td>Image build (x86 + ARM64), Jetson L4T base image, device-mount notes, run flags, relationship to the framework</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key cross-component interfaces:</strong>
+- Bundles the <strong>Framework</strong> (<code>pip install -e framework</code>) — no duplicated FL logic.
+- Connects to a <strong>Framework</strong> FL server over gRPC like any other client.
+- On <strong>Jetson</strong>, must use the L4T base image and direct <code>/dev/nvhost-*</code> device mounts (never <code>--runtime nvidia</code>).</p>
+<hr />
+<h2 id="developer-quick-start">Developer Quick Start<a class="headerlink" href="#developer-quick-start" title="Permanent link">&para;</a></h2>
+<h3 id="run-the-full-stack-locally">Run the Full Stack Locally<a class="headerlink" href="#run-the-full-stack-locally" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p>macOS shortcut: <code>./launch_all.sh</code> opens four Terminal windows (backend, frontend, server, clients). On Linux, start each component manually as below.</p>
+</blockquote>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 1. Start the Backend (Spring Boot, Gradle wrapper, Java 21)</span>
+<span class="nb">cd</span><span class="w"> </span>backend/fl-platform-api
+<span class="nv">SPRING_PROFILES_ACTIVE</span><span class="o">=</span>dev<span class="w"> </span>./gradlew<span class="w"> </span>bootRun<span class="w">        </span><span class="c1"># :8081, H2 file-mode</span>
+
+<span class="c1"># 2. Start the Frontend (Vite dev server)</span>
+<span class="nb">cd</span><span class="w"> </span>frontend
+npm<span class="w"> </span>install<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>dev<span class="w">                          </span><span class="c1"># :5173 → backend on :8081</span>
+
+<span class="c1"># 3. Start the Desktop app (Electron dev mode)</span>
+<span class="nb">cd</span><span class="w"> </span>fedlearn-desktop
+npm<span class="w"> </span>install<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>dev
+
+<span class="c1"># 4. (Optional) Run a standalone FL training round manually</span>
+<span class="nb">cd</span><span class="w"> </span>framework
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+python<span class="w"> </span>run_local_test.py
+</code></pre></div>
+
+<h3 id="useful-cross-component-entry-points">Useful Cross-Component Entry Points<a class="headerlink" href="#useful-cross-component-entry-points" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Where to Look</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Add a new FL aggregation strategy</td>
+<td><a href="framework/05_strategies.html">Framework: Strategies</a> + <a href="framework/09_developer_guide.html">Developer Guide</a></td>
+</tr>
+<tr>
+<td>Secure a new API endpoint</td>
+<td><a href="backend/02_security_and_auth.html">Backend: Security &amp; Auth</a></td>
+</tr>
+<tr>
+<td>Add a new IPC channel to Desktop</td>
+<td><a href="desktop/08-developer-guide.html">Desktop: Developer Guide</a></td>
+</tr>
+<tr>
+<td>Build a new React page / component</td>
+<td><a href="frontend/UI_and_Components.html">Frontend: UI &amp; Components</a></td>
+</tr>
+<tr>
+<td>Stream new data to the log panel</td>
+<td><a href="backend/05_websocket_logs_streaming.html">Backend: WebSocket Streaming</a> + <a href="frontend/API_and_Services.html">Frontend: API &amp; Services</a></td>
+</tr>
+<tr>
+<td>Package Desktop for a new platform</td>
+<td><a href="desktop/06-build-and-packaging.html">Desktop: Build &amp; Packaging</a></td>
+</tr>
+<tr>
+<td>Implement a custom FL client</td>
+<td><a href="framework/04_client_internals.html">Framework: Client Internals</a> + <a href="framework/09_developer_guide.html">Developer Guide</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="directory-structure">Directory Structure<a class="headerlink" href="#directory-structure" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>wikis/                              ← repo-root docs (promoted out of docs/)
+├── README.md                       ← You are here (master wiki)
+├── VERSIONS.md                     ← per-unit release versions (source of truth)
+├── assets/                         ← shared diagrams (architecture*.png)
+├── html/                           ← Ember-themed HTML rendering (generated)
+│   └── index.html
+│
+├── backend/                        ← Spring Boot 3 API
+│   ├── README.md
+│   ├── 01_architecture_overview.md
+│   ├── 02_security_and_auth.md
+│   ├── 03_project_management.md
+│   ├── 04_federated_orchestration.md
+│   ├── 05_websocket_logs_streaming.md
+│   └── 06_identity_multitenancy_and_audit.md   ← designed; not on this branch
+│
+├── frontend/                       ← React 19 SPA
+│   ├── README.md
+│   ├── Architecture.md
+│   ├── Routing_and_Auth.md
+│   ├── API_and_Services.md
+│   └── UI_and_Components.md
+│
+├── framework/                      ← Python FL engine (gRPC + PyTorch)
+│   ├── README.md
+│   ├── 01_architecture_overview.md
+│   ├── 02_grpc_communication.md
+│   ├── 03_server_internals.md
+│   ├── 04_client_internals.md
+│   ├── 05_strategies.md
+│   ├── 06_decomfl.md
+│   ├── 07_data_partitioning.md
+│   ├── 08_examples.md
+│   └── 09_developer_guide.md
+│
+├── desktop/                        ← Electron 42 local training client
+│   ├── README.md
+│   ├── 01-overview-and-architecture.md
+│   ├── 02-security-model.md
+│   ├── 03-main-process.md
+│   ├── 04-preload-ipc-bridge.md
+│   ├── 05-renderer-components.md
+│   ├── 06-build-and-packaging.md
+│   ├── 07-hardware-profiles.md
+│   └── 08-developer-guide.md
+│
+├── mobile/                         ← React Native 0.80 + native C++ FL client
+│   └── README.md
+│
+└── client-docker/                  ← containerised FL client (multi-arch)
+    └── README.md
+</code></pre></div></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

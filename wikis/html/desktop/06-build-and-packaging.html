@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FedLearn Desktop — Build, Packaging & Distribution · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Desktop</summary><ul>
+<li><a href="README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a class="active" href="06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Desktop</b> &nbsp;·&nbsp; FedLearn Desktop — Build, Packaging & Distribution</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="fedlearn-desktop-build-packaging-distribution">FedLearn Desktop — Build, Packaging &amp; Distribution<a class="headerlink" href="#fedlearn-desktop-build-packaging-distribution" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a> → <a href="README.html">Desktop Wiki</a></p>
+</blockquote>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#build-system-overview">Build System Overview</a></li>
+<li><a href="#webpack-configuration">Webpack Configuration</a></li>
+<li><a href="#development-workflow">Development Workflow</a></li>
+<li><a href="#production-build">Production Build</a></li>
+<li><a href="#electron-builder-packaging">electron-builder Packaging</a></li>
+<li><a href="#native-client-bundle-pyinstaller">Native Client Bundle (PyInstaller)</a></li>
+<li><a href="#platform-specific-details">Platform-Specific Details</a></li>
+<li><a href="#code-signing">Code Signing</a></li>
+<li><a href="#release-artifacts">Release Artifacts</a></li>
+<li><a href="#environment-variables-reference">Environment Variables Reference</a></li>
+</ol>
+<hr />
+<h2 id="build-system-overview">Build System Overview<a class="headerlink" href="#build-system-overview" title="Permanent link">&para;</a></h2>
+<p>FedLearn Desktop uses a <strong>Webpack-based multi-target build system</strong>. Each Electron process gets its own webpack configuration because they run in different runtime environments and have different module requirements:</p>
+<div class="codehilite"><pre><span></span><code>Source (TypeScript + React)
+    │
+    ├── webpack.main.config.js      → dist/main/main.js
+    │   (Target: electron-main)       + dist/main/ipc.handlers.js
+    │                                 + dist/main/docker.service.js
+    │                                 + dist/main/auth.service.js
+    │                                 + dist/main/hardware.probe.js
+    │
+    ├── webpack.preload.config.js   → dist/preload/preload.js
+    │   (Target: electron-preload)
+    │
+    └── webpack.renderer.config.js  → dist/renderer/
+        (Target: web)                 + index.html
+                                      + bundle.js
+                                      + styles.css
+</code></pre></div>
+
+<p>In production, all three targets are built sequentially by <code>webpack.prod.config.js</code>.</p>
+<hr />
+<h2 id="webpack-configuration">Webpack Configuration<a class="headerlink" href="#webpack-configuration" title="Permanent link">&para;</a></h2>
+<h3 id="main-process-config-webpackmainconfigjs">Main Process Config (<code>webpack.main.config.js</code>)<a class="headerlink" href="#main-process-config-webpackmainconfigjs" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// webpack.main.config.js</span>
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">target</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;electron-main&#39;</span><span class="p">,</span><span class="w">  </span><span class="c1">// Node.js context, Electron APIs available</span>
+<span class="w">  </span><span class="nx">entry</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;./src/main/main.ts&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">output</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">path</span><span class="o">:</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">resolve</span><span class="p">(</span><span class="nx">__dirname</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;dist/main&#39;</span><span class="p">),</span>
+<span class="w">    </span><span class="nx">filename</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;main.js&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">module</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">rules</span><span class="o">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nx">test</span><span class="o">:</span><span class="w"> </span><span class="sr">/\.tsx?$/</span><span class="p">,</span><span class="w"> </span><span class="nx">use</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;ts-loader&#39;</span><span class="w"> </span><span class="p">}],</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">externals</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Don&#39;t bundle these — they must be required at runtime from node_modules</span>
+<span class="w">    </span><span class="s1">&#39;electron-log&#39;</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;commonjs electron-log&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="s1">&#39;electron-store&#39;</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;commonjs electron-store&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="s1">&#39;dockerode&#39;</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;commonjs dockerode&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="p">};</span>
+</code></pre></div>
+
+<p><strong>Why are native modules external?</strong> <code>electron-log</code>, <code>electron-store</code>, and <code>dockerode</code> contain native Node.js addons (<code>.node</code> files) or rely on dynamic <code>require()</code> patterns. Webpack cannot bundle these correctly — they must be resolved at runtime from the <code>node_modules</code> directory.</p>
+<h3 id="preload-config-webpackpreloadconfigjs">Preload Config (<code>webpack.preload.config.js</code>)<a class="headerlink" href="#preload-config-webpackpreloadconfigjs" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">target</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;electron-preload&#39;</span><span class="p">,</span><span class="w"> </span><span class="c1">// Has ipcRenderer, but sandboxed</span>
+<span class="w">  </span><span class="nx">entry</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;./src/preload/preload.ts&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">output</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">path</span><span class="o">:</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">resolve</span><span class="p">(</span><span class="nx">__dirname</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;dist/preload&#39;</span><span class="p">),</span>
+<span class="w">    </span><span class="nx">filename</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;preload.js&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="p">};</span>
+</code></pre></div>
+
+<p>The <code>electron-preload</code> target is important — it tells webpack which globals are available (e.g., <code>ipcRenderer</code> from Electron) and which aren't (e.g., full Node.js APIs in sandbox mode).</p>
+<h3 id="renderer-config-webpackrendererconfigjs">Renderer Config (<code>webpack.renderer.config.js</code>)<a class="headerlink" href="#renderer-config-webpackrendererconfigjs" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nx">module</span><span class="p">.</span><span class="nx">exports</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">target</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;web&#39;</span><span class="p">,</span><span class="w">  </span><span class="c1">// Standard browser environment</span>
+<span class="w">  </span><span class="nx">entry</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;./src/renderer/index.tsx&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">output</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">path</span><span class="o">:</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">resolve</span><span class="p">(</span><span class="nx">__dirname</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;dist/renderer&#39;</span><span class="p">),</span>
+<span class="w">    </span><span class="nx">filename</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;bundle.js&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">plugins</span><span class="o">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="ow">new</span><span class="w"> </span><span class="nx">HtmlWebpackPlugin</span><span class="p">({</span><span class="w"> </span><span class="nx">template</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;./src/renderer/index.html&#39;</span><span class="w"> </span><span class="p">}),</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nx">devServer</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">port</span><span class="o">:</span><span class="w"> </span><span class="mf">9000</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">hot</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">  </span><span class="c1">// Hot Module Replacement</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="p">};</span>
+</code></pre></div>
+
+<h3 id="production-config-webpackprodconfigjs">Production Config (<code>webpack.prod.config.js</code>)<a class="headerlink" href="#production-config-webpackprodconfigjs" title="Permanent link">&para;</a></h3>
+<p>The production config builds all three targets with:
+- <code>mode: 'production'</code> (minification, tree-shaking)
+- Source maps disabled or set to <code>'source-map'</code> for crash debugging
+- <code>TerserPlugin</code> for JS minification</p>
+<hr />
+<h2 id="development-workflow">Development Workflow<a class="headerlink" href="#development-workflow" title="Permanent link">&para;</a></h2>
+<h3 id="starting-the-dev-environment">Starting the Dev Environment<a class="headerlink" href="#starting-the-dev-environment" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>fedlearn-desktop
+npm<span class="w"> </span>run<span class="w"> </span>dev
+</code></pre></div>
+
+<p>This runs four processes concurrently via <code>concurrently</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&quot;dev&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;concurrently --kill-others</span>
+<span class="s2">  \&quot;npm run dev:preload\&quot;    ← webpack watch (preload)</span>
+<span class="s2">  \&quot;npm run dev:main\&quot;       ← webpack watch (main)</span>
+<span class="s2">  \&quot;npm run dev:renderer\&quot;   ← webpack-dev-server (renderer, port 9000, HMR)</span>
+<span class="s2">  \&quot;sleep 3 &amp;&amp; npm run dev:electron\&quot; ← Electron (after 3s build delay)&quot;</span>
+</code></pre></div>
+
+<p>The <code>sleep 3</code> ensures webpack has finished its initial compilation before Electron tries to load <code>dist/main/main.js</code>. Without it, Electron starts while the bundle is still being written and fails to launch.</p>
+<h3 id="process-breakdown">Process Breakdown<a class="headerlink" href="#process-breakdown" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Process</th>
+<th>Script</th>
+<th>Port</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Preload watcher</td>
+<td><code>dev:preload</code></td>
+<td>—</td>
+<td>Rebuilds <code>preload.js</code> on changes</td>
+</tr>
+<tr>
+<td>Main watcher</td>
+<td><code>dev:main</code></td>
+<td>—</td>
+<td>Rebuilds <code>main.js</code> on changes</td>
+</tr>
+<tr>
+<td>Renderer dev server</td>
+<td><code>dev:renderer</code></td>
+<td>9000</td>
+<td>Serves renderer with HMR</td>
+</tr>
+<tr>
+<td>Electron</td>
+<td><code>dev:electron</code></td>
+<td>—</td>
+<td>Loads <code>dist/main/main.js</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="hot-module-replacement">Hot Module Replacement<a class="headerlink" href="#hot-module-replacement" title="Permanent link">&para;</a></h3>
+<p>The renderer dev server (webpack-dev-server) supports HMR for React components. When you modify a <code>.tsx</code> or <code>.css</code> file, the browser tab updates in-place without a full reload.</p>
+<p><strong>Main and Preload do NOT support HMR.</strong> When you modify <code>main.ts</code>, <code>docker.service.ts</code>, or <code>preload.ts</code>, you must <strong>quit and restart Electron</strong> to pick up the changes. The watcher will rebuild the file, but Electron has already loaded the old version.</p>
+<h3 id="connecting-to-the-backend-in-development">Connecting to the Backend in Development<a class="headerlink" href="#connecting-to-the-backend-in-development" title="Permanent link">&para;</a></h3>
+<p>The app defaults to <code>http://localhost:8081</code>. To use a different backend:</p>
+<ol>
+<li>Launch the app</li>
+<li>Click "Sign In" → expand the server config section</li>
+<li>Change the URL → Save</li>
+<li>Log in</li>
+</ol>
+<p>Or set <code>FEDLEARN_API_URL</code> before launching:</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">FEDLEARN_API_URL</span><span class="o">=</span>http://192.168.1.50:8081/api<span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>dev:electron
+</code></pre></div>
+
+<hr />
+<h2 id="production-build">Production Build<a class="headerlink" href="#production-build" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>npm<span class="w"> </span>run<span class="w"> </span>build
+</code></pre></div>
+
+<p>This runs <code>webpack.prod.config.js</code> which builds all three targets in production mode. The output is written to <code>dist/</code>:</p>
+<div class="codehilite"><pre><span></span><code>dist/
+├── main/
+│   └── main.js           ← Minified Main Process bundle
+├── preload/
+│   └── preload.js        ← Minified Preload bundle
+└── renderer/
+    ├── index.html         ← HTML with injected bundle tags
+    ├── bundle.js          ← Minified React app
+    └── styles.css         ← (if extracted)
+</code></pre></div>
+
+<p><strong>Do not run <code>npm run build</code> in development</strong> — it produces minified output which makes debugging very difficult. Use <code>npm run dev</code> for development.</p>
+<hr />
+<h2 id="electron-builder-packaging">electron-builder Packaging<a class="headerlink" href="#electron-builder-packaging" title="Permanent link">&para;</a></h2>
+<p>After the webpack build, <code>electron-builder</code> packages the app into a distributable installer.</p>
+<h3 id="quick-commands">Quick Commands<a class="headerlink" href="#quick-commands" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># macOS (arm64 + x64 DMG)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:mac
+
+<span class="c1"># Windows (x64 NSIS installer)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:win:cpu<span class="w">    </span><span class="c1"># CPU/MPS variant (no CUDA bundle)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:win:cuda<span class="w">   </span><span class="c1"># CUDA variant (with CUDA native bundle)</span>
+
+<span class="c1"># Linux (AppImage + deb)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:linux
+
+<span class="c1"># Current platform (auto-detected)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package
+</code></pre></div>
+
+<p>All commands run <code>npm run build</code> first to ensure fresh compiled output.</p>
+<h3 id="what-gets-included">What Gets Included<a class="headerlink" href="#what-gets-included" title="Permanent link">&para;</a></h3>
+<p>From <code>electron-builder.yml</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">files</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dist/**/*</span><span class="w">                  </span><span class="c1"># Compiled webpack output</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;!dist/**/*.map&quot;</span><span class="w">           </span><span class="c1"># Exclude source maps</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node_modules/dockerode/**/*</span><span class="w"> </span><span class="c1"># Native modules (not bundled by webpack)</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node_modules/electron-store/**/*</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node_modules/electron-log/**/*</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node_modules/axios/**/*</span>
+
+<span class="nt">asar</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                     </span><span class="c1"># Package files into asar archive</span>
+<span class="nt">asarUnpack</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node_modules/dockerode/**/*</span><span class="w"> </span><span class="c1"># Unpack dockerode (native .node file)</span>
+</code></pre></div>
+
+<p><code>asar: true</code> packages most files into an archive for faster load times and to obscure the source. <code>asarUnpack</code> for <code>dockerode</code> is necessary because it contains a native <code>.node</code> addon that must be on the filesystem (not inside the archive) to be loaded by Node.js.</p>
+<h3 id="dependency-audit-posture">Dependency Audit Posture<a class="headerlink" href="#dependency-audit-posture" title="Permanent link">&para;</a></h3>
+<p>The shipped dependency tree is gated by <code>npm audit</code>. Electron is pinned to <code>^42.4.0</code> (bumped from <code>^34.5.8</code>) to clear all high/critical Chromium/Electron CVEs that <code>npm audit</code> flagged against the older <code>34.x</code> line — <code>tsc</code> and the Jest suite pass against Electron 42 with no application-code changes. The tree is now <strong>clean at <code>--audit-level=high</code></strong>.</p>
+<p>Four <strong>moderate</strong> advisories remain (the <code>uuid</code> buffer-bounds-check issue, reached transitively via <code>dockerode</code> 4.0.x and <code>webpack-dev-server</code>/<code>sockjs</code>). Their only fix is a breaking <code>dockerode@5.0.0</code> major, so they are deferred and tracked for a future <code>dockerode</code> upgrade rather than force-fixed. See <a href="02-security-model.html#dependency-vulnerability-posture">Security Model → Dependency Vulnerability Posture</a> for detail.</p>
+<hr />
+<h2 id="native-client-bundle-pyinstaller">Native Client Bundle (PyInstaller)<a class="headerlink" href="#native-client-bundle-pyinstaller" title="Permanent link">&para;</a></h2>
+<p>For macOS and Windows, the app ships a <strong>PyInstaller bundle</strong> of the Python training client. This eliminates the need for Python, pip, or any ML dependencies on the end user's machine.</p>
+<h3 id="build-location">Build Location<a class="headerlink" href="#build-location" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>client-docker/packaging/dist/fedlearn-client/
+├── fedlearn-client        (macOS/Linux binary)
+├── fedlearn-client.exe    (Windows binary)
+└── _internal/             (PyInstaller support files)
+</code></pre></div>
+
+<h3 id="packaging-scripts">Packaging Scripts<a class="headerlink" href="#packaging-scripts" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># macOS (arm64 — must run on an Apple Silicon Mac)</span>
+client-docker/packaging/build-mac.sh
+
+<span class="c1"># Windows CPU (run on Windows)</span>
+client-docker/packaging/build-win-cpu.ps1
+
+<span class="c1"># Windows CUDA (run on Windows with CUDA toolkit)</span>
+client-docker/packaging/build-win-cuda.ps1
+</code></pre></div>
+
+<p>These scripts run PyInstaller and output to <code>client-docker/packaging/dist/fedlearn-client/</code>.</p>
+<h3 id="how-its-included-in-the-electron-app">How It's Included in the Electron App<a class="headerlink" href="#how-its-included-in-the-electron-app" title="Permanent link">&para;</a></h3>
+<p>In <code>electron-builder.yml</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">extraResources</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">from</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">../client-docker/packaging/dist/fedlearn-client</span>
+<span class="w">    </span><span class="nt">to</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fedlearn-client</span>
+<span class="w">    </span><span class="nt">filter</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;**/*&quot;</span>
+</code></pre></div>
+
+<p>This copies the entire bundle into the app's <code>resources/</code> directory. At runtime, <code>DockerService.resolveNativeInvocation()</code> finds it at:</p>
+<div class="codehilite"><pre><span></span><code>process.resourcesPath + &#39;/fedlearn-client/fedlearn-client&#39;
+</code></pre></div>
+
+<h3 id="the-build-order-critical">The Build Order (Critical)<a class="headerlink" href="#the-build-order-critical" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>1. Build the PyInstaller bundle (on the target platform)
+2. npm run build      ← webpack compile
+3. electron-builder  ← package into DMG/NSIS/AppImage
+</code></pre></div>
+
+<p>If you skip step 1, <code>extraResources</code> will fail because the source directory doesn't exist. <code>electron-builder</code> will either error out or produce a broken package.</p>
+<hr />
+<h2 id="platform-specific-details">Platform-Specific Details<a class="headerlink" href="#platform-specific-details" title="Permanent link">&para;</a></h2>
+<h3 id="macos">macOS<a class="headerlink" href="#macos" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nt">mac</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">category</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">public.app-category.developer-tools</span>
+<span class="w">  </span><span class="nt">target</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">target</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dmg</span>
+<span class="w">      </span><span class="nt">arch</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">arm64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">x64</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">target</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">zip</span>
+<span class="w">      </span><span class="nt">arch</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">arm64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">x64</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">titleBarStyle</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">hiddenInset</span><span class="w">     </span><span class="c1"># Inset traffic lights</span>
+<span class="w">  </span><span class="nt">darkModeSupport</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">identity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">                 </span><span class="c1"># Ad-hoc signed (no Apple Developer ID)</span>
+<span class="w">  </span><span class="nt">hardenedRuntime</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">gatekeeperAssess</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</code></pre></div>
+
+<p><strong>arm64 vs x64:</strong> Both architectures are built. arm64 is for Apple Silicon (M1/M2/M3/M4); x64 is for Intel Macs. They are separate DMG files.</p>
+<p><strong>Ad-hoc signing (<code>identity: null</code>):</strong> Without an Apple Developer ID certificate, the app is ad-hoc signed. macOS Gatekeeper will block the first launch with "App is from an unidentified developer" or "damaged" warning. Users must right-click → Open, or run:</p>
+<div class="codehilite"><pre><span></span><code>xattr<span class="w"> </span>-cr<span class="w"> </span>/Applications/FedLearn<span class="se">\ </span>Desktop.app
+</code></pre></div>
+
+<p><strong>Why not use Hardened Runtime?</strong> Hardened Runtime (required for notarization) prevents the app from executing arbitrary code, which conflicts with spawning the Python subprocess. Implementing it would require runtime exception entitlements and Apple Developer Program enrollment.</p>
+<h3 id="windows">Windows<a class="headerlink" href="#windows" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nt">win</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">target</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">target</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nsis</span>
+<span class="w">      </span><span class="nt">arch</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">x64</span><span class="p p-Indicator">]</span>
+
+<span class="nt">nsis</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">oneClick</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                          </span><span class="c1"># Show installer wizard</span>
+<span class="w">  </span><span class="nt">allowToChangeInstallationDirectory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># Custom install path</span>
+<span class="w">  </span><span class="nt">perMachine</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                        </span><span class="c1"># Per-user install (no admin required)</span>
+</code></pre></div>
+
+<p><strong>NSIS installer:</strong> Produces a standard Windows <code>.exe</code> installer with a wizard UI.</p>
+<p><strong><code>perMachine: false</code>:</strong> Per-user installation doesn't require administrator privileges. Users can install without IT approval.</p>
+<p><strong>Two Windows variants:</strong> The <code>package:win:cpu</code> and <code>package:win:cuda</code> scripts exist because the PyInstaller bundle includes PyTorch. The CPU variant includes <code>torch</code> without CUDA; the CUDA variant includes <code>torch</code> with CUDA support. Shipping both in one installer would double the size.</p>
+<h3 id="linux">Linux<a class="headerlink" href="#linux" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nt">linux</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">target</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">target</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">AppImage</span>
+<span class="w">      </span><span class="nt">arch</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">x64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">arm64</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">target</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deb</span>
+<span class="w">      </span><span class="nt">arch</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">x64</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">arm64</span><span class="p p-Indicator">]</span>
+</code></pre></div>
+
+<p><strong>AppImage:</strong> A portable executable that runs on any Linux distribution without installation. Users <code>chmod +x FedLearn.AppImage &amp;&amp; ./FedLearn.AppImage</code>.</p>
+<p><strong>deb:</strong> Debian/Ubuntu package. For systems that prefer traditional package management.</p>
+<p><strong>arm64 on Linux:</strong> Targets NVIDIA Jetson devices running Ubuntu 20.04/22.04 (L4T). However, Jetson training uses the <strong>Docker path</strong> (not native), so the Linux native bundle may not include CUDA support by default.</p>
+<hr />
+<h2 id="code-signing">Code Signing<a class="headerlink" href="#code-signing" title="Permanent link">&para;</a></h2>
+<h3 id="macos_1">macOS<a class="headerlink" href="#macos_1" title="Permanent link">&para;</a></h3>
+<p>For production releases with a valid Apple Developer ID:</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">CSC_LINK</span><span class="o">=</span>/path/to/certificate.p12
+<span class="nb">export</span><span class="w"> </span><span class="nv">CSC_KEY_PASSWORD</span><span class="o">=</span>your-p12-password
+<span class="nb">export</span><span class="w"> </span><span class="nv">APPLE_ID</span><span class="o">=</span>your@apple.id
+<span class="nb">export</span><span class="w"> </span><span class="nv">APPLE_APP_SPECIFIC_PASSWORD</span><span class="o">=</span>xxxx-xxxx-xxxx-xxxx
+<span class="nb">export</span><span class="w"> </span><span class="nv">APPLE_TEAM_ID</span><span class="o">=</span>XXXXXXXXXX
+
+<span class="c1"># Uncomment notarize script in electron-builder.yml first</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:mac
+</code></pre></div>
+
+<h3 id="windows_1">Windows<a class="headerlink" href="#windows_1" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">CSC_LINK</span><span class="o">=</span>/path/to/certificate.pfx
+<span class="nb">export</span><span class="w"> </span><span class="nv">CSC_KEY_PASSWORD</span><span class="o">=</span>your-pfx-password
+
+npm<span class="w"> </span>run<span class="w"> </span>package:win:cuda
+</code></pre></div>
+
+<p>Without signing, Windows SmartScreen will show an "Unknown Publisher" warning on first run.</p>
+<hr />
+<h2 id="release-artifacts">Release Artifacts<a class="headerlink" href="#release-artifacts" title="Permanent link">&para;</a></h2>
+<p>After packaging, output is written to <code>release/</code>:</p>
+<div class="codehilite"><pre><span></span><code>release/
+├── FedLearn Desktop-2.2.4-beta-arm64.dmg     ← macOS Apple Silicon
+├── FedLearn Desktop-2.2.4-beta-x64.dmg       ← macOS Intel
+├── FedLearn Desktop-2.2.4-beta-arm64-mac.zip ← macOS zip (update mechanism)
+├── FedLearn Desktop-Setup-2.2.4-beta.exe     ← Windows NSIS installer
+├── FedLearn Desktop-2.2.4-beta.AppImage      ← Linux portable
+└── fedlearn-desktop_2.2.4-beta_amd64.deb     ← Linux Debian package
+</code></pre></div>
+
+<p>Version is taken from <code>package.json</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2.2.4-beta&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<hr />
+<h2 id="environment-variables-reference">Environment Variables Reference<a class="headerlink" href="#environment-variables-reference" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Used By</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NODE_ENV</code></td>
+<td><code>main.ts</code></td>
+<td><code>development</code></td>
+<td>Set to <code>production</code> for production builds</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_API_URL</code></td>
+<td><code>auth.service.ts</code></td>
+<td><code>http://localhost:8081/api</code></td>
+<td>Backend API base URL (used if no saved URL)</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_API_ORIGINS</code></td>
+<td><code>main.ts</code></td>
+<td><em>(empty)</em></td>
+<td>Comma-separated additional CSP <code>connect-src</code> origins</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_CLIENT_IMAGE</code></td>
+<td><code>docker.service.ts</code></td>
+<td><code>fedlearn-client:latest</code></td>
+<td>Override Docker image name for training container</td>
+</tr>
+<tr>
+<td><code>PYTHONUNBUFFERED</code></td>
+<td><code>docker.service.ts</code></td>
+<td>Set to <code>1</code> by app</td>
+<td>Forces Python stdout to be unbuffered (real-time logs)</td>
+</tr>
+<tr>
+<td><code>PYTHONPATH</code></td>
+<td><code>docker.service.ts</code></td>
+<td>Set by app</td>
+<td>Adds <code>framework/src</code> to Python module search path (dev mode)</td>
+</tr>
+<tr>
+<td><code>CSC_LINK</code></td>
+<td>electron-builder</td>
+<td>—</td>
+<td>Path to code signing certificate</td>
+</tr>
+<tr>
+<td><code>CSC_KEY_PASSWORD</code></td>
+<td>electron-builder</td>
+<td>—</td>
+<td>Code signing certificate password</td>
+</tr>
+<tr>
+<td><code>APPLE_ID</code></td>
+<td>electron-builder</td>
+<td>—</td>
+<td>Apple ID for notarization</td>
+</tr>
+<tr>
+<td><code>APPLE_APP_SPECIFIC_PASSWORD</code></td>
+<td>electron-builder</td>
+<td>—</td>
+<td>App-specific password for notarization</td>
+</tr>
+<tr>
+<td><code>APPLE_TEAM_ID</code></td>
+<td>electron-builder</td>
+<td>—</td>
+<td>Apple Team ID for notarization</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>Next: <a href="07-hardware-profiles.html">07 — Hardware Profiles &amp; Training Execution</a></em><br />
+<em>Previous: <a href="05-renderer-components.html">05 — Renderer &amp; Components</a></em></p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

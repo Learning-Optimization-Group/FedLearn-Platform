@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FedLearn Desktop — Security Model · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Desktop</summary><ul>
+<li><a href="README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a class="active" href="02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Desktop</b> &nbsp;·&nbsp; FedLearn Desktop — Security Model</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="fedlearn-desktop-security-model">FedLearn Desktop — Security Model<a class="headerlink" href="#fedlearn-desktop-security-model" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a> → <a href="README.html">Desktop Wiki</a></p>
+</blockquote>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#security-philosophy">Security Philosophy</a></li>
+<li><a href="#browserwindow-hardening">BrowserWindow Hardening</a></li>
+<li><a href="#content-security-policy">Content Security Policy</a></li>
+<li><a href="#context-isolation--the-preload-bridge">Context Isolation &amp; the Preload Bridge</a></li>
+<li><a href="#input-validation--two-layer-defense">Input Validation — Two-Layer Defense</a></li>
+<li><a href="#jwt-confinement-to-main-process">JWT Confinement to Main Process</a></li>
+<li><a href="#safestorage--os-level-encryption">safeStorage — OS-Level Encryption</a></li>
+<li><a href="#navigation-and-window-open-restrictions">Navigation and Window-Open Restrictions</a></li>
+<li><a href="#docker-socket-confinement">Docker Socket Confinement</a></li>
+<li><a href="#log-rendering--xss-prevention">Log Rendering — XSS Prevention</a></li>
+<li><a href="#threat-model-summary">Threat Model Summary</a></li>
+<li><a href="#dependency-vulnerability-posture">Dependency Vulnerability Posture</a></li>
+</ol>
+<hr />
+<h2 id="security-philosophy">Security Philosophy<a class="headerlink" href="#security-philosophy" title="Permanent link">&para;</a></h2>
+<p>FedLearn Desktop is built around the principle of <strong>minimal privilege + defense-in-depth</strong>. Because the app embeds a web renderer (Chromium) that processes externally-sourced data (container log output, backend API responses), every trust boundary is explicitly defended at multiple layers.</p>
+<p>The three non-negotiable invariants:</p>
+<ol>
+<li><strong>The JWT never leaves the Main Process.</strong> No matter what happens in the renderer.</li>
+<li><strong>The Docker socket is never exposed to the renderer or any container.</strong> Only <code>DockerService</code> in Main accesses it.</li>
+<li><strong>Every input crossing the IPC boundary is validated twice</strong> — in the Preload bridge and again in Main.</li>
+</ol>
+<hr />
+<h2 id="browserwindow-hardening">BrowserWindow Hardening<a class="headerlink" href="#browserwindow-hardening" title="Permanent link">&para;</a></h2>
+<p>The <code>BrowserWindow</code> is created with a strict set of <code>webPreferences</code> in <code>main.ts</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/main/main.ts</span>
+<span class="nx">mainWindow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">BrowserWindow</span><span class="p">({</span>
+<span class="w">  </span><span class="nx">webPreferences</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// ========== SECURITY: Non-Negotiable ==========</span>
+<span class="w">    </span><span class="nx">nodeIntegration</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w">    </span><span class="c1">// Renderer has NO Node.js access</span>
+<span class="w">    </span><span class="nx">contextIsolation</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w">    </span><span class="c1">// Renderer and preload have separate JS contexts</span>
+<span class="w">    </span><span class="nx">sandbox</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w">             </span><span class="c1">// Additional OS-level process sandboxing</span>
+<span class="w">    </span><span class="c1">// ===============================================</span>
+<span class="w">    </span><span class="nx">preload</span><span class="o">:</span><span class="w"> </span><span class="kt">path.join</span><span class="p">(</span><span class="nx">__dirname</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;..&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;preload&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;preload.js&#39;</span><span class="p">),</span>
+<span class="w">    </span><span class="nx">devTools</span><span class="o">:</span><span class="w"> </span><span class="kt">isDev</span><span class="p">,</span><span class="w">           </span><span class="c1">// DevTools only in dev mode</span>
+<span class="w">    </span><span class="nx">webSecurity</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w">         </span><span class="c1">// Enforces same-origin policy</span>
+<span class="w">    </span><span class="nx">allowRunningInsecureContent</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">experimentalFeatures</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<h3 id="why-each-setting-matters">Why each setting matters<a class="headerlink" href="#why-each-setting-matters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Value</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nodeIntegration</code></td>
+<td><code>false</code></td>
+<td>Without this, ANY JavaScript in the renderer can call <code>require('child_process')</code>, <code>require('fs')</code>, etc. This is the single most critical setting.</td>
+</tr>
+<tr>
+<td><code>contextIsolation</code></td>
+<td><code>true</code></td>
+<td>Even with <code>nodeIntegration: false</code>, without context isolation the renderer can prototype-pollute the preload's JS context. With it enabled, the preload runs in a completely separate JavaScript world.</td>
+</tr>
+<tr>
+<td><code>sandbox</code></td>
+<td><code>true</code></td>
+<td>Applies OS-level sandboxing (seccomp on Linux, App Sandbox on macOS, Low-IL on Windows). Restricts syscall surface of the renderer process.</td>
+</tr>
+<tr>
+<td><code>devTools</code></td>
+<td><code>isDev</code></td>
+<td>Prevents opening DevTools in production builds, which could expose internal state.</td>
+</tr>
+<tr>
+<td><code>webSecurity</code></td>
+<td><code>true</code></td>
+<td>Keeps same-origin policy enforced. Prevents the renderer from loading arbitrary URLs.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="content-security-policy">Content Security Policy<a class="headerlink" href="#content-security-policy" title="Permanent link">&para;</a></h2>
+<p>A Content Security Policy (CSP) is applied to every response. This acts as a defense-in-depth layer <strong>on top of</strong> <code>contextIsolation</code> — even if an XSS payload executes, the CSP blocks it from loading external scripts or exfiltrating data.</p>
+<h3 id="dev-mode-http-response-headers">Dev Mode (HTTP — response headers)<a class="headerlink" href="#dev-mode-http-response-headers" title="Permanent link">&para;</a></h3>
+<p>In development the app is served over HTTP from the webpack dev server, so CSP is applied via session-level response header injection:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/main/main.ts</span>
+<span class="nx">session</span><span class="p">.</span><span class="nx">defaultSession</span><span class="p">.</span><span class="nx">webRequest</span><span class="p">.</span><span class="nx">onHeadersReceived</span><span class="p">((</span><span class="nx">details</span><span class="p">,</span><span class="w"> </span><span class="nx">callback</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">callback</span><span class="p">({</span>
+<span class="w">    </span><span class="nx">responseHeaders</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="p">...</span><span class="nx">details</span><span class="p">.</span><span class="nx">responseHeaders</span><span class="p">,</span>
+<span class="w">      </span><span class="s1">&#39;Content-Security-Policy&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">[[</span>
+<span class="w">        </span><span class="s2">&quot;default-src &#39;self&#39;&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;script-src &#39;self&#39; &#39;unsafe-eval&#39;&quot;</span><span class="p">,</span><span class="w">   </span><span class="c1">// webpack HMR needs eval</span>
+<span class="w">        </span><span class="s2">&quot;style-src &#39;self&#39; &#39;unsafe-inline&#39; https://fonts.googleapis.com&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;font-src &#39;self&#39; https://fonts.gstatic.com&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;img-src &#39;self&#39; data:&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="sb">`connect-src &#39;self&#39; </span><span class="si">${</span><span class="nx">apiConnectSrc</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span><span class="w">  </span><span class="c1">// backend origins</span>
+<span class="w">        </span><span class="s2">&quot;frame-src &#39;none&#39;&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;object-src &#39;none&#39;&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s2">&quot;base-uri &#39;self&#39;&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="p">].</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;; &#39;</span><span class="p">)],</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<h3 id="production-mode-file-meta-tag">Production Mode (file:// — meta tag)<a class="headerlink" href="#production-mode-file-meta-tag" title="Permanent link">&para;</a></h3>
+<p>In packaged builds the app loads from <code>file://</code>. Chromium's handling of <code>'self'</code> under <code>file://</code> origins is inconsistent — it does <strong>not</strong> resolve to the API host. Therefore, in production the CSP is embedded as a <code>&lt;meta&gt;</code> tag in <code>index.html</code>, and the <code>connect-src</code> origins are injected at build time via the <code>FEDLEARN_API_ORIGINS</code> environment variable.</p>
+<h3 id="dynamic-api-origins">Dynamic API Origins<a class="headerlink" href="#dynamic-api-origins" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Comma-separated list of backend origins (set at CI/build time for production)</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">apiOriginsFromEnv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">FEDLEARN_API_ORIGINS</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+<span class="w">  </span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)</span>
+<span class="w">  </span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">s</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">trim</span><span class="p">())</span>
+<span class="w">  </span><span class="p">.</span><span class="nx">filter</span><span class="p">(</span><span class="nb">Boolean</span><span class="p">);</span>
+
+<span class="c1">// In dev mode, always allow localhost</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">defaultApiOrigins</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">isDev</span>
+<span class="w">  </span><span class="o">?</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;http://localhost:8081&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;ws://localhost:8081&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;http://localhost:9000&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;ws://localhost:9000&#39;</span><span class="p">]</span>
+<span class="w">  </span><span class="o">:</span><span class="w"> </span><span class="p">[];</span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">apiConnectSrc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[...</span><span class="nx">defaultApiOrigins</span><span class="p">,</span><span class="w"> </span><span class="p">...</span><span class="nx">apiOriginsFromEnv</span><span class="p">].</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">);</span>
+</code></pre></div>
+
+<hr />
+<h2 id="context-isolation-the-preload-bridge">Context Isolation &amp; the Preload Bridge<a class="headerlink" href="#context-isolation-the-preload-bridge" title="Permanent link">&para;</a></h2>
+<p>With <code>contextIsolation: true</code> and <code>sandbox: true</code>, the renderer cannot access any Node.js globals. The <strong>only</strong> way for the renderer to communicate with the Main Process is through the API surface explicitly exposed by the preload script via <code>contextBridge</code>.</p>
+<div class="codehilite"><pre><span></span><code>Renderer&#39;s window.js context     ←→     Preload&#39;s isolated context
+                                              ↓ ipcRenderer
+                                         Main Process
+</code></pre></div>
+
+<h3 id="what-contextbridgeexposeinmainworld-does">What <code>contextBridge.exposeInMainWorld</code> does<a class="headerlink" href="#what-contextbridgeexposeinmainworld-does" title="Permanent link">&para;</a></h3>
+<p><code>contextBridge</code> creates a <strong>serialized</strong> bridge — it clones values (using the structured clone algorithm) when passing between contexts. This prevents the renderer from getting a reference to any internal preload object, which would allow prototype pollution attacks.</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/preload/preload.ts</span>
+<span class="nx">contextBridge</span><span class="p">.</span><span class="nx">exposeInMainWorld</span><span class="p">(</span><span class="s1">&#39;fedLearnAPI&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">startTraining</span><span class="o">:</span><span class="w"> </span><span class="kt">async</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">TrainingConfigInput</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">stopTraining</span><span class="o">:</span><span class="w">  </span><span class="kt">async</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="nx">login</span><span class="o">:</span><span class="w">         </span><span class="kt">async</span><span class="w"> </span><span class="p">(</span><span class="nx">username</span><span class="p">,</span><span class="w"> </span><span class="nx">password</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ... */</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="c1">// ...</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<p>The renderer sees <code>window.fedLearnAPI</code> as a plain object with typed async functions. It cannot:
+- Call <code>ipcRenderer.invoke</code> directly with arbitrary channel names
+- Access any Node.js module
+- Access the preload's internal state</p>
+<hr />
+<h2 id="input-validation-two-layer-defense">Input Validation — Two-Layer Defense<a class="headerlink" href="#input-validation-two-layer-defense" title="Permanent link">&para;</a></h2>
+<p>Every input that crosses the preload bridge is validated <strong>twice</strong>: once in the preload before <code>ipcRenderer.invoke</code>, and once again in the Main Process IPC handler. This means even a compromised renderer that calls <code>ipcRenderer.invoke</code> directly (bypassing the preload) cannot inject malicious values.</p>
+<h3 id="preload-validation-layer-1">Preload Validation (Layer 1)<a class="headerlink" href="#preload-validation-layer-1" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/preload/preload.ts — Allowlist constants</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">ALLOWED_HARDWARE_PROFILES</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;discrete&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="p">]</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kd">const</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">PROJECT_ID_PATTERN</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[a-zA-Z0-9_-]{1,128}$/</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">PARTITION_ID_PATTERN</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[0-9]{1,10}$/</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">SERVER_ADDRESS_PATTERN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[a-zA-Z0-9._:/-]{1,256}$/</span><span class="p">;</span>
+
+<span class="c1">// Used before every ipcRenderer.invoke(&#39;docker:start-training&#39;, ...)</span>
+<span class="nx">startTraining</span><span class="o">:</span><span class="w"> </span><span class="kt">async</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">TrainingConfigInput</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidHardwareProfile</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid hardware profile&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidProjectId</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">projectId</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid project ID&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidServerAddress</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">serverAddress</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid server address&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidPartitionId</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">partitionId</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid partition ID&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidModelType</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid model type&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidDatasetPath</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">datasetPath</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid dataset path&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="c1">// Only reach ipcRenderer if ALL checks pass</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">ipcRenderer</span><span class="p">.</span><span class="nx">invoke</span><span class="p">(</span><span class="s1">&#39;docker:start-training&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="nx">config</span><span class="w"> </span><span class="p">});</span>
+<span class="p">},</span>
+</code></pre></div>
+
+<h3 id="main-process-validation-layer-2">Main Process Validation (Layer 2)<a class="headerlink" href="#main-process-validation-layer-2" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/main/ipc.handlers.ts</span>
+<span class="nx">ipcMain</span><span class="p">.</span><span class="nx">handle</span><span class="p">(</span><span class="s1">&#39;docker:start-training&#39;</span><span class="p">,</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">_event</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Re-validate even though preload already did</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">validateHardwareProfile</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* reject */</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">validateProjectId</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">projectId</span><span class="p">))</span><span class="w">             </span><span class="p">{</span><span class="w"> </span><span class="cm">/* reject */</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">validateServerAddress</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">serverAddress</span><span class="p">))</span><span class="w">     </span><span class="p">{</span><span class="w"> </span><span class="cm">/* reject */</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">validatePartitionId</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">partitionId</span><span class="p">))</span><span class="w">         </span><span class="p">{</span><span class="w"> </span><span class="cm">/* reject */</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">  </span><span class="c1">// Dataset path gets special treatment — full canonicalization</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">safeDatasetPath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">sanitizeDatasetPath</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">datasetPath</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">safeDatasetPath</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid dataset path: must be an existing absolute directory&#39;</span><span class="w"> </span><span class="p">};</span>
+
+<span class="w">  </span><span class="c1">// Only use the sanitized path in Docker bind mount — never the raw input</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">validConfig</span><span class="o">:</span><span class="w"> </span><span class="kt">TrainingConfig</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">...</span><span class="nx">cfg</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">datasetPath</span><span class="o">:</span><span class="w"> </span><span class="kt">safeDatasetPath</span><span class="p">,</span><span class="w"> </span><span class="c1">// canonical, resolved, verified-directory path</span>
+<span class="w">  </span><span class="p">};</span>
+<span class="w">  </span><span class="k">await</span><span class="w"> </span><span class="nx">dockerService</span><span class="p">.</span><span class="nx">startTraining</span><span class="p">(</span><span class="nx">validConfig</span><span class="p">);</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<h3 id="sanitizedatasetpath-deep-dive"><code>sanitizeDatasetPath</code> — Deep Dive<a class="headerlink" href="#sanitizedatasetpath-deep-dive" title="Permanent link">&para;</a></h3>
+<p>The dataset path is particularly critical because it's interpolated into a Docker bind mount string (<code>${path}:/data</code>). A malicious path like <code>../../etc</code> could expose sensitive host directories.</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">function</span><span class="w"> </span><span class="nx">sanitizeDatasetPath</span><span class="p">(</span><span class="nx">raw</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// 1. Type and length check</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nx">raw</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;string&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">raw</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">raw</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">2048</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+
+<span class="w">  </span><span class="c1">// 2. Null byte check — prevents directory traversal via embedded null terminator</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">raw</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="s1">&#39;\0&#39;</span><span class="p">))</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+
+<span class="w">  </span><span class="c1">// 3. Resolve to absolute path (collapses all .. segments)</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">resolved</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">resolved</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">resolve</span><span class="p">(</span><span class="nx">raw</span><span class="p">);</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">  </span><span class="c1">// 4. Verify no remaining .. segments (shouldn&#39;t be possible after resolve, but belt-and-suspenders)</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">resolved</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="nx">path</span><span class="p">.</span><span class="nx">sep</span><span class="p">).</span><span class="nx">some</span><span class="p">((</span><span class="nx">seg</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">seg</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;..&#39;</span><span class="p">))</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+
+<span class="w">  </span><span class="c1">// 5. Must be absolute</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">path</span><span class="p">.</span><span class="nx">isAbsolute</span><span class="p">(</span><span class="nx">resolved</span><span class="p">))</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+
+<span class="w">  </span><span class="c1">// 6. Must exist AND be a directory (not a file, not a symlink to a non-dir)</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">stat</span><span class="o">:</span><span class="w"> </span><span class="kt">fs.Stats</span><span class="p">;</span>
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">stat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">fs</span><span class="p">.</span><span class="nx">statSync</span><span class="p">(</span><span class="nx">resolved</span><span class="p">);</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">stat</span><span class="p">.</span><span class="nx">isDirectory</span><span class="p">())</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">resolved</span><span class="p">;</span><span class="w">  </span><span class="c1">// canonical, safe path</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<hr />
+<h2 id="jwt-confinement-to-main-process">JWT Confinement to Main Process<a class="headerlink" href="#jwt-confinement-to-main-process" title="Permanent link">&para;</a></h2>
+<p>Authentication follows a strict trust model:</p>
+<div class="codehilite"><pre><span></span><code>Renderer  ──(username, password)──►  Preload  ──►  Main  ──►  Backend API
+                                                     │
+                                                     ▼
+                                              JWT stored in Main
+                                              (OS-encrypted store)
+                                                     │
+                                        { success: boolean }
+                                                     │
+         ◄────────────────────────────────────────────
+</code></pre></div>
+
+<p>The JWT <strong>never travels left</strong> in this diagram. The renderer only ever receives <code>{ success: true }</code> or <code>{ success: false }</code>. This means:</p>
+<ul>
+<li>Even if the renderer's JavaScript environment is fully compromised (e.g., via a stored XSS in log output), the attacker cannot steal the JWT</li>
+<li>The JWT is not accessible via <code>window.*</code>, <code>localStorage</code>, <code>sessionStorage</code>, or <code>indexedDB</code> from the renderer</li>
+</ul>
+<p>The <code>getAuthHeader()</code> method in <code>AuthService</code> is a Main-only method — it's never called from the IPC handlers that respond to the renderer; it's used internally when the Main process needs to make authenticated API calls on behalf of the user.</p>
+<hr />
+<h2 id="safestorage-os-level-encryption">safeStorage — OS-Level Encryption<a class="headerlink" href="#safestorage-os-level-encryption" title="Permanent link">&para;</a></h2>
+<p>When the JWT needs to persist across app restarts, it's encrypted using Electron's <code>safeStorage</code> API, which delegates to the OS credential store:</p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Backend</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>macOS</td>
+<td>Keychain</td>
+</tr>
+<tr>
+<td>Windows</td>
+<td>DPAPI (Data Protection API)</td>
+</tr>
+<tr>
+<td>Linux</td>
+<td>libsecret / GNOME Keyring</td>
+</tr>
+</tbody>
+</table>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/main/auth.service.ts</span>
+<span class="k">private</span><span class="w"> </span><span class="nx">storeJwt</span><span class="p">(</span><span class="nx">jwt</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">username</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">expiresAt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Date</span><span class="p">.</span><span class="nx">now</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">JWT_EXPIRY_MS</span><span class="p">;</span><span class="w"> </span><span class="c1">// 24 hours</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">safeStorage</span><span class="p">.</span><span class="nx">isEncryptionAvailable</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Encrypt with OS keychain</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">encrypted</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">safeStorage</span><span class="p">.</span><span class="nx">encryptString</span><span class="p">(</span><span class="nx">jwt</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">authData</span><span class="o">:</span><span class="w"> </span><span class="kt">AuthStore</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">encryptedJwt</span><span class="o">:</span><span class="w"> </span><span class="kt">encrypted.toString</span><span class="p">(</span><span class="s1">&#39;base64&#39;</span><span class="p">),</span><span class="w">  </span><span class="c1">// store as base64</span>
+<span class="w">      </span><span class="nx">expiresAt</span><span class="p">,</span>
+<span class="w">      </span><span class="nx">username</span><span class="p">,</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">store</span><span class="p">.</span><span class="nx">set</span><span class="p">(</span><span class="nx">AUTH_STORE_KEY</span><span class="p">,</span><span class="w"> </span><span class="nx">authData</span><span class="p">);</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s1">&#39;[AuthService] JWT encrypted via safeStorage (OS keychain)&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="c1">// No OS encryption available (e.g., headless Linux without keyring)</span>
+<span class="w">  </span><span class="c1">// SECURITY DECISION: Do NOT persist to disk in this case.</span>
+<span class="w">  </span><span class="c1">// A previous design wrote reversible base64 — that is not encryption.</span>
+<span class="w">  </span><span class="c1">// Instead: hold in process memory only. User must re-authenticate on relaunch.</span>
+<span class="w">  </span><span class="nx">log</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;[AuthService] safeStorage unavailable — JWT held in process memory only&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">store</span><span class="p">.</span><span class="ow">delete</span><span class="p">(</span><span class="nx">AUTH_STORE_KEY</span><span class="p">);</span><span class="w">  </span><span class="c1">// Scrub any stale token from prior install</span>
+<span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">sessionMemory</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">jwt</span><span class="p">,</span><span class="w"> </span><span class="nx">expiresAt</span><span class="p">,</span><span class="w"> </span><span class="nx">username</span><span class="w"> </span><span class="p">};</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="decryption-and-auth-check">Decryption and Auth Check<a class="headerlink" href="#decryption-and-auth-check" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nx">isAuthenticated</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// 1. Check in-memory session (used when encryption was unavailable at login)</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">sessionMemory</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">Date</span><span class="p">.</span><span class="nx">now</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">sessionMemory</span><span class="p">.</span><span class="nx">expiresAt</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">logout</span><span class="p">();</span><span class="w">  </span><span class="c1">// Clear expired session</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">sessionMemory</span><span class="p">.</span><span class="nx">jwt</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="c1">// 2. Check on-disk store</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">authData</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">store</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="nx">AUTH_STORE_KEY</span><span class="p">)</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="nx">AuthStore</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">undefined</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">authData</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="nx">authData</span><span class="p">.</span><span class="nx">encryptedJwt</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+
+<span class="w">  </span><span class="c1">// Check expiry BEFORE attempting decryption</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nb">Date</span><span class="p">.</span><span class="nx">now</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nx">authData</span><span class="p">.</span><span class="nx">expiresAt</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">logout</span><span class="p">();</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Verify decryptability (keychain key may have changed since last login)</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">decrypted</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">safeStorage</span><span class="p">.</span><span class="nx">decryptString</span><span class="p">(</span><span class="nx">Buffer</span><span class="p">.</span><span class="kr">from</span><span class="p">(</span><span class="nx">authData</span><span class="p">.</span><span class="nx">encryptedJwt</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;base64&#39;</span><span class="p">));</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">decrypted</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Keychain key changed (e.g., new OS user password) — logout gracefully</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;[AuthService] Failed to decrypt stored JWT — keychain may have changed&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">logout</span><span class="p">();</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<hr />
+<h2 id="navigation-and-window-open-restrictions">Navigation and Window-Open Restrictions<a class="headerlink" href="#navigation-and-window-open-restrictions" title="Permanent link">&para;</a></h2>
+<p>Two additional hardening measures prevent the app from being used as a launcher for external content:</p>
+<h3 id="block-new-window-creation">Block New Window Creation<a class="headerlink" href="#block-new-window-creation" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/main/main.ts</span>
+<span class="nx">app</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;web-contents-created&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">_event</span><span class="p">,</span><span class="w"> </span><span class="nx">contents</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">contents</span><span class="p">.</span><span class="nx">setWindowOpenHandler</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;[Security] Blocked attempt to open new window from renderer&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">action</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;deny&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="w">  </span><span class="c1">// ...</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<p>This prevents any script in the renderer from opening external browser windows (e.g., <code>window.open('http://evil.com')</code>).</p>
+<h3 id="block-external-navigation">Block External Navigation<a class="headerlink" href="#block-external-navigation" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nx">contents</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;will-navigate&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">,</span><span class="w"> </span><span class="nx">url</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">allowed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">isDev</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">url</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;http://localhost:9000&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">allowed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">url</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s1">&#39;file://&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Only allow navigation within the packaged app directory</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">filePath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">decodeURIComponent</span><span class="p">(</span><span class="ow">new</span><span class="w"> </span><span class="nx">URL</span><span class="p">(</span><span class="nx">url</span><span class="p">).</span><span class="nx">pathname</span><span class="p">);</span>
+<span class="w">    </span><span class="nx">allowed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">appDir</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="nx">filePath</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="nx">appDir</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">allowed</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">event</span><span class="p">.</span><span class="nx">preventDefault</span><span class="p">();</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="sb">`[Security] Blocked navigation to: </span><span class="si">${</span><span class="nx">url</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<p>This prevents the renderer from being navigated to external URLs — a common attack when XSS leads to a <code>location.href = 'http://attacker.com'</code>.</p>
+<hr />
+<h2 id="docker-socket-confinement">Docker Socket Confinement<a class="headerlink" href="#docker-socket-confinement" title="Permanent link">&para;</a></h2>
+<p>The Docker socket (<code>/var/run/docker.sock</code> on Unix, <code>//./pipe/docker_engine</code> on Windows) grants full control over all containers on the host. This is a <strong>high-privilege resource</strong>.</p>
+<p>FedLearn Desktop's security contract:
+1. The Docker socket is <strong>only accessed in <code>DockerService</code></strong> (Main Process)
+2. The Docker socket is <strong>never mounted into training containers</strong> (enforced in <code>startDockerTraining</code> — <code>AutoRemove: false</code> and no socket bind mount)
+3. The renderer has no knowledge that Docker even exists — it only calls <code>startTraining(config)</code> via the API bridge</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/main/docker.service.ts</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">hostConfig</span><span class="o">:</span><span class="w"> </span><span class="kt">Docker.HostConfig</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">AutoRemove</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">Binds</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="sb">`</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">datasetPath</span><span class="si">}</span><span class="sb">:/data`</span><span class="p">],</span><span class="w">  </span><span class="c1">// ONLY the dataset directory</span>
+<span class="w">  </span><span class="c1">// NOTE: /var/run/docker.sock is intentionally NOT mounted</span>
+<span class="p">};</span>
+</code></pre></div>
+
+<p>If the training container were to receive the Docker socket, it could escape the container and control the host daemon. This is explicitly prevented.</p>
+<hr />
+<h2 id="log-rendering-xss-prevention">Log Rendering — XSS Prevention<a class="headerlink" href="#log-rendering-xss-prevention" title="Permanent link">&para;</a></h2>
+<p>Container output is untrusted data. A maliciously crafted training script could output HTML/JavaScript. The <code>LogPanel</code> component is designed to prevent any XSS from this source:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/renderer/components/LogPanel.tsx</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">LogPanel</span><span class="o">:</span><span class="w"> </span><span class="kt">React.FC</span><span class="o">&lt;</span><span class="nx">LogPanelProps</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">({</span><span class="w"> </span><span class="nx">logs</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="nx">div</span><span class="w"> </span><span class="nx">className</span><span class="o">=</span><span class="s2">&quot;log-panel&quot;</span><span class="w"> </span><span class="nx">ref</span><span class="o">=</span><span class="p">{</span><span class="nx">containerRef</span><span class="p">}</span><span class="o">&gt;</span>
+<span class="w">      </span><span class="o">&lt;</span><span class="nx">pre</span><span class="w"> </span><span class="nx">className</span><span class="o">=</span><span class="s2">&quot;log-content&quot;</span><span class="o">&gt;</span>
+<span class="w">        </span><span class="p">{</span><span class="cm">/*</span>
+<span class="cm">          SECURITY: Each log line is a plain text node.</span>
+<span class="cm">          React&#39;s default escaping prevents any HTML interpretation.</span>
+<span class="cm">          No dangerouslySetInnerHTML. No innerHTML. No DOM injection.</span>
+<span class="cm">        */</span><span class="p">}</span>
+<span class="w">        </span><span class="p">{</span><span class="nx">logs</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)}</span>
+<span class="w">      </span><span class="o">&lt;</span><span class="err">/pre&gt;</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="err">/div&gt;</span>
+<span class="w">  </span><span class="p">);</span>
+<span class="p">};</span>
+</code></pre></div>
+
+<p>React's JSX rendering <strong>automatically escapes</strong> all string content — <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> in a log line renders as the literal text, not as an executable script tag. This means even if an attacker controls the Python training script, they cannot achieve XSS through container output.</p>
+<hr />
+<h2 id="threat-model-summary">Threat Model Summary<a class="headerlink" href="#threat-model-summary" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Threat</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Compromised renderer executes arbitrary code</td>
+<td><code>nodeIntegration: false</code>, <code>contextIsolation: true</code>, <code>sandbox: true</code></td>
+</tr>
+<tr>
+<td>Renderer steals JWT</td>
+<td>JWT confined to Main Process; renderer only gets <code>{ success: boolean }</code></td>
+</tr>
+<tr>
+<td>XSS via malicious log output</td>
+<td><code>LogPanel</code> uses React text nodes (auto-escaped); no <code>innerHTML</code></td>
+</tr>
+<tr>
+<td>Path traversal via dataset path</td>
+<td><code>sanitizeDatasetPath()</code> resolves, canonicalizes, and stat-checks the path</td>
+</tr>
+<tr>
+<td>Arbitrary IPC channel calls</td>
+<td>Preload only exposes a typed, allowlisted API surface; no raw <code>ipcRenderer</code></td>
+</tr>
+<tr>
+<td>Input injection into Docker args</td>
+<td>Double validation (preload + main) with strict regex allowlists</td>
+</tr>
+<tr>
+<td>Docker socket access from container</td>
+<td>Socket never mounted into training containers</td>
+</tr>
+<tr>
+<td>Navigation to external URLs</td>
+<td><code>will-navigate</code> event handler blocks non-app URLs</td>
+</tr>
+<tr>
+<td>New window/popup abuse</td>
+<td><code>setWindowOpenHandler</code> returns <code>{ action: 'deny' }</code> for all opens</td>
+</tr>
+<tr>
+<td>Stale/decryptable JWT on disk</td>
+<td><code>safeStorage</code> uses OS keychain; if unavailable, no disk persistence</td>
+</tr>
+<tr>
+<td>Token replay after OS user password change</td>
+<td>Decryption failure triggers <code>logout()</code> and graceful re-auth prompt</td>
+</tr>
+<tr>
+<td>Crash data exfiltration</td>
+<td><code>crashReporter.start({ uploadToServer: false })</code> — dumps stay local</td>
+</tr>
+<tr>
+<td>Known Chromium/Electron CVEs in the runtime</td>
+<td>Electron pinned to <code>^42.4.0</code> (bumped from <code>^34.5.8</code>) to clear all high/critical advisories flagged by <code>npm audit</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="dependency-vulnerability-posture">Dependency Vulnerability Posture<a class="headerlink" href="#dependency-vulnerability-posture" title="Permanent link">&para;</a></h2>
+<p>The desktop app's dependency tree is audited via <code>npm audit</code>. As of the Electron <code>^42.4.0</code> bump, the tree is <strong>clean at <code>--audit-level=high</code></strong> — no high- or critical-severity advisories remain. The Electron upgrade (from <code>^34.5.8</code>) was driven specifically by high/critical Chromium/Electron CVEs that <code>npm audit</code> surfaced against the older <code>34.x</code> line; <code>tsc</code> and the Jest suite pass against Electron 42 with no application-code changes.</p>
+<p>Four <strong>moderate</strong> advisories remain, all the same <code>uuid</code> missing-buffer-bounds-check issue (<a href="https://github.com/advisories/GHSA-w5hq-g745-h8pq">GHSA-w5hq-g745-h8pq</a>) reached transitively through <code>dockerode</code> (4.0.x) and <code>sockjs</code>/<code>webpack-dev-server</code>. The only published fix pulls in <code>dockerode@5.0.0</code>, a breaking major, so these are deliberately <strong>deferred and tracked for a future <code>dockerode</code> major upgrade</strong> rather than force-fixed.</p>
+<hr />
+<p><em>Next: <a href="03-main-process.html">03 — Main Process Deep Dive</a></em>
+<em>Previous: <a href="01-overview-and-architecture.html">01 — Overview &amp; Architecture</a></em></p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>09 — Developer Guide: Extending the Framework · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Framework</summary><ul>
+<li><a href="README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a class="active" href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Framework</b> &nbsp;·&nbsp; 09 — Developer Guide: Extending the Framework</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="09-developer-guide-extending-the-framework">09 — Developer Guide: Extending the Framework<a class="headerlink" href="#09-developer-guide-extending-the-framework" title="Permanent link">&para;</a></h1>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#installation-for-development">Installation for Development</a></li>
+<li><a href="#adding-a-custom-strategy">Adding a Custom Strategy</a></li>
+<li><a href="#adding-a-custom-client">Adding a Custom Client</a></li>
+<li><a href="#modifying-the-proto-contract">Modifying the Proto Contract</a></li>
+<li><a href="#testing-guidelines">Testing Guidelines</a></li>
+<li><a href="#logging-best-practices">Logging Best Practices</a></li>
+<li><a href="#common-pitfalls">Common Pitfalls</a></li>
+<li><a href="#contributing-checklist">Contributing Checklist</a></li>
+</ul>
+<hr />
+<h2 id="installation-for-development">Installation for Development<a class="headerlink" href="#installation-for-development" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>FedLearn-Platform/framework
+
+<span class="c1"># Create a virtual environment</span>
+python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>venv
+<span class="nb">source</span><span class="w"> </span>venv/bin/activate<span class="w">   </span><span class="c1"># Windows: venv\Scripts\activate</span>
+
+<span class="c1"># Install in editable mode so changes take effect immediately</span>
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+
+<span class="c1"># Install dev extras</span>
+pip<span class="w"> </span>install<span class="w"> </span>grpcio-tools<span class="w"> </span>pytest<span class="w"> </span>pytest-timeout
+</code></pre></div>
+
+<p>Verify installation:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">fedlearn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">fl</span><span class="o">.</span><span class="vm">__file__</span><span class="p">)</span>   <span class="c1"># should point to src/fedlearn/__init__.py</span>
+</code></pre></div>
+
+<hr />
+<h2 id="adding-a-custom-strategy">Adding a Custom Strategy<a class="headerlink" href="#adding-a-custom-strategy" title="Permanent link">&para;</a></h2>
+<p><strong>1. Create the strategy file:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># src/fedlearn/server/my_strategy.py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Strategy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MyStrategy</span><span class="p">(</span><span class="n">Strategy</span><span class="p">):</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">initial_parameters</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">evaluate_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">min_fit_clients</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">clients_per_round</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="c1"># add your custom hyperparameters here</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span> <span class="o">=</span> <span class="n">initial_parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="o">=</span> <span class="n">evaluate_fn</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_fit_clients</span> <span class="o">=</span> <span class="n">min_fit_clients</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clients_per_round</span> <span class="o">=</span> <span class="n">clients_per_round</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">aggregate_fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">server_round</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">results</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">OrderedDict</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OrderedDict</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="c1"># --- your aggregation logic here ---</span>
+        <span class="c1"># results = [(params_dict, num_examples), ...]</span>
+        <span class="c1"># must return an OrderedDict[str, torch.Tensor]</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">parameters</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span><span class="p">(</span><span class="n">server_round</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>2. Export it from the package:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># src/fedlearn/__init__.py  — add this line</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.server.my_strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyStrategy</span>
+</code></pre></div>
+
+<p><strong>3. Use it:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">fedlearn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
+
+<span class="n">strategy</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">MyStrategy</span><span class="p">(</span>
+    <span class="n">initial_parameters</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+    <span class="n">clients_per_round</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">fl</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">start_server</span><span class="p">(</span><span class="s2">&quot;0.0.0.0:50051&quot;</span><span class="p">,</span> <span class="n">fl</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">ServerConfig</span><span class="p">(</span><span class="n">num_rounds</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span> <span class="n">strategy</span><span class="p">)</span>
+</code></pre></div>
+
+<hr />
+<h2 id="adding-a-custom-client">Adding a Custom Client<a class="headerlink" href="#adding-a-custom-client" title="Permanent link">&para;</a></h2>
+<p><strong>1. Subclass <code>Client</code>:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># my_client.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">fedlearn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MyClient</span><span class="p">(</span><span class="n">fl</span><span class="o">.</span><span class="n">Client</span><span class="p">):</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span> <span class="o">=</span> <span class="n">train_loader</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">device</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">momentum</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">criterion</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span> <span class="o">=</span> <span class="kc">None</span>   <span class="c1"># set by framework if you implement set_grpc_client</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_grpc_client</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gc</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Optional but recommended — enables heartbeat progress updates.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span> <span class="o">=</span> <span class="n">gc</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="c1"># 1. Load global model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+
+        <span class="n">total_steps</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">)</span>
+
+        <span class="c1"># 2. Local training</span>
+        <span class="k">for</span> <span class="n">step</span><span class="p">,</span> <span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">):</span>
+            <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">),</span> <span class="n">targets</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">criterion</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">),</span> <span class="n">targets</span><span class="p">)</span>
+            <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+
+            <span class="c1"># 3. Report progress</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;training&quot;</span><span class="p">,</span> <span class="n">step</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">)</span>
+
+        <span class="c1"># 4. Return updated params + dataset size</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="o">.</span><span class="n">dataset</span><span class="p">)</span>
+
+
+<span class="c1"># Entry point</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">MyClient</span><span class="p">(</span><span class="n">MyModel</span><span class="p">(),</span> <span class="n">my_train_loader</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+    <span class="n">fl</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">start_client</span><span class="p">(</span><span class="s2">&quot;localhost:50051&quot;</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="s2">&quot;client_0&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<hr />
+<h2 id="modifying-the-proto-contract">Modifying the Proto Contract<a class="headerlink" href="#modifying-the-proto-contract" title="Permanent link">&para;</a></h2>
+<p>If you add a new RPC or message type:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 1. Edit the source proto</span>
+vim<span class="w"> </span>src/fedlearn/communication/protos/fedlearn.proto
+
+<span class="c1"># 2. Regenerate Python stubs</span>
+python<span class="w"> </span>-m<span class="w"> </span>grpc_tools.protoc<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-I<span class="w"> </span>src/fedlearn/communication/protos<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--python_out<span class="o">=</span>src/fedlearn/communication/generated<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--grpc_python_out<span class="o">=</span>src/fedlearn/communication/generated<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>src/fedlearn/communication/protos/fedlearn.proto
+
+<span class="c1"># 3. Fix relative import in generated grpc file</span>
+sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="s1">&#39;s/^import fedlearn_pb2/from . import fedlearn_pb2/&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>src/fedlearn/communication/generated/fedlearn_pb2_grpc.py
+
+<span class="c1"># 4. Implement the handler in grpc_servicer.py</span>
+<span class="c1"># 5. Add coordinator method if needed</span>
+<span class="c1"># 6. Add GrpcClient method if clients need to call the new RPC</span>
+</code></pre></div>
+
+<hr />
+<h2 id="testing-guidelines">Testing Guidelines<a class="headerlink" href="#testing-guidelines" title="Permanent link">&para;</a></h2>
+<h3 id="unit-test-pattern">Unit test pattern<a class="headerlink" href="#unit-test-pattern" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># tests/test_aggregation.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.server.strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">FedAvgAggregator</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">make_params</span><span class="p">(</span><span class="n">values</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_fedavg_weighted_average</span><span class="p">():</span>
+    <span class="n">agg</span> <span class="o">=</span> <span class="n">FedAvgAggregator</span><span class="p">()</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="n">make_params</span><span class="p">({</span><span class="s2">&quot;w&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">]}),</span> <span class="mi">100</span><span class="p">),</span>  <span class="c1"># weight = 100/150</span>
+        <span class="p">(</span><span class="n">make_params</span><span class="p">({</span><span class="s2">&quot;w&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">]}),</span> <span class="mi">50</span><span class="p">),</span>   <span class="c1"># weight =  50/150</span>
+    <span class="p">]</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">agg</span><span class="o">.</span><span class="n">aggregate</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+    <span class="n">expected</span> <span class="o">=</span> <span class="p">(</span><span class="mi">100</span><span class="o">/</span><span class="mi">150</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">])</span> <span class="o">+</span> <span class="p">(</span><span class="mi">50</span><span class="o">/</span><span class="mi">150</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="s2">&quot;w&quot;</span><span class="p">],</span> <span class="n">expected</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_fedavg_rejects_zero_examples</span><span class="p">():</span>
+    <span class="n">agg</span> <span class="o">=</span> <span class="n">FedAvgAggregator</span><span class="p">()</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[(</span><span class="n">make_params</span><span class="p">({</span><span class="s2">&quot;w&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">]}),</span> <span class="mi">0</span><span class="p">)]</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="s2">&quot;No valid updates&quot;</span><span class="p">):</span>
+        <span class="n">agg</span><span class="o">.</span><span class="n">aggregate</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_fedavg_caps_num_examples</span><span class="p">():</span>
+    <span class="n">agg</span> <span class="o">=</span> <span class="n">FedAvgAggregator</span><span class="p">()</span>
+    <span class="c1"># 200,000 &gt; MAX_SAMPLES=100,000; should be capped silently</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="n">make_params</span><span class="p">({</span><span class="s2">&quot;w&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">]}),</span> <span class="mi">200_000</span><span class="p">),</span>
+        <span class="p">(</span><span class="n">make_params</span><span class="p">({</span><span class="s2">&quot;w&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">3.0</span><span class="p">]}),</span> <span class="mi">100_000</span><span class="p">),</span>
+    <span class="p">]</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">agg</span><span class="o">.</span><span class="n">aggregate</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+    <span class="c1"># Both capped to 100,000 → equal weights → average = 2.0</span>
+    <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="s2">&quot;w&quot;</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">2.0</span><span class="p">]))</span>
+</code></pre></div>
+
+<p>Run tests:</p>
+<div class="codehilite"><pre><span></span><code>pytest<span class="w"> </span>tests/<span class="w"> </span>-v<span class="w"> </span>--timeout<span class="o">=</span><span class="m">60</span>
+</code></pre></div>
+
+<h3 id="integration-test-pattern">Integration test pattern<a class="headerlink" href="#integration-test-pattern" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># tests/test_integration.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span><span class="o">,</span><span class="w"> </span><span class="nn">time</span><span class="o">,</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">fedlearn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">make_simple_client</span><span class="p">(</span><span class="n">train_steps</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+    <span class="k">class</span><span class="w"> </span><span class="nc">ToyClient</span><span class="p">(</span><span class="n">fl</span><span class="o">.</span><span class="n">Client</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">({</span><span class="s2">&quot;w&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">10</span><span class="p">)})</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+            <span class="c1"># Simulate training: shift weights slightly</span>
+            <span class="n">new_params</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+            <span class="k">return</span> <span class="n">new_params</span><span class="p">,</span> <span class="mi">100</span>
+    <span class="k">return</span> <span class="n">ToyClient</span><span class="p">()</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_two_round_federation</span><span class="p">():</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">strategy</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">FedAvg</span><span class="p">(</span>
+        <span class="n">initial_parameters</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+        <span class="n">min_fit_clients</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="n">clients_per_round</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">history_holder</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">run_server</span><span class="p">():</span>
+        <span class="n">h</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">start_server</span><span class="p">(</span>
+            <span class="s2">&quot;localhost:59876&quot;</span><span class="p">,</span>
+            <span class="n">fl</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">ServerConfig</span><span class="p">(</span><span class="n">num_rounds</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+            <span class="n">strategy</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">history_holder</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+
+    <span class="n">server_thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">run_server</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">server_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>   <span class="c1"># allow server to bind</span>
+
+    <span class="n">c0</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span>
+        <span class="n">target</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">start_client</span><span class="p">,</span>
+        <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;localhost:59876&quot;</span><span class="p">,</span> <span class="n">make_simple_client</span><span class="p">(),</span> <span class="s2">&quot;c0&quot;</span><span class="p">),</span>
+        <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">c1</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span>
+        <span class="n">target</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">start_client</span><span class="p">,</span>
+        <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;localhost:59876&quot;</span><span class="p">,</span> <span class="n">make_simple_client</span><span class="p">(),</span> <span class="s2">&quot;c1&quot;</span><span class="p">),</span>
+        <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">c0</span><span class="o">.</span><span class="n">start</span><span class="p">();</span> <span class="n">c1</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="n">server_thread</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">history_holder</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Expected 2 completed rounds&quot;</span>
+</code></pre></div>
+
+<hr />
+<h2 id="logging-best-practices">Logging Best Practices<a class="headerlink" href="#logging-best-practices" title="Permanent link">&para;</a></h2>
+<p>The framework uses Python's standard <code>logging</code> module throughout. Follow these rules:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>   <span class="c1"># always use module-level logger</span>
+
+<span class="c1"># Choose the right level:</span>
+<span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>    <span class="c1"># step-level detail (chatty), off in production</span>
+<span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>     <span class="c1"># key lifecycle events (round start, aggregation, shutdown)</span>
+<span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># recoverable anomalies (stale update, zero examples)</span>
+<span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>    <span class="c1"># operation failed (submit failed, RPC error)</span>
+<span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="o">...</span><span class="p">)</span><span class="c1"># unexpected exception — includes full traceback</span>
+
+<span class="c1"># Include structured context in messages:</span>
+<span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Aggregating </span><span class="si">%d</span><span class="s2"> updates for round </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">),</span> <span class="n">server_round</span><span class="p">)</span>
+<span class="c1"># NOT: log.info(f&quot;Aggregating {len(results)} for round {server_round}&quot;)</span>
+<span class="c1"># (%-style is preferred — avoids string formatting when log level is disabled)</span>
+</code></pre></div>
+
+<p>The server's JSON formatter will capture all of these and relay them to the Spring Boot backend.</p>
+<hr />
+<h2 id="common-pitfalls">Common Pitfalls<a class="headerlink" href="#common-pitfalls" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Pitfall</th>
+<th>Symptom</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Forgetting <code>params.clear()</code> after aggregation</td>
+<td>OOM on large models</td>
+<td>Always clear client param dicts after use</td>
+</tr>
+<tr>
+<td>Using <code>torch.load</code> without <code>weights_only=True</code></td>
+<td>Security warning / pickle execution</td>
+<td>Always pass <code>weights_only=True</code></td>
+</tr>
+<tr>
+<td>Calling <code>_trigger_aggregation_and_evaluation()</code> outside the lock</td>
+<td>Race condition, double-aggregation</td>
+<td>Only call while <code>self._lock</code> is held</td>
+</tr>
+<tr>
+<td>Shared heartbeat and data channel</td>
+<td>Heartbeats queue behind model uploads</td>
+<td>Use <code>GrpcClient</code>'s dual-channel design</td>
+</tr>
+<tr>
+<td>Not implementing <code>set_grpc_client</code></td>
+<td>No progress in UI</td>
+<td>Implement the hook; framework calls it automatically</td>
+</tr>
+<tr>
+<td>Training on GPU but submitting CPU tensors</td>
+<td>Serialiser calls <code>.cpu()</code> anyway, but wasteful</td>
+<td>Call <code>.cpu().detach()</code> before <code>state_dict()</code> if using GPU</td>
+</tr>
+<tr>
+<td>α too low in Dirichlet partition</td>
+<td>Some clients get 0 samples</td>
+<td>Set <code>min_samples_per_client=10</code> guard</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="contributing-checklist">Contributing Checklist<a class="headerlink" href="#contributing-checklist" title="Permanent link">&para;</a></h2>
+<p>Before submitting a pull request:</p>
+<ul>
+<li>[ ] All three abstract methods implemented (<code>initialize_parameters</code>, <code>aggregate_fit</code>, <code>evaluate</code>)</li>
+<li>[ ] <code>params.clear()</code> called after using client updates in aggregation</li>
+<li>[ ] New RPC handlers added to both <code>grpc_servicer.py</code> and <code>GrpcClient</code></li>
+<li>[ ] Proto stubs regenerated and relative import fix applied</li>
+<li>[ ] Module-level logger used (<code>log = logging.getLogger(__name__)</code>)</li>
+<li>[ ] Unit tests added under <code>tests/</code></li>
+<li>[ ] Example added or updated in <code>examples/</code> if adding a major feature</li>
+<li>[ ] Public symbols exported from <code>src/fedlearn/__init__.py</code></li>
+<li>[ ] <code>CONTRIBUTING.md</code> reviewed for code style requirements</li>
+</ul></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

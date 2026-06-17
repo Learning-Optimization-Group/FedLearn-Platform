@@ -10,7 +10,7 @@ This is achieved via a pipeline consisting of process standard output capture, S
 2. **Capture:** The Spring Boot backend reads these logs. For local execution, this is handled by a daemon thread attached to the `Process` output stream. For AWS, logs are shipped via CloudWatch or internal REST callbacks.
 3. **Distribution (`WebSocketService`):** The `WebSocketService.sendLogs()` method routes the raw string.
 4. **WebSocket Push:** Spring's `SimpMessagingTemplate` pushes the string over an open STOMP WebSocket channel.
-5. **Persistence:** The backend parses the JSON string and saves the structured data to the PostgreSQL `server_logs` table for permanent storage.
+5. **Persistence:** The backend parses the JSON string and saves the structured data to the `server_logs` table (H2 on this branch) for permanent storage.
 
 ---
 

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 - Federated Orchestration (FlowerServerManager) · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Backend</summary><ul>
+<li><a href="README.html">Backend Architecture Wiki</a></li>
+<li><a href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="03_project_management.html">Project Management Lifecycle</a></li>
+<li><a class="active" href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Backend</b> &nbsp;·&nbsp; 04 - Federated Orchestration (FlowerServerManager)</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="04-federated-orchestration-flowerservermanager">04 - Federated Orchestration (FlowerServerManager)<a class="headerlink" href="#04-federated-orchestration-flowerservermanager" title="Permanent link">&para;</a></h1>
+<p>The <code>FlowerServerManager</code> is the most operationally complex class in the Spring Boot backend. It is responsible for bridging the gap between the stateless Java REST API and the stateful, heavily computational Python Federated Learning servers.</p>
+<p>The application supports two distinct execution paths, determined entirely by the presence of AWS configuration properties (<code>ecs.cluster-name</code>, <code>ecs.task-definition</code>, etc.) in the <code>application.properties</code>.</p>
+<h2 id="path-a-local-execution-processbuilder">Path A: Local Execution (ProcessBuilder)<a class="headerlink" href="#path-a-local-execution-processbuilder" title="Permanent link">&para;</a></h2>
+<p>When AWS configurations are not present, the <code>FlowerServerManager</code> falls back to local execution. This is primarily used for development, testing on a Macbook, or bare-metal deployments (like the RIT lab environment).</p>
+<h3 id="process-lifecycle">Process Lifecycle<a class="headerlink" href="#process-lifecycle" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Port Allocation:</strong> The manager asks the host OS kernel for an ephemeral port via <code>new ServerSocket(0)</code>.</li>
+<li><strong>Process Construction:</strong> It builds a shell command array using <code>bash</code> and the path to the <code>run_fl_server.sh</code> script.</li>
+<li><strong>Environment Injection:</strong> It injects internal configuration strings directly into the child process's environment variables.
+   <code>java
+   Map&lt;String, String&gt; env = pb.environment();
+   env.put("FEDLEARN_INTERNAL_API_KEY", internalApiKey);
+   env.put("FEDLEARN_BACKEND_URL", backendInternalUrl);</code></li>
+<li><strong>Execution and Tracking:</strong> The process is started via <code>ProcessBuilder.start()</code>. The returned <code>java.lang.Process</code> object is stored in a <code>ConcurrentHashMap</code> keyed by the <code>UUID projectId</code>.</li>
+</ol>
+<h3 id="output-redirection">Output Redirection<a class="headerlink" href="#output-redirection" title="Permanent link">&para;</a></h3>
+<p>Because a spawned local process does not automatically print to the parent's console, the manager creates a dedicated daemon thread <code>fl-server-stdout-{id}</code>. This thread continuously reads from the child's <code>InputStream</code>.</p>
+<p>Every line read is passed to the <code>WebSocketService</code> to be broadcast to the UI. If the process crashes during startup (exits within 3 seconds), an exception is thrown containing the captured <code>stdout</code> to help developers debug.</p>
+<h2 id="path-b-cloud-native-execution-aws-ecs-fargate">Path B: Cloud-Native Execution (AWS ECS Fargate)<a class="headerlink" href="#path-b-cloud-native-execution-aws-ecs-fargate" title="Permanent link">&para;</a></h2>
+<p>When the backend is deployed to a production environment (like AWS), local process spawning is disabled. A Spring Boot container running behind an Application Load Balancer cannot spawn heavily computational Python tasks inside itself—it would cause OOM kills, and the dynamically allocated ports would be inaccessible from the public internet.</p>
+<p>Instead, the <code>FlowerServerManager</code> utilizes the AWS SDK (<code>EcsClient</code>) to orchestrate infrastructure-level task provisioning.</p>
+<h3 id="ecs-runtaskrequest">ECS <code>RunTaskRequest</code><a class="headerlink" href="#ecs-runtaskrequest" title="Permanent link">&para;</a></h3>
+<p>The manager dynamically builds a <code>RunTaskRequest</code>. It targets a serverless AWS Fargate cluster.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">RunTaskRequest</span><span class="w"> </span><span class="n">request</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">RunTaskRequest</span><span class="p">.</span><span class="na">builder</span><span class="p">()</span>
+<span class="w">        </span><span class="p">.</span><span class="na">cluster</span><span class="p">(</span><span class="n">ecsClusterName</span><span class="p">)</span>
+<span class="w">        </span><span class="p">.</span><span class="na">taskDefinition</span><span class="p">(</span><span class="n">ecsTaskDefinition</span><span class="p">)</span>
+<span class="w">        </span><span class="p">.</span><span class="na">launchType</span><span class="p">(</span><span class="n">LaunchType</span><span class="p">.</span><span class="na">FARGATE</span><span class="p">)</span>
+<span class="w">        </span><span class="p">.</span><span class="na">networkConfiguration</span><span class="p">(</span><span class="n">NetworkConfiguration</span><span class="p">.</span><span class="na">builder</span><span class="p">()</span>
+<span class="w">                </span><span class="p">.</span><span class="na">awsvpcConfiguration</span><span class="p">(</span><span class="n">AwsVpcConfiguration</span><span class="p">.</span><span class="na">builder</span><span class="p">()</span>
+<span class="w">                        </span><span class="p">.</span><span class="na">subnets</span><span class="p">(</span><span class="n">splitCsv</span><span class="p">(</span><span class="n">ecsSubnetsCsv</span><span class="p">))</span>
+<span class="w">                        </span><span class="p">.</span><span class="na">securityGroups</span><span class="p">(</span><span class="n">splitCsv</span><span class="p">(</span><span class="n">ecsSecurityGroupsCsv</span><span class="p">))</span>
+<span class="w">                        </span><span class="p">.</span><span class="na">assignPublicIp</span><span class="p">(</span><span class="n">AssignPublicIp</span><span class="p">.</span><span class="na">fromValue</span><span class="p">(</span><span class="n">ecsAssignPublicIp</span><span class="p">))</span>
+<span class="w">                        </span><span class="p">.</span><span class="na">build</span><span class="p">())</span>
+<span class="w">                </span><span class="p">.</span><span class="na">build</span><span class="p">())</span>
+<span class="w">        </span><span class="p">...</span>
+</code></pre></div>
+
+<h3 id="dynamic-overrides">Dynamic Overrides<a class="headerlink" href="#dynamic-overrides" title="Permanent link">&para;</a></h3>
+<p>Instead of hardcoding environment variables in the task definition in AWS, the Java application uses <code>TaskOverride</code> and <code>ContainerOverride</code> to dynamically inject the specific parameters for the requested federated training round:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">.</span><span class="na">overrides</span><span class="p">(</span><span class="n">TaskOverride</span><span class="p">.</span><span class="na">builder</span><span class="p">()</span>
+<span class="w">        </span><span class="p">.</span><span class="na">containerOverrides</span><span class="p">(</span><span class="n">ContainerOverride</span><span class="p">.</span><span class="na">builder</span><span class="p">()</span>
+<span class="w">                </span><span class="p">.</span><span class="na">name</span><span class="p">(</span><span class="n">ecsContainerName</span><span class="p">)</span>
+<span class="w">                </span><span class="p">.</span><span class="na">environment</span><span class="p">(</span>
+<span class="w">                        </span><span class="n">kv</span><span class="p">(</span><span class="s">&quot;PROJECT_ID&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">project</span><span class="p">.</span><span class="na">getId</span><span class="p">().</span><span class="na">toString</span><span class="p">()),</span>
+<span class="w">                        </span><span class="n">kv</span><span class="p">(</span><span class="s">&quot;MODEL_PATH&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">project</span><span class="p">.</span><span class="na">getModelPath</span><span class="p">()),</span>
+<span class="w">                        </span><span class="n">kv</span><span class="p">(</span><span class="s">&quot;STRATEGY&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">strategy</span><span class="p">),</span>
+<span class="w">                        </span><span class="n">kv</span><span class="p">(</span><span class="s">&quot;NUM_ROUNDS&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">String</span><span class="p">.</span><span class="na">valueOf</span><span class="p">(</span><span class="n">numRounds</span><span class="p">)),</span>
+<span class="w">                        </span><span class="n">kv</span><span class="p">(</span><span class="s">&quot;FEDLEARN_INTERNAL_API_KEY&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">internalApiKey</span><span class="p">)</span>
+<span class="w">                </span><span class="p">)</span>
+<span class="w">                </span><span class="p">.</span><span class="na">build</span><span class="p">())</span>
+<span class="w">        </span><span class="p">.</span><span class="na">build</span><span class="p">())</span>
+</code></pre></div>
+
+<h3 id="network-resolution-awsvpc">Network Resolution (awsvpc)<a class="headerlink" href="#network-resolution-awsvpc" title="Permanent link">&para;</a></h3>
+<p>When launched via ECS, the task runs in <code>awsvpc</code> mode. It receives its own Elastic Network Interface (ENI) and private IP. The Java app does <em>not</em> try to allocate a port. Instead, AWS ECS Service Connect (Envoy Proxies) registers the container in a private Cloud Map namespace, allowing edge clients to connect to it using a logical hostname rather than a hardcoded port.</p>
+<h2 id="graceful-shutdown">Graceful Shutdown<a class="headerlink" href="#graceful-shutdown" title="Permanent link">&para;</a></h2>
+<p>To prevent orphaned processes, the manager hooks into the Spring Application Context lifecycle via the <code>@PreDestroy</code> annotation. When the Java backend is shutting down, it iterates through the <code>ConcurrentHashMap</code> of running servers and forcibly destroys all active child processes.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 — Architecture & Package Overview · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Framework</summary><ul>
+<li><a href="README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a class="active" href="01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Framework</b> &nbsp;·&nbsp; 01 — Architecture & Package Overview</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="01-architecture-package-overview">01 — Architecture &amp; Package Overview<a class="headerlink" href="#01-architecture-package-overview" title="Permanent link">&para;</a></h1>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#what-is-the-framework">What Is the Framework?</a></li>
+<li><a href="#technology-stack">Technology Stack</a></li>
+<li><a href="#package-layout">Package Layout</a></li>
+<li><a href="#module-dependency-graph">Module Dependency Graph</a></li>
+<li><a href="#how-the-components-fit-together">How the Components Fit Together</a></li>
+<li><a href="#federated-learning-lifecycle-at-a-glance">Federated Learning Lifecycle at a Glance</a></li>
+<li><a href="#integration-with-the-rest-of-the-platform">Integration with the Rest of the Platform</a></li>
+<li><a href="#public-api-surface">Public API Surface</a></li>
+</ul>
+<hr />
+<h2 id="what-is-the-framework">What Is the Framework?<a class="headerlink" href="#what-is-the-framework" title="Permanent link">&para;</a></h2>
+<p>The <code>framework/</code> directory contains <code>fedlearn</code> — a self-contained Python library that implements the core federated learning logic. It is the component that actually performs model training, parameter aggregation, and client-server communication. Everything else in the platform (the Spring Boot backend, the React frontend, the Electron desktop app) ultimately delegates to this library.</p>
+<p>The library is intentionally decoupled from the platform orchestration layer. You can run it standalone on a laptop with three terminals, inside Docker containers, or as processes spawned by the Java backend on AWS Fargate — the library itself doesn't know or care.</p>
+<hr />
+<h2 id="technology-stack">Technology Stack<a class="headerlink" href="#technology-stack" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Technology</th>
+<th>Version / Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Language</td>
+<td>Python</td>
+<td>3.10+ (uses <code>list[X]</code> built-in generics)</td>
+</tr>
+<tr>
+<td>Deep Learning</td>
+<td>PyTorch</td>
+<td>2.0+ (used for parameter tensors, autograd)</td>
+</tr>
+<tr>
+<td>Communication</td>
+<td>gRPC + Protobuf</td>
+<td><code>grpcio 1.x</code>, <code>protobuf 4.x</code></td>
+</tr>
+<tr>
+<td>Data Science</td>
+<td>NumPy</td>
+<td>Array manipulation, Dirichlet sampling</td>
+</tr>
+<tr>
+<td>LLM Support</td>
+<td>HuggingFace Transformers</td>
+<td>OPT, GPT-2, etc.</td>
+</tr>
+<tr>
+<td>Compression</td>
+<td>lz4 (optional)</td>
+<td>Activated by <code>FEDLEARN_USE_COMPRESSION=1</code></td>
+</tr>
+<tr>
+<td>Packaging</td>
+<td>setuptools</td>
+<td><code>setup.py</code> + <code>pyproject.toml</code></td>
+</tr>
+</tbody>
+</table>
+<p>The library has <strong>zero dependency on the Spring Boot backend</strong>. Its only external communication is gRPC between the Python server and Python clients.</p>
+<blockquote>
+<p><strong>No Flower / <code>flwr</code> dependency.</strong> Despite the historical <code>flower</code> package name on the Java side (<code>FlowerServerManager</code>), the FL framework is entirely custom — its own protobuf contract (<code>fedlearn.v1</code>) and its own FedAvg / DeComFL strategies. <code>framework/requirements.txt</code> has <strong>no <code>flwr</code> / <code>flwr-datasets</code></strong> entry (they carried zero imports and were removed). <code>transformers</code> <em>is</em> still pinned — it backs the FoT (federated optimisation / LLM) path and the HuggingFace model loaders.</p>
+</blockquote>
+<hr />
+<h2 id="package-layout">Package Layout<a class="headerlink" href="#package-layout" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>framework/
+├── src/
+│   └── fedlearn/                   ← Installable Python package
+│       ├── __init__.py             ← Public API (re-exports key symbols)
+│       │
+│       ├── server/                 ← Server-side logic
+│       │   ├── __init__.py
+│       │   ├── server.py           ← start_server() entry point
+│       │   ├── coordinator.py      ← FLCoordinator (round management)
+│       │   ├── strategy.py         ← Strategy ABC + FedAvg + FedAvgAggregator
+│       │   ├── decomfl_strategy.py ← DeComFL strategy (Algorithm 3)
+│       │   ├── grpc_servicer.py    ← FederatedLearningServiceServicer (RPC handlers)
+│       │   └── async_coordinator.py← (experimental, RabbitMQ-based, not currently used)
+│       │
+│       ├── client/                 ← Client-side logic
+│       │   ├── __init__.py
+│       │   ├── client.py           ← Client ABC + start_client() entry point
+│       │   ├── grpc_client.py      ← GrpcClient (transport layer)
+│       │   ├── decomfl_client.py   ← DeComFLClient (Algorithm 4)
+│       │   └── decomfl_start.py    ← start_decomfl_client() entry point
+│       │
+│       ├── communication/          ← Protocol layer
+│       │   ├── __init__.py
+│       │   ├── serializer.py       ← Proto ↔ PyTorch tensor conversion + chunking
+│       │   ├── protos/
+│       │   │   └── fedlearn.proto  ← Source of truth for all RPC messages
+│       │   └── generated/          ← Code generated by protoc (committed)
+│       │       ├── fedlearn_pb2.py
+│       │       └── fedlearn_pb2_grpc.py
+│       │
+│       ├── estimators/             ← Gradient estimation algorithms
+│       │   ├── __init__.py
+│       │   └── zeroth_order.py     ← ZerothOrderEstimator (DeComFL forward-diff)
+│       │
+│       └── data/                   ← Dataset utilities
+│           └── MNIST/              ← MNIST download + Dirichlet partition helpers
+│
+├── examples/                       ← End-to-end runnable examples
+│   ├── simple_federation/          ← MNIST + CNN (FedAvg)
+│   ├── llm_federation/             ← OPT-125M (FedAvg)
+│   ├── ecg_federation/             ← ECG Transformer (FedAvg)
+│   ├── ecg_decomfl_central/        ← ECG + DeComFL (centralised baseline)
+│   ├── ecg_decomfl_multiclient/    ← ECG + DeComFL (multi-client)
+│   └── ecg_decomfl_framework_integration/
+│
+├── requirements.txt                ← Python dependencies
+├── setup.py                        ← Package metadata + install configuration
+├── pyproject.toml                  ← Minimal build-system config
+├── run_full_test_suite.py          ← Comprehensive e2e test runner
+├── run_local_test.py               ← Quick local sanity test
+└── run_platform_e2e_test.py        ← Integration test (talks to Spring backend)
+</code></pre></div>
+
+<hr />
+<h2 id="module-dependency-graph">Module Dependency Graph<a class="headerlink" href="#module-dependency-graph" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>                         ┌──────────────────────────────┐
+                         │   user script / example /     │
+                         │   run_server.py               │
+                         └───────────────┬──────────────┘
+                                         │ calls
+                                         ▼
+                         ┌──────────────────────────────┐
+                         │    server.start_server()      │
+                         │    server.py                  │
+                         └──────┬──────────────┬─────────┘
+                                │              │ creates
+                         creates│              ▼
+                                │   ┌──────────────────────┐
+                                │   │   FLCoordinator       │
+                                │   │   coordinator.py      │◄──────────────┐
+                                │   └──────────────────────┘               │
+                         ┌──────▼──────────────────────┐                   │
+                         │ FederatedLearningServicer    │                   │
+                         │ grpc_servicer.py             │──── delegates ────┘
+                         └──────────────────────────────┘
+                                        ▲
+                            gRPC/HTTP2  │
+                         ┌──────────────┴──────────────┐
+                         │      GrpcClient              │
+                         │      client/grpc_client.py   │
+                         └──────────────┬───────────────┘
+                                        │ used by
+                                        ▼
+                         ┌──────────────────────────────┐
+                         │  client.start_client()       │
+                         │  client.py                   │
+                         └──────────────────────────────┘
+                                        ▲
+                                        │ abstract
+                         ┌──────────────┴──────────────┐
+                         │     User Client Subclass     │
+                         │     (e.g. MNISTClient)       │
+                         └──────────────────────────────┘
+
+Side chains:
+  strategy.py ──► FedAvgAggregator
+  decomfl_strategy.py ──► zeroth_order.ZerothOrderEstimator
+  serializer.py ──► communication/generated/fedlearn_pb2.py
+</code></pre></div>
+
+<hr />
+<h2 id="how-the-components-fit-together">How the Components Fit Together<a class="headerlink" href="#how-the-components-fit-together" title="Permanent link">&para;</a></h2>
+<h3 id="the-server-side">The Server Side<a class="headerlink" href="#the-server-side" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong><code>server.py</code></strong> — the single public entry point. It creates a <code>FLCoordinator</code>, wraps it in a gRPC server, and runs the training loop.</li>
+<li><strong><code>FLCoordinator</code></strong> — the brain of the server. It tracks round state, client registrations, heartbeats, update submissions, and triggers aggregation when all expected clients have submitted.</li>
+<li><strong><code>FederatedLearningServiceServicer</code></strong> — the gRPC I/O layer. Each incoming RPC call is a thin dispatcher that validates the request and calls a method on <code>FLCoordinator</code>.</li>
+<li><strong><code>Strategy</code></strong> — pluggable aggregation and evaluation logic. The coordinator delegates <code>aggregate_fit()</code> and <code>evaluate()</code> to the active strategy.</li>
+</ol>
+<h3 id="the-client-side">The Client Side<a class="headerlink" href="#the-client-side" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong><code>client.py</code></strong> — the single public entry point for standard FL clients. <code>start_client()</code> wraps the entire training loop: register → fetch model → <code>client.fit()</code> → submit update → poll for next round.</li>
+<li><strong><code>GrpcClient</code></strong> — handles all network I/O. It manages the gRPC channel, heartbeat thread, retry logic, and automatically selects between unary and streaming RPC for model uploads.</li>
+<li><strong><code>Client</code> ABC</strong> — the interface that application code must implement. Only two methods: <code>get_parameters()</code> and <code>fit()</code>.</li>
+<li><strong><code>DeComFLClient</code></strong> — a specialised subclass for the DeComFL protocol. Instead of returning updated model weights, it returns gradient scalars, making communication O(1) in model size.</li>
+</ol>
+<hr />
+<h2 id="federated-learning-lifecycle-at-a-glance">Federated Learning Lifecycle at a Glance<a class="headerlink" href="#federated-learning-lifecycle-at-a-glance" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>Server starts
+    │
+    ▼
+coordinator.set_initial_parameters(strategy.initialize_parameters())
+    │
+    └─► For each round r = 1 … N:
+            │
+            ├── coordinator.start_round()   ← clears stale state
+            │
+            │   ┌──────────────────────────────────────────────┐
+            │   │ Meanwhile, clients are polling               │
+            │   │                                              │
+            │   │  GrpcClient.get_global_model()               │
+            │   │     → streams global model weights           │
+            │   │                                              │
+            │   │  client.fit(parameters, config)              │
+            │   │     → local training (backprop or ZO)        │
+            │   │                                              │
+            │   │  GrpcClient.submit_update(params, n)         │
+            │   │     → unary or streaming upload              │
+            │   └──────────────────────────────────────────────┘
+            │
+            ├── coordinator.wait_for_round_to_complete()
+            │       (blocks until clients_per_round updates received)
+            │
+            ├── strategy.aggregate_fit(round, results)
+            │       → new global model params
+            │
+            ├── strategy.evaluate(round, params)
+            │       → loss + metrics dict
+            │
+            └── coordinator.current_round += 1
+                coordinator._round_complete_event.set()
+
+Server stops gRPC server, returns (history, final_parameters)
+</code></pre></div>
+
+<hr />
+<h2 id="integration-with-the-rest-of-the-platform">Integration with the Rest of the Platform<a class="headerlink" href="#integration-with-the-rest-of-the-platform" title="Permanent link">&para;</a></h2>
+<p>The Python framework is invoked as a <strong>child process</strong> by two parts of the platform:</p>
+<h3 id="1-spring-boot-backend">1. Spring Boot Backend<a class="headerlink" href="#1-spring-boot-backend" title="Permanent link">&para;</a></h3>
+<p>The <code>FlowerServerManager</code> Java service calls <code>ProcessBuilder</code> to launch a Python <code>run_server.py</code> script. The process's stdout is streamed as JSON log lines to the frontend via STOMP WebSocket. On AWS Fargate, it instead launches an ECS task running a Docker image that packages the framework.</p>
+<div class="codehilite"><pre><span></span><code>Spring Boot
+  └── ProcessBuilder(&quot;python&quot;, &quot;run_server.py&quot;, &quot;--project_id&quot;, &quot;xyz&quot;, ...)
+         └── framework/src/run_server.py
+                └── import fedlearn; fedlearn.server.start_server(...)
+</code></pre></div>
+
+<h3 id="2-electron-desktop-app">2. Electron Desktop App<a class="headerlink" href="#2-electron-desktop-app" title="Permanent link">&para;</a></h3>
+<p>The <code>fedlearn-desktop</code> Electron app has a <code>TrainingService</code> that spawns the server and multiple client processes locally using Node's <code>child_process.spawn</code>. This enables single-machine multi-client federation for offline/demo use.</p>
+<div class="codehilite"><pre><span></span><code>Electron main process
+  ├── spawn(&quot;python run_server.py ...&quot;)  →  FedLearn gRPC server :50051
+  └── spawn(&quot;python run_client.py ...&quot;)  →  N clients connecting to :50051
+</code></pre></div>
+
+<h3 id="3-docker-containers">3. Docker Containers<a class="headerlink" href="#3-docker-containers" title="Permanent link">&para;</a></h3>
+<p><code>client-docker/</code> contains a <code>Dockerfile</code> that installs the framework and exposes a client entrypoint. The backend can instruct clients to spin up Docker containers for isolated training environments.</p>
+<hr />
+<h2 id="public-api-surface">Public API Surface<a class="headerlink" href="#public-api-surface" title="Permanent link">&para;</a></h2>
+<p>The <code>fedlearn/__init__.py</code> exports the minimal surface that application code needs:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">fedlearn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
+
+<span class="c1"># ─── Server ────────────────────────────────────────────────────────────────</span>
+<span class="n">fl</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">start_server</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">strategy</span><span class="p">)</span>  <span class="c1"># blocking call</span>
+<span class="n">fl</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">ServerConfig</span><span class="p">(</span><span class="n">num_rounds</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+<span class="c1"># ─── Strategies ────────────────────────────────────────────────────────────</span>
+<span class="n">fl</span><span class="o">.</span><span class="n">FedAvg</span><span class="p">(</span>
+    <span class="n">initial_parameters</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+    <span class="n">evaluate_fn</span><span class="o">=</span><span class="n">my_eval_fn</span><span class="p">,</span>
+    <span class="n">min_fit_clients</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">clients_per_round</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">fl</span><span class="o">.</span><span class="n">DeComFL</span><span class="p">(</span>
+    <span class="n">initial_parameters</span><span class="o">=...</span><span class="p">,</span>
+    <span class="n">num_local_steps</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">num_perturbations</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+    <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span>
+    <span class="n">smoothing_param</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># ─── Client (standard FL) ───────────────────────────────────────────────────</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MyClient</span><span class="p">(</span><span class="n">fl</span><span class="o">.</span><span class="n">Client</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span> <span class="o">...</span>
+
+<span class="n">fl</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">start_client</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="n">MyClient</span><span class="p">(),</span> <span class="n">client_id</span><span class="o">=</span><span class="s2">&quot;c0&quot;</span><span class="p">)</span>
+
+<span class="c1"># ─── Client (DeComFL) ──────────────────────────────────────────────────────</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.client.decomfl_start</span><span class="w"> </span><span class="kn">import</span> <span class="n">start_decomfl_client</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MyDeComFLClient</span><span class="p">(</span><span class="n">fl</span><span class="o">.</span><span class="n">DeComFLClient</span><span class="p">):</span> <span class="o">...</span>
+<span class="n">start_decomfl_client</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="n">MyDeComFLClient</span><span class="p">(</span><span class="o">...</span><span class="p">),</span> <span class="n">client_id</span><span class="o">=</span><span class="s2">&quot;c0&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<blockquote>
+<p><strong>Key design principle:</strong> Users only implement two methods (<code>get_parameters</code> and <code>fit</code>). All network communication, retry logic, heartbeating, and round synchronisation is handled by the framework.</p>
+</blockquote></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>06 - Identity, Multi-Tenancy & Audit · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Backend</summary><ul>
+<li><a href="README.html">Backend Architecture Wiki</a></li>
+<li><a href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a class="active" href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Backend</b> &nbsp;·&nbsp; 06 - Identity, Multi-Tenancy & Audit</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="06-identity-multi-tenancy-audit">06 - Identity, Multi-Tenancy &amp; Audit<a class="headerlink" href="#06-identity-multi-tenancy-audit" title="Permanent link">&para;</a></h1>
+<p>This document covers the identity subsystem layered on top of the original
+single-user model: a <strong>three-layer role model</strong>, <strong>organization-scoped
+multi-tenant isolation</strong>, an <strong>audit trail</strong>, and the <strong>email + bootstrap</strong>
+plumbing that seeds the first administrator. It is the deepest part of the
+backend's authorization story; the JWT/cookie/WebSocket mechanics that establish
+<em>who</em> the caller is live in <a href="02_security_and_auth.html">02 - Security and Authentication</a>.</p>
+<blockquote class="callout warn"><p>⚠️ <strong>Branch reality (read this first).</strong> This entire subsystem is <strong>designed on a
+separate identity-foundations branch and is <em>not present</em> on the current branch
+(<code>feat/ember-rebrand</code>).</strong> On this branch, authorization is a single coarse column —
+<code>users.role IN (USER, ADMIN)</code> (added by migration <code>V2</code>); <code>users.id</code> is <code>BIGINT</code>,
+<code>projects.id</code> is <code>UUID</code>, and the <strong>highest committed Flyway migration is <code>V3</code></strong>.
+There are <strong>no <code>V4</code>/<code>V5</code>/<code>V6</code> migrations and no corresponding Java</strong> here: the
+three-layer platform/org/project role model, <code>organization_memberships</code> /
+<code>project_memberships</code>, <code>users.platform_role</code> / <code>PLATFORM_ADMIN</code>, <code>projects.org_id</code>,
+the <code>audit_events</code> table + <code>@Auditable</code> / <code>AuditAction</code> aspect, the <code>EmailService</code>
+stack, and the <code>APP_BOOTSTRAP_ADMIN_*</code> bootstrap <strong>do not exist on this branch</strong>.
+Everything below documents that <strong>designed</strong> system for reference — it is not what
+is currently committed here.</p>
+<p>On the identity-foundations branch the subsystem is <strong>backend-first</strong>: the
+membership/admin/access-request/user-search/client endpoints are enforced on the
+server, but the web/desktop RBAC UI is deferred (those clients ship the <strong>Ember</strong>
+design system unchanged and do not yet surface organizations, memberships, or the
+admin console).</p>
+</blockquote>
+<hr />
+<h2 id="1-the-three-role-layers">1. The Three Role Layers<a class="headerlink" href="#1-the-three-role-layers" title="Permanent link">&para;</a></h2>
+<p>Authorization is split across three independent layers. Each is a per-user enum
+persisted in its own table; they do <strong>not</strong> form a single inherited hierarchy.</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Column / Table</th>
+<th>Enum</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Platform</strong></td>
+<td><code>users.platform_role</code></td>
+<td><code>PlatformRole</code></td>
+<td><code>USER</code>, <code>PLATFORM_ADMIN</code></td>
+</tr>
+<tr>
+<td><strong>Organization</strong></td>
+<td><code>organization_memberships.org_role</code></td>
+<td><code>OrgRole</code></td>
+<td><code>OWNER</code>, <code>ADMIN</code>, <code>MEMBER</code></td>
+</tr>
+<tr>
+<td><strong>Project</strong></td>
+<td><code>project_memberships.role</code></td>
+<td><code>MembershipRole</code></td>
+<td><code>OWNER</code>, <code>MEMBER</code>, <code>CLIENT</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="11-platform-role">1.1 Platform role<a class="headerlink" href="#11-platform-role" title="Permanent link">&para;</a></h3>
+<p><code>PlatformRole</code> is the coarse, platform-wide role used for endpoint
+authorization. It replaces the old single <code>users.role</code> column (renamed to
+<code>platform_role</code> in the V5 migration). <code>PLATFORM_ADMIN</code> is the privileged tier:
+it <strong>bypasses organization-scope checks entirely</strong>.</p>
+<p>The enum owns its own Spring Security authority mapping:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// PlatformRole.java</span>
+<span class="kd">public</span><span class="w"> </span><span class="kd">enum</span><span class="w"> </span><span class="n">PlatformRole</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">USER</span><span class="p">,</span>
+<span class="w">    </span><span class="n">PLATFORM_ADMIN</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/** The Spring Security authority string (ROLE_USER / ROLE_PLATFORM_ADMIN). */</span>
+<span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="n">String</span><span class="w"> </span><span class="nf">authority</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;ROLE_&quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">name</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><code>CustomUserDetailsService</code> resolves the user's <code>PlatformRole</code> to a single
+<code>SimpleGrantedAuthority(role.authority())</code>, so admin-only routes gate on it with
+<code>@PreAuthorize("hasRole('PLATFORM_ADMIN')")</code> (see <code>AdminController</code>,
+<code>TestEmailController</code>). <code>@EnableMethodSecurity</code> in <code>SecurityConfig</code> activates the
+<code>@PreAuthorize</code> machinery.</p>
+<blockquote>
+<p><strong>Bug fixed this session.</strong> <code>AuthorizationService</code> previously had an <code>isAdmin</code>
+helper that checked the literal authority <code>"ROLE_ADMIN"</code> — a string that no
+longer existed once the role was renamed, so every admin check silently
+failed. It was renamed to <strong><code>isPlatformAdmin()</code></strong> and now checks
+<code>ROLE_PLATFORM_ADMIN</code>. The V6 migration also normalizes any legacy
+<code>platform_role = 'ADMIN'</code> rows to <code>'PLATFORM_ADMIN'</code>.</p>
+</blockquote>
+<h3 id="12-organization-role">1.2 Organization role<a class="headerlink" href="#12-organization-role" title="Permanent link">&para;</a></h3>
+<p><code>OrgRole</code> (<code>OWNER</code>/<code>ADMIN</code>/<code>MEMBER</code>) is held per user per organization in
+<code>organization_memberships</code>, keyed by the composite primary key
+<code>(org_id UUID, user_id BIGINT)</code> modelled with <code>@IdClass(OrganizationMembershipId.class)</code>.
+The enum exposes an ordinal-based <code>atLeast(...)</code> comparator for future
+role-threshold checks. Today these rows primarily drive <strong>org-scope resolution</strong>
+(§3) and ownership of the bootstrap org.</p>
+<h3 id="13-project-role">1.3 Project role<a class="headerlink" href="#13-project-role" title="Permanent link">&para;</a></h3>
+<p><code>MembershipRole</code> (<code>OWNER</code>/<code>MEMBER</code>/<code>CLIENT</code>) lives in <code>project_memberships</code>,
+keyed by the embeddable composite key <code>ProjectMembershipId(projectId UUID, userId BIGINT)</code>.
+Two additional concepts hang off project membership:</p>
+<ul>
+<li><strong><code>JoinedVia</code></strong> — provenance of the membership row:
+  <code>OWNER_ADD</code>, <code>PUBLIC_JOIN</code>, <code>REQUEST_APPROVED</code>, <code>OWNER_SELF</code>.</li>
+<li><strong><code>ProjectVisibility</code></strong> — <code>PRIVATE</code> (default) or <code>PUBLIC</code>, on <code>projects.visibility</code>.</li>
+<li><strong><code>ProjectAccessRequest</code></strong> — the join-request workflow for PRIVATE projects
+  (<code>AccessRequestStatus</code> = <code>PENDING</code>/<code>APPROVED</code>/<code>DENIED</code>), see §5.</li>
+</ul>
+<p>A subtlety: a project's <code>OWNER</code> is decided by <code>projects.user_id</code>, <strong>not</strong> by a
+membership row. <code>role = OWNER</code> rows are created lazily (<code>JoinedVia.OWNER_SELF</code>)
+only to carry the owner's <code>partition_id</code> when they self-connect as a client, and
+permission logic ignores them. The API hides <code>OWNER</code> rows from membership
+listings.</p>
+<hr />
+<h2 id="2-new-entities">2. New Entities<a class="headerlink" href="#2-new-entities" title="Permanent link">&para;</a></h2>
+<p>All of the following live in <code>model/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>PK</th>
+<th>Notable columns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Organization</code></td>
+<td><code>id UUID</code></td>
+<td><code>name</code>, unique <code>slug</code>, soft-delete <code>deleted_at</code>, <code>created_at</code>/<code>updated_at</code></td>
+</tr>
+<tr>
+<td><code>OrganizationMembership</code> (+ <code>OrganizationMembershipId</code>)</td>
+<td><code>(org_id, user_id)</code></td>
+<td><code>org_role</code>, <code>created_at</code>; <code>@Check</code> on <code>org_role</code></td>
+</tr>
+<tr>
+<td><code>ProjectMembership</code> (+ <code>ProjectMembershipId</code>)</td>
+<td><code>(project_id, user_id)</code></td>
+<td><code>role</code>, <code>partition_id</code>, <code>joined_via</code>, <code>added_by</code>, <code>added_at</code></td>
+</tr>
+<tr>
+<td><code>ProjectAccessRequest</code></td>
+<td><code>id BIGSERIAL</code></td>
+<td><code>requested_role</code>, <code>status</code>, <code>message</code>, <code>requested_at</code>, <code>decided_at</code>, <code>decided_by</code>; <code>UNIQUE(project_id, user_id)</code></td>
+</tr>
+<tr>
+<td><code>AuditEvent</code></td>
+<td><code>id UUID</code></td>
+<td><code>action</code>, <code>actor_user_id</code>, <code>org_id</code>, <code>target_type</code>/<code>target_id</code>, JSONB <code>metadata</code>, <code>request_ip</code>, <code>user_agent</code></td>
+</tr>
+</tbody>
+</table>
+<p>The two pre-existing core entities gained columns:</p>
+<h3 id="user-extended"><code>User</code> (extended)<a class="headerlink" href="#user-extended" title="Permanent link">&para;</a></h3>
+<p>The single <code>role</code> column became <code>platformRole</code> (a <code>PlatformRole</code> enum), plus a
+lifecycle/profile column set:</p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@Enumerated</span><span class="p">(</span><span class="n">EnumType</span><span class="p">.</span><span class="na">STRING</span><span class="p">)</span>
+<span class="nd">@Column</span><span class="p">(</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;platform_role&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">nullable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">length</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">32</span><span class="p">)</span>
+<span class="kd">private</span><span class="w"> </span><span class="n">PlatformRole</span><span class="w"> </span><span class="n">platformRole</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PlatformRole</span><span class="p">.</span><span class="na">USER</span><span class="p">;</span>
+
+<span class="nd">@Enumerated</span><span class="p">(</span><span class="n">EnumType</span><span class="p">.</span><span class="na">STRING</span><span class="p">)</span>
+<span class="nd">@Column</span><span class="p">(</span><span class="n">nullable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">length</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">16</span><span class="p">)</span>
+<span class="kd">private</span><span class="w"> </span><span class="n">UserStatus</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">UserStatus</span><span class="p">.</span><span class="na">ACTIVE</span><span class="p">;</span><span class="w">   </span><span class="c1">// PENDING | ACTIVE | SUSPENDED</span>
+
+<span class="kd">private</span><span class="w"> </span><span class="n">Instant</span><span class="w"> </span><span class="n">deletedAt</span><span class="p">;</span><span class="w">        </span><span class="c1">// soft-delete tombstone</span>
+<span class="kd">private</span><span class="w"> </span><span class="n">Boolean</span><span class="w"> </span><span class="n">emailVerified</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+<span class="kd">private</span><span class="w"> </span><span class="n">String</span><span class="w">  </span><span class="n">displayName</span><span class="p">;</span>
+<span class="kd">private</span><span class="w"> </span><span class="n">String</span><span class="w">  </span><span class="n">avatarUrl</span><span class="p">;</span>
+<span class="kd">private</span><span class="w"> </span><span class="n">Instant</span><span class="w"> </span><span class="n">lastLoginAt</span><span class="p">;</span><span class="w">     </span><span class="c1">// stamped on successful login</span>
+</code></pre></div>
+
+<p><code>UserStatus</code> gates authentication: <code>CustomUserDetailsService</code> throws
+<code>DisabledException</code> (→ 401) for any user whose <code>status != ACTIVE</code> or whose
+<code>deletedAt</code> is set, <em>before</em> the password check, so a suspended/deleted account
+cannot log in and account existence is not leaked.</p>
+<h3 id="project-extended"><code>Project</code> (extended)<a class="headerlink" href="#project-extended" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nd">@Column</span><span class="p">(</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;org_id&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">nullable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">)</span>
+<span class="kd">private</span><span class="w"> </span><span class="n">UUID</span><span class="w"> </span><span class="n">orgId</span><span class="p">;</span><span class="w">                              </span><span class="c1">// V5 pinned every project to an org</span>
+
+<span class="nd">@Enumerated</span><span class="p">(</span><span class="n">EnumType</span><span class="p">.</span><span class="na">STRING</span><span class="p">)</span>
+<span class="nd">@Column</span><span class="p">(</span><span class="n">nullable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">length</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">32</span><span class="p">)</span>
+<span class="kd">private</span><span class="w"> </span><span class="n">ProjectVisibility</span><span class="w"> </span><span class="n">visibility</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ProjectVisibility</span><span class="p">.</span><span class="na">PRIVATE</span><span class="p">;</span>
+
+<span class="c1">// Model-Hub columns (publish toggle)</span>
+<span class="kd">private</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="n">modelPublished</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+<span class="kd">private</span><span class="w"> </span><span class="n">String</span><span class="w">  </span><span class="n">modelDescription</span><span class="p">;</span>
+<span class="kd">private</span><span class="w"> </span><span class="n">String</span><span class="w">  </span><span class="n">modelTags</span><span class="p">;</span>
+<span class="kd">private</span><span class="w"> </span><span class="n">Instant</span><span class="w"> </span><span class="n">modelPublishedAt</span><span class="p">;</span>
+</code></pre></div>
+
+<p><code>org_id</code> is <code>NOT NULL</code> (see §6). New projects are pinned to the owner's first org
+membership, falling back to the single Default org for membership-less users.</p>
+<hr />
+<h2 id="3-organization-scoped-multi-tenant-isolation">3. Organization-Scoped Multi-Tenant Isolation<a class="headerlink" href="#3-organization-scoped-multi-tenant-isolation" title="Permanent link">&para;</a></h2>
+<p>This is the <strong>P0 data-isolation mechanism</strong>: it guarantees that a caller can only
+see and mutate projects belonging to organizations they are a member of. It is a
+gate layered <em>on top of</em> the existing ownership/membership checks — both must
+pass.</p>
+<h3 id="31-orgscope-the-request-scoped-scope-holder">3.1 <code>OrgScope</code> — the request-scoped scope holder<a class="headerlink" href="#31-orgscope-the-request-scoped-scope-holder" title="Permanent link">&para;</a></h3>
+<p>A <code>@RequestScope</code> bean holding the set of org ids the caller may see, plus an
+<code>unrestricted</code> flag for platform admins:</p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@Component</span>
+<span class="nd">@RequestScope</span>
+<span class="kd">public</span><span class="w"> </span><span class="kd">class</span> <span class="nc">OrgScope</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">private</span><span class="w"> </span><span class="n">Set</span><span class="o">&lt;</span><span class="n">UUID</span><span class="o">&gt;</span><span class="w"> </span><span class="n">visibleOrgIds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Collections</span><span class="p">.</span><span class="na">emptySet</span><span class="p">();</span>
+<span class="w">    </span><span class="kd">private</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="n">unrestricted</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+
+<span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">set</span><span class="p">(</span><span class="n">Set</span><span class="o">&lt;</span><span class="n">UUID</span><span class="o">&gt;</span><span class="w"> </span><span class="n">visibleOrgIds</span><span class="p">,</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="n">unrestricted</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">    </span><span class="cm">/** True if the caller may access the given org (or is unrestricted). */</span>
+<span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="nf">allows</span><span class="p">(</span><span class="n">UUID</span><span class="w"> </span><span class="n">orgId</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">unrestricted</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">visibleOrgIds</span><span class="p">.</span><span class="na">contains</span><span class="p">(</span><span class="n">orgId</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="32-orgscopefilter-populating-the-scope">3.2 <code>OrgScopeFilter</code> — populating the scope<a class="headerlink" href="#32-orgscopefilter-populating-the-scope" title="Permanent link">&para;</a></h3>
+<p><code>OrgScopeFilter</code> is an <code>OncePerRequestFilter</code> wired in <code>SecurityConfig</code> to run
+<strong>after</strong> <code>JwtAuthenticationFilter</code> (<code>.addFilterAfter(orgScopeFilter, JwtAuthenticationFilter.class)</code>),
+so the <code>SecurityContext</code> is already populated when it resolves memberships. For
+each authenticated request it sets the scope:</p>
+<ul>
+<li><strong>Platform admin</strong> → <code>orgScope.set(Set.of(), true)</code> (unrestricted; sees every org).</li>
+<li><strong>Regular user</strong> → the user's org ids loaded from <code>organization_memberships</code>.</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="kd">private</span><span class="w"> </span><span class="n">Set</span><span class="o">&lt;</span><span class="n">UUID</span><span class="o">&gt;</span><span class="w"> </span><span class="nf">resolveVisibleOrgIds</span><span class="p">(</span><span class="n">User</span><span class="w"> </span><span class="n">user</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">Set</span><span class="o">&lt;</span><span class="n">UUID</span><span class="o">&gt;</span><span class="w"> </span><span class="n">orgIds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">orgMembershipRepository</span><span class="p">.</span><span class="na">findByUserId</span><span class="p">(</span><span class="n">user</span><span class="p">.</span><span class="na">getId</span><span class="p">()).</span><span class="na">stream</span><span class="p">()</span>
+<span class="w">            </span><span class="p">.</span><span class="na">map</span><span class="p">(</span><span class="n">OrganizationMembership</span><span class="p">::</span><span class="n">getOrgId</span><span class="p">)</span>
+<span class="w">            </span><span class="p">.</span><span class="na">collect</span><span class="p">(</span><span class="n">Collectors</span><span class="p">.</span><span class="na">toCollection</span><span class="p">(</span><span class="n">HashSet</span><span class="p">::</span><span class="k">new</span><span class="p">));</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">orgIds</span><span class="p">.</span><span class="na">isEmpty</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">orgIds</span><span class="p">.</span><span class="na">add</span><span class="p">(</span><span class="n">ProjectService</span><span class="p">.</span><span class="na">DEFAULT_ORG_ID</span><span class="p">);</span><span class="w">   </span><span class="c1">// transitional single-org fallback</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">orgIds</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><strong>The transitional fallback is load-bearing.</strong> Regular registrations are <em>not</em>
+auto-added to <code>organization_memberships</code> — only the bootstrap admin is seeded. A
+naive <code>org_id IN (visibleOrgIds)</code> filter would therefore make <code>visibleOrgIds</code>
+empty for normal users and return <strong>zero</strong> projects on their dashboard. So a user
+with no memberships falls back to the single bootstrap <code>DEFAULT_ORG_ID</code>
+(<code>00000000-0000-0000-0000-000000000001</code>, seeded by V5). This preserves today's
+single-org demo behaviour while making multi-org isolation real the moment
+explicit memberships exist. <code>OrgScopeFilter</code> and <code>ProjectService</code> share the exact
+same constant so there is no duplicate UUID literal.</p>
+<h3 id="33-the-enforcement-gates-requireorgscope-isinorgscope">3.3 The enforcement gates — <code>requireOrgScope</code> / <code>isInOrgScope</code><a class="headerlink" href="#33-the-enforcement-gates-requireorgscope-isinorgscope" title="Permanent link">&para;</a></h3>
+<p><code>AuthorizationService</code> exposes two forms, chosen by the calling path:</p>
+<div class="codehilite"><pre><span></span><code><span class="cm">/** Mutation paths: throw 403 if the project&#39;s org is outside the caller&#39;s scope. */</span>
+<span class="kd">public</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">requireOrgScope</span><span class="p">(</span><span class="n">UUID</span><span class="w"> </span><span class="n">orgId</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">orgScope</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">orgScope</span><span class="p">.</span><span class="na">allows</span><span class="p">(</span><span class="n">orgId</span><span class="p">))</span><span class="w"> </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">AccessDeniedException</span><span class="p">(</span><span class="s">&quot;Project is outside your organization scope&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="cm">/** Read/list paths: boolean form, used to translate out-of-scope into a 404. */</span>
+<span class="kd">public</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="nf">isInOrgScope</span><span class="p">(</span><span class="n">UUID</span><span class="w"> </span><span class="n">orgId</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">orgScope</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">orgScope</span><span class="p">.</span><span class="na">allows</span><span class="p">(</span><span class="n">orgId</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>The distinction is deliberate: <strong>mutations</strong> (<code>start</code>, <code>stop</code>, <code>delete</code>, add/remove
+member, submit/decide request, client connect) call <code>requireOrgScope(...)</code> and
+fail with a hard <strong>403</strong>. <strong>Pure reads</strong> (<code>getProject</code>, list memberships, list
+access-requests) use <code>isInOrgScope(...)</code> / <code>orgScope.allows(...)</code> and instead throw
+<strong>404</strong>, so cross-tenant project <em>existence</em> is never leaked.</p>
+<p>These gates are applied consistently across <code>ProjectService</code> <strong>and</strong> the sibling
+services <code>MembershipService</code>, <code>AccessRequestService</code>, and <code>ClientApiService</code>. The
+list endpoints don't just filter post-hoc — they push the scope into the query.
+<code>ProjectRepository</code> carries org-scoped variants:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">List</span><span class="o">&lt;</span><span class="n">Project</span><span class="o">&gt;</span><span class="w"> </span><span class="nf">findOwnedOrMemberOfInOrgs</span><span class="p">(</span><span class="n">Long</span><span class="w"> </span><span class="n">userId</span><span class="p">,</span><span class="w"> </span><span class="n">Collection</span><span class="o">&lt;</span><span class="n">UUID</span><span class="o">&gt;</span><span class="w"> </span><span class="n">orgIds</span><span class="p">);</span>
+<span class="n">List</span><span class="o">&lt;</span><span class="n">Project</span><span class="o">&gt;</span><span class="w"> </span><span class="nf">findDiscoverableInOrgs</span><span class="p">(</span><span class="n">Long</span><span class="w"> </span><span class="n">userId</span><span class="p">,</span><span class="w"> </span><span class="n">ProjectVisibility</span><span class="w"> </span><span class="n">visibility</span><span class="p">,</span>
+<span class="w">                                     </span><span class="n">Collection</span><span class="o">&lt;</span><span class="n">UUID</span><span class="o">&gt;</span><span class="w"> </span><span class="n">orgIds</span><span class="p">);</span>
+</code></pre></div>
+
+<p>Unrestricted callers (platform admins) take the unscoped <code>findOwnedOrMemberOf</code> /
+<code>findDiscoverable</code> queries; everyone else takes the <code>...InOrgs</code> variants bound to
+<code>orgScope.visibleOrgIds()</code>.</p>
+<hr />
+<h2 id="4-the-audit-trail">4. The Audit Trail<a class="headerlink" href="#4-the-audit-trail" title="Permanent link">&para;</a></h2>
+<p>Every security-relevant mutation can emit an <code>audit_events</code> row. The mechanism is
+a declarative annotation plus an AOP advice, so audit logic is not smeared across
+the services.</p>
+<h3 id="41-auditable-auditaspect">4.1 <code>@Auditable</code> + <code>AuditAspect</code><a class="headerlink" href="#41-auditable-auditaspect" title="Permanent link">&para;</a></h3>
+<p><code>@Auditable</code> marks a method as audit-emitting:</p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@Auditable</span><span class="p">(</span><span class="n">action</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AuditAction</span><span class="p">.</span><span class="na">PROJECT_CREATED</span><span class="p">,</span><span class="w"> </span><span class="n">targetType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;PROJECT&quot;</span><span class="p">)</span>
+<span class="kd">public</span><span class="w"> </span><span class="n">ProjectResponseDto</span><span class="w"> </span><span class="nf">createProject</span><span class="p">(</span><span class="n">CreateProjectRequest</span><span class="w"> </span><span class="n">request</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="w"> </span><span class="p">}</span>
+
+<span class="nd">@Auditable</span><span class="p">(</span><span class="n">action</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AuditAction</span><span class="p">.</span><span class="na">RUN_STARTED</span><span class="p">,</span><span class="w"> </span><span class="n">targetIdParam</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;projectId&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">targetType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;PROJECT&quot;</span><span class="p">)</span>
+<span class="kd">public</span><span class="w"> </span><span class="n">ProjectResponseDto</span><span class="w"> </span><span class="nf">startServerForProject</span><span class="p">(</span><span class="n">UUID</span><span class="w"> </span><span class="n">projectId</span><span class="p">,</span><span class="w"> </span><span class="n">StartProject</span><span class="w"> </span><span class="n">request</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+
+<p><code>AuditAspect</code> is an <code>@Around</code> advice on <code>@annotation(...Auditable)</code>. Its key
+semantics:</p>
+<ul>
+<li><strong>After-success only.</strong> It runs <code>pjp.proceed()</code> <em>first</em> and writes the audit row
+  only if the method returns normally. A thrown exception writes <strong>no</strong> row.</li>
+<li><strong>Same transaction as the mutation.</strong> When the audited method is
+  <code>@Transactional</code>, the audit insert joins that transaction — a rolled-back
+  mutation rolls back its audit row too (no orphan audit entries).</li>
+<li><strong>Metadata via JSON.</strong> Methods can stash key/value metadata on
+  <code>AuditContext</code> (a <code>ThreadLocal</code> sidecar); the aspect <em>drains</em> it after
+  <code>proceed()</code> and serialises it for the JSONB <code>metadata</code> column.</li>
+<li><strong>ThreadLocal hygiene.</strong> On the exception path the aspect calls
+  <code>AuditContext.drain()</code> to clear any staged metadata so it can't leak onto the
+  next request that reuses the pooled servlet thread.</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="c1">// AuditAspect.record(...)</span>
+<span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pjp</span><span class="p">.</span><span class="na">proceed</span><span class="p">();</span><span class="w">         </span><span class="c1">// run first; audit only after success</span>
+<span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="n">Throwable</span><span class="w"> </span><span class="n">t</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">AuditContext</span><span class="p">.</span><span class="na">drain</span><span class="p">();</span><span class="w">           </span><span class="c1">// clear staged metadata, write no row</span>
+<span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="n">t</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="c1">// ... resolve targetId, @CurrentOrg orgId, actor, ip, user-agent ...</span>
+<span class="n">String</span><span class="w"> </span><span class="n">meta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">serialise</span><span class="p">(</span><span class="n">AuditContext</span><span class="p">.</span><span class="na">drain</span><span class="p">());</span><span class="w">   </span><span class="c1">// Jackson → valid JSON</span>
+<span class="n">repo</span><span class="p">.</span><span class="na">save</span><span class="p">(</span><span class="n">AuditEvent</span><span class="p">.</span><span class="na">builder</span><span class="p">()...</span><span class="na">build</span><span class="p">());</span>
+</code></pre></div>
+
+<blockquote>
+<p><strong>Bug fixed this session.</strong> Metadata was previously serialised with hand-rolled
+string concatenation, which could emit <strong>invalid JSON</strong> for values containing
+quotes, backslashes, newlines, or control characters. Because <code>metadata</code> is a
+JSONB column (V6), an invalid string would fail the insert and — since the
+aspect writes in the <em>same transaction</em> as the audited mutation — roll the
+mutation back. It now serialises through <strong>Jackson</strong> (<code>ObjectMapper.writeValueAsString</code>),
+with a <code>null</code>-metadata fallback (and a warning log) on the unlikely
+serialisation failure, so the audit row still persists and the business mutation
+is never sacrificed for an unserialisable blob.</p>
+</blockquote>
+<p>The actor id is resolved from the <code>SecurityContext</code> principal
+(<code>UserDetails.getUsername()</code> → <code>User.id</code>); <code>request_ip</code> and <code>user_agent</code> come from
+the current <code>HttpServletRequest</code>. A method parameter annotated <code>@CurrentOrg</code>
+supplies <code>org_id</code>.</p>
+<h3 id="42-auditevent-and-auditaction">4.2 <code>AuditEvent</code> and <code>AuditAction</code><a class="headerlink" href="#42-auditevent-and-auditaction" title="Permanent link">&para;</a></h3>
+<p><code>AuditEvent</code> columns: <code>id UUID</code>, <code>occurred_at</code>, <code>actor_user_id BIGINT</code> (nullable —
+system/unauthenticated events), <code>org_id UUID</code>, <code>action</code> (enum), <code>target_type</code>/
+<code>target_id</code>, JSONB <code>metadata</code>, <code>request_ip</code>, <code>user_agent</code>.</p>
+<p><code>AuditAction</code> is the enum vocabulary. The values actually instrumented today
+include: <code>USER_REGISTERED</code>, <code>USER_LOGIN_SUCCEEDED</code>, <code>USER_LOGIN_FAILED</code>,
+<code>USER_LOGGED_OUT</code>, <code>BOOTSTRAP_ADMIN_CREATED</code>, <code>BOOTSTRAP_ORG_CREATED</code>,
+<code>PROJECT_CREATED</code>, <code>PROJECT_DELETED</code>, <code>RUN_STARTED</code>, <code>RUN_STOPPED</code>,
+<code>PROJECT_MEMBER_ADDED</code>, <code>PROJECT_MEMBER_REMOVED</code>, <code>PLATFORM_ADMIN_ORG_BYPASS</code>. The
+<code>ORG_*</code> and remaining <code>USER_*</code> values are reserved in the enum for instrumentation
+in later sub-specs.</p>
+<h3 id="43-login-auditing-outside-the-aspect">4.3 Login auditing (outside the aspect)<a class="headerlink" href="#43-login-auditing-outside-the-aspect" title="Permanent link">&para;</a></h3>
+<p>Login can't ride the aspect because credential failures throw before any
+<code>@Auditable</code> body runs. Instead two plain collaborators do it:</p>
+<ul>
+<li><code>AuditingAuthenticationSuccessHandler.onSuccess(...)</code> — called by <code>AuthController</code>
+  after a successful authentication: stamps <code>users.last_login_at</code> and writes a
+  <code>USER_LOGIN_SUCCEEDED</code> row.</li>
+<li><code>AuditingAuthenticationFailureHandler.onFailure(...)</code> — called from the
+  <code>catch (AuthenticationException)</code> block: writes a <code>USER_LOGIN_FAILED</code> row keyed
+  by the submitted <em>username only</em> (never a user id — avoids a
+  existence/timing oracle).</li>
+</ul>
+<p><code>USER_REGISTERED</code> and <code>USER_LOGGED_OUT</code> <em>do</em> ride the aspect, via <code>@Auditable</code> on
+the <code>register</code> and <code>logout</code> controller methods. The <code>ACTIVE</code>-status gate that
+rejects non-active users at login lives in <code>CustomUserDetailsService</code> (§2).</p>
+<hr />
+<h2 id="5-membership-access-request-workflow">5. Membership &amp; Access-Request Workflow<a class="headerlink" href="#5-membership-access-request-workflow" title="Permanent link">&para;</a></h2>
+<p>Three sibling services implement the project-participation lifecycle, all
+org-scope-gated:</p>
+<ul>
+<li><strong><code>MembershipService</code></strong> (<code>add</code> / <code>remove</code> / <code>list</code>) — owners and platform
+  admins may add/remove any role; a project <code>MEMBER</code> may add/remove only <code>CLIENT</code>.
+  <code>OWNER</code> memberships are not user-creatable. <code>add</code>/<code>remove</code> are <code>@Auditable</code>
+  (<code>PROJECT_MEMBER_ADDED</code> / <code>PROJECT_MEMBER_REMOVED</code>).</li>
+<li><strong><code>AccessRequestService</code></strong> (<code>submit</code> / <code>listForProject</code> / <code>decide</code> / <code>listMine</code>) —
+  joining a <strong>PUBLIC</strong> project creates a <code>CLIENT</code> membership immediately
+  (<code>JoinedVia.PUBLIC_JOIN</code>); requesting a <strong>PRIVATE</strong> project upserts a <code>PENDING</code>
+  <code>ProjectAccessRequest</code> and notifies the owner/members. <code>decide</code> approves
+  (→ <code>CLIENT</code> membership, <code>JoinedVia.REQUEST_APPROVED</code>) or denies.</li>
+<li><strong><code>ClientApiService</code></strong> (<code>listForCurrentUser</code> / <code>getConnection</code>) — the FL-client
+  view. <code>getConnection</code> takes a pessimistic write lock on the project row
+  (<code>ProjectRepository.lockById</code>) and assigns a <strong>sticky <code>partition_id</code></strong> to the
+  membership, serialising concurrent client connections so partitions never
+  collide.</li>
+</ul>
+<hr />
+<h2 id="6-flyway-migrations-v4v6">6. Flyway Migrations (V4–V6)<a class="headerlink" href="#6-flyway-migrations-v4v6" title="Permanent link">&para;</a></h2>
+<p>The schema for this subsystem lands across three migrations
+(<code>src/main/resources/db/migration/</code>). The base profile runs JPA in <code>validate</code>
+mode, so these migrations are the source of truth — except the <code>test</code> profile,
+which disables Flyway and builds from JPA <code>create-drop</code> on H2 (so V6's
+Postgres-only DDL never runs there).</p>
+<table>
+<thead>
+<tr>
+<th>Migration</th>
+<th>Adds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>V4</strong> <code>__project_membership_and_model_hub.sql</code></td>
+<td><code>projects.visibility</code> (default <code>PRIVATE</code>), Model-Hub columns; <code>project_memberships</code> and <code>project_access_requests</code> tables with their indexes. One <code>ALTER</code> per column (H2 rejects multi-clause <code>ALTER TABLE</code>).</td>
+</tr>
+<tr>
+<td><strong>V5</strong> <code>__identity_foundations.sql</code></td>
+<td><code>organizations</code>, <code>organization_memberships</code>; renames <code>users.role</code> → <code>platform_role</code> and adds the lifecycle/profile columns; <code>audit_events</code> (metadata initially <code>CLOB</code>); <code>projects.org_id</code>. Backfills a single <strong>Default</strong> org (<code>...0001</code>), enrolls every existing user, marks project owners as org <code>OWNER</code>, then sets <code>projects.org_id NOT NULL</code>.</td>
+</tr>
+<tr>
+<td><strong>V6</strong> <code>__identity_hardening.sql</code> (Postgres-only)</td>
+<td>Normalises legacy <code>platform_role = 'ADMIN'</code> → <code>'PLATFORM_ADMIN'</code>; adds a <code>CHECK (platform_role IN ('USER','PLATFORM_ADMIN'))</code>; promotes <code>audit_events.metadata</code> from <code>CLOB</code> to native <strong>JSONB</strong>.</td>
+</tr>
+</tbody>
+</table>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- V5: rename the single role column and pin projects to an org</span>
+<span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="k">ALTER</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="k">role</span><span class="w"> </span><span class="k">RENAME</span><span class="w"> </span><span class="k">TO</span><span class="w"> </span><span class="n">platform_role</span><span class="p">;</span>
+<span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">projects</span><span class="w"> </span><span class="k">ADD</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="n">org_id</span><span class="w"> </span><span class="n">UUID</span><span class="w"> </span><span class="k">REFERENCES</span><span class="w"> </span><span class="n">organizations</span><span class="p">(</span><span class="n">id</span><span class="p">);</span>
+<span class="c1">-- ... backfill Default org, enroll users ...</span>
+<span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">projects</span><span class="w"> </span><span class="k">ALTER</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="n">org_id</span><span class="w"> </span><span class="k">SET</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">;</span>
+
+<span class="c1">-- V6: harden the role column and upgrade metadata to JSONB</span>
+<span class="k">UPDATE</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="k">SET</span><span class="w"> </span><span class="n">platform_role</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;PLATFORM_ADMIN&#39;</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">platform_role</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;ADMIN&#39;</span><span class="p">;</span>
+<span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="k">ADD</span><span class="w"> </span><span class="k">CONSTRAINT</span><span class="w"> </span><span class="n">chk_users_platform_role</span>
+<span class="w">    </span><span class="k">CHECK</span><span class="w"> </span><span class="p">(</span><span class="n">platform_role</span><span class="w"> </span><span class="k">IN</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;USER&#39;</span><span class="p">,</span><span class="s1">&#39;PLATFORM_ADMIN&#39;</span><span class="p">));</span>
+<span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">audit_events</span><span class="w"> </span><span class="k">ALTER</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="n">metadata</span><span class="w"> </span><span class="k">TYPE</span><span class="w"> </span><span class="n">JSONB</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="p">(</span><span class="k">NULLIF</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span><span class="s1">&#39;&#39;</span><span class="p">)::</span><span class="n">jsonb</span><span class="p">);</span>
+</code></pre></div>
+
+<hr />
+<h2 id="7-email-first-run-bootstrap">7. Email &amp; First-Run Bootstrap<a class="headerlink" href="#7-email-first-run-bootstrap" title="Permanent link">&para;</a></h2>
+<h3 id="71-email">7.1 Email<a class="headerlink" href="#71-email" title="Permanent link">&para;</a></h3>
+<p>A small pluggable email layer (<code>email/</code>):</p>
+<ul>
+<li><code>EmailService</code> — the interface (<code>send(EmailMessage)</code>).</li>
+<li><code>LoggingEmailService</code> — <strong>dev</strong> adapter: logs the message and writes a
+  <code>.eml</code> file under <code>target/sent-emails/</code>; never throws.</li>
+<li><code>SmtpEmailService</code> — <strong>prod</strong> adapter: sends a multipart MIME message via
+  Spring's <code>JavaMailSender</code>; wraps transport failures in <code>EmailDeliveryException</code>.</li>
+</ul>
+<p><code>EmailConfig</code> selects the bean by <code>app.email.provider</code>: <code>smtp</code> activates
+<code>SmtpEmailService</code>, otherwise the <code>LoggingEmailService</code> is registered as the
+fallback (<code>@ConditionalOnMissingBean</code>).</p>
+<p><code>TestEmailController</code> exposes <code>POST /api/admin/test-email?to=...</code> for a delivery
+smoke test. It is doubly guarded: flag-gated by
+<code>app.email.test-endpoint.enabled=true</code> (the bean — and thus the route — does not
+exist otherwise) and <code>@PreAuthorize("hasRole('PLATFORM_ADMIN')")</code>.</p>
+<h3 id="72-bootstrap">7.2 Bootstrap<a class="headerlink" href="#72-bootstrap" title="Permanent link">&para;</a></h3>
+<p><code>BootstrapRunner</code> is an <code>ApplicationRunner</code> (<code>@Profile("!test")</code>) that idempotently
+seeds the <strong>first</strong> <code>PLATFORM_ADMIN</code> user and a default <code>Organization</code> at startup,
+driven by <code>app.bootstrap.*</code> env vars (<code>APP_BOOTSTRAP_ADMIN_EMAIL</code>,
+<code>APP_BOOTSTRAP_ADMIN_USERNAME</code>, <code>APP_BOOTSTRAP_ADMIN_PASSWORD</code>,
+<code>APP_BOOTSTRAP_PLATFORM_ORG_NAME</code>). Behaviour:</p>
+<ul>
+<li>No <code>admin-email</code> configured → no-op.</li>
+<li>A <code>PLATFORM_ADMIN</code> already exists → no-op.</li>
+<li>Otherwise → find-or-create the Platform org by slug, create the admin
+  (<code>status=ACTIVE</code>, <code>emailVerified=true</code>), add an <code>OWNER</code>
+  <code>OrganizationMembership</code>, and emit <code>BOOTSTRAP_ORG_CREATED</code> +
+  <code>BOOTSTRAP_ADMIN_CREATED</code> audit rows (actor <code>null</code> — system).</li>
+</ul>
+<p>Password resolution fails fast: an explicit <code>admin-password</code> is used verbatim;
+otherwise a random one is generated and WARN-logged <strong>only</strong> under the <code>dev</code>
+profile; in any non-dev profile a missing password throws at startup.</p>
+<hr />
+<h2 id="8-new-rest-endpoints-summary">8. New REST Endpoints (summary)<a class="headerlink" href="#8-new-rest-endpoints-summary" title="Permanent link">&para;</a></h2>
+<p>All of these are live on the backend but <strong>not yet surfaced in any client UI</strong>
+(see the scope note at the top).</p>
+<table>
+<thead>
+<tr>
+<th>Method &amp; path</th>
+<th>Controller</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET/POST /api/projects/{id}/memberships</code>, <code>DELETE .../{userId}</code></td>
+<td><code>MembershipController</code></td>
+<td>List / add / remove project members</td>
+</tr>
+<tr>
+<td><code>POST/GET /api/projects/{id}/access-requests</code>, <code>PUT .../{requestId}</code></td>
+<td><code>AccessRequestController</code></td>
+<td>Submit / list / decide join requests</td>
+</tr>
+<tr>
+<td><code>GET /api/my/access-requests</code></td>
+<td><code>MyRequestsController</code></td>
+<td>The caller's own outstanding requests</td>
+</tr>
+<tr>
+<td><code>GET /api/projects/discover</code>, <code>GET /api/projects/{id}</code>, <code>PATCH /api/projects/{id}</code></td>
+<td><code>ProjectController</code></td>
+<td>Discover feed, single-project read (404-on-out-of-scope), update name/description/visibility</td>
+</tr>
+<tr>
+<td><code>GET /api/admin/users</code>, <code>GET /api/admin/users/{id}</code>, <code>PUT /api/admin/users/{id}/role</code>, <code>GET /api/admin/projects</code></td>
+<td><code>AdminController</code> (<code>@PreAuthorize PLATFORM_ADMIN</code>)</td>
+<td>Platform admin console (via <code>AdminService</code>); role update refuses to demote the last admin</td>
+</tr>
+<tr>
+<td><code>GET /api/users/search?q=</code></td>
+<td><code>UserSearchController</code></td>
+<td>Username prefix search; per-caller rate-limited (<code>UserSearchService</code>)</td>
+</tr>
+<tr>
+<td><code>GET /api/client/projects</code>, <code>GET /api/client/projects/{id}/connection</code></td>
+<td><code>ClientApiController</code> (<code>ClientApiService</code>)</td>
+<td>FL-client project list + sticky partition assignment</td>
+</tr>
+<tr>
+<td><code>POST /api/admin/test-email?to=</code></td>
+<td><code>TestEmailController</code> (flag-gated, <code>PLATFORM_ADMIN</code>)</td>
+<td>Email delivery smoke test</td>
+</tr>
+</tbody>
+</table></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

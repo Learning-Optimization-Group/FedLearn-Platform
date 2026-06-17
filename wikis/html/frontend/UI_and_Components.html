@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI and Components · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Frontend</summary><ul>
+<li><a href="README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="API_and_Services.html">API and Services</a></li>
+<li><a href="Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a class="active" href="UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Frontend</b> &nbsp;·&nbsp; UI and Components</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="ui-and-components">UI and Components<a class="headerlink" href="#ui-and-components" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Current design system: Ember.</strong> As of the <code>1.4.1-beta</code> Ember rollout, the redesign track described below now uses the <strong>Ember</strong> design system — warm canvas (<code>#FBF9F6</code>), burnt-orange accent (<code>#C56A1E</code>), Bricolage Grotesque / Hanken Grotesk / JetBrains Mono — driven by CSS variables in <code>src/styles/tokens.css</code>. Ember superseded the earlier "Instrument" tokens; the glassmorphic dark "V2" styling discussed here was the design language that preceded it.</p>
+</blockquote>
+<p>The FedLearn frontend is transitioning from a traditional custom-CSS layout to a modern, utility-first (Tailwind CSS) approach. </p>
+<h2 id="two-ui-paradigms">Two UI Paradigms<a class="headerlink" href="#two-ui-paradigms" title="Permanent link">&para;</a></h2>
+<p>The application currently supports two distinct visual languages side-by-side:</p>
+<h3 id="1-legacy-ui-standard-routes">1. Legacy UI (Standard Routes)<a class="headerlink" href="#1-legacy-ui-standard-routes" title="Permanent link">&para;</a></h3>
+<p>Located in <code>src/components/</code> and <code>src/pages/</code>, the legacy UI relies on standard CSS files located in <code>src/styles/</code>. Components like <code>ProjectCard</code>, <code>ModelCard</code>, and standard forms utilize classes defined in files like <code>Dashboard.css</code> and <code>Layout.css</code>.</p>
+<h3 id="2-redesign-v2-now-the-ember-design-system">2. Redesign V2 (now the Ember design system)<a class="headerlink" href="#2-redesign-v2-now-the-ember-design-system" title="Permanent link">&para;</a></h3>
+<p>Located in <code>src/components/redesign/</code>, this is the current direction of the platform — now themed by the <strong>Ember</strong> design system. The V2 interface leverages <strong>Tailwind CSS 4.x</strong> to construct a dynamic UI from design-token CSS variables rather than custom CSS files.
+These components are accessed via the <code>/v2</code> routes.</p>
+<h2 id="the-v2-design-system">The V2 Design System<a class="headerlink" href="#the-v2-design-system" title="Permanent link">&para;</a></h2>
+<p>The V2 redesign strictly adheres to modern web aesthetics.</p>
+<ul>
+<li><strong>Layout</strong>: Uses a permanent Sidebar (<code>Sidebar.tsx</code>) and a flexible main content area (<code>LayoutV2.tsx</code>).</li>
+<li><strong>Cards</strong>: Elements like <code>ProjectCard.tsx</code> in V2 use soft gradients, semi-transparent backgrounds (<code>bg-gray-800/50</code>), and subtle borders (<code>border-white/10</code>) to simulate glass.</li>
+<li><strong>Icons</strong>: <code>lucide-react</code> provides a consistent, crisp icon set.</li>
+</ul>
+<h3 id="example-tailwind-card-component">Example: Tailwind Card Component<a class="headerlink" href="#example-tailwind-card-component" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">Card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">({</span><span class="w"> </span><span class="nx">children</span><span class="p">,</span><span class="w"> </span><span class="nx">className</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="p">&lt;</span><span class="nt">div</span><span class="w"> </span><span class="na">className</span><span class="o">=</span><span class="p">{</span><span class="sb">`bg-gray-900/40 border border-white/5 rounded-2xl p-6 backdrop-blur-xl </span><span class="si">${</span><span class="nx">className</span><span class="si">}</span><span class="sb">`</span><span class="p">}&gt;</span>
+<span class="w">        </span><span class="p">{</span><span class="nx">children</span><span class="p">}</span>
+<span class="w">    </span><span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+<span class="p">);</span>
+</code></pre></div>
+
+<h2 id="shared-components-and-utilities">Shared Components and Utilities<a class="headerlink" href="#shared-components-and-utilities" title="Permanent link">&para;</a></h2>
+<p>Regardless of the UI version, some components are universally applied to handle complex logic gracefully:</p>
+<ul>
+<li><strong><code>LogViewer.tsx</code></strong>: Renders real-time log outputs. The V2 equivalent is highly stylized to look like an integrated terminal window.</li>
+<li><strong><code>ErrorBoundary.tsx</code></strong>: Wraps the entire application to catch rendering errors and prevent white screens of death, providing a fallback UI instead.</li>
+<li><strong><code>DiskLoader.tsx</code></strong>: A standardized loading spinner used across the app during asynchronous transitions or bootups.</li>
+<li><strong>Modals</strong>: E.g., <code>CreateProjectModal.tsx</code> / <code>ResultsModal.tsx</code> rely on React Portals or absolute positioning to render overlays above the main interface.</li>
+</ul>
+<h2 id="responsive-design">Responsive Design<a class="headerlink" href="#responsive-design" title="Permanent link">&para;</a></h2>
+<p>Both UI versions are designed to be responsive.
+- The legacy UI uses media queries inside CSS.
+- The V2 UI uses Tailwind's built-in breakpoint prefixes (e.g., <code>md:flex</code>, <code>lg:grid-cols-3</code>) to reflow layouts fluidly from mobile to desktop sizes.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

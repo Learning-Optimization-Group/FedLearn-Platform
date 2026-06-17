@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FedLearn Desktop — Overview & Architecture · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Desktop</summary><ul>
+<li><a href="README.html">FedLearn Desktop — Wiki</a></li>
+<li><a class="active" href="01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Desktop</b> &nbsp;·&nbsp; FedLearn Desktop — Overview & Architecture</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="fedlearn-desktop-overview-architecture">FedLearn Desktop — Overview &amp; Architecture<a class="headerlink" href="#fedlearn-desktop-overview-architecture" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a> → <a href="README.html">Desktop Wiki</a></p>
+</blockquote>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#what-is-fedlearn-desktop">What is FedLearn Desktop?</a></li>
+<li><a href="#technology-stack">Technology Stack</a></li>
+<li><a href="#high-level-architecture">High-Level Architecture</a></li>
+<li><a href="#three-process-model">Three-Process Model</a></li>
+<li><a href="#execution-paths">Execution Paths</a></li>
+<li><a href="#data-flow-diagram">Data Flow Diagram</a></li>
+<li><a href="#directory-structure">Directory Structure</a></li>
+<li><a href="#key-design-decisions">Key Design Decisions</a></li>
+</ol>
+<hr />
+<h2 id="what-is-fedlearn-desktop">What is FedLearn Desktop?<a class="headerlink" href="#what-is-fedlearn-desktop" title="Permanent link">&para;</a></h2>
+<p>FedLearn Desktop is a cross-platform Electron application that serves as the <strong>local training orchestrator</strong> for the FedLearn federated learning platform. It provides participants (clients) in a federated learning network with a graphical interface to:</p>
+<ul>
+<li><strong>Authenticate</strong> against the FedLearn backend server</li>
+<li><strong>Configure</strong> a training job: hardware profile, project, partition, model architecture, and local dataset</li>
+<li><strong>Launch</strong> a containerized (Docker) or native (PyInstaller binary) Python training client</li>
+<li><strong>Stream real-time logs</strong> from the running training process</li>
+<li><strong>Monitor</strong> training status via live status polling</li>
+</ul>
+<p>The desktop app is the bridge between the <strong>end user's machine</strong> (with its local dataset) and the <strong>central FedLearn Spring Boot server</strong> that coordinates federated learning rounds. Critically, <strong>raw data never leaves the client machine</strong> — only model updates (gradients/weights) are transmitted.</p>
+<hr />
+<h2 id="technology-stack">Technology Stack<a class="headerlink" href="#technology-stack" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Technology</th>
+<th>Version</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Application Shell</td>
+<td>Electron</td>
+<td><code>^42.4.0</code></td>
+<td>Cross-platform desktop container</td>
+</tr>
+<tr>
+<td>UI Framework</td>
+<td>React</td>
+<td><code>18.3.1</code></td>
+<td>Renderer UI components</td>
+</tr>
+<tr>
+<td>Language</td>
+<td>TypeScript</td>
+<td><code>5.7.3</code></td>
+<td>Type-safe development across all processes</td>
+</tr>
+<tr>
+<td>Build Tool</td>
+<td>Webpack</td>
+<td><code>^5.106.2</code></td>
+<td>Bundles main, preload, and renderer separately</td>
+</tr>
+<tr>
+<td>Packaging</td>
+<td>electron-builder</td>
+<td><code>^26.8.1</code></td>
+<td>Produces DMG, NSIS, AppImage distributable</td>
+</tr>
+<tr>
+<td>Docker Control</td>
+<td>dockerode</td>
+<td><code>^4.0.10</code></td>
+<td>Node.js Docker Engine API client</td>
+</tr>
+<tr>
+<td>Secure Storage</td>
+<td>electron-store + safeStorage</td>
+<td><code>8.2.0</code></td>
+<td>OS-encrypted JWT persistence</td>
+</tr>
+<tr>
+<td>HTTP Client</td>
+<td>axios</td>
+<td><code>^1.15.0</code></td>
+<td>Backend API calls (auth only, from Main)</td>
+</tr>
+<tr>
+<td>Logging</td>
+<td>electron-log</td>
+<td><code>5.3.0</code></td>
+<td>Structured log to file + console</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="high-level-architecture">High-Level Architecture<a class="headerlink" href="#high-level-architecture" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>┌───────────────────────────────────────────────────────────┐
+│                   FedLearn Desktop (Electron)             │
+│                                                           │
+│  ┌─────────────────────────────────────────────────────┐  │
+│  │  RENDERER PROCESS  (sandboxed, context-isolated)    │  │
+│  │                                                     │  │
+│  │   React App (App.tsx)                               │  │
+│  │   ├── AuthModal       ← login form                  │  │
+│  │   ├── HardwareSelector ← training config + start    │  │
+│  │   ├── LogPanel        ← real-time log stream        │  │
+│  │   ├── StatusIndicator ← container state badge       │  │
+│  │   └── SettingsModal   ← server URL settings         │  │
+│  │                                                     │  │
+│  │   window.fedLearnAPI (contextBridge — read only)    │  │
+│  └────────────────────────┬────────────────────────────┘  │
+│                           │ IPC (validated)               │
+│  ┌─────────────────────────▼────────────────────────────┐  │
+│  │  PRELOAD SCRIPT  (trusted context bridge)            │  │
+│  │   preload.ts                                         │  │
+│  │   • Exposes window.fedLearnAPI via contextBridge     │  │
+│  │   • Validates ALL inputs against allowlists          │  │
+│  │   • Blocks invalid calls before Main ever sees them  │  │
+│  └────────────────────────┬────────────────────────────┘  │
+│                           │ ipcMain.handle               │
+│  ┌─────────────────────────▼────────────────────────────┐  │
+│  │  MAIN PROCESS  (full Node.js privileges)             │  │
+│  │                                                     │  │
+│  │   main.ts          ← BrowserWindow + CSP + security │  │
+│  │   ipc.handlers.ts  ← ipcMain registrations          │  │
+│  │   ├── docker.service.ts  ← container lifecycle      │  │
+│  │   ├── auth.service.ts    ← JWT + backend API calls  │  │
+│  │   └── hardware.probe.ts  ← GPU/platform detection   │  │
+│  └───────────┬───────────────────────────┬─────────────┘  │
+│              │                           │                 │
+└──────────────┼───────────────────────────┼─────────────────┘
+               │                           │
+       Docker Daemon                FedLearn Backend
+   (container lifecycle)            (Spring Boot API)
+</code></pre></div>
+
+<hr />
+<h2 id="three-process-model">Three-Process Model<a class="headerlink" href="#three-process-model" title="Permanent link">&para;</a></h2>
+<p>Electron uses a <strong>multi-process architecture</strong> for security and stability. FedLearn Desktop leverages all three processes:</p>
+<h3 id="1-main-process-srcmain">1. Main Process (<code>src/main/</code>)<a class="headerlink" href="#1-main-process-srcmain" title="Permanent link">&para;</a></h3>
+<p>The <strong>privileged</strong> process. It:
+- Creates and manages <code>BrowserWindow</code>
+- Has access to Node.js APIs (file system, child processes, Docker socket)
+- Manages the JWT in memory/encrypted storage — <strong>never exposed to the renderer</strong>
+- Runs <code>DockerService</code>, <code>AuthService</code>, and <code>HardwareProbe</code>
+- Registers all <code>ipcMain.handle</code> listeners</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// main.ts — The entry point</span>
+<span class="nx">app</span><span class="p">.</span><span class="nx">whenReady</span><span class="p">().</span><span class="nx">then</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">createWindow</span><span class="p">();</span><span class="w"> </span><span class="c1">// Creates BrowserWindow with strict security settings</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<h3 id="2-preload-script-srcpreloadpreloadts">2. Preload Script (<code>src/preload/preload.ts</code>)<a class="headerlink" href="#2-preload-script-srcpreloadpreloadts" title="Permanent link">&para;</a></h3>
+<p>The <strong>bridge</strong> between renderer and main. It:
+- Runs in a special context that has access to <strong>both</strong> the DOM (like the renderer) and <code>ipcRenderer</code> (to talk to main)
+- Exposes a <strong>strictly typed, allowlist-validated API</strong> via <code>contextBridge.exposeInMainWorld</code>
+- Never exposes raw <code>ipcRenderer</code> — the renderer can only call the surface defined in <code>window.fedLearnAPI</code></p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// preload.ts — The security boundary</span>
+<span class="nx">contextBridge</span><span class="p">.</span><span class="nx">exposeInMainWorld</span><span class="p">(</span><span class="s1">&#39;fedLearnAPI&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">startTraining</span><span class="o">:</span><span class="w"> </span><span class="kt">async</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Validate EVERY field before forwarding</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidHardwareProfile</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid hardware profile&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="c1">// ... more validation ...</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">ipcRenderer</span><span class="p">.</span><span class="nx">invoke</span><span class="p">(</span><span class="s1">&#39;docker:start-training&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">);</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="c1">// ...</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<h3 id="3-renderer-process-srcrenderer">3. Renderer Process (<code>src/renderer/</code>)<a class="headerlink" href="#3-renderer-process-srcrenderer" title="Permanent link">&para;</a></h3>
+<p>The <strong>sandboxed UI</strong> process. It:
+- Runs like a regular web page inside Chromium
+- Has <strong>no access to Node.js</strong> (<code>nodeIntegration: false</code>)
+- Can only call the functions exposed on <code>window.fedLearnAPI</code>
+- Renders the React component tree
+- Listens for pushed log events via <code>onTrainingLog</code> callback</p>
+<hr />
+<h2 id="execution-paths">Execution Paths<a class="headerlink" href="#execution-paths" title="Permanent link">&para;</a></h2>
+<p>A key design feature is that training supports <strong>two execution paths</strong> depending on hardware:</p>
+<h3 id="path-a-native-binary-macos-mps-windows-cudacpu">Path A — Native Binary (macOS MPS, Windows CUDA/CPU)<a class="headerlink" href="#path-a-native-binary-macos-mps-windows-cudacpu" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>Renderer → IPC → Main → spawn(fedlearn-client binary)
+                         ↓
+               PyInstaller bundle at &lt;resourcesPath&gt;/fedlearn-client/
+                         ↓
+               Python training client (no Docker required)
+                         ↓
+               stdout/stderr → IPC push → Renderer LogPanel
+</code></pre></div>
+
+<p><strong>When used:</strong> <code>mps</code>, <code>discrete</code> (Windows), <code>cpu</code> profiles.<br />
+<strong>Why:</strong> PyInstaller bundles the entire Python runtime — no system Python, no <code>pip install</code>, no Docker required on the end user's machine.</p>
+<h3 id="path-b-docker-container-jetson-soc">Path B — Docker Container (Jetson SoC)<a class="headerlink" href="#path-b-docker-container-jetson-soc" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>Renderer → IPC → Main → DockerService → Docker daemon
+                                         ↓
+                               docker.createContainer()
+                               docker.start()
+                                         ↓
+                            attach log stream (multiplexed)
+                                         ↓
+                           demux → IPC push → Renderer LogPanel
+</code></pre></div>
+
+<p><strong>When used:</strong> <code>jetson</code> profile only.<br />
+<strong>Why:</strong> NVIDIA Jetson uses a very specific JetPack/L4T PyTorch wheel that cannot be PyInstaller-bundled. Docker with direct <code>/dev/nvhost-*</code> device mounts is the supported path.</p>
+<hr />
+<h2 id="data-flow-diagram">Data Flow Diagram<a class="headerlink" href="#data-flow-diagram" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>User fills form                  → HardwareSelector (Renderer)
+         ↓ onClick
+validate client-side             → HardwareSelector (Renderer)
+         ↓ window.fedLearnAPI.startTraining(config)
+validate in preload allowlists   → preload.ts
+         ↓ ipcRenderer.invoke(&#39;docker:start-training&#39;, config)
+validate again in IPC handler    → ipc.handlers.ts / sanitizeDatasetPath()
+         ↓ dockerService.startTraining(config)
+route by hardwareProfile         → docker.service.ts
+         ↓
+  [jetson] → Docker container    OR   [mps/cpu/discrete] → Native process
+         ↓                                    ↓
+  stdout of container                   stdout of child process
+         ↓                                    ↓
+  sendLog(text) → ipcMain.send(&#39;docker:training-log&#39;, text)
+         ↓
+  ipcRenderer.on(&#39;docker:training-log&#39;) in preload
+         ↓
+  onTrainingLog callback in App.tsx
+         ↓
+  RAF-batched setLogs() → LogPanel re-render
+</code></pre></div>
+
+<hr />
+<h2 id="directory-structure">Directory Structure<a class="headerlink" href="#directory-structure" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>fedlearn-desktop/
+├── src/
+│   ├── main/                    # Main Process (Node.js context)
+│   │   ├── main.ts              # Entry point, BrowserWindow, CSP, app lifecycle
+│   │   ├── ipc.handlers.ts      # All ipcMain.handle registrations
+│   │   ├── docker.service.ts    # Docker + native process orchestration
+│   │   ├── auth.service.ts      # JWT storage, login, logout
+│   │   └── hardware.probe.ts    # GPU / platform detection
+│   │
+│   ├── preload/
+│   │   └── preload.ts           # contextBridge API surface (security boundary)
+│   │
+│   └── renderer/                # Renderer Process (Chromium context)
+│       ├── index.tsx            # React root mount
+│       ├── index.html           # HTML shell (CSP meta tag for packaged builds)
+│       ├── styles.css           # Global CSS (dark theme, components)
+│       ├── App.tsx              # Root React component, state management
+│       └── components/
+│           ├── AuthModal.tsx    # Login form + server URL config
+│           ├── HardwareSelector.tsx  # Profile cards + training config form
+│           ├── LogPanel.tsx     # Real-time log stream viewer
+│           ├── StatusIndicator.tsx   # Container status badge
+│           └── SettingsModal.tsx     # Settings overlay (server URL)
+│
+├── build/                       # Static build assets (icons)
+├── dist/                        # Compiled output (webpack)
+├── release/                     # electron-builder output (DMG/EXE/AppImage)
+│
+├── webpack.main.config.js       # Webpack config for Main Process
+├── webpack.preload.config.js    # Webpack config for Preload Script
+├── webpack.renderer.config.js   # Webpack config for Renderer (with HMR)
+├── webpack.prod.config.js       # Combined production build (all 3 targets)
+├── electron-builder.yml         # Packaging config (macOS/Win/Linux)
+├── tsconfig.json                # TypeScript config
+└── package.json                 # Scripts + dependencies
+</code></pre></div>
+
+<hr />
+<h2 id="key-design-decisions">Key Design Decisions<a class="headerlink" href="#key-design-decisions" title="Permanent link">&para;</a></h2>
+<h3 id="1-jwt-never-reaches-the-renderer">1. JWT Never Reaches the Renderer<a class="headerlink" href="#1-jwt-never-reaches-the-renderer" title="Permanent link">&para;</a></h3>
+<p>The authentication token is stored exclusively in the Main Process (via <code>electron-store</code> + <code>safeStorage</code>). The renderer only ever receives <code>{ success: boolean }</code>. This means even if the renderer is compromised (e.g., via XSS from a malicious log line), it cannot steal the JWT.</p>
+<h3 id="2-double-validation-preload-main">2. Double Validation (Preload + Main)<a class="headerlink" href="#2-double-validation-preload-main" title="Permanent link">&para;</a></h3>
+<p>Every input is validated <strong>twice</strong>: once in <code>preload.ts</code> (renderer-side, for fast UX feedback) and once in <code>ipc.handlers.ts</code> (main-side, as defense-in-depth). This ensures that even a crafted <code>ipcRenderer.invoke</code> call from a compromised renderer cannot inject malicious data into Docker bind mounts or child process arguments.</p>
+<h3 id="3-mps-is-native-only">3. MPS is Native-Only<a class="headerlink" href="#3-mps-is-native-only" title="Permanent link">&para;</a></h3>
+<p>Apple Silicon MPS (Metal Performance Shaders) cannot run inside Docker containers on macOS — Docker Desktop on Mac runs containers inside a Linux VM that has no access to the Apple GPU. Therefore, MPS training always uses the native PyInstaller binary path.</p>
+<h3 id="4-jetson-is-docker-only">4. Jetson is Docker-Only<a class="headerlink" href="#4-jetson-is-docker-only" title="Permanent link">&para;</a></h3>
+<p>NVIDIA Jetson is the inverse case: its L4T PyTorch wheels are pinned to specific JetPack firmware, making PyInstaller bundling impractical. Docker with direct device mounts (<code>/dev/nvhost-*</code>) is the only reliable approach.</p>
+<h3 id="5-log-batching-via-requestanimationframe">5. Log Batching via requestAnimationFrame<a class="headerlink" href="#5-log-batching-via-requestanimationframe" title="Permanent link">&para;</a></h3>
+<p>Container output can arrive in rapid bursts (hundreds of lines per second). Instead of calling <code>setState</code> on every IPC event (which would thrash React's reconciler), the app buffers incoming lines in a <code>useRef</code> and flushes the entire buffer in a single <code>setState</code> call on the next animation frame. This keeps the UI smooth even during heavy training output.</p>
+<hr />
+<p><em>Next: <a href="02-security-model.html">02 — Security Model</a></em></p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

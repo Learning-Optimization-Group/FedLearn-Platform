@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FedLearn Desktop — Developer Guide & Contributing · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>Desktop</summary><ul>
+<li><a href="README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a class="active" href="08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>Desktop</b> &nbsp;·&nbsp; FedLearn Desktop — Developer Guide & Contributing</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="fedlearn-desktop-developer-guide-contributing">FedLearn Desktop — Developer Guide &amp; Contributing<a class="headerlink" href="#fedlearn-desktop-developer-guide-contributing" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a> → <a href="README.html">Desktop Wiki</a></p>
+</blockquote>
+<hr />
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#prerequisites">Prerequisites</a></li>
+<li><a href="#first-time-setup">First-Time Setup</a></li>
+<li><a href="#development-scripts-reference">Development Scripts Reference</a></li>
+<li><a href="#project-conventions">Project Conventions</a></li>
+<li><a href="#adding-a-new-ipc-channel">Adding a New IPC Channel</a></li>
+<li><a href="#adding-a-new-react-component">Adding a New React Component</a></li>
+<li><a href="#adding-a-new-hardware-profile">Adding a New Hardware Profile</a></li>
+<li><a href="#debugging-techniques">Debugging Techniques</a></li>
+<li><a href="#testing-strategy">Testing Strategy</a></li>
+<li><a href="#common-mistakes--gotchas">Common Mistakes &amp; Gotchas</a></li>
+</ol>
+<hr />
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<h3 id="required-software">Required Software<a class="headerlink" href="#required-software" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Version</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Node.js</td>
+<td>20.x LTS</td>
+<td>Runtime for Electron and webpack</td>
+</tr>
+<tr>
+<td>npm</td>
+<td>10.x</td>
+<td>Package management</td>
+</tr>
+<tr>
+<td>TypeScript</td>
+<td>5.7.x (pinned in devDeps)</td>
+<td>Type checking</td>
+</tr>
+<tr>
+<td>Docker Desktop</td>
+<td>Latest</td>
+<td>Jetson profile testing</td>
+</tr>
+<tr>
+<td>Python</td>
+<td>3.10+</td>
+<td>Dev-mode native client fallback</td>
+</tr>
+</tbody>
+</table>
+<h3 id="platform-specific-prerequisites">Platform-Specific Prerequisites<a class="headerlink" href="#platform-specific-prerequisites" title="Permanent link">&para;</a></h3>
+<p><strong>macOS:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Xcode Command Line Tools (for native module compilation)</span>
+xcode-select<span class="w"> </span>--install
+</code></pre></div>
+
+<p><strong>Windows:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c"># Windows Build Tools (for node-gyp native module compilation)</span>
+<span class="n">npm</span> <span class="n">install</span> <span class="p">-</span><span class="n">-global</span> <span class="n">windows-build-tools</span>
+<span class="c"># Or via Visual Studio Build Tools with C++ workload</span>
+</code></pre></div>
+
+<p><strong>Linux:</strong></p>
+<div class="codehilite"><pre><span></span><code>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>build-essential<span class="w"> </span>libsecret-1-dev<span class="w">  </span><span class="c1"># For safeStorage / libsecret</span>
+</code></pre></div>
+
+<h3 id="optional-tools">Optional Tools<a class="headerlink" href="#optional-tools" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Electron DevTools Extensions:</strong> React DevTools, Redux DevTools</li>
+<li><strong>Docker:</strong> Required only for Jetson profile testing</li>
+<li><strong>nvidia-smi:</strong> Required on CUDA machines for hardware detection</li>
+</ul>
+<hr />
+<h2 id="first-time-setup">First-Time Setup<a class="headerlink" href="#first-time-setup" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 1. Clone the repository</span>
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/anurag2796/FedLearn-Platform.git
+<span class="nb">cd</span><span class="w"> </span>FedLearn-Platform/fedlearn-desktop
+
+<span class="c1"># 2. Install dependencies</span>
+npm<span class="w"> </span>install
+
+<span class="c1"># 3. Start the development environment</span>
+npm<span class="w"> </span>run<span class="w"> </span>dev
+</code></pre></div>
+
+<p>The <code>npm run dev</code> command starts four processes:
+- Webpack watcher for Main Process
+- Webpack watcher for Preload Script
+- Webpack Dev Server for Renderer (port 9000, with HMR)
+- Electron (after 3-second delay for initial compile)</p>
+<h3 id="first-launch">First Launch<a class="headerlink" href="#first-launch" title="Permanent link">&para;</a></h3>
+<p>On first launch the app will:
+1. Show a loading spinner (auth check)
+2. Show the login screen (no saved auth)
+3. Default server URL: <code>http://localhost:8081</code></p>
+<p>Point the app at a running FedLearn backend server, or start the Spring Boot backend locally.</p>
+<hr />
+<h2 id="development-scripts-reference">Development Scripts Reference<a class="headerlink" href="#development-scripts-reference" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Start full dev environment (4 concurrent processes)</span>
+npm<span class="w"> </span>run<span class="w"> </span>dev
+
+<span class="c1"># Build individual targets (dev mode)</span>
+npm<span class="w"> </span>run<span class="w"> </span>dev:main<span class="w">        </span><span class="c1"># Webpack watch — Main Process</span>
+npm<span class="w"> </span>run<span class="w"> </span>dev:preload<span class="w">     </span><span class="c1"># Webpack watch — Preload Script</span>
+npm<span class="w"> </span>run<span class="w"> </span>dev:renderer<span class="w">    </span><span class="c1"># Webpack Dev Server — Renderer (port 9000, HMR)</span>
+npm<span class="w"> </span>run<span class="w"> </span>dev:electron<span class="w">    </span><span class="c1"># Start Electron (requires built main.js)</span>
+
+<span class="c1"># Build for production</span>
+npm<span class="w"> </span>run<span class="w"> </span>build<span class="w">           </span><span class="c1"># All targets via webpack.prod.config.js</span>
+
+<span class="c1"># Build individual targets (production mode)</span>
+npm<span class="w"> </span>run<span class="w"> </span>build:main<span class="w">      </span><span class="c1"># Main Process only</span>
+npm<span class="w"> </span>run<span class="w"> </span>build:preload<span class="w">   </span><span class="c1"># Preload only</span>
+npm<span class="w"> </span>run<span class="w"> </span>build:renderer<span class="w">  </span><span class="c1"># Renderer only</span>
+
+<span class="c1"># Package distributable</span>
+npm<span class="w"> </span>run<span class="w"> </span>package<span class="w">         </span><span class="c1"># Current platform, auto-detected</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:mac<span class="w">     </span><span class="c1"># macOS DMG (arm64 + x64)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:linux<span class="w">   </span><span class="c1"># Linux AppImage + deb</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:win:cpu<span class="w">   </span><span class="c1"># Windows NSIS (CPU variant)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:win:cuda<span class="w">  </span><span class="c1"># Windows NSIS (CUDA variant)</span>
+</code></pre></div>
+
+<hr />
+<h2 id="project-conventions">Project Conventions<a class="headerlink" href="#project-conventions" title="Permanent link">&para;</a></h2>
+<h3 id="file-organization">File Organization<a class="headerlink" href="#file-organization" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>src/main/      → Main Process only. Node.js APIs allowed.
+               → No React, no DOM.
+               → All Docker, auth, and hardware logic lives here.
+
+src/preload/   → Security boundary. One file only.
+               → No Node.js APIs (sandbox mode).
+               → Validation + contextBridge only.
+               → No business logic.
+
+src/renderer/  → Renderer only. No Node.js.
+               → Only access backend via window.fedLearnAPI.
+               → All UI components and React state here.
+</code></pre></div>
+
+<h3 id="naming-conventions">Naming Conventions<a class="headerlink" href="#naming-conventions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Convention</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IPC channels</td>
+<td><code>domain:action</code></td>
+<td><code>docker:start-training</code>, <code>auth:login</code></td>
+</tr>
+<tr>
+<td>Component files</td>
+<td>PascalCase</td>
+<td><code>HardwareSelector.tsx</code></td>
+</tr>
+<tr>
+<td>Service files</td>
+<td>camelCase + <code>.service.ts</code></td>
+<td><code>docker.service.ts</code></td>
+</tr>
+<tr>
+<td>Utility files</td>
+<td>camelCase + <code>.ts</code></td>
+<td><code>hardware.probe.ts</code></td>
+</tr>
+<tr>
+<td>CSS classes</td>
+<td>kebab-case</td>
+<td><code>.profile-card-active</code></td>
+</tr>
+<tr>
+<td>IDs on interactive elements</td>
+<td>kebab-case</td>
+<td><code>#start-training-button</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="typescript-rules">TypeScript Rules<a class="headerlink" href="#typescript-rules" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Use <code>unknown</code> for IPC inputs, not <code>any</code>. Then narrow with type guards.</li>
+<li>Use <code>ReadonlySet&lt;string&gt;</code> for allowlists (prevents accidental mutation).</li>
+<li>All async functions must handle errors with try/catch and log them.</li>
+<li>Never use <code>as Type</code> without a prior type guard validation.</li>
+</ul>
+<h3 id="error-handling-pattern">Error Handling Pattern<a class="headerlink" href="#error-handling-pattern" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Standard pattern for IPC handlers</span>
+<span class="nx">ipcMain</span><span class="p">.</span><span class="nx">handle</span><span class="p">(</span><span class="s1">&#39;domain:action&#39;</span><span class="p">,</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">_event</span><span class="p">,</span><span class="w"> </span><span class="nx">arg</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// 1. Validate input</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValid</span><span class="p">(</span><span class="nx">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">log</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;[IPC:domain:action] Validation failed&#39;</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Validation error message&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// 2. Execute business logic</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">doSomething</span><span class="p">(</span><span class="nx">arg</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="nx">ValidatedType</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// 3. Return success</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w"> </span><span class="nx">data</span><span class="o">:</span><span class="w"> </span><span class="kt">result</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">err</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">message</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="ow">instanceof</span><span class="w"> </span><span class="ne">Error</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="nx">err</span><span class="p">.</span><span class="nx">message</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Unknown error&#39;</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="sb">`[IPC:domain:action] Failed: </span><span class="si">${</span><span class="nx">message</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="kt">message</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<hr />
+<h2 id="adding-a-new-ipc-channel">Adding a New IPC Channel<a class="headerlink" href="#adding-a-new-ipc-channel" title="Permanent link">&para;</a></h2>
+<p>Follow this checklist every time you add a new IPC capability:</p>
+<h3 id="step-1-define-the-main-process-handler-ipchandlersts">Step 1: Define the Main Process Handler (<code>ipc.handlers.ts</code>)<a class="headerlink" href="#step-1-define-the-main-process-handler-ipchandlersts" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// In registerIpcHandlers():</span>
+<span class="nx">ipcMain</span><span class="p">.</span><span class="nx">handle</span><span class="p">(</span><span class="s1">&#39;myfeature:do-something&#39;</span><span class="p">,</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">_event</span><span class="p">,</span><span class="w"> </span><span class="nx">input</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Validate input</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nx">input</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;string&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">input</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nx">log</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;[IPC:myfeature:do-something] Invalid input&#39;</span><span class="p">);</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid input&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Execute</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">someService</span><span class="p">.</span><span class="nx">doSomething</span><span class="p">(</span><span class="nx">input</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">err</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">message</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="ow">instanceof</span><span class="w"> </span><span class="ne">Error</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="nx">err</span><span class="p">.</span><span class="nx">message</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Unknown error&#39;</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="sb">`[IPC:myfeature:do-something] Failed: </span><span class="si">${</span><span class="nx">message</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="kt">message</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<h3 id="step-2-expose-via-preload-bridge-preloadts">Step 2: Expose via Preload Bridge (<code>preload.ts</code>)<a class="headerlink" href="#step-2-expose-via-preload-bridge-preloadts" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// In contextBridge.exposeInMainWorld(&#39;fedLearnAPI&#39;, { ... }):</span>
+<span class="nx">doSomething</span><span class="o">:</span><span class="w"> </span><span class="kt">async</span><span class="w"> </span><span class="p">(</span><span class="nx">input</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w"> </span><span class="nx">result?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w"> </span><span class="nx">error?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Preload validation</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nx">input</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;string&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">input</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">input</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">256</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">console</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;[Preload:Validation] doSomething: invalid input&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid input&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">ipcRenderer</span><span class="p">.</span><span class="nx">invoke</span><span class="p">(</span><span class="s1">&#39;myfeature:do-something&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">input</span><span class="p">);</span>
+<span class="p">},</span>
+</code></pre></div>
+
+<h3 id="step-3-update-typescript-declaration-apptsx-or-globaldts">Step 3: Update TypeScript Declaration (<code>App.tsx</code> or <code>global.d.ts</code>)<a class="headerlink" href="#step-3-update-typescript-declaration-apptsx-or-globaldts" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kr">declare</span><span class="w"> </span><span class="nb">global</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">interface</span><span class="w"> </span><span class="nx">Window</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">fedLearnAPI</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="c1">// ... existing methods ...</span>
+<span class="w">      </span><span class="nx">doSomething</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">input</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span><span class="w"> </span><span class="nx">result?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w"> </span><span class="nx">error?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="step-4-update-the-ipc-channel-reference-table">Step 4: Update the IPC Channel Reference Table<a class="headerlink" href="#step-4-update-the-ipc-channel-reference-table" title="Permanent link">&para;</a></h3>
+<p>Add the new channel to the table in <code>03-main-process.md</code>:</p>
+<div class="codehilite"><pre><span></span><code>| <span class="sb">`myfeature:do-something`</span> | invoke → handle | <span class="sb">`myService.doSomething()`</span> | Description of what it does |
+</code></pre></div>
+
+<h3 id="step-5-log-registrations">Step 5: Log Registrations<a class="headerlink" href="#step-5-log-registrations" title="Permanent link">&para;</a></h3>
+<p>Add the new channel name to the registration log at the bottom of <code>registerIpcHandlers</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">log</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s1">&#39;[IPC] All handlers registered: ..., myfeature:do-something&#39;</span><span class="p">);</span>
+</code></pre></div>
+
+<hr />
+<h2 id="adding-a-new-react-component">Adding a New React Component<a class="headerlink" href="#adding-a-new-react-component" title="Permanent link">&para;</a></h2>
+<h3 id="file-template">File Template<a class="headerlink" href="#file-template" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/renderer/components/MyComponent.tsx</span>
+<span class="c1">// =============================================================================</span>
+<span class="c1">// FedLearn Desktop — MyComponent</span>
+<span class="c1">// =============================================================================</span>
+<span class="c1">// Brief description of what this component does.</span>
+<span class="c1">// =============================================================================</span>
+
+<span class="k">import</span><span class="w"> </span><span class="nx">React</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">useState</span><span class="p">,</span><span class="w"> </span><span class="nx">useCallback</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;react&#39;</span><span class="p">;</span>
+
+<span class="kd">interface</span><span class="w"> </span><span class="nx">MyComponentProps</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">onAction</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">data</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">isDisabled?</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">MyComponent</span><span class="o">:</span><span class="w"> </span><span class="kt">React.FC</span><span class="o">&lt;</span><span class="nx">MyComponentProps</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">({</span><span class="w"> </span><span class="nx">onAction</span><span class="p">,</span><span class="w"> </span><span class="nx">isDisabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">setValue</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">);</span>
+
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">handleClick</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useCallback</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">value</span><span class="p">.</span><span class="nx">trim</span><span class="p">())</span><span class="w"> </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">onAction</span><span class="p">(</span><span class="nx">value</span><span class="p">);</span>
+<span class="w">  </span><span class="p">},</span><span class="w"> </span><span class="p">[</span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">onAction</span><span class="p">]);</span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="nx">div</span><span class="w"> </span><span class="nx">className</span><span class="o">=</span><span class="s2">&quot;my-component&quot;</span><span class="o">&gt;</span>
+<span class="w">      </span><span class="o">&lt;</span><span class="nx">input</span>
+<span class="w">        </span><span class="nx">id</span><span class="o">=</span><span class="s2">&quot;my-component-input&quot;</span><span class="w">          </span><span class="c1">// Unique ID for each interactive element</span>
+<span class="w">        </span><span class="nx">className</span><span class="o">=</span><span class="s2">&quot;form-input&quot;</span>
+<span class="w">        </span><span class="kr">type</span><span class="o">=</span><span class="s2">&quot;text&quot;</span>
+<span class="w">        </span><span class="nx">value</span><span class="o">=</span><span class="p">{</span><span class="nx">value</span><span class="p">}</span>
+<span class="w">        </span><span class="nx">onChange</span><span class="o">=</span><span class="p">{(</span><span class="nx">e</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">setValue</span><span class="p">(</span><span class="nx">e</span><span class="p">.</span><span class="nx">target</span><span class="p">.</span><span class="nx">value</span><span class="p">)}</span>
+<span class="w">        </span><span class="nx">disabled</span><span class="o">=</span><span class="p">{</span><span class="nx">isDisabled</span><span class="p">}</span>
+<span class="w">      </span><span class="o">/&gt;</span>
+<span class="w">      </span><span class="o">&lt;</span><span class="nx">button</span>
+<span class="w">        </span><span class="nx">id</span><span class="o">=</span><span class="s2">&quot;my-component-button&quot;</span>
+<span class="w">        </span><span class="nx">className</span><span class="o">=</span><span class="s2">&quot;btn btn-primary&quot;</span>
+<span class="w">        </span><span class="nx">onClick</span><span class="o">=</span><span class="p">{</span><span class="nx">handleClick</span><span class="p">}</span>
+<span class="w">        </span><span class="nx">disabled</span><span class="o">=</span><span class="p">{</span><span class="nx">isDisabled</span><span class="p">}</span>
+<span class="w">        </span><span class="kr">type</span><span class="o">=</span><span class="s2">&quot;button&quot;</span>
+<span class="w">      </span><span class="o">&gt;</span>
+<span class="w">        </span><span class="nx">Action</span>
+<span class="w">      </span><span class="o">&lt;</span><span class="err">/button&gt;</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="err">/div&gt;</span>
+<span class="w">  </span><span class="p">);</span>
+<span class="p">};</span>
+
+<span class="k">export</span><span class="w"> </span><span class="k">default</span><span class="w"> </span><span class="nx">MyComponent</span><span class="p">;</span>
+</code></pre></div>
+
+<h3 id="css-in-stylescss">CSS in <code>styles.css</code><a class="headerlink" href="#css-in-stylescss" title="Permanent link">&para;</a></h3>
+<p>Add component styles under a clearly labeled section:</p>
+<div class="codehilite"><pre><span></span><code><span class="c">/* ==================== MyComponent ==================== */</span>
+<span class="p">.</span><span class="nc">my-component</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">display</span><span class="p">:</span><span class="w"> </span><span class="kc">flex</span><span class="p">;</span>
+<span class="w">  </span><span class="k">gap</span><span class="p">:</span><span class="w"> </span><span class="nf">var</span><span class="p">(</span><span class="nv">--spacing-sm</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="rules-for-new-components">Rules for New Components<a class="headerlink" href="#rules-for-new-components" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Never call <code>window.fedLearnAPI</code> directly in a leaf component</strong> — pass callbacks down from <code>App.tsx</code></li>
+<li><strong>Give every interactive element a unique <code>id</code></strong> (for accessibility and testing)</li>
+<li><strong>Wrap event handlers in <code>useCallback</code></strong> when they're passed as props</li>
+<li><strong>No <code>dangerouslySetInnerHTML</code></strong> — never, for any reason</li>
+<li><strong>No <code>innerHTML</code></strong> assignment — never, for any reason</li>
+</ol>
+<hr />
+<h2 id="adding-a-new-hardware-profile">Adding a New Hardware Profile<a class="headerlink" href="#adding-a-new-hardware-profile" title="Permanent link">&para;</a></h2>
+<p>To add a new hardware profile (e.g., <code>amd-rocm</code>):</p>
+<h3 id="1-update-the-allowlist-3-places">1. Update the allowlist (3 places)<a class="headerlink" href="#1-update-the-allowlist-3-places" title="Permanent link">&para;</a></h3>
+<p><strong><code>preload.ts</code>:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">ALLOWED_HARDWARE_PROFILES</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;discrete&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;amd-rocm&#39;</span><span class="p">]</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kd">const</span><span class="p">;</span>
+</code></pre></div>
+
+<p><strong><code>ipc.handlers.ts</code>:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">ALLOWED_HARDWARE_PROFILES</span><span class="o">:</span><span class="w"> </span><span class="kt">ReadonlySet</span><span class="o">&lt;</span><span class="kt">string</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Set</span><span class="p">([</span><span class="s1">&#39;discrete&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;amd-rocm&#39;</span><span class="p">]);</span>
+</code></pre></div>
+
+<p><strong><code>docker.service.ts</code>:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="nx">HardwareProfile</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;discrete&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;amd-rocm&#39;</span><span class="p">;</span>
+</code></pre></div>
+
+<h3 id="2-add-routing-logic-in-dockerservicestarttraining">2. Add routing logic in <code>DockerService.startTraining()</code><a class="headerlink" href="#2-add-routing-logic-in-dockerservicestarttraining" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">async</span><span class="w"> </span><span class="nx">startTraining</span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">TrainingConfig</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="ow">void</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">startDockerTraining</span><span class="p">(</span><span class="nx">config</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;amd-rocm&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">startDockerTraining</span><span class="p">(</span><span class="nx">config</span><span class="p">);</span><span class="w">  </span><span class="c1">// or startNativeProcess</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">startNativeProcess</span><span class="p">(</span><span class="nx">config</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="3-add-the-hostconfig-case-in-startdockertraining">3. Add the HostConfig case in <code>startDockerTraining()</code><a class="headerlink" href="#3-add-the-hostconfig-case-in-startdockertraining" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;amd-rocm&#39;</span><span class="o">:</span>
+<span class="w">    </span><span class="c1">// ROCm requires /dev/kfd and /dev/dri</span>
+<span class="w">    </span><span class="nx">hostConfig</span><span class="p">.</span><span class="nx">Devices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nx">PathOnHost</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/kfd&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">PathInContainer</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/kfd&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">CgroupPermissions</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;rwm&#39;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">];</span>
+<span class="w">    </span><span class="nx">hostConfig</span><span class="p">.</span><span class="nx">Binds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[...(</span><span class="nx">hostConfig</span><span class="p">.</span><span class="nx">Binds</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">[]),</span><span class="w"> </span><span class="s1">&#39;/dev/dri:/dev/dri&#39;</span><span class="p">];</span>
+<span class="w">    </span><span class="k">break</span><span class="p">;</span>
+<span class="w">  </span><span class="c1">// ... existing cases</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<h3 id="4-add-the-profile-card-to-hardwareselectortsx">4. Add the profile card to <code>HardwareSelector.tsx</code><a class="headerlink" href="#4-add-the-profile-card-to-hardwareselectortsx" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">HARDWARE_PROFILES</span><span class="o">:</span><span class="w"> </span><span class="kt">HardwareProfileOption</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="c1">// ... existing profiles</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;amd-rocm&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;AMD GPU (ROCm)&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">description</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;AMD Radeon GPU with ROCm compute stack.&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">icon</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;🔴&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">dockerConfig</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Devices: /dev/kfd, /dev/dri&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="p">];</span>
+</code></pre></div>
+
+<h3 id="5-update-hardware-detection-if-applicable">5. Update hardware detection if applicable<a class="headerlink" href="#5-update-hardware-detection-if-applicable" title="Permanent link">&para;</a></h3>
+<p>Update <code>hardware.probe.ts</code> to detect AMD GPUs and set <code>recommendedProfile = 'amd-rocm'</code> when appropriate.</p>
+<hr />
+<h2 id="debugging-techniques">Debugging Techniques<a class="headerlink" href="#debugging-techniques" title="Permanent link">&para;</a></h2>
+<h3 id="main-process-debugging">Main Process Debugging<a class="headerlink" href="#main-process-debugging" title="Permanent link">&para;</a></h3>
+<p>Add <code>--inspect</code> flag to enable Node.js inspector:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># In package.json dev:electron script, or directly:</span>
+electron<span class="w"> </span>--inspect<span class="o">=</span><span class="m">5858</span><span class="w"> </span>dist/main/main.js
+</code></pre></div>
+
+<p>Then in Chrome/Edge: navigate to <code>chrome://inspect</code> and connect to <code>localhost:5858</code>.</p>
+<h3 id="renderer-debugging">Renderer Debugging<a class="headerlink" href="#renderer-debugging" title="Permanent link">&para;</a></h3>
+<p>DevTools are available in dev mode. Press <code>Cmd+Option+I</code> (macOS) or <code>Ctrl+Shift+I</code> (Windows/Linux) to open.</p>
+<p>The renderer's <code>window.fedLearnAPI</code> is inspectable in the console:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// In DevTools console:</span>
+<span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">checkAuth</span><span class="p">().</span><span class="nx">then</span><span class="p">(</span><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">)</span>
+<span class="c1">// { success: true, authenticated: true }</span>
+
+<span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">detectHardware</span><span class="p">().</span><span class="nx">then</span><span class="p">(</span><span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">)</span>
+<span class="c1">// { success: true, detection: { platform: &#39;darwin&#39;, arch: &#39;arm64&#39;, ... } }</span>
+</code></pre></div>
+
+<h3 id="ipc-logging">IPC Logging<a class="headerlink" href="#ipc-logging" title="Permanent link">&para;</a></h3>
+<p>All IPC calls are logged in the Main Process via electron-log:</p>
+<div class="codehilite"><pre><span></span><code>[IPC:docker:start-training] Starting training with profile=mps, project=my-project, model=CNN
+[IPC:auth:login] Called for user: admin
+[IPC:hardware:detect] Called
+</code></pre></div>
+
+<p>Log file location:
+- <strong>macOS:</strong> <code>~/Library/Logs/FedLearn Desktop/main.log</code>
+- <strong>Windows:</strong> <code>%APPDATA%\FedLearn Desktop\logs\main.log</code>
+- <strong>Linux:</strong> <code>~/.config/FedLearn Desktop/logs/main.log</code></p>
+<h3 id="preload-validation-errors">Preload Validation Errors<a class="headerlink" href="#preload-validation-errors" title="Permanent link">&para;</a></h3>
+<p>Preload validation errors go to <code>console.error</code>, which is forwarded to the Main Process log:</p>
+<div class="codehilite"><pre><span></span><code>[Preload:Validation] Rejected hardware profile not in allowlist: &quot;invalid-profile&quot;
+</code></pre></div>
+
+<p>If a call to <code>window.fedLearnAPI.startTraining()</code> returns <code>{ success: false }</code> unexpectedly, check the Main Process log for <code>[Preload:Validation]</code> messages.</p>
+<h3 id="docker-container-debugging">Docker Container Debugging<a class="headerlink" href="#docker-container-debugging" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Check if the training container is running</span>
+docker<span class="w"> </span>ps<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>fedlearn-training-client
+
+<span class="c1"># View container logs directly (bypass the app)</span>
+docker<span class="w"> </span>logs<span class="w"> </span>fedlearn-training-client
+
+<span class="c1"># Inspect container state</span>
+docker<span class="w"> </span>inspect<span class="w"> </span>fedlearn-training-client<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.[0].State&#39;</span>
+
+<span class="c1"># Execute a shell in the running container</span>
+docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>fedlearn-training-client<span class="w"> </span>/bin/bash
+</code></pre></div>
+
+<hr />
+<h2 id="testing-strategy">Testing Strategy<a class="headerlink" href="#testing-strategy" title="Permanent link">&para;</a></h2>
+<p>FedLearn Desktop does not currently have an automated test suite. The following manual testing checklist should be verified before each release:</p>
+<h3 id="authentication-tests">Authentication Tests<a class="headerlink" href="#authentication-tests" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>[ ] Login with valid credentials → dashboard appears
+[ ] Login with invalid credentials → error message shown
+[ ] Login with unreachable server → connection failed error
+[ ] Logout → auth modal reappears
+[ ] App restart → auto-login via saved JWT (if keychain available)
+[ ] JWT expiry (24h) → re-auth required on next launch
+[ ] Settings: change server URL → new URL persisted after restart
+</code></pre></div>
+
+<h3 id="training-tests-native-path">Training Tests (Native Path)<a class="headerlink" href="#training-tests-native-path" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>[ ] MPS profile (Apple Silicon Mac):
+    [ ] Start training → logs appear in real-time
+    [ ] Stop training → process terminated
+    [ ] Status transitions: pulling → running → completed/error
+    [ ] Log panel auto-scroll behavior
+
+[ ] CPU profile (any machine):
+    [ ] Start training → logs appear
+    [ ] Stop → SIGTERM sent, then SIGKILL after 5s if not stopped
+</code></pre></div>
+
+<h3 id="training-tests-docker-path-jetson">Training Tests (Docker Path — Jetson)<a class="headerlink" href="#training-tests-docker-path-jetson" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>[ ] Docker not running → warning banner appears
+[ ] Jetson profile + Docker running + image exists → container starts
+[ ] Jetson profile + image missing → helpful error in log panel
+[ ] Stop training → container removed
+[ ] Start training twice → old container cleaned up before new one starts
+</code></pre></div>
+
+<h3 id="security-tests">Security Tests<a class="headerlink" href="#security-tests" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>[ ] Renderer cannot access Node.js: typeof require === &#39;undefined&#39; in DevTools
+[ ] window.fedLearnAPI is the only bridge: no other Node APIs on window
+[ ] Dataset path with ../.. → rejected by ipc.handlers.ts
+[ ] Hardware profile &#39;invalid&#39; → rejected at preload + ipc.handlers
+[ ] Log output containing &lt;script&gt; tags → rendered as plain text, not executed
+</code></pre></div>
+
+<h3 id="packaging-tests">Packaging Tests<a class="headerlink" href="#packaging-tests" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>[ ] Build completes without errors: npm run build
+[ ] Package completes: npm run package:mac (or platform equivalent)
+[ ] Produced DMG/EXE can be installed and launched
+[ ] App loads from packaged file:// origin (not localhost)
+[ ] JWT auth works in packaged mode
+[ ] Native bundle is found at &lt;resources&gt;/fedlearn-client/
+</code></pre></div>
+
+<hr />
+<h2 id="common-mistakes-gotchas">Common Mistakes &amp; Gotchas<a class="headerlink" href="#common-mistakes-gotchas" title="Permanent link">&para;</a></h2>
+<h3 id="1-calling-windowfedlearnapi-before-its-initialized">1. Calling <code>window.fedLearnAPI</code> Before It's Initialized<a class="headerlink" href="#1-calling-windowfedlearnapi-before-its-initialized" title="Permanent link">&para;</a></h3>
+<p>The preload script runs synchronously before the DOM is ready, so <code>window.fedLearnAPI</code> is available on page load. However, if you call it in the module body (outside of a component/effect), it may not be defined yet:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// ❌ BAD — may run before contextBridge populates</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">checkAuth</span><span class="p">();</span>
+
+<span class="c1">// ✅ GOOD — runs after React mounts</span>
+<span class="nx">useEffect</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">checkAuth</span><span class="p">().</span><span class="nx">then</span><span class="p">(</span><span class="cm">/* ... */</span><span class="p">);</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[]);</span>
+</code></pre></div>
+
+<h3 id="2-not-cleaning-up-ipc-listeners">2. Not Cleaning Up IPC Listeners<a class="headerlink" href="#2-not-cleaning-up-ipc-listeners" title="Permanent link">&para;</a></h3>
+<p>Calling <code>onTrainingLog</code> multiple times (e.g., on repeated login/logout cycles) stacks listeners:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// ❌ BAD — listener accumulates on each login</span>
+<span class="nx">useEffect</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">onTrainingLog</span><span class="p">(</span><span class="nx">callback</span><span class="p">);</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[</span><span class="nx">isAuthenticated</span><span class="p">]);</span>
+
+<span class="c1">// ✅ GOOD — cleanup removes listener on dependency change</span>
+<span class="nx">useEffect</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isAuthenticated</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">onTrainingLog</span><span class="p">(</span><span class="nx">callback</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nb">window</span><span class="p">.</span><span class="nx">fedLearnAPI</span><span class="p">.</span><span class="nx">removeTrainingLogListener</span><span class="p">();</span>
+<span class="p">},</span><span class="w"> </span><span class="p">[</span><span class="nx">isAuthenticated</span><span class="p">]);</span>
+</code></pre></div>
+
+<h3 id="3-modifying-allowed_hardware_profiles-in-only-one-place">3. Modifying <code>ALLOWED_HARDWARE_PROFILES</code> in Only One Place<a class="headerlink" href="#3-modifying-allowed_hardware_profiles-in-only-one-place" title="Permanent link">&para;</a></h3>
+<p>The allowlist is defined separately in <code>preload.ts</code> and <code>ipc.handlers.ts</code>. If you add a new profile to one but not the other, calls will be rejected at the second validation layer with no obvious error message.</p>
+<h3 id="4-forgetting-pythonunbuffered1">4. Forgetting <code>PYTHONUNBUFFERED=1</code><a class="headerlink" href="#4-forgetting-pythonunbuffered1" title="Permanent link">&para;</a></h3>
+<p>Without this env var, Python buffers stdout when not connected to a TTY. Real-time logs will appear only after the buffer fills (8KB by default) or the process ends. The app sets this automatically, but if you spawn a Python process manually for testing, remember to add it.</p>
+<h3 id="5-using-runtime-nvidia-on-jetson">5. Using <code>--runtime nvidia</code> on Jetson<a class="headerlink" href="#5-using-runtime-nvidia-on-jetson" title="Permanent link">&para;</a></h3>
+<p>This is explicitly documented in the code but still a common mistake when working with Docker + NVIDIA:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// ❌ WRONG for Jetson — hangs indefinitely</span>
+<span class="nx">hostConfig</span><span class="p">.</span><span class="nx">Runtime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;nvidia&#39;</span><span class="p">;</span>
+
+<span class="c1">// ✅ CORRECT for Jetson</span>
+<span class="nx">hostConfig</span><span class="p">.</span><span class="nx">Devices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">JETSON_DEVICE_MOUNTS</span><span class="p">;</span>
+</code></pre></div>
+
+<h3 id="6-electron-reload-doesnt-reload-main-process">6. Electron Reload Doesn't Reload Main Process<a class="headerlink" href="#6-electron-reload-doesnt-reload-main-process" title="Permanent link">&para;</a></h3>
+<p>When you modify a Main Process file (<code>main.ts</code>, <code>docker.service.ts</code>, etc.) and webpack rebuilds it, <strong>Electron does not automatically reload</strong>. You must quit and restart Electron to pick up Main Process changes. Only renderer changes are hot-reloaded.</p>
+<h3 id="7-electron-store-schema-mismatch-after-upgrades">7. <code>electron-store</code> Schema Mismatch After Upgrades<a class="headerlink" href="#7-electron-store-schema-mismatch-after-upgrades" title="Permanent link">&para;</a></h3>
+<p>If you change the schema of data stored in <code>electron-store</code> between versions, the old stored data will fail to parse. The <code>clearInvalidConfig: true</code> option handles this gracefully by resetting the store, but users will lose their saved server URL and will need to re-authenticate.</p>
+<p>If you make breaking schema changes, consider implementing a migration in the <code>AuthService</code> constructor.</p>
+<hr />
+<p><em>Previous: <a href="07-hardware-profiles.html">07 — Hardware Profiles &amp; Training Execution</a></em><br />
+<em>Back to: <a href="README.html">Desktop Wiki Index</a></em></p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>
