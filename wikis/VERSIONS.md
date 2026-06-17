@@ -11,7 +11,7 @@ tagged release. Versions follow [Semantic Versioning](https://semver.org).
 | **backend** (Spring Boot API) | `1.4.1-beta` | `backend/fl-platform-api/build.gradle` |
 | **framework** (Python FL core) | `0.1.0` | `framework/setup.py` |
 | **frontend** (React web app) | `1.4.1-beta` | `frontend/package.json` |
-| **desktop** (Electron app) | `3.1.0-beta` | `fedlearn-desktop/package.json` |
+| **desktop** (Electron app) | `3.2.0-beta` | `fedlearn-desktop/package.json` |
 | **mobile** (React Native app) | `2.1.0` | `mobile_client/package.json` |
 | **client-docker** (container) | — | `client-docker/Dockerfile` (inherits framework) |
 
@@ -35,6 +35,14 @@ tagged release. Versions follow [Semantic Versioning](https://semver.org).
    release workflow so only the matching unit builds.
 
 ## Release history
+
+### 2026-06-16
+
+| Component | Version | Notes |
+|-----------|---------|-------|
+| desktop | `3.2.0-beta` | Model Playground — interactive "Use a model" inference (image + vector), reached over validated IPC with the JWT kept in the keychain |
+
+Backend and web also gained the inference feature this cycle (new `/api/inference` API and `/playground` view) but are versioned as a pair and stay `1.4.1-beta`.
 
 ### 2026-06-10
 
