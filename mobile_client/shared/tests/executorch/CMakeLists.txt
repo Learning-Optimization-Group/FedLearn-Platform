@@ -53,12 +53,14 @@ add_executable(fedlearn_et_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/../flatparam_filter_test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../serialize_roundtrip_test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../decomfl_equivalence_test.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../data_loader_test.cpp
   ${SHARED}/src/ExecutorchModel.cpp
   ${SHARED}/src/Sha256.cpp
   ${SHARED}/src/DtypeMap.cpp
   ${SHARED}/src/Safetensors.cpp
   ${SHARED}/src/ModelManager.cpp
   ${SHARED}/src/DeComFLClient.cpp
+  ${SHARED}/src/DataLoader.cpp
 )
 
 get_filename_component(ET_SRC_PARENT "${ET_SRC}" DIRECTORY)
