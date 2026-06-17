@@ -46,6 +46,7 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(fedlearn_et_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/../executorch_forward_test.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../et_g_scalar_test.cpp
   ${SHARED}/src/ExecutorchModel.cpp
   ${SHARED}/src/Sha256.cpp
 )
