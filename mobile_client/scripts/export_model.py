@@ -53,6 +53,11 @@ def main() -> None:
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
+    # pte_export.py is a sibling in this scripts/ dir.
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from pte_export import export_functional_pte, trainable_flat
+
     for tier in args.tiers:
         if tier not in TIER_HIDDEN:
             raise SystemExit(
@@ -68,6 +73,17 @@ def main() -> None:
         with open(path, "rb") as fh:
             sha = hashlib.sha256(fh.read()).hexdigest()
         print(f"{tier}: params={n:,} file={path} sha256={sha}")
+
+        # Functional .pte for ExecuTorch (all tier params are trainable -> flat input).
+        gex = torch.Generator().manual_seed(args.seed)
+        x = torch.randn(2, IN_DIM, generator=gex)
+        yb = torch.randint(0, OUT_DIM, (2,), generator=gex)
+        pte = export_functional_pte(model, (x, yb))
+        pte_path = os.path.join(args.out, f"model_{tier}.pte")
+        with open(pte_path, "wb") as fh:
+            fh.write(pte)
+        pte_sha = hashlib.sha256(pte).hexdigest()
+        print(f"{tier}: pte_file={pte_path} pte_sha256={pte_sha} flat_dim={trainable_flat(model).numel()}")
 
 
 if __name__ == "__main__":
