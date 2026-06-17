@@ -40,6 +40,7 @@ utilization_log = []
 # --- !! MANUAL FLAG TO SWITCH BETWEEN MODELS !! ---
 USE_LLM = True
 USE_MLP = False  # NEW: Flag for MLP/ECG
+USE_PNEUMONIA = False  # Flag for PneumoniaCNN (chest X-ray) recipe
 # --------------------------------------------------
 
 # --- Configuration ---
@@ -182,6 +183,14 @@ def dirichlet_split(labels, num_clients, alpha=1.0, seed=42):
 
 def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, num_clients: int = 10):
     """Load data with Dirichlet split."""
+    if USE_PNEUMONIA:
+        import recipes
+        alpha = float(os.environ.get("FEDLEARN_PNEUMONIA_ALPHA", "0.5"))
+        print(f"[PNEUMONIA] Loading chest X-ray shard: partition {partition_id}/{num_clients} (alpha={alpha})")
+        return recipes.get_recipe("PNEUMONIA_CNN").load_client_data(
+            partition_id=partition_id, num_clients=num_clients,
+            alpha=alpha, seed=42, batch_size=BATCH_SIZE,
+        )
     if USE_LLM:
         from pathlib import Path
         import pickle
@@ -426,6 +435,11 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                 labels = labels.to(DEVICE)
                 outputs = net(features)
                 loss = criterion(outputs, labels)
+            elif USE_PNEUMONIA:
+                # PneumoniaCNN: batch is (image, label) tuple
+                images, labels = batch[0].to(DEVICE), batch[1].to(DEVICE)
+                outputs = net(images)
+                loss = criterion(outputs, labels)
             else:
                 # CNN
                 images, labels = batch["img"].to(DEVICE), batch["label"].to(DEVICE)
@@ -531,6 +545,10 @@ class ZOSLClient(fl.Client):
             )
             self.net.to(DEVICE)
             print(f"Loaded {MODEL_NAME} for {dataset_name} ({config['num_classes']} classes)")
+        elif USE_PNEUMONIA:
+            import recipes
+            self.net = recipes.get_recipe("PNEUMONIA_CNN").build_model(DEVICE)
+            print("Loaded PneumoniaCNN (1x224x224 grayscale -> NORMAL/PNEUMONIA)")
         else:
             self.net = CnnNet().to(DEVICE)
             print("Loaded CNN for CIFAR-10")
@@ -742,7 +760,7 @@ def create_decomfl_compatible_loader(original_loader, is_llm=False):
 # --- Main Execution Block ---
 # ==============================================================================
 def main():
-    global USE_LLM, USE_MLP, DATASET_NAME, BATCH_SIZE
+    global USE_LLM, USE_MLP, USE_PNEUMONIA, DATASET_NAME, BATCH_SIZE
 
     print(f"\n{'='*60}")
     print(f"DEVICE DETECTION")
@@ -757,7 +775,7 @@ def main():
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
     parser.add_argument("--server-address", type=str, required=True, help="gRPC server address")
     parser.add_argument("--partition-id", type=int, required=True, choices=range(0, NUM_PARTITIONS), help="Client partition ID")
-    parser.add_argument("--model-type", type=str, choices=["CNN", "TRANSFORMER", "MLP"], help="Model type")
+    parser.add_argument("--model-type", type=str, choices=["CNN", "TRANSFORMER", "MLP", "PNEUMONIA_CNN"], help="Model type")
     parser.add_argument("--model-name", type=str, help="Model name")
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="FL strategy (FedAvg or DeComFL)")
@@ -769,12 +787,15 @@ def main():
     if args.model_type:
         USE_LLM = (args.model_type.upper() == "TRANSFORMER")
         USE_MLP = (args.model_type.upper() == "MLP")
+        USE_PNEUMONIA = (args.model_type.upper() == "PNEUMONIA_CNN")
     elif args.use_llm:
         USE_LLM = True
         USE_MLP = False
+        USE_PNEUMONIA = False
     else:
         USE_LLM = False
         USE_MLP = False
+        USE_PNEUMONIA = False
 
     # === HARDCODED ECG/MLP OVERRIDE ===
     if USE_MLP:
@@ -790,6 +811,15 @@ def main():
         print(f"  Dataset path: {dataset_path}")
         print(f"  Num clients: {num_clients}")
         print(f"  Strategy: {args.strategy}")
+        print(f"{'='*60}\n")
+    elif USE_PNEUMONIA:
+        args.dataset = "pneumonia"
+        dataset_path = None
+        num_clients = int(os.environ.get("FEDLEARN_NUM_CLIENTS", "2"))
+        print(f"\n{'='*60}")
+        print(f"PNEUMONIA_CNN — chest X-ray federated training")
+        print(f"  Num clients (Dirichlet partitions): {num_clients}")
+        print(f"  Data: FEDLEARN_PNEUMONIA_DIR (local ImageFolder) or HuggingFace download")
         print(f"{'='*60}\n")
     else:
         dataset_path = None
@@ -808,6 +838,8 @@ def main():
         from config import get_dataset_config
         config = get_dataset_config("ecg")
         BATCH_SIZE = config.batch_size_train
+    elif USE_PNEUMONIA:
+        BATCH_SIZE = int(os.environ.get("FEDLEARN_PNEUMONIA_BATCH", "16"))
     else:
         BATCH_SIZE = 32
 

@@ -4,26 +4,29 @@
 
 import { useState, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
+import { fetchModelRecipes, type ModelRecipe } from '../../services/apiServices';
 import { Modal, Input, Select, Button } from '../ui';
 
-const modelOptions = {
-  CNN: {
-    models: ['net', 'ResNet', 'VGGNet', 'AlexNet'],
+// Last-resort fallback if the catalog can't be fetched (e.g. offline). The
+// primary source is GET /api/model-recipes — this only keeps the modal usable.
+const FALLBACK_RECIPES: ModelRecipe[] = [
+  {
+    key: 'CNN',
+    displayName: 'Image model (CNN)',
+    inputKind: 'image',
+    classes: [],
+    baseModels: ['net', 'ResNet', 'VGGNet', 'AlexNet'],
     optimizers: ['Adam', 'SGD', 'RMSprop', 'AdamW'],
   },
-  Transformer: {
-    models: ['opt-125m', 'bert-tiny'],
+  {
+    key: 'TRANSFORMER',
+    displayName: 'Text model (Transformer)',
+    inputKind: 'text',
+    classes: [],
+    baseModels: ['opt-125m', 'bert-tiny'],
     optimizers: ['AdamW', 'Adam'],
   },
-};
-
-// Plain-language labels for the architecture choice (values stay CNN/Transformer).
-const ARCH_LABELS: Record<keyof typeof modelOptions, string> = {
-  CNN: 'Image model (CNN)',
-  Transformer: 'Text model (Transformer)',
-};
-
-type ModelType = keyof typeof modelOptions;
+];
 
 interface CreateProjectModalProps {
   isOpen: boolean;
@@ -43,21 +46,52 @@ const helpClass = 'text-caption text-fg-subtle';
 
 export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = false }: CreateProjectModalProps) {
   const [name, setName] = useState('');
-  const [modelType, setModelType] = useState<ModelType>('CNN');
-  const [modelName, setModelName] = useState(modelOptions.CNN.models[0]);
-  const [optimizer, setOptimizer] = useState(modelOptions.CNN.optimizers[0]);
+  const [recipes, setRecipes] = useState<ModelRecipe[]>([]);
+  const [recipesLoading, setRecipesLoading] = useState(false);
+  const [modelType, setModelType] = useState('');
+  const [modelName, setModelName] = useState('');
+  const [optimizer, setOptimizer] = useState('');
   const [pretrainEpochs, setPretrainEpochs] = useState(0);
 
+  // Fetch the model catalog when the modal opens.
   useEffect(() => {
-    setModelName(modelOptions[modelType].models[0]);
-    setOptimizer(modelOptions[modelType].optimizers[0]);
-  }, [modelType]);
+    if (!isOpen) return;
+    let cancelled = false;
+    setRecipesLoading(true);
+    fetchModelRecipes()
+      .then((res) => {
+        if (cancelled) return;
+        const data = res.data?.length ? res.data : FALLBACK_RECIPES;
+        setRecipes(data);
+        setModelType(data[0].key);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRecipes(FALLBACK_RECIPES);
+        setModelType(FALLBACK_RECIPES[0].key);
+      })
+      .finally(() => {
+        if (!cancelled) setRecipesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  const selectedRecipe = recipes.find((r) => r.key === modelType);
+
+  // When the selected type changes, reset base model + optimizer to its first.
+  useEffect(() => {
+    if (!selectedRecipe) return;
+    setModelName(selectedRecipe.baseModels[0] ?? '');
+    setOptimizer(selectedRecipe.optimizers[0] ?? '');
+  }, [modelType, selectedRecipe]);
 
   // Reset on close
   useEffect(() => {
     if (!isOpen) {
       setName('');
-      setModelType('CNN');
+      setModelType('');
       setPretrainEpochs(0);
     }
   }, [isOpen]);
@@ -99,9 +133,14 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
         {/* Model Architecture */}
         <div className="flex flex-col gap-1.5">
           <label className={labelClass}>What kind of model?</label>
-          <Select value={modelType} onChange={(e) => setModelType(e.target.value as ModelType)}>
-            {(Object.keys(modelOptions) as ModelType[]).map((type) => (
-              <option key={type} value={type}>{ARCH_LABELS[type]}</option>
+          <Select
+            value={modelType}
+            onChange={(e) => setModelType(e.target.value)}
+            disabled={recipesLoading || recipes.length === 0}
+          >
+            {recipesLoading && <option value="">Loading models…</option>}
+            {recipes.map((r) => (
+              <option key={r.key} value={r.key}>{r.displayName}</option>
             ))}
           </Select>
         </div>
@@ -110,16 +149,24 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
             <label className={labelClass}>Base model</label>
-            <Select value={modelName} onChange={(e) => setModelName(e.target.value)}>
-              {modelOptions[modelType].models.map((m) => (
+            <Select
+              value={modelName}
+              onChange={(e) => setModelName(e.target.value)}
+              disabled={recipesLoading || !selectedRecipe}
+            >
+              {selectedRecipe?.baseModels.map((m) => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </Select>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className={labelClass}>Optimizer</label>
-            <Select value={optimizer} onChange={(e) => setOptimizer(e.target.value)}>
-              {modelOptions[modelType].optimizers.map((o) => (
+            <Select
+              value={optimizer}
+              onChange={(e) => setOptimizer(e.target.value)}
+              disabled={recipesLoading || !selectedRecipe}
+            >
+              {selectedRecipe?.optimizers.map((o) => (
                 <option key={o} value={o}>{o}</option>
               ))}
             </Select>
@@ -153,7 +200,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
           </Button>
           <Button
             type="submit"
-            disabled={isLoading || !name.trim()}
+            disabled={isLoading || !name.trim() || !selectedRecipe}
             className="flex-1"
           >
             {isLoading ? 'Creating…' : 'Create project'}

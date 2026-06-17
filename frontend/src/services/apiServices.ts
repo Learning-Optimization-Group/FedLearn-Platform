@@ -82,6 +82,26 @@ export const logoutUser = (): Promise<AxiosResponse<void>> => {
     return api.post<void>('/auth/logout');
 };
 
+// ─── Model recipe catalog ───────────────────────────────────────────────
+//
+// The backend owns the catalog of trainable model types (architectures,
+// their base models and optimizers). The project modals fetch this at open
+// time so the picker stays in sync with what the framework actually supports.
+
+export interface ModelRecipe {
+    key: string;
+    displayName: string;
+    inputKind: string;
+    classes: string[];
+    baseModels: string[];
+    optimizers: string[];
+}
+
+/** Lists the model recipes the platform can train. */
+export const fetchModelRecipes = (): Promise<AxiosResponse<ModelRecipe[]>> => {
+    return api.get<ModelRecipe[]>('/model-recipes');
+};
+
 // Project Management Endpoints
 export const fetchProjects = async (): Promise<AxiosResponse<Project[]>> => {
     return api.get<Project[]>('/projects');

@@ -82,8 +82,10 @@ public class InferenceService {
     public InferenceResultDto runInference(@NonNull UUID projectId, InferenceRequest request) {
         ProjectService.InferenceTarget target = projectService.resolveInferenceTarget(projectId);
 
-        String inputKind = ProjectService.inputKindFor(target.modelType());
-        if (inputKind == null) {
+        String inputKind = projectService.inputKindFor(target.modelType());
+        // Only image/vector inputs are wired into infer.py today; anything else
+        // (e.g. a text recipe like Transformer) isn't interactively runnable yet.
+        if (inputKind == null || !("image".equals(inputKind) || "vector".equals(inputKind))) {
             throw new ProjectStateException(
                     "Interactive inference is not supported for model type '" + target.modelType() + "' yet.");
         }

@@ -65,6 +65,8 @@ public class ProjectService {
     private OrganizationMembershipRepository orgMembershipRepository;
     @Autowired
     private com.federated.fl_platform_api.security.OrgScope orgScope;
+    @Autowired
+    private ModelRecipeService modelRecipeService;
 
     /**
      * Default org UUID seeded by the V5 migration — the single transitional
@@ -449,25 +451,28 @@ public class ProjectService {
     /** Where a trained model lives plus what it is, for {@link #resolveInferenceTarget}. */
     public record InferenceTarget(String modelPath, String modelType, String modelName, String status) {}
 
-    /** Maps a stored modelType to the input the client must collect, or null if not runnable. */
-    public static String inputKindFor(String modelType) {
+    /**
+     * Maps a stored modelType to the input the client must collect, or null if
+     * unknown. Sourced from the {@link ModelRecipeService} catalog (recipes.py),
+     * with the built-in fallback covering CNN/MLP/Transformer/Pneumonia.
+     */
+    public String inputKindFor(String modelType) {
         if (modelType == null) return null;
-        return switch (modelType.toUpperCase()) {
-            case "CNN" -> "image";
-            case "MLP" -> "vector";
-            default -> null; // TRANSFORMER and anything else: not interactively runnable yet
-        };
+        return modelRecipeService.findByKey(modelType)
+                .map(com.federated.fl_platform_api.dto.ModelRecipeDto::inputKind)
+                .orElse(null);
     }
 
-    /** Human-readable class labels for a modelType, in output order. */
-    public static List<String> classesFor(String modelType) {
+    /**
+     * Human-readable class labels for a modelType, in output order. Sourced from
+     * the {@link ModelRecipeService} catalog; empty if the type is unknown.
+     */
+    public List<String> classesFor(String modelType) {
         if (modelType == null) return List.of();
-        return switch (modelType.toUpperCase()) {
-            case "CNN" -> List.of("airplane", "automobile", "bird", "cat", "deer",
-                                   "dog", "frog", "horse", "ship", "truck");
-            case "MLP" -> List.of("Normal", "Abnormal");
-            default -> List.of();
-        };
+        return modelRecipeService.findByKey(modelType)
+                .map(com.federated.fl_platform_api.dto.ModelRecipeDto::classes)
+                .map(c -> c == null ? List.<String>of() : c)
+                .orElse(List.of());
     }
 
     /**

@@ -1,4 +1,5 @@
 import logging
+import os
 import threading
 from collections import OrderedDict
 import torch
@@ -9,16 +10,50 @@ from .strategy import Strategy
 
 log = logging.getLogger(__name__)
 
+# Default per-round client-dropout deadline (seconds). A synchronous FedAvg
+# round otherwise blocks forever if a selected client never reports.
+DEFAULT_ROUND_TIMEOUT_S = 120.0
+
+
+def _round_timeout_from_env(default: float) -> float:
+    """Read FEDLEARN_ROUND_TIMEOUT_S with a safe int/float parse + fallback."""
+    raw = os.environ.get("FEDLEARN_ROUND_TIMEOUT_S")
+    if raw is None:
+        return default
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        log.warning(
+            "Invalid FEDLEARN_ROUND_TIMEOUT_S=%r; falling back to %.1fs",
+            raw, default,
+        )
+        return default
+    if value <= 0:
+        log.warning(
+            "Non-positive FEDLEARN_ROUND_TIMEOUT_S=%r; falling back to %.1fs",
+            raw, default,
+        )
+        return default
+    return value
+
 
 class FLCoordinator:
     """
     A class that owns the concept of rounds and signals the main loop when a round is complete.
     """
 
-    def __init__(self, strategy: Strategy, min_clients_for_aggregation: int,clients_per_round:int):
+    def __init__(self, strategy: Strategy, min_clients_for_aggregation: int, clients_per_round: int,
+                 round_timeout_s: Optional[float] = None):
         self.strategy = strategy
         self.min_clients = min_clients_for_aggregation
         self.clients_per_round = clients_per_round
+
+        # Per-round dropout deadline. Precedence: explicit constructor arg >
+        # FEDLEARN_ROUND_TIMEOUT_S env var > module default.
+        if round_timeout_s is not None:
+            self.round_timeout_s = float(round_timeout_s)
+        else:
+            self.round_timeout_s = _round_timeout_from_env(DEFAULT_ROUND_TIMEOUT_S)
 
         self._lock = threading.Lock()
         self._round_complete_event = threading.Event()
@@ -33,17 +68,81 @@ class FLCoordinator:
         self.heartbeat_lock = Lock()
         self.heartbeat_timeout = 300
 
+        # Failure state surfaced when a round is force-aggregated or aborted on timeout.
+        self.last_round_failed = False
+        self.last_round_message: Optional[str] = None
+
+        # Monotonic timestamp marking when the current round began. Used to
+        # enforce round_timeout_s independently of wall-clock adjustments.
+        self._round_started_at = time.monotonic()
+
     def start_round(self):
         """Called by the main loop to begin a new round."""
         with self._lock:
             self._client_updates_received.clear()  # Prevent stale state leakage across rounds
+            self._round_started_at = time.monotonic()  # Reset the dropout deadline for this round
         self._round_complete_event.clear()
 
     def wait_for_round_to_complete(self):
-        """Called by the main loop. Blocks until the current round finishes."""
+        """Called by the main loop. Blocks until the current round finishes.
+
+        If the configured per-round dropout timeout elapses before all
+        ``clients_per_round`` report, the round is resolved instead of hanging
+        forever: force-aggregated with whatever arrived if at least
+        ``min_clients`` (>=1) reported, otherwise the server is signalled to stop.
+        """
         while not self._round_complete_event.wait(timeout=1.0):
             if self.stop_requested:
                 break
+            if (time.monotonic() - self._round_started_at) >= self.round_timeout_s:
+                self._handle_round_timeout()
+                break
+
+    def _handle_round_timeout(self):
+        """Resolve a round that blew its dropout deadline.
+
+        Mirrors the locking discipline of submit_client_update: re-check the
+        received-count and invoke the aggregation trigger while holding
+        self._lock so we don't race a client update that completes the round
+        at the same instant.
+        """
+        with self._lock:
+            # A client may have completed the round between the wait() timeout
+            # and acquiring the lock; if so, the trigger already fired.
+            if self._round_complete_event.is_set():
+                return
+
+            received = len(self._client_updates_received)
+            total = self.clients_per_round
+            # The strategy aggregates from min_clients; require at least 1.
+            required = max(1, self.min_clients)
+
+            if received >= required:
+                log.warning(
+                    "Round %d timed out after %.1fs; force-aggregating %d of %d clients "
+                    "that reported (min required=%d)",
+                    self.current_round, self.round_timeout_s, received, total, required,
+                )
+                self.last_round_failed = True
+                self.last_round_message = (
+                    f"Round {self.current_round} timed out after {self.round_timeout_s:.1f}s; "
+                    f"force-aggregated {received}/{total} clients (min required={required})."
+                )
+                self._trigger_aggregation_and_evaluation()
+            else:
+                log.error(
+                    "Round %d timed out after %.1fs with only %d of %d clients reported "
+                    "(min required=%d); stopping server",
+                    self.current_round, self.round_timeout_s, received, total, required,
+                )
+                self.last_round_failed = True
+                self.last_round_message = (
+                    f"Round {self.current_round} timed out after {self.round_timeout_s:.1f}s "
+                    f"with only {received}/{total} clients reported (min required={required}); "
+                    f"server stopped."
+                )
+                self.stop_requested = True
+                self._round_complete_event.set()  # Release the main loop
 
     def get_global_model_for_client(self) -> Tuple[Optional[OrderedDict[str, torch.Tensor]], int, dict]:
         with self._lock:
