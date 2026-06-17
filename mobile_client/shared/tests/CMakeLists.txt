@@ -16,6 +16,7 @@ set(FEDLEARN_GOLDEN_DIR "${CMAKE_SOURCE_DIR}/../framework/tests/fixtures/decomfl
 
 add_executable(fedlearn_core_tests
   rng_parity_test.cpp
+  randn_parity_test.cpp
   dtype_map_test.cpp
   sha256_test.cpp
   model_manager_test.cpp
