@@ -30,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -437,6 +438,92 @@ public class ProjectService {
         }
         // PRIVATE outsiders get 404 so we don't leak existence.
         throw ResourceNotFoundException.project(projectId);
+    }
+
+    // ─── Inference ("Use a model") support ───────────────────────────────────
+    //
+    // ProjectService owns projects and their on-disk model files, so it also owns
+    // "which models can the caller run, and where is the file". The actual model
+    // execution lives in InferenceService — this class never touches torch.
+
+    /** Where a trained model lives plus what it is, for {@link #resolveInferenceTarget}. */
+    public record InferenceTarget(String modelPath, String modelType, String modelName, String status) {}
+
+    /** Maps a stored modelType to the input the client must collect, or null if not runnable. */
+    public static String inputKindFor(String modelType) {
+        if (modelType == null) return null;
+        return switch (modelType.toUpperCase()) {
+            case "CNN" -> "image";
+            case "MLP" -> "vector";
+            default -> null; // TRANSFORMER and anything else: not interactively runnable yet
+        };
+    }
+
+    /** Human-readable class labels for a modelType, in output order. */
+    public static List<String> classesFor(String modelType) {
+        if (modelType == null) return List.of();
+        return switch (modelType.toUpperCase()) {
+            case "CNN" -> List.of("airplane", "automobile", "bird", "cat", "deer",
+                                   "dog", "frog", "horse", "ship", "truck");
+            case "MLP" -> List.of("Normal", "Abnormal");
+            default -> List.of();
+        };
+    }
+
+    /**
+     * Lists the current user's projects whose aggregated model file exists on
+     * disk — i.e. models that can actually be run. Org-scoped via the same
+     * queries as {@link #getProjectsForCurrentUser()}.
+     */
+    public List<InferableModelDto> listInferableModels() {
+        User caller = authz.currentUser();
+        List<Project> projects = orgScope.isUnrestricted()
+                ? projectRepository.findOwnedOrMemberOf(caller.getId())
+                : projectRepository.findOwnedOrMemberOfInOrgs(caller.getId(), orgScope.visibleOrgIds());
+
+        List<InferableModelDto> out = new ArrayList<>();
+        for (Project p : projects) {
+            String path = p.getModelPath();
+            if (path == null || !new File(path).isFile()) {
+                continue; // no trained artifact yet → not usable
+            }
+            String kind = inputKindFor(p.getModelType());
+            InferableModelDto dto = new InferableModelDto();
+            dto.setProjectId(p.getId());
+            dto.setName(p.getName());
+            dto.setModelType(p.getModelType());
+            dto.setModelName(p.getModelName());
+            dto.setStatus(p.getStatus());
+            dto.setInputKind(kind);
+            dto.setClasses(classesFor(p.getModelType()));
+            dto.setSupported(kind != null);
+            out.add(dto);
+        }
+        return out;
+    }
+
+    /**
+     * Authz-gated resolution of a project's model file for inference. Applies the
+     * exact same org-scope + participant checks as {@link #getProject} so there is
+     * no security divergence: cross-org/invisible → 404, non-participant → 403.
+     * Verifies the model file exists (→ 409 if training hasn't produced one yet).
+     */
+    public InferenceTarget resolveInferenceTarget(@NonNull UUID projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+        // Org isolation: invisible orgs are 404 (don't leak cross-tenant existence).
+        if (!orgScope.allows(project.getOrgId())) {
+            throw ResourceNotFoundException.project(projectId);
+        }
+        // Participant gate (owner/member/client/admin) → 403 otherwise.
+        authz.requireParticipant(project);
+
+        String path = project.getModelPath();
+        if (path == null || !new File(path).isFile()) {
+            throw new ProjectStateException(
+                    "This project has no trained model yet. Run training to completion first.");
+        }
+        return new InferenceTarget(path, project.getModelType(), project.getModelName(), project.getStatus());
     }
 
     public List<DiscoverProjectDto> getDiscoverProjects() {
