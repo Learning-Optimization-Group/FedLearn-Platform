@@ -43,7 +43,7 @@ def test_flat_param_ordering_matches_named_parameters():
     assert trainable_flat(m).numel() == 25
 
 
-def test_pte_forward_matches_eager():
+def test_pte_forward_matches_eager(tmp_path):
     pytest.importorskip("executorch")
     torch.manual_seed(0)
     m = TinyNet().eval()
@@ -53,10 +53,9 @@ def test_pte_forward_matches_eager():
     flat = trainable_flat(m)
 
     pte = export_functional_pte(m, (x, y))
-    import tempfile
     from executorch.runtime import Runtime
-    with tempfile.NamedTemporaryFile(suffix=".pte", delete=False) as fh:
-        fh.write(pte); path = fh.name
-    method = Runtime.get().load_program(path).load_method("forward")
+    pte_path = tmp_path / "tiny.pte"           # pytest tmp_path is auto-cleaned (no leak)
+    pte_path.write_bytes(pte)
+    method = Runtime.get().load_program(str(pte_path)).load_method("forward")
     et_loss = float(method.execute([flat, x, y])[0])
     assert abs(et_loss - _eager_loss(m, flat, x, y)) < 1e-4
