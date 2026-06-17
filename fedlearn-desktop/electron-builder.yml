@@ -15,6 +15,19 @@ appId: com.fedlearn.desktop
 productName: FedLearn Desktop
 copyright: Copyright 2024 Learning Optimization Group, Rochester Institute of Technology
 
+# Skip @electron/rebuild. This app ships NO first-party native modules — the only
+# native addons in the tree are `cpu-features` and ssh2's `sshcrypto`, both
+# OPTIONAL transitive deps of dockerode -> docker-modem -> ssh2. We connect to
+# Docker over a local socket only (DockerService uses `new Docker({ socketPath })`,
+# never ssh://), so ssh2 and its native addons are never exercised at runtime.
+# Rebuilding cpu-features against Electron's V8 fails on macOS/Linux (nan/V8
+# incompatibility on clang/gcc; Windows/MSVC happens to compile it), which broke
+# the mac-arm64, linux-x64, and linux-arm64 release jobs at the packaging step.
+# Disabling the rebuild fixes those builds with no functional impact.
+# NOTE: if a real first-party native module is ever added, remove this and rebuild
+# selectively instead.
+npmRebuild: false
+
 directories:
   buildResources: build
   output: release
