@@ -1,9 +1,9 @@
 // dtype_map_test.cpp — DtypeMap whitelist + hard-error contract (15-LLD §13 task 5, E7).
+// Torch-free: validates fedlearn::DType (no torch ScalarType).
 
 #include "fedlearn/DtypeMap.h"
 
 #include <gtest/gtest.h>
-#include <torch/torch.h>
 
 #include <stdexcept>
 #include <string>
@@ -16,8 +16,8 @@ TEST(DtypeMap, RoundTripsEverySafeDtype) {
   };
   for (const auto& name : safe) {
     EXPECT_TRUE(fedlearn::isSafeDtype(name)) << name;
-    const at::ScalarType st = fedlearn::dtypeFromString(name);
-    EXPECT_EQ(fedlearn::stringFromDtype(st), name) << name;
+    const fedlearn::DType d = fedlearn::dtypeFromString(name);
+    EXPECT_EQ(fedlearn::stringFromDtype(d), name) << name;
   }
 }
 
