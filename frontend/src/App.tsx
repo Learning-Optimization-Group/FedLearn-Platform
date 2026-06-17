@@ -11,6 +11,7 @@ import { LayoutV2 } from './components/redesign/LayoutV2';
 import { DashboardV2 } from './components/redesign/DashboardV2';
 import { NodeNetwork } from './components/redesign/NodeNetwork';
 import { ModelsView } from './components/redesign/ModelsView';
+import { PlaygroundView } from './components/redesign/PlaygroundView';
 import { DatasetsView } from './components/redesign/DatasetsView';
 import { SettingsView } from './components/redesign/SettingsView';
 
@@ -71,6 +72,7 @@ function App() {
                         <Route path="/dashboard" element={<DashboardV2 />} />
                         <Route path="/nodes" element={<NodeNetwork />} />
                         <Route path="/models" element={<ModelsView />} />
+                        <Route path="/playground" element={<PlaygroundView />} />
                         <Route path="/datasets" element={<DatasetsView />} />
                         <Route path="/settings" element={<SettingsView />} />
                     </Route>
@@ -80,6 +82,7 @@ function App() {
                 <Route path="/v2" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/v2/nodes" element={<Navigate to="/nodes" replace />} />
                 <Route path="/v2/models" element={<Navigate to="/models" replace />} />
+                <Route path="/v2/playground" element={<Navigate to="/playground" replace />} />
                 <Route path="/v2/datasets" element={<Navigate to="/datasets" replace />} />
                 <Route path="/v2/settings" element={<Navigate to="/settings" replace />} />
 

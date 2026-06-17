@@ -127,6 +127,52 @@ export const deleteProject = (projectId: string): Promise<AxiosResponse<{ projec
     return api.delete<{ projectId: string; message: string }>(`/projects/${projectId}`);
 };
 
+// ─── Inference ("Use a model") ───────────────────────────────────────────
+//
+// Both the web app and the desktop app call these endpoints. The backend runs
+// the real PyTorch model server-side and returns class probabilities.
+
+export interface InferableModel {
+    projectId: string;
+    name: string;
+    modelType: string;
+    modelName: string;
+    status: string;
+    /** "image" → collect an image; "vector" → collect a numeric vector; null → not runnable. */
+    inputKind: 'image' | 'vector' | null;
+    classes: string[];
+    supported: boolean;
+}
+
+export interface InferenceResult {
+    modelType: string;
+    predictedIndex: number;
+    predictedLabel: string;
+    classes: string[];
+    probabilities: number[];
+    logits: number[];
+}
+
+export interface InferencePayload {
+    /** Base64 image (may include a data: URL prefix). For image models. */
+    imageBase64?: string;
+    /** Numeric feature vector. For tabular (MLP) models. */
+    values?: number[];
+}
+
+/** Lists the current user's trained models that can be run interactively. */
+export const fetchInferableModels = (): Promise<AxiosResponse<InferableModel[]>> => {
+    return api.get<InferableModel[]>('/inference/models');
+};
+
+/** Runs one inference against a project's trained model. */
+export const runInference = (
+    projectId: string,
+    payload: InferencePayload,
+): Promise<AxiosResponse<InferenceResult>> => {
+    return api.post<InferenceResult>(`/inference/${projectId}`, payload);
+};
+
 // User / Client Management Endpoints
 export interface User {
     id: number;
