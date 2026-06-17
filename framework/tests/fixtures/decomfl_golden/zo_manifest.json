@@ -34,5 +34,24 @@
   "pte_file": "zo_model_tiny.pte",
   "pte_sha256": "2eca3c02e2084383f038494d6ecf7c20a1e7e0a1dcc6d7ce2b6e11e7d82f1c56",
   "flat_file": "zo_flat.f32",
-  "golden_loss": 1.0973092317581177
+  "golden_loss": 1.0973092317581177,
+  "param_layout": [
+    {
+      "name": "fc1.weight",
+      "shape": [
+        5,
+        4
+      ],
+      "numel": 20
+    },
+    {
+      "name": "fc1.bias",
+      "shape": [
+        5
+      ],
+      "numel": 5
+    }
+  ],
+  "state_file": "zo_state.safetensors",
+  "state_sha256": "4b1016fca301c00ba84cdf10ee9402e6d226e1471c1b698129e7f9e8c1f98179"
 }

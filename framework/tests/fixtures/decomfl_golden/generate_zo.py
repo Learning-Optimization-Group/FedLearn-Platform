@@ -120,6 +120,26 @@ def main() -> None:
     flat.detach().numpy().astype("<f4").tofile(os.path.join(HERE, "zo_flat.f32"))
     golden_loss = float(torch.nn.functional.cross_entropy(net(inputs), targets))
 
+    # Phase 3c T0 — ordered trainable param layout (name + shape) + a safetensors state-dict
+    # golden, so the C++ ModelManager has the load layout and a byte-exact codec contract.
+    from fedlearn.communication.safetensors_codec import save_safetensors  # noqa: E402
+    flat_np = flat.detach().numpy().astype("<f4")
+    param_layout = []
+    named_tensors = []
+    off = 0
+    for _name, _p in net.named_parameters():
+        if not _p.requires_grad:
+            continue
+        _shape = list(_p.shape)
+        _k = int(_p.numel())
+        param_layout.append({"name": _name, "shape": _shape, "numel": _k})
+        named_tensors.append((_name, flat_np[off:off + _k].reshape(_shape)))
+        off += _k
+    state_blob = save_safetensors(named_tensors, {"num_examples": "8"})
+    with open(os.path.join(HERE, "zo_state.safetensors"), "wb") as fh:
+        fh.write(state_blob)
+    state_sha = hashlib.sha256(state_blob).hexdigest()
+
     manifest = {
         "description": "ZerothOrderEstimator g-scalar + flat-param-filter golden reference (C++ mobile core).",
         # Base version (strip +cpu/+cuXXX); the CPU kernel is identical across build variants.
@@ -144,6 +164,10 @@ def main() -> None:
         "pte_sha256": pte_sha,
         "flat_file": "zo_flat.f32",
         "golden_loss": golden_loss,
+        # Phase 3c T0 — trainable param layout + safetensors state-dict golden (codec contract).
+        "param_layout": param_layout,
+        "state_file": "zo_state.safetensors",
+        "state_sha256": state_sha,
     }
     with open(manifest_path, "w") as fh:
         json.dump(manifest, fh, indent=2)
