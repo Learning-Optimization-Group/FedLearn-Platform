@@ -45,6 +45,17 @@ void ensureRuntimeInit() {
                            std::to_string(static_cast<int>(e)) + ")");
 }
 
+// Narrow a dimension to SizesType (int32 in lean mode), failing loudly on overflow rather than
+// silently truncating a >2^31 dimension to a wrong shape. Shared by loss() and infer().
+inline SizesType toSize(int64_t d) {
+  if (d < 0 ||
+      static_cast<uint64_t>(d) > static_cast<uint64_t>(std::numeric_limits<SizesType>::max())) {
+    throw std::runtime_error("ExecutorchModel: dimension " + std::to_string(d) +
+                             " exceeds the model index type range");
+  }
+  return static_cast<SizesType>(d);
+}
+
 // Scratch arena for the method's non-planned allocations (4 MB is ample for the small FL models).
 constexpr size_t kMethodArenaBytes = 4 * 1024 * 1024;
 
@@ -87,8 +98,9 @@ ExecutorchModel::ExecutorchModel(const std::string& ptePath, const std::string& 
   if (!metaRes.ok()) fail("method_meta(forward) failed", metaRes.error());
   const MethodMeta& meta = metaRes.get();
 
-  // flat_dim = element count of input 0 (the trainable parameter vector). The forward signature
-  // is f(flat, x, y), so input 0 must exist; fail loudly rather than silently report flat_dim 0.
+  // flat_dim = element count of input 0 (the trainable parameter vector). Both supported graphs
+  // take the flat params as input 0 — the loss graph f(flat, x, y) and the infer graph
+  // f(flat, x) — so input 0 must exist; fail loudly rather than silently report flat_dim 0.
   if (meta.num_inputs() < 1) {
     throw std::runtime_error("ExecutorchModel: model 'forward' exposes no inputs");
   }
@@ -131,16 +143,6 @@ int64_t ExecutorchModel::flatDim() const { return impl_->flat_dim; }
 float ExecutorchModel::loss(const std::vector<float>& flat,
                             const float* x, const std::vector<int64_t>& xShape,
                             const int64_t* y, int64_t n) {
-  // Narrow each dimension to SizesType (int32 in lean mode), failing loudly on overflow rather
-  // than silently truncating a >2^31 dimension to a wrong shape.
-  auto toSize = [](int64_t d) -> SizesType {
-    if (d < 0 ||
-        static_cast<uint64_t>(d) > static_cast<uint64_t>(std::numeric_limits<SizesType>::max())) {
-      throw std::runtime_error("ExecutorchModel: dimension " + std::to_string(d) +
-                               " exceeds the model index type range");
-    }
-    return static_cast<SizesType>(d);
-  };
   std::vector<SizesType> flatSizes{toSize(static_cast<int64_t>(flat.size()))};
   std::vector<SizesType> xSizes;
   xSizes.reserve(xShape.size());
@@ -183,16 +185,6 @@ float ExecutorchModel::loss(const std::vector<float>& flat,
 
 std::vector<float> ExecutorchModel::infer(const std::vector<float>& flat,
                                           const float* x, const std::vector<int64_t>& xShape) {
-  // Narrow each dimension to SizesType (int32 in lean mode), failing loudly on overflow rather
-  // than silently truncating a >2^31 dimension to a wrong shape.
-  auto toSize = [](int64_t d) -> SizesType {
-    if (d < 0 ||
-        static_cast<uint64_t>(d) > static_cast<uint64_t>(std::numeric_limits<SizesType>::max())) {
-      throw std::runtime_error("ExecutorchModel: dimension " + std::to_string(d) +
-                               " exceeds the model index type range");
-    }
-    return static_cast<SizesType>(d);
-  };
   std::vector<SizesType> flatSizes{toSize(static_cast<int64_t>(flat.size()))};
   std::vector<SizesType> xSizes;
   xSizes.reserve(xShape.size());

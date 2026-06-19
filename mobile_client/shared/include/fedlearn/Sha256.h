@@ -2,7 +2,7 @@
 //
 // Sha256.h — dependency-free FIPS 180-4 SHA-256 (Secure Hash Algorithm 256-bit).
 //
-// Used by ModelManager to verify a model file's hash BEFORE torch::jit::load (the
+// Used by ModelManager to verify a model file's hash before loading the model file (the
 // untrusted-input rule, 15-LLD §13 task 6 / E8). Self-contained so the mobile core needs
 // no OpenSSL dependency. Correctness is pinned by sha256_test.cpp (NIST known-answer).
 //

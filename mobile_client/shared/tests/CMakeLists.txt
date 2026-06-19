@@ -1,5 +1,8 @@
-# gtest suite — the parity & roundtrip contract for the C++ FL core (15-LLD §13).
-# Increment 1: rng_parity_test (the release gate) + dtype_map_test.
+# gtest suite — the unified parity & roundtrip contract for the C++ FL core (15-LLD §13).
+# One ExecuTorch-linked binary: the RNG/dtype/hash parity tests, the safetensors + model-manager
+# roundtrip tests, the DeComFL-equivalence tests, the ExecuTorch forward/infer/g-scalar tests, and
+# the gRPC-free FederatedLoop test. All ET runtime + core sources are compiled into fedlearn_core,
+# so this target only lists the test translation units and links fedlearn_core (which carries ET).
 
 include(FetchContent)
 FetchContent_Declare(
@@ -22,15 +25,23 @@ add_executable(fedlearn_core_tests
   flatparam_filter_test.cpp
   serialize_roundtrip_test.cpp
   decomfl_equivalence_test.cpp
+  executorch_forward_test.cpp
+  et_g_scalar_test.cpp
+  safetensors_test.cpp
+  data_loader_test.cpp
+  et_infer_test.cpp
+  federated_loop_test.cpp
 )
 target_link_libraries(fedlearn_core_tests PRIVATE
   fedlearn_core
   GTest::gtest_main
-  ${TORCH_LIBRARIES}
 )
 target_compile_definitions(fedlearn_core_tests PRIVATE
   GOLDEN_DIR="${FEDLEARN_GOLDEN_DIR}"
 )
 
-include(GoogleTest)
-gtest_discover_tests(fedlearn_core_tests)
+# Plain registration: gtest_discover_tests' build-time discovery run is unreliable here (the
+# ExecuTorch runtime emits static-init stderr noise); one ctest entry running the whole binary
+# is sufficient and deterministic.
+enable_testing()
+add_test(NAME fedlearn_core_tests COMMAND fedlearn_core_tests)

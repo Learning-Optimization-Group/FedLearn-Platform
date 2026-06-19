@@ -29,7 +29,7 @@
 namespace fedlearn {
 namespace detail {
 
-// PyTorch at::mt19937 (aten/src/ATen/core/MT19937RNGEngine.h).
+// PyTorch's MT19937 engine (aten/src/ATen/core/MT19937RNGEngine.h).
 class MT19937 {
  public:
   explicit MT19937(uint64_t seed) {

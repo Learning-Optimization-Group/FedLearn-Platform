@@ -2,12 +2,11 @@
 //
 // EtZeroOrder.h — zeroth-order gradient scalar on the ExecuTorch forward path.
 //
-// The libtorch-free replacement for the ZerothOrderEstimator forward used by the DeComFL client:
-// parameters live in plain std::vector<float>, the perturbation comes from fedlearn::flat_randn
-// (byte-exact with the Python canonical_perturbation), and the loss comes from ExecutorchModel.
+// The libtorch-free DeComFL forward-difference g-scalar used by the DeComFL client: parameters
+// live in plain std::vector<float>, the perturbation comes from fedlearn::flat_randn (byte-exact
+// with the Python forward-difference reference), and the loss comes from ExecutorchModel.
 //
-// Matches Python ZerothOrderEstimator.compute_gradient_scalar (GradEstimateMethod::Forward,
-// Algorithm 4 line 18):
+// Matches the Python DeComFL g-scalar (GradEstimateMethod::Forward, Algorithm 4 line 18):
 //     g = (L(flat + mu*z) - L(flat)) / mu
 // The perturbed params are formed in float32 (flat[i] + (float)mu * z[i]) to mirror the Python
 // float32 update exactly; the small loss difference is amplified by 1/mu, so the forward must

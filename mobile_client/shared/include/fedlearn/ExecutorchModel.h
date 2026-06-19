@@ -7,11 +7,11 @@
 //   Infer graph: forward(flat_trainable, x)    -> logits           [infer()]
 //
 // sha256-verifies the .pte BEFORE load (untrusted-input rule, mirrors ModelManager). This is
-// the ExecuTorch replacement for the libtorch torch::jit forward path; the C++ FL core owns
-// the parameter vector and passes perturbed params (θ ± μz) as the `flat` input.
+// the ExecuTorch forward path for the FL core, which owns the parameter vector and passes
+// perturbed params (θ ± μz) as the `flat` input.
 //
-// PIMPL: no ExecuTorch headers leak here, so consumers (ZerothOrderEstimator, tests) need no
-// ET include paths.
+// PIMPL: no ExecuTorch headers leak here, so consumers (the DeComFL g-scalar helpers in
+// EtZeroOrder.h, tests) need no ET include paths.
 //
 #include <cstdint>
 #include <memory>
