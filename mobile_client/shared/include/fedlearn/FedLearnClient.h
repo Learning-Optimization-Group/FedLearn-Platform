@@ -18,6 +18,7 @@
 
 #include "fedlearn/v2/fedlearn.grpc.pb.h"  // buf-generated; -I <gen/cpp>
 
+#include "fedlearn/IFedLearnClient.h"
 #include "fedlearn/Types.h"
 
 namespace fedlearn {
@@ -33,10 +34,12 @@ struct GrpcClientConfig {
   int heartbeatFailureLimit = 3;   // N consecutive failures -> abortFlag_ (E4 / M-H3)
 };
 
-class FedLearnClient {
+// The concrete gRPC implementation of the core-typed IFedLearnClient seam (proto<->core
+// marshaling). FederatedLoop depends only on IFedLearnClient; this class is the production wiring.
+class FedLearnClient : public IFedLearnClient {
  public:
   explicit FedLearnClient(const GrpcClientConfig& cfg);
-  ~FedLearnClient();
+  ~FedLearnClient() override;
 
   FedLearnClient(const FedLearnClient&) = delete;
   FedLearnClient& operator=(const FedLearnClient&) = delete;
@@ -45,21 +48,23 @@ class FedLearnClient {
   v2::RegisterClientResponse registerClient(const std::string& runId, const std::string& clientId,
                                             const std::string& enrollmentToken, int protocolVersion);
   v2::GetServerStatusResponse getServerStatus(const std::string& runId);
-  v2::GetDeComFLConfigResponse getDeComFLConfig(const std::string& runId, const std::string& clientId);
 
-  // --- DeComFL upload: K*P scalars + num_examples (the O(K*P) wedge). Returns bytes_received. ---
-  v2::SubmitGradientScalarsResponse submitGradientScalars(const std::string& runId,
-                                                          const std::string& clientId,
-                                                          int trainedOnRound,
-                                                          const GradientScalars2D& gradients,
-                                                          int64_t numExamples);
-
-  // --- FedAvg path (streaming, chunked) ---
-  // Reassembles the ModelChunk stream into a validated blob: codec whitelist + cumulative
-  // size cap + sha256 check. Returns the verified blob (decoding to tensors is ModelManager's
-  // single codec path; reconciles §5.2's ModelParameters sketch to keep one decode site).
+  // --- IFedLearnClient (core-typed seam consumed by FederatedLoop) ---
+  bool shouldStop() const override { return abortFlag_.load(); }
+  // GetDeComFLConfig -> core DeComFLConfig (lr/mu/method from the config map, seeds, rebuild
+  // history, should_stop, current_round).
+  DeComFLConfig getDeComFLConfig(const std::string& runId, const std::string& clientId) override;
+  // DeComFL upload: K*P scalars + num_examples (the O(K*P) wedge). The interface also carries the
+  // seeds (Constraint 7); see the .cpp for the seeds-on-the-wire TODO (no proto regen this task).
+  void submitGradientScalars(const std::string& runId, const std::string& clientId,
+                             int trainedOnRound, const Seeds2D& seeds,
+                             const GradientScalars2D& gradients, int64_t numExamples) override;
+  // FedAvg download: reassembles the ModelChunk stream into a validated blob (codec whitelist +
+  // cumulative size cap + sha256), sets *outCurrentRound. Single decode site is ModelManager.
   std::string getGlobalModelStream(const std::string& runId, const std::string& clientId,
-                                   int* outCurrentRound = nullptr);
+                                   int* outCurrentRound) override;
+
+  // --- FedAvg path (streaming, chunked) — proto-typed, kept for the (legacy) weight-blob upload ---
   v2::SubmitModelUpdateResponse submitModelUpdateStream(const std::string& runId,
                                                         const std::string& clientId,
                                                         int trainedOnRound,
@@ -72,7 +77,6 @@ class FedLearnClient {
   // --- dual heartbeat: own thread + own channel; sets abortFlag_ on N failures OR should_stop ---
   void startHeartbeat(const std::string& runId, const std::string& clientId, int currentRound);
   void stopHeartbeat();
-  bool shouldStop() const { return abortFlag_.load(); }
 
   // --- pure proto<->core marshaling (exposed for unit tests; no network) ---
   static v2::GradientScalars toProtoScalars(const GradientScalars2D& g);
@@ -85,6 +89,9 @@ class FedLearnClient {
 
  private:
   std::shared_ptr<grpc::Channel> makeChannel() const;
+  // The raw GetDeComFLConfig RPC (proto response); getDeComFLConfig() marshals it to core types.
+  v2::GetDeComFLConfigResponse fetchDeComFLConfig(const std::string& runId,
+                                                  const std::string& clientId);
 
   GrpcClientConfig cfg_;
   std::shared_ptr<grpc::Channel> trainingChannel_;

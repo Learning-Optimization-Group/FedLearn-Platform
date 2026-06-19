@@ -1,15 +1,18 @@
 #pragma once
 //
 // FederatedLoop.h — one-round bodies for the DeComFL (primary) and FedAvg (fallback) paths
-// (15-LLD-mobile.md §6.2 / §6.3 / §13 task 10). Orchestrates FedLearnClient (gRPC) +
-// DeComFLClient/ZerothOrderEstimator/ModelManager (the C++ core). Built only under
-// -DFEDLEARN_BUILD_GRPC=ON (it depends on FedLearnClient).
+// (15-LLD-mobile.md §6.2 / §6.3 / §13 task 10). Orchestrates the gRPC seam (IFedLearnClient) +
+// DeComFLClient / ExecutorchModel / ModelManager (the libtorch-free C++ core, Phase 3c).
+//
+// Module-free: it talks to gRPC through the core-typed IFedLearnClient interface (no proto, no
+// grpcpp), so it builds + unit-tests in the libtorch-free ET suite with a mock client. No
+// torch_version gate (RandnEngine makes the perturbation RNG version-independent).
 //
 #include <string>
+#include <vector>
 
-#include <torch/script.h>
-
-#include "fedlearn/FedLearnClient.h"
+#include "fedlearn/ExecutorchModel.h"
+#include "fedlearn/IFedLearnClient.h"
 #include "fedlearn/ModelManager.h"
 #include "fedlearn/Types.h"
 
@@ -24,27 +27,25 @@ struct RoundOutcome {
 
 class FederatedLoop {
  public:
-  // localTorchVersion is the device's torch build; it MUST match the run's manifest for RNG
-  // parity (E2). allowVersionMismatch is the dev override (release passes false -> refuse).
-  FederatedLoop(FedLearnClient& net, ModelManager& mm, std::string localTorchVersion,
-                bool allowVersionMismatch = false);
+  FederatedLoop(IFedLearnClient& net, ModelManager& mm);
 
   // One DeComFL round (§6.2): GetDeComFLConfig -> (rebuild if missed) -> fit -> SubmitGradientScalars.
-  // The K/P/eta/mu/method come from the per-round server config (the server is authoritative).
-  RoundOutcome deComFLRound(torch::jit::Module& model, const std::string& runId,
+  // The K/P/eta/mu come from the per-round server config (the server is authoritative).
+  RoundOutcome deComFLRound(ExecutorchModel& model, const std::string& runId,
                             const std::string& clientId, const DataBatch& batch);
 
-  // One FedAvg round (§6.3): GetGlobalModelStream -> loadStateDict -> local SGD -> submit.
-  // numLocalSteps + learningRate come from the server config carried in the download.
-  RoundOutcome fedAvgRound(torch::jit::Module& model, const std::string& runId,
+  // One FedAvg round (§6.3, ZO-SGD): GetGlobalModelStream -> loadStateDict -> K local ZO-SGD steps
+  // -> SubmitGradientScalars (scalar upload, Constraint 7 — not a weight blob). numLocalSteps (K),
+  // learningRate, mu, and numPerturbations (P) come from the per-round server config.
+  RoundOutcome fedAvgRound(ExecutorchModel& model, const std::string& runId,
                            const std::string& clientId, const DataBatch& batch,
-                           int numLocalSteps, double learningRate);
+                           int numLocalSteps, double learningRate, double mu,
+                           int numPerturbations = 1);
 
  private:
-  FedLearnClient& net_;
+  IFedLearnClient& net_;
   ModelManager& mm_;
-  std::string localTorchVersion_;
-  bool allowVersionMismatch_;
+  std::vector<float> flatState_;
 };
 
 }  // namespace fedlearn

@@ -31,6 +31,16 @@ std::string statusStr(const grpc::Status& s) {
   return ss.str();
 }
 
+std::string cfgGet(const ::google::protobuf::Map<std::string, std::string>& m,
+                   const std::string& key, const std::string& fallback) {
+  auto it = m.find(key);
+  return it != m.end() ? it->second : fallback;
+}
+
+GradEstimateMethod parseMethod(const std::string& s) {
+  return s == "central" ? GradEstimateMethod::Central : GradEstimateMethod::Forward;
+}
+
 }  // namespace
 
 void FedLearnClient::validateCodec(const std::string& codec) {
@@ -101,8 +111,8 @@ v2::GetServerStatusResponse FedLearnClient::getServerStatus(const std::string& r
   return resp;
 }
 
-v2::GetDeComFLConfigResponse FedLearnClient::getDeComFLConfig(const std::string& runId,
-                                                             const std::string& clientId) {
+v2::GetDeComFLConfigResponse FedLearnClient::fetchDeComFLConfig(const std::string& runId,
+                                                               const std::string& clientId) {
   v2::GetDeComFLConfigRequest req;
   req.set_client_id(clientId);
   req.set_run_id(runId);
@@ -113,9 +123,39 @@ v2::GetDeComFLConfigResponse FedLearnClient::getDeComFLConfig(const std::string&
   return resp;
 }
 
-v2::SubmitGradientScalarsResponse FedLearnClient::submitGradientScalars(
-    const std::string& runId, const std::string& clientId, int trainedOnRound,
-    const GradientScalars2D& gradients, int64_t numExamples) {
+DeComFLConfig FedLearnClient::getDeComFLConfig(const std::string& runId,
+                                              const std::string& clientId) {
+  v2::GetDeComFLConfigResponse resp = fetchDeComFLConfig(runId, clientId);
+
+  DeComFLConfig out;
+  out.shouldStop = resp.should_stop();
+  out.currentRound = resp.current_round();
+  out.config.learningRate = std::stod(cfgGet(resp.config(), "lr", "0.001"));
+  out.config.mu = std::stod(cfgGet(resp.config(), "mu", "0.001"));
+  out.config.method = parseMethod(resp.grad_estimate_method());
+  out.config.torchVersion = resp.torch_version();  // carried but NOT gated by FederatedLoop
+  out.seeds = fromProtoSeeds(resp.current_seeds());
+  out.config.numLocalSteps = static_cast<int>(out.seeds.size());
+  out.config.numPerturbations =
+      out.seeds.empty() ? 0 : static_cast<int>(out.seeds[0].size());
+  if (resp.rebuild_history().rounds_size() > 0) {
+    out.rebuildHistory = fromProtoRebuildHistory(resp.rebuild_history());
+    // RoundHistory carries no lr; FederatedLoop sets each round's lr from config["lr"].
+  }
+  return out;
+}
+
+void FedLearnClient::submitGradientScalars(const std::string& runId, const std::string& clientId,
+                                           int trainedOnRound, const Seeds2D& seeds,
+                                           const GradientScalars2D& gradients, int64_t numExamples) {
+  // Constraint 7: the interface carries seeds for a unified wire (DeComFL: server already has them;
+  // FedAvg: the client generated them). The current v2 SubmitGradientScalarsRequest has no seeds
+  // field, so the DeComFL path uploads gradients exactly as before. The FedAvg ZO-SGD path needs
+  // the server to know which seeds produced each g-scalar to reconstruct the local trajectory.
+  // TODO(T12, proto v2): add a `perturbation_seeds` field to SubmitGradientScalarsRequest and
+  // marshal `seeds` here via a toProtoSeeds() helper. Do NOT regenerate protos in this task.
+  (void)seeds;
+
   v2::SubmitGradientScalarsRequest req;
   req.set_client_id(clientId);
   req.set_run_id(runId);
@@ -127,7 +167,7 @@ v2::SubmitGradientScalarsResponse FedLearnClient::submitGradientScalars(
   grpc::ClientContext ctx;
   grpc::Status s = trainingStub_->SubmitGradientScalars(&ctx, req, &resp);
   if (!s.ok()) throw std::runtime_error("SubmitGradientScalars failed: " + statusStr(s));
-  return resp;  // resp.bytes_received() ~ K*P*8 — the comm-cost number
+  // resp.bytes_received() ~ K*P*8 — the comm-cost number (dropped: interface returns void)
 }
 
 // ---------------------------------------------------------------------------

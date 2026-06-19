@@ -10,9 +10,6 @@
 
 #include "DeviceState.h"
 #include "fedlearn/DataLoader.h"
-#include "fedlearn/ZerothOrderEstimator.h"
-
-#include <torch/torch.h>
 
 namespace fedlearn::bridge {
 namespace {
@@ -121,9 +118,7 @@ FedLearnCoreModule::FedLearnCoreModule(std::shared_ptr<react::CallInvoker> jsInv
     // "NativeFedLearnCore" must match TurboModuleRegistry.getEnforcing(...) in the spec.
     : react::TurboModule("NativeFedLearnCore", jsInvoker),
       jsInvoker_(std::move(jsInvoker)),
-      dataDir_(std::move(dataDir)) {
-  localTorchVersion_ = deviceTorchVersion();
-}
+      dataDir_(std::move(dataDir)) {}
 
 FedLearnCoreModule::~FedLearnCoreModule() {
   if (net_) net_->stopHeartbeat();
@@ -141,16 +136,10 @@ void FedLearnCoreModule::setTrainingDataFromFiles(const std::string& inputsF32Pa
   dataLoaded_ = true;
 }
 
-std::string FedLearnCoreModule::deviceTorchVersion() {
-#if defined(TORCH_VERSION_MAJOR) && defined(TORCH_VERSION_MINOR) && defined(TORCH_VERSION_PATCH)
-  char buf[32];
-  std::snprintf(buf, sizeof(buf), "%d.%d.%d", TORCH_VERSION_MAJOR, TORCH_VERSION_MINOR,
-                TORCH_VERSION_PATCH);
-  return std::string(buf);
-#else
-  // Must match framework/tests/fixtures/decomfl_golden/manifest.json's torch_version.
-  return "2.12.0";
-#endif
+void FedLearnCoreModule::setModelManifest(const ModelManifest& manifest) {
+  std::lock_guard<std::mutex> lk(stateMutex_);
+  manifest_ = manifest;
+  manifestSet_ = true;
 }
 
 // ============================================================================
@@ -176,10 +165,8 @@ RegisterResult FedLearnCoreModule::doRegister(const std::string& serverAddress,
 
   net_ = std::make_unique<fedlearn::FedLearnClient>(cfg);
   clientId_ = clientId;
-  // A dev (insecure) build also tolerates a torch-version mismatch with a warning (E2);
-  // release (TLS) refuses it.
-  loop_ = std::make_unique<fedlearn::FederatedLoop>(*net_, mm_, localTorchVersion_,
-                                                    /*allowVersionMismatch=*/!useTls);
+  // No torch_version gate: RandnEngine makes the perturbation RNG version-independent (T9).
+  loop_ = std::make_unique<fedlearn::FederatedLoop>(*net_, mm_);
 
   v2::RegisterClientResponse resp =
       net_->registerClient(runId, clientId, enrollmentToken, kProtocolVersion);
@@ -217,8 +204,18 @@ void FedLearnCoreModule::doStop() {
 ModelInfo FedLearnCoreModule::doLoadModel(const std::string& modelPath,
                                           const std::string& expectedSha256) {
   std::lock_guard<std::mutex> lk(stateMutex_);
+  if (!manifestSet_) {
+    throw std::runtime_error(
+        "setModelManifest must be called before loadModel (ExecuTorch weights-as-inputs needs the "
+        "param layout + infer .pte from the model's sidecar manifest)");
+  }
   fedlearn::ModelInfo info;
-  model_ = mm_.loadScriptModel(modelPath, expectedSha256, &info);  // verify-before-load (E8)
+  // ModelManager OWNS the trainable params (the .pte is weight-free) and sha256-verifies before
+  // load (E8). model_ is the loss graph; inferModel_ is the separate forward(flat,x)->logits graph.
+  mm_.loadModel(modelPath, expectedSha256, manifest_.paramLayout, manifest_.totalParamCount, &info);
+  model_ = std::make_unique<fedlearn::ExecutorchModel>(modelPath, expectedSha256);
+  inferModel_ =
+      std::make_unique<fedlearn::ExecutorchModel>(manifest_.inferPtePath, manifest_.inferSha256);
   modelLoaded_ = true;
   ModelInfo out;
   out.paramCount = info.paramCount;
@@ -229,19 +226,34 @@ ModelInfo FedLearnCoreModule::doLoadModel(const std::string& modelPath,
 }
 
 void FedLearnCoreModule::evalBatch(double& outLoss, double& outAccuracy) {
-  torch::NoGradGuard no_grad;
-  std::vector<torch::jit::IValue> in{trainingBatch_.inputs};
-  torch::Tensor logits = model_.forward(in).toTensor();
-  outLoss = torch::nn::functional::cross_entropy(logits, trainingBatch_.targets).item<double>();
-  torch::Tensor pred = logits.argmax(1);
-  outAccuracy = pred.eq(trainingBatch_.targets).to(torch::kFloat).mean().item<double>();
+  // ExecuTorch weights-as-inputs: loss graph -> cross-entropy; infer graph -> logits for argmax.
+  const std::vector<float>& flat = mm_.getFlatParams();
+  const fedlearn::DataBatch& b = trainingBatch_;
+  outLoss = static_cast<double>(
+      model_->loss(flat, b.inputs, b.inputShape, b.targets, b.numSamples));
+
+  // REAL accuracy: argmax of the infer logits vs targets (no NaN, no exp(-loss) fake).
+  const std::vector<float> logits = inferModel_->infer(flat, b.inputs, b.inputShape);
+  const int64_t n = b.numSamples;
+  const int64_t classes = n > 0 ? static_cast<int64_t>(logits.size()) / n : 0;
+  int64_t correct = 0;
+  for (int64_t row = 0; row < n; ++row) {
+    int64_t best = 0;
+    float bestVal = logits[static_cast<size_t>(row) * classes];
+    for (int64_t col = 1; col < classes; ++col) {
+      const float v = logits[static_cast<size_t>(row) * classes + col];
+      if (v > bestVal) { bestVal = v; best = col; }
+    }
+    if (best == b.targets[row]) ++correct;
+  }
+  outAccuracy = n > 0 ? static_cast<double>(correct) / static_cast<double>(n) : 0.0;
 }
 
 RoundResult FedLearnCoreModule::doRunDeComFLRound(const std::string& runId, const RoundConfig& cfg) {
   std::lock_guard<std::mutex> lk(stateMutex_);
   requireReady();
   const auto t0 = std::chrono::steady_clock::now();
-  fedlearn::RoundOutcome outcome = loop_->deComFLRound(model_, runId, clientId_, trainingBatch_);
+  fedlearn::RoundOutcome outcome = loop_->deComFLRound(*model_, runId, clientId_, trainingBatch_);
   const auto t1 = std::chrono::steady_clock::now();
   if (outcome.shouldStop) {
     throw std::runtime_error("STOP: " + outcome.note);  // RN treats a STOP-prefixed reject as a clean stop
@@ -261,14 +273,18 @@ RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const
   std::lock_guard<std::mutex> lk(stateMutex_);
   requireReady();
   const auto t0 = std::chrono::steady_clock::now();
+  // FedAvg is now ZO-SGD (Constraint 7): K ZO-SGD steps, each averaging P forward-difference
+  // estimates; the upload is the per-(k,p) seeds + g-scalars, NOT a weight blob.
   fedlearn::RoundOutcome outcome =
-      loop_->fedAvgRound(model_, runId, clientId_, trainingBatch_, cfg.numLocalSteps, cfg.learningRate);
+      loop_->fedAvgRound(*model_, runId, clientId_, trainingBatch_, cfg.numLocalSteps,
+                         cfg.learningRate, cfg.mu, cfg.numPerturbations);
   const auto t1 = std::chrono::steady_clock::now();
   if (outcome.shouldStop) throw std::runtime_error("STOP: " + outcome.note);
   RoundResult r;
   r.round = outcome.round;
-  r.reverted = false;  // FedAvg keeps the locally-trained weights to upload
-  r.scalarsTransmitted = 0;
+  r.reverted = false;  // FedAvg ZO-SGD keeps the locally-advanced params
+  r.scalarsTransmitted = static_cast<int64_t>(cfg.numLocalSteps) * cfg.numPerturbations;
+  r.uplinkBytes = r.scalarsTransmitted * 8;  // K*P doubles uploaded (scalar wedge, not a blob)
   r.computeMs = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
   evalBatch(r.loss, r.accuracy);
   return r;
@@ -278,24 +294,31 @@ InferResult FedLearnCoreModule::doInfer(const std::string& inputJson) {
   std::lock_guard<std::mutex> lk(stateMutex_);
   if (!modelLoaded_) throw std::runtime_error("loadModel must be called before infer");
   std::vector<float> feats = parseFloatArray(inputJson);
-  torch::NoGradGuard no_grad;
-  torch::Tensor x =
-      torch::from_blob(feats.data(), {1, static_cast<int64_t>(feats.size())}, torch::kFloat32).clone();
-  std::vector<torch::jit::IValue> in{x};
-  torch::Tensor logits = model_.forward(in).toTensor().squeeze(0);
-  torch::Tensor probs = torch::softmax(logits, 0);  // REAL softmax (kills the exp(-loss) fake, C5 §3)
+
+  // Infer graph: forward(flat, x) -> logits, one sample (shape {1, features}).
+  const std::vector<float> logits =
+      inferModel_->infer(mm_.getFlatParams(), feats.data(), {1, static_cast<int64_t>(feats.size())});
+  const int64_t c = static_cast<int64_t>(logits.size());
 
   InferResult r;
-  const int64_t c = logits.numel();
-  r.logits.reserve(c);
-  r.probabilities.reserve(c);
-  auto la = logits.contiguous();
-  auto pa = probs.contiguous();
+  r.logits.reserve(static_cast<size_t>(c));
+  r.probabilities.reserve(static_cast<size_t>(c));
+
+  // REAL softmax over the logits (kills the exp(-loss) fake, C5 §3): numerically-stable.
+  double maxLogit = c > 0 ? static_cast<double>(logits[0]) : 0.0;
+  int argmax = 0;
   for (int64_t i = 0; i < c; ++i) {
-    r.logits.push_back(la[i].item<double>());
-    r.probabilities.push_back(pa[i].item<double>());
+    const double v = static_cast<double>(logits[static_cast<size_t>(i)]);
+    if (v > maxLogit) { maxLogit = v; argmax = static_cast<int>(i); }
   }
-  r.argmax = static_cast<int>(logits.argmax(0).item<int64_t>());
+  double sumExp = 0.0;
+  for (int64_t i = 0; i < c; ++i) sumExp += std::exp(static_cast<double>(logits[static_cast<size_t>(i)]) - maxLogit);
+  for (int64_t i = 0; i < c; ++i) {
+    const double l = static_cast<double>(logits[static_cast<size_t>(i)]);
+    r.logits.push_back(l);
+    r.probabilities.push_back(sumExp > 0.0 ? std::exp(l - maxLogit) / sumExp : 0.0);
+  }
+  r.argmax = argmax;
   return r;
 }
 
