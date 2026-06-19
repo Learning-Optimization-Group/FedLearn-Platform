@@ -1,12 +1,14 @@
 #pragma once
 //
-// ExecutorchModel.h — RAII wrapper around an ExecuTorch .pte forward graph.
+// ExecutorchModel.h — RAII wrapper around ExecuTorch .pte forward graphs.
 //
-// Loads a functional model `forward(flat_params, x, y) -> loss` (weights-as-inputs; see
-// mobile_client/scripts/pte_export.py) once, then runs many forwards. sha256-verifies the
-// .pte BEFORE load (untrusted-input rule, mirrors ModelManager). This is the ExecuTorch
-// replacement for the libtorch torch::jit forward path; the C++ FL core owns the parameter
-// vector and passes perturbed params (θ ± μz) as the `flat` input.
+// Supports two functional graph signatures (weights-as-inputs; see pte_export.py):
+//   Loss graph:  forward(flat_trainable, x, y) -> cross_entropy   [loss()]
+//   Infer graph: forward(flat_trainable, x)    -> logits           [infer()]
+//
+// sha256-verifies the .pte BEFORE load (untrusted-input rule, mirrors ModelManager). This is
+// the ExecuTorch replacement for the libtorch torch::jit forward path; the C++ FL core owns
+// the parameter vector and passes perturbed params (θ ± μz) as the `flat` input.
 //
 // PIMPL: no ExecuTorch headers leak here, so consumers (ZerothOrderEstimator, tests) need no
 // ET include paths.
@@ -43,6 +45,15 @@ class ExecutorchModel {
   float loss(const std::vector<float>& flat,
              const float* x, const std::vector<int64_t>& xShape,
              const int64_t* y, int64_t n);
+
+  // Run forward(flat, x) and return the full logits tensor (flattened, row-major [batch, classes]).
+  //   flat   : trainable parameter vector (length flatDim()).
+  //   x      : row-major input features with shape xShape.
+  //   xShape : shape of x (e.g. {batch, features}).
+  // Returns a vector of size batch*num_classes. NOT const (same ExecutorchModel method-state
+  // mutation caveat as loss()). Throws std::runtime_error on any failure.
+  std::vector<float> infer(const std::vector<float>& flat,
+                           const float* x, const std::vector<int64_t>& xShape);
 
   // Expected length of the `flat` input (input 0's element count, from the .pte metadata).
   int64_t flatDim() const;

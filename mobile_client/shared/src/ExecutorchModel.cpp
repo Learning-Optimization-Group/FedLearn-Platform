@@ -181,4 +181,54 @@ float ExecutorchModel::loss(const std::vector<float>& flat,
   return t.const_data_ptr<float>()[0];
 }
 
+std::vector<float> ExecutorchModel::infer(const std::vector<float>& flat,
+                                          const float* x, const std::vector<int64_t>& xShape) {
+  // Narrow each dimension to SizesType (int32 in lean mode), failing loudly on overflow rather
+  // than silently truncating a >2^31 dimension to a wrong shape.
+  auto toSize = [](int64_t d) -> SizesType {
+    if (d < 0 ||
+        static_cast<uint64_t>(d) > static_cast<uint64_t>(std::numeric_limits<SizesType>::max())) {
+      throw std::runtime_error("ExecutorchModel: dimension " + std::to_string(d) +
+                               " exceeds the model index type range");
+    }
+    return static_cast<SizesType>(d);
+  };
+  std::vector<SizesType> flatSizes{toSize(static_cast<int64_t>(flat.size()))};
+  std::vector<SizesType> xSizes;
+  xSizes.reserve(xShape.size());
+  for (int64_t d : xShape) xSizes.push_back(toSize(d));
+
+  // make_tensor_ptr ALIASES the caller-owned buffers (no deleter, no copy). They stay valid for
+  // this whole call — which spans set_input + execute, where ExecuTorch reads them. The infer
+  // graph has two inputs: flat (Float) and x (Float). No y input (no cross-entropy).
+  auto tFlat = make_tensor_ptr(flatSizes, const_cast<float*>(flat.data()), ScalarType::Float);
+  auto tX = make_tensor_ptr(xSizes, const_cast<float*>(x), ScalarType::Float);
+
+  Method& method = *impl_->method;
+  if (auto e = method.set_input(*tFlat, 0); e != Error::Ok) fail("set_input(flat) failed", e);
+  if (auto e = method.set_input(*tX, 1); e != Error::Ok) fail("set_input(x) failed", e);
+  if (auto e = method.execute(); e != Error::Ok) fail("execute failed", e);
+
+  if (method.outputs_size() != 1) {
+    throw std::runtime_error("ExecutorchModel: expected 1 output, got " +
+                             std::to_string(method.outputs_size()));
+  }
+  EValue out;
+  if (auto e = method.get_outputs(&out, 1); e != Error::Ok) fail("get_outputs failed", e);
+  if (!out.isTensor()) {
+    throw std::runtime_error("ExecutorchModel: output 0 is not a tensor");
+  }
+  const auto& t = out.toTensor();
+  if (t.scalar_type() != ScalarType::Float) {
+    throw std::runtime_error("ExecutorchModel: expected Float output, got scalar_type " +
+                             std::to_string(static_cast<int>(t.scalar_type())));
+  }
+  if (t.numel() < 1) {
+    throw std::runtime_error("ExecutorchModel: output tensor is empty");
+  }
+  // Copy ALL logits (batch × num_classes) into a flat vector and return it.
+  const float* data = t.const_data_ptr<float>();
+  return std::vector<float>(data, data + t.numel());
+}
+
 }  // namespace fedlearn

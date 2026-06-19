@@ -47,6 +47,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(fedlearn_et_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/../executorch_forward_test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../et_g_scalar_test.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/../et_infer_test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../dtype_map_test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../safetensors_test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/../model_manager_test.cpp

@@ -56,7 +56,7 @@ def main() -> None:
     # pte_export.py is a sibling in this scripts/ dir.
     import sys
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from pte_export import export_functional_pte, trainable_flat
+    from pte_export import export_functional_pte, export_functional_infer_pte, trainable_flat
 
     for tier in args.tiers:
         if tier not in TIER_HIDDEN:
@@ -84,6 +84,14 @@ def main() -> None:
             fh.write(pte)
         pte_sha = hashlib.sha256(pte).hexdigest()
         print(f"{tier}: pte_file={pte_path} pte_sha256={pte_sha} flat_dim={trainable_flat(model).numel()}")
+
+        # Infer .pte: forward(flat, x) -> logits (no cross-entropy, no y; for eval accuracy).
+        infer_pte = export_functional_infer_pte(model, x)
+        infer_pte_path = os.path.join(args.out, f"model_{tier}_infer.pte")
+        with open(infer_pte_path, "wb") as fh:
+            fh.write(infer_pte)
+        infer_sha = hashlib.sha256(infer_pte).hexdigest()
+        print(f"{tier}: infer_pte_file={infer_pte_path} infer_sha256={infer_sha}")
 
 
 if __name__ == "__main__":

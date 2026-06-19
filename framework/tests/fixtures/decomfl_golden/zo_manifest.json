@@ -53,5 +53,18 @@
     }
   ],
   "state_file": "zo_state.safetensors",
-  "state_sha256": "4b1016fca301c00ba84cdf10ee9402e6d226e1471c1b698129e7f9e8c1f98179"
+  "state_sha256": "4b1016fca301c00ba84cdf10ee9402e6d226e1471c1b698129e7f9e8c1f98179",
+  "infer_file": "zo_model_tiny_infer.pte",
+  "infer_sha256": "cf8744b9579d78f14bbb82e2d4ce98dcaffc8d2c6ed2253349c39342de546746",
+  "golden_argmax": [
+    0,
+    0,
+    2,
+    0,
+    0,
+    0,
+    2,
+    2
+  ],
+  "golden_accuracy": 0.375
 }

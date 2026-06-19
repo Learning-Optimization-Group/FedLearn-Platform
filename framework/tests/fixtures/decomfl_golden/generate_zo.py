@@ -65,7 +65,7 @@ def main() -> None:
 
     # The functional .pte exporter lives in the sibling mobile_client unit.
     sys.path.insert(0, os.path.join(HERE, "..", "..", "..", "..", "mobile_client", "scripts"))
-    from pte_export import export_functional_pte  # noqa: E402
+    from pte_export import export_functional_pte, export_functional_infer_pte  # noqa: E402
 
     torch.manual_seed(0)
     net = TinyNet().eval()
@@ -113,12 +113,18 @@ def main() -> None:
     # Phase 2 — functional .pte (weights-as-inputs) + the trainable flat + a single-forward
     # loss reference, all from THIS net + the committed batch: a self-consistent fixture the
     # C++ ExecuTorch forward must reproduce within tolerance (golden_loss == .pte forward).
-    pte_bytes = export_functional_pte(net, (inputs, targets))
-    with open(os.path.join(HERE, "zo_model_tiny.pte"), "wb") as fh:
-        fh.write(pte_bytes)
-    pte_sha = hashlib.sha256(pte_bytes).hexdigest()
-    flat.detach().numpy().astype("<f4").tofile(os.path.join(HERE, "zo_flat.f32"))
-    golden_loss = float(torch.nn.functional.cross_entropy(net(inputs), targets))
+    # When existing manifest is present (no --refreeze), preserve the committed loss .pte byte-
+    # identically: read pte_sha / golden_loss from existing rather than re-exporting.
+    if existing is not None:
+        pte_sha = existing["pte_sha256"]
+        golden_loss = existing["golden_loss"]
+    else:
+        pte_bytes = export_functional_pte(net, (inputs, targets))
+        with open(os.path.join(HERE, "zo_model_tiny.pte"), "wb") as fh:
+            fh.write(pte_bytes)
+        pte_sha = hashlib.sha256(pte_bytes).hexdigest()
+        flat.detach().numpy().astype("<f4").tofile(os.path.join(HERE, "zo_flat.f32"))
+        golden_loss = float(torch.nn.functional.cross_entropy(net(inputs), targets))
 
     # Phase 3c T0 — ordered trainable param layout (name + shape) + a safetensors state-dict
     # golden, so the C++ ModelManager has the load layout and a byte-exact codec contract.
@@ -139,6 +145,19 @@ def main() -> None:
     with open(os.path.join(HERE, "zo_state.safetensors"), "wb") as fh:
         fh.write(state_blob)
     state_sha = hashlib.sha256(state_blob).hexdigest()
+
+    # Phase 3c T11 — infer .pte: forward(flat, x) -> logits (no cross-entropy, no y).
+    # Always regenerated (new fixture; idempotent).
+    infer_bytes = export_functional_infer_pte(net, inputs)
+    infer_pte_path = os.path.join(HERE, "zo_model_tiny_infer.pte")
+    with open(infer_pte_path, "wb") as fh:
+        fh.write(infer_bytes)
+    infer_sha = hashlib.sha256(infer_bytes).hexdigest()
+    with torch.no_grad():
+        logits = net(inputs)
+    argmax = logits.argmax(dim=1)
+    golden_argmax = [int(v) for v in argmax]
+    golden_accuracy = float((argmax == targets).float().mean())
 
     manifest = {
         "description": "ZerothOrderEstimator g-scalar + flat-param-filter golden reference (C++ mobile core).",
@@ -168,6 +187,11 @@ def main() -> None:
         "param_layout": param_layout,
         "state_file": "zo_state.safetensors",
         "state_sha256": state_sha,
+        # Phase 3c T11 — infer .pte + logits golden (argmax accuracy reference).
+        "infer_file": "zo_model_tiny_infer.pte",
+        "infer_sha256": infer_sha,
+        "golden_argmax": golden_argmax,
+        "golden_accuracy": golden_accuracy,
     }
     with open(manifest_path, "w") as fh:
         json.dump(manifest, fh, indent=2)
@@ -176,6 +200,8 @@ def main() -> None:
     print(f"trainable={trainable} total={total} flat_dim={flat_dim} ({mode})")
     print("golden_g =", golden_g)
     print("golden_loss =", golden_loss, "| pte_sha256 =", pte_sha[:12])
+    print("golden_argmax =", golden_argmax, "| golden_accuracy =", golden_accuracy)
+    print("infer_sha256 =", infer_sha[:12])
 
 
 if __name__ == "__main__":
