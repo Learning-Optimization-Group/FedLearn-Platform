@@ -1,5 +1,32 @@
 import api from '../api/axiosConfig';
-import { AxiosResponse } from 'axios';
+import { AxiosError, AxiosResponse, isAxiosError } from 'axios';
+
+// ─── Error helpers ───────────────────────────────────────────────────────
+//
+// The backend's GlobalExceptionHandler returns {message} (and sometimes
+// {error}); 403 means "not allowed" and 409 means "conflict" (e.g. demoting
+// the last admin, or an owner request that already exists). These helpers let
+// callers render those failures inline instead of guessing at the shape.
+
+/** The HTTP status of an axios error, or undefined for non-HTTP failures. */
+export function errorStatus(err: unknown): number | undefined {
+    return isAxiosError(err) ? err.response?.status : undefined;
+}
+
+/** Pull a human-readable message out of a backend error response. */
+export function errorMessage(err: unknown, fallback = 'Something went wrong. Please try again.'): string {
+    if (isAxiosError(err)) {
+        const data = (err as AxiosError<{ message?: string; error?: string }>).response?.data;
+        if (data?.message) return data.message;
+        if (data?.error) return data.error;
+    }
+    return fallback;
+}
+
+/** A 204 / empty-body response carries no resource. */
+export function isEmptyBody(data: unknown): boolean {
+    return data === '' || data == null;
+}
 
 // Type definitions
 export interface LoginCredentials {
@@ -51,10 +78,12 @@ export interface ProjectResult {
 // cookie on /auth/login and clears it on /auth/logout. JS never sees the
 // token. To answer "am I logged in?" the SPA calls /auth/me.
 
+export type Role = 'USER' | 'PROJECT_OWNER' | 'PLATFORM_ADMIN';
+
 export interface AuthIdentity {
     username: string;
     email: string;
-    role: 'USER' | 'ADMIN';
+    role: Role;
 }
 
 export const loginUser = (credentials: LoginCredentials): Promise<AxiosResponse<AuthIdentity>> => {
@@ -80,6 +109,26 @@ export const fetchCurrentUser = (): Promise<AxiosResponse<AuthIdentity>> => {
  */
 export const logoutUser = (): Promise<AxiosResponse<void>> => {
     return api.post<void>('/auth/logout');
+};
+
+// ─── Model recipe catalog ───────────────────────────────────────────────
+//
+// The backend owns the catalog of trainable model types (architectures,
+// their base models and optimizers). The project modals fetch this at open
+// time so the picker stays in sync with what the framework actually supports.
+
+export interface ModelRecipe {
+    key: string;
+    displayName: string;
+    inputKind: string;
+    classes: string[];
+    baseModels: string[];
+    optimizers: string[];
+}
+
+/** Lists the model recipes the platform can train. */
+export const fetchModelRecipes = (): Promise<AxiosResponse<ModelRecipe[]>> => {
+    return api.get<ModelRecipe[]>('/model-recipes');
 };
 
 // Project Management Endpoints
@@ -178,7 +227,7 @@ export interface User {
     id: number;
     username: string;
     email: string;
-    role?: 'USER' | 'ADMIN';
+    role?: Role;
     createdAt?: string;
 }
 
@@ -197,4 +246,278 @@ export const createUser = (userData: RegisterData): Promise<AxiosResponse<User>>
 
 export const deleteUser = (userId: number): Promise<AxiosResponse<any>> => {
     return api.delete(`/users/${userId}`);
+};
+
+// ─── Project visibility (3 tiers) ────────────────────────────────────────
+//
+// PUBLIC     — anyone can join & train.
+// RESTRICTED — discoverable; the owner approves join requests.
+// PRIVATE    — hidden; invite-only.
+
+export type Visibility = 'PUBLIC' | 'RESTRICTED' | 'PRIVATE';
+
+/** Plain-language copy for each visibility tier (reused by selectors). */
+export const VISIBILITY_HELP: Record<Visibility, string> = {
+    PUBLIC: 'Anyone can join and train.',
+    RESTRICTED: 'Discoverable — you approve join requests.',
+    PRIVATE: 'Hidden — invite-only.',
+};
+
+type Decision = 'APPROVED' | 'DENIED';
+type RequestStatus = 'PENDING' | 'APPROVED' | 'DENIED';
+
+// ─── Admin (PLATFORM_ADMIN only — non-admins get 403) ────────────────────
+//
+// 403 here means "not allowed", NOT "session expired": the axios interceptor
+// only logs out on 401, so callers should render these failures inline.
+
+export interface AdminOverview {
+    totalUsers: number;
+    owners: number;
+    admins: number;
+    totalProjects: number;
+    runningProjects: number;
+    pendingOwnerRequests: number;
+    pendingDeletionRequests: number;
+    pendingAccessRequests: number;
+}
+
+export interface AdminUser {
+    id: number;
+    username: string;
+    email: string;
+    role: Role;
+    projectsOwned: number;
+    memberships: number;
+    createdAt: string;
+}
+
+export interface AdminProject {
+    id: string;
+    name: string;
+    modelType: string;
+    status: string;
+    visibility: Visibility;
+    ownerUsername: string;
+    participantCount: number;
+}
+
+export interface OwnerRequest {
+    id: number;
+    userId: number;
+    username: string;
+    email: string;
+    status: RequestStatus;
+    message?: string;
+    requestedAt: string;
+    decidedAt?: string;
+    decidedByUsername?: string;
+}
+
+export interface DeletionRequest {
+    id: number;
+    projectId: string;
+    projectName: string;
+    requestedByUsername: string;
+    status: RequestStatus;
+    reason?: string;
+    requestedAt: string;
+    decidedAt?: string;
+    decidedByUsername?: string;
+}
+
+/** Platform-wide counts for the admin overview tiles. */
+export const fetchAdminOverview = (): Promise<AxiosResponse<AdminOverview>> => {
+    return api.get<AdminOverview>('/admin/overview');
+};
+
+/** Every user with role + counts (admin users table). */
+export const fetchAdminUsers = (): Promise<AxiosResponse<AdminUser[]>> => {
+    return api.get<AdminUser[]>('/admin/users');
+};
+
+/**
+ * Change a user's platform role. The backend guards the last admin — demoting
+ * it returns 409, which callers should surface (don't swallow).
+ */
+export const updateUserRole = (userId: number, role: Role): Promise<AxiosResponse<AdminUser>> => {
+    return api.put<AdminUser>(`/admin/users/${userId}/role`, { role });
+};
+
+/** All projects across the platform (admin all-projects table). */
+export const fetchAdminProjects = (): Promise<AxiosResponse<AdminProject[]>> => {
+    return api.get<AdminProject[]>('/admin/projects');
+};
+
+/** Owner-promotion requests. Omit `status` for all; pass PENDING for the queue. */
+export const fetchOwnerRequests = (status?: RequestStatus): Promise<AxiosResponse<OwnerRequest[]>> => {
+    return api.get<OwnerRequest[]>('/admin/owner-requests', { params: status ? { status } : undefined });
+};
+
+/** Approve or deny an owner-promotion request. */
+export const decideOwnerRequest = (id: number, decision: Decision): Promise<AxiosResponse<OwnerRequest>> => {
+    return api.put<OwnerRequest>(`/admin/owner-requests/${id}`, { decision });
+};
+
+/** Project-deletion requests. Omit `status` for all; pass PENDING for the queue. */
+export const fetchDeletionRequests = (status?: RequestStatus): Promise<AxiosResponse<DeletionRequest[]>> => {
+    return api.get<DeletionRequest[]>('/admin/deletion-requests', { params: status ? { status } : undefined });
+};
+
+/** Approve (permanently deletes the project) or deny a deletion request. */
+export const decideDeletionRequest = (id: number, decision: Decision): Promise<AxiosResponse<DeletionRequest>> => {
+    return api.put<DeletionRequest>(`/admin/deletion-requests/${id}`, { decision });
+};
+
+// ─── Owner promotion (any authenticated user) ────────────────────────────
+
+/** Submit a request to be promoted to PROJECT_OWNER. 409 if already pending/owner. */
+export const submitOwnerRequest = (message?: string): Promise<AxiosResponse<OwnerRequest>> => {
+    return api.post<OwnerRequest>('/owner-requests', { message });
+};
+
+/**
+ * The caller's own owner-promotion request, or HTTP 204 (empty body) if none.
+ * Callers should treat a 204 / null body as "no request yet".
+ */
+export const fetchMyOwnerRequest = (): Promise<AxiosResponse<OwnerRequest | ''>> => {
+    return api.get<OwnerRequest | ''>('/owner-requests/mine');
+};
+
+// ─── Owner-scoped project endpoints ──────────────────────────────────────
+//
+// These extend the existing /projects surface with the owner's relationship,
+// visibility, and the access-request / membership / deletion-request flows.
+
+export interface OwnedProject {
+    id: string;
+    name: string;
+    modelType: string;
+    modelName: string;
+    status: Project['status'];
+    visibility: Visibility;
+    myRelationship: string;
+    serverPort?: number;
+    optimizer: string;
+}
+
+export interface AccessRequest {
+    id: number;
+    projectId: string;
+    projectName: string;
+    userId: number;
+    username: string;
+    status: RequestStatus;
+    message?: string;
+    requestedAt: string;
+}
+
+export interface Membership {
+    projectId: string;
+    userId: number;
+    username: string;
+    role: 'CLIENT' | 'MEMBER';
+    partitionId?: number;
+    joinedVia: string;
+    addedAt: string;
+}
+
+export interface DiscoverableProject {
+    id: string;
+    name: string;
+    visibility: Visibility;
+    ownerUsername: string;
+    modelType: string;
+    description?: string;
+    myRequestStatus: 'NONE' | 'PENDING' | 'APPROVED' | 'DENIED';
+}
+
+export interface ProjectVisibilityUpdate {
+    visibility: Visibility;
+    name?: string;
+    description?: string;
+}
+
+/** The caller's owned projects (richer shape than the base /projects list). */
+export const fetchOwnedProjects = (): Promise<AxiosResponse<OwnedProject[]>> => {
+    return api.get<OwnedProject[]>('/projects');
+};
+
+/** Update a project's visibility (and optionally name/description). */
+export const updateProjectVisibility = (
+    projectId: string,
+    update: ProjectVisibilityUpdate,
+): Promise<AxiosResponse<OwnedProject>> => {
+    return api.patch<OwnedProject>(`/projects/${projectId}`, update);
+};
+
+/** Pending (or all) join requests for a project the caller owns. */
+export const fetchAccessRequests = (
+    projectId: string,
+    status?: RequestStatus,
+): Promise<AxiosResponse<AccessRequest[]>> => {
+    return api.get<AccessRequest[]>(`/projects/${projectId}/access-requests`, {
+        params: status ? { status } : undefined,
+    });
+};
+
+/** Approve or deny a join request on a project the caller owns. */
+export const decideAccessRequest = (
+    projectId: string,
+    requestId: number,
+    decision: Decision,
+): Promise<AxiosResponse<AccessRequest>> => {
+    return api.put<AccessRequest>(`/projects/${projectId}/access-requests/${requestId}`, { decision });
+};
+
+/** Members of a project the caller owns. */
+export const fetchMemberships = (projectId: string): Promise<AxiosResponse<Membership[]>> => {
+    return api.get<Membership[]>(`/projects/${projectId}/memberships`);
+};
+
+/** Add a user to a project by username. */
+export const addMembership = (
+    projectId: string,
+    username: string,
+    role: 'CLIENT' | 'MEMBER',
+): Promise<AxiosResponse<Membership>> => {
+    return api.post<Membership>(`/projects/${projectId}/memberships`, { username, role });
+};
+
+/** Remove a member from a project. */
+export const removeMembership = (projectId: string, userId: number): Promise<AxiosResponse<void>> => {
+    return api.delete<void>(`/projects/${projectId}/memberships/${userId}`);
+};
+
+/** Owner asks an admin to permanently delete a project. */
+export const submitDeletionRequest = (
+    projectId: string,
+    reason?: string,
+): Promise<AxiosResponse<DeletionRequest>> => {
+    return api.post<DeletionRequest>(`/projects/${projectId}/deletion-request`, { reason });
+};
+
+/** The project's pending deletion request, or HTTP 204 (empty body) if none. */
+export const fetchProjectDeletionRequest = (
+    projectId: string,
+): Promise<AxiosResponse<DeletionRequest | ''>> => {
+    return api.get<DeletionRequest | ''>(`/projects/${projectId}/deletion-request`);
+};
+
+// ─── Discovery (any authenticated user) ──────────────────────────────────
+
+/** Projects the caller can discover and request access to / join. */
+export const fetchDiscoverableProjects = (): Promise<AxiosResponse<DiscoverableProject[]>> => {
+    return api.get<DiscoverableProject[]>('/projects/discover');
+};
+
+/**
+ * Request access to a project. PUBLIC auto-joins (returns a membership);
+ * RESTRICTED creates a pending request; PRIVATE returns 403.
+ */
+export const requestProjectAccess = (
+    projectId: string,
+    message?: string,
+): Promise<AxiosResponse<Membership | AccessRequest>> => {
+    return api.post<Membership | AccessRequest>(`/projects/${projectId}/access-requests`, { message });
 };

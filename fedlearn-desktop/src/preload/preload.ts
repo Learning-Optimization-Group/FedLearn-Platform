@@ -19,24 +19,6 @@ import { contextBridge, ipcRenderer } from 'electron';
 // NOTE: electron-log cannot be used in sandboxed preload scripts.
 // console.error is forwarded to the main process console automatically.
 
-// ========== Docker daemon-unavailable: eager listener + replay buffer ==========
-// Register the IPC listener at preload injection — BEFORE Main's startup Docker ping can fire —
-// and buffer the message. The renderer subscribes later (React calls onDockerUnavailable inside
-// a useEffect, after the page-load event), and Electron drops un-listened one-shot sends, so a
-// lazily-registered listener races and loses the message. Eager-register + replay-on-subscribe
-// closes that race deterministically.
-let _daemonUnavailableMessage: string | null = null;
-let _daemonUnavailableCallback: ((message: string) => void) | null = null;
-ipcRenderer.on('docker:daemon-unavailable', (_event, value: string) => {
-  if (typeof value !== 'string') {
-    return;
-  }
-  _daemonUnavailableMessage = value;
-  if (_daemonUnavailableCallback) {
-    _daemonUnavailableCallback(value);
-  }
-});
-
 // ========== Validation Constants ==========
 
 const ALLOWED_HARDWARE_PROFILES = ['discrete', 'jetson', 'cpu', 'mps'] as const;
@@ -270,19 +252,6 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   },
 
   /**
-   * Register a callback for Docker daemon unavailability events.
-   * Fired once on startup if the Docker socket is unreachable.
-   */
-  onDockerUnavailable: (callback: (message: string) => void): void => {
-    _daemonUnavailableCallback = callback;
-    // Replay a message that arrived before this subscription (the common case: Main's startup
-    // ping fails and sends before React mounts and registers this callback).
-    if (_daemonUnavailableMessage !== null) {
-      callback(_daemonUnavailableMessage);
-    }
-  },
-
-  /**
    * Set the backend server URL. Persisted across app restarts.
    * Users enter the URL (e.g. http://192.168.1.100:8081) and /api is appended automatically.
    */
@@ -305,6 +274,29 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
    */
   selectDatasetPath: async (): Promise<{ success: boolean; path?: string; error?: string }> => {
     return ipcRenderer.invoke('dialog:open-directory');
+  },
+
+  // ===================== Client Projects ("models I can train") =====================
+
+  /**
+   * List the projects the authenticated user may train (owner or approved
+   * CLIENT). Replaces manual project-id / server / partition entry.
+   */
+  listTrainableProjects: async (): Promise<{ success: boolean; projects?: unknown[]; error?: string }> => {
+    return ipcRenderer.invoke('client:list-projects');
+  },
+
+  /**
+   * Resolve a project's live gRPC connection (address + server-assigned
+   * partition id + model type) so training can start without manual entry.
+   */
+  getProjectConnection: async (
+    projectId: string,
+  ): Promise<{ success: boolean; connection?: unknown; error?: string }> => {
+    if (!isValidProjectId(projectId)) {
+      return { success: false, error: 'Invalid project ID' };
+    }
+    return ipcRenderer.invoke('client:get-connection', projectId);
   },
 
   // ===================== Inference ("Use a model") =====================

@@ -57,8 +57,15 @@ public class AccessRequestService {
             return response;
         }
 
-        // PRIVATE: upsert a PENDING request. @PrePersist won't fire on UPDATE,
-        // so we explicitly reset the lifecycle fields here.
+        if (project.getVisibility() == ProjectVisibility.PRIVATE) {
+            // Invite-only: a private project is not joinable by self-request. The
+            // owner adds participants directly via MembershipController.
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "This project is private (invite-only). Ask the owner to add you.");
+        }
+
+        // RESTRICTED: upsert a PENDING request the owner must approve. @PrePersist
+        // won't fire on UPDATE, so we explicitly reset the lifecycle fields here.
         ProjectAccessRequest req = requestRepository
             .findByProjectIdAndUserId(projectId, caller.getId())
             .orElseGet(() -> new ProjectAccessRequest(project, caller, message));

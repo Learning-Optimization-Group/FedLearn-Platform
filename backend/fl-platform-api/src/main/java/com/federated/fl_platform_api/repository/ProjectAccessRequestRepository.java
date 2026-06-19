@@ -17,4 +17,6 @@ public interface ProjectAccessRequestRepository extends JpaRepository<ProjectAcc
     List<ProjectAccessRequest> findByUserId(Long userId);
 
     Optional<ProjectAccessRequest> findByProjectIdAndUserId(UUID projectId, Long userId);
+
+    long countByStatus(AccessRequestStatus status);
 }

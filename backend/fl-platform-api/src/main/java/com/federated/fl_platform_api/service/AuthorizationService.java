@@ -115,4 +115,37 @@ public class AuthorizationService {
                            || m.get().getRole() == MembershipRole.CLIENT)) return;
         throw new AccessDeniedException("You do not have access to this project");
     }
+
+    /** True iff the caller holds the given {@code ROLE_*} authority. */
+    private boolean hasAuthority(String authority) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        for (GrantedAuthority a : auth.getAuthorities()) {
+            if (authority.equals(a.getAuthority())) return true;
+        }
+        return false;
+    }
+
+    /** Throws unless the caller is a platform admin. */
+    public void requirePlatformAdmin() {
+        if (!isPlatformAdmin()) {
+            throw new AccessDeniedException("Platform administrator role required");
+        }
+    }
+
+    /**
+     * Whether the caller may create/own projects: a PROJECT_OWNER (admin-granted
+     * via the owner-promotion workflow) or a platform admin. Plain USERs cannot.
+     */
+    public boolean canCreateProjects() {
+        return hasAuthority("ROLE_PROJECT_OWNER") || isPlatformAdmin();
+    }
+
+    /** Gate for project creation — see {@link #canCreateProjects()}. */
+    public void requireCanCreateProject() {
+        if (!canCreateProjects()) {
+            throw new AccessDeniedException(
+                "Only project owners can create projects. Request owner access from a platform admin.");
+        }
+    }
 }

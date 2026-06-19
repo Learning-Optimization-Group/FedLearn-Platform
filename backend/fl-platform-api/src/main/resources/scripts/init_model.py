@@ -51,6 +51,11 @@ def get_model(model_type: str, model_name: str, device: str):
     if model_type == 'CNN':
         return CnnNet().to(device)
 
+    elif model_type == 'PNEUMONIA_CNN':
+        import recipes
+        print("Initializing PneumoniaCNN (1x224x224 grayscale -> 2 classes)")
+        return recipes.get_recipe('PNEUMONIA_CNN').build_model(device)
+
     elif model_type == 'TRANSFORMER':
         if model_name == 'opt-125m':
             print("Loading pre-trained 'facebook/opt-125m' for sequence classification.")

@@ -89,12 +89,12 @@ class AccessRequestControllerIntegrationTest {
     }
 
     @Test
-    void privateProject_submit_createsPendingRequest_andApprovalCreatesMembership() {
-        User alice = createUser("alice_priv");
-        createUser("bob_priv");
-        Project p = createProject(alice, ProjectVisibility.PRIVATE);
+    void restrictedProject_submit_createsPendingRequest_andApprovalCreatesMembership() {
+        User alice = createUser("alice_restr");
+        createUser("bob_restr");
+        Project p = createProject(alice, ProjectVisibility.RESTRICTED);
 
-        String bobCookie = loginAs("bob_priv");
+        String bobCookie = loginAs("bob_restr");
         @SuppressWarnings({"unchecked", "rawtypes"})
         ResponseEntity<Map> postResp = restTemplate.exchange(
             "/api/projects/" + p.getId() + "/access-requests",
@@ -107,7 +107,7 @@ class AccessRequestControllerIntegrationTest {
         assertEquals("PENDING", request.get("status"));
         Long requestId = ((Number) request.get("id")).longValue();
 
-        String aliceCookie = loginAs("alice_priv");
+        String aliceCookie = loginAs("alice_restr");
         @SuppressWarnings({"unchecked", "rawtypes"})
         ResponseEntity<Map> putResp = restTemplate.exchange(
             "/api/projects/" + p.getId() + "/access-requests/" + requestId,
@@ -116,5 +116,22 @@ class AccessRequestControllerIntegrationTest {
             Map.class);
         assertEquals(HttpStatus.OK, putResp.getStatusCode());
         assertEquals("APPROVED", putResp.getBody().get("status"));
+    }
+
+    @Test
+    void privateProject_submit_isForbidden_inviteOnly() {
+        User alice = createUser("alice_privonly");
+        createUser("bob_privonly");
+        Project p = createProject(alice, ProjectVisibility.PRIVATE);
+
+        String bobCookie = loginAs("bob_privonly");
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        ResponseEntity<Map> resp = restTemplate.exchange(
+            "/api/projects/" + p.getId() + "/access-requests",
+            HttpMethod.POST,
+            new HttpEntity<>(Map.of("message", "let me in"), headers(bobCookie)),
+            Map.class);
+        // PRIVATE is invite-only — self-service join requests are rejected.
+        assertEquals(HttpStatus.FORBIDDEN, resp.getStatusCode());
     }
 }

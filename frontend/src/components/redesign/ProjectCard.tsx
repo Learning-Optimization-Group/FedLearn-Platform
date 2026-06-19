@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { ResponsiveContainer, LineChart, Line, YAxis } from 'recharts';
-import { Activity, Cpu, Trash2, Copy, Check, MoreHorizontal, Edit3, Play, Square } from 'lucide-react';
+import { Activity, Cpu, Trash2, Copy, Check, MoreHorizontal, Edit3, Play, Square, Settings2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Card, Button, StatusPill, ConfirmDialog, type StatusKind } from '../ui';
 import type { Project, ProjectResult } from '../../services/apiServices';
@@ -18,6 +18,11 @@ interface ProjectCardProps {
   onToggleServer: () => void;
   onEditProject: () => void;
   onDeleteProject: () => void;
+  /**
+   * Owner-only: opens the manage panel (visibility, join requests, members,
+   * request-deletion). When provided, a "Manage" item appears in the menu.
+   */
+  onManageProject?: () => void;
 }
 
 /** Map domain status -> the 5 Ember status kinds. */
@@ -88,6 +93,7 @@ export function ProjectCard({
   onToggleServer,
   onEditProject,
   onDeleteProject,
+  onManageProject,
 }: ProjectCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -164,6 +170,18 @@ export function ProjectCard({
                   <Edit3 className="w-4 h-4" strokeWidth={1.5} />
                   Edit project
                 </button>
+                {onManageProject && (
+                  <button
+                    onClick={() => {
+                      onManageProject();
+                      setShowMenu(false);
+                    }}
+                    className="w-full px-4 py-2 text-left text-body font-medium transition-colors flex items-center gap-2 text-fg hover:bg-surface-3"
+                  >
+                    <Settings2 className="w-4 h-4" strokeWidth={1.5} />
+                    Manage access
+                  </button>
+                )}
                 <div className="h-px bg-hairline my-1" />
                 <button
                   onClick={() => {

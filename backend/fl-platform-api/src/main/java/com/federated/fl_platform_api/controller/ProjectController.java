@@ -1,13 +1,16 @@
 package com.federated.fl_platform_api.controller;
 
 
+import com.federated.fl_platform_api.dto.CreateDeletionRequestRequest;
 import com.federated.fl_platform_api.dto.CreateProjectRequest;
+import com.federated.fl_platform_api.dto.DeletionRequestDto;
 import com.federated.fl_platform_api.dto.DiscoverProjectDto;
 import com.federated.fl_platform_api.dto.ProjectResponseDto;
 import com.federated.fl_platform_api.dto.RoundResultDto;
 import com.federated.fl_platform_api.dto.ServerLogDto;
 import com.federated.fl_platform_api.dto.StartProject;
 import com.federated.fl_platform_api.dto.UpdateProjectRequest;
+import com.federated.fl_platform_api.service.ProjectDeletionService;
 import com.federated.fl_platform_api.service.ProjectService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -32,6 +35,9 @@ public class ProjectController {
 
     @Autowired
     private ProjectService projectService;
+
+    @Autowired
+    private ProjectDeletionService projectDeletionService;
 
     @PostMapping
     public ResponseEntity<ProjectResponseDto> createProject(@Valid @RequestBody CreateProjectRequest request)
@@ -123,6 +129,28 @@ public class ProjectController {
                 .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
                 .header("Content-Type", "text/plain; charset=UTF-8")
                 .body(sb.toString());
+    }
+
+    /**
+     * Owner-initiated deletion request. The project's FL server is stopped and a
+     * PENDING request is filed for platform-admin approval (an owner cannot delete
+     * a project directly — DELETE /{projectId} is admin-only).
+     */
+    @PostMapping("/{projectId}/deletion-request")
+    public ResponseEntity<DeletionRequestDto> requestDeletion(
+            @PathVariable @NonNull UUID projectId,
+            @Valid @RequestBody(required = false) CreateDeletionRequestRequest body) {
+        String reason = body == null ? null : body.getReason();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(projectDeletionService.request(projectId, reason));
+    }
+
+    /** The deletion request for this project, if any (drives the owner's badge). */
+    @GetMapping("/{projectId}/deletion-request")
+    public ResponseEntity<DeletionRequestDto> getDeletionRequest(@PathVariable @NonNull UUID projectId) {
+        return projectDeletionService.getForProject(projectId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @DeleteMapping("/{projectId}")

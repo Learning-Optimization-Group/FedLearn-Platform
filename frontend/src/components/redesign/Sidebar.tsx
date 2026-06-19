@@ -8,33 +8,49 @@ import { LayoutDashboard, Settings, Boxes, Network, Database, LogOut, FlaskConic
 import { NavLink } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
+import type { Role } from '../../context/AuthContext';
 import { Wordmark } from '../brand';
 
-const navGroups: {
-    heading: string;
-    items: { icon: typeof LayoutDashboard; label: string; path: string; end?: boolean }[];
-}[] = [
-    {
-        heading: 'Workspace',
-        items: [
-            { icon: LayoutDashboard, label: 'Overview', path: '/dashboard', end: true },
-            { icon: Network, label: 'Devices', path: '/nodes' },
-            { icon: Boxes, label: 'Models', path: '/models' },
-            { icon: FlaskConical, label: 'Use a model', path: '/playground' },
-            { icon: Database, label: 'Data', path: '/datasets' },
-        ],
-    },
-    {
-        heading: 'Account',
-        items: [{ icon: Settings, label: 'Settings', path: '/settings' }],
-    },
+type NavItem = { icon: typeof LayoutDashboard; label: string; path: string; end?: boolean };
+type NavGroup = { heading: string; items: NavItem[] };
+
+// Project-management surfaces (Devices / Data) are owner+admin only — a plain
+// USER's sidebar shows Overview + the model surfaces it's allowed to use.
+const OWNER_ITEMS: NavItem[] = [
+    { icon: Network, label: 'Devices', path: '/nodes' },
+    { icon: Database, label: 'Data', path: '/datasets' },
 ];
+
+function navGroupsForRole(role: Role): NavGroup[] {
+    const workspace: NavItem[] = [
+        { icon: LayoutDashboard, label: 'Overview', path: '/dashboard', end: true },
+        { icon: Boxes, label: 'Models', path: '/models' },
+        { icon: FlaskConical, label: 'Use a model', path: '/playground' },
+    ];
+    if (role === 'PROJECT_OWNER' || role === 'PLATFORM_ADMIN') {
+        // Devices sits next to Models; Data after.
+        workspace.splice(1, 0, OWNER_ITEMS[0]);
+        workspace.push(OWNER_ITEMS[1]);
+    }
+    return [
+        { heading: 'Workspace', items: workspace },
+        { heading: 'Account', items: [{ icon: Settings, label: 'Settings', path: '/settings' }] },
+    ];
+}
+
+const ROLE_LABEL: Record<Role, string> = {
+    USER: 'Member',
+    PROJECT_OWNER: 'Project owner',
+    PLATFORM_ADMIN: 'Platform admin',
+};
 
 export function Sidebar() {
     const { currentUser, logout } = useAuth();
 
     const initials = currentUser?.username ? currentUser.username.slice(0, 2).toUpperCase() : 'U';
-    const role = currentUser?.role ? currentUser.role.toLowerCase() : 'member';
+    const role: Role = currentUser?.role ?? 'USER';
+    const roleLabel = ROLE_LABEL[role];
+    const navGroups = navGroupsForRole(role);
 
     return (
         <aside className="relative z-10 flex h-screen w-64 flex-shrink-0 flex-col border-r border-hairline bg-canvas font-sans text-fg">
@@ -97,7 +113,7 @@ export function Sidebar() {
                         <span className="truncate text-label font-medium tracking-tight text-fg">
                             {currentUser?.username || 'User'}
                         </span>
-                        <span className="text-caption capitalize text-fg-muted">{role}</span>
+                        <span className="text-caption text-fg-muted">{roleLabel}</span>
                     </div>
                     <button
                         onClick={logout}

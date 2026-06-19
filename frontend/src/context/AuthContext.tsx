@@ -9,19 +9,30 @@ const log = createLogger('AuthContext');
  * the browser attaches automatically. The User shape here mirrors what the
  * /auth/me endpoint returns; nothing more.
  */
+export type Role = 'USER' | 'PROJECT_OWNER' | 'PLATFORM_ADMIN';
+
 interface User {
     username: string;
     email: string;
-    role: 'USER' | 'ADMIN';
+    role: Role;
 }
 
 interface AuthContextType {
     currentUser: User | null;
     isLoading: boolean;
+    /** PLATFORM_ADMIN — can manage users/roles and approve platform-level requests. */
+    isAdmin: boolean;
+    /** PROJECT_OWNER or PLATFORM_ADMIN — can create/own projects. */
+    isOwner: boolean;
     /** Replace the in-memory user (called by LoginPage on successful login). */
     setSession: (user: User) => void;
     /** Best-effort backend logout + clear local state. */
     logout: () => Promise<void>;
+}
+
+/** Coerce an arbitrary backend value into a known role; default USER. */
+function normalizeRole(role: unknown): Role {
+    return role === 'PLATFORM_ADMIN' || role === 'PROJECT_OWNER' ? role : 'USER';
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -46,7 +57,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 setUser({
                     username: identity.username,
                     email: identity.email,
-                    role: identity.role,
+                    role: normalizeRole(identity.role),
                 });
             })
             .catch(() => {
@@ -59,7 +70,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }, []);
 
     const setSession = useCallback((newUser: User) => {
-        setUser(newUser);
+        setUser({ ...newUser, role: normalizeRole(newUser.role) });
     }, []);
 
     const logout = useCallback(async () => {
@@ -74,7 +85,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(null);
     }, []);
 
-    const value: AuthContextType = { currentUser: user, isLoading, setSession, logout };
+    const isAdmin = user?.role === 'PLATFORM_ADMIN';
+    const isOwner = user?.role === 'PLATFORM_ADMIN' || user?.role === 'PROJECT_OWNER';
+
+    const value: AuthContextType = { currentUser: user, isLoading, isAdmin, isOwner, setSession, logout };
 
     return (
         <AuthContext.Provider value={value}>

@@ -69,13 +69,18 @@ def build_model(model_type: str, model_name: str):
     mt = model_type.upper()
     if mt == "CNN":
         from architecture.cnn.net import Net  # 3x32x32 -> 10
-        return Net(), CIFAR10_CLASSES, "image"
+        return Net(), CIFAR10_CLASSES, "image", None
+    if mt == "PNEUMONIA_CNN":
+        import recipes
+        recipe = recipes.get_recipe("PNEUMONIA_CNN")  # 1x224x224 grayscale -> [NORMAL, PNEUMONIA]
+        return recipe.build_model("cpu"), recipe.classes, "image", recipe.input_transform()
     if mt == "MLP":
         from models.ecg_mlp import ECGModel
         return (
             ECGModel(input_dim=ECG_INPUT_DIM, hidden_dim=ECG_HIDDEN_DIM, num_classes=ECG_NUM_CLASSES),
             ECG_CLASSES,
             "vector",
+            None,
         )
     if mt == "TRANSFORMER":
         raise ValueError("Transformer (text) models are not supported for interactive inference yet.")
@@ -95,10 +100,12 @@ def load_weights(net, model_path: str) -> None:
     net.load_state_dict(state, strict=True)
 
 
-def build_image_tensor(image_path: str) -> torch.Tensor:
-    """Decode an arbitrary image to the CnnNet input: 3x32x32, normalized to [-1, 1].
+def build_image_tensor(image_path: str, transform=None) -> torch.Tensor:
+    """Decode an image to the model's expected input tensor.
 
-    Mirrors the training transform: ToTensor() then Normalize(0.5, 0.5).
+    Default (CnnNet): 3x32x32 normalized to [-1, 1]. If `transform` is provided
+    (e.g. the PneumoniaCNN 1x224x224 grayscale transform), it is used instead —
+    this MUST mirror the training transform for that model.
     """
     from PIL import Image
     import torchvision.transforms as transforms
@@ -117,12 +124,13 @@ def build_image_tensor(image_path: str) -> torch.Tensor:
     except Exception as exc:
         raise InputError(f"Could not decode the provided image: {exc}")
 
-    transform = transforms.Compose([
-        transforms.Resize((32, 32)),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-    ])
-    return transform(img).unsqueeze(0)  # (1, 3, 32, 32)
+    if transform is None:
+        transform = transforms.Compose([
+            transforms.Resize((32, 32)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ])
+    return transform(img).unsqueeze(0)  # (1, C, H, W)
 
 
 def build_vector_tensor(values, expected_dim: int) -> torch.Tensor:
@@ -154,7 +162,7 @@ def main() -> int:
         device = "cpu"  # inference is single-sample; CPU is plenty and avoids CUDA surprises
         log(f"loading {args.model_type}/{args.model_name} from {args.model_path}")
 
-        net, classes, input_kind = build_model(args.model_type, args.model_name)
+        net, classes, input_kind, image_transform = build_model(args.model_type, args.model_name)
         load_weights(net, args.model_path)
         net.to(device)
         net.eval()
@@ -166,7 +174,7 @@ def main() -> int:
         if kind == "image":
             if input_kind != "image":
                 raise InputError(f"{args.model_type} expects {input_kind} input, not an image")
-            x = build_image_tensor(payload["imagePath"])
+            x = build_image_tensor(payload["imagePath"], image_transform)
         elif kind == "vector":
             if input_kind != "vector":
                 raise InputError(f"{args.model_type} expects {input_kind} input, not a vector")

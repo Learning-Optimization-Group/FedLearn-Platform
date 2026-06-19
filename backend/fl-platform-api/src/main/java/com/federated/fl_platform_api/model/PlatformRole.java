@@ -8,7 +8,15 @@ package com.federated.fl_platform_api.model;
  * {@link com.federated.fl_platform_api.service.CustomUserDetailsService}.</p>
  */
 public enum PlatformRole {
+    /** Default tier. May join/train projects (as a CLIENT) but may not create them. */
     USER,
+    /**
+     * May create and own projects (admin-granted via the owner-promotion workflow).
+     * Per-project ownership of a specific project is still tracked by
+     * {@code projects.user_id}; this role only gates the capability to create one.
+     */
+    PROJECT_OWNER,
+    /** Platform administrator. Unrestricted across orgs; approves owner/deletion requests. */
     PLATFORM_ADMIN;
 
     /** The Spring Security authority string ({@code ROLE_USER} / {@code ROLE_PLATFORM_ADMIN}). */

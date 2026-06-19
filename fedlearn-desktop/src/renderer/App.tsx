@@ -3,7 +3,7 @@
 // =============================================================================
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Network, Settings, AlertTriangle } from 'lucide-react';
+import { Network, Settings } from 'lucide-react';
 import AuthModal from './components/AuthModal';
 import HardwareSelector from './components/HardwareSelector';
 import LogPanel from './components/LogPanel';
@@ -12,6 +12,7 @@ import SettingsModal from './components/SettingsModal';
 import UpdateBanner from './components/UpdateBanner';
 import ModelPlayground from './components/ModelPlayground';
 import type { InferableModel, InferenceResult } from './inference.types';
+import type { ClientProject, ProjectConnection } from './client.types';
 import './styles.css';
 
 // Type declaration for the secure preload API
@@ -33,7 +34,10 @@ declare global {
       checkAuth: () => Promise<{ success: boolean; authenticated?: boolean }>;
       onTrainingLog: (callback: (logLine: string) => void) => void;
       removeTrainingLogListener: () => void;
-      onDockerUnavailable: (callback: (message: string) => void) => void;
+      listTrainableProjects: () => Promise<{ success: boolean; projects?: ClientProject[]; error?: string }>;
+      getProjectConnection: (
+        projectId: string,
+      ) => Promise<{ success: boolean; connection?: ProjectConnection; error?: string }>;
       setServerUrl: (url: string) => Promise<{ success: boolean; url?: string; error?: string }>;
       getServerUrl: () => Promise<{ success: boolean; url?: string }>;
       selectDatasetPath: () => Promise<{ success: boolean; path?: string; error?: string }>;
@@ -78,15 +82,7 @@ const App: React.FC = () => {
   const [containerStatus, setContainerStatus] = useState<ContainerStatus>('idle');
   const [logs, setLogs] = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
-  const [dockerWarning, setDockerWarning] = useState<string | null>(null);
   const [view, setView] = useState<'train' | 'use'>('train');
-
-  // Listen for Docker daemon unavailability (fired once on startup)
-  useEffect(() => {
-    window.fedLearnAPI.onDockerUnavailable((msg: string) => {
-      setDockerWarning(`Docker is not running: ${msg}`);
-    });
-  }, []);
 
   // Check authentication on mount
   useEffect(() => {
@@ -265,17 +261,6 @@ const App: React.FC = () => {
           </button>
         </div>
       </header>
-
-      {/* Docker Warning Banner */}
-      {dockerWarning && (
-        <div className="docker-warning" role="alert">
-          <span className="error-icon"><AlertTriangle strokeWidth={1.5} size={16} /></span>
-          <span>{dockerWarning}</span>
-          <span className="docker-warning-hint">
-            Start Docker Desktop and restart the app.
-          </span>
-        </div>
-      )}
 
       {/* Auto-Update Banner */}
       <UpdateBanner />

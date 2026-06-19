@@ -48,7 +48,8 @@ class MutationAuditTest {
         if (userRepository.findByUsername("mutator").isEmpty()) {
             User u = new User("mutator", "mutator@example.com",
                     passwordEncoder.encode("Password1!"));
-            u.setPlatformRole(PlatformRole.USER);
+            // Project creation is now gated on owner-or-admin (see ProjectService).
+            u.setPlatformRole(PlatformRole.PROJECT_OWNER);
             userRepository.save(u);
         }
         // Neutralise the model-file initialisation (otherwise it forks Python).
@@ -57,7 +58,7 @@ class MutationAuditTest {
     }
 
     @Test
-    @WithMockUser(username = "mutator")
+    @WithMockUser(username = "mutator", roles = "PROJECT_OWNER")
     void createProject_writes_one_project_created_audit_row() throws Exception {
         long before = auditRepo.count();
 

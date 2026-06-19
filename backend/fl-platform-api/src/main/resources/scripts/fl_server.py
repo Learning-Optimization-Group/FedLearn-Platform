@@ -122,7 +122,7 @@ def main():
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
     parser.add_argument("--num-rounds", type=int, default=5, help="Number of FL rounds")
     parser.add_argument("--min-clients", type=int, default=1, help="Minimum clients per round")
-    parser.add_argument("--model-type", type=str.upper, required=True, choices=['CNN', 'TRANSFORMER', 'MLP'], help="Model type")
+    parser.add_argument("--model-type", type=str.upper, required=True, choices=['CNN', 'TRANSFORMER', 'MLP', 'PNEUMONIA_CNN'], help="Model type")
     parser.add_argument("--model-name", type=str, required=True, help="Model name")
     parser.add_argument("--port", type=int, default=50051, help="gRPC server port")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="Aggregation strategy")
@@ -255,7 +255,12 @@ def main():
         exit(1)
 
     # Load test data for server-side evaluation
-    if is_mlp and args.dataset == "ecg":
+    is_pneumonia = args.model_type == 'PNEUMONIA_CNN'
+    if is_pneumonia:
+        import recipes
+        test_loader = recipes.get_recipe('PNEUMONIA_CNN').load_server_test_data(batch_size=32)
+        logging.info("Loaded chest X-ray test data via recipes.PNEUMONIA_CNN (NORMAL/PNEUMONIA)")
+    elif is_mlp and args.dataset == "ecg":
         # Load ECG test data
         from data_loaders.ecg_loader import get_test_loader
 

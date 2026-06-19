@@ -46,6 +46,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     long countByPlatformRole(com.federated.fl_platform_api.model.PlatformRole platformRole);
 
+    List<User> findByPlatformRole(com.federated.fl_platform_api.model.PlatformRole platformRole);
+
     /**
      * Existence check used by the bootstrap runner to short-circuit when the
      * first platform admin has already been seeded.
