@@ -5,10 +5,11 @@ import RegisterPage from './pages/RegisterPage';
 import './App.css';
 import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import RoleRoute from './components/RoleRoute';
 import LandingPage from './pages/LandingPage';
 import DiskLoader from './components/DiskLoader';
 import { LayoutV2 } from './components/redesign/LayoutV2';
-import { DashboardV2 } from './components/redesign/DashboardV2';
+import { RoleDashboard } from './components/redesign/RoleDashboard';
 import { NodeNetwork } from './components/redesign/NodeNetwork';
 import { ModelsView } from './components/redesign/ModelsView';
 import { PlaygroundView } from './components/redesign/PlaygroundView';
@@ -66,15 +67,22 @@ function App() {
                     element={currentUser ? <Navigate to="/dashboard" replace /> : <RegisterPage />}
                 />
 
-                {/* Authenticated — single tokenized UI */}
+                {/* Authenticated — single tokenized UI. /dashboard is the
+                    role-aware landing (admin / owner / client). Project-
+                    management surfaces are gated to owners + admins; a plain
+                    USER hitting them is bounced back to /dashboard. */}
                 <Route element={<ProtectedRoute />}>
                     <Route element={<LayoutV2 />}>
-                        <Route path="/dashboard" element={<DashboardV2 />} />
-                        <Route path="/nodes" element={<NodeNetwork />} />
+                        <Route path="/dashboard" element={<RoleDashboard />} />
                         <Route path="/models" element={<ModelsView />} />
                         <Route path="/playground" element={<PlaygroundView />} />
-                        <Route path="/datasets" element={<DatasetsView />} />
                         <Route path="/settings" element={<SettingsView />} />
+
+                        {/* Owner / admin only */}
+                        <Route element={<RoleRoute allow={['PROJECT_OWNER', 'PLATFORM_ADMIN']} />}>
+                            <Route path="/nodes" element={<NodeNetwork />} />
+                            <Route path="/datasets" element={<DatasetsView />} />
+                        </Route>
                     </Route>
                 </Route>
 
