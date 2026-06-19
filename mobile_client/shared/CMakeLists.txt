@@ -4,11 +4,9 @@
 # DataLoader (15-LLD §13 tasks 6-10).
 
 add_library(fedlearn_core STATIC
-  src/Perturbation.cpp
   src/DtypeMap.cpp
   src/Sha256.cpp
   src/ModelManager.cpp
-  src/ZerothOrderEstimator.cpp
   src/DeComFLClient.cpp
 )
 

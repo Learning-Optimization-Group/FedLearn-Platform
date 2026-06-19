@@ -15,13 +15,11 @@ FetchContent_MakeAvailable(googletest)
 set(FEDLEARN_GOLDEN_DIR "${CMAKE_SOURCE_DIR}/../framework/tests/fixtures/decomfl_golden")
 
 add_executable(fedlearn_core_tests
-  rng_parity_test.cpp
   randn_parity_test.cpp
   dtype_map_test.cpp
   sha256_test.cpp
   model_manager_test.cpp
   flatparam_filter_test.cpp
-  g_scalar_parity_test.cpp
   serialize_roundtrip_test.cpp
   decomfl_equivalence_test.cpp
 )
