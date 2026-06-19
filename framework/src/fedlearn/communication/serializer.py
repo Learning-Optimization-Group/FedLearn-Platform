@@ -1,4 +1,3 @@
-import io
 import logging
 import os
 from collections import OrderedDict
@@ -8,6 +7,7 @@ import numpy as np
 import torch
 
 from fedlearn.communication.generated import fedlearn_pb2
+from fedlearn.communication.safetensors_codec import load_safetensors, save_safetensors
 
 log = logging.getLogger(__name__)
 
@@ -83,20 +83,23 @@ def parameters_to_chunks(
         chunk_size: int = CHUNK_SIZE,
         compress: Optional[bool] = None,
 ) -> Generator[Dict, None, None]:
-    """Memory-efficient serialization using torch.save."""
+    """Memory-efficient serialization using the safetensors wire format."""
     if compress is None:
         compress = USE_COMPRESSION
 
     try:
-        log.debug("Serializing %d tensors with torch.save", len(params))
+        log.debug("Serializing %d tensors with safetensors", len(params))
 
-        with io.BytesIO() as buffer:
-            model_data = {
-                'parameters': params,
-                'num_examples': num_examples,
-            }
-            torch.save(model_data, buffer)
-            serialized = buffer.getvalue()
+        # Guard: all tensors must be float32; silent cast of int/bool corrupts aggregation.
+        for name, tensor in params.items():
+            if tensor.dtype != torch.float32:
+                raise ValueError(
+                    f"Tensor '{name}' has dtype {tensor.dtype}; only float32 is supported "
+                    "on the safetensors wire format. Cast to float32 before training."
+                )
+
+        named_arrays = [(name, tensor.detach().cpu().numpy()) for name, tensor in params.items()]
+        serialized = save_safetensors(named_arrays, metadata={"num_examples": str(num_examples)})
 
         original_size = len(serialized)
         log.debug("Serialized size: %.2f MB", original_size / (1024 ** 2))
@@ -138,7 +141,7 @@ def chunks_to_parameters(
         chunks_data: bytes,
         compressed: Optional[bool] = None,
 ) -> Tuple[OrderedDict[str, torch.Tensor], int]:
-    """Reconstruct a state_dict from a serialized blob using torch.load."""
+    """Reconstruct a state_dict from a safetensors blob (optionally lz4-compressed)."""
     if compressed is None:
         compressed = USE_COMPRESSION
 
@@ -150,11 +153,22 @@ def chunks_to_parameters(
         else:
             data = chunks_data
 
-        # weights_only=True prevents arbitrary pickle execution.
-        with io.BytesIO(data) as buffer:
-            model_data = torch.load(buffer, map_location='cpu', weights_only=True)
+        # Sniff for legacy pickle/zip blobs and fail loudly rather than silently mis-reading.
+        # torch.save produces a zip archive starting with PK\x03\x04; raw pickle starts with 0x80.
+        if len(data) >= 2 and (data[:2] == b"PK" or data[0] == 0x80):
+            raise ValueError(
+                "Received a legacy pickle/zip blob (torch.save format). "
+                "Only safetensors wire format is accepted. Re-upload with an updated client."
+            )
 
-        return model_data['parameters'], model_data['num_examples']
+        named_arrays, meta = load_safetensors(data)
+
+        params: OrderedDict[str, torch.Tensor] = OrderedDict()
+        for name, arr in named_arrays:
+            params[name] = torch.tensor(arr)
+
+        num_examples = int(meta["num_examples"])
+        return params, num_examples
 
     except Exception:
         log.exception("chunks_to_parameters failed")

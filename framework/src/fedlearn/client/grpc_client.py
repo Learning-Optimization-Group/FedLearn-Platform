@@ -11,7 +11,7 @@ import torch
 
 from fedlearn.communication.generated import fedlearn_pb2
 from fedlearn.communication.generated import fedlearn_pb2_grpc
-from fedlearn.communication.serializer import parameters_to_proto
+from fedlearn.communication.serializer import parameters_to_proto, parameters_to_chunks
 
 log = logging.getLogger(__name__)
 
@@ -190,32 +190,18 @@ class GrpcClient:
 
     def _generate_model_chunks(self, params: OrderedDict[str, torch.Tensor], num_examples: int,
                                round_number: int, chunk_size: int = 50 * 1024 * 1024):
-        # Serialize a WRAPPED payload — {'parameters', 'num_examples'} — so it matches the server's
-        # chunks_to_parameters() consumer (a bare torch.save(params) here previously made every
-        # chunked/LLM-scale upload abort with KeyError: 'parameters' on the server). Stream the
-        # bytes zero-copy via a memoryview so a multi-GB model is not copied chunk-by-chunk.
-        # NOTE: like the server download path (GetGlobalModelStream), the streamed bytes are raw
-        # (uncompressed); the chunked wire format is not lz4-coupled to FEDLEARN_USE_COMPRESSION.
-        buffer = io.BytesIO()
-        torch.save({'parameters': params, 'num_examples': num_examples}, buffer)
-
-        view = memoryview(buffer.getbuffer())
-        total_chunks = (len(view) + chunk_size - 1) // chunk_size
-
-        try:
-            for i in range(0, len(view), chunk_size):
-                chunk_index = i // chunk_size
-                yield fedlearn_pb2.ModelUpdateChunk(
-                    client_id=self.client_id,
-                    trained_on_round=round_number,
-                    chunk_index=chunk_index,
-                    total_chunks=total_chunks,
-                    chunk_data=view[i:i + chunk_size].tobytes(),
-                    is_final_chunk=(chunk_index == total_chunks - 1),
-                    num_examples=num_examples,
-                )
-        finally:
-            view.release()
+        # Delegate serialization to parameters_to_chunks which now uses the safetensors wire
+        # format (no lz4; the gRPC streaming path is uncompressed by design — see serializer.py).
+        for chunk_dict in parameters_to_chunks(params, num_examples, chunk_size=chunk_size, compress=False):
+            yield fedlearn_pb2.ModelUpdateChunk(
+                client_id=self.client_id,
+                trained_on_round=round_number,
+                chunk_index=chunk_dict["chunk_index"],
+                total_chunks=chunk_dict["total_chunks"],
+                chunk_data=chunk_dict["chunk_data"],
+                is_final_chunk=chunk_dict["is_final_chunk"],
+                num_examples=num_examples,
+            )
 
     def _submit_update_stream(self, params: OrderedDict[str, torch.Tensor], num_examples: int,
                               round_number: int) -> bool:
