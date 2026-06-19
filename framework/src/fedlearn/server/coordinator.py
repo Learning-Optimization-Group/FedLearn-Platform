@@ -382,7 +382,8 @@ class FLCoordinator:
 
             # Check if strategy is DeComFL and has gradient_history
             if 'DeComFL' in str(type(self.strategy)) and hasattr(self.strategy, 'gradient_history'):
-                self.strategy.gradient_history.append(avg_gradients)
+                # Keyed by round (dict) so it aligns with seed_history + get_rebuild_history (audit #29)
+                self.strategy.gradient_history[self.current_round] = avg_gradients
                 log.debug("Stored gradient history for round %d", self.current_round)
 
             # Evaluate

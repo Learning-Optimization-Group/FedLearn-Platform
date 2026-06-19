@@ -73,7 +73,7 @@ def test_server_trajectory_matches_client_rebuild():
     strat = _make_strategy(model, K, P, eta)
 
     seeds = strat.generate_seeds(0)
-    strat.seed_history.append(seeds)
+    strat.seed_history[0] = seeds   # dict keyed by round (matches aggregate_fit(0))
     grads = [[0.1 * (k + 1) + 0.01 * p for p in range(P)] for k in range(K)]
     strat.aggregate_fit(0, [("c1", grads, 100)])
     server_flat = strat.global_params_flat.detach().cpu()
@@ -98,7 +98,7 @@ def test_aggregate_equals_corrected_naive_multi_client():
     d = len(strat.global_params_flat)
 
     seeds = strat.generate_seeds(0)
-    strat.seed_history.append(seeds)
+    strat.seed_history[0] = seeds   # dict keyed by round (matches aggregate_fit(0))
     grads_a = [[0.2 * (k + 1) + 0.03 * p for p in range(P)] for k in range(K)]
     grads_b = [[-0.1 * (k + 1) + 0.05 * p for p in range(P)] for k in range(K)]
 

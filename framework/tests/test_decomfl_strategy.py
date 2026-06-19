@@ -63,7 +63,7 @@ class TestDeComFLStrategy:
     def test_aggregate_fit_updates_global_params(self):
         # Populate seed history so aggregate_fit can look up seeds
         seeds = self.strategy.generate_seeds(round_idx=0)
-        self.strategy.seed_history.append(seeds)
+        self.strategy.seed_history[0] = seeds   # dict keyed by round (matches aggregate_fit(0))
 
         # Build fake gradient scalars: shape [K][P] = [2][3]
         grads = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]

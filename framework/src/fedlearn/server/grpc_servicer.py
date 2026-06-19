@@ -294,9 +294,10 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
             logging.info(f"[Server] DeComFL config request from {client_id} for round {current_round}")
 
-            # Generate seeds for current round
-            seeds = strategy.generate_seeds(current_round)
-            strategy.seed_history.append(seeds)
+            # Get the seeds for this round — generated ONCE and shared by every client
+            # (audit #28: previously regenerated + list-appended per client RPC, which gave each
+            # client a different perturbation direction and corrupted seed_history indexing).
+            seeds = strategy.get_or_create_seeds(current_round)
 
             # Get rebuild history for missed rounds
             rebuild_history = strategy.get_rebuild_history(client_id, current_round)

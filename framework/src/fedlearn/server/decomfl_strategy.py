@@ -12,6 +12,7 @@ are retained here per Apache-2.0 section 4.
 """
 
 import logging
+import threading
 from typing import Optional, Callable, Tuple, List, Dict
 from collections import OrderedDict
 import torch
@@ -67,9 +68,14 @@ class DeComFL(Strategy):
         self.eta = learning_rate
         self.mu = smoothing_param
 
-        # Algorithm 3, Line 2: Initialize history
-        self.seed_history: List[List[List[int]]] = []  # [round][local_step][perturbation]
-        self.gradient_history: List[List[List[float]]] = []  # [round][local_step][perturbation]
+        # Algorithm 3, Line 2: Initialize history. Keyed by ROUND NUMBER (1-based, matching
+        # coordinator.current_round) so aggregate_fit / get_rebuild_history index by round
+        # unambiguously. Fixes audit #28/#29: the old list+per-client-append produced N entries
+        # per round (and off-by-one indexing), and handed each client a DIFFERENT perturbation
+        # direction — breaking DeComFL's shared-seed invariant.
+        self.seed_history: Dict[int, List[List[int]]] = {}        # round -> seeds[k][p]
+        self.gradient_history: Dict[int, List[List[float]]] = {}  # round -> avg_grad[k][p]
+        self._seed_lock = threading.Lock()  # guards get_or_create_seeds against concurrent client RPCs
 
         # Track last participation round for each client
         self.client_last_round: Dict[str, int] = {}
@@ -113,6 +119,23 @@ class DeComFL(Strategy):
 
         return seeds
 
+    def get_or_create_seeds(self, round_idx: int) -> List[List[int]]:
+        """Return the seeds for ``round_idx``, generating them EXACTLY ONCE.
+
+        DeComFL requires every client in a round to perturb along the same
+        seed-derived direction z, so seeds must be generated once per round and
+        shared by all clients — never regenerated per client RPC (audit #28).
+        This is the single entry point grpc_servicer must call: it is idempotent
+        and thread-safe, and records each round's seeds in ``seed_history`` once,
+        keyed by the round number that ``aggregate_fit`` indexes with.
+        """
+        with self._seed_lock:
+            seeds = self.seed_history.get(round_idx)
+            if seeds is None:
+                seeds = self.generate_seeds(round_idx)
+                self.seed_history[round_idx] = seeds
+            return seeds
+
     def get_rebuild_history(self, client_id: str, current_round: int) -> List[Dict]:
         """Get history needed for client to rebuild model."""
         last_round = self.client_last_round.get(client_id, -1)
@@ -122,8 +145,8 @@ class DeComFL(Strategy):
 
         rebuild_history = []
         for r in range(last_round + 1, current_round):
-            # Check if history exists for this round
-            if r >= 0 and r < len(self.seed_history) and r < len(self.gradient_history):
+            # Check if history exists for this round (dicts keyed by round number)
+            if r in self.seed_history and r in self.gradient_history:
                 rebuild_history.append({
                     'round_number': r,
                     'seeds': self.seed_history[r],
