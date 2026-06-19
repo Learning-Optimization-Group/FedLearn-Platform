@@ -70,42 +70,15 @@ export class DockerService {
         ? '//./pipe/docker_engine'
         : '/var/run/docker.sock';
 
+    // dockerode opens the socket lazily — constructing the client does NOT connect.
+    // We deliberately do NOT probe the daemon on startup. Docker is required ONLY for
+    // the Jetson training path, which probes on demand in startDockerTraining() and
+    // surfaces an actionable error at the moment it's needed. Probing eagerly on every
+    // launch produced a spurious "Docker is not running: connect ENOENT \\.\pipe\docker_engine"
+    // banner for the overwhelming majority of users (Windows/macOS on CPU/CUDA/MPS), who
+    // run the bundled native client and never touch Docker at all.
     this.docker = new Docker({ socketPath });
-    log.info(`[DockerService] Initialized with socket: ${socketPath}`);
-
-    // Non-blocking daemon probe. Docker is only needed for the Jetson profile; surfacing the
-    // warning to native-path users is informational (a future refinement could gate the banner
-    // on the selected profile in the renderer — not done today).
-    this.docker.ping().then(() => {
-      log.info('[DockerService] Docker daemon is reachable');
-    }).catch((err: Error) => {
-      log.warn(`[DockerService] Docker daemon unreachable (only needed for Jetson profile): ${err.message}`);
-      this.emitDaemonUnavailable(err.message);
-    });
-  }
-
-  /**
-   * Relay a "Docker daemon unavailable" notice to the renderer's banner. The constructor's
-   * ping() resolves within a few ms — BEFORE the renderer has finished loading and registered
-   * its ipcRenderer.on('docker:daemon-unavailable') listener — and Electron drops un-listened
-   * messages. So if the page is still loading we defer the send until 'did-finish-load'; otherwise
-   * send immediately. Without this the banner never appeared (the event was always lost to the race).
-   */
-  private emitDaemonUnavailable(reason: string): void {
-    const wc = this.mainWindow?.webContents;
-    if (!wc || wc.isDestroyed()) {
-      return;
-    }
-    const send = () => {
-      if (!wc.isDestroyed()) {
-        wc.send('docker:daemon-unavailable', reason);
-      }
-    };
-    if (wc.isLoading()) {
-      wc.once('did-finish-load', send);
-    } else {
-      send();
-    }
+    log.info(`[DockerService] Initialized with socket: ${socketPath} (daemon probed lazily — Jetson path only)`);
   }
 
   /**

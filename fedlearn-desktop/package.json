@@ -23,11 +23,12 @@
     "build:renderer": "webpack --config webpack.renderer.config.js --mode production",
     "build": "webpack --config webpack.prod.config.js",
     "test": "jest",
-    "package": "npm run build && electron-builder --config electron-builder.yml",
-    "package:mac": "npm run build && electron-builder --mac --config electron-builder.yml",
-    "package:linux": "npm run build && electron-builder --linux --config electron-builder.yml",
-    "package:win:cpu": "npm run build && electron-builder --win --config electron-builder.yml -c.nsis.artifactName=FedLearn-Desktop-Setup-${version}-cpu.exe",
-    "package:win:cuda": "npm run build && electron-builder --win --config electron-builder.yml -c.nsis.artifactName=FedLearn-Desktop-Setup-${version}-cuda.exe"
+    "check:bundle": "node scripts/check-native-bundle.js",
+    "package": "node scripts/check-native-bundle.js && npm run build && electron-builder --config electron-builder.yml",
+    "package:mac": "node scripts/check-native-bundle.js mac && npm run build && electron-builder --mac --config electron-builder.yml",
+    "package:linux": "node scripts/check-native-bundle.js linux && npm run build && electron-builder --linux --config electron-builder.yml",
+    "package:win:cpu": "node scripts/check-native-bundle.js win && npm run build && electron-builder --win --config electron-builder.yml -c.nsis.artifactName=FedLearn-Desktop-Setup-${version}-cpu.exe",
+    "package:win:cuda": "node scripts/check-native-bundle.js win && npm run build && electron-builder --win --config electron-builder.yml -c.nsis.artifactName=FedLearn-Desktop-Setup-${version}-cuda.exe"
   },
   "dependencies": {
     "axios": "^1.15.0",
