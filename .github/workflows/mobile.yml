@@ -4,7 +4,8 @@
 #
 # Native runtime: the C++ FL core links the ExecuTorch runtime (no libtorch/ATen). The host
 # parity gate builds ET from source and links its static libs; the Android job cross-compiles ET
-# for arm64 and links it into libfedlearn_jni.so, shipping the executorch-android AAR alongside.
+# for arm64 and links it STATICALLY into libfedlearn_jni.so (no executorch-android AAR — the
+# runtime is embedded; the app calls the C++ core via JNI, never ET's Java API).
 #
 # Gating jobs (run on every PR, fast): proto-mirror, python-parity, cpp-parity.
 # Heavy job (android .so size budget): gated by the repo variable MOBILE_NATIVE_CI=='true', since it

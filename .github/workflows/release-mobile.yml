@@ -8,8 +8,8 @@
 # C++ runtime from source (mobile_client/scripts/build_executorch_arm64.sh,
 # build_grpc_arm64.sh), generates the C++ proto stubs (buf), and assembles a
 # release APK whose libfedlearn_jni.so embeds the native FL core — linking the
-# cross-compiled ExecuTorch arm64 static libs and shipping the executorch-android
-# AAR alongside (the same recipe as the `android-so-size` job in mobile.yml).
+# cross-compiled ExecuTorch arm64 static libs STATICALLY (no executorch-android
+# AAR; the runtime is embedded) — the same recipe as the `android-so-size` job in mobile.yml.
 #
 # ExecuTorch is the LEAN runtime: the arm64 cross-compile is minutes (not the
 # hours libtorch took), so this build is now tractable on a hosted runner. The

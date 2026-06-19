@@ -22,6 +22,7 @@ project(fedlearn_mobile_core LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)   # portable ISO C++17 (Android/iOS cross-builds); no GNU extensions
 
 set(ET_SRC        "/tmp/executorch"            CACHE PATH "ExecuTorch source tree (dir named 'executorch')")
 set(ET_BUILD      "/tmp/executorch/cmake-out"  CACHE PATH "ExecuTorch host build output")
