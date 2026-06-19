@@ -108,6 +108,10 @@ public class ProjectService {
     public ProjectResponseDto createProject(CreateProjectRequest request) throws IOException, InterruptedException {
         log.info("Creating project '{}' (modelType={})", request.getName(), request.getModelType());
 
+        // Only PROJECT_OWNER (admin-granted) or PLATFORM_ADMIN may create projects.
+        // Plain USERs must first be promoted via the owner-promotion workflow.
+        authz.requireCanCreateProject();
+
         User owner = authz.currentUser();
 
         Project project = new Project();
@@ -287,7 +291,11 @@ public class ProjectService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
         authz.requireOrgScope(project.getOrgId());
-        authz.requireOwnerOrAdmin(project);
+        // Direct deletion is platform-admin only. Owners cannot delete their own
+        // projects directly — they file a deletion request that an admin approves
+        // (ProjectDeletionService), which then calls this method in the admin's
+        // security context.
+        authz.requirePlatformAdmin();
 
         // Best-effort: stop any running FL server before removing the row so
         // we don't leak processes/ECS tasks.
@@ -534,9 +542,9 @@ public class ProjectService {
     public List<DiscoverProjectDto> getDiscoverProjects() {
         User caller = authz.currentUser();
         List<Project> candidates = orgScope.isUnrestricted()
-                ? projectRepository.findDiscoverable(caller.getId(), ProjectVisibility.PUBLIC)
+                ? projectRepository.findDiscoverable(caller.getId())
                 : projectRepository.findDiscoverableInOrgs(
-                        caller.getId(), ProjectVisibility.PUBLIC, orgScope.visibleOrgIds());
+                        caller.getId(), orgScope.visibleOrgIds());
         return candidates
                 .stream()
                 .filter(p -> p.getUser() == null || !p.getUser().getId().equals(caller.getId()))

@@ -1,10 +1,16 @@
 package com.federated.fl_platform_api.service;
 
+import com.federated.fl_platform_api.dto.AdminOverviewDto;
 import com.federated.fl_platform_api.dto.AdminUserDto;
 import com.federated.fl_platform_api.dto.ProjectResponseDto;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
+import com.federated.fl_platform_api.model.AccessRequestStatus;
+import com.federated.fl_platform_api.model.MembershipRole;
 import com.federated.fl_platform_api.model.PlatformRole;
 import com.federated.fl_platform_api.model.User;
+import com.federated.fl_platform_api.repository.OwnerPromotionRequestRepository;
+import com.federated.fl_platform_api.repository.ProjectAccessRequestRepository;
+import com.federated.fl_platform_api.repository.ProjectDeletionRequestRepository;
 import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.UserRepository;
@@ -23,6 +29,9 @@ public class AdminService {
     @Autowired private UserRepository userRepository;
     @Autowired private ProjectRepository projectRepository;
     @Autowired private ProjectMembershipRepository membershipRepository;
+    @Autowired private OwnerPromotionRequestRepository ownerRequestRepository;
+    @Autowired private ProjectDeletionRequestRepository deletionRequestRepository;
+    @Autowired private ProjectAccessRequestRepository accessRequestRepository;
 
     public List<AdminUserDto> listUsers() {
         return userRepository.findAll().stream().map(this::toDto).collect(Collectors.toList());
@@ -63,8 +72,30 @@ public class AdminService {
             d.setOptimizer(p.getOptimizer());
             d.setStatus(p.getStatus());
             d.setVisibility(p.getVisibility() != null ? p.getVisibility().name() : null);
+            d.setOwnerUsername(p.getUser() != null ? p.getUser().getUsername() : null);
+            // Participants = MEMBER + CLIENT rows (exclude the internal OWNER_SELF
+            // partition-holder row so the count reflects real collaborators).
+            long participants = membershipRepository.findByIdProjectId(p.getId()).stream()
+                .filter(m -> m.getRole() != MembershipRole.OWNER)
+                .count();
+            d.setParticipantCount((int) participants);
             return d;
         }).collect(Collectors.toList());
+    }
+
+    /** Aggregate snapshot for the admin dashboard landing view. */
+    public AdminOverviewDto getOverview() {
+        AdminOverviewDto o = new AdminOverviewDto();
+        o.setTotalUsers(userRepository.count());
+        o.setOwners(userRepository.countByPlatformRole(PlatformRole.PROJECT_OWNER));
+        o.setAdmins(userRepository.countByPlatformRole(PlatformRole.PLATFORM_ADMIN));
+        o.setTotalProjects(projectRepository.count());
+        o.setRunningProjects(projectRepository.findAll().stream()
+            .filter(p -> "RUNNING".equals(p.getStatus())).count());
+        o.setPendingOwnerRequests(ownerRequestRepository.countByStatus(AccessRequestStatus.PENDING));
+        o.setPendingDeletionRequests(deletionRequestRepository.countByStatus(AccessRequestStatus.PENDING));
+        o.setPendingAccessRequests(accessRequestRepository.countByStatus(AccessRequestStatus.PENDING));
+        return o;
     }
 
     private AdminUserDto toDto(User u) {

@@ -1,7 +1,6 @@
 package com.federated.fl_platform_api.repository;
 
 import com.federated.fl_platform_api.model.Project;
-import com.federated.fl_platform_api.model.ProjectVisibility;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -31,23 +30,23 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
     List<Project> findOwnedOrMemberOf(@Param("userId") Long userId);
 
     /**
-     * Discover-feed candidates: every PUBLIC project, plus every PRIVATE project
-     * the caller has no membership in. Caller filters their owned/joined projects
-     * out client-side via the surrounding service.
+     * Discover-feed candidates: every non-PRIVATE project (PUBLIC or RESTRICTED)
+     * the caller neither owns nor has a membership in. PRIVATE projects are
+     * invite-only and never surface in discovery. PUBLIC projects auto-join;
+     * RESTRICTED projects require an owner-approved access request — that
+     * distinction is enforced in AccessRequestService.submit, not here.
      */
     @Query("""
         select p from Project p
-        where p.visibility = :visibility
-           or (p.visibility = com.federated.fl_platform_api.model.ProjectVisibility.PRIVATE
-               and p.user.id <> :userId
-               and not exists (
-                 select 1 from ProjectMembership m
-                 where m.project = p and m.user.id = :userId
-               ))
+        where p.visibility <> com.federated.fl_platform_api.model.ProjectVisibility.PRIVATE
+          and (p.user is null or p.user.id <> :userId)
+          and not exists (
+            select 1 from ProjectMembership m
+            where m.project = p and m.user.id = :userId
+          )
         order by p.name
     """)
-    List<Project> findDiscoverable(@Param("userId") Long userId,
-                                   @Param("visibility") ProjectVisibility visibility);
+    List<Project> findDiscoverable(@Param("userId") Long userId);
 
     /**
      * Org-scoped variant of {@link #findOwnedOrMemberOf(Long)}: same union of
@@ -65,24 +64,21 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
                                             @Param("orgIds") Collection<UUID> orgIds);
 
     /**
-     * Org-scoped variant of {@link #findDiscoverable(Long, ProjectVisibility)}:
-     * same discover-feed candidates, additionally constrained to the caller's
-     * visible orgs.
+     * Org-scoped variant of {@link #findDiscoverable(Long)}: same discover-feed
+     * candidates, additionally constrained to the caller's visible orgs.
      */
     @Query("""
         select p from Project p
-        where (p.visibility = :visibility
-           or (p.visibility = com.federated.fl_platform_api.model.ProjectVisibility.PRIVATE
-               and p.user.id <> :userId
-               and not exists (
-                 select 1 from ProjectMembership m
-                 where m.project = p and m.user.id = :userId
-               )))
+        where p.visibility <> com.federated.fl_platform_api.model.ProjectVisibility.PRIVATE
+          and (p.user is null or p.user.id <> :userId)
+          and not exists (
+            select 1 from ProjectMembership m
+            where m.project = p and m.user.id = :userId
+          )
           and p.orgId in :orgIds
         order by p.name
     """)
     List<Project> findDiscoverableInOrgs(@Param("userId") Long userId,
-                                         @Param("visibility") ProjectVisibility visibility,
                                          @Param("orgIds") Collection<UUID> orgIds);
 
     /**

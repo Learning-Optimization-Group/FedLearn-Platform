@@ -12,7 +12,11 @@ public class ProjectResponseDto {
     private String optimizer;
     private String status;
     private String myRelationship;  // "OWNER" | "MEMBER" | "CLIENT" | null
-    private String visibility;       // "PUBLIC" | "PRIVATE"
+    private String visibility;       // "PUBLIC" | "RESTRICTED" | "PRIVATE"
+    // Populated only by the admin all-projects view (null elsewhere): lets the
+    // admin see who owns each project and how many participants it has.
+    private String ownerUsername;
+    private Integer participantCount;
 
     public UUID getId() {
         return id;
@@ -84,5 +88,21 @@ public class ProjectResponseDto {
 
     public void setVisibility(String visibility) {
         this.visibility = visibility;
+    }
+
+    public String getOwnerUsername() {
+        return ownerUsername;
+    }
+
+    public void setOwnerUsername(String ownerUsername) {
+        this.ownerUsername = ownerUsername;
+    }
+
+    public Integer getParticipantCount() {
+        return participantCount;
+    }
+
+    public void setParticipantCount(Integer participantCount) {
+        this.participantCount = participantCount;
     }
 }

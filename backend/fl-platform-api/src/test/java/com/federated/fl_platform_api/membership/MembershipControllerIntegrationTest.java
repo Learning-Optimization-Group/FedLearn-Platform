@@ -121,11 +121,13 @@ class MembershipControllerIntegrationTest {
     }
 
     @Test
-    void discover_returnsPublicAndPrivate_withRequestStatus() {
+    void discover_returnsPublicAndRestricted_withRequestStatus() {
         User alice = createUser("alice_dis");
         createUser("bob_dis");
         createProject(alice, ProjectVisibility.PUBLIC);
-        Project priv = createProject(alice, ProjectVisibility.PRIVATE);
+        Project restricted = createProject(alice, ProjectVisibility.RESTRICTED);
+        // A PRIVATE project must NOT surface in discovery (invite-only).
+        createProject(alice, ProjectVisibility.PRIVATE);
 
         String bob = loginAs("bob_dis", "Password1!");
 
@@ -134,9 +136,10 @@ class MembershipControllerIntegrationTest {
             HttpMethod.GET, new HttpEntity<>(authHeaders(bob)), List.class);
         assertEquals(HttpStatus.OK, first.getStatusCode());
         assertNotNull(first.getBody());
+        // PUBLIC + RESTRICTED are discoverable; the PRIVATE one is hidden.
         assertEquals(2, first.getBody().size());
 
-        restTemplate.exchange("/api/projects/" + priv.getId() + "/access-requests",
+        restTemplate.exchange("/api/projects/" + restricted.getId() + "/access-requests",
             HttpMethod.POST,
             new HttpEntity<>(Map.of(), authHeaders(bob)),
             Map.class);
@@ -145,11 +148,11 @@ class MembershipControllerIntegrationTest {
         ResponseEntity<List> second = restTemplate.exchange("/api/projects/discover",
             HttpMethod.GET, new HttpEntity<>(authHeaders(bob)), List.class);
         assertNotNull(second.getBody());
-        boolean foundPendingPrivate = second.getBody().stream().anyMatch(o -> {
+        boolean foundPendingRestricted = second.getBody().stream().anyMatch(o -> {
             Map<?, ?> m = (Map<?, ?>) o;
-            return "PRIVATE".equals(m.get("visibility"))
+            return "RESTRICTED".equals(m.get("visibility"))
                 && "PENDING".equals(m.get("myRequestStatus"));
         });
-        assertTrue(foundPendingPrivate);
+        assertTrue(foundPendingRestricted);
     }
 }
