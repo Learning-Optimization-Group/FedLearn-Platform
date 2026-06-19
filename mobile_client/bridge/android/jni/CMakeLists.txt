@@ -5,11 +5,13 @@
 # (fedlearn_grpc, which pulls in the buf-generated stubs + gRPC runtime), and the React Native
 # JSI/TurboModule runtime (provided by the ReactAndroid prefab).
 #
-# VERIFY-BEFORE-BUILD: ReactAndroid prefab target names + libtorch/gRPC ARM64 artifact paths are
-# environment-specific. LIBTORCH_DIR / GENERATED_PROTO_DIR / the prebuilt gRPC must point at the
-# CI-cached ARM64 artifacts (scripts/build_libtorch_arm64.sh, scripts/build_grpc_arm64.sh).
-# A6 §M-H1: DO NOT force-link all of libtorch (no --whole-archive); link only referenced kernels
-# and gate the resulting .so size in CI.
+# VERIFY-BEFORE-BUILD: ReactAndroid prefab target names + ExecuTorch/gRPC ARM64 artifact paths are
+# environment-specific. ET_SRC / ET_BUILD / TORCH_INCLUDE / GENERATED_PROTO_DIR / the prebuilt gRPC
+# must point at the CI-cached ARM64 artifacts (scripts/build_executorch_arm64.sh,
+# scripts/build_grpc_arm64.sh). The ExecuTorch static link is inherited via add_subdirectory(shared)
+# below — fedlearn_core carries it (the cache vars ET_SRC/ET_BUILD/TORCH_INCLUDE set by Gradle's
+# cmake arguments propagate into the subdirectory), so this JNI CMake needs no direct ET link change.
+# A6 §M-H1: ExecuTorch is the lean runtime (no libtorch/ATen); gate the resulting .so size in CI.
 cmake_minimum_required(VERSION 3.22)
 project(fedlearn_jni LANGUAGES CXX)
 
@@ -24,7 +26,8 @@ endif()
 # The shared C++ core + gRPC layer live two directories up (mobile_client/).
 set(FEDLEARN_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
 # Build the core (+grpc) as part of this native build. GENERATED_PROTO_DIR must be set by Gradle
-# (the buf-generated C++ stubs); LIBTORCH_DIR points at the ARM64 libtorch.
+# (the buf-generated C++ stubs); ET_SRC/ET_BUILD/TORCH_INCLUDE point at the cross-compiled ARM64
+# ExecuTorch source + build (fedlearn_core resolves its static libs out of ET_BUILD).
 set(FEDLEARN_BUILD_TESTS OFF CACHE BOOL "" FORCE)   # no gtest in the app build
 set(FEDLEARN_BUILD_GRPC ON CACHE BOOL "" FORCE)
 add_subdirectory("${FEDLEARN_ROOT}/shared" "${CMAKE_BINARY_DIR}/fedlearn_shared")

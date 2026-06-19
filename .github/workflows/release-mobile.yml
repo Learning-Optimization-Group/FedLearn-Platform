@@ -4,19 +4,20 @@
 # Triggers on per-unit mobile tags (e.g. mobile-v2.1.0) so it never fires on
 # desktop (desktop-v*) or other tags.
 #
-# This is a FULL-NATIVE attempt: it cross-compiles ARM64 libtorch + the gRPC
-# C++ runtime from source (mobile_client/scripts/build_*_arm64.sh), generates
-# the C++ proto stubs (buf), and assembles a release APK whose
-# libfedlearn_jni.so embeds the native FL core (the same recipe as the
-# `android-so-size` job in mobile.yml).
+# This is a FULL-NATIVE attempt: it cross-compiles ARM64 ExecuTorch + the gRPC
+# C++ runtime from source (mobile_client/scripts/build_executorch_arm64.sh,
+# build_grpc_arm64.sh), generates the C++ proto stubs (buf), and assembles a
+# release APK whose libfedlearn_jni.so embeds the native FL core — linking the
+# cross-compiled ExecuTorch arm64 static libs and shipping the executorch-android
+# AAR alongside (the same recipe as the `android-so-size` job in mobile.yml).
 #
-# HEAVY / FRAGILE: building libtorch for Android from source on a hosted runner
-# is enormous (clones pytorch + submodules and compiles full JIT). It can take
-# hours and may exhaust the runner — expect this to need a self-hosted/large
-# runner or a pre-populated `mobile_client/.artifacts` cache to go green.
+# ExecuTorch is the LEAN runtime: the arm64 cross-compile is minutes (not the
+# hours libtorch took), so this build is now tractable on a hosted runner. The
+# gRPC C++ runtime cross-compile is the remaining heavy step; a pre-populated
+# `mobile_client/.artifacts` cache still keeps reruns fast.
 #
 # iOS is intentionally absent: it needs full Xcode + manually cross-compiled
-# libtorch/gRPC xcframeworks + signing, none of which are CI-reproducible
+# ExecuTorch/gRPC xcframeworks + signing, none of which are CI-reproducible
 # (see mobile_client/ios/generate_xcodeproj.sh and the mobile README).
 # =============================================================================
 
@@ -37,15 +38,18 @@ permissions:
   contents: write
 
 env:
-  TORCH_VERSION: '2.12.0'      # MUST match framework golden manifest + mobile.yml
+  TORCH_VERSION: '2.12.0'      # MUST match framework golden manifest + mobile.yml; supplies the
+                               # torch/headeronly cmake_macros.h header (TORCH_INCLUDE), NOT a link target.
+  ET_VERSION: '1.3.1'          # ExecuTorch runtime version (arm64 cross-compile pin); MUST match mobile.yml
   GRPC_CPP_VERSION: 'v1.67.1'  # MUST match build_grpc_arm64.sh default + buf C++ plugin
 
 jobs:
   build-android:
     runs-on: ubuntu-latest
-    # Cross-compiling libtorch from source dwarfs the default; cap near the
-    # hosted-runner ceiling so a hung build can't run indefinitely.
-    timeout-minutes: 350
+    # ExecuTorch arm64 is minutes (not the hours libtorch took); the gRPC arm64
+    # cross-compile is now the heaviest step. Cap well below the old ceiling so a
+    # hung build can't run indefinitely (raise if the gRPC build needs more).
+    timeout-minutes: 120
 
     steps:
       - name: Checkout repository
@@ -62,7 +66,7 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Setup Python (PyTorch Android build needs it)
+      - name: Setup Python (ExecuTorch build + torch header)
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -83,6 +87,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyyaml typing_extensions
 
+      - name: Install CPU torch (for the cmake_macros.h header only)
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu "torch==${TORCH_VERSION}"
+          echo "TORCH_INCLUDE=$(python -c 'import torch, os; print(os.path.join(os.path.dirname(torch.__file__), "include"))')" >> "$GITHUB_ENV"
+
       - name: Generate C++ gRPC stubs
         working-directory: proto
         run: buf generate          # -> proto/gen/cpp
@@ -93,29 +102,34 @@ jobs:
         # assembleRelease autolinks + bundles the JS from node_modules.
         run: npm install --legacy-peer-deps --no-audit --no-fund
 
-      - name: Restore cross-compiled ARM64 libtorch + gRPC
+      - name: Restore cross-compiled ARM64 ExecuTorch + gRPC
         uses: actions/cache@v4
         with:
           path: mobile_client/.artifacts
-          key: native-arm64-torch${{ env.TORCH_VERSION }}-grpc${{ env.GRPC_CPP_VERSION }}-ndk-r27
+          key: native-arm64-et${{ env.ET_VERSION }}-grpc${{ env.GRPC_CPP_VERSION }}-ndk-r27
 
       - name: Build ARM64 native deps if cache missed
         working-directory: mobile_client
         env:
           ANDROID_NDK: ${{ steps.ndk.outputs.ndk-path }}
-          PYTORCH_TAG: v${{ env.TORCH_VERSION }}
+          ET_VERSION: ${{ env.ET_VERSION }}
           GRPC_CPP_VERSION: ${{ env.GRPC_CPP_VERSION }}
         run: |
-          [ -d ".artifacts/libtorch-android-v${TORCH_VERSION}-arm64-v8a" ] || \
-            bash scripts/build_libtorch_arm64.sh
+          [ -d ".artifacts/executorch-android-v${ET_VERSION}-arm64-v8a/executorch/cmake-out" ] || \
+            bash scripts/build_executorch_arm64.sh
           [ -d ".artifacts/grpc-android-${GRPC_CPP_VERSION}-arm64-v8a" ] || \
             bash scripts/build_grpc_arm64.sh
 
       - name: Assemble release APK (native FL core)
         working-directory: mobile_client/android
+        env:
+          ET_VERSION: ${{ env.ET_VERSION }}
+          GRPC_CPP_VERSION: ${{ env.GRPC_CPP_VERSION }}
         run: |
           ./gradlew assembleRelease --no-daemon \
-            -PLIBTORCH_DIR="${GITHUB_WORKSPACE}/mobile_client/.artifacts/libtorch-android-v${TORCH_VERSION}-arm64-v8a" \
+            -PET_SRC="${GITHUB_WORKSPACE}/mobile_client/.artifacts/executorch-android-v${ET_VERSION}-arm64-v8a/executorch" \
+            -PET_BUILD="${GITHUB_WORKSPACE}/mobile_client/.artifacts/executorch-android-v${ET_VERSION}-arm64-v8a/executorch/cmake-out" \
+            -PTORCH_INCLUDE="${TORCH_INCLUDE}" \
             -PGRPC_DIR="${GITHUB_WORKSPACE}/mobile_client/.artifacts/grpc-android-${GRPC_CPP_VERSION}-arm64-v8a" \
             -PGENERATED_PROTO_DIR="${GITHUB_WORKSPACE}/proto/gen/cpp"
 
@@ -161,7 +175,8 @@ jobs:
             ## FedLearn Android ${{ steps.version.outputs.version }}
 
             arm64-v8a APK with the native C++ FL core (`libfedlearn_jni.so`,
-            DeComFL zeroth-order path) embedded. New Architecture / TurboModule.
+            DeComFL zeroth-order path) embedded, running on the ExecuTorch
+            runtime (no libtorch/ATen). New Architecture / TurboModule.
 
             > Debug-signed (no release keystore wired yet) — sideload only.
             > iOS is not shipped via CI; see the mobile README for the

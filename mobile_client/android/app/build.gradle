@@ -1,7 +1,10 @@
 // App module build. Compiles the JNI native lib (the C++ FL core + bridge) via the bridge's
 // CMakeLists, restricted to arm64-v8a (15-LLD §11.4 / §13 task 12). VERIFY-BEFORE-USE: the
-// GENERATED_PROTO_DIR / LIBTORCH_DIR / GRPC_DIR cmake args must point at the buf-generated stubs
-// and the CI-cached cross-compiled ARM64 artifacts (scripts/build_*_arm64.sh).
+// GENERATED_PROTO_DIR / ET_SRC / ET_BUILD / TORCH_INCLUDE / GRPC_DIR cmake args must point at the
+// buf-generated stubs and the CI-cached cross-compiled ARM64 artifacts (scripts/build_executorch_arm64.sh,
+// scripts/build_grpc_arm64.sh). The native FL core links the cross-compiled ExecuTorch arm64
+// static libs into libfedlearn_jni.so (no libtorch/ATen) — fully self-contained. The app loads
+// libfedlearn_jni.so directly; no executorch-android AAR (the ET runtime is statically embedded).
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
@@ -27,7 +30,9 @@ android {
     externalNativeBuild {
       cmake {
         arguments "-DANDROID_STL=c++_shared",
-                  "-DLIBTORCH_DIR=${project.properties['LIBTORCH_DIR'] ?: ''}",
+                  "-DET_SRC=${project.properties['ET_SRC'] ?: ''}",
+                  "-DET_BUILD=${project.properties['ET_BUILD'] ?: ''}",
+                  "-DTORCH_INCLUDE=${project.properties['TORCH_INCLUDE'] ?: ''}",
                   "-DGENERATED_PROTO_DIR=${project.properties['GENERATED_PROTO_DIR'] ?: ''}"
       }
     }
@@ -51,4 +56,8 @@ android {
 dependencies {
   implementation("com.facebook.react:react-android")
   implementation("com.facebook.react:hermes-android")
+  // No executorch-android AAR: the ExecuTorch runtime is cross-compiled to arm64 and linked
+  // STATICALLY into libfedlearn_jni.so (scripts/build_executorch_arm64.sh). The app calls the C++
+  // FL core via the JNI/TurboModule and never ExecuTorch's Java API, so adding the AAR would only
+  // ship a second, unused ET runtime — risking an in-process symbol / kernel-registration collision.
 }
