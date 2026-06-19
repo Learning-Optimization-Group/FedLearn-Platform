@@ -14,6 +14,7 @@ import * as path from 'path';
 import { DockerService, TrainingConfig, HardwareProfile } from './docker.service';
 import { AuthService } from './auth.service';
 import { InferenceService, InferencePayload } from './inference.service';
+import { ClientProjectService } from './client-projects.service';
 import { detectHardware } from './hardware.probe';
 
 const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> = new Set(['discrete', 'jetson', 'cpu', 'mps']);
@@ -81,6 +82,7 @@ function sanitizeDatasetPath(raw: unknown): string | null {
 let dockerService: DockerService;
 let authService: AuthService;
 let inferenceService: InferenceService;
+let clientProjectService: ClientProjectService;
 
 /**
  * Validates a renderer-supplied inference payload (defense-in-depth — preload
@@ -138,6 +140,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   dockerService = new DockerService(mainWindow);
   authService = new AuthService();
   inferenceService = new InferenceService(authService);
+  clientProjectService = new ClientProjectService(authService);
 
   // ===================== File Dialogs =====================
   ipcMain.handle('dialog:open-directory', async () => {
@@ -387,6 +390,32 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       log.error(`[IPC:inference:run] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
+  // ===================== Client Projects ("models I can train") =====================
+
+  ipcMain.handle('client:list-projects', async () => {
+    try {
+      return await clientProjectService.listProjects();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:client:list-projects] Failed: ${message}`);
+      return { success: false, error: message };
+    }
+  });
+
+  ipcMain.handle('client:get-connection', async (_event, projectId: unknown) => {
+    try {
+      if (!validateProjectId(projectId)) {
+        log.error(`[IPC:client:get-connection] Rejected invalid project ID: ${String(projectId)}`);
+        return { success: false, error: 'Invalid project ID' };
+      }
+      return await clientProjectService.getConnection(projectId as string);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:client:get-connection] Failed: ${message}`);
       return { success: false, error: message };
     }
   });

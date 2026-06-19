@@ -12,6 +12,7 @@ import SettingsModal from './components/SettingsModal';
 import UpdateBanner from './components/UpdateBanner';
 import ModelPlayground from './components/ModelPlayground';
 import type { InferableModel, InferenceResult } from './inference.types';
+import type { ClientProject, ProjectConnection } from './client.types';
 import './styles.css';
 
 // Type declaration for the secure preload API
@@ -33,6 +34,10 @@ declare global {
       checkAuth: () => Promise<{ success: boolean; authenticated?: boolean }>;
       onTrainingLog: (callback: (logLine: string) => void) => void;
       removeTrainingLogListener: () => void;
+      listTrainableProjects: () => Promise<{ success: boolean; projects?: ClientProject[]; error?: string }>;
+      getProjectConnection: (
+        projectId: string,
+      ) => Promise<{ success: boolean; connection?: ProjectConnection; error?: string }>;
       setServerUrl: (url: string) => Promise<{ success: boolean; url?: string; error?: string }>;
       getServerUrl: () => Promise<{ success: boolean; url?: string }>;
       selectDatasetPath: () => Promise<{ success: boolean; path?: string; error?: string }>;

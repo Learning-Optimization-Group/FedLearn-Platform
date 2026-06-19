@@ -1,9 +1,13 @@
 // =============================================================================
 // FedLearn Desktop — HardwareSelector Component
 // =============================================================================
-// Card-based hardware profile selector with input fields for training config.
-// The three profiles (discrete, jetson, cpu) map directly to the Docker
-// runtime configurations specified in Section 4.2 of the deployment guide.
+// Card-based hardware profile selector + the "models you can train" picker.
+//
+// The user no longer types a project id / server address / partition id. After
+// login the app lists the projects the user may train (GET /api/client/projects);
+// when the user picks one and clicks Start, the live gRPC address + the
+// server-assigned partition id + the model type are fetched from the backend
+// (GET /api/client/projects/{id}/connection) and used to launch training.
 // =============================================================================
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -15,7 +19,9 @@ import {
   AlertTriangle,
   Play,
   Square,
+  RefreshCw,
 } from 'lucide-react';
+import type { ClientProject } from '../client.types';
 
 interface HardwareSelectorProps {
   onStart: (config: {
@@ -72,16 +78,19 @@ const HARDWARE_PROFILES: HardwareProfileOption[] = [
 const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, isRunning }) => {
   const [selectedProfile, setSelectedProfile] = useState('cpu');
   const [detectionLabel, setDetectionLabel] = useState<string | null>(null);
-  const [projectId, setProjectId] = useState('');
-  const [serverAddress, setServerAddress] = useState('');
-  const [partitionId, setPartitionId] = useState('0');
-  const [modelType, setModelType] = useState('CNN');
+
+  const [projects, setProjects] = useState<ClientProject[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [projectsError, setProjectsError] = useState('');
+
   const [datasetPath, setDatasetPath] = useState('');
   const [validationError, setValidationError] = useState('');
+  const [starting, setStarting] = useState(false);
 
-  // One-shot hardware detection — pre-select the profile that matches the
-  // local machine so the user doesn't have to guess between the four cards.
-  // The user can still override by clicking a different card.
+  const selectedProject = projects.find((p) => p.projectId === selectedProjectId) ?? null;
+
+  // One-shot hardware detection — pre-select the profile matching this machine.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -92,7 +101,6 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
         const d = result.detection;
         setSelectedProfile(d.recommendedProfile);
 
-        // Human-readable summary shown under the cards.
         const parts: string[] = [];
         if (d.platform === 'darwin' && d.arch === 'arm64') parts.push('Apple Silicon');
         else if (d.platform === 'win32') parts.push('Windows x64');
@@ -103,11 +111,38 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
 
         setDetectionLabel(parts.join(' · '));
       } catch {
-        // Swallow — detection is best-effort. User can still pick manually.
+        // Detection is best-effort; the user can still pick a profile manually.
       }
     })();
     return () => { cancelled = true; };
   }, []);
+
+  const loadProjects = useCallback(async () => {
+    setLoadingProjects(true);
+    setProjectsError('');
+    try {
+      const res = await window.fedLearnAPI.listTrainableProjects();
+      if (res.success && res.projects) {
+        setProjects(res.projects);
+        // Keep the current selection if it still exists, else default to the
+        // first project that is RUNNING (ready to join), else the first one.
+        setSelectedProjectId((prev) => {
+          if (prev && res.projects!.some((p) => p.projectId === prev)) return prev;
+          const running = res.projects!.find((p) => p.status === 'RUNNING');
+          return (running ?? res.projects![0])?.projectId ?? '';
+        });
+      } else {
+        setProjectsError(res.error || 'Could not load your projects.');
+      }
+    } catch (err: unknown) {
+      setProjectsError(err instanceof Error ? err.message : 'Could not load your projects.');
+    } finally {
+      setLoadingProjects(false);
+    }
+  }, []);
+
+  // Load the trainable-project list on mount.
+  useEffect(() => { void loadProjects(); }, [loadProjects]);
 
   const handleSelectDataset = async () => {
     try {
@@ -118,64 +153,50 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
       } else if (result.error) {
         setValidationError(`Dataset selection failed: ${result.error}`);
       }
-    } catch (err: any) {
-      setValidationError(`Error opening dialog: ${err.message}`);
+    } catch (err: unknown) {
+      setValidationError(`Error opening dialog: ${err instanceof Error ? err.message : 'unknown'}`);
     }
   };
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     setValidationError('');
 
-    if (!projectId.trim()) {
-      setValidationError('Project ID is required.');
+    if (!selectedProject) {
+      setValidationError('Select a model to train.');
+      return;
+    }
+    if (selectedProject.status !== 'RUNNING') {
+      setValidationError(
+        'This model is not accepting clients yet — its owner has not started the training server. '
+        + 'Ask them to start it, then refresh.',
+      );
       return;
     }
 
-    if (!serverAddress.trim()) {
-      setValidationError('Server address is required.');
-      return;
+    setStarting(true);
+    try {
+      // Resolve the live connection (gRPC address + server-assigned partition id
+      // + model type) from the backend — no manual entry.
+      const res = await window.fedLearnAPI.getProjectConnection(selectedProject.projectId);
+      if (!res.success || !res.connection) {
+        setValidationError(res.error || 'Could not get connection details for this model.');
+        return;
+      }
+      const c = res.connection;
+      onStart({
+        hardwareProfile: selectedProfile,
+        projectId: c.projectId,
+        serverAddress: c.serverAddress,
+        partitionId: String(c.partitionId),
+        modelType: c.modelType,
+        datasetPath: datasetPath.trim(),
+      });
+    } catch (err: unknown) {
+      setValidationError(err instanceof Error ? err.message : 'Failed to start training.');
+    } finally {
+      setStarting(false);
     }
-
-    if (!partitionId.trim()) {
-      setValidationError('Partition ID is required.');
-      return;
-    }
-
-    // Pattern validation (matches preload allowlists)
-    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(projectId)) {
-      setValidationError('Project ID must be alphanumeric (max 128 chars).');
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9._:/-]{1,256}$/.test(serverAddress)) {
-      setValidationError('Invalid server address format.');
-      return;
-    }
-
-    if (!/^[0-9]{1,10}$/.test(partitionId)) {
-      setValidationError('Partition ID must be a number.');
-      return;
-    }
-
-    if (!modelType.trim()) {
-      setValidationError('Model Architecture is required.');
-      return;
-    }
-
-    // if (!datasetPath.trim()) {
-    //   setValidationError('Local Dataset Path is required.');
-    //   return;
-    // }
-
-    onStart({
-      hardwareProfile: selectedProfile,
-      projectId: projectId.trim(),
-      serverAddress: serverAddress.trim(),
-      partitionId: partitionId.trim(),
-      modelType: modelType.trim(),
-      datasetPath: datasetPath.trim(),
-    });
-  }, [selectedProfile, projectId, serverAddress, partitionId, modelType, datasetPath, onStart]);
+  }, [selectedProject, selectedProfile, datasetPath, onStart]);
 
   return (
     <div className="hardware-selector">
@@ -184,6 +205,7 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
           Detected: {detectionLabel}
         </div>
       )}
+
       {/* Hardware Profile Cards */}
       <div className="profile-cards">
         {HARDWARE_PROFILES.map((profile) => (
@@ -203,71 +225,59 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
         ))}
       </div>
 
-      {/* Configuration Inputs */}
+      {/* Models you can train */}
       <div className="config-inputs">
         <div className="form-group">
-          <label className="form-label" htmlFor="config-project-id">
-            Project ID
-          </label>
-          <input
-            id="config-project-id"
-            className="form-input"
-            type="text"
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            placeholder="e.g., cardiac-ecg-001"
-            disabled={isRunning}
-            maxLength={128}
-          />
-        </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label className="form-label" htmlFor="config-project">
+              Model to train
+            </label>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => { void loadProjects(); }}
+              disabled={isRunning || loadingProjects}
+              style={{ whiteSpace: 'nowrap', fontSize: '0.75rem' }}
+            >
+              <span className="btn-icon"><RefreshCw strokeWidth={1.5} size={14} /></span>
+              Refresh
+            </button>
+          </div>
 
-        <div className="form-group">
-          <label className="form-label" htmlFor="config-server-address">
-            Server Address
-          </label>
-          <input
-            id="config-server-address"
-            className="form-input"
-            type="text"
-            value={serverAddress}
-            onChange={(e) => setServerAddress(e.target.value)}
-            placeholder="e.g., 192.168.1.100:8080"
-            disabled={isRunning}
-            maxLength={256}
-          />
-        </div>
-
-        <div className="form-group">
-          <label className="form-label" htmlFor="config-partition-id">
-            Partition ID
-          </label>
-          <input
-            id="config-partition-id"
-            className="form-input"
-            type="text"
-            value={partitionId}
-            onChange={(e) => setPartitionId(e.target.value)}
-            placeholder="e.g., 0"
-            disabled={isRunning}
-            maxLength={10}
-          />
-        </div>
-
-        <div className="form-group">
-          <label className="form-label" htmlFor="config-model-type">
-            Model Architecture
-          </label>
-          <select
-            id="config-model-type"
-            className="form-input"
-            value={modelType}
-            onChange={(e) => setModelType(e.target.value)}
-            disabled={isRunning}
-          >
-            <option value="CNN">CNN</option>
-            <option value="OPT-125M">OPT-125M</option>
-            <option value="Transformer">Transformer</option>
-          </select>
+          {loadingProjects ? (
+            <div style={{ fontSize: '0.85rem', color: 'var(--fg-muted)' }}>Loading your models…</div>
+          ) : projectsError ? (
+            <div className="validation-error" role="alert">
+              <span className="error-icon"><AlertTriangle strokeWidth={1.5} size={16} /></span>
+              {projectsError}
+            </div>
+          ) : projects.length === 0 ? (
+            <div style={{ fontSize: '0.85rem', color: 'var(--fg-muted)' }}>
+              You don&apos;t have any models to train yet. Ask a project owner to grant you access,
+              or browse available projects in the web dashboard.
+            </div>
+          ) : (
+            <>
+              <select
+                id="config-project"
+                className="form-input"
+                value={selectedProjectId}
+                onChange={(e) => { setSelectedProjectId(e.target.value); setValidationError(''); }}
+                disabled={isRunning}
+              >
+                {projects.map((p) => (
+                  <option key={p.projectId} value={p.projectId}>
+                    {p.name} — {p.modelType} ({p.status})
+                  </option>
+                ))}
+              </select>
+              {selectedProject && selectedProject.status !== 'RUNNING' && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--warning, var(--fg-muted))', marginTop: 'var(--space-1)' }}>
+                  Waiting for the owner to start this model&apos;s training server.
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         <div className="form-group">
@@ -311,11 +321,12 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
           <button
             id="start-training-button"
             className="btn btn-primary btn-full"
-            onClick={handleStart}
+            onClick={() => { void handleStart(); }}
             type="button"
+            disabled={starting || loadingProjects || !selectedProject || selectedProject.status !== 'RUNNING'}
           >
             <span className="btn-icon"><Play strokeWidth={1.5} size={16} /></span>
-            Start Training
+            {starting ? 'Connecting…' : 'Start Training'}
           </button>
         ) : (
           <button

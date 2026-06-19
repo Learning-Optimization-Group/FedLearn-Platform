@@ -276,6 +276,29 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
     return ipcRenderer.invoke('dialog:open-directory');
   },
 
+  // ===================== Client Projects ("models I can train") =====================
+
+  /**
+   * List the projects the authenticated user may train (owner or approved
+   * CLIENT). Replaces manual project-id / server / partition entry.
+   */
+  listTrainableProjects: async (): Promise<{ success: boolean; projects?: unknown[]; error?: string }> => {
+    return ipcRenderer.invoke('client:list-projects');
+  },
+
+  /**
+   * Resolve a project's live gRPC connection (address + server-assigned
+   * partition id + model type) so training can start without manual entry.
+   */
+  getProjectConnection: async (
+    projectId: string,
+  ): Promise<{ success: boolean; connection?: unknown; error?: string }> => {
+    if (!isValidProjectId(projectId)) {
+      return { success: false, error: 'Invalid project ID' };
+    }
+    return ipcRenderer.invoke('client:get-connection', projectId);
+  },
+
   // ===================== Inference ("Use a model") =====================
 
   /**

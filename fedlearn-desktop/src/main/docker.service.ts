@@ -256,8 +256,12 @@ export class DockerService {
       '--partition-id', config.partitionId,
     ];
 
-    if (config.modelType === 'OPT-125M' || config.modelType === 'Transformer') {
-      args.push('--use-llm');
+    // Forward the recipe key so the client trains the right architecture. The
+    // value comes from the backend connection payload (the project's modelType),
+    // not a hardcoded dropdown. The client derives USE_LLM from --model-type
+    // TRANSFORMER itself, so --use-llm is no longer passed separately.
+    if (config.modelType) {
+      args.push('--model-type', config.modelType);
     }
 
     log.info(`[Native] Profile=${config.hardwareProfile} command=${invocation.command} args=${args.join(' ')}`);
