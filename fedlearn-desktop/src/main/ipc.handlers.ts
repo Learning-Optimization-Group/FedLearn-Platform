@@ -16,6 +16,7 @@ import { AuthService } from './auth.service';
 import { InferenceService, InferencePayload } from './inference.service';
 import { ClientProjectService } from './client-projects.service';
 import { detectHardware } from './hardware.probe';
+import { collectDeviceCapabilities } from './deviceCapabilities.collector';
 
 const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> = new Set(['discrete', 'jetson', 'cpu', 'mps']);
 const PROJECT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
@@ -417,6 +418,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       const message = err instanceof Error ? err.message : 'Unknown error';
       log.error(`[IPC:client:get-connection] Failed: ${message}`);
       return { success: false, error: message };
+    }
+  });
+
+  ipcMain.handle('device:capabilities', async () => {
+    try {
+      return { success: true, capabilities: collectDeviceCapabilities() };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'capability probe failed' };
     }
   });
 

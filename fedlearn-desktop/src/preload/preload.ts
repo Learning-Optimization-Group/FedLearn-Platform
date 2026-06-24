@@ -345,6 +345,13 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
     return ipcRenderer.invoke('hardware:detect');
   },
 
+  getDeviceCapabilities: (): Promise<{
+    success: boolean;
+    capabilities?: import('../shared/deviceCapabilities.types').DeviceCapabilities;
+    error?: string;
+  }> =>
+    ipcRenderer.invoke('device:capabilities'),
+
   // ===================== Auto Updater =====================
 
   onUpdateAvailable: (callback: (info: any) => void): void => {
