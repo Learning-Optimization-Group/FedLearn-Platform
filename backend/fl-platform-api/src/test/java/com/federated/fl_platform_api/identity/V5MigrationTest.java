@@ -12,9 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @ActiveProfiles("dev")
 @TestPropertySource(properties = {
-        "spring.datasource.url=jdbc:h2:mem:v5test;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
+        "spring.datasource.url=jdbc:tc:postgresql:16.6-alpine:///fedlearn_v5",
+        "spring.datasource.driver-class-name=org.testcontainers.jdbc.ContainerDatabaseDriver",
         "spring.jpa.hibernate.ddl-auto=none",
         "spring.flyway.enabled=true",
         "app.jwt.secret=ZGV2LW9ubHktand0LXNlY3JldC1kby1ub3QtdXNlLWluLXByb2QhIQ==",
@@ -29,7 +28,7 @@ class V5MigrationTest {
     @Test
     void organizations_table_exists_after_v5() {
         Integer count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'ORGANIZATIONS'",
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'organizations'",
                 Integer.class);
         assertThat(count).isEqualTo(1);
     }
@@ -46,7 +45,7 @@ class V5MigrationTest {
     void users_platform_role_column_present() {
         Integer count = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS " +
-                        "WHERE TABLE_NAME = 'USERS' AND COLUMN_NAME = 'PLATFORM_ROLE'",
+                        "WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'platform_role'",
                 Integer.class);
         assertThat(count).isEqualTo(1);
     }
@@ -56,7 +55,7 @@ class V5MigrationTest {
         // First confirm the column exists.
         Integer columnCount = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS " +
-                        "WHERE TABLE_NAME = 'USERS' AND COLUMN_NAME = 'STATUS'",
+                        "WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'status'",
                 Integer.class);
         assertThat(columnCount).isEqualTo(1);
 
@@ -72,7 +71,7 @@ class V5MigrationTest {
     @Test
     void audit_events_table_exists() {
         Integer count = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'AUDIT_EVENTS'",
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'audit_events'",
                 Integer.class);
         assertThat(count).isEqualTo(1);
     }
@@ -83,7 +82,7 @@ class V5MigrationTest {
         // assertion here is: org_id column is present and NOT NULL.
         Integer count = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS " +
-                        "WHERE TABLE_NAME = 'PROJECTS' AND COLUMN_NAME = 'ORG_ID' " +
+                        "WHERE TABLE_NAME = 'projects' AND COLUMN_NAME = 'org_id' " +
                         "AND IS_NULLABLE = 'NO'",
                 Integer.class);
         assertThat(count).isEqualTo(1);

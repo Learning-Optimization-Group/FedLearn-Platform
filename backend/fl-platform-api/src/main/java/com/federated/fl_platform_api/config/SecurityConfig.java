@@ -114,20 +114,14 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        // Build the public-path list dynamically. /h2-console/** is only added
-        // when the dev profile is active so that an accidentally-running prod
-        // instance can never expose the H2 web console — even if a future
-        // migration toggles spring.h2.console.enabled.
+        // Public paths (everything else requires authentication). The H2 web
+        // console path was removed when H2 was retired in favour of PostgreSQL.
         List<String> publicPaths = new ArrayList<>(List.of(
                 "/api/auth/**",
                 "/ws-logs/**",
                 "/error",
                 "/actuator/health"
         ));
-        if (environment.acceptsProfiles(profiles -> profiles.test("dev"))) {
-            publicPaths.add("/h2-console/**");
-            log.warn("DEV PROFILE ACTIVE — /h2-console/** is publicly accessible. Do not run this profile in production.");
-        }
 
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))

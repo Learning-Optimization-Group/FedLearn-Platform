@@ -8,9 +8,9 @@
 -- is a plain VARCHAR(32) with no CHECK constraint (see V4), so the value is owned
 -- entirely by the ProjectVisibility enum.
 --
--- Portable across H2 (dev/test datasource runs MODE=PostgreSQL) and PostgreSQL
--- (ec2demo/production). The `test` profile disables Flyway and builds the schema
--- from JPA entities (H2 create-drop), so this file never runs there.
+-- PostgreSQL (all profiles). The `test` profile disables Flyway and builds the
+-- schema from JPA entities (create-drop on Testcontainers Postgres), so this
+-- file runs under the dev/prod Flyway path and the dedicated V*MigrationTest classes.
 -- =====================================================================
 
 -- 1) Widen the platform_role domain. V6 created chk_users_platform_role with the

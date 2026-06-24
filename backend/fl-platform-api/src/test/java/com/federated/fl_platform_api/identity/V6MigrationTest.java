@@ -16,16 +16,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Validates the V6 hardening migration.
  *
- * <p>Testcontainers is not a dependency of this module, so the Postgres-native
- * {@code JSONB} column type cannot be asserted against a real Postgres here
- * (H2-in-PostgreSQL-mode reports its own type name). The full migration is
- * exercised end-to-end against real Postgres by CI / prod Flyway.
- *
- * <p>What this test <i>does</i> assert:
+ * <p>Runs every migration through V6 against a real PostgreSQL (Testcontainers,
+ * {@code jdbc:tc:}). Asserts:
  * <ul>
  *   <li>The {@code platform_role} CHECK constraint is live — an out-of-range
- *       value is rejected — by running every migration through V6 against the
- *       same H2-in-PostgreSQL-mode Flyway path the V5 test uses.</li>
+ *       value is rejected.</li>
+ *   <li>{@code audit_events.metadata} is a real {@code JSONB} column (now
+ *       verifiable against actual Postgres, not just the migration file text).</li>
  *   <li>The V6 migration file exists and contains the platform_role CHECK and
  *       the JSONB conversion of {@code audit_events.metadata}.</li>
  * </ul>
@@ -33,9 +30,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @SpringBootTest
 @ActiveProfiles("dev")
 @TestPropertySource(properties = {
-        "spring.datasource.url=jdbc:h2:mem:v6test;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
+        "spring.datasource.url=jdbc:tc:postgresql:16.6-alpine:///fedlearn_v6",
+        "spring.datasource.driver-class-name=org.testcontainers.jdbc.ContainerDatabaseDriver",
         "spring.jpa.hibernate.ddl-auto=none",
         "spring.flyway.enabled=true",
         "app.jwt.secret=ZGV2LW9ubHktand0LXNlY3JldC1kby1ub3QtdXNlLWluLXByb2QhIQ==",
@@ -86,5 +82,16 @@ class V6MigrationTest {
         assertThat(sql)
                 .as("legacy ADMIN -> PLATFORM_ADMIN normalisation")
                 .contains("UPDATE USERS SET PLATFORM_ROLE = 'PLATFORM_ADMIN' WHERE PLATFORM_ROLE = 'ADMIN'");
+    }
+
+    @Test
+    void audit_events_metadata_is_real_jsonb() {
+        // Now that tests run on real Postgres (Testcontainers), assert the actual
+        // column type — not just the migration file text. V6 promotes metadata to JSONB.
+        String dataType = jdbc.queryForObject(
+                "SELECT data_type FROM information_schema.columns " +
+                        "WHERE table_name = 'audit_events' AND column_name = 'metadata'",
+                String.class);
+        assertThat(dataType).isEqualTo("jsonb");
     }
 }

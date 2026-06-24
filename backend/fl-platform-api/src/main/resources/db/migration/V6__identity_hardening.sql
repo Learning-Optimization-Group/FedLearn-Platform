@@ -5,9 +5,9 @@
 -- - Promote audit_events.metadata from text/CLOB to native JSONB
 --
 -- NOTE: This migration uses PostgreSQL-specific syntax (JSONB, ::jsonb).
--- It runs only under the dev/prod Postgres Flyway path. The `test` profile
--- disables Flyway and builds the schema from JPA entities (H2 create-drop),
--- so this file is never executed there.
+-- The `test` profile disables Flyway and builds the schema from JPA entities
+-- (create-drop on Testcontainers Postgres), so this file runs under the
+-- dev/prod Flyway path and the dedicated V*MigrationTest classes.
 -- =====================================================================
 
 UPDATE users SET platform_role = 'PLATFORM_ADMIN' WHERE platform_role = 'ADMIN';

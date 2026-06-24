@@ -24,8 +24,8 @@ CREATE TABLE organization_memberships (
 CREATE INDEX idx_org_mem_user ON organization_memberships(user_id);
 
 -- 3) users: rename role -> platform_role; extend with lifecycle + profile columns.
--- One ALTER per column: H2 (dev profile) rejects multi-clause ALTER TABLE.
-ALTER TABLE users ALTER COLUMN role RENAME TO platform_role;
+-- One ALTER per column for readability (PostgreSQL).
+ALTER TABLE users RENAME COLUMN role TO platform_role;
 ALTER TABLE users ADD COLUMN status         VARCHAR(16) NOT NULL DEFAULT 'ACTIVE';
 ALTER TABLE users ADD COLUMN deleted_at     TIMESTAMP;
 ALTER TABLE users ADD COLUMN email_verified BOOLEAN     NOT NULL DEFAULT FALSE;
@@ -48,7 +48,7 @@ CREATE TABLE audit_events (
     action          VARCHAR(64)  NOT NULL,
     target_type     VARCHAR(32),
     target_id       VARCHAR(64),
-    metadata        CLOB,
+    metadata        TEXT,
     request_ip      VARCHAR(45),
     user_agent      VARCHAR(256)
 );

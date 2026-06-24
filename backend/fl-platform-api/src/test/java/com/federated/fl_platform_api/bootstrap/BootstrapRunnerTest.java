@@ -28,14 +28,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  *  - is idempotent when re-invoked manually.
  *
  * The dev profile is required so that {@code app.jwt.secret} et al. resolve to dev
- * defaults; an isolated in-memory H2 schema avoids polluting the on-disk dev DB.
+ * defaults; an isolated Testcontainers Postgres database keeps it off any shared DB.
  */
 @SpringBootTest
 @ActiveProfiles("dev")
 @TestPropertySource(properties = {
-        "spring.datasource.url=jdbc:h2:mem:bootstrap;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
+        "spring.datasource.url=jdbc:tc:postgresql:16.6-alpine:///fedlearn_bootstrap",
+        "spring.datasource.driver-class-name=org.testcontainers.jdbc.ContainerDatabaseDriver",
         "spring.jpa.hibernate.ddl-auto=none",
         "spring.flyway.enabled=true",
         "app.jwt.secret=ZGV2LW9ubHktand0LXNlY3JldC1kby1ub3QtdXNlLWluLXByb2QhIQ==",
