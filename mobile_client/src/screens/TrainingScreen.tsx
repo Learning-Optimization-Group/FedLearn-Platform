@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Play, Square } from 'lucide-react-native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 
 import nativeCore, { type DeviceMetrics, type RoundConfig, type RoundResult } from '../lib/nativeCore';
 import { joinRun, type JoinedRun } from '../lib/runJoin';
@@ -34,10 +35,13 @@ export function TrainingScreen() {
   const [metrics, setMetrics] = useState<DeviceMetrics | null>(null);
   const stopRef = useRef(false);
 
-  // Demo inputs — a real build receives these from a project-selection flow.
-  const [projectId, setProjectId] = useState('');
-  const [datasetVersionId, setDatasetVersionId] = useState('');
-  const [modelPath, setModelPath] = useState('');
+  // Route params from the project picker (Task 4 → navigation.navigate('Training', { projectId })).
+  const route = useRoute<any>();
+  const navigation = useNavigation<any>();
+  const projectId: string = route.params?.projectId ?? '';
+  // slice-1b: real values come from the enroll/manifest flow.
+  const datasetVersionId = '';
+  const modelPath = '';
 
   const badge: { label: string; variant: StatusVariant } = {
     idle: { label: 'Idle', variant: 'idle' as StatusVariant },
@@ -128,30 +132,19 @@ export function TrainingScreen() {
         <View className="mx-4 mt-2 p-4 rounded-card bg-surface-1 border border-hairline">
           <Text className="text-body font-sans text-fg mb-1">Join a training run</Text>
           <Text className="text-caption text-fg-muted mb-3">Your data stays on this device — only learning updates are shared.</Text>
-          <TextInput
-            className="border border-hairline rounded-md px-3 py-2 mb-2 text-body text-fg"
-            placeholder="Project ID"
-            placeholderTextColor={colors['fg-subtle']}
-            value={projectId}
-            onChangeText={setProjectId}
-            autoCapitalize="none"
-          />
-          <TextInput
-            className="border border-hairline rounded-md px-3 py-2 mb-2 text-body text-fg"
-            placeholder="Dataset version ID"
-            placeholderTextColor={colors['fg-subtle']}
-            value={datasetVersionId}
-            onChangeText={setDatasetVersionId}
-            autoCapitalize="none"
-          />
-          <TextInput
-            className="border border-hairline rounded-md px-3 py-2 mb-3 text-body text-fg"
-            placeholder="On-device model path (.pt)"
-            placeholderTextColor={colors['fg-subtle']}
-            value={modelPath}
-            onChangeText={setModelPath}
-            autoCapitalize="none"
-          />
+          {projectId ? (
+            <>
+              <Text className="text-label font-sans text-fg-muted">Selected project</Text>
+              <Text className="mt-1 text-body font-mono text-fg">{projectId}</Text>
+              <Pressable className="mt-3" onPress={() => navigation.navigate('Projects')}>
+                <Text className="text-body font-sans text-accent">Change project</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Pressable className="py-2" onPress={() => navigation.navigate('Projects')}>
+              <Text className="text-body font-sans text-accent">Choose a project to train</Text>
+            </Pressable>
+          )}
           <Pressable
             className="flex-row items-center justify-center bg-accent rounded-md py-3"
             disabled={phase === 'joining'}
