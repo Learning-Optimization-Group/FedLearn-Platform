@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,6 +23,16 @@ public class ClientApiController {
     @GetMapping("/projects")
     public ResponseEntity<List<ClientProjectDto>> projects() {
         return ResponseEntity.ok(service.listForCurrentUser());
+    }
+
+    @GetMapping("/projects/{projectId}")
+    public ResponseEntity<ClientProjectDto> project(@PathVariable UUID projectId) {
+        return ResponseEntity.ok(service.getOne(projectId));
+    }
+
+    @PostMapping("/projects/{projectId}/join")
+    public ResponseEntity<ClientProjectDto> join(@PathVariable UUID projectId) {
+        return ResponseEntity.ok(service.join(projectId));
     }
 
     @GetMapping("/projects/{projectId}/connection")

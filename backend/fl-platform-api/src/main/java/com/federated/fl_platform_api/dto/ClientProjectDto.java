@@ -8,6 +8,9 @@ public class ClientProjectDto {
     private String modelType;
     private String status;
     private String visibility;
+    private boolean joined;
+    private String recipeKey;
+    private ActiveRunDto activeRun;
 
     public UUID getProjectId() { return projectId; }
     public void setProjectId(UUID projectId) { this.projectId = projectId; }
@@ -19,4 +22,10 @@ public class ClientProjectDto {
     public void setStatus(String status) { this.status = status; }
     public String getVisibility() { return visibility; }
     public void setVisibility(String visibility) { this.visibility = visibility; }
+    public boolean isJoined() { return joined; }
+    public void setJoined(boolean joined) { this.joined = joined; }
+    public String getRecipeKey() { return recipeKey; }
+    public void setRecipeKey(String recipeKey) { this.recipeKey = recipeKey; }
+    public ActiveRunDto getActiveRun() { return activeRun; }
+    public void setActiveRun(ActiveRunDto activeRun) { this.activeRun = activeRun; }
 }
