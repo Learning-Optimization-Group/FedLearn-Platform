@@ -95,4 +95,51 @@ class RunServiceTest {
         assertEquals(RunStatus.FAILED, r.getStatus());
         assertNotNull(r.getEndedAt());
     }
+
+    @Test
+    void getStatus_runningRunExposesEndpoint() {
+        UUID rid = UUID.randomUUID();
+        UUID pid = UUID.randomUUID();
+        Run r = new Run();
+        r.setId(rid); r.setProjectId(pid);
+        r.setStatus(RunStatus.RUNNING); r.setServerHost("localhost"); r.setServerPort(50002);
+        Project p = project(pid);
+        User u = new User(); u.setId(7L);
+
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+
+        var dto = runService.getStatus(rid);
+        assertEquals("RUNNING", dto.getStatus());
+        assertEquals("localhost:50002", dto.getGrpcEndpoint());
+    }
+
+    @Test
+    void getStatus_pendingRunHidesEndpoint() {
+        UUID rid = UUID.randomUUID();
+        UUID pid = UUID.randomUUID();
+        Run r = new Run();
+        r.setId(rid); r.setProjectId(pid);
+        r.setStatus(RunStatus.STARTING);
+        Project p = project(pid);
+        User u = new User(); u.setId(7L);
+
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+
+        var dto = runService.getStatus(rid);
+        assertEquals("STARTING", dto.getStatus());
+        assertNull(dto.getGrpcEndpoint());
+    }
+
+    // helper
+    private ProjectMembership membership(Project p, User u, MembershipRole role) {
+        return new ProjectMembership(p, u, role, JoinedVia.OWNER_ADD, u);
+    }
 }
