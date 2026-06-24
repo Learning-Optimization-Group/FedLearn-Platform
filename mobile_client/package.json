@@ -15,6 +15,7 @@
   "dependencies": {
     "@react-navigation/bottom-tabs": "^7.0.0",
     "@react-navigation/native": "^7.0.0",
+    "@react-navigation/native-stack": "^7.17.6",
     "axios": "^1.7.0",
     "lucide-react-native": "^0.460.0",
     "nativewind": "^4.1.0",
@@ -50,7 +51,9 @@
         "babel-jest",
         {
           "configFile": false,
-          "presets": ["module:@react-native/babel-preset"]
+          "presets": [
+            "module:@react-native/babel-preset"
+          ]
         }
       ]
     },

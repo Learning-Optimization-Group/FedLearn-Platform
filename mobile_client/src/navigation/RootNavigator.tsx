@@ -1,0 +1,28 @@
+import React from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useAuth } from '../context/AuthContext';
+import { AppNavigator } from './AppNavigator';
+import LoginScreen from '../screens/LoginScreen';
+
+const Stack = createNativeStackNavigator();
+
+export default function RootNavigator() {
+  const { status } = useAuth();
+
+  if (status === 'unknown') {
+    return (
+      <View className="flex-1 bg-canvas items-center justify-center">
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {status === 'authenticated'
+        ? <Stack.Screen name="App" component={AppNavigator} />
+        : <Stack.Screen name="Login" component={LoginScreen} />}
+    </Stack.Navigator>
+  );
+}
