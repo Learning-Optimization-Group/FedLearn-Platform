@@ -224,3 +224,65 @@ class FedAvgAggregator:
         return out
 
 
+class FedLoRA(Strategy):
+    """Federated LoRA. Clients communicate ONLY adapter params (FFA: B+head; FedIT: A+B+head).
+
+    Reuses FedAvgAggregator (num-examples-weighted average over whatever keys are present).
+    Under FFA_LORA, A is frozen+shared, so it is NOT aggregated — the strategy re-attaches the
+    frozen A (captured from initial_parameters) to every aggregated global so it is redistributed
+    unchanged and stays identical across clients (which makes avg(B)@A == avg(B@A) exact).
+    """
+
+    def __init__(self, initial_parameters, evaluate_fn=None, min_fit_clients=1,
+                 clients_per_round=None, aggregation="FFA_LORA"):
+        self.initial_parameters = initial_parameters
+        self.evaluate_fn = evaluate_fn
+        self.min_fit_clients = min_fit_clients
+        self.clients_per_round = clients_per_round if clients_per_round is not None else min_fit_clients
+        self.aggregation = aggregation
+        self.aggregator = FedAvgAggregator()
+        self._frozen_a = (
+            OrderedDict((k, v.clone()) for k, v in initial_parameters.items() if "lora_A" in k)
+            if aggregation == "FFA_LORA" else OrderedDict()
+        )
+        if aggregation == "FFA_LORA" and not self._frozen_a:
+            raise ValueError(
+                "FFA_LORA requires lora_A keys in initial_parameters (the global adapter must carry "
+                "the shared frozen A); none found — ensure the initial adapter is the FULL adapter (A+B+head)."
+            )
+
+    def initialize_parameters(self):
+        return self.initial_parameters
+
+    def aggregate_fit(self, server_round, results):
+        if not results:
+            return None
+        self._assert_homogeneous(results)
+        aggregated = self.aggregator.aggregate(results)
+        if self.aggregation == "FFA_LORA":
+            for k, v in self._frozen_a.items():
+                aggregated[k] = v.clone()
+        return aggregated
+
+    def evaluate(self, server_round, parameters):
+        if self.evaluate_fn is None:
+            return None
+        loss, metrics = self.evaluate_fn(server_round, parameters)
+        log.info("FedLoRA eval round=%d loss=%.4f metrics=%s", server_round, loss, metrics)
+        return loss, metrics
+
+    @staticmethod
+    def _assert_homogeneous(results):
+        """Raise ValueError if clients disagree on adapter key set or per-key shape (homogeneous rank)."""
+        def params_of(entry):
+            return entry[1] if len(entry) == 3 else entry[0]
+        ref = params_of(results[0])
+        ref_shapes = {k: tuple(v.shape) for k, v in ref.items()}
+        for entry in results[1:]:
+            shapes = {k: tuple(v.shape) for k, v in params_of(entry).items()}
+            if shapes != ref_shapes:
+                raise ValueError(
+                    "Heterogeneous LoRA adapters across clients (key/shape mismatch). "
+                    "FedLoRA requires homogeneous rank/config."
+                )
+

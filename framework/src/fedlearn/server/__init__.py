@@ -4,3 +4,6 @@ from .server import start_server, ServerConfig
 
 # DeComFL components
 from .decomfl_strategy import DeComFL
+
+# Strategy classes
+from .strategy import FedAvg, FedLoRA
