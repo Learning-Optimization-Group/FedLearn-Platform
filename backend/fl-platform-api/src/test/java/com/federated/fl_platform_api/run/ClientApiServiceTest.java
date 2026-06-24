@@ -1,6 +1,7 @@
 package com.federated.fl_platform_api.run;
 
 import com.federated.fl_platform_api.dto.ClientProjectDto;
+import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.model.*;
 import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
@@ -99,5 +100,66 @@ class ClientApiServiceTest {
         when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 1L)).thenReturn(Optional.empty());
 
         assertThrows(AccessDeniedException.class, () -> service.join(pid));
+    }
+
+    @Test
+    void join_privateIsNotFound() {
+        User me = user(1L);
+        UUID pid = UUID.randomUUID();
+        Project priv = proj(pid, ProjectVisibility.PRIVATE, user(2L));
+        when(projectRepository.findById(pid)).thenReturn(Optional.of(priv));
+        when(orgScope.allows(any())).thenReturn(true);
+        when(authz.currentUser()).thenReturn(me);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 1L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> service.join(pid));
+    }
+
+    @Test
+    void getOne_publicNonMember_returnsJoinedFalse() {
+        User me = user(1L);
+        UUID pid = UUID.randomUUID();
+        Project pub = proj(pid, ProjectVisibility.PUBLIC, user(2L));
+        when(projectRepository.findById(pid)).thenReturn(Optional.of(pub));
+        when(orgScope.allows(any())).thenReturn(true);
+        when(authz.currentUser()).thenReturn(me);
+        when(membershipRepository.existsByIdProjectIdAndIdUserIdAndRole(pid, 1L, MembershipRole.CLIENT))
+            .thenReturn(false);
+
+        ClientProjectDto dto = service.getOne(pid);
+
+        assertFalse(dto.isJoined());
+        assertEquals(pid, dto.getProjectId());
+    }
+
+    @Test
+    void getOne_privateNonMember_throwsNotFound() {
+        User me = user(1L);
+        UUID pid = UUID.randomUUID();
+        Project priv = proj(pid, ProjectVisibility.PRIVATE, user(2L));
+        when(projectRepository.findById(pid)).thenReturn(Optional.of(priv));
+        when(orgScope.allows(any())).thenReturn(true);
+        when(authz.currentUser()).thenReturn(me);
+        when(membershipRepository.existsByIdProjectIdAndIdUserIdAndRole(pid, 1L, MembershipRole.CLIENT))
+            .thenReturn(false);
+
+        assertThrows(ResourceNotFoundException.class, () -> service.getOne(pid));
+    }
+
+    @Test
+    void getOne_clientMember_returnsJoinedTrue() {
+        User me = user(1L);
+        UUID pid = UUID.randomUUID();
+        Project priv = proj(pid, ProjectVisibility.PRIVATE, user(2L));
+        when(projectRepository.findById(pid)).thenReturn(Optional.of(priv));
+        when(orgScope.allows(any())).thenReturn(true);
+        when(authz.currentUser()).thenReturn(me);
+        when(membershipRepository.existsByIdProjectIdAndIdUserIdAndRole(pid, 1L, MembershipRole.CLIENT))
+            .thenReturn(true);
+
+        ClientProjectDto dto = service.getOne(pid);
+
+        assertTrue(dto.isJoined());
+        assertEquals(pid, dto.getProjectId());
     }
 }
