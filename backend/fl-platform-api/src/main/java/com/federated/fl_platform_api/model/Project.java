@@ -171,4 +171,11 @@ public class Project {
 
     public java.util.UUID getActiveRunId() { return activeRunId; }
     public void setActiveRunId(java.util.UUID activeRunId) { this.activeRunId = activeRunId; }
+
+    @Convert(converter = com.federated.fl_platform_api.model.DeviceRequirementsConverter.class)
+    @Column(name = "requirements_override", columnDefinition = "TEXT")
+    private com.federated.fl_platform_api.dto.DeviceRequirements requirementsOverride;
+
+    public com.federated.fl_platform_api.dto.DeviceRequirements getRequirementsOverride() { return requirementsOverride; }
+    public void setRequirementsOverride(com.federated.fl_platform_api.dto.DeviceRequirements requirementsOverride) { this.requirementsOverride = requirementsOverride; }
 }
