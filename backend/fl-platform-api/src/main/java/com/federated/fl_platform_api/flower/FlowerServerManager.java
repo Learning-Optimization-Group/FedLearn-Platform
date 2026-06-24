@@ -107,40 +107,9 @@ public class FlowerServerManager {
             String wrapperPath = isFoT ? fotServerWrapperPath : flServerWrapperPath;
             String absoluteScriptPath = new File(wrapperPath).getAbsolutePath();
 
-            List<String> command = new ArrayList<>();
-            String os = System.getProperty("os.name").toLowerCase();
-            if (!os.contains("win")) {
-                command.add("bash");
-            }
-            command.add(absoluteScriptPath);
-
-            if (isFoT) {
-                // FoT has no global model: no model/strategy/min-clients args. round-seconds,
-                // quorum and backend use the entrypoint defaults until exposed in StartProject.
-                command.add("--project-id");
-                command.add(project.getId().toString());
-                command.add("--port");
-                command.add(String.valueOf(freePort));
-                command.add("--num-rounds");
-                command.add(String.valueOf(numRounds));
-            } else {
-                command.add("--project-id");
-                command.add(project.getId().toString());
-                command.add("--model-path");
-                command.add(project.getModelPath());
-                command.add("--port");
-                command.add(String.valueOf(freePort));
-                command.add("--strategy");
-                command.add(strategy);
-                command.add("--num-rounds");
-                command.add(String.valueOf(numRounds));
-                command.add("--model-type");
-                command.add(project.getModelType());
-                command.add("--model-name");
-                command.add(project.getModelName());
-                command.add("--min-clients");
-                command.add(String.valueOf(minClients));
-            }
+            boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+            List<String> command = buildServerCommand(
+                    project, strategy, numRounds, minClients, freePort, absoluteScriptPath, isWindows);
 
             ProcessBuilder pb = new ProcessBuilder(command);
 
@@ -232,6 +201,48 @@ public class FlowerServerManager {
                 releasePort(freePort);
             }
         }
+    }
+
+    /** Build the fl_server (or FoT) launch command. LLM_LORA carries --aggregation FFA_LORA. */
+    static List<String> buildServerCommand(Project project, String strategy, Integer numRounds,
+                                           Integer minClients, int freePort, String absoluteScriptPath,
+                                           boolean isWindows) {
+        boolean isFoT = "FoT".equalsIgnoreCase(strategy);
+        List<String> command = new ArrayList<>();
+        if (!isWindows) {
+            command.add("bash");
+        }
+        command.add(absoluteScriptPath);
+        if (isFoT) {
+            command.add("--project-id");
+            command.add(project.getId().toString());
+            command.add("--port");
+            command.add(String.valueOf(freePort));
+            command.add("--num-rounds");
+            command.add(String.valueOf(numRounds));
+        } else {
+            command.add("--project-id");
+            command.add(project.getId().toString());
+            command.add("--model-path");
+            command.add(project.getModelPath());
+            command.add("--port");
+            command.add(String.valueOf(freePort));
+            command.add("--strategy");
+            command.add(strategy);
+            command.add("--num-rounds");
+            command.add(String.valueOf(numRounds));
+            command.add("--model-type");
+            command.add(project.getModelType());
+            command.add("--model-name");
+            command.add(project.getModelName());
+            command.add("--min-clients");
+            command.add(String.valueOf(minClients));
+            if ("LLM_LORA".equalsIgnoreCase(project.getModelType())) {
+                command.add("--aggregation");
+                command.add("FFA_LORA");
+            }
+        }
+        return command;
     }
 
     public boolean stopServerForProject(UUID projectId) {

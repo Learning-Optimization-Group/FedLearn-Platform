@@ -28,22 +28,9 @@ public class ModelInitializer {
         File scriptFile = new File(initModelWrapperPath);
         String absoluteScriptPath = scriptFile.getAbsolutePath();
 
-        List<String> command = new ArrayList<>();
-        String os = System.getProperty("os.name").toLowerCase();
-        if (!os.contains("win")) {
-            command.add("bash");
-        }
-        command.add(absoluteScriptPath);
-        command.add("--model-type");
-        command.add(modelType);
-        command.add("--model-name");
-        command.add(modelName);
-        command.add("--optimizer");
-        command.add(optimizer);
-        command.add("--out");
-        command.add(outputPath);
-        command.add("--pretrain-epochs");
-        command.add(String.valueOf(pretrainEpochs));
+        boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+        List<String> command = buildInitCommand(
+                modelType, modelName, optimizer, outputPath, pretrainEpochs, absoluteScriptPath, isWindows);
 
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(new File("."));
@@ -70,5 +57,31 @@ public class ModelInitializer {
         }
 
         log.info("Model file initialized at {}", outputPath);
+    }
+
+    /** Build the init_model launch command. LLM_LORA carries --aggregation FFA_LORA. */
+    static List<String> buildInitCommand(String modelType, String modelName, String optimizer,
+                                         String outputPath, int pretrainEpochs, String absoluteScriptPath,
+                                         boolean isWindows) {
+        List<String> command = new ArrayList<>();
+        if (!isWindows) {
+            command.add("bash");
+        }
+        command.add(absoluteScriptPath);
+        command.add("--model-type");
+        command.add(modelType);
+        command.add("--model-name");
+        command.add(modelName);
+        command.add("--optimizer");
+        command.add(optimizer);
+        command.add("--out");
+        command.add(outputPath);
+        command.add("--pretrain-epochs");
+        command.add(String.valueOf(pretrainEpochs));
+        if ("LLM_LORA".equalsIgnoreCase(modelType)) {
+            command.add("--aggregation");
+            command.add("FFA_LORA");
+        }
+        return command;
     }
 }

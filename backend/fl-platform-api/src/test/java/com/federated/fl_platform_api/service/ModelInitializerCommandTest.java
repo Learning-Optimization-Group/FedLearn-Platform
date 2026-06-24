@@ -1,0 +1,24 @@
+package com.federated.fl_platform_api.service;
+
+import org.junit.jupiter.api.Test;
+import java.util.List;
+import static org.junit.jupiter.api.Assertions.*;
+
+class ModelInitializerCommandTest {
+
+    @Test
+    void llmLoraInitCommandCarriesFfaAggregation() {
+        List<String> cmd = ModelInitializer.buildInitCommand(
+                "LLM_LORA", "qwen2.5-0.5b", "AdamW", "/tmp/out.npz", 0, "/x/run_init_model.sh", false);
+        assertTrue(cmd.contains("--aggregation"));
+        assertEquals("FFA_LORA", cmd.get(cmd.indexOf("--aggregation") + 1));
+        assertEquals("LLM_LORA", cmd.get(cmd.indexOf("--model-type") + 1));
+    }
+
+    @Test
+    void nonLlmLoraInitCommandHasNoAggregationFlag() {
+        List<String> cmd = ModelInitializer.buildInitCommand(
+                "CNN", "net", "Adam", "/tmp/out.npz", 0, "/x/run_init_model.sh", false);
+        assertFalse(cmd.contains("--aggregation"));
+    }
+}
