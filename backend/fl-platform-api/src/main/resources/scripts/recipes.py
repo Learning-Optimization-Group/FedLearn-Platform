@@ -76,6 +76,20 @@ RECIPE_METADATA = [
         "requirements": {"min_ram_gb": 8, "min_storage_gb": 1.5, "mobile_safe": False,
                          "max_trainable_params": 125000000},
     },
+    {
+        "key": "LLM_LORA",
+        "display_name": "Text LLM (LoRA fine-tune)",
+        "input_kind": "text",
+        "task_type": "SEQ_CLASSIFICATION",
+        "classes": ["negative", "positive"],
+        "base_models": ["qwen2.5-0.5b", "tinyllama-1.1b"],
+        "optimizers": ["AdamW", "Adam"],
+        "lora": {"r": 8, "alpha": 16, "dropout": 0.05,
+                 "target_modules": ["q_proj", "v_proj"]},
+        "aggregation": "FFA_LORA",
+        "requirements": {"min_ram_gb": 8, "min_storage_gb": 2, "mobile_safe": False,
+                         "max_trainable_params": 2000000, "min_os_android": 0, "min_os_ios": "0"},
+    },
 ]
 
 _METADATA_BY_KEY = {r["key"]: r for r in RECIPE_METADATA}
@@ -313,6 +327,108 @@ def load_pneumonia_server_test_data(batch_size=32):
 
 
 # ---------------------------------------------------------------------------
+# LLM_LORA — federated LoRA sequence classification (Qwen2.5-0.5B / TinyLlama).
+# ---------------------------------------------------------------------------
+LLM_LORA_BASE_MODELS = {
+    "qwen2.5-0.5b": "Qwen/Qwen2.5-0.5B",
+    "tinyllama-1.1b": "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T",
+}
+LLM_LORA_HEAD = "score"  # *ForSequenceClassification head attr
+
+
+def _resolve_llm_base(model_name):
+    """Token (e.g. 'qwen2.5-0.5b') -> HF id. FEDLEARN_LLM_LORA_BASE overrides (tests/offline)."""
+    override = os.environ.get("FEDLEARN_LLM_LORA_BASE")
+    if override:
+        return override
+    key = (model_name or "qwen2.5-0.5b").lower()
+    if key not in LLM_LORA_BASE_MODELS:
+        raise ValueError(f"Unknown LLM_LORA base '{model_name}'. Known: {sorted(LLM_LORA_BASE_MODELS)}")
+    return LLM_LORA_BASE_MODELS[key]
+
+
+def apply_lora(base_model, lora_cfg, aggregation):
+    """Wrap a *ForSequenceClassification model with LoRA; under FFA_LORA freeze every lora_A."""
+    from peft import LoraConfig, get_peft_model
+    cfg = LoraConfig(
+        r=lora_cfg["r"], lora_alpha=lora_cfg["alpha"], lora_dropout=lora_cfg["dropout"],
+        bias="none", task_type="SEQ_CLS",
+        target_modules=list(lora_cfg["target_modules"]),
+        modules_to_save=[LLM_LORA_HEAD],
+    )
+    model = get_peft_model(base_model, cfg)
+    if aggregation == "FFA_LORA":
+        for n, p in model.named_parameters():
+            if "lora_A" in n:
+                p.requires_grad = False
+    return model
+
+
+def _load_llm_tokenizer(model_name=None):
+    """Load and configure the tokenizer for the given LLM_LORA base model."""
+    from transformers import AutoTokenizer
+    tok = AutoTokenizer.from_pretrained(_resolve_llm_base(model_name))
+    if tok.pad_token is None:
+        tok.pad_token = tok.eos_token
+    return tok
+
+
+def llm_lora_adapter_keys(model, aggregation):
+    """Keys the CLIENT uploads: FFA -> B+head; FEDIT -> A+B+head. Substring-matched."""
+    from peft import get_peft_model_state_dict
+    keep = set()
+    for k in get_peft_model_state_dict(model, save_embedding_layers=False):
+        is_a = "lora_A" in k
+        is_b = "lora_B" in k
+        # head appears as '...score...' (compact) or '...modules_to_save...' across peft versions
+        is_head = (LLM_LORA_HEAD in k) or ("modules_to_save" in k)
+        if aggregation == "FFA_LORA":
+            if is_b or is_head:
+                keep.add(k)
+        else:  # FEDIT
+            if is_a or is_b or is_head:
+                keep.add(k)
+    return keep
+
+
+def _sst2_tokenize(split, max_length=64, model_name=None):
+    from datasets import load_dataset
+    tok = _load_llm_tokenizer(model_name)
+    ds = load_dataset("glue", "sst2", split=split)
+    cap = os.environ.get("FEDLEARN_LLM_LORA_SUBSET")
+    if cap is not None:
+        ds = ds.select(range(min(int(cap), len(ds))))
+
+    def _tok(ex):
+        out = tok(ex["sentence"], padding="max_length", truncation=True, max_length=max_length)
+        out["labels"] = ex["label"]
+        return out
+
+    return ds.map(_tok, batched=True, remove_columns=ds.column_names).with_format("torch")
+
+
+def load_sst2_client_data(partition_id, num_clients, batch_size=8, seed=42, **kw):
+    import numpy as np
+    from torch.utils.data import DataLoader, Subset
+    ds = _sst2_tokenize("train")
+    n = len(ds)
+    if not (0 <= partition_id < num_clients):
+        raise ValueError(f"partition_id {partition_id} out of range for {num_clients} clients")
+    perm = np.random.default_rng(seed).permutation(n)
+    shard = perm[partition_id::num_clients]  # deterministic, disjoint round-robin shards
+    if len(shard) == 0:
+        raise ValueError(f"client {partition_id} got an empty SST-2 shard")
+    train = DataLoader(Subset(ds, shard.tolist()), batch_size=batch_size, shuffle=True, num_workers=0)
+    return train, None
+
+
+def load_sst2_server_test_data(batch_size=16, **kw):
+    from torch.utils.data import DataLoader
+    ds = _sst2_tokenize("validation")  # test labels are -1 -> unusable
+    return DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=0)
+
+
+# ---------------------------------------------------------------------------
 # Recipe dispatch object (used by the FL scripts).
 # ---------------------------------------------------------------------------
 class Recipe:
@@ -323,31 +439,51 @@ class Recipe:
         self.classes = list(meta["classes"])
         self.base_models = list(meta["base_models"])
         self.optimizers = list(meta["optimizers"])
+        self.task_type = meta.get("task_type")
+        self.lora = meta.get("lora")
 
     @property
     def is_functional(self):
         """Whether this recipe's model/data live in recipes.py (vs legacy scripts)."""
-        return self.key == "PNEUMONIA_CNN"
+        return self.key in ("PNEUMONIA_CNN", "LLM_LORA")
 
-    def build_model(self, device="cpu"):
+    def build_model(self, device="cpu", model_name=None, aggregation="FFA_LORA"):
         if self.key == "PNEUMONIA_CNN":
             return build_pneumonia_cnn().to(device)
+        if self.key == "LLM_LORA":
+            from transformers import AutoModelForSequenceClassification
+            base_id = _resolve_llm_base(model_name)
+            tok = _load_llm_tokenizer(model_name)
+            base = AutoModelForSequenceClassification.from_pretrained(
+                base_id, num_labels=len(self.classes))
+            base.config.pad_token_id = tok.pad_token_id
+            model = apply_lora(base, self.lora, aggregation)
+            return model.to(device)
         raise NotImplementedError(f"build_model not implemented in recipes.py for {self.key}")
 
     def input_transform(self):
         if self.key == "PNEUMONIA_CNN":
             return pneumonia_transform()
+        if self.key == "LLM_LORA":
+            return _load_llm_tokenizer(None)
         raise NotImplementedError(f"input_transform not implemented in recipes.py for {self.key}")
 
     def load_client_data(self, partition_id, num_clients, **kw):
         if self.key == "PNEUMONIA_CNN":
             return load_pneumonia_client_data(partition_id, num_clients, **kw)
+        if self.key == "LLM_LORA":
+            return load_sst2_client_data(partition_id, num_clients, **kw)
         raise NotImplementedError(f"load_client_data not implemented in recipes.py for {self.key}")
 
     def load_server_test_data(self, **kw):
         if self.key == "PNEUMONIA_CNN":
             return load_pneumonia_server_test_data(**kw)
+        if self.key == "LLM_LORA":
+            return load_sst2_server_test_data(**kw)
         raise NotImplementedError(f"load_server_test_data not implemented in recipes.py for {self.key}")
+
+    def adapter_keys(self, model, aggregation):
+        return llm_lora_adapter_keys(model, aggregation)
 
 
 def get_recipe(key):
