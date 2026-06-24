@@ -10,7 +10,6 @@ import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.RunRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,9 +27,6 @@ public class ClientApiService {
     @Autowired private RunService runService;
     @Autowired private AuthorizationService authz;
     @Autowired private com.federated.fl_platform_api.security.OrgScope orgScope;
-
-    @Value("${app.fl-server.grpc-host:localhost}")
-    private String grpcHost;
 
     public List<ClientProjectDto> listForCurrentUser() {
         User self = authz.currentUser();

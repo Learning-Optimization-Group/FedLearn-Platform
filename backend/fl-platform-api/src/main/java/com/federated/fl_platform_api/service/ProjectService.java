@@ -22,7 +22,6 @@ import com.federated.fl_platform_api.repository.RoundResultRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -71,9 +70,6 @@ public class ProjectService {
     private ModelRecipeService modelRecipeService;
     @Autowired
     private RunService runService;
-
-    @Value("${app.fl-server.grpc-host:localhost}")
-    private String grpcHost;
 
     /**
      * Default org UUID seeded by the V5 migration — the single transitional
@@ -207,11 +203,12 @@ public class ProjectService {
                 ? request.getClientsPerRound()
                 : minClients;
 
-        Run run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound);
-        project.setActiveRunId(run.getId());
-        projectRepository.save(project);
-
+        Run run = null;
         try {
+            run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound);
+            project.setActiveRunId(run.getId());
+            projectRepository.save(project);
+
             Optional<Integer> port = flowerServerManager.startServerForProject(
                     project, strategyToUse, numRoundsToUse, minClients);
             project.setServerPort(port.orElse(null));
@@ -226,7 +223,7 @@ public class ProjectService {
                     projectId, run.getId(), port.orElse(null));
             return convertToDto(updatedProject);
         } catch (RuntimeException ex) {
-            runService.markFailed(run.getId());
+            if (run != null) { runService.markFailed(run.getId()); }
             throw ex;
         }
     }
