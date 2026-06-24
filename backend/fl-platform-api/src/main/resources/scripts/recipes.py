@@ -42,6 +42,8 @@ RECIPE_METADATA = [
         "classes": ["NORMAL", "PNEUMONIA"],
         "base_models": ["pneumonia_cnn"],
         "optimizers": ["Adam", "SGD", "AdamW", "RMSprop"],
+        "requirements": {"min_ram_gb": 4, "min_storage_gb": 0.2, "mobile_safe": True,
+                         "max_trainable_params": 5000000, "min_os_android": 27, "min_os_ios": "13.0"},
     },
     {
         "key": "CNN",
@@ -51,6 +53,8 @@ RECIPE_METADATA = [
                     "dog", "frog", "horse", "ship", "truck"],
         "base_models": ["net", "ResNet", "VGGNet", "AlexNet"],
         "optimizers": ["Adam", "SGD", "RMSprop", "AdamW"],
+        "requirements": {"min_ram_gb": 2, "min_storage_gb": 0.1, "mobile_safe": True,
+                         "max_trainable_params": 1000000},
     },
     {
         "key": "MLP",
@@ -59,6 +63,8 @@ RECIPE_METADATA = [
         "classes": ["Normal", "Abnormal"],
         "base_models": ["ecg_mlp"],
         "optimizers": ["Adam", "AdamW", "SGD"],
+        "requirements": {"min_ram_gb": 2, "min_storage_gb": 0.05, "mobile_safe": True,
+                         "max_trainable_params": 200000},
     },
     {
         "key": "TRANSFORMER",
@@ -67,6 +73,8 @@ RECIPE_METADATA = [
         "classes": [],
         "base_models": ["opt-125m", "bert-tiny"],
         "optimizers": ["AdamW", "Adam"],
+        "requirements": {"min_ram_gb": 8, "min_storage_gb": 1.5, "mobile_safe": False,
+                         "max_trainable_params": 125000000},
     },
 ]
 

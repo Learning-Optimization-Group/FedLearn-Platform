@@ -24,6 +24,7 @@ public record ModelRecipeDto(
         @JsonProperty("inputKind") @JsonAlias("input_kind") String inputKind,
         @JsonProperty("classes") List<String> classes,
         @JsonProperty("baseModels") @JsonAlias("base_models") List<String> baseModels,
-        @JsonProperty("optimizers") List<String> optimizers
+        @JsonProperty("optimizers") List<String> optimizers,
+        @JsonProperty("requirements") DeviceRequirements requirements
 ) {
 }

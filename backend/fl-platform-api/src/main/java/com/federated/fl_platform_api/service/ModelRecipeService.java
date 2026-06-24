@@ -2,6 +2,7 @@ package com.federated.fl_platform_api.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.federated.fl_platform_api.dto.DeviceRequirements;
 import com.federated.fl_platform_api.dto.ModelRecipeDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -151,25 +152,28 @@ public class ModelRecipeService {
     // Abnormal], TRANSFORMER=text (no fixed labels), PNEUMONIA_CNN=image/[NORMAL,
     // PNEUMONIA].
 
+    private static final DeviceRequirements FALLBACK_REQUIREMENTS =
+            new DeviceRequirements(2.0, 0.1, null, null, Boolean.FALSE, null, null, null, null, null, null);
+
     private List<ModelRecipeDto> fallbackRecipes() {
         return List.of(
                 new ModelRecipeDto(
                         "CNN", "CNN (CIFAR-10)", "image",
                         List.of("airplane", "automobile", "bird", "cat", "deer",
                                 "dog", "frog", "horse", "ship", "truck"),
-                        List.of(), List.of()),
+                        List.of(), List.of(), FALLBACK_REQUIREMENTS),
                 new ModelRecipeDto(
                         "MLP", "MLP", "vector",
                         List.of("Normal", "Abnormal"),
-                        List.of(), List.of()),
+                        List.of(), List.of(), FALLBACK_REQUIREMENTS),
                 new ModelRecipeDto(
                         "TRANSFORMER", "Transformer", "text",
                         List.of(),
-                        List.of(), List.of()),
+                        List.of(), List.of(), FALLBACK_REQUIREMENTS),
                 new ModelRecipeDto(
                         "PNEUMONIA_CNN", "Pneumonia CNN", "image",
                         List.of("NORMAL", "PNEUMONIA"),
-                        List.of(), List.of())
+                        List.of(), List.of(), FALLBACK_REQUIREMENTS)
         );
     }
 }
