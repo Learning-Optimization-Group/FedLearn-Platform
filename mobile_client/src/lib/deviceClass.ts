@@ -3,7 +3,10 @@
 // The 100M tier is NEVER offered on a phone: its ~2 GB transient zeroth-order working set OOMs
 // mid-tier Android, and ~100 forward passes/round means minutes/round (15-LLD §10). 100M is a
 // benchmark artifact, not a deployable mobile config — demote it to the server/desktop tier.
+import { Platform } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
+import NativeFedLearnCore from '@spec/NativeFedLearnCore';
+import type { DeviceCapabilities } from './deviceCapabilities.types';
 
 export type ModelTier = '1M' | '10M' | '100M';
 
@@ -26,4 +29,32 @@ export function isTierAllowed(tier: ModelTier, maxTier: ModelTier): boolean {
   if (tier === '100M') return false; // hard rule: never on mobile
   const order: ModelTier[] = ['1M', '10M', '100M'];
   return order.indexOf(tier) <= order.indexOf(maxTier);
+}
+
+/**
+ * Collects this phone's capabilities for the eligibility self-gate. Each source
+ * is independently fault-tolerant: a failed native call yields `undefined` for
+ * that field (the eligibility rule treats undefined as "unknown" — soft, never a
+ * hard failure). onWifi/npuTops have no source on mobile today → undefined.
+ */
+export async function collectDeviceCapabilities(): Promise<DeviceCapabilities> {
+  const [totalBytes, freeBytes, metrics] = await Promise.all([
+    DeviceInfo.getTotalMemory().catch(() => 0),
+    DeviceInfo.getFreeDiskStorage().catch(() => undefined as number | undefined),
+    NativeFedLearnCore.getDeviceMetrics().catch(() => null),
+  ]);
+  const ramGb = (totalBytes ?? 0) / 1024 ** 3;
+  const freeStorageGb =
+    freeBytes != null && freeBytes >= 0 ? freeBytes / 1024 ** 3 : undefined;
+  const osVersion = DeviceInfo.getSystemVersion(); // SYNC: android "14", ios "17.2"
+  const batteryPct = metrics != null ? Math.round(metrics.batteryLevel * 100) : undefined;
+  return {
+    ramGb,
+    freeStorageGb,
+    osName: Platform.OS as 'android' | 'ios',
+    osVersion,
+    batteryPct,
+    npuTops: undefined,
+    onWifi: undefined,
+  };
 }
