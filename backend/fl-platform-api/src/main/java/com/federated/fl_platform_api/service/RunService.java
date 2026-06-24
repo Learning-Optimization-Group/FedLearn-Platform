@@ -1,7 +1,9 @@
 package com.federated.fl_platform_api.service;
 
+import com.federated.fl_platform_api.dto.EnrollmentDto;
 import com.federated.fl_platform_api.dto.RunManifestDto;
 import com.federated.fl_platform_api.dto.RunStatusDto;
+import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.model.*;
 import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
@@ -125,6 +127,57 @@ public class RunService {
     String endpoint(Run run) {
         String host = run.getServerHost() != null ? run.getServerHost() : grpcHost;
         return host + ":" + run.getServerPort();
+    }
+
+    @Transactional
+    public EnrollmentDto enroll(UUID runId) {
+        Run run = runRepository.lockById(runId)
+                .orElseThrow(() -> new ResourceNotFoundException("Run not found: " + runId));
+        Project project = projectRepository.findById(run.getProjectId())
+                .orElseThrow(() -> ResourceNotFoundException.project(run.getProjectId()));
+        authz.requireOrgScope(project.getOrgId());
+        User self = authz.currentUser();
+        requireOwnerOrClient(project, self);
+
+        if (run.getStatus() != RunStatus.RUNNING || run.getServerPort() == null) {
+            throw new ProjectStateException(
+                    "Run is not currently running (status=" + run.getStatus() + ")");
+        }
+
+        RunEnrollment enrollment = enrollmentRepository
+                .findByIdRunIdAndIdUserId(runId, self.getId())
+                .orElse(null);
+        if (enrollment == null) {
+            int next = enrollmentRepository.maxPartitionIdForRun(runId) + 1;
+            if (run.getPartitioningMode() == PartitioningMode.SHARDED
+                    && next >= run.getClientsPerRound()) {
+                throw new ProjectStateException(
+                        "Run is full (K=" + run.getClientsPerRound() + ")");
+            }
+            ClientKind kind = run.getPartitioningMode() == PartitioningMode.LOCAL
+                    ? ClientKind.LOCAL : ClientKind.SHARD;
+            enrollment = new RunEnrollment(
+                    new RunEnrollmentId(runId, self.getId()), next, kind, Instant.now());
+        }
+        enrollment.setTokenIssuedAt(Instant.now());
+        enrollment = enrollmentRepository.save(enrollment);
+
+        String grpcEndpoint = endpoint(run);
+        ConnectionTokenService.Minted minted = tokenService.mint(new ConnectionTokenService.Claims(
+                self.getId(), runId, project.getId(), enrollment.getPartitionId(),
+                grpcEndpoint, run.getGrpcCaFingerprint(), enrollment.getClientKind().name()));
+
+        EnrollmentDto dto = new EnrollmentDto();
+        dto.setRunId(runId);
+        dto.setProjectId(project.getId());
+        dto.setGrpcEndpoint(grpcEndpoint);
+        dto.setPartitionId(enrollment.getPartitionId());
+        dto.setClientKind(enrollment.getClientKind().name());
+        dto.setCaFingerprint(run.getGrpcCaFingerprint());
+        dto.setConnectionToken(minted.token());
+        dto.setExpiresAt(minted.expiresAt());
+        dto.setManifest(toManifest(run));
+        return dto;
     }
 
     /** Loads a run and enforces org-scope + owner-or-CLIENT participation. */

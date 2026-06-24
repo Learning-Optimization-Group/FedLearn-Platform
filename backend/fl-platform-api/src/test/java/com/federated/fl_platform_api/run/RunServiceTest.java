@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.run;
 
+import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.model.*;
 import com.federated.fl_platform_api.repository.*;
@@ -230,6 +231,114 @@ class RunServiceTest {
         assertEquals(42L, dto.getSeed());
         assertEquals(rid, dto.getRunId());
         assertEquals(pid, dto.getProjectId());
+    }
+
+    // ─── enroll tests ──────────────────────────────────────────────────────────
+
+    private Run runningRun(UUID rid, UUID pid, int k, PartitioningMode mode) {
+        Run r = new Run();
+        r.setId(rid); r.setProjectId(pid);
+        r.setStatus(RunStatus.RUNNING); r.setServerHost("localhost"); r.setServerPort(50005);
+        r.setClientsPerRound(k); r.setPartitioningMode(mode);
+        r.setStrategy("FedAvg"); r.setNumRounds(5); r.setRecipeKey("CNN");
+        return r;
+    }
+
+    @Test
+    void enroll_firstClientGetsPartitionZero() {
+        UUID rid = UUID.randomUUID(); UUID pid = UUID.randomUUID();
+        Project p = project(pid); User u = new User(); u.setId(7L);
+        Run r = runningRun(rid, pid, 4, PartitioningMode.SHARDED);
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+        when(enrollmentRepository.findByIdRunIdAndIdUserId(rid, 7L)).thenReturn(java.util.Optional.empty());
+        when(enrollmentRepository.maxPartitionIdForRun(rid)).thenReturn(-1);
+        when(enrollmentRepository.save(any(RunEnrollment.class))).thenAnswer(i -> i.getArgument(0));
+        when(tokenService.mint(any())).thenReturn(
+                new ConnectionTokenService.Minted("tok", java.time.Instant.now().plusSeconds(120)));
+
+        var dto = runService.enroll(rid);
+        assertEquals(0, dto.getPartitionId());
+        assertEquals("localhost:50005", dto.getGrpcEndpoint());
+        assertEquals("tok", dto.getConnectionToken());
+        assertEquals("SHARD", dto.getClientKind());
+        assertNotNull(dto.getManifest());
+    }
+
+    @Test
+    void enroll_isIdempotentForSameUser() {
+        UUID rid = UUID.randomUUID(); UUID pid = UUID.randomUUID();
+        Project p = project(pid); User u = new User(); u.setId(7L);
+        Run r = runningRun(rid, pid, 4, PartitioningMode.SHARDED);
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+        RunEnrollment existing = new RunEnrollment(new RunEnrollmentId(rid, 7L), 2, ClientKind.SHARD, java.time.Instant.now());
+        when(enrollmentRepository.findByIdRunIdAndIdUserId(rid, 7L)).thenReturn(java.util.Optional.of(existing));
+        when(enrollmentRepository.save(any(RunEnrollment.class))).thenAnswer(i -> i.getArgument(0));
+        when(tokenService.mint(any())).thenReturn(
+                new ConnectionTokenService.Minted("tok2", java.time.Instant.now().plusSeconds(120)));
+
+        var dto = runService.enroll(rid);
+        assertEquals(2, dto.getPartitionId());            // reuses existing partition
+        verify(enrollmentRepository, never()).maxPartitionIdForRun(rid);
+    }
+
+    @Test
+    void enroll_shardedRejectsWhenFull() {
+        UUID rid = UUID.randomUUID(); UUID pid = UUID.randomUUID();
+        Project p = project(pid); User u = new User(); u.setId(9L);
+        Run r = runningRun(rid, pid, 2, PartitioningMode.SHARDED); // K=2, next would be 2 -> full
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 9L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+        when(enrollmentRepository.findByIdRunIdAndIdUserId(rid, 9L)).thenReturn(java.util.Optional.empty());
+        when(enrollmentRepository.maxPartitionIdForRun(rid)).thenReturn(1); // next = 2 == K
+
+        assertThrows(ProjectStateException.class, () -> runService.enroll(rid));
+    }
+
+    @Test
+    void enroll_localModeIsUncapped() {
+        UUID rid = UUID.randomUUID(); UUID pid = UUID.randomUUID();
+        Project p = project(pid); User u = new User(); u.setId(9L);
+        Run r = runningRun(rid, pid, 1, PartitioningMode.LOCAL); // K=1 but LOCAL => no cap
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 9L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+        when(enrollmentRepository.findByIdRunIdAndIdUserId(rid, 9L)).thenReturn(java.util.Optional.empty());
+        when(enrollmentRepository.maxPartitionIdForRun(rid)).thenReturn(5);
+        when(enrollmentRepository.save(any(RunEnrollment.class))).thenAnswer(i -> i.getArgument(0));
+        when(tokenService.mint(any())).thenReturn(
+                new ConnectionTokenService.Minted("tok", java.time.Instant.now().plusSeconds(120)));
+
+        var dto = runService.enroll(rid);
+        assertEquals(6, dto.getPartitionId());
+        assertEquals("LOCAL", dto.getClientKind());
+    }
+
+    @Test
+    void enroll_rejectsWhenRunNotRunning() {
+        UUID rid = UUID.randomUUID(); UUID pid = UUID.randomUUID();
+        Project p = project(pid); User u = new User(); u.setId(9L);
+        Run r = runningRun(rid, pid, 4, PartitioningMode.SHARDED);
+        r.setStatus(RunStatus.STARTING); r.setServerPort(null);
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 9L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+
+        assertThrows(ProjectStateException.class, () -> runService.enroll(rid));
     }
 
     // helper
