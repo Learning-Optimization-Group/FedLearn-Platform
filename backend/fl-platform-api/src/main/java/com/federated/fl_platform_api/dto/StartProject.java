@@ -35,6 +35,10 @@ public class StartProject {
     @Max(value = 100, message = "minClients must be at most 100")
     private Integer minClients;
 
+    @Min(value = 1, message = "clientsPerRound must be at least 1")
+    @Max(value = 100, message = "clientsPerRound must be at most 100")
+    private Integer clientsPerRound;
+
     public String getStrategy() {
         return strategy;
     }
@@ -59,12 +63,21 @@ public class StartProject {
         this.minClients = minClients;
     }
 
+    public Integer getClientsPerRound() {
+        return clientsPerRound;
+    }
+
+    public void setClientsPerRound(Integer clientsPerRound) {
+        this.clientsPerRound = clientsPerRound;
+    }
+
     @Override
     public String toString() {
         return "StartProject{" +
                 "strategy='" + strategy + '\'' +
                 ", numRounds=" + numRounds +
                 ", minClients=" + minClients +
+                ", clientsPerRound=" + clientsPerRound +
                 '}';
     }
 }

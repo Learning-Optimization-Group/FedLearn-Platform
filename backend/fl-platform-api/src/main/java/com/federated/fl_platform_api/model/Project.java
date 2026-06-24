@@ -165,4 +165,10 @@ public class Project {
 
     public UUID getOrgId() { return orgId; }
     public void setOrgId(UUID orgId) { this.orgId = orgId; }
+
+    @Column(name = "active_run_id")
+    private java.util.UUID activeRunId;
+
+    public java.util.UUID getActiveRunId() { return activeRunId; }
+    public void setActiveRunId(java.util.UUID activeRunId) { this.activeRunId = activeRunId; }
 }

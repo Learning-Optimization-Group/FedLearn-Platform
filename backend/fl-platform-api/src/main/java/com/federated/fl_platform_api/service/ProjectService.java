@@ -10,6 +10,7 @@ import com.federated.fl_platform_api.model.MembershipRole;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.ProjectMembership;
 import com.federated.fl_platform_api.model.ProjectVisibility;
+import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.model.RoundResult;
 import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.OrganizationMembershipRepository;
@@ -21,6 +22,7 @@ import com.federated.fl_platform_api.repository.RoundResultRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -67,6 +69,11 @@ public class ProjectService {
     private com.federated.fl_platform_api.security.OrgScope orgScope;
     @Autowired
     private ModelRecipeService modelRecipeService;
+    @Autowired
+    private RunService runService;
+
+    @Value("${app.fl-server.grpc-host:localhost}")
+    private String grpcHost;
 
     /**
      * Default org UUID seeded by the V5 migration — the single transitional
@@ -196,23 +203,32 @@ public class ProjectService {
                             + " on port " + project.getServerPort());
         }
 
-        Optional<Integer> port = flowerServerManager.startServerForProject(
-                project, strategyToUse, numRoundsToUse, minClients);
-        project.setServerPort(port.orElse(null));
-        project.setStatus("RUNNING");
+        int clientsPerRound = (request != null && request.getClientsPerRound() != null)
+                ? request.getClientsPerRound()
+                : minClients;
 
-        Project updatedProject = projectRepository.save(project);
+        Run run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound);
+        project.setActiveRunId(run.getId());
+        projectRepository.save(project);
 
-        ProjectStatusUpdateDto update = new ProjectStatusUpdateDto(
-                updatedProject.getId(), "RUNNING", updatedProject.getServerPort());
-        webSocketService.sendStatusUpdate(update);
-        if (port.isPresent()) {
-            log.info("Started FL server for project {} on port {}", projectId, port.get());
-        } else {
-            log.info("Started FL server for project {} on ECS (port managed externally)", projectId);
+        try {
+            Optional<Integer> port = flowerServerManager.startServerForProject(
+                    project, strategyToUse, numRoundsToUse, minClients);
+            project.setServerPort(port.orElse(null));
+            project.setStatus("RUNNING");
+            Project updatedProject = projectRepository.save(project);
+            runService.markRunning(run.getId(), port.orElse(null));
+
+            ProjectStatusUpdateDto update = new ProjectStatusUpdateDto(
+                    updatedProject.getId(), "RUNNING", updatedProject.getServerPort());
+            webSocketService.sendStatusUpdate(update);
+            log.info("Started FL server for project {} (run {}) on port {}",
+                    projectId, run.getId(), port.orElse(null));
+            return convertToDto(updatedProject);
+        } catch (RuntimeException ex) {
+            runService.markFailed(run.getId());
+            throw ex;
         }
-
-        return convertToDto(updatedProject);
     }
 
     @Transactional
@@ -232,6 +248,10 @@ public class ProjectService {
             log.info("Stopped FL server for project {}", projectId);
         } else {
             log.debug("No running server found for project {}; nothing to stop", projectId);
+        }
+
+        if (finalProjectState.getActiveRunId() != null) {
+            runService.markStopped(finalProjectState.getActiveRunId());
         }
 
         return convertToDto(finalProjectState);
@@ -279,6 +299,10 @@ public class ProjectService {
         project.setStatus("COMPLETED");
         project.setServerPort(null);
         projectRepository.save(project);
+
+        if (project.getActiveRunId() != null) {
+            runService.markCompleted(project.getActiveRunId());
+        }
 
         webSocketService.sendStatusUpdate(
                 new ProjectStatusUpdateDto(project.getId(), "COMPLETED", null));

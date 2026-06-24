@@ -9,6 +9,7 @@ import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.service.ProjectService;
+import com.federated.fl_platform_api.service.RunService;
 import com.federated.fl_platform_api.service.WebSocketService;
 import com.federated.fl_platform_api.repository.RoundResultRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +59,9 @@ class ProjectServiceTest {
 
     @Mock
     private com.federated.fl_platform_api.security.OrgScope orgScope;
+
+    @Mock
+    private RunService runService;
 
     @InjectMocks
     private ProjectService projectService;

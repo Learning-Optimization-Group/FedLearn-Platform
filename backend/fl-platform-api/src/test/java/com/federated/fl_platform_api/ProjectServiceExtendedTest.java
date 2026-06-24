@@ -4,12 +4,14 @@ import com.federated.fl_platform_api.dto.ProjectResponseDto;
 import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.flower.FlowerServerManager;
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.RoundResultRepository;
 import com.federated.fl_platform_api.repository.ServerLogRepository;
 import com.federated.fl_platform_api.service.ModelInitializer;
 import com.federated.fl_platform_api.service.ProjectService;
+import com.federated.fl_platform_api.service.RunService;
 import com.federated.fl_platform_api.service.WebSocketService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,7 @@ class ProjectServiceExtendedTest {
     @Mock private com.federated.fl_platform_api.service.AuthorizationService authz;
     @Mock private com.federated.fl_platform_api.repository.ProjectMembershipRepository membershipRepository;
     @Mock private com.federated.fl_platform_api.security.OrgScope orgScope;
+    @Mock private RunService runService;
 
     @InjectMocks
     private ProjectService projectService;
