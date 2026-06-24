@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.run;
 
+import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.model.*;
 import com.federated.fl_platform_api.repository.*;
 import com.federated.fl_platform_api.security.ConnectionTokenService;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.UUID;
@@ -136,6 +138,98 @@ class RunServiceTest {
         var dto = runService.getStatus(rid);
         assertEquals("STARTING", dto.getStatus());
         assertNull(dto.getGrpcEndpoint());
+    }
+
+    @Test
+    void getStatus_nonParticipant_throwsAccessDenied() {
+        UUID rid = UUID.randomUUID();
+        UUID pid = UUID.randomUUID();
+        Run r = new Run();
+        r.setId(rid); r.setProjectId(pid);
+        r.setStatus(RunStatus.RUNNING);
+
+        // Project owned by user 2, caller is user 7 (stranger)
+        Project p = project(pid);
+        User owner = new User(); owner.setId(2L);
+        p.setUser(owner);
+
+        User stranger = new User(); stranger.setId(7L);
+
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(stranger);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.empty());
+
+        assertThrows(AccessDeniedException.class, () -> runService.getStatus(rid));
+    }
+
+    @Test
+    void getStatus_memberRoleRejected() {
+        UUID rid = UUID.randomUUID();
+        UUID pid = UUID.randomUUID();
+        Run r = new Run();
+        r.setId(rid); r.setProjectId(pid);
+        r.setStatus(RunStatus.RUNNING);
+
+        // Project owned by user 2, caller is user 7 with MEMBER (not CLIENT) role
+        Project p = project(pid);
+        User owner = new User(); owner.setId(2L);
+        p.setUser(owner);
+
+        User member = new User(); member.setId(7L);
+
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(member);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.of(membership(p, member, MembershipRole.MEMBER)));
+
+        assertThrows(AccessDeniedException.class, () -> runService.getStatus(rid));
+    }
+
+    @Test
+    void getStatus_unknownRun_throwsNotFound() {
+        UUID rid = UUID.randomUUID();
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> runService.getStatus(rid));
+    }
+
+    @Test
+    void getManifest_returnsAllFields() {
+        UUID rid = UUID.randomUUID();
+        UUID pid = UUID.randomUUID();
+
+        Run r = new Run();
+        r.setId(rid); r.setProjectId(pid);
+        r.setStatus(RunStatus.RUNNING);
+        r.setRecipeKey("CNN");
+        r.setStrategy("FedAvg");
+        r.setNumRounds(10);
+        r.setClientsPerRound(4);
+        r.setPartitioningMode(PartitioningMode.SHARDED);
+        r.setSeed(42L);
+
+        Project p = project(pid);
+        User u = new User(); u.setId(7L);
+
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+
+        var dto = runService.getManifest(rid);
+
+        assertEquals("CNN", dto.getRecipeKey());
+        assertEquals("FedAvg", dto.getStrategy());
+        assertEquals(10, dto.getNumRounds());
+        assertEquals(4, dto.getClientsPerRound());
+        assertEquals("SHARDED", dto.getPartitioningMode());
+        assertEquals(42L, dto.getSeed());
+        assertEquals(rid, dto.getRunId());
+        assertEquals(pid, dto.getProjectId());
     }
 
     // helper
