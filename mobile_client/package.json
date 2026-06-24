@@ -14,7 +14,7 @@
   "//": "VERSIONS ARE verify-before-use (02-TECH-STACK.md §17): pin exact via `npm view <pkg> version`. RN 0.8x line, NativeWind 4.x, TypeScript 5.x. react-native-reusables components are copied in (shadcn-style), not an npm dependency.",
   "dependencies": {
     "@react-navigation/bottom-tabs": "^7.0.0",
-    "@react-navigation/native": "^7.0.0",
+    "@react-navigation/native": "^7.3.4",
     "@react-navigation/native-stack": "^7.17.6",
     "axios": "^1.7.0",
     "lucide-react-native": "^0.460.0",
