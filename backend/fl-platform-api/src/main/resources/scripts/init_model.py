@@ -42,7 +42,7 @@ class CnnNet(nn.Module):
         x = self.fc3(x)
         return x
 
-def get_model(model_type: str, model_name: str, device: str):
+def get_model(model_type: str, model_name: str, device: str, aggregation: str = "FFA_LORA"):
     """Returns a model instance based on the user's selection."""
     print(f"Loading model: {model_type} / {model_name}")
     model_type = model_type.upper()
@@ -75,6 +75,12 @@ def get_model(model_type: str, model_name: str, device: str):
             return ECGModel(input_dim=ECG_INPUT_DIM, hidden_dim=ECG_HIDDEN_DIM, num_classes=ECG_NUM_CLASSES).to(device)
         else:
             raise ValueError(f"Unsupported MLP model: {model_name}")
+
+    elif model_type == 'LLM_LORA':
+        import recipes
+        print("Initializing LLM_LORA (LoRA SEQ_CLS adapter)")
+        return recipes.get_recipe('LLM_LORA').build_model(device, model_name=model_name,
+                                                          aggregation=aggregation)
 
     else:
         raise ValueError(f"Unsupported model architecture: {model_type}")
@@ -125,12 +131,14 @@ def main():
     parser.add_argument("--optimizer", type=str, required=True)
     parser.add_argument("--out", type=str, required=True, help="Output path for the .npz file")
     parser.add_argument("--pretrain-epochs", type=int, default=0)
+    parser.add_argument("--aggregation", type=str, default="FFA_LORA",
+                        choices=["FFA_LORA", "FEDIT"], help="LoRA aggregation sub-mode (LLM_LORA only)")
     args = parser.parse_args()
 
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {DEVICE}")
 
-    net = get_model(args.model_type, args.model_name, DEVICE)
+    net = get_model(args.model_type, args.model_name, DEVICE, aggregation=args.aggregation)
     print(f"\n{'='*60}")
     print(f"MODEL ARCHITECTURE CHECK")
     print(f"{'='*60}")
@@ -172,7 +180,11 @@ def main():
 
     print(f"Saving initial model weights...")
     print(f"\nTotal parameters in model:")
-    state_dict = net.state_dict()
+    if args.model_type.upper() == "LLM_LORA":
+        from peft import get_peft_model_state_dict
+        state_dict = get_peft_model_state_dict(net, save_embedding_layers=False)
+    else:
+        state_dict = net.state_dict()
 
     print(f"  Number of tensors: {len(state_dict)}")
     print(f"  First 10 keys:")
