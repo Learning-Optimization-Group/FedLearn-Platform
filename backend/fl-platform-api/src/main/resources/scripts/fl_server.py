@@ -313,7 +313,9 @@ def main():
             from peft import set_peft_model_state_dict
             eval_net = _recipes.get_recipe("LLM_LORA").build_model(
                 DEVICE, model_name=args.model_name, aggregation=args.aggregation)
-            set_peft_model_state_dict(eval_net, parameters)
+            # peft's set_peft_model_state_dict mutates its input dict in-place; copy so the global
+            # adapter params (reused across rounds) are not corrupted during evaluation.
+            set_peft_model_state_dict(eval_net, OrderedDict(parameters))
             eval_net.to(DEVICE)
             eval_net.eval()
         else:

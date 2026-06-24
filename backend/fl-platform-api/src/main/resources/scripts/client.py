@@ -634,7 +634,9 @@ class ZOSLClient(fl.Client):
 
         if USE_LLM_LORA:
             from peft import set_peft_model_state_dict
-            set_peft_model_state_dict(self.net, parameters)
+            # peft's set_peft_model_state_dict mutates its input dict in-place (deletes/remaps
+            # modules_to_save keys) — copy so the caller's parameters dict is not corrupted.
+            set_peft_model_state_dict(self.net, OrderedDict(parameters))
         else:
             self.net.load_state_dict(parameters)
 
