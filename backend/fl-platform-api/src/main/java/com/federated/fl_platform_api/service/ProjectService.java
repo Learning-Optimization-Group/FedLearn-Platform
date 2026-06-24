@@ -80,6 +80,18 @@ public class ProjectService {
      */
     public static final UUID DEFAULT_ORG_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
+    /**
+     * The effective FL strategy for a run. LLM_LORA projects ONLY work under FedLoRA
+     * (FedAvg drops lora_A from the global → server-eval uses a random A); the model
+     * type therefore dictates the strategy. Everything else honors the requested
+     * strategy (or FedAvg by default).
+     */
+    static String resolveStrategy(String modelType, String requestedStrategy) {
+        if ("LLM_LORA".equalsIgnoreCase(modelType)) {
+            return "FedLoRA";
+        }
+        return (requestedStrategy != null && !requestedStrategy.isEmpty()) ? requestedStrategy : "FedAvg";
+    }
 
     private RoundResultDto convertToDto(RoundResult result) {
         RoundResultDto dto = new RoundResultDto();
@@ -175,9 +187,9 @@ public class ProjectService {
         authz.requireOrgScope(project.getOrgId());
         authz.requireOwnerOrAdmin(project);
 
-        String strategyToUse = (request != null && request.getStrategy() != null && !request.getStrategy().isEmpty())
-                ? request.getStrategy()
-                : "FedAvg";
+        String strategyToUse = resolveStrategy(
+                project.getModelType(),
+                request != null ? request.getStrategy() : null);
 
         Integer minClients = (request != null && request.getMinClients() != null)
                 ? request.getMinClients()

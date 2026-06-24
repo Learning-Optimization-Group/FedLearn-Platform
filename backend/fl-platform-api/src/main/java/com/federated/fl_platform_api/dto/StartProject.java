@@ -20,6 +20,8 @@ public class StartProject {
      * the gradient FL server. {@code FoT} (Federation over Text) is a SEPARATE, additive
      * text-federation mode that spawns the standalone {@code fl_fot_server.py} instead. Keep this
      * regex in sync when a strategy/mode is added on the Python side.
+     * <p>
+     * NOTE: FedLoRA is NOT listed here — it is derived server-side for LLM_LORA runs (see ProjectService.resolveStrategy), never user-submitted.
      */
     @Pattern(
             regexp = "FedAvg|DeComFL|FoT",
