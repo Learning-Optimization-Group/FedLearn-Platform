@@ -9,6 +9,7 @@ import com.federated.fl_platform_api.repository.RunRepository;
 import com.federated.fl_platform_api.security.OrgScope;
 import com.federated.fl_platform_api.service.AuthorizationService;
 import com.federated.fl_platform_api.service.ClientApiService;
+import com.federated.fl_platform_api.service.RequirementsService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -32,6 +33,7 @@ class ClientApiServiceTest {
     @Mock com.federated.fl_platform_api.service.RunService runService;
     @Mock AuthorizationService authz;
     @Mock OrgScope orgScope;
+    @Mock RequirementsService requirementsService;
 
     @InjectMocks ClientApiService service;
 
@@ -198,5 +200,25 @@ class ClientApiServiceTest {
 
         assertThrows(com.federated.fl_platform_api.exception.ProjectStateException.class,
                 () -> service.getConnection(pid));
+    }
+
+    @Test
+    void toDto_populatesEffectiveRequirements() {
+        User me = user(1L);
+        when(authz.currentUser()).thenReturn(me);
+        when(orgScope.isUnrestricted()).thenReturn(true);
+        UUID pid = UUID.randomUUID();
+        Project mine = proj(pid, ProjectVisibility.PUBLIC, me);
+        when(projectRepository.findOwnedOrMemberOf(1L)).thenReturn(List.of(mine));
+        when(projectRepository.findDiscoverable(1L)).thenReturn(List.of());
+        com.federated.fl_platform_api.dto.DeviceRequirements req =
+            new com.federated.fl_platform_api.dto.DeviceRequirements(8.0, null, null, null,
+                Boolean.FALSE, null, null, null, null, null, null);
+        when(requirementsService.effectiveFor(mine)).thenReturn(req);
+
+        var out = service.listForCurrentUser();
+        assertEquals(1, out.size());
+        assertEquals(8.0, out.get(0).getRequirements().minRamGb());
+        assertEquals(Boolean.FALSE, out.get(0).getRequirements().mobileSafe());
     }
 }

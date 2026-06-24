@@ -27,6 +27,7 @@ public class ClientApiService {
     @Autowired private RunService runService;
     @Autowired private AuthorizationService authz;
     @Autowired private com.federated.fl_platform_api.security.OrgScope orgScope;
+    @Autowired private RequirementsService requirementsService;
 
     public List<ClientProjectDto> listForCurrentUser() {
         User self = authz.currentUser();
@@ -138,6 +139,7 @@ public class ClientApiService {
             runRepository.findById(p.getActiveRunId()).ifPresent(r ->
                 d.setActiveRun(new ActiveRunDto(r.getId(), r.getStatus().name())));
         }
+        d.setRequirements(requirementsService.effectiveFor(p));
         return d;
     }
 }

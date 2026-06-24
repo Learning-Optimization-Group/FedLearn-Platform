@@ -28,4 +28,7 @@ public class ClientProjectDto {
     public void setRecipeKey(String recipeKey) { this.recipeKey = recipeKey; }
     public ActiveRunDto getActiveRun() { return activeRun; }
     public void setActiveRun(ActiveRunDto activeRun) { this.activeRun = activeRun; }
+    private com.federated.fl_platform_api.dto.DeviceRequirements requirements;
+    public com.federated.fl_platform_api.dto.DeviceRequirements getRequirements() { return requirements; }
+    public void setRequirements(com.federated.fl_platform_api.dto.DeviceRequirements requirements) { this.requirements = requirements; }
 }
