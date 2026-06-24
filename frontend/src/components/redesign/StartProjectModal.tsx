@@ -31,6 +31,8 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
 
   if (!project) return null;
 
+  const isLlmLora = (project?.modelType ?? '').toUpperCase() === 'LLM_LORA';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -71,11 +73,17 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
         {/* Strategy */}
         <div className="flex flex-col gap-1.5">
           <label className={labelClass}>Training method</label>
-          <Select value={strategy} onChange={(e) => setStrategy(e.target.value)}>
-            {STRATEGIES.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
-            ))}
-          </Select>
+          {isLlmLora ? (
+            <div className="rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+              FedLoRA (automatic for LoRA fine-tuning)
+            </div>
+          ) : (
+            <Select value={strategy} onChange={(e) => setStrategy(e.target.value)}>
+              {STRATEGIES.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </Select>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
