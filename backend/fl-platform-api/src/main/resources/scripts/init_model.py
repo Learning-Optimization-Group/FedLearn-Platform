@@ -178,6 +178,10 @@ def main():
             print("--- WARNING: Pre-training not supported for MLP. Ignoring --pretrain-epochs. ---")
         print("--- Initializing MLP with random weights (Xavier initialization). ---")
 
+    elif args.model_type.upper() == "LLM_LORA":
+        if args.pretrain_epochs > 0:
+            print("--- WARNING: Server-side pre-training is not applicable for LoRA (base is frozen). --pretrain-epochs ignored. ---")
+
     print(f"Saving initial model weights...")
     print(f"\nTotal parameters in model:")
     if args.model_type.upper() == "LLM_LORA":

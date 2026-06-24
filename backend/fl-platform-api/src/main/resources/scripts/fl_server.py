@@ -228,20 +228,23 @@ def main():
         logging.info(f"Total parameters loaded: {len(initial_parameters)}")
 
 
-        if 'score.weight' in initial_parameters:
-            logging.info(f"✅ score.weight found: shape {initial_parameters['score.weight'].shape}")
-            logging.info(f"   Expected: torch.Size([3, 768]) for CB")
-            if initial_parameters['score.weight'].shape[0] != 3:
-                logging.error(f"   ❌ WRONG NUMBER OF CLASSES: {initial_parameters['score.weight'].shape[0]} instead of 3!")
+        # LLM_LORA uses the compact peft key 'base_model.model.score.weight', not
+        # the bare 'score.weight', so skip this diagnostic to avoid false error logs.
+        if args.model_type.upper() != "LLM_LORA":
+            if 'score.weight' in initial_parameters:
+                logging.info(f"✅ score.weight found: shape {initial_parameters['score.weight'].shape}")
+                logging.info(f"   Expected: torch.Size([3, 768]) for CB")
+                if initial_parameters['score.weight'].shape[0] != 3:
+                    logging.error(f"   ❌ WRONG NUMBER OF CLASSES: {initial_parameters['score.weight'].shape[0]} instead of 3!")
+                else:
+                    logging.info(f"   ✅ Correct: 3 classes")
             else:
-                logging.info(f"   ✅ Correct: 3 classes")
-        else:
-            logging.error(f"❌ score.weight NOT FOUND!")
+                logging.error(f"❌ score.weight NOT FOUND!")
 
-        if 'score.bias' in initial_parameters:
-            logging.info(f"✅ score.bias found: shape {initial_parameters['score.bias'].shape}")
-        else:
-            logging.error(f"❌ score.bias NOT FOUND!")
+            if 'score.bias' in initial_parameters:
+                logging.info(f"✅ score.bias found: shape {initial_parameters['score.bias'].shape}")
+            else:
+                logging.error(f"❌ score.bias NOT FOUND!")
 
         logging.info(f"\nFirst 10 parameter keys:")
         for i, key in enumerate(list(initial_parameters.keys())[:10]):
@@ -262,7 +265,7 @@ def main():
     is_llm_lora = args.model_type == 'LLM_LORA'
     if is_llm_lora:
         import recipes
-        test_loader = recipes.get_recipe('LLM_LORA').load_server_test_data()
+        test_loader = recipes.get_recipe('LLM_LORA').load_server_test_data(model_name=args.model_name)
         logging.info("Loaded LLM_LORA server test data via recipes.LLM_LORA")
     elif is_pneumonia:
         import recipes
@@ -466,6 +469,12 @@ def main():
             torch.cuda.empty_cache()
 
         return avg_loss, {"accuracy": accuracy}
+
+    # LLM_LORA does not support DeComFL — the zeroth-order path requires a flat
+    # float-vector parameter space that is incompatible with adapter-only sync.
+    if args.model_type.upper() == "LLM_LORA" and args.strategy.lower() == "decomfl":
+        logging.error("LLM_LORA does not support the DeComFL strategy (use FedAvg/FedLoRA).")
+        sys.exit(1)
 
     # Create strategy based on user selection
     if args.strategy.lower() == 'decomfl':

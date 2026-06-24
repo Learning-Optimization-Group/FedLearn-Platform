@@ -70,6 +70,48 @@ def test_adapter_keys_emits_no_warning():
     assert keys
 
 
+def test_model_name_threads_to_tokenizer_via_sst2(monkeypatch):
+    """Prove that model_name='tinyllama-1.1b' propagates from load_sst2_client_data
+    all the way down to _load_llm_tokenizer, so tinyllama gets its own tokenizer
+    rather than defaulting to Qwen.  Network-free — no real model is loaded."""
+    import datasets as _datasets_module
+
+    captured = {}
+
+    def _spy_tokenizer(model_name=None):
+        captured["model_name"] = model_name
+        # Return a minimal stub that satisfies _sst2_tokenize's tok(...) call.
+        class _TokStub:
+            pad_token = "<pad>"
+            eos_token = "<eos>"
+            def __call__(self, texts, **kw):
+                n = len(texts) if isinstance(texts, list) else 1
+                return {"input_ids": [[0] * kw.get("max_length", 64)] * n,
+                        "attention_mask": [[1] * kw.get("max_length", 64)] * n}
+        return _TokStub()
+
+    def _fake_load_dataset(path, name=None, split=None, **kw):
+        """Return a tiny in-memory HF dataset with sentence+label columns."""
+        import datasets as ds
+        data = {"sentence": ["good", "bad", "great", "terrible"],
+                "label": [1, 0, 1, 0]}
+        d = ds.Dataset.from_dict(data)
+        if split and split.startswith("train"):
+            return d
+        return d
+
+    monkeypatch.setattr(recipes, "_load_llm_tokenizer", _spy_tokenizer)
+    monkeypatch.setattr(_datasets_module, "load_dataset", _fake_load_dataset)
+    # Disable the subset cap so we don't hit an empty-shard error with 4 rows / 2 clients.
+    monkeypatch.setenv("FEDLEARN_LLM_LORA_SUBSET", "4")
+
+    recipes.load_sst2_client_data(0, 2, model_name="tinyllama-1.1b")
+
+    assert captured.get("model_name") == "tinyllama-1.1b", (
+        f"Expected _load_llm_tokenizer to receive 'tinyllama-1.1b', got {captured.get('model_name')!r}"
+    )
+
+
 @pytest.mark.slow
 def test_build_model_smoke(tmp_path):
     """Exercise the real build_model runtime path (catches NameError-class bugs)."""

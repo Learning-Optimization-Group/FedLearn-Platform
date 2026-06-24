@@ -411,10 +411,10 @@ def _sst2_tokenize(split, max_length=64, model_name=None):
     return ds.map(_tok, batched=True, remove_columns=ds.column_names).with_format("torch")
 
 
-def load_sst2_client_data(partition_id, num_clients, batch_size=8, seed=42, **kw):
+def load_sst2_client_data(partition_id, num_clients, batch_size=8, seed=42, model_name=None, **kw):
     import numpy as np
     from torch.utils.data import DataLoader, Subset
-    ds = _sst2_tokenize("train")
+    ds = _sst2_tokenize("train", model_name=model_name)
     n = len(ds)
     if not (0 <= partition_id < num_clients):
         raise ValueError(f"partition_id {partition_id} out of range for {num_clients} clients")
@@ -426,9 +426,9 @@ def load_sst2_client_data(partition_id, num_clients, batch_size=8, seed=42, **kw
     return train, None
 
 
-def load_sst2_server_test_data(batch_size=16, **kw):
+def load_sst2_server_test_data(batch_size=16, model_name=None, **kw):
     from torch.utils.data import DataLoader
-    ds = _sst2_tokenize("validation")  # test labels are -1 -> unusable
+    ds = _sst2_tokenize("validation", model_name=model_name)  # test labels are -1 -> unusable
     return DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=0)
 
 

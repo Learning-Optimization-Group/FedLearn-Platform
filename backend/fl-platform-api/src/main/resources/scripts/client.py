@@ -1,5 +1,6 @@
 
 import os
+import sys
 import sklearn  # Pre-load sklearn to fix ARM64 static TLS block memory allocation issues with libgomp
 
 import argparse
@@ -197,7 +198,8 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
     if USE_LLM_LORA:
         import recipes
         train, _ = recipes.get_recipe("LLM_LORA").load_client_data(
-            partition_id=partition_id, num_clients=num_clients, batch_size=BATCH_SIZE)
+            partition_id=partition_id, num_clients=num_clients, batch_size=BATCH_SIZE,
+            model_name=LLM_LORA_MODEL_NAME)
         return train, train   # reuse the shard as the (unused) eval loader, matching the CNN return shape
     if USE_LLM:
         from pathlib import Path
