@@ -57,6 +57,11 @@ def get_model(model_type: str, model_name: str, device: str, aggregation: str = 
         print("Initializing PneumoniaCNN (1x224x224 grayscale -> 2 classes)")
         return recipes.get_recipe('PNEUMONIA_CNN').build_model(device)
 
+    elif model_type == 'BLOOD_CNN':
+        import recipes
+        print("Initializing BloodCNN (3x28x28 RGB -> 8 classes)")
+        return recipes.get_recipe('BLOOD_CNN').build_model(device)
+
     elif model_type == 'TRANSFORMER':
         if model_name == 'opt-125m':
             print("Loading pre-trained 'facebook/opt-125m' for sequence classification.")

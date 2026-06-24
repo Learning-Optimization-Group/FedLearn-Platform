@@ -46,6 +46,18 @@ RECIPE_METADATA = [
                          "max_trainable_params": 5000000, "min_os_android": 27, "min_os_ios": "13.0"},
     },
     {
+        "key": "BLOOD_CNN",
+        "display_name": "Blood Cell Classification",
+        "input_kind": "image",
+        "classes": ["Basophil", "Eosinophil", "Erythroblast",
+                    "Immature granulocyte", "Lymphocyte", "Monocyte",
+                    "Neutrophil", "Platelet"],
+        "base_models": ["blood_cnn"],
+        "optimizers": ["Adam", "SGD", "AdamW", "RMSprop"],
+        "requirements": {"min_ram_gb": 4, "min_storage_gb": 0.2, "mobile_safe": True,
+                         "max_trainable_params": 5000000, "min_os_android": 27, "min_os_ios": "13.0"},
+    },
+    {
         "key": "CNN",
         "display_name": "Image classifier (CIFAR-10)",
         "input_kind": "image",
@@ -327,6 +339,117 @@ def load_pneumonia_server_test_data(batch_size=32):
 
 
 # ---------------------------------------------------------------------------
+# Blood Cell recipe specifics (MedMNIST BloodMNIST — 8-class microscopy).
+# Peripheral-blood-cell classification: a clean, balanced, demo-friendly medical
+# imaging recipe. Trains to ~88% in a few CPU epochs.
+#
+# Data resolution: MedMNIST auto-downloads BloodMNIST (.npz, ~30MB, cached under
+# ~/.medmnist) on first use. Same recipe-backed contract as PNEUMONIA_CNN.
+# ---------------------------------------------------------------------------
+BLOOD_CLASSES = ["Basophil", "Eosinophil", "Erythroblast",
+                 "Immature granulocyte", "Lymphocyte", "Monocyte",
+                 "Neutrophil", "Platelet"]
+BLOOD_IMG_SIZE = 28
+
+
+def build_blood_cnn():
+    """BloodCNN — 3x28x28 RGB -> 8 logits (peripheral blood cell types)."""
+    import torch.nn as nn
+
+    class BloodCNN(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.features = nn.Sequential(
+                nn.Conv2d(3, 32, kernel_size=3, padding=1), nn.ReLU(), nn.MaxPool2d(2),   # 14
+                nn.Conv2d(32, 64, kernel_size=3, padding=1), nn.ReLU(), nn.MaxPool2d(2),  # 7
+                nn.Conv2d(64, 128, kernel_size=3, padding=1), nn.ReLU(), nn.MaxPool2d(2),  # 3
+            )
+            self.classifier = nn.Sequential(
+                nn.Flatten(),
+                nn.Linear(128 * 3 * 3, 128),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.Linear(128, 8),
+            )
+
+        def forward(self, x):
+            return self.classifier(self.features(x))
+
+    return BloodCNN()
+
+
+def blood_transform():
+    """RGB -> 28x28 -> tensor -> Normalize([-1,1]). Used for train AND inference."""
+    import torchvision.transforms as T
+    return T.Compose([
+        T.Lambda(lambda im: im.convert("RGB")),
+        T.Resize((BLOOD_IMG_SIZE, BLOOD_IMG_SIZE)),
+        T.ToTensor(),
+        T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+    ])
+
+
+class _MedMNISTDataset:
+    """torch Dataset over a MedMNIST split, applying a given transform.
+
+    Yields (tensor[3,28,28], int_label). Labels come from the MedMNIST ``.labels``
+    array (shape Nx1) flattened to ints, so the Dirichlet partitioner sees plain
+    integer class labels.
+    """
+
+    def __init__(self, medmnist_cls, split, transform):
+        import numpy as np
+        self._ds = medmnist_cls(split=split, download=True, size=BLOOD_IMG_SIZE,
+                                transform=transform)
+        self._labels = np.asarray(self._ds.labels).flatten().astype(int).tolist()
+
+    def labels(self):
+        return list(self._labels)
+
+    def __len__(self):
+        return len(self._labels)
+
+    def __getitem__(self, i):
+        img, _ = self._ds[i]
+        return img, self._labels[i]
+
+
+def _blood_full_dataset(split):
+    """Return a dataset wrapper for the requested BloodMNIST split ('train'/'test')."""
+    from medmnist import BloodMNIST
+    hf_split = "test" if split == "test" else "train"
+    return _MedMNISTDataset(BloodMNIST, hf_split, blood_transform())
+
+
+def load_blood_client_data(partition_id, num_clients, alpha=0.5, seed=42,
+                           batch_size=64, val_fraction=0.1):
+    """Return (train_loader, val_loader) for one client's Dirichlet shard."""
+    from torch.utils.data import DataLoader, Subset
+
+    base = _blood_full_dataset("train")
+    labels = base.labels()
+
+    client_indices = _dirichlet_indices(labels, num_clients, alpha, seed)
+    if not (0 <= partition_id < num_clients):
+        raise ValueError(f"partition_id {partition_id} out of range for num_clients {num_clients}")
+    my = client_indices[partition_id]
+    if len(my) == 0:
+        raise ValueError(f"Dirichlet split gave client {partition_id} zero samples; raise alpha or data size.")
+
+    n_val = max(1, int(len(my) * val_fraction)) if len(my) > 1 else 0
+    val_idx, train_idx = my[:n_val], my[n_val:]
+    train_loader = DataLoader(Subset(base, train_idx), batch_size=batch_size, shuffle=True, num_workers=0)
+    val_loader = DataLoader(Subset(base, val_idx), batch_size=batch_size, shuffle=False, num_workers=0) if val_idx else None
+    return train_loader, val_loader
+
+
+def load_blood_server_test_data(batch_size=128):
+    """Return a DataLoader over the held-out BloodMNIST test split (server-only)."""
+    from torch.utils.data import DataLoader
+    return DataLoader(_blood_full_dataset("test"), batch_size=batch_size, shuffle=False, num_workers=0)
+
+
+# ---------------------------------------------------------------------------
 # LLM_LORA — federated LoRA sequence classification (Qwen2.5-0.5B / TinyLlama).
 # ---------------------------------------------------------------------------
 LLM_LORA_BASE_MODELS = {
@@ -493,12 +616,14 @@ class Recipe:
     @property
     def is_functional(self):
         """Whether this recipe's model/data live in recipes.py (vs legacy scripts)."""
-        return self.key in ("PNEUMONIA_CNN", "LLM_LORA")
+        return self.key in ("PNEUMONIA_CNN", "LLM_LORA", "BLOOD_CNN")
 
     def build_model(self, device="cpu", model_name=None, aggregation="FFA_LORA",
                     task_type="SEQ_CLASSIFICATION"):
         if self.key == "PNEUMONIA_CNN":
             return build_pneumonia_cnn().to(device)
+        if self.key == "BLOOD_CNN":
+            return build_blood_cnn().to(device)
         if self.key == "LLM_LORA":
             base_id = _resolve_llm_base(model_name)
             tok = _load_llm_tokenizer(model_name)
@@ -517,6 +642,8 @@ class Recipe:
     def input_transform(self, model_name=None):
         if self.key == "PNEUMONIA_CNN":
             return pneumonia_transform()
+        if self.key == "BLOOD_CNN":
+            return blood_transform()
         if self.key == "LLM_LORA":
             return _load_llm_tokenizer(model_name)
         raise NotImplementedError(f"input_transform not implemented in recipes.py for {self.key}")
@@ -524,6 +651,8 @@ class Recipe:
     def load_client_data(self, partition_id, num_clients, task_type="SEQ_CLASSIFICATION", **kw):
         if self.key == "PNEUMONIA_CNN":
             return load_pneumonia_client_data(partition_id, num_clients, **kw)
+        if self.key == "BLOOD_CNN":
+            return load_blood_client_data(partition_id, num_clients, **kw)
         if self.key == "LLM_LORA":
             if task_type == "CAUSAL_LM":
                 return load_dolly_client_data(partition_id, num_clients, **kw)
@@ -533,6 +662,8 @@ class Recipe:
     def load_server_test_data(self, task_type="SEQ_CLASSIFICATION", **kw):
         if self.key == "PNEUMONIA_CNN":
             return load_pneumonia_server_test_data(**kw)
+        if self.key == "BLOOD_CNN":
+            return load_blood_server_test_data(**kw)
         if self.key == "LLM_LORA":
             if task_type == "CAUSAL_LM":
                 return load_dolly_server_test_data(**kw)
