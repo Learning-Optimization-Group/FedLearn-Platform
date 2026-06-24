@@ -108,15 +108,19 @@ export function ProjectCard({
     accuracy: r.accuracy,
   }));
 
-  // Progress calculation
-  const latestRound = results.length > 0 ? results[results.length - 1].serverRound : 0;
-  const totalRounds = 100;
-  const progress = Math.min((latestRound / totalRounds) * 100, 100);
+  // Rounds trained so far = the highest server round we have a result for.
+  // Federated training has no fixed "total": a project can always train further
+  // on new data / more rounds, and accuracy keeps moving — so a "% complete"
+  // dial is the wrong abstraction. We show the round COUNT and let the status
+  // pill (not a fake percentage) convey state.
+  const roundsTrained = results.length > 0 ? results[results.length - 1].serverRound : 0;
+  const hasTraining = roundsTrained > 0;
 
-  // Circular progress ring
+  // The ring is a status indicator, not a completion %: it fills once the model
+  // has been trained (running/completed with ≥1 round) and is empty before that.
   const radius = 26;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
+  const strokeDashoffset = circumference - (hasTraining ? 1 : 0) * circumference;
 
   // Ring uses the status semantics: running -> accent, completed -> success,
   // failed -> danger, otherwise muted. (text-* drives the SVG currentColor.)
@@ -208,8 +212,11 @@ export function ProjectCard({
               className={cn("transition-all duration-[240ms] ease-out", ringColor)}
             />
           </svg>
-          <div className="absolute flex flex-col items-center justify-center text-center">
-            <span className="text-caption font-mono tabular-nums font-bold text-fg">{Math.round(progress)}%</span>
+          <div className="absolute flex flex-col items-center justify-center text-center leading-none">
+            <span className="text-body font-mono tabular-nums font-bold text-fg">{roundsTrained}</span>
+            <span className="text-[9px] uppercase tracking-wider text-fg-muted mt-0.5">
+              {roundsTrained === 1 ? 'round' : 'rounds'}
+            </span>
           </div>
         </div>
       </div>
