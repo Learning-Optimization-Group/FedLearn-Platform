@@ -15,7 +15,6 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -26,6 +25,7 @@ public class ClientApiService {
     @Autowired private ProjectRepository projectRepository;
     @Autowired private ProjectMembershipRepository membershipRepository;
     @Autowired private RunRepository runRepository;
+    @Autowired private RunService runService;
     @Autowired private AuthorizationService authz;
     @Autowired private com.federated.fl_platform_api.security.OrgScope orgScope;
 
@@ -107,54 +107,25 @@ public class ClientApiService {
 
     @Transactional
     public ClientConnectionDto getConnection(UUID projectId) {
-        // SELECT ... FOR UPDATE serializes concurrent connects against the
-        // same project so partition_id assignment never collides.
-        Project project = projectRepository.lockById(projectId)
+        Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        // Org isolation (mutation): out-of-scope projects are a hard 403.
         authz.requireOrgScope(project.getOrgId());
-        User self = authz.currentUser();
-        boolean isOwner = project.getUser() != null
-            && project.getUser().getId().equals(self.getId());
-
-        ProjectMembership membership = membershipRepository
-            .findByIdProjectIdAndIdUserId(projectId, self.getId())
-            .orElse(null);
-
-        if (!isOwner && (membership == null || membership.getRole() != MembershipRole.CLIENT)) {
-            throw new AccessDeniedException("You are not a CLIENT of this project");
-        }
-
-        if (!"RUNNING".equals(project.getStatus()) || project.getServerPort() == null) {
+        if (project.getActiveRunId() == null) {
             throw new ProjectStateException(
                 "Project is not currently running (status=" + project.getStatus() + ")");
         }
-
-        // Owners with no row yet get a hidden OWNER_SELF row to carry their
-        // partition_id; permission logic ignores OWNER rows (owner is decided
-        // by projects.user_id).
-        if (isOwner && membership == null) {
-            membership = new ProjectMembership(project, self, MembershipRole.OWNER,
-                JoinedVia.OWNER_SELF, self);
-            membershipRepository.save(membership);
-        }
-
-        if (membership.getPartitionId() == null) {
-            int next = membershipRepository.maxPartitionIdForProject(projectId) + 1;
-            membership.setPartitionId(next);
-            if (membership.getAddedAt() == null) {
-                membership.setAddedAt(Instant.now());
-            }
-            membership = membershipRepository.save(membership);
-        }
+        // enroll enforces owner-or-CLIENT + run RUNNING and assigns the partition.
+        com.federated.fl_platform_api.dto.EnrollmentDto enrollment =
+            runService.enroll(project.getActiveRunId());
 
         ClientConnectionDto dto = new ClientConnectionDto();
         dto.setProjectId(projectId);
         dto.setName(project.getName());
         dto.setModelType(project.getModelType());
-        dto.setServerAddress(grpcHost + ":" + project.getServerPort());
-        dto.setPartitionId(membership.getPartitionId());
+        dto.setServerAddress(enrollment.getGrpcEndpoint());
+        dto.setPartitionId(enrollment.getPartitionId());
         dto.setStatus(project.getStatus());
+        dto.setConnectionToken(enrollment.getConnectionToken());
         return dto;
     }
 

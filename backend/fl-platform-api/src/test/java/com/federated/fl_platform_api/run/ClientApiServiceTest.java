@@ -29,6 +29,7 @@ class ClientApiServiceTest {
     @Mock ProjectRepository projectRepository;
     @Mock ProjectMembershipRepository membershipRepository;
     @Mock RunRepository runRepository;
+    @Mock com.federated.fl_platform_api.service.RunService runService;
     @Mock AuthorizationService authz;
     @Mock OrgScope orgScope;
 
@@ -161,5 +162,41 @@ class ClientApiServiceTest {
 
         assertTrue(dto.isJoined());
         assertEquals(pid, dto.getProjectId());
+    }
+
+    @Test
+    void getConnection_delegatesToEnrollAndReturnsLegacyShapePlusToken() {
+        User me = user(1L);
+        UUID pid = UUID.randomUUID();
+        UUID rid = UUID.randomUUID();
+        Project p = proj(pid, ProjectVisibility.PUBLIC, user(2L));
+        p.setStatus("RUNNING");
+        p.setActiveRunId(rid);
+        when(projectRepository.findById(pid)).thenReturn(Optional.of(p));
+        // authz.requireOrgScope is a mocked void — no stub needed; orgScope is not called directly.
+
+        com.federated.fl_platform_api.dto.EnrollmentDto enr = new com.federated.fl_platform_api.dto.EnrollmentDto();
+        enr.setGrpcEndpoint("localhost:50007");
+        enr.setPartitionId(1);
+        enr.setConnectionToken("tok");
+        when(runService.enroll(rid)).thenReturn(enr);
+
+        var dto = service.getConnection(pid);
+        assertEquals("localhost:50007", dto.getServerAddress());
+        assertEquals(1, dto.getPartitionId());
+        assertEquals("tok", dto.getConnectionToken());
+        assertEquals("CNN", dto.getModelType());
+    }
+
+    @Test
+    void getConnection_noActiveRun_throwsProjectState() {
+        UUID pid = UUID.randomUUID();
+        Project p = proj(pid, ProjectVisibility.PUBLIC, user(2L));
+        p.setActiveRunId(null);
+        when(projectRepository.findById(pid)).thenReturn(Optional.of(p));
+        // authz.requireOrgScope is a mocked void — no stub needed; orgScope is not called directly.
+
+        assertThrows(com.federated.fl_platform_api.exception.ProjectStateException.class,
+                () -> service.getConnection(pid));
     }
 }
