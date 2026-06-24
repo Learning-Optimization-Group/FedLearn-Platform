@@ -76,6 +76,10 @@ class AuthControllerIntegrationTest {
         String cookie = response.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
         assertNotNull(cookie);
         assertTrue(cookie.contains("jwtToken"));
+        // Body must also carry accessToken for native clients (mobile/desktop)
+        assertNotNull(response.getBody());
+        assertNotNull(response.getBody().get("accessToken"));
+        assertFalse(response.getBody().get("accessToken").toString().isBlank());
     }
 
     @Test

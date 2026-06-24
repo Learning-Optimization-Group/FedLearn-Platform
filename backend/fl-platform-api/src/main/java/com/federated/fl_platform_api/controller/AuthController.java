@@ -136,15 +136,16 @@ public class AuthController {
                 .sameSite(cookieSameSite)
                 .build();
 
-        // Cookie-only auth: the JWT lives exclusively in the HttpOnly cookie so
-        // it can never be read by JS (defeats XSS exfiltration). The body
-        // returns only the user identity the SPA needs to render the shell.
-        // Frontends should call GET /api/auth/me on bootstrap to learn whether
-        // a session cookie is still valid.
+        // The JWT is set as an HttpOnly cookie (defeats XSS exfiltration) for browser SPAs,
+        // which ignore the body and rely on the cookie + GET /api/auth/me for session checks.
+        // The body also carries accessToken for native clients (mobile/desktop) that cannot
+        // reliably read the HttpOnly Set-Cookie header — they store it in secure platform
+        // storage (e.g. Keychain / EncryptedSharedPreferences) and send it as a Bearer token.
         Map<String, Object> responseBody = Map.of(
                 "username", appUser.getUsername(),
                 "email", appUser.getEmail(),
-                "role", appUser.getPlatformRole().name()
+                "role", appUser.getPlatformRole().name(),
+                "accessToken", jwt
         );
 
         return ResponseEntity.ok()
