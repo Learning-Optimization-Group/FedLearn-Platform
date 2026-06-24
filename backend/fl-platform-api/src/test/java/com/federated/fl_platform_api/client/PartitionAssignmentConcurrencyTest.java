@@ -19,6 +19,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -42,6 +43,7 @@ class PartitionAssignmentConcurrencyTest {
     @Autowired ProjectRepository projectRepository;
     @Autowired UserRepository userRepository;
     @Autowired ProjectMembershipRepository membershipRepository;
+    @Autowired RunRepository runRepository;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired OrgScopeFilter orgScopeFilter;
 
@@ -58,6 +60,26 @@ class PartitionAssignmentConcurrencyTest {
         p.setUser(owner);
         p.setOrgId(UUID.fromString("00000000-0000-0000-0000-000000000001"));
         p.setVisibility(ProjectVisibility.PRIVATE);
+        projectRepository.saveAndFlush(p);
+
+        // Create an active RUNNING run so the getConnection shim can resolve it.
+        // clientsPerRound=100 keeps the SHARDED cap (next >= clientsPerRound → reject)
+        // well above the 10 concurrent clients so no enrollment is rejected.
+        Run run = new Run();
+        run.setProjectId(p.getId());
+        run.setStrategy("FedAvg");
+        run.setNumRounds(5);
+        run.setMinClients(1);
+        run.setClientsPerRound(100);
+        run.setPartitioningMode(PartitioningMode.SHARDED);
+        run.setStatus(RunStatus.RUNNING);
+        run.setServerHost("localhost");
+        run.setServerPort(50000);
+        run.setRecipeKey("CNN-CIFAR10");
+        run.setCreatedAt(Instant.now());
+        runRepository.saveAndFlush(run);
+
+        p.setActiveRunId(run.getId());
         projectRepository.saveAndFlush(p);
 
         int n = 10;
