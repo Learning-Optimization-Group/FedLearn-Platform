@@ -41,6 +41,9 @@ utilization_log = []
 USE_LLM = True
 USE_MLP = False  # NEW: Flag for MLP/ECG
 USE_PNEUMONIA = False  # Flag for PneumoniaCNN (chest X-ray) recipe
+USE_LLM_LORA = False          # federated LoRA SEQ_CLS recipe
+LLM_LORA_AGGREGATION = "FFA_LORA"
+LLM_LORA_MODEL_NAME = "qwen2.5-0.5b"
 # --------------------------------------------------
 
 # --- Configuration ---
@@ -191,6 +194,11 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
             partition_id=partition_id, num_clients=num_clients,
             alpha=alpha, seed=42, batch_size=BATCH_SIZE,
         )
+    if USE_LLM_LORA:
+        import recipes
+        train, _ = recipes.get_recipe("LLM_LORA").load_client_data(
+            partition_id=partition_id, num_clients=num_clients, batch_size=BATCH_SIZE)
+        return train, train   # reuse the shard as the (unused) eval loader, matching the CNN return shape
     if USE_LLM:
         from pathlib import Path
         import pickle
@@ -403,7 +411,7 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                     print(f"     Batch type: {type(batch)}")
             optimizer.zero_grad()
 
-            if USE_LLM:
+            if USE_LLM or USE_LLM_LORA:
                 # Move batch to device
                 batch = {k: v.to(DEVICE) for k, v in batch.items()}
 
@@ -460,7 +468,7 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
             if current_step % 10 == 0:
                 log_processing_usage(f"batch {current_step}")
 
-            if i == 0 and USE_LLM:
+            if i == 0 and USE_LLM and not USE_LLM_LORA:
                 total_norm = 0
                 for p in net.parameters():
                     if p.grad is not None:
@@ -479,7 +487,7 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
             #     torch.nn.utils.clip_grad_norm_(net.parameters(), LLM_MAX_GRAD_NORM)
 
             optimizer.step()
-            if i == 0 and USE_LLM:
+            if i == 0 and USE_LLM and not USE_LLM_LORA:
                 ref_weight_after = net.model.decoder.final_layer_norm.weight
                 weight_change = (ref_weight_after - ref_weight_before).abs().mean().item()
                 print(f"     Weight change after step: {weight_change:.6e}")
@@ -549,6 +557,14 @@ class ZOSLClient(fl.Client):
             import recipes
             self.net = recipes.get_recipe("PNEUMONIA_CNN").build_model(DEVICE)
             print("Loaded PneumoniaCNN (1x224x224 grayscale -> NORMAL/PNEUMONIA)")
+        elif USE_LLM_LORA:
+            import recipes
+            recipe = recipes.get_recipe("LLM_LORA")
+            self.net = recipe.build_model(DEVICE, model_name=LLM_LORA_MODEL_NAME,
+                                          aggregation=LLM_LORA_AGGREGATION)
+            self._lora_recipe = recipe
+            self._adapter_keys = recipe.adapter_keys(self.net, LLM_LORA_AGGREGATION)
+            print(f"Loaded LLM_LORA adapter (agg={LLM_LORA_AGGREGATION}, {len(self._adapter_keys)} keys)")
         else:
             self.net = CnnNet().to(DEVICE)
             print("Loaded CNN for CIFAR-10")
@@ -569,6 +585,10 @@ class ZOSLClient(fl.Client):
         print(f"[Client] gRPC client configured for heartbeat updates.")
 
     def get_parameters(self) -> OrderedDict[str, torch.Tensor]:
+        if USE_LLM_LORA:
+            from peft import get_peft_model_state_dict
+            full = get_peft_model_state_dict(self.net, save_embedding_layers=False)
+            return OrderedDict((k, v) for k, v in full.items() if k in self._adapter_keys)
         return self.net.state_dict()
 
     def fit(
@@ -612,7 +632,11 @@ class ZOSLClient(fl.Client):
             print(f"  {name}: mean={param.mean().item():.6f}, std={param.std().item():.6f}")
 
 
-        self.net.load_state_dict(parameters)
+        if USE_LLM_LORA:
+            from peft import set_peft_model_state_dict
+            set_peft_model_state_dict(self.net, parameters)
+        else:
+            self.net.load_state_dict(parameters)
 
         # RIGHT AFTER: self.net.load_state_dict(parameters)
 
@@ -670,24 +694,26 @@ class ZOSLClient(fl.Client):
             progress_callback=progress_callback
         )
 
-        # DEBUG: Check if parameters changed
-        final_params = self.net.state_dict()
-        print(f"\n[FIT DEBUG] Final parameter stats:")
-        for name, param in list(final_params.items())[:3]:  # First 3 layers
-            print(f"  {name}: mean={param.mean().item():.6f}, std={param.std().item():.6f}")
+        # DEBUG: Check if parameters changed (skip for LLM_LORA — adapter key namespaces
+        # differ between the compacted peft upload form and net.state_dict(), causing KeyError)
+        if not USE_LLM_LORA:
+            final_params = self.net.state_dict()
+            print(f"\n[FIT DEBUG] Final parameter stats:")
+            for name, param in list(final_params.items())[:3]:  # First 3 layers
+                print(f"  {name}: mean={param.mean().item():.6f}, std={param.std().item():.6f}")
 
-        print(f"\n[FIT DEBUG] Parameter changes:")
-        total_change = 0
-        num_params = 0
-        for name in list(initial_params.keys())[:3]:
-            change = (final_params[name] - initial_params[name]).abs().mean().item()
-            print(f"  {name}: avg change = {change:.6e}")
-            total_change += change
-            num_params += 1
-        print(f"  Average parameter change: {total_change/num_params:.6e}")
+            print(f"\n[FIT DEBUG] Parameter changes:")
+            total_change = 0
+            num_params = 0
+            for name in list(initial_params.keys())[:3]:
+                change = (final_params[name] - initial_params[name]).abs().mean().item()
+                print(f"  {name}: avg change = {change:.6e}")
+                total_change += change
+                num_params += 1
+            print(f"  Average parameter change: {total_change/num_params:.6e}")
 
-        if total_change/num_params < 1e-8:
-            print(f"  ⚠️ WARNING: Parameters barely changed! Model may not be training!")
+            if total_change/num_params < 1e-8:
+                print(f"  WARNING: Parameters barely changed! Model may not be training!")
 
         # Logging after training
         log_processing_usage("after training finished")
@@ -718,6 +744,8 @@ class ZOSLClient(fl.Client):
             self.net.train()
         # === END ADD ===
 
+        if USE_LLM_LORA:
+            return self.get_parameters(), len(self.trainloader.dataset)
         return self.net.state_dict(), len(self.trainloader.dataset)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -760,7 +788,7 @@ def create_decomfl_compatible_loader(original_loader, is_llm=False):
 # --- Main Execution Block ---
 # ==============================================================================
 def main():
-    global USE_LLM, USE_MLP, USE_PNEUMONIA, DATASET_NAME, BATCH_SIZE
+    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, DATASET_NAME, BATCH_SIZE
 
     print(f"\n{'='*60}")
     print(f"DEVICE DETECTION")
@@ -775,8 +803,9 @@ def main():
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
     parser.add_argument("--server-address", type=str, required=True, help="gRPC server address")
     parser.add_argument("--partition-id", type=int, required=True, choices=range(0, NUM_PARTITIONS), help="Client partition ID")
-    parser.add_argument("--model-type", type=str, choices=["CNN", "TRANSFORMER", "MLP", "PNEUMONIA_CNN"], help="Model type")
+    parser.add_argument("--model-type", type=str, choices=["CNN", "TRANSFORMER", "MLP", "PNEUMONIA_CNN", "LLM_LORA"], help="Model type")
     parser.add_argument("--model-name", type=str, help="Model name")
+    parser.add_argument("--aggregation", type=str, default="FFA_LORA", choices=["FFA_LORA", "FEDIT"], help="LoRA aggregation sub-mode (LLM_LORA only)")
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="FL strategy (FedAvg or DeComFL)")
     parser.add_argument("--use-llm", action="store_true", help="Use LLM (deprecated, use --model-type TRANSFORMER)")
@@ -785,17 +814,25 @@ def main():
 
     # Determine model type
     if args.model_type:
-        USE_LLM = (args.model_type.upper() == "TRANSFORMER")
-        USE_MLP = (args.model_type.upper() == "MLP")
-        USE_PNEUMONIA = (args.model_type.upper() == "PNEUMONIA_CNN")
+        mt = args.model_type.upper()
+        USE_LLM = (mt == "TRANSFORMER")
+        USE_MLP = (mt == "MLP")
+        USE_PNEUMONIA = (mt == "PNEUMONIA_CNN")
+        USE_LLM_LORA = (mt == "LLM_LORA")
     elif args.use_llm:
         USE_LLM = True
         USE_MLP = False
         USE_PNEUMONIA = False
+        USE_LLM_LORA = False
     else:
         USE_LLM = False
         USE_MLP = False
         USE_PNEUMONIA = False
+        USE_LLM_LORA = False
+
+    if USE_LLM_LORA:
+        LLM_LORA_AGGREGATION = args.aggregation
+        LLM_LORA_MODEL_NAME = args.model_name or LLM_LORA_MODEL_NAME
 
     # === HARDCODED ECG/MLP OVERRIDE ===
     if USE_MLP:
@@ -850,8 +887,14 @@ def main():
     print(f"Configuration:")
     print(f"  Project ID: {args.project_id}")
     print(f"  Partition ID: {args.partition_id}")
-    print(f"  Model Type: {args.model_type or ('LLM' if USE_LLM else 'CNN')}")
-    print(f"  Model Name: {args.model_name or MODEL_NAME}")
+    if USE_LLM_LORA:
+        _banner_model_type = "LLM_LORA"
+        _banner_model_name = args.model_name or LLM_LORA_MODEL_NAME
+    else:
+        _banner_model_type = args.model_type or ('LLM' if USE_LLM else 'CNN')
+        _banner_model_name = args.model_name or MODEL_NAME
+    print(f"  Model Type: {_banner_model_type}")
+    print(f"  Model Name: {_banner_model_name}")
     print(f"  Strategy: {args.strategy}")
     print(f"  Dataset: {args.dataset.upper()}")
 
@@ -872,6 +915,12 @@ def main():
     print(f"  Device: {DEVICE}")
     print(f"  Server: {args.server_address}")
     print(f"{'='*60}\n")
+
+    # LLM_LORA does not support DeComFL — the zeroth-order path requires a flat
+    # float-vector parameter space that is incompatible with adapter-only sync.
+    if USE_LLM_LORA and args.strategy.lower() == "decomfl":
+        print("ERROR: LLM_LORA does not support the DeComFL strategy (use FedAvg/FedLoRA).")
+        sys.exit(1)
 
     # === CREATE CLIENT BASED ON STRATEGY ===
     if args.strategy.lower() == 'decomfl':

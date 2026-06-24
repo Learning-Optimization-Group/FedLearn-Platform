@@ -349,6 +349,8 @@ def _resolve_llm_base(model_name):
 
 def apply_lora(base_model, lora_cfg, aggregation):
     """Wrap a *ForSequenceClassification model with LoRA; under FFA_LORA freeze every lora_A."""
+    if aggregation not in ("FFA_LORA", "FEDIT"):
+        raise ValueError(f"unknown aggregation {aggregation!r}; expected FFA_LORA or FEDIT")
     from peft import LoraConfig, get_peft_model
     cfg = LoraConfig(
         r=lora_cfg["r"], lora_alpha=lora_cfg["alpha"], lora_dropout=lora_cfg["dropout"],
@@ -375,6 +377,8 @@ def _load_llm_tokenizer(model_name=None):
 
 def llm_lora_adapter_keys(model, aggregation):
     """Keys the CLIENT uploads: FFA -> B+head; FEDIT -> A+B+head. Substring-matched."""
+    if aggregation not in ("FFA_LORA", "FEDIT"):
+        raise ValueError(f"unknown aggregation {aggregation!r}; expected FFA_LORA or FEDIT")
     from peft import get_peft_model_state_dict
     keep = set()
     for k in get_peft_model_state_dict(model, save_embedding_layers=False):
