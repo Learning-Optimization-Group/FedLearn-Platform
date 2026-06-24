@@ -27,6 +27,7 @@ public record DeviceRequirements(
         @JsonProperty("maxTrainableParams")     @JsonAlias("max_trainable_params")          Long maxTrainableParams,
         @JsonProperty("minNpuTops")             @JsonAlias("min_npu_tops")                  Double minNpuTops,
         @JsonProperty("estimatedRoundTimeSeconds") @JsonAlias("estimated_round_time_seconds") Integer estimatedRoundTimeSeconds,
+        @JsonProperty("minBatteryPct")          @JsonAlias("min_battery_pct")               Integer minBatteryPct,
         @JsonProperty("requiresWifi")           @JsonAlias("requires_wifi")                 Boolean requiresWifi,
         @JsonProperty("acceleratorBackends")    @JsonAlias("accelerator_backends")          List<String> acceleratorBackends
 ) {
@@ -59,6 +60,7 @@ public record DeviceRequirements(
                 base.maxTrainableParams,                        // recipe-only
                 maxD(base.minNpuTops, override.minNpuTops),
                 base.estimatedRoundTimeSeconds,                 // recipe-only
+                maxI(base.minBatteryPct, override.minBatteryPct),
                 orWifi(base.requiresWifi, override.requiresWifi),
                 base.acceleratorBackends                        // recipe-only
         );
@@ -69,7 +71,7 @@ public record DeviceRequirements(
     // -------------------------------------------------------------------------
 
     private static DeviceRequirements empty() {
-        return new DeviceRequirements(null, null, null, null, null, null, null, null, null, null);
+        return new DeviceRequirements(null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /** Returns the larger of two nullable Doubles; null treated as "no constraint". */
