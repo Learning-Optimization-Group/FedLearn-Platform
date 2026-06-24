@@ -301,8 +301,7 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
                 if (s.marker === '✅') return null;
                 return (
                   <div
-                    className={s.marker === '⚠️' ? 'eligibility-warn' : 'eligibility-info'}
-                    style={{ fontSize: '0.75rem', marginTop: 'var(--space-1)' }}
+                    style={{ fontSize: '0.75rem', marginTop: 'var(--space-1)', color: s.marker === '⚠️' ? 'var(--warning, var(--fg-muted))' : 'var(--fg-muted)' }}
                   >
                     {s.marker} {s.lines.join(' · ')}
                   </div>
