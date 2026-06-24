@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 import fedlearn as fl
-from fedlearn.server import DeComFL  # Import DeComFL strategy from framework
+from fedlearn.server import DeComFL, FedLoRA  # Import strategies from framework
 from models import CnnNet
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
@@ -122,10 +122,11 @@ def main():
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
     parser.add_argument("--num-rounds", type=int, default=5, help="Number of FL rounds")
     parser.add_argument("--min-clients", type=int, default=1, help="Minimum clients per round")
-    parser.add_argument("--model-type", type=str.upper, required=True, choices=['CNN', 'TRANSFORMER', 'MLP', 'PNEUMONIA_CNN'], help="Model type")
+    parser.add_argument("--model-type", type=str.upper, required=True, choices=['CNN', 'TRANSFORMER', 'MLP', 'PNEUMONIA_CNN', 'LLM_LORA'], help="Model type")
     parser.add_argument("--model-name", type=str, required=True, help="Model name")
     parser.add_argument("--port", type=int, default=50051, help="gRPC server port")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="Aggregation strategy")
+    parser.add_argument("--aggregation", type=str, default="FFA_LORA", choices=["FFA_LORA", "FEDIT"], help="LoRA aggregation sub-mode (LLM_LORA only)")
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
     args = parser.parse_args()
 
@@ -194,8 +195,10 @@ def main():
     #         logging.error("--dataset-path is required for ECG dataset")
     #         exit(1)
 
-    # Load model architecture
-    net = get_model(args.model_type, args.model_name, DEVICE)
+    # Load model architecture. LLM_LORA rebuilds its peft model per eval round (eval_net in
+    # server_side_evaluate), so skip the eager build here — it would needlessly download + build
+    # a full base model that is immediately discarded (and would default to FFA freezing).
+    net = None if args.model_type.upper() == "LLM_LORA" else get_model(args.model_type, args.model_name, DEVICE)
 
     # Load initial parameters
     initial_parameters = OrderedDict()
@@ -256,7 +259,12 @@ def main():
 
     # Load test data for server-side evaluation
     is_pneumonia = args.model_type == 'PNEUMONIA_CNN'
-    if is_pneumonia:
+    is_llm_lora = args.model_type == 'LLM_LORA'
+    if is_llm_lora:
+        import recipes
+        test_loader = recipes.get_recipe('LLM_LORA').load_server_test_data()
+        logging.info("Loaded LLM_LORA server test data via recipes.LLM_LORA")
+    elif is_pneumonia:
         import recipes
         test_loader = recipes.get_recipe('PNEUMONIA_CNN').load_server_test_data(batch_size=32)
         logging.info("Loaded chest X-ray test data via recipes.PNEUMONIA_CNN (NORMAL/PNEUMONIA)")
@@ -300,9 +308,19 @@ def main():
             torch.cuda.empty_cache()
 
         # Load parameters into model
-        net.load_state_dict(parameters, strict=True)
-        net.to(DEVICE)
-        net.eval()
+        if is_llm_lora:
+            import recipes as _recipes
+            from peft import set_peft_model_state_dict
+            eval_net = _recipes.get_recipe("LLM_LORA").build_model(
+                DEVICE, model_name=args.model_name, aggregation=args.aggregation)
+            set_peft_model_state_dict(eval_net, parameters)
+            eval_net.to(DEVICE)
+            eval_net.eval()
+        else:
+            net.load_state_dict(parameters, strict=True)
+            net.to(DEVICE)
+            net.eval()
+            eval_net = net
 
         total_loss = 0.0
         correct = 0
@@ -324,8 +342,8 @@ def main():
                 if hasattr(batch, 'data'):  # BatchEncoding has a .data attribute
                     batch = dict(batch)
                 try:
-                    if is_llm:
-                        # LLM: batch should be a dict with input_ids, attention_mask, labels
+                    if is_llm or is_llm_lora:
+                        # LLM / LLM_LORA: batch should be a dict with input_ids, attention_mask, labels
                         if isinstance(batch, dict):
                             if 'labels' not in batch:
                                 raise KeyError(f"LLM batch is dict but missing 'labels' key. Available keys: {list(batch.keys())}")
@@ -334,7 +352,7 @@ def main():
                             batch = {k: v.to(DEVICE) for k, v in batch.items()}
 
                             # Forward pass
-                            outputs = net(**batch)
+                            outputs = eval_net(**batch)
                             loss = outputs.loss
                             logits = outputs.logits
                             labels = batch["labels"]
@@ -345,7 +363,7 @@ def main():
                             if isinstance(inputs, dict):
                                 inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
                                 labels = labels.to(DEVICE)
-                                outputs = net(**inputs, labels=labels)
+                                outputs = eval_net(**inputs, labels=labels)
                                 loss = outputs.loss
                                 logits = outputs.logits
                             else:
@@ -361,7 +379,7 @@ def main():
                         features, labels = batch
                         features = features.to(DEVICE)
                         labels = labels.to(DEVICE)
-                        outputs = net(features)
+                        outputs = eval_net(features)
                         loss = criterion(outputs, labels)
                         logits = outputs
 
@@ -381,7 +399,7 @@ def main():
                         else:
                             raise ValueError(f"Unexpected CNN batch format: {type(batch)}")
 
-                        outputs = net(images)
+                        outputs = eval_net(images)
                         loss = criterion(outputs, labels)
                         logits = outputs
 
@@ -393,7 +411,7 @@ def main():
                     correct += (predictions == labels).sum().item()
                     total += labels.size(0)
 
-                    if batch_idx == 0 and is_llm:
+                    if batch_idx == 0 and (is_llm or is_llm_lora):
                         logging.info(f"  Logits shape: {logits.shape}")
                         logging.info(f"  Predictions: {predictions[:5]}")
                         logging.info(f"  True labels: {labels[:5]}")
@@ -469,6 +487,14 @@ def main():
                      f"P={decomfl_config.num_perturbations}, "
                      f"η={decomfl_config.learning_rate}, "
                      f"μ={decomfl_config.smoothing_param}")
+    elif args.strategy.lower() == 'fedlora':
+        logging.info(f"Using FedLoRA strategy (aggregation={args.aggregation})")
+        strategy = FedLoRA(
+            initial_parameters=initial_parameters,
+            evaluate_fn=server_side_evaluate,
+            min_fit_clients=args.min_clients,
+            aggregation=args.aggregation,
+        )
     else:
         if args.strategy.lower() != 'fedavg':
             logging.warning(f"Strategy '{args.strategy}' not recognized. Defaulting to FedAvg.")
