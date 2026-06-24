@@ -36,4 +36,16 @@ class RecipeRequirementsCatalogTest {
                 .orElseThrow(() -> new AssertionError("TRANSFORMER recipe not found in catalog"));
         assertEquals(Boolean.FALSE, t.requirements().mobileSafe());
     }
+
+    @Test
+    void llmLoraGatesPhonesAndRequiresEightGb() {
+        ModelRecipeDto r = service.getRecipes().stream()
+                .filter(x -> "LLM_LORA".equals(x.key()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("LLM_LORA recipe not found in catalog"));
+        // mobile_safe:false → desktop/mobile evaluateEligibility() hard-fails phones.
+        assertEquals(Boolean.FALSE, r.requirements().mobileSafe());
+        // min_ram_gb:8 → devices under 8GB hard-fail.
+        assertEquals(8.0, r.requirements().minRamGb().doubleValue(), 0.001);
+    }
 }
