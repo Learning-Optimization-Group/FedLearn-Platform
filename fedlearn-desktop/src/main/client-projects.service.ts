@@ -21,6 +21,7 @@ export interface ClientProject {
   modelType: string;
   status: string;
   visibility: string | null;
+  requirements?: import('../shared/deviceCapabilities.types').DeviceRequirements;
 }
 
 export interface ProjectConnection {

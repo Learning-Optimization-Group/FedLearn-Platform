@@ -10,7 +10,7 @@
 // (GET /api/client/projects/{id}/connection) and used to launch training.
 // =============================================================================
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   MonitorCog,
   CircuitBoard,
@@ -22,6 +22,8 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import type { ClientProject } from '../client.types';
+import { evaluateEligibility, eligibilitySummary } from '../../shared/evaluateEligibility';
+import type { DeviceCapabilities } from '../../shared/deviceCapabilities.types';
 
 interface HardwareSelectorProps {
   onStart: (config: {
@@ -78,6 +80,7 @@ const HARDWARE_PROFILES: HardwareProfileOption[] = [
 const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, isRunning }) => {
   const [selectedProfile, setSelectedProfile] = useState('cpu');
   const [detectionLabel, setDetectionLabel] = useState<string | null>(null);
+  const [capabilities, setCapabilities] = useState<DeviceCapabilities | null>(null);
 
   const [projects, setProjects] = useState<ClientProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -90,11 +93,22 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
 
   const selectedProject = projects.find((p) => p.projectId === selectedProjectId) ?? null;
 
+  const eligibilityByProject = useMemo(() => {
+    const map: Record<string, ReturnType<typeof evaluateEligibility>> = {};
+    if (!capabilities) return map;
+    for (const p of projects) map[p.projectId] = evaluateEligibility(capabilities, p.requirements);
+    return map;
+  }, [capabilities, projects]);
+
   // One-shot hardware detection — pre-select the profile matching this machine.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        window.fedLearnAPI.getDeviceCapabilities().then((res) => {
+          if (!cancelled && res.success && res.capabilities) setCapabilities(res.capabilities);
+        });
+
         const result = await window.fedLearnAPI.detectHardware();
         if (cancelled || !result.success || !result.detection) return;
 
@@ -265,17 +279,35 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
                 onChange={(e) => { setSelectedProjectId(e.target.value); setValidationError(''); }}
                 disabled={isRunning}
               >
-                {projects.map((p) => (
-                  <option key={p.projectId} value={p.projectId}>
-                    {p.name} — {p.modelType} ({p.status})
-                  </option>
-                ))}
+                {projects.map((p) => {
+                  const elig = eligibilityByProject[p.projectId];
+                  const marker = elig ? eligibilitySummary(elig).marker + ' ' : '';
+                  return (
+                    <option key={p.projectId} value={p.projectId}>
+                      {marker}{p.name} — {p.modelType} ({p.status})
+                    </option>
+                  );
+                })}
               </select>
               {selectedProject && selectedProject.status !== 'RUNNING' && (
                 <div style={{ fontSize: '0.75rem', color: 'var(--warning, var(--fg-muted))', marginTop: 'var(--space-1)' }}>
                   Waiting for the owner to start this model&apos;s training server.
                 </div>
               )}
+              {selectedProject && (() => {
+                const elig = eligibilityByProject[selectedProject.projectId];
+                if (!elig) return null;
+                const s = eligibilitySummary(elig);
+                if (s.marker === '✅') return null;
+                return (
+                  <div
+                    className={s.marker === '⚠️' ? 'eligibility-warn' : 'eligibility-info'}
+                    style={{ fontSize: '0.75rem', marginTop: 'var(--space-1)' }}
+                  >
+                    {s.marker} {s.lines.join(' · ')}
+                  </div>
+                );
+              })()}
             </>
           )}
         </div>

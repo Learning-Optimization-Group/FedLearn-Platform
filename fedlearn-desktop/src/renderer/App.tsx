@@ -58,6 +58,11 @@ declare global {
         };
         error?: string;
       }>;
+      getDeviceCapabilities: () => Promise<{
+        success: boolean;
+        capabilities?: import('../shared/deviceCapabilities.types').DeviceCapabilities;
+        error?: string;
+      }>;
       // Auto-updater
       onUpdateAvailable: (callback: (info: any) => void) => void;
       onUpdateProgress: (callback: (progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => void;
