@@ -1,116 +1,97 @@
-// Join-run flow (15-LLD §6.1): REST start/poll -> manifest version gate -> enrollment token ->
-// stable client id -> native registerClient -> integrity-checked loadModel. Returns everything
-// the round loop (TrainingScreen) needs.
 import { api } from './restClient';
+import nativeCore from './nativeCore';
 import { getOrCreateClientId } from './clientId';
-import nativeCore, { type ModelInfo } from './nativeCore';
 
-// DeterminismManifestDto (04 §4.4 / 15-LLD §5.4) — the run's reproducibility contract.
-export interface DeterminismManifest {
+/** The run manifest the backend serves inline in the enroll response. (Determinism/model-hash
+ *  fields arrive with the model-delivery slice — not present today.) */
+export interface RunManifest {
   runId: string;
+  projectId: string;
+  recipeKey: string;
+  strategy: string;
+  numRounds: number;
+  clientsPerRound: number;
+  partitioningMode: string;
   seed: number;
-  strategy: 'DeComFL' | 'FedAvg';
-  torchVersion: string; // mobile MUST match this for RNG parity (else warn/refuse)
-  numpyVersion: string;
-  frameworkGitSha: string;
-  datasetVersionId: string;
-  datasetSha256: string;
-  partitionRecipeId: string;
-  modelInitSha256: string;
-  goldenVectorSha256: string;
-  createdAt: string;
-}
-
-interface RunStatus {
-  status: string; // INITIALIZING | WAITING_FOR_CLIENTS | RUNNING | ...
-  grpcEndpoint: string | null;
-  enrollmentToken?: string;
+  torchVersion: string;
 }
 
 export interface JoinParams {
   projectId: string;
-  strategy: 'DeComFL' | 'FedAvg';
-  numRounds: number;
-  minClients: number;
-  datasetVersionId: string;
-  modelPath: string; // app-private path of the .pt the manifest hash is checked against
-  useTls?: boolean; // default true (release); a dev build may pass false
+  /** Phase-1 gRPC is plaintext → defaults false. TLS + CA-pin land in the transport-security phase. */
+  useTls?: boolean;
 }
 
 export interface JoinedRun {
   runId: string;
-  grpcEndpoint: string;
-  manifest: DeterminismManifest;
-  clientId: string;
-  modelInfo: ModelInfo;
+  projectId: string;
+  partitionId: number;
   assignedRound: number;
+  grpcEndpoint: string;
+  manifest: RunManifest;
+  message: string;
 }
 
 const POLL_INTERVAL_MS = 2000;
-const POLL_TIMEOUT_MS = 120000;
+const POLL_TIMEOUT_MS = 120_000;
 
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
-async function pollUntilRunning(runId: string): Promise<RunStatus> {
-  const deadline = Date.now() + POLL_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    const { data } = await api.get<RunStatus>(`/api/runs/${runId}/status`);
-    if (data.status === 'RUNNING' && data.grpcEndpoint) return data;
-    if (data.status === 'FAILED' || data.status === 'TRAINING_COMPLETE') {
-      throw new Error(`run ${runId} is ${data.status}; cannot join`);
-    }
-    await sleep(POLL_INTERVAL_MS);
-  }
-  throw new Error(`run ${runId} did not reach RUNNING within ${POLL_TIMEOUT_MS} ms`);
+interface ActiveRunResponse { activeRun: { runId: string; status: string } | null }
+interface RunStatusResponse { status: string; grpcEndpoint: string | null; caFingerprint: string | null }
+interface EnrollResponse {
+  runId: string; projectId: string; grpcEndpoint: string; partitionId: number;
+  clientKind: string; caFingerprint: string | null; connectionToken: string;
+  expiresAt: string; manifest: RunManifest;
 }
 
+/** The project's active run id, or throw if the owner hasn't started one. */
+async function resolveRunId(projectId: string): Promise<string> {
+  const res = await api.get<ActiveRunResponse>(`/api/client/projects/${projectId}`);
+  const runId = res.data?.activeRun?.runId;
+  if (!runId) throw new Error('No active run for this project yet — the owner needs to start one.');
+  return runId;
+}
+
+/** Poll the run status until RUNNING with a grpc endpoint, or time out. */
+async function pollUntilRunning(runId: string): Promise<void> {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  for (;;) {
+    const res = await api.get<RunStatusResponse>(`/api/runs/${runId}/status`);
+    const { status, grpcEndpoint } = res.data;
+    if (status === 'RUNNING' && grpcEndpoint) return;
+    if (status === 'FAILED' || status === 'COMPLETED' || status === 'STOPPED') {
+      throw new Error(`Run is ${status}; cannot join.`);
+    }
+    if (Date.now() > deadline) throw new Error('Timed out waiting for the run to become ready.');
+    await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL_MS));
+  }
+}
+
+/**
+ * Slice 1b — connect the device to the project's active run and register the native FL client.
+ * Stops at registerClient (the run-onboarding DoD). Model download + on-device training data
+ * (native "task 14") + round execution are the model-delivery / execution slices.
+ */
 export async function joinRun(p: JoinParams): Promise<JoinedRun> {
-  // 1. Start (or join) a run on the project.
-  const { data: run } = await api.post<{ id: string; enrollmentToken?: string }>(
-    `/api/projects/${p.projectId}/runs`,
-    {
-      strategy: p.strategy,
-      numRounds: p.numRounds,
-      minClients: p.minClients,
-      datasetVersionId: p.datasetVersionId,
-    },
-  );
-  const runId = run.id;
+  const runId = await resolveRunId(p.projectId);
+  await pollUntilRunning(runId);
 
-  // 2. Poll until the FL server is RUNNING and has published its gRPC endpoint.
-  const status = await pollUntilRunning(runId);
+  const { data: enroll } = await api.post<EnrollResponse>(`/api/runs/${runId}/enroll`);
 
-  // 3. Reproducibility / version gate (the mobile half of the C3 version-compatibility gate).
-  const { data: manifest } = await api.get<DeterminismManifest>(`/api/runs/${runId}/manifest`);
-
-  // 4. Enrollment token (backend-minted at launch; surfaced via the join or status response).
-  const enrollmentToken = run.enrollmentToken ?? status.enrollmentToken;
-  if (!enrollmentToken) throw new Error('no enrollment_token returned by the control plane');
-
-  // 5. Stable client id (encrypted, persisted).
   const clientId = await getOrCreateClientId();
-
-  // 6. Register the native client over gRPC (TLS+mTLS by default).
   const reg = await nativeCore.registerClient(
-    status.grpcEndpoint as string,
-    runId,
-    clientId,
-    enrollmentToken,
-    p.useTls ?? true,
+    enroll.grpcEndpoint, runId, clientId, enroll.connectionToken, p.useTls ?? false,
   );
   if (!reg.accepted) {
-    throw new Error(`registration rejected (server protocol v${reg.serverProtocolVersion}): ${reg.message}`);
+    throw new Error(reg.message || 'Server rejected the client registration.');
   }
-
-  // 7. Load the model, integrity-checked against the manifest hash, before any round.
-  const modelInfo = await nativeCore.loadModel(p.modelPath, manifest.modelInitSha256);
 
   return {
     runId,
-    grpcEndpoint: status.grpcEndpoint as string,
-    manifest,
-    clientId,
-    modelInfo,
+    projectId: enroll.projectId,
+    partitionId: enroll.partitionId,
     assignedRound: reg.assignedRound,
+    grpcEndpoint: enroll.grpcEndpoint,
+    manifest: enroll.manifest,
+    message: reg.message,
   };
 }
