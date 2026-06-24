@@ -74,6 +74,10 @@ def build_model(model_type: str, model_name: str):
         import recipes
         recipe = recipes.get_recipe("PNEUMONIA_CNN")  # 1x224x224 grayscale -> [NORMAL, PNEUMONIA]
         return recipe.build_model("cpu"), recipe.classes, "image", recipe.input_transform()
+    if mt == "BLOOD_CNN":
+        import recipes
+        recipe = recipes.get_recipe("BLOOD_CNN")  # 3x28x28 RGB -> 8 blood cell types
+        return recipe.build_model("cpu"), recipe.classes, "image", recipe.input_transform()
     if mt == "MLP":
         from models.ecg_mlp import ECGModel
         return (
