@@ -59,4 +59,8 @@ public class CreateProjectRequest {
     }
 
     public void setOptimizer(String optimizer) { this.optimizer = optimizer; }
+
+    private DeviceRequirements requirementsOverride;
+    public DeviceRequirements getRequirementsOverride() { return requirementsOverride; }
+    public void setRequirementsOverride(DeviceRequirements requirementsOverride) { this.requirementsOverride = requirementsOverride; }
 }

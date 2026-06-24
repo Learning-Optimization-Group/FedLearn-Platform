@@ -132,6 +132,7 @@ public class ProjectService {
                 .map(m -> m.getOrgId())
                 .orElse(DEFAULT_ORG_ID);
         project.setOrgId(orgId);
+        project.setRequirementsOverride(request.getRequirementsOverride());
         project.setStatus("CREATED");
         Project savedProject = projectRepository.save(project);
         log.debug("Persisted project shell with id={}", savedProject.getId());
@@ -421,6 +422,9 @@ public class ProjectService {
                     }
                 }
             }
+        }
+        if (req.getRequirementsOverride() != null) {
+            project.setRequirementsOverride(req.getRequirementsOverride());
         }
         Project saved = projectRepository.save(project);
         ProjectResponseDto dto = convertToDto(saved);

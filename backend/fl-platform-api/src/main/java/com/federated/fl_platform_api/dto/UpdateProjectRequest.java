@@ -19,4 +19,8 @@ public class UpdateProjectRequest {
     public void setDescription(String description) { this.description = description; }
     public String getVisibility() { return visibility; }
     public void setVisibility(String visibility) { this.visibility = visibility; }
+
+    private DeviceRequirements requirementsOverride;
+    public DeviceRequirements getRequirementsOverride() { return requirementsOverride; }
+    public void setRequirementsOverride(DeviceRequirements requirementsOverride) { this.requirementsOverride = requirementsOverride; }
 }
