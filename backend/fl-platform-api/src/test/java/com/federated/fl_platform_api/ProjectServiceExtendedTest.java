@@ -22,6 +22,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 
+import com.federated.fl_platform_api.dto.StartProject;
+import com.federated.fl_platform_api.model.Run;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -159,5 +162,34 @@ class ProjectServiceExtendedTest {
 
         assertThrows(AccessDeniedException.class,
                 () -> projectService.stopServerForProject(testProject.getId()));
+    }
+
+    @Test
+    void startServerForLlmLoraProjectForcesFedLoRAStrategy() throws Exception {
+        // Arrange: LLM_LORA project; caller submits "DeComFL" to prove the override.
+        testProject.setModelType("LLM_LORA");
+        testProject.setStatus("STOPPED");
+        when(projectRepository.findById(testProject.getId())).thenReturn(Optional.of(testProject));
+        when(flowerServerManager.isServerRunning(testProject.getId())).thenReturn(false);
+
+        Run stubRun = new Run();
+        stubRun.setId(UUID.randomUUID());
+        when(runService.createForStart(eq(testProject), eq("FedLoRA"), anyInt(), anyInt(), anyInt()))
+                .thenReturn(stubRun);
+        when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(flowerServerManager.startServerForProject(eq(testProject), eq("FedLoRA"), anyInt(), anyInt()))
+                .thenReturn(Optional.of(50000));
+
+        StartProject request = new StartProject();
+        request.setStrategy("DeComFL");
+        request.setNumRounds(3);
+        request.setMinClients(1);
+
+        // Act
+        projectService.startServerForProject(testProject.getId(), request);
+
+        // Assert: both collaborators received the forced "FedLoRA" strategy, not "DeComFL".
+        verify(runService).createForStart(eq(testProject), eq("FedLoRA"), anyInt(), anyInt(), anyInt());
+        verify(flowerServerManager).startServerForProject(eq(testProject), eq("FedLoRA"), anyInt(), anyInt());
     }
 }
