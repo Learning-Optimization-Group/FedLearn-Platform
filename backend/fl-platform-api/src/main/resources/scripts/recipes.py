@@ -70,7 +70,7 @@ RECIPE_METADATA = [
         "key": "TRANSFORMER",
         "display_name": "Text classifier (OPT-125M)",
         "input_kind": "text",
-        "classes": [],
+        "classes": ["entailment", "contradiction", "neutral"],
         "base_models": ["opt-125m", "bert-tiny"],
         "optimizers": ["AdamW", "Adam"],
         "requirements": {"min_ram_gb": 8, "min_storage_gb": 1.5, "mobile_safe": False,

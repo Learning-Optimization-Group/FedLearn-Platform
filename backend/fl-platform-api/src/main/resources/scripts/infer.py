@@ -49,6 +49,7 @@ CIFAR10_CLASSES = [
     "dog", "frog", "horse", "ship", "truck",
 ]
 ECG_CLASSES = ["Normal", "Abnormal"]
+TRANSFORMER_CLASSES = ["entailment", "contradiction", "neutral"]
 
 ECG_INPUT_DIM = 140
 ECG_HIDDEN_DIM = 64
@@ -83,12 +84,24 @@ def build_model(model_type: str, model_name: str):
             None,
         )
     if mt == "TRANSFORMER":
-        raise ValueError("Transformer (text) models are not supported for interactive inference yet.")
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+        net = AutoModelForSequenceClassification.from_pretrained(
+            "facebook/opt-125m", num_labels=len(TRANSFORMER_CLASSES), use_safetensors=True)
+        tok = AutoTokenizer.from_pretrained("facebook/opt-125m")
+        if tok.pad_token is None:
+            tok.pad_token = tok.eos_token
+        net.config.pad_token_id = tok.pad_token_id
+        return net, TRANSFORMER_CLASSES, "text", tok
+    if mt == "LLM_LORA":
+        import recipes
+        recipe = recipes.get_recipe("LLM_LORA")
+        net = recipe.build_model("cpu", model_name=model_name, aggregation="FFA_LORA")
+        return net, recipe.classes, "text", recipe.input_transform()
     raise ValueError(f"Unsupported model type: {model_type}")
 
 
-def load_weights(net, model_path: str) -> None:
-    """Load the aggregated state_dict from the .npz (keys use __DOT__ for '.')."""
+def decode_npz(model_path: str) -> dict:
+    """Decode the aggregated state from the .npz (keys use __DOT__ for '.')."""
     state = {}
     with np.load(model_path, allow_pickle=False) as npz:
         for key in npz.files:
@@ -97,7 +110,7 @@ def load_weights(net, model_path: str) -> None:
                 state[key.replace("__DOT__", ".")] = torch.from_numpy(value)
     if not state:
         raise ValueError("No parameters found in model file.")
-    net.load_state_dict(state, strict=True)
+    return state
 
 
 def build_image_tensor(image_path: str, transform=None) -> torch.Tensor:
@@ -163,7 +176,16 @@ def main() -> int:
         log(f"loading {args.model_type}/{args.model_name} from {args.model_path}")
 
         net, classes, input_kind, image_transform = build_model(args.model_type, args.model_name)
-        load_weights(net, args.model_path)
+        if args.model_type.upper() == "LLM_LORA":
+            from collections import OrderedDict
+            from peft import set_peft_model_state_dict
+            # The LLM_LORA .npz is the trained adapter (A+B+head), not a full state_dict.
+            # OrderedDict(...) guards peft's in-place mutation of its input.
+            out = set_peft_model_state_dict(net, OrderedDict(decode_npz(args.model_path)))
+            if getattr(out, "unexpected_keys", None):
+                raise ValueError(f"adapter has unexpected keys (malformed model artifact): {list(out.unexpected_keys)[:5]}")
+        else:
+            net.load_state_dict(decode_npz(args.model_path), strict=True)
         net.to(device)
         net.eval()
 
@@ -179,11 +201,25 @@ def main() -> int:
             if input_kind != "vector":
                 raise InputError(f"{args.model_type} expects {input_kind} input, not a vector")
             x = build_vector_tensor(payload.get("values"), ECG_INPUT_DIM)
+        elif kind == "text":
+            if input_kind != "text":
+                raise InputError(f"{args.model_type} expects {input_kind} input, not text")
+            text = payload.get("text")
+            if not isinstance(text, str) or not text.strip():
+                raise InputError("text input requires a non-empty 'text' string")
+            tokenizer = image_transform  # for text models, build_model's 4th return is the tokenizer
+            # NOTE: TRANSFORMER/opt-125m was trained on premise+hypothesis PAIRS (CB); single-string
+            # inference here is best-effort/out-of-distribution. LLM_LORA/SST-2 is single-sentence (in-distribution).
+            tokens = tokenizer(text, return_tensors="pt", truncation=True, max_length=256)
+            x = {k: v.to(device) for k, v in tokens.items()}
         else:
             raise InputError(f"Unknown input kind: {kind}")
 
         with torch.no_grad():
-            logits = net(x.to(device))
+            if isinstance(x, dict):
+                logits = net(**x).logits
+            else:
+                logits = net(x.to(device))
             probs = F.softmax(logits, dim=1)
 
         logits_list = logits.squeeze(0).tolist()
