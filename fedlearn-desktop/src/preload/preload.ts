@@ -130,7 +130,10 @@ export interface TrainingConfigInput {
 interface InferencePayloadInput {
   imageBase64?: string;
   values?: number[];
+  text?: string;
 }
+
+const MAX_TEXT_LEN = 10_000; // matches backend @Size(max = 10_000)
 
 function isValidInferencePayload(payload: unknown): payload is InferencePayloadInput {
   if (!payload || typeof payload !== 'object') {
@@ -148,7 +151,10 @@ function isValidInferencePayload(payload: unknown): payload is InferencePayloadI
       p.values.every((v) => typeof v === 'number' && Number.isFinite(v))
     );
   }
-  console.error('[Preload:Validation] Inference payload has neither imageBase64 nor values');
+  if (typeof p.text === 'string') {
+    return p.text.trim().length > 0 && p.text.length <= MAX_TEXT_LEN;
+  }
+  console.error('[Preload:Validation] Inference payload has neither imageBase64, values, nor text');
   return false;
 }
 

@@ -187,8 +187,8 @@ export interface InferableModel {
     modelType: string;
     modelName: string;
     status: string;
-    /** "image" → collect an image; "vector" → collect a numeric vector; null → not runnable. */
-    inputKind: 'image' | 'vector' | null;
+    /** "image" → collect an image; "vector" → collect a numeric vector; "text" → collect raw text; null → not runnable. */
+    inputKind: 'image' | 'vector' | 'text' | null;
     classes: string[];
     supported: boolean;
 }
@@ -207,6 +207,8 @@ export interface InferencePayload {
     imageBase64?: string;
     /** Numeric feature vector. For tabular (MLP) models. */
     values?: number[];
+    /** Raw text. For text models (LLM_LORA, TRANSFORMER). */
+    text?: string;
 }
 
 /** Lists the current user's trained models that can be run interactively. */

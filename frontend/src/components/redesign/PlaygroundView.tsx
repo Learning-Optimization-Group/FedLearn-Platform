@@ -36,6 +36,7 @@ export function PlaygroundView() {
     const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
     const [imageName, setImageName] = useState<string>('');
     const [vectorText, setVectorText] = useState<string>('');
+    const [textInput, setTextInput] = useState<string>('');
 
     const [running, setRunning] = useState(false);
     const [result, setResult] = useState<InferenceResult | null>(null);
@@ -69,6 +70,7 @@ export function PlaygroundView() {
         setImageDataUrl(null);
         setImageName('');
         setVectorText('');
+        setTextInput('');
     }, [selectedId]);
 
     const handleFile = (file: File | undefined) => {
@@ -97,8 +99,9 @@ export function PlaygroundView() {
         if (!selected || !selected.supported || running) return false;
         if (selected.inputKind === 'image') return !!imageDataUrl;
         if (selected.inputKind === 'vector') return parsedVector.length > 0;
+        if (selected.inputKind === 'text') return textInput.trim().length > 0;
         return false;
-    }, [selected, running, imageDataUrl, parsedVector]);
+    }, [selected, running, imageDataUrl, parsedVector, textInput]);
 
     const handleRun = async () => {
         if (!selected) return;
@@ -109,7 +112,9 @@ export function PlaygroundView() {
             const payload =
                 selected.inputKind === 'image'
                     ? { imageBase64: imageDataUrl as string }
-                    : { values: parsedVector };
+                    : selected.inputKind === 'vector'
+                        ? { values: parsedVector }
+                        : { text: textInput };
             const res = await api.runInference(selected.projectId, payload);
             setResult(res.data);
         } catch (e: unknown) {
@@ -252,6 +257,22 @@ export function PlaygroundView() {
                                     <span className="text-caption text-fg-subtle">
                                         {parsedVector.length} value{parsedVector.length === 1 ? '' : 's'} parsed
                                     </span>
+                                </div>
+                            )}
+
+                            {/* Text input */}
+                            {selected?.inputKind === 'text' && (
+                                <div className="flex flex-col gap-2">
+                                    <span className="text-caption uppercase tracking-wide font-semibold text-fg-muted flex items-center gap-1.5">
+                                        <Sparkles className="w-3.5 h-3.5" strokeWidth={1.5} /> Text
+                                    </span>
+                                    <textarea
+                                        value={textInput}
+                                        onChange={(e) => setTextInput(e.target.value)}
+                                        rows={5}
+                                        placeholder="Enter text to classify…"
+                                        className="w-full rounded-md border border-hairline bg-surface-1 px-3 py-2 text-label text-fg placeholder:text-fg-subtle focus:border-accent/50 focus:outline-none resize-y"
+                                    />
                                 </div>
                             )}
 

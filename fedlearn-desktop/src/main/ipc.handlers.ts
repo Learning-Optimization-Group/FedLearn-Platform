@@ -90,6 +90,8 @@ let clientProjectService: ClientProjectService;
  * validates too). Exactly one of imageBase64 / values must be present and within
  * bounds. Returns a clean payload or null on rejection.
  */
+const MAX_TEXT_LEN = 10_000; // matches backend @Size(max = 10_000)
+
 function sanitizeInferencePayload(raw: unknown): InferencePayload | null {
   if (!raw || typeof raw !== 'object') return null;
   const p = raw as Record<string, unknown>;
@@ -103,6 +105,11 @@ function sanitizeInferencePayload(raw: unknown): InferencePayload | null {
     if (p.values.length === 0 || p.values.length > MAX_VECTOR_LEN) return null;
     if (!p.values.every((v) => typeof v === 'number' && Number.isFinite(v))) return null;
     return { values: p.values as number[] };
+  }
+  if (typeof p.text === 'string') {
+    const txt = p.text;
+    if (txt.trim().length === 0 || txt.length > MAX_TEXT_LEN) return null;
+    return { text: txt };
   }
   return null;
 }

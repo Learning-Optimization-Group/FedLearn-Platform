@@ -16,7 +16,7 @@ export interface InferableModel {
   modelType: string;
   modelName: string;
   status: string;
-  inputKind: 'image' | 'vector' | null;
+  inputKind: 'image' | 'vector' | 'text' | null;
   classes: string[];
   supported: boolean;
 }
@@ -33,6 +33,7 @@ export interface InferenceResult {
 export interface InferencePayload {
   imageBase64?: string;
   values?: number[];
+  text?: string;
 }
 
 export class InferenceService {

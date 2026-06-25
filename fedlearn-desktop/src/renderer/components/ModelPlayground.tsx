@@ -31,6 +31,7 @@ const ModelPlayground: React.FC = () => {
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [imageName, setImageName] = useState('');
   const [vectorText, setVectorText] = useState('');
+  const [textInput, setTextInput] = useState('');
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<InferenceResult | null>(null);
   const [error, setError] = useState('');
@@ -65,6 +66,7 @@ const ModelPlayground: React.FC = () => {
     setImageDataUrl(null);
     setImageName('');
     setVectorText('');
+    setTextInput('');
   }, [selectedId]);
 
   const handleFile = useCallback((file: File | undefined) => {
@@ -93,8 +95,9 @@ const ModelPlayground: React.FC = () => {
     if (!selected || !selected.supported || running) return false;
     if (selected.inputKind === 'image') return !!imageDataUrl;
     if (selected.inputKind === 'vector') return parsedVector.length > 0;
+    if (selected.inputKind === 'text') return textInput.trim().length > 0;
     return false;
-  }, [selected, running, imageDataUrl, parsedVector]);
+  }, [selected, running, imageDataUrl, parsedVector, textInput]);
 
   const handleRun = useCallback(async () => {
     if (!selected) return;
@@ -105,7 +108,9 @@ const ModelPlayground: React.FC = () => {
       const payload =
         selected.inputKind === 'image'
           ? { imageBase64: imageDataUrl as string }
-          : { values: parsedVector };
+          : selected.inputKind === 'vector'
+            ? { values: parsedVector }
+            : { text: textInput };
       const res = await window.fedLearnAPI.runInference(selected.projectId, payload);
       if (res.success && res.result) {
         setResult(res.result);
@@ -117,7 +122,7 @@ const ModelPlayground: React.FC = () => {
     } finally {
       setRunning(false);
     }
-  }, [selected, imageDataUrl, parsedVector]);
+  }, [selected, imageDataUrl, parsedVector, textInput]);
 
   return (
     <div className="main-grid">
@@ -214,6 +219,20 @@ const ModelPlayground: React.FC = () => {
                   placeholder="Paste numbers separated by commas, spaces, or newlines…"
                 />
                 <span className="pg-hint">{parsedVector.length} value(s) parsed</span>
+              </div>
+            )}
+
+            {selected?.inputKind === 'text' && (
+              <div className="form-group">
+                <label className="form-label" htmlFor="pg-text">Text</label>
+                <textarea
+                  id="pg-text"
+                  className="form-input"
+                  rows={5}
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  placeholder="Enter text to classify…"
+                />
               </div>
             )}
 

@@ -44,7 +44,7 @@ declare global {
       listModels: () => Promise<{ success: boolean; models?: InferableModel[]; error?: string }>;
       runInference: (
         projectId: string,
-        payload: { imageBase64?: string; values?: number[] },
+        payload: { imageBase64?: string; values?: number[]; text?: string },
       ) => Promise<{ success: boolean; result?: InferenceResult; error?: string }>;
       detectHardware: () => Promise<{
         success: boolean;
