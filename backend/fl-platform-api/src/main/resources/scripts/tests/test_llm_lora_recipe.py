@@ -112,6 +112,20 @@ def test_model_name_threads_to_tokenizer_via_sst2(monkeypatch):
     )
 
 
+def test_input_transform_threads_model_name(monkeypatch):
+    import recipes
+    captured = {}
+
+    def _spy(model_name=None):
+        captured["name"] = model_name
+        return "TOK"
+
+    monkeypatch.setattr(recipes, "_load_llm_tokenizer", _spy)
+    out = recipes.get_recipe("LLM_LORA").input_transform("tinyllama-1.1b")
+    assert out == "TOK"
+    assert captured["name"] == "tinyllama-1.1b"
+
+
 @pytest.mark.slow
 def test_build_model_smoke(tmp_path):
     """Exercise the real build_model runtime path (catches NameError-class bugs)."""

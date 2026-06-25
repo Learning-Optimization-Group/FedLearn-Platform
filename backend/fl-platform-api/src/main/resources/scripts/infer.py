@@ -10,14 +10,20 @@ Contract (deliberate): the result is written to the --out FILE, never to stdout.
 torch/CUDA banners and wrapper log lines pollute stdout, so the Java side reads
 the out-file and treats stdout purely as diagnostic logging.
 
-Supported model types (v1):
-  CNN  — CnnNet (CIFAR-10), input 3x32x32 image, 10 classes.
-  MLP  — ECGModel(140, 64, 2), input a 140-float vector, 2 classes.
-  TRANSFORMER — not supported for interactive inference yet (returns ok=false).
+Supported model types:
+  CNN           — CnnNet (CIFAR-10), input 3×32×32 RGB image, 10 classes.
+  PNEUMONIA_CNN — PneumoniaCNN, input 1×224×224 grayscale image, 2 classes (NORMAL/PNEUMONIA).
+  MLP           — ECGModel(140, 64, 2), input a 140-float vector, 2 classes (Normal/Abnormal).
+  TRANSFORMER   — OPT-125M sequence classifier, text input, 3 classes (entailment/contradiction/neutral).
+  LLM_LORA      — LoRA-adapted LLM (Qwen2.5-0.5B or TinyLlama-1.1B), text input, 2 classes
+                  (negative/positive, SST-2). Tokenizer is selected per --model-name so each
+                  base model uses its own vocab — passing the wrong model_name would cause
+                  out-of-range token ids.
 
 Input file (JSON, written by the backend), one of:
   {"kind": "image",  "imagePath": "/abs/path/to/image"}
   {"kind": "vector", "values": [<floats>]}
+  {"kind": "text",   "text": "The movie was surprisingly good."}
 """
 
 import argparse
@@ -96,7 +102,7 @@ def build_model(model_type: str, model_name: str):
         import recipes
         recipe = recipes.get_recipe("LLM_LORA")
         net = recipe.build_model("cpu", model_name=model_name, aggregation="FFA_LORA")
-        return net, recipe.classes, "text", recipe.input_transform()
+        return net, recipe.classes, "text", recipe.input_transform(model_name)
     raise ValueError(f"Unsupported model type: {model_type}")
 
 

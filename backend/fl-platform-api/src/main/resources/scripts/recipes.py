@@ -465,11 +465,11 @@ class Recipe:
             return model.to(device)
         raise NotImplementedError(f"build_model not implemented in recipes.py for {self.key}")
 
-    def input_transform(self):
+    def input_transform(self, model_name=None):
         if self.key == "PNEUMONIA_CNN":
             return pneumonia_transform()
         if self.key == "LLM_LORA":
-            return _load_llm_tokenizer(None)
+            return _load_llm_tokenizer(model_name)
         raise NotImplementedError(f"input_transform not implemented in recipes.py for {self.key}")
 
     def load_client_data(self, partition_id, num_clients, **kw):
