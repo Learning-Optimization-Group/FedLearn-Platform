@@ -12,6 +12,8 @@ import java.util.List;
  *       image models (CNN). May include a {@code data:} URL prefix, which the
  *       service strips.</li>
  *   <li>{@code values} — a numeric feature vector; used by tabular models (MLP/ECG).</li>
+ *   <li>{@code text} — raw text input; used by text-classification models
+ *       (LLM_LORA, TRANSFORMER). The backend tokenizes on the Python side.</li>
  * </ul>
  */
 public class InferenceRequest {
@@ -29,9 +31,16 @@ public class InferenceRequest {
     @Size(max = 100_000, message = "values vector exceeds the maximum allowed length")
     private List<Double> values;
 
+    /** Raw text for text-classification models (LLM_LORA, TRANSFORMER). Backend tokenizes. */
+    @Size(max = 10_000, message = "text exceeds the maximum allowed length")
+    private String text;
+
     public String getImageBase64() { return imageBase64; }
     public void setImageBase64(String imageBase64) { this.imageBase64 = imageBase64; }
 
     public List<Double> getValues() { return values; }
     public void setValues(List<Double> values) { this.values = values; }
+
+    public String getText() { return text; }
+    public void setText(String text) { this.text = text; }
 }

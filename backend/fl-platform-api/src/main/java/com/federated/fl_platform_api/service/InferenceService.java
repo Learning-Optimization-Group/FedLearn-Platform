@@ -83,9 +83,7 @@ public class InferenceService {
         ProjectService.InferenceTarget target = projectService.resolveInferenceTarget(projectId);
 
         String inputKind = projectService.inputKindFor(target.modelType());
-        // Only image/vector inputs are wired into infer.py today; anything else
-        // (e.g. a text recipe like Transformer) isn't interactively runnable yet.
-        if (inputKind == null || !("image".equals(inputKind) || "vector".equals(inputKind))) {
+        if (!isInteractiveInputKind(inputKind)) {
             throw new ProjectStateException(
                     "Interactive inference is not supported for model type '" + target.modelType() + "' yet.");
         }
@@ -102,9 +100,11 @@ public class InferenceService {
                 imageFile = Files.createTempFile("fedlearn-infer-img", ".img");
                 Files.write(imageFile, bytes);
                 payload = Map.of("kind", "image", "imagePath", imageFile.toAbsolutePath().toString());
-            } else { // vector
+            } else if ("vector".equals(inputKind)) {
                 List<Double> values = validateVector(request);
                 payload = Map.of("kind", "vector", "values", values);
+            } else { // text
+                payload = Map.of("kind", "text", "text", validateText(request));
             }
 
             inputFile = Files.createTempFile("fedlearn-infer-in", ".json");
@@ -133,6 +133,14 @@ public class InferenceService {
     }
 
     // ─── input validation ────────────────────────────────────────────────────
+
+    /**
+     * Returns {@code true} for input kinds that are fully wired through {@code infer.py}
+     * and therefore eligible for interactive inference: image, vector, and text.
+     */
+    static boolean isInteractiveInputKind(String inputKind) {
+        return "image".equals(inputKind) || "vector".equals(inputKind) || "text".equals(inputKind);
+    }
 
     private byte[] decodeImage(InferenceRequest request) {
         String b64 = request.getImageBase64();
@@ -173,6 +181,14 @@ public class InferenceService {
             }
         }
         return values;
+    }
+
+    private String validateText(InferenceRequest request) {
+        String text = request.getText();
+        if (text == null || text.isBlank()) {
+            throw new IllegalArgumentException("A non-empty 'text' string is required for this model.");
+        }
+        return text;
     }
 
     // ─── process execution ───────────────────────────────────────────────────
