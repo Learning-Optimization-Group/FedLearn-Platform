@@ -67,7 +67,7 @@ def log(msg: str) -> None:
     print(f"[infer] {msg}", flush=True)
 
 
-def build_model(model_type: str, model_name: str):
+def build_model(model_type: str, model_name: str, task_type: str = "SEQ_CLASSIFICATION"):
     """Reconstruct the architecture exactly as training did.
 
     Imports the architecture modules directly (not models.py/init_model.py) so we
@@ -101,8 +101,9 @@ def build_model(model_type: str, model_name: str):
     if mt == "LLM_LORA":
         import recipes
         recipe = recipes.get_recipe("LLM_LORA")
-        net = recipe.build_model("cpu", model_name=model_name, aggregation="FFA_LORA")
-        return net, recipe.classes, "text", recipe.input_transform(model_name)
+        net = recipe.build_model("cpu", model_name=model_name, aggregation="FFA_LORA", task_type=task_type)
+        kind = "generation" if task_type.upper() == "CAUSAL_LM" else "text"
+        return net, recipe.classes, kind, recipe.input_transform(model_name)
     raise ValueError(f"Unsupported model type: {model_type}")
 
 
@@ -164,6 +165,63 @@ def build_vector_tensor(values, expected_dim: int) -> torch.Tensor:
     return torch.from_numpy(arr).unsqueeze(0)  # (1, dim)
 
 
+def generate_text(net, tokenizer, prompt, max_new_tokens, temperature, device="cpu"):
+    """Stream a completion for `prompt` using the dolly instruction template.
+
+    Prints each decoded chunk to stdout as {"token": "<chunk>"} (the streaming
+    channel the backend rebroadcasts) and returns the final structured result.
+    """
+    from threading import Thread
+    from transformers import TextIteratorStreamer
+
+    prompt_text = f"### Instruction:\n{prompt}\n### Response:\n"
+    inputs = tokenizer(prompt_text, return_tensors="pt")
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+    input_len = inputs["input_ids"].shape[-1]
+
+    ctx = getattr(net.config, "max_position_embeddings", 2048) or 2048
+    room = max(1, ctx - input_len)
+    eff_max = max(1, min(2048, int(max_new_tokens), room))
+
+    streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True, timeout=120.0)
+    gen_kwargs = dict(**inputs, streamer=streamer, max_new_tokens=eff_max,
+                      pad_token_id=tokenizer.eos_token_id, eos_token_id=tokenizer.eos_token_id)
+    if temperature and float(temperature) > 0:
+        gen_kwargs.update(do_sample=True, temperature=float(temperature))
+    else:
+        gen_kwargs.update(do_sample=False)
+
+    box = {}
+    def _run():
+        try:
+            with torch.no_grad():
+                out = net.generate(**gen_kwargs)
+            box["out_len"] = int(out.shape[-1])
+        except Exception as exc:  # surfaced to the main thread after join
+            box["err"] = exc
+
+    thread = Thread(target=_run)
+    thread.start()
+    generated = ""
+    for chunk in streamer:                       # skip_prompt=True -> completion only
+        print(json.dumps({"token": chunk}), flush=True)
+        generated += chunk
+    thread.join()
+    if "err" in box:
+        raise box["err"]
+
+    token_count = max(0, box.get("out_len", input_len) - input_len)
+    finish_reason = "length" if token_count >= eff_max else "stop"
+    return {
+        "ok": True,
+        "modelType": "LLM_LORA",
+        "prompt": prompt,
+        "generatedText": generated,
+        "tokenCount": token_count,
+        "finishReason": finish_reason,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run inference on a trained FedLearn model.")
     parser.add_argument("--model-path", required=True)
@@ -171,6 +229,10 @@ def main() -> int:
     parser.add_argument("--model-name", required=True)
     parser.add_argument("--in", dest="in_path", required=True, help="Input payload JSON file")
     parser.add_argument("--out", dest="out_path", required=True, help="Result JSON output file")
+    parser.add_argument("--task-type", default="SEQ_CLASSIFICATION",
+                        choices=["SEQ_CLASSIFICATION", "CAUSAL_LM"])
+    parser.add_argument("--max-new-tokens", type=int, default=256)
+    parser.add_argument("--temperature", type=float, default=0.7)
     args = parser.parse_args()
 
     def write_result(obj) -> None:
@@ -181,7 +243,7 @@ def main() -> int:
         device = "cpu"  # inference is single-sample; CPU is plenty and avoids CUDA surprises
         log(f"loading {args.model_type}/{args.model_name} from {args.model_path}")
 
-        net, classes, input_kind, image_transform = build_model(args.model_type, args.model_name)
+        net, classes, input_kind, image_transform = build_model(args.model_type, args.model_name, args.task_type)
         if args.model_type.upper() == "LLM_LORA":
             from collections import OrderedDict
             from peft import set_peft_model_state_dict
@@ -198,6 +260,17 @@ def main() -> int:
         with open(args.in_path) as f:
             payload = json.load(f)
         kind = payload.get("kind")
+
+        if kind == "generation":
+            if input_kind != "generation":
+                raise InputError(f"{args.model_type} expects {input_kind} input, not a generation prompt")
+            prompt = payload.get("prompt")
+            if not isinstance(prompt, str) or not prompt.strip():
+                raise InputError("generation input requires a non-empty 'prompt' string")
+            result = generate_text(net, image_transform, prompt, args.max_new_tokens, args.temperature, device)
+            write_result(result)
+            log(f"generated {result['tokenCount']} tokens")
+            return 0
 
         if kind == "image":
             if input_kind != "image":
