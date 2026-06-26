@@ -36,6 +36,12 @@ public class Project {
     @Column
     private String optimizer;
 
+    @Column
+    private String taskType;
+
+    public String getTaskType() { return taskType; }
+    public void setTaskType(String taskType) { this.taskType = taskType; }
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;

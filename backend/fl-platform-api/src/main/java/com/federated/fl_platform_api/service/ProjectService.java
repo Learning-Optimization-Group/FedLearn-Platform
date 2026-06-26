@@ -80,6 +80,12 @@ public class ProjectService {
      */
     public static final UUID DEFAULT_ORG_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
+    /** Effective task_type: CAUSAL_LM or the default SEQ_CLASSIFICATION (null/blank).
+     *  Package-private + static to mirror resolveStrategy (#3 precedent — no wider surface). */
+    static String resolveTaskType(String requested) {
+        return "CAUSAL_LM".equalsIgnoreCase(requested) ? "CAUSAL_LM" : "SEQ_CLASSIFICATION";
+    }
+
     /**
      * The effective FL strategy for a run. LLM_LORA projects ONLY work under FedLoRA
      * (FedAvg drops lora_A from the global → server-eval uses a random A); the model
@@ -134,6 +140,7 @@ public class ProjectService {
         project.setModelType(request.getModelType());
         project.setModelName(request.getModelName());
         project.setOptimizer(request.getOptimizer());
+        project.setTaskType(resolveTaskType(request.getTaskType()));
         project.setUser(owner);
         // V5 made projects.org_id NOT NULL. Pin the project to the owner's first
         // org membership; fall back to the Default org (seeded by V5) for users

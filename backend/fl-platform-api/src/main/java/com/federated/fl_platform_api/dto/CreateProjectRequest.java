@@ -17,6 +17,13 @@ public class CreateProjectRequest {
 
     private String optimizer;
 
+    @jakarta.validation.constraints.Pattern(regexp = "SEQ_CLASSIFICATION|CAUSAL_LM",
+            message = "taskType must be SEQ_CLASSIFICATION or CAUSAL_LM")
+    private String taskType;
+
+    public String getTaskType() { return taskType; }
+    public void setTaskType(String taskType) { this.taskType = taskType; }
+
     @NotNull(message = "pretrainEpochs must be provided")
     @Min(value = 0, message = "pretrainEpochs cannot be negative")
     private Integer pretrainEpochs;
