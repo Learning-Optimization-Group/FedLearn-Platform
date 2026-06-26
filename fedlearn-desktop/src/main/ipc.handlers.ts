@@ -413,8 +413,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       const p = (a.payload ?? {}) as Record<string, unknown>;
       const prompt = typeof p.prompt === 'string' ? p.prompt : '';
       if (!prompt.trim() || prompt.length > 10_000) return { success: false, error: 'Invalid prompt' };
-      const maxNewTokens = Math.max(1, Math.min(2048, Number(p.maxNewTokens) || 256));
-      const temperature = Math.max(0, Math.min(2, Number(p.temperature) ?? 0.7));
+      const mnt = Number(p.maxNewTokens);
+      const maxNewTokens = Math.max(1, Math.min(2048, Number.isFinite(mnt) ? mnt : 256));
+      const t = Number(p.temperature);
+      const temperature = Math.max(0, Math.min(2, Number.isFinite(t) ? t : 0.7));
       return await inferenceStreamService.runGeneration(a.projectId as string, {
         prompt,
         maxNewTokens,

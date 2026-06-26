@@ -55,7 +55,9 @@ export class InferenceStreamService {
     };
 
     await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, 8000);
       client.onConnect = () => {
+        clearTimeout(timer);
         client.subscribe(`/topic/inference/${projectId}`, (msg) => {
           try {
             const { token } = JSON.parse(msg.body) as { token?: unknown };
@@ -67,6 +69,7 @@ export class InferenceStreamService {
         resolve();
       };
       client.onStompError = () => resolve(); // proceed even if stream fails; HTTP result is backstop
+      client.onWebSocketError = () => resolve(); // guard against transport-level stalls
       client.activate();
     });
 
