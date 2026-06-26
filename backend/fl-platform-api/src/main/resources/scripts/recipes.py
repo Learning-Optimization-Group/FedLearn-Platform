@@ -347,16 +347,18 @@ def _resolve_llm_base(model_name):
     return LLM_LORA_BASE_MODELS[key]
 
 
-def apply_lora(base_model, lora_cfg, aggregation):
-    """Wrap a *ForSequenceClassification model with LoRA; under FFA_LORA freeze every lora_A."""
+def apply_lora(base_model, lora_cfg, aggregation, task_type="SEQ_CLASSIFICATION"):
+    """Wrap a base model with LoRA; under FFA_LORA freeze every lora_A. task_type selects the
+    peft task + whether a classification head (modules_to_save) is trained."""
     if aggregation not in ("FFA_LORA", "FEDIT"):
         raise ValueError(f"unknown aggregation {aggregation!r}; expected FFA_LORA or FEDIT")
     from peft import LoraConfig, get_peft_model
+    is_causal = task_type == "CAUSAL_LM"
     cfg = LoraConfig(
         r=lora_cfg["r"], lora_alpha=lora_cfg["alpha"], lora_dropout=lora_cfg["dropout"],
-        bias="none", task_type="SEQ_CLS",
+        bias="none", task_type=("CAUSAL_LM" if is_causal else "SEQ_CLS"),
         target_modules=list(lora_cfg["target_modules"]),
-        modules_to_save=[LLM_LORA_HEAD],
+        modules_to_save=(None if is_causal else [LLM_LORA_HEAD]),
     )
     model = get_peft_model(base_model, cfg)
     if aggregation == "FFA_LORA":
@@ -432,6 +434,48 @@ def load_sst2_server_test_data(batch_size=16, model_name=None, **kw):
     return DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=0)
 
 
+def _dolly_tokenize(split, max_length=256, model_name=None):
+    from datasets import load_dataset
+    tok = _load_llm_tokenizer(model_name)
+    full = load_dataset("databricks/databricks-dolly-15k", split="train")
+    cap = os.environ.get("FEDLEARN_LLM_LORA_SUBSET")
+    if cap is not None:
+        full = full.select(range(min(int(cap), len(full))))
+    parts = full.train_test_split(test_size=0.1, seed=42)
+    ds = parts["train"] if split == "train" else parts["test"]
+
+    def _render(ex):
+        ctx = (ex.get("context") or "").strip()
+        body = f"{ex['instruction']}\n{ctx}" if ctx else ex["instruction"]
+        text = f"### Instruction:\n{body}\n### Response:\n{ex['response']}"
+        out = tok(text, padding="max_length", truncation=True, max_length=max_length)
+        out["labels"] = [tid if m == 1 else -100 for tid, m in zip(out["input_ids"], out["attention_mask"])]
+        return out
+
+    return ds.map(_render, remove_columns=ds.column_names).with_format("torch")
+
+
+def load_dolly_client_data(partition_id, num_clients, batch_size=4, seed=42, model_name=None, **kw):
+    import numpy as np
+    from torch.utils.data import DataLoader, Subset
+    ds = _dolly_tokenize("train", model_name=model_name)
+    n = len(ds)
+    if not (0 <= partition_id < num_clients):
+        raise ValueError(f"partition_id {partition_id} out of range for {num_clients} clients")
+    perm = np.random.default_rng(seed).permutation(n)
+    shard = perm[partition_id::num_clients]
+    if len(shard) == 0:
+        raise ValueError(f"client {partition_id} got an empty dolly shard")
+    train = DataLoader(Subset(ds, shard.tolist()), batch_size=batch_size, shuffle=True, num_workers=0)
+    return train, None
+
+
+def load_dolly_server_test_data(batch_size=8, model_name=None, **kw):
+    from torch.utils.data import DataLoader
+    ds = _dolly_tokenize("test", model_name=model_name)
+    return DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=0)
+
+
 # ---------------------------------------------------------------------------
 # Recipe dispatch object (used by the FL scripts).
 # ---------------------------------------------------------------------------
@@ -451,17 +495,22 @@ class Recipe:
         """Whether this recipe's model/data live in recipes.py (vs legacy scripts)."""
         return self.key in ("PNEUMONIA_CNN", "LLM_LORA")
 
-    def build_model(self, device="cpu", model_name=None, aggregation="FFA_LORA"):
+    def build_model(self, device="cpu", model_name=None, aggregation="FFA_LORA",
+                    task_type="SEQ_CLASSIFICATION"):
         if self.key == "PNEUMONIA_CNN":
             return build_pneumonia_cnn().to(device)
         if self.key == "LLM_LORA":
-            from transformers import AutoModelForSequenceClassification
             base_id = _resolve_llm_base(model_name)
             tok = _load_llm_tokenizer(model_name)
-            base = AutoModelForSequenceClassification.from_pretrained(
-                base_id, num_labels=len(self.classes))
+            if task_type == "CAUSAL_LM":
+                from transformers import AutoModelForCausalLM
+                base = AutoModelForCausalLM.from_pretrained(base_id)
+            else:
+                from transformers import AutoModelForSequenceClassification
+                base = AutoModelForSequenceClassification.from_pretrained(
+                    base_id, num_labels=len(self.classes))
             base.config.pad_token_id = tok.pad_token_id
-            model = apply_lora(base, self.lora, aggregation)
+            model = apply_lora(base, self.lora, aggregation, task_type)
             return model.to(device)
         raise NotImplementedError(f"build_model not implemented in recipes.py for {self.key}")
 
@@ -472,17 +521,21 @@ class Recipe:
             return _load_llm_tokenizer(model_name)
         raise NotImplementedError(f"input_transform not implemented in recipes.py for {self.key}")
 
-    def load_client_data(self, partition_id, num_clients, **kw):
+    def load_client_data(self, partition_id, num_clients, task_type="SEQ_CLASSIFICATION", **kw):
         if self.key == "PNEUMONIA_CNN":
             return load_pneumonia_client_data(partition_id, num_clients, **kw)
         if self.key == "LLM_LORA":
+            if task_type == "CAUSAL_LM":
+                return load_dolly_client_data(partition_id, num_clients, **kw)
             return load_sst2_client_data(partition_id, num_clients, **kw)
         raise NotImplementedError(f"load_client_data not implemented in recipes.py for {self.key}")
 
-    def load_server_test_data(self, **kw):
+    def load_server_test_data(self, task_type="SEQ_CLASSIFICATION", **kw):
         if self.key == "PNEUMONIA_CNN":
             return load_pneumonia_server_test_data(**kw)
         if self.key == "LLM_LORA":
+            if task_type == "CAUSAL_LM":
+                return load_dolly_server_test_data(**kw)
             return load_sst2_server_test_data(**kw)
         raise NotImplementedError(f"load_server_test_data not implemented in recipes.py for {self.key}")
 
