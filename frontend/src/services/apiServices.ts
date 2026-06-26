@@ -561,3 +561,108 @@ export const requestProjectAccess = (
 ): Promise<AxiosResponse<Membership | AccessRequest>> => {
     return api.post<Membership | AccessRequest>(`/projects/${projectId}/access-requests`, { message });
 };
+
+// ─── Benchmarking & observability (PLATFORM_ADMIN) ───────────────────────
+//
+// Mirrors the Java DTOs (camelCase 1:1). Every metric is nullable — a field is
+// simply absent when the recipe task_type (classification vs generative) or the
+// available data doesn't produce it.
+
+/** Per-project benchmark rollup row (the runs table + drilldown header). */
+export interface BenchmarkRun {
+    projectId: string;
+    projectName: string | null;
+    modelType: string | null;
+    taskType: string | null;
+    roundsCompleted: number | null;
+    finalLoss: number | null;
+    finalAccuracy: number | null;
+    bestAccuracy: number | null;
+    bestRound: number | null;
+    finalF1Macro: number | null;
+    finalPerplexity: number | null;
+    bestPerplexity: number | null;
+    finalEce: number | null;
+    targetAccuracy: number | null;
+    roundsToTarget: number | null;
+    msToTarget: number | null;
+    totalRoundMs: number | null;
+    avgRoundMs: number | null;
+    modelSizeMb: number | null;
+    paramCount: number | null;
+    clientCount: number | null;
+    firstRecordedAt: string | null;
+    lastRecordedAt: string | null;
+    primaryMetricName: string | null;
+    primaryMetricValue: number | null;
+}
+
+/** Platform-wide aggregates + the full runs table (one fetch). */
+export interface BenchmarkOverview {
+    benchmarkedProjects: number;
+    totalRoundsRecorded: number;
+    classificationRuns: number;
+    generativeRuns: number;
+    avgFinalAccuracy: number | null;
+    avgFinalF1Macro: number | null;
+    bestAccuracy: number | null;
+    bestAccuracyProject: string | null;
+    avgRoundDurationMs: number | null;
+    avgModelSizeMb: number | null;
+    runs: BenchmarkRun[];
+}
+
+/** One round's scalar metrics — the unit of the per-run time series. */
+export interface BenchmarkRoundPoint {
+    serverRound: number;
+    loss: number | null;
+    accuracy: number | null;
+    balancedAccuracy: number | null;
+    precisionMacro: number | null;
+    recallMacro: number | null;
+    f1Macro: number | null;
+    f1Micro: number | null;
+    f1Weighted: number | null;
+    mcc: number | null;
+    cohenKappa: number | null;
+    rocAuc: number | null;
+    logLoss: number | null;
+    ece: number | null;
+    brier: number | null;
+    perplexity: number | null;
+    tokenAccuracy: number | null;
+    roundDurationMs: number | null;
+    evalDurationMs: number | null;
+    modelSizeMb: number | null;
+    paramCount: number | null;
+    clientCount: number | null;
+    samplesEvaluated: number | null;
+}
+
+export interface PerClassMetric {
+    label: string;
+    precision: number | null;
+    recall: number | null;
+    f1: number | null;
+    support: number | null;
+}
+
+/** Full per-project drilldown. */
+export interface ProjectBenchmark {
+    summary: BenchmarkRun | null;
+    rounds: BenchmarkRoundPoint[];
+    taskType: string | null;
+    classLabels: string[] | null;
+    latestPerClass: PerClassMetric[] | null;
+    latestConfusionMatrix: number[][] | null;
+}
+
+export const fetchBenchmarkOverview = (): Promise<AxiosResponse<BenchmarkOverview>> => {
+    return api.get<BenchmarkOverview>('/admin/benchmarks/overview');
+};
+
+export const fetchProjectBenchmark = (
+    projectId: string,
+): Promise<AxiosResponse<ProjectBenchmark>> => {
+    return api.get<ProjectBenchmark>(`/admin/benchmarks/projects/${projectId}`);
+};

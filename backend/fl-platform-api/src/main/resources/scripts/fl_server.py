@@ -7,6 +7,13 @@ if sys.stdout.encoding != 'utf-8':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
+# Import the benchmark suite (and therefore scikit-learn) BEFORE torch — mirrors
+# client.py's ARM64/Jetson static-TLS workaround where sklearn must load ahead of
+# torch/libgomp. benchmarks.py is the metric-computation core of the suite.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import benchmarks  # noqa: E402
+import recipes      # noqa: E402  (class labels per recipe, for per-class metrics)
+
 import torch
 import logging
 import time
@@ -305,6 +312,21 @@ def main():
         # Load CIFAR-10 or LLM test data
         test_loader = load_server_test_data(is_llm, args.dataset if is_llm else None)
 
+    # --- Benchmark suite: per-round rich-metric capture. Additive side-channel;
+    # the existing RoundResult flow (loss/accuracy POST) is left untouched. The
+    # records collected here are POSTed to /api/internal/benchmarks/{projectId}. ---
+    benchmark_records: list = []
+    round_clock = {"last": time.time()}
+    try:
+        _bench_classes = (recipes.get_recipe(args.model_type).classes
+                          if recipes.is_recipe(args.model_type) else None)
+    except Exception:
+        _bench_classes = None
+    _bench_num_classes = len(_bench_classes) if _bench_classes else None
+    # Per-recipe accuracy target → time-to-target-accuracy (TTA) in the run
+    # summary. Mirrors the dataset targets used in the training summary below.
+    _bench_target = {"cb": 0.75, "sst2": 0.85, "ecg": 0.80}.get(getattr(args, "dataset", None))
+
     # Define server-side evaluation function
     def server_side_evaluate(server_round: int, parameters: OrderedDict[str, torch.Tensor]) -> tuple[float, dict]:
         """
@@ -313,6 +335,14 @@ def main():
         print(f"\n{'='*60}")
         print(f"Round {server_round} - Server-side Evaluation")
         print(f"{'='*60}")
+
+        eval_start = time.time()
+        # Predictions/labels/scores accumulated across batches for rich metrics.
+        all_preds: list = []
+        all_labels: list = []
+        all_scores: list = []
+        causal_correct = 0
+        causal_total = 0
 
         # Clear GPU cache before evaluation
         if torch.cuda.is_available():
@@ -419,11 +449,27 @@ def main():
                     total_loss += loss.item()
                     num_batches += 1
 
+                    # Causal-LM token accuracy: shifted next-token match over the
+                    # non-padding (label != -100) targets.
+                    if is_causal and hasattr(logits, "dim") and logits.dim() == 3:
+                        shift_pred = logits[..., :-1, :].argmax(dim=-1)
+                        shift_labels = labels[..., 1:]
+                        tok_mask = shift_labels != -100
+                        causal_correct += int((shift_pred[tok_mask] == shift_labels[tok_mask]).sum().item())
+                        causal_total += int(tok_mask.sum().item())
+
                     if not is_causal:
                         # Calculate accuracy
                         predictions = torch.argmax(logits, dim=-1)
                         correct += (predictions == labels).sum().item()
                         total += labels.size(0)
+                        # Accumulate for the rich classification benchmark.
+                        all_preds.extend(predictions.detach().cpu().tolist())
+                        all_labels.extend(labels.detach().cpu().tolist())
+                        try:
+                            all_scores.append(torch.softmax(logits.detach().float(), dim=-1).cpu().numpy())
+                        except Exception:
+                            pass
 
                         if batch_idx == 0 and (is_llm or is_llm_lora):
                             logging.info(f"  Logits shape: {logits.shape}")
@@ -449,6 +495,23 @@ def main():
             print(f"{'='*60}\n")
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+            # Rich benchmark record (generative).
+            _bq = benchmarks.generative_metrics(
+                avg_loss,
+                correct_tokens=(causal_correct if causal_total else None),
+                total_tokens=(causal_total or None),
+            )
+            _bs = benchmarks.model_size(parameters)
+            _now = time.time()
+            benchmark_records.append(benchmarks.build_round_record(
+                server_round, model_type=args.model_type, task_type=args.task_type,
+                quality=_bq, loss=avg_loss,
+                round_duration_ms=int((_now - round_clock["last"]) * 1000),
+                eval_duration_ms=int((time.time() - eval_start) * 1000),
+                param_count=_bs["paramCount"], model_size_mb=_bs["modelSizeMb"],
+                client_count=getattr(args, "min_clients", None),
+            ))
+            round_clock["last"] = _now
             return avg_loss, {"perplexity": ppl}
         accuracy = 100.0 * correct / total if total > 0 else 0.0
 
@@ -486,6 +549,33 @@ def main():
         # Clear GPU memory after evaluation
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
+        # Rich benchmark record (classification): precision/recall/F1 (macro/micro/
+        # weighted), MCC, per-class table, confusion matrix, + system metrics.
+        _bench_scores = None
+        if all_scores:
+            try:
+                _bench_scores = np.vstack(all_scores)
+            except Exception:
+                _bench_scores = None
+        _bq = benchmarks.classification_metrics(
+            all_labels, all_preds, y_score=_bench_scores,
+            num_classes=_bench_num_classes, class_names=_bench_classes,
+        )
+        _bq["loss"] = round(float(avg_loss), 6)
+        _bs = benchmarks.model_size(parameters)
+        _now = time.time()
+        benchmark_records.append(benchmarks.build_round_record(
+            server_round, model_type=args.model_type,
+            task_type=(args.task_type if is_llm_lora else None),
+            quality=_bq, loss=avg_loss,
+            round_duration_ms=int((_now - round_clock["last"]) * 1000),
+            eval_duration_ms=int((time.time() - eval_start) * 1000),
+            param_count=_bs["paramCount"], model_size_mb=_bs["modelSizeMb"],
+            client_count=getattr(args, "min_clients", None),
+            target_accuracy=_bench_target,
+        ))
+        round_clock["last"] = _now
 
         return avg_loss, {"accuracy": accuracy}
 
@@ -646,6 +736,21 @@ def main():
                 logging.info(f"Successfully reported results for round {r}")
             except Exception as e:
                 logging.error(f"Failed to report results for round {r}: {e}")
+
+    # Report the rich per-round benchmark records to the benchmark ingest. This is
+    # additive and independent of the RoundResult flow above; failures are non-fatal
+    # so a benchmarking outage never aborts a real federated run.
+    bench_url = f"{BACKEND_URL}/api/internal/benchmarks/{args.project_id}"
+    if benchmark_records and headers is not None:
+        ok = 0
+        for rec in benchmark_records:
+            try:
+                res = requests.post(bench_url, json=rec, headers=headers, timeout=30)
+                res.raise_for_status()
+                ok += 1
+            except Exception as e:
+                logging.error("Failed to report benchmark for round %s: %s", rec.get("serverRound"), e)
+        logging.info("Reported %d/%d benchmark round record(s)", ok, len(benchmark_records))
 
     # Mark project as completed. Uses the internal endpoint
     # (POST /api/internal/results/{id}/finished) so the FL-server task does not

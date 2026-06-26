@@ -15,6 +15,7 @@ import { ModelsView } from './components/redesign/ModelsView';
 import { PlaygroundView } from './components/redesign/PlaygroundView';
 import { DatasetsView } from './components/redesign/DatasetsView';
 import { SettingsView } from './components/redesign/SettingsView';
+import { BenchmarkDashboard } from './components/redesign/BenchmarkDashboard';
 
 const AppLoading: React.FC = () => (
     <div className="flex items-center justify-center h-screen bg-canvas text-fg">
@@ -82,6 +83,11 @@ function App() {
                         <Route element={<RoleRoute allow={['PROJECT_OWNER', 'PLATFORM_ADMIN']} />}>
                             <Route path="/nodes" element={<NodeNetwork />} />
                             <Route path="/datasets" element={<DatasetsView />} />
+                        </Route>
+
+                        {/* Admin only */}
+                        <Route element={<RoleRoute allow={['PLATFORM_ADMIN']} />}>
+                            <Route path="/admin/benchmarks" element={<BenchmarkDashboard />} />
                         </Route>
                     </Route>
                 </Route>
