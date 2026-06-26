@@ -99,7 +99,7 @@ class ProjectServiceTest {
             return p;
         });
 
-        doNothing().when(modelInitializer).initializeModelFile(anyString(), any(), any(), anyString(), anyInt());
+        doNothing().when(modelInitializer).initializeModelFile(anyString(), any(), any(), anyString(), anyInt(), any());
 
         CreateProjectRequest request = new CreateProjectRequest();
         request.setName(projectName);
@@ -115,7 +115,7 @@ class ProjectServiceTest {
         assertEquals(projectName, createdProject.getName());
 
         verify(projectRepository, times(2)).save(any(Project.class));
-        verify(modelInitializer, times(1)).initializeModelFile(eq(modelType), any(), any(), anyString(), eq(5));
+        verify(modelInitializer, times(1)).initializeModelFile(eq(modelType), any(), any(), anyString(), eq(5), any());
     }
 
     @Test
@@ -132,7 +132,7 @@ class ProjectServiceTest {
         });
 
         doThrow(new IOException("Python script not found!"))
-                .when(modelInitializer).initializeModelFile(anyString(), any(), any(), anyString(), anyInt());
+                .when(modelInitializer).initializeModelFile(anyString(), any(), any(), anyString(), anyInt(), any());
 
         CreateProjectRequest request = new CreateProjectRequest();
         request.setName(projectName);

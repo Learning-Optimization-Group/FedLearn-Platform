@@ -22,7 +22,7 @@ public class ModelInitializer {
     private String initModelWrapperPath;
 
     public void initializeModelFile(String modelType, String modelName, String optimizer,
-                                    String outputPath, int pretrainEpochs)
+                                    String outputPath, int pretrainEpochs, String taskType)
             throws IOException, InterruptedException {
 
         File scriptFile = new File(initModelWrapperPath);
@@ -30,7 +30,7 @@ public class ModelInitializer {
 
         boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
         List<String> command = buildInitCommand(
-                modelType, modelName, optimizer, outputPath, pretrainEpochs, absoluteScriptPath, isWindows);
+                modelType, modelName, optimizer, outputPath, pretrainEpochs, taskType, absoluteScriptPath, isWindows);
 
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(new File("."));
@@ -59,10 +59,10 @@ public class ModelInitializer {
         log.info("Model file initialized at {}", outputPath);
     }
 
-    /** Build the init_model launch command. LLM_LORA carries --aggregation FFA_LORA. */
+    /** Build the init_model launch command. LLM_LORA carries --aggregation FFA_LORA and --task-type. */
     static List<String> buildInitCommand(String modelType, String modelName, String optimizer,
-                                         String outputPath, int pretrainEpochs, String absoluteScriptPath,
-                                         boolean isWindows) {
+                                         String outputPath, int pretrainEpochs, String taskType,
+                                         String absoluteScriptPath, boolean isWindows) {
         List<String> command = new ArrayList<>();
         if (!isWindows) {
             command.add("bash");
@@ -81,6 +81,8 @@ public class ModelInitializer {
         if ("LLM_LORA".equalsIgnoreCase(modelType)) {
             command.add("--aggregation");
             command.add("FFA_LORA");
+            command.add("--task-type");
+            command.add(taskType == null || taskType.isBlank() ? "SEQ_CLASSIFICATION" : taskType);
         }
         return command;
     }

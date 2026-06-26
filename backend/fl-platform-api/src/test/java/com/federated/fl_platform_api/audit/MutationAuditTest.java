@@ -54,7 +54,7 @@ class MutationAuditTest {
         }
         // Neutralise the model-file initialisation (otherwise it forks Python).
         doNothing().when(modelInitializer)
-                .initializeModelFile(any(), any(), any(), any(), anyInt());
+                .initializeModelFile(any(), any(), any(), any(), anyInt(), any());
     }
 
     @Test

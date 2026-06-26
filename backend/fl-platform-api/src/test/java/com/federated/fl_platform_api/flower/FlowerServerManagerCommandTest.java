@@ -43,4 +43,14 @@ class FlowerServerManagerCommandTest {
         assertFalse(cmd.contains("--strategy"), "FoT branch has no --strategy");
         assertFalse(cmd.contains("--aggregation"));
     }
+
+    @Test
+    void llmLoraServerCommandCarriesTaskType() {
+        Project p = project("LLM_LORA");
+        p.setTaskType("CAUSAL_LM");
+        List<String> cmd = FlowerServerManager.buildServerCommand(
+                p, "FedLoRA", 5, 1, 50000, "/x/run_fl_server.sh", false);
+        assertTrue(cmd.contains("--task-type"));
+        assertEquals("CAUSAL_LM", cmd.get(cmd.indexOf("--task-type") + 1));
+    }
 }

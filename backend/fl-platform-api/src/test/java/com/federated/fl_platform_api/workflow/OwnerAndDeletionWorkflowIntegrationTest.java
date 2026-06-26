@@ -93,7 +93,7 @@ class OwnerAndDeletionWorkflowIntegrationTest {
 
     @Test
     void ownerPromotion_gatesCreation_thenApprovalUnlocksIt() throws Exception {
-        doNothing().when(modelInitializer).initializeModelFile(any(), any(), any(), any(), anyInt());
+        doNothing().when(modelInitializer).initializeModelFile(any(), any(), any(), any(), anyInt(), any());
         createUser("op_user", PlatformRole.USER);
         createUser("op_admin", PlatformRole.PLATFORM_ADMIN);
 

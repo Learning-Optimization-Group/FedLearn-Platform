@@ -170,7 +170,8 @@ public class ProjectService {
                     request.getModelName(),
                     request.getOptimizer(),
                     absoluteModelPath,
-                    request.getPretrainEpochs());
+                    request.getPretrainEpochs(),
+                    project.getTaskType());
         } catch (IOException | InterruptedException e) {
             // Allow the @Transactional rollback to drop the orphan project row.
             if (e instanceof InterruptedException) {

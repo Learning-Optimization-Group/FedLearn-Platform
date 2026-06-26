@@ -240,6 +240,9 @@ public class FlowerServerManager {
             if ("LLM_LORA".equalsIgnoreCase(project.getModelType())) {
                 command.add("--aggregation");
                 command.add("FFA_LORA");
+                String tt = project.getTaskType();
+                command.add("--task-type");
+                command.add(tt == null || tt.isBlank() ? "SEQ_CLASSIFICATION" : tt);
             }
         }
         return command;
