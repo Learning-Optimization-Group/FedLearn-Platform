@@ -189,8 +189,8 @@ export interface InferableModel {
     modelType: string;
     modelName: string;
     status: string;
-    /** "image" → collect an image; "vector" → collect a numeric vector; "text" → collect raw text; null → not runnable. */
-    inputKind: 'image' | 'vector' | 'text' | null;
+    /** "image" → collect an image; "vector" → collect a numeric vector; "text" → collect raw text; "generation" → prompt + sliders; null → not runnable. */
+    inputKind: 'image' | 'vector' | 'text' | 'generation' | null;
     classes: string[];
     supported: boolean;
 }
@@ -211,7 +211,29 @@ export interface InferencePayload {
     values?: number[];
     /** Raw text. For text models (LLM_LORA, TRANSFORMER). */
     text?: string;
+    /** Prompt for generation models. */
+    prompt?: string;
+    /** Maximum number of tokens to generate. */
+    maxNewTokens?: number;
+    /** Sampling temperature (0–2). */
+    temperature?: number;
 }
+
+export interface GenerationResult {
+    modelType: string;
+    prompt: string;
+    generatedText: string;
+    tokenCount: number;
+    finishReason: string;
+}
+
+/** Runs streaming generation; tokens arrive over /topic/inference/{projectId}, this resolves with the final text. */
+export const runGeneration = (
+    projectId: string,
+    payload: { prompt: string; maxNewTokens: number; temperature: number },
+): Promise<AxiosResponse<GenerationResult>> => {
+    return api.post<GenerationResult>(`/inference/${projectId}/generate`, payload);
+};
 
 /** Lists the current user's trained models that can be run interactively. */
 export const fetchInferableModels = (): Promise<AxiosResponse<InferableModel[]>> => {
