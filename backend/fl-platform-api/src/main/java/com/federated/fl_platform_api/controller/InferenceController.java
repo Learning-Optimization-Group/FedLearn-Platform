@@ -44,4 +44,12 @@ public class InferenceController {
                                                     @Valid @RequestBody InferenceRequest request) {
         return ResponseEntity.ok(inferenceService.runInference(projectId, request));
     }
+
+    /** Stream text generation from the given project's LLM; tokens are pushed to /topic/inference/{projectId}. */
+    @PostMapping("/{projectId}/generate")
+    public ResponseEntity<com.federated.fl_platform_api.dto.GenerationResultDto> generate(
+            @PathVariable @NonNull UUID projectId,
+            @Valid @RequestBody com.federated.fl_platform_api.dto.GenerationRequest request) {
+        return ResponseEntity.ok(inferenceService.generate(projectId, request));
+    }
 }

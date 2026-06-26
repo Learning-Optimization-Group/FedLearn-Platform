@@ -2,6 +2,8 @@ package com.federated.fl_platform_api.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.federated.fl_platform_api.dto.GenerationRequest;
+import com.federated.fl_platform_api.dto.GenerationResultDto;
 import com.federated.fl_platform_api.dto.InferableModelDto;
 import com.federated.fl_platform_api.dto.InferenceRequest;
 import com.federated.fl_platform_api.dto.InferenceResultDto;
@@ -47,6 +49,7 @@ public class InferenceService {
     private static final int MAX_VECTOR_LENGTH = 100_000;
 
     private final ProjectService projectService;
+    private final WebSocketService webSocketService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -56,14 +59,19 @@ public class InferenceService {
      * Excess callers get a fast 503 instead of piling on.
      */
     private final Semaphore inferenceSlots;
+    private final long generationTimeoutSeconds;
 
     @Value("${python.script.infer.path:src/main/resources/scripts/run_infer.sh}")
     private String inferWrapperPath;
 
     public InferenceService(ProjectService projectService,
-                            @Value("${inference.max-concurrent:2}") int maxConcurrent) {
+                            WebSocketService webSocketService,
+                            @Value("${inference.max-concurrent:2}") int maxConcurrent,
+                            @Value("${inference.generation-timeout-seconds:300}") long generationTimeoutSeconds) {
         this.projectService = projectService;
+        this.webSocketService = webSocketService;
         this.inferenceSlots = new Semaphore(Math.max(1, maxConcurrent), true);
+        this.generationTimeoutSeconds = generationTimeoutSeconds;
     }
 
     public List<InferableModelDto> listInferableModels() {
@@ -299,6 +307,139 @@ public class InferenceService {
             arr.forEach(n -> out.add(n.asDouble()));
         }
         return out;
+    }
+
+    // ─── streaming text generation ───────────────────────────────────────────
+
+    /**
+     * If the stdout line is a {"token":…} JSON object, rebroadcast it to the
+     * inference topic. Package-private for unit testability.
+     */
+    boolean broadcastIfToken(UUID projectId, String line) {
+        try {
+            JsonNode n = objectMapper.readTree(line);
+            if (n.isObject() && n.has("token")) {
+                webSocketService.sendInferenceToken(projectId, line);
+                return true;
+            }
+        } catch (IOException ignored) {
+            // non-JSON diagnostic line — not a token
+        }
+        return false;
+    }
+
+    /**
+     * Spawn {@code infer.py} in generation mode, stream each token chunk to
+     * {@code /topic/inference/{projectId}}, and return the final result.
+     *
+     * @throws ProjectStateException  project model type does not support generation (409)
+     * @throws IllegalArgumentException blank prompt (400)
+     * @throws InferenceBusyException semaphore saturated (503)
+     * @throws ServerProcessException python process failed or timed out (502)
+     */
+    public GenerationResultDto generate(@NonNull UUID projectId, GenerationRequest request) {
+        ProjectService.InferenceTarget target = projectService.resolveInferenceTarget(projectId);
+        String inputKind = projectService.inputKindFor(target.modelType(), target.taskType());
+        if (!"generation".equals(inputKind)) {
+            throw new ProjectStateException(
+                    "Text generation is not supported for this project (requires an LLM_LORA / CAUSAL_LM model).");
+        }
+        if (request.getPrompt() == null || request.getPrompt().isBlank()) {
+            throw new IllegalArgumentException("A non-empty prompt is required.");
+        }
+        Path inputFile = null, outputFile = null;
+        try {
+            outputFile = Files.createTempFile("fedlearn-gen-out", ".json");
+            inputFile = Files.createTempFile("fedlearn-gen-in", ".json");
+            objectMapper.writeValue(inputFile.toFile(),
+                    Map.of("kind", "generation", "prompt", request.getPrompt()));
+            if (!inferenceSlots.tryAcquire()) {
+                throw new InferenceBusyException("Inference is at capacity right now. Please retry in a few seconds.");
+            }
+            JsonNode result;
+            try {
+                result = runGenerationScript(target, inputFile, outputFile, projectId,
+                        request.getMaxNewTokens(), request.getTemperature());
+            } finally {
+                inferenceSlots.release();
+            }
+            return toGenerationDto(result, target.modelType());
+        } catch (IOException e) {
+            throw new ServerProcessException("Generation I/O failure", e);
+        } finally {
+            deleteQuietly(inputFile);
+            deleteQuietly(outputFile);
+        }
+    }
+
+    private JsonNode runGenerationScript(ProjectService.InferenceTarget target, Path inputFile, Path outputFile,
+                                         UUID projectId, int maxNewTokens, double temperature) {
+        File wrapper = new File(inferWrapperPath);
+        List<String> command = new ArrayList<>();
+        if (!System.getProperty("os.name").toLowerCase().contains("win")) command.add("bash");
+        command.add(wrapper.getAbsolutePath());
+        command.add("--model-path"); command.add(target.modelPath());
+        command.add("--model-type"); command.add(target.modelType());
+        command.add("--model-name"); command.add(target.modelName() == null ? "" : target.modelName());
+        command.add("--task-type"); command.add("CAUSAL_LM");
+        command.add("--max-new-tokens"); command.add(String.valueOf(maxNewTokens));
+        command.add("--temperature"); command.add(String.valueOf(temperature));
+        command.add("--in"); command.add(inputFile.toAbsolutePath().toString());
+        command.add("--out"); command.add(outputFile.toAbsolutePath().toString());
+
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.directory(new File("."));
+        pb.redirectErrorStream(true);
+        StringBuilder diag = new StringBuilder();
+        Process process;
+        try {
+            process = pb.start();
+        } catch (IOException e) {
+            throw new ServerProcessException("Failed to start generation process", e);
+        }
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!broadcastIfToken(projectId, line)) {
+                    diag.append(line).append('\n');
+                }
+            }
+            boolean finished = process.waitFor(generationTimeoutSeconds, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                throw new ServerProcessException("Generation timed out after " + generationTimeoutSeconds + "s");
+            }
+        } catch (IOException e) {
+            throw new ServerProcessException("Generation process I/O error", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            process.destroyForcibly();
+            throw new ServerProcessException("Generation interrupted", e);
+        }
+        JsonNode result = readResult(outputFile);
+        if (result == null) {
+            log.warn("Generation produced no result file. Output:\n{}", diag);
+            throw new ServerProcessException("Generation produced no result (exit=" + process.exitValue() + ")");
+        }
+        if (!result.path("ok").asBoolean(false)) {
+            String err = result.path("error").asText("Generation failed");
+            if ("input".equals(result.path("errorKind").asText("internal"))) {
+                throw new IllegalArgumentException(err);
+            }
+            log.warn("Generation internal failure for {}: {}", target.modelType(), err);
+            throw new ServerProcessException("Generation failed while executing the model");
+        }
+        return result;
+    }
+
+    private GenerationResultDto toGenerationDto(JsonNode r, String modelType) {
+        GenerationResultDto dto = new GenerationResultDto();
+        dto.setModelType(r.path("modelType").asText(modelType));
+        dto.setPrompt(r.path("prompt").asText(""));
+        dto.setGeneratedText(r.path("generatedText").asText(""));
+        dto.setTokenCount(r.path("tokenCount").asInt());
+        dto.setFinishReason(r.path("finishReason").asText("stop"));
+        return dto;
     }
 
     private void deleteQuietly(Path p) {
