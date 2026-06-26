@@ -66,6 +66,12 @@ public class WebSocketService {
         messagingTemplate.convertAndSend(destination, result);
     }
 
+    /** Broadcasts one generation token line ({"token":"…"}) to the project's inference topic. */
+    public void sendInferenceToken(UUID projectId, String tokenJson) {
+        if (projectId == null || tokenJson == null) return;
+        messagingTemplate.convertAndSend("/topic/inference/" + projectId.toString(), tokenJson);
+    }
+
     @Autowired
     private com.federated.fl_platform_api.repository.UserRepository userRepository;
 

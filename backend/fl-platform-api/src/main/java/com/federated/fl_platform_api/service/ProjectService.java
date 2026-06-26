@@ -502,7 +502,8 @@ public class ProjectService {
     // execution lives in InferenceService — this class never touches torch.
 
     /** Where a trained model lives plus what it is, for {@link #resolveInferenceTarget}. */
-    public record InferenceTarget(String modelPath, String modelType, String modelName, String status) {}
+    public record InferenceTarget(String modelPath, String modelType, String modelName,
+                                  String status, String taskType) {}
 
     /**
      * Maps a stored modelType to the input the client must collect, or null if
@@ -514,6 +515,16 @@ public class ProjectService {
         return modelRecipeService.findByKey(modelType)
                 .map(com.federated.fl_platform_api.dto.ModelRecipeDto::inputKind)
                 .orElse(null);
+    }
+
+    /** Generation applies only to an LLM_LORA project whose task_type is CAUSAL_LM. */
+    static boolean isGenerationProject(String modelType, String taskType) {
+        return "LLM_LORA".equalsIgnoreCase(modelType) && "CAUSAL_LM".equalsIgnoreCase(taskType);
+    }
+
+    /** Input kind, aware of generation projects (CAUSAL_LM LLM_LORA → "generation"). */
+    public String inputKindFor(String modelType, String taskType) {
+        return isGenerationProject(modelType, taskType) ? "generation" : inputKindFor(modelType);
     }
 
     /**
@@ -545,7 +556,7 @@ public class ProjectService {
             if (path == null || !new File(path).isFile()) {
                 continue; // no trained artifact yet → not usable
             }
-            String kind = inputKindFor(p.getModelType());
+            String kind = inputKindFor(p.getModelType(), p.getTaskType());
             InferableModelDto dto = new InferableModelDto();
             dto.setProjectId(p.getId());
             dto.setName(p.getName());
@@ -581,7 +592,8 @@ public class ProjectService {
             throw new ProjectStateException(
                     "This project has no trained model yet. Run training to completion first.");
         }
-        return new InferenceTarget(path, project.getModelType(), project.getModelName(), project.getStatus());
+        return new InferenceTarget(path, project.getModelType(), project.getModelName(),
+                project.getStatus(), project.getTaskType());
     }
 
     public List<DiscoverProjectDto> getDiscoverProjects() {
