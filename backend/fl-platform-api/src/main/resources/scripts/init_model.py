@@ -42,7 +42,8 @@ class CnnNet(nn.Module):
         x = self.fc3(x)
         return x
 
-def get_model(model_type: str, model_name: str, device: str, aggregation: str = "FFA_LORA"):
+def get_model(model_type: str, model_name: str, device: str, aggregation: str = "FFA_LORA",
+              task_type: str = "SEQ_CLASSIFICATION"):
     """Returns a model instance based on the user's selection."""
     print(f"Loading model: {model_type} / {model_name}")
     model_type = model_type.upper()
@@ -80,7 +81,7 @@ def get_model(model_type: str, model_name: str, device: str, aggregation: str = 
         import recipes
         print("Initializing LLM_LORA (LoRA SEQ_CLS adapter)")
         return recipes.get_recipe('LLM_LORA').build_model(device, model_name=model_name,
-                                                          aggregation=aggregation)
+                                                          aggregation=aggregation, task_type=task_type)
 
     else:
         raise ValueError(f"Unsupported model architecture: {model_type}")
@@ -133,12 +134,15 @@ def main():
     parser.add_argument("--pretrain-epochs", type=int, default=0)
     parser.add_argument("--aggregation", type=str, default="FFA_LORA",
                         choices=["FFA_LORA", "FEDIT"], help="LoRA aggregation sub-mode (LLM_LORA only)")
+    parser.add_argument("--task-type", type=str, default="SEQ_CLASSIFICATION",
+                        choices=["SEQ_CLASSIFICATION", "CAUSAL_LM"], help="LLM_LORA task type (generative vs classification)")
     args = parser.parse_args()
 
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {DEVICE}")
 
-    net = get_model(args.model_type, args.model_name, DEVICE, aggregation=args.aggregation)
+    net = get_model(args.model_type, args.model_name, DEVICE, aggregation=args.aggregation,
+                    task_type=args.task_type)
     print(f"\n{'='*60}")
     print(f"MODEL ARCHITECTURE CHECK")
     print(f"{'='*60}")

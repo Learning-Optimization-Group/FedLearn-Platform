@@ -45,6 +45,7 @@ USE_PNEUMONIA = False  # Flag for PneumoniaCNN (chest X-ray) recipe
 USE_LLM_LORA = False          # federated LoRA SEQ_CLS recipe
 LLM_LORA_AGGREGATION = "FFA_LORA"
 LLM_LORA_MODEL_NAME = "qwen2.5-0.5b"
+LLM_LORA_TASK_TYPE = "SEQ_CLASSIFICATION"
 # --------------------------------------------------
 
 # --- Configuration ---
@@ -199,7 +200,7 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
         import recipes
         train, _ = recipes.get_recipe("LLM_LORA").load_client_data(
             partition_id=partition_id, num_clients=num_clients, batch_size=BATCH_SIZE,
-            model_name=LLM_LORA_MODEL_NAME)
+            model_name=LLM_LORA_MODEL_NAME, task_type=LLM_LORA_TASK_TYPE)
         return train, train   # reuse the shard as the (unused) eval loader, matching the CNN return shape
     if USE_LLM:
         from pathlib import Path
@@ -563,7 +564,7 @@ class ZOSLClient(fl.Client):
             import recipes
             recipe = recipes.get_recipe("LLM_LORA")
             self.net = recipe.build_model(DEVICE, model_name=LLM_LORA_MODEL_NAME,
-                                          aggregation=LLM_LORA_AGGREGATION)
+                                          aggregation=LLM_LORA_AGGREGATION, task_type=LLM_LORA_TASK_TYPE)
             self._lora_recipe = recipe
             self._adapter_keys = recipe.adapter_keys(self.net, LLM_LORA_AGGREGATION)
             print(f"Loaded LLM_LORA adapter (agg={LLM_LORA_AGGREGATION}, {len(self._adapter_keys)} keys)")
@@ -792,7 +793,7 @@ def create_decomfl_compatible_loader(original_loader, is_llm=False):
 # --- Main Execution Block ---
 # ==============================================================================
 def main():
-    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, DATASET_NAME, BATCH_SIZE
+    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, LLM_LORA_TASK_TYPE, DATASET_NAME, BATCH_SIZE
 
     print(f"\n{'='*60}")
     print(f"DEVICE DETECTION")
@@ -810,6 +811,7 @@ def main():
     parser.add_argument("--model-type", type=str, choices=["CNN", "TRANSFORMER", "MLP", "PNEUMONIA_CNN", "LLM_LORA"], help="Model type")
     parser.add_argument("--model-name", type=str, help="Model name")
     parser.add_argument("--aggregation", type=str, default="FFA_LORA", choices=["FFA_LORA", "FEDIT"], help="LoRA aggregation sub-mode (LLM_LORA only)")
+    parser.add_argument("--task-type", type=str, default="SEQ_CLASSIFICATION", choices=["SEQ_CLASSIFICATION", "CAUSAL_LM"], help="LLM_LORA task type (generative vs classification)")
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="FL strategy (FedAvg or DeComFL)")
     parser.add_argument("--use-llm", action="store_true", help="Use LLM (deprecated, use --model-type TRANSFORMER)")
@@ -837,6 +839,7 @@ def main():
     if USE_LLM_LORA:
         LLM_LORA_AGGREGATION = args.aggregation
         LLM_LORA_MODEL_NAME = args.model_name or LLM_LORA_MODEL_NAME
+        LLM_LORA_TASK_TYPE = args.task_type
 
     # === HARDCODED ECG/MLP OVERRIDE ===
     if USE_MLP:

@@ -113,6 +113,12 @@ ECG_NUM_CLIENTS = 3  # Hardcoded number of clients for ECG
 ECG_STRATEGY = "DeComFL"  # Hardcoded strategy for MLP
 
 
+def perplexity_from_loss(avg_loss):
+    """exp(mean LM loss); overflow-guarded so a diverged round reports inf rather than raising."""
+    import math
+    return math.exp(avg_loss) if avg_loss < 30 else float("inf")
+
+
 # ==============================================================================
 # Main Execution Block
 # ==============================================================================
@@ -127,6 +133,7 @@ def main():
     parser.add_argument("--port", type=int, default=50051, help="gRPC server port")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="Aggregation strategy")
     parser.add_argument("--aggregation", type=str, default="FFA_LORA", choices=["FFA_LORA", "FEDIT"], help="LoRA aggregation sub-mode (LLM_LORA only)")
+    parser.add_argument("--task-type", type=str, default="SEQ_CLASSIFICATION", choices=["SEQ_CLASSIFICATION", "CAUSAL_LM"], help="LLM_LORA task type (generative vs classification)")
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
     args = parser.parse_args()
 
@@ -263,9 +270,10 @@ def main():
     # Load test data for server-side evaluation
     is_pneumonia = args.model_type == 'PNEUMONIA_CNN'
     is_llm_lora = args.model_type == 'LLM_LORA'
+    is_causal = is_llm_lora and args.task_type.upper() == "CAUSAL_LM"
     if is_llm_lora:
         import recipes
-        test_loader = recipes.get_recipe('LLM_LORA').load_server_test_data(model_name=args.model_name)
+        test_loader = recipes.get_recipe('LLM_LORA').load_server_test_data(model_name=args.model_name, task_type=args.task_type)
         logging.info("Loaded LLM_LORA server test data via recipes.LLM_LORA")
     elif is_pneumonia:
         import recipes
@@ -315,7 +323,7 @@ def main():
             import recipes as _recipes
             from peft import set_peft_model_state_dict
             eval_net = _recipes.get_recipe("LLM_LORA").build_model(
-                DEVICE, model_name=args.model_name, aggregation=args.aggregation)
+                DEVICE, model_name=args.model_name, aggregation=args.aggregation, task_type=args.task_type)
             # peft's set_peft_model_state_dict mutates its input dict in-place; copy so the global
             # adapter params (reused across rounds) are not corrupted during evaluation.
             set_peft_model_state_dict(eval_net, OrderedDict(parameters))
@@ -411,16 +419,17 @@ def main():
                     total_loss += loss.item()
                     num_batches += 1
 
-                    # Calculate accuracy
-                    predictions = torch.argmax(logits, dim=-1)
-                    correct += (predictions == labels).sum().item()
-                    total += labels.size(0)
+                    if not is_causal:
+                        # Calculate accuracy
+                        predictions = torch.argmax(logits, dim=-1)
+                        correct += (predictions == labels).sum().item()
+                        total += labels.size(0)
 
-                    if batch_idx == 0 and (is_llm or is_llm_lora):
-                        logging.info(f"  Logits shape: {logits.shape}")
-                        logging.info(f"  Predictions: {predictions[:5]}")
-                        logging.info(f"  True labels: {labels[:5]}")
-                        logging.info(f"  Batch correct: {(predictions == labels).sum().item()}/{labels.size(0)}")
+                        if batch_idx == 0 and (is_llm or is_llm_lora):
+                            logging.info(f"  Logits shape: {logits.shape}")
+                            logging.info(f"  Predictions: {predictions[:5]}")
+                            logging.info(f"  True labels: {labels[:5]}")
+                            logging.info(f"  Batch correct: {(predictions == labels).sum().item()}/{labels.size(0)}")
 
                 except Exception as e:
                     logging.error(f"Error processing batch {batch_idx}: {e}")
@@ -431,6 +440,16 @@ def main():
 
         # Average loss per batch (not per sample)
         avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
+        if is_causal:
+            ppl = perplexity_from_loss(avg_loss)
+            print(f"Results:")
+            print(f"  Loss: {avg_loss:.4f}")
+            print(f"  Perplexity: {ppl:.2f}")
+            logging.info(f"CAUSAL_LM eval round={server_round} loss={avg_loss:.4f} ppl={ppl:.2f}")
+            print(f"{'='*60}\n")
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            return avg_loss, {"perplexity": ppl}
         accuracy = 100.0 * correct / total if total > 0 else 0.0
 
         print(f"Results:")
