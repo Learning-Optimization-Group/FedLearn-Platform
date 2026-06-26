@@ -147,7 +147,9 @@ export function PlaygroundView() {
         const client = new StompClient({ brokerURL: WS_BROKER_URL, reconnectDelay: 5000 });
         const cleanup = () => { if (client.active) client.deactivate(); };
         await new Promise<void>((resolve) => {
+            const t = setTimeout(resolve, 8000);
             client.onConnect = () => {
+                clearTimeout(t);
                 client.subscribe(`/topic/inference/${selected.projectId}`, (msg) => {
                     try {
                         const { token } = JSON.parse(msg.body);
@@ -156,6 +158,8 @@ export function PlaygroundView() {
                 });
                 resolve(); // only POST once the subscription is live (avoids the first-token race)
             };
+            client.onStompError = () => resolve();
+            client.onWebSocketError = () => resolve();
             client.activate();
         });
         try {
