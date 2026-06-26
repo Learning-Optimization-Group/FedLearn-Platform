@@ -6,9 +6,17 @@ export interface InferableModel {
   modelType: string;
   modelName: string;
   status: string;
-  inputKind: 'image' | 'vector' | 'text' | null;
+  inputKind: 'image' | 'vector' | 'text' | 'generation' | null;
   classes: string[];
   supported: boolean;
+}
+
+export interface GenerationResult {
+  modelType: string;
+  prompt: string;
+  generatedText: string;
+  tokenCount: number;
+  finishReason: string;
 }
 
 export interface InferenceResult {

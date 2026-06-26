@@ -8,7 +8,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlaskConical, Upload, Sparkles, AlertTriangle } from 'lucide-react';
-import type { InferableModel, InferenceResult } from '../inference.types';
+import type { InferableModel, InferenceResult, GenerationResult } from '../inference.types';
 
 // Reject oversized files before FileReader pulls them fully into renderer memory.
 // The preload/IPC/backend layers also bound the encoded size, but this stops a
@@ -32,6 +32,11 @@ const ModelPlayground: React.FC = () => {
   const [imageName, setImageName] = useState('');
   const [vectorText, setVectorText] = useState('');
   const [textInput, setTextInput] = useState('');
+  const [prompt, setPrompt] = useState('');
+  const [maxNewTokens, setMaxNewTokens] = useState(256);
+  const [temperature, setTemperature] = useState(0.7);
+  const [streamingText, setStreamingText] = useState('');
+  const [genResult, setGenResult] = useState<GenerationResult | null>(null);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<InferenceResult | null>(null);
   const [error, setError] = useState('');
@@ -67,7 +72,15 @@ const ModelPlayground: React.FC = () => {
     setImageName('');
     setVectorText('');
     setTextInput('');
+    setPrompt('');
+    setStreamingText('');
+    setGenResult(null);
   }, [selectedId]);
+
+  useEffect(() => {
+    window.fedLearnAPI.onInferenceToken((token: string) => setStreamingText((p) => p + token));
+    return () => window.fedLearnAPI.removeInferenceTokenListener();
+  }, []);
 
   const handleFile = useCallback((file: File | undefined) => {
     if (!file) return;
@@ -96,8 +109,23 @@ const ModelPlayground: React.FC = () => {
     if (selected.inputKind === 'image') return !!imageDataUrl;
     if (selected.inputKind === 'vector') return parsedVector.length > 0;
     if (selected.inputKind === 'text') return textInput.trim().length > 0;
+    if (selected.inputKind === 'generation') return prompt.trim().length > 0;
     return false;
-  }, [selected, running, imageDataUrl, parsedVector, textInput]);
+  }, [selected, running, imageDataUrl, parsedVector, textInput, prompt]);
+
+  const handleGenerate = useCallback(async () => {
+    if (!selected) return;
+    setRunning(true); setError(''); setGenResult(null); setStreamingText('');
+    try {
+      const res = await window.fedLearnAPI.runGeneration(selected.projectId, { prompt, maxNewTokens, temperature });
+      if (res.success && res.result) setGenResult(res.result as GenerationResult);
+      else setError(res.error || 'Generation failed.');
+    } catch {
+      setError('Generation failed.');
+    } finally {
+      setRunning(false);
+    }
+  }, [selected, prompt, maxNewTokens, temperature]);
 
   const handleRun = useCallback(async () => {
     if (!selected) return;
@@ -236,7 +264,23 @@ const ModelPlayground: React.FC = () => {
               </div>
             )}
 
-            <button className="btn btn-primary btn-full" onClick={handleRun} disabled={!canRun}>
+            {selected?.inputKind === 'generation' && (
+              <div className="form-group">
+                <label className="form-label" htmlFor="pg-prompt">Prompt</label>
+                <textarea id="pg-prompt" className="form-input" rows={5} value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)} placeholder="Ask the model to write something…" />
+                <label className="form-label">Max new tokens: {maxNewTokens}</label>
+                <input type="range" min={1} max={2048} step={1} value={maxNewTokens}
+                  onChange={(e) => setMaxNewTokens(Number(e.target.value))} />
+                <label className="form-label">Temperature: {temperature.toFixed(1)}</label>
+                <input type="range" min={0} max={2} step={0.1} value={temperature}
+                  onChange={(e) => setTemperature(Number(e.target.value))} />
+              </div>
+            )}
+
+            <button className="btn btn-primary btn-full"
+              onClick={selected?.inputKind === 'generation' ? handleGenerate : handleRun}
+              disabled={!canRun}>
               {running ? 'Running…' : (<><Sparkles size={16} strokeWidth={1.5} /> Run inference</>)}
             </button>
           </div>
@@ -248,7 +292,7 @@ const ModelPlayground: React.FC = () => {
         <div className="panel-header">
           <h2 className="panel-title">Prediction</h2>
         </div>
-        {!result ? (
+        {selected?.inputKind !== 'generation' && (!result ? (
           <div className="pg-empty">
             <FlaskConical size={28} strokeWidth={1.25} />
             <p>Run a model to see its prediction.</p>
@@ -282,6 +326,21 @@ const ModelPlayground: React.FC = () => {
                 );
               })}
             </div>
+          </div>
+        ))}
+
+        {selected?.inputKind === 'generation' && (streamingText || genResult) && (
+          <div className="pg-result">
+            <span className="pg-top-label">Generated</span>
+            <pre className="pg-generated">{genResult ? genResult.generatedText : streamingText}</pre>
+            {genResult && <span className="pg-top-conf">{genResult.tokenCount} tokens · {genResult.finishReason}</span>}
+          </div>
+        )}
+
+        {selected?.inputKind === 'generation' && !streamingText && !genResult && (
+          <div className="pg-empty">
+            <FlaskConical size={28} strokeWidth={1.25} />
+            <p>Enter a prompt and run the model to see generated text.</p>
           </div>
         )}
       </section>

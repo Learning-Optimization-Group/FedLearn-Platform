@@ -16,7 +16,7 @@ export interface InferableModel {
   modelType: string;
   modelName: string;
   status: string;
-  inputKind: 'image' | 'vector' | 'text' | null;
+  inputKind: 'image' | 'vector' | 'text' | 'generation' | null;
   classes: string[];
   supported: boolean;
 }
