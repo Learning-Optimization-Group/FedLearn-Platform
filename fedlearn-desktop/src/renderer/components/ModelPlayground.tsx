@@ -115,7 +115,7 @@ const ModelPlayground: React.FC = () => {
 
   const handleGenerate = useCallback(async () => {
     if (!selected) return;
-    setRunning(true); setError(''); setGenResult(null); setStreamingText('');
+    setRunning(true); setError(''); setResult(null); setGenResult(null); setStreamingText('');
     try {
       const res = await window.fedLearnAPI.runGeneration(selected.projectId, { prompt, maxNewTokens, temperature });
       if (res.success && res.result) setGenResult(res.result as GenerationResult);
