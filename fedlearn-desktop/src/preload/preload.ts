@@ -332,6 +332,43 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   },
 
   /**
+   * Run streaming text generation against a project's trained generative model.
+   * Tokens arrive via the onInferenceToken listener; this call resolves with
+   * the full result once generation is complete.
+   */
+  runGeneration: async (
+    projectId: string,
+    payload: { prompt: string; maxNewTokens: number; temperature: number },
+  ): Promise<{ success: boolean; result?: unknown; error?: string }> => {
+    if (!isValidProjectId(projectId)) return { success: false, error: 'Invalid project ID' };
+    if (
+      typeof payload?.prompt !== 'string' ||
+      !payload.prompt.trim() ||
+      payload.prompt.length > 10_000
+    ) {
+      return { success: false, error: 'Invalid prompt' };
+    }
+    return ipcRenderer.invoke('inference:run-generation', { projectId, payload });
+  },
+
+  /**
+   * Register a callback for streaming generation token events pushed by Main.
+   * Call removeInferenceTokenListener() on component unmount.
+   */
+  onInferenceToken: (callback: (token: string) => void): void => {
+    ipcRenderer.on('inference:token', (_event, value: string) => {
+      if (typeof value === 'string') callback(value);
+    });
+  },
+
+  /**
+   * Remove all inference:token listeners (cleanup on unmount).
+   */
+  removeInferenceTokenListener: (): void => {
+    ipcRenderer.removeAllListeners('inference:token');
+  },
+
+  /**
    * One-shot hardware detection. Returns the platform/arch, whether a CUDA
    * GPU is visible, whether the bundled native client is shipped with this
    * install, and a recommended hardware profile to pre-select in the UI.

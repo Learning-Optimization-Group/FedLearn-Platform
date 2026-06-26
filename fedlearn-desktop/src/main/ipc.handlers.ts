@@ -15,6 +15,7 @@ import { DockerService, TrainingConfig, HardwareProfile } from './docker.service
 import { AuthService } from './auth.service';
 import { InferenceService, InferencePayload } from './inference.service';
 import { ClientProjectService } from './client-projects.service';
+import { InferenceStreamService } from './inference-stream.service';
 import { detectHardware } from './hardware.probe';
 import { collectDeviceCapabilities } from './deviceCapabilities.collector';
 
@@ -149,6 +150,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   authService = new AuthService();
   inferenceService = new InferenceService(authService);
   clientProjectService = new ClientProjectService(authService);
+  const inferenceStreamService = new InferenceStreamService(authService, mainWindow);
 
   // ===================== File Dialogs =====================
   ipcMain.handle('dialog:open-directory', async () => {
@@ -399,6 +401,27 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       const message = err instanceof Error ? err.message : 'Unknown error';
       log.error(`[IPC:inference:run] Failed: ${message}`);
       return { success: false, error: message };
+    }
+  });
+
+  // ===================== Inference — Generation (streaming) =====================
+
+  ipcMain.handle('inference:run-generation', async (_event, args: unknown) => {
+    try {
+      const a = (args ?? {}) as Record<string, unknown>;
+      if (!validateProjectId(a.projectId)) return { success: false, error: 'Invalid project ID' };
+      const p = (a.payload ?? {}) as Record<string, unknown>;
+      const prompt = typeof p.prompt === 'string' ? p.prompt : '';
+      if (!prompt.trim() || prompt.length > 10_000) return { success: false, error: 'Invalid prompt' };
+      const maxNewTokens = Math.max(1, Math.min(2048, Number(p.maxNewTokens) || 256));
+      const temperature = Math.max(0, Math.min(2, Number(p.temperature) ?? 0.7));
+      return await inferenceStreamService.runGeneration(a.projectId as string, {
+        prompt,
+        maxNewTokens,
+        temperature,
+      });
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
     }
   });
 

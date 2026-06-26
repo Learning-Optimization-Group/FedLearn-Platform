@@ -46,6 +46,12 @@ declare global {
         projectId: string,
         payload: { imageBase64?: string; values?: number[]; text?: string },
       ) => Promise<{ success: boolean; result?: InferenceResult; error?: string }>;
+      runGeneration: (
+        projectId: string,
+        payload: { prompt: string; maxNewTokens: number; temperature: number },
+      ) => Promise<{ success: boolean; result?: unknown; error?: string }>;
+      onInferenceToken: (callback: (token: string) => void) => void;
+      removeInferenceTokenListener: () => void;
       detectHardware: () => Promise<{
         success: boolean;
         detection?: {

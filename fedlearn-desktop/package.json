@@ -31,6 +31,7 @@
     "package:win:cuda": "node scripts/check-native-bundle.js win && npm run build && electron-builder --win --config electron-builder.yml -c.nsis.artifactName=FedLearn-Desktop-Setup-${version}-cuda.exe"
   },
   "dependencies": {
+    "@stomp/stompjs": "^7.3.0",
     "axios": "^1.15.0",
     "dockerode": "^4.0.10",
     "electron-log": "5.3.0",
@@ -38,7 +39,8 @@
     "electron-updater": "^6.8.3",
     "lucide-react": "^0.487.0",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "ws": "^8.21.0"
   },
   "overrides": {
     "protobufjs": ">=7.5.5"
@@ -48,6 +50,7 @@
     "@types/jest": "^29.5.14",
     "@types/react": "18.3.18",
     "@types/react-dom": "18.3.5",
+    "@types/ws": "^8.18.1",
     "concurrently": "9.1.2",
     "copy-webpack-plugin": "^14.0.0",
     "css-loader": "7.1.2",
