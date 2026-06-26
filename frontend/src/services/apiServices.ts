@@ -46,6 +46,8 @@ export interface ProjectData {
     modelName: string;
     optimizer: string;
     pretrainEpochs: number;
+    /** "SEQ_CLASSIFICATION" (default) | "CAUSAL_LM". Only meaningful for LLM_LORA. */
+    taskType?: string;
 }
 
 export interface StartServerData {

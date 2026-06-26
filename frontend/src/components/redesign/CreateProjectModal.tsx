@@ -36,6 +36,7 @@ interface CreateProjectModalProps {
     modelName: string;
     optimizer: string;
     pretrainEpochs: number;
+    taskType?: string;
   }) => void;
   onClose: () => void;
   isLoading?: boolean;
@@ -52,6 +53,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
   const [modelName, setModelName] = useState('');
   const [optimizer, setOptimizer] = useState('');
   const [pretrainEpochs, setPretrainEpochs] = useState(0);
+  const [taskType, setTaskType] = useState('SEQ_CLASSIFICATION');
 
   // Fetch the model catalog when the modal opens.
   useEffect(() => {
@@ -85,6 +87,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
     if (!selectedRecipe) return;
     setModelName(selectedRecipe.baseModels[0] ?? '');
     setOptimizer(selectedRecipe.optimizers[0] ?? '');
+    setTaskType('SEQ_CLASSIFICATION');
   }, [modelType, selectedRecipe]);
 
   // Reset on close
@@ -98,7 +101,8 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ name, modelType, modelName, optimizer, pretrainEpochs });
+    onSubmit({ name, modelType, modelName, optimizer, pretrainEpochs,
+               ...(modelType === 'LLM_LORA' ? { taskType } : {}) });
   };
 
   return (
@@ -172,6 +176,17 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
             </Select>
           </div>
         </div>
+
+        {/* Task type — LLM_LORA only */}
+        {modelType === 'LLM_LORA' && (
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>Task</label>
+            <Select value={taskType} onChange={(e) => setTaskType(e.target.value)}>
+              <option value="SEQ_CLASSIFICATION">Classification (text → label)</option>
+              <option value="CAUSAL_LM">Generation (instruction fine-tune)</option>
+            </Select>
+          </div>
+        )}
 
         {/* Pre-train Epochs */}
         <div className="flex flex-col gap-1.5">
