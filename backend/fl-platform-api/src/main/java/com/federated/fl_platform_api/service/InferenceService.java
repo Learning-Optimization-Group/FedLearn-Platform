@@ -26,7 +26,9 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -60,6 +62,11 @@ public class InferenceService {
      */
     private final Semaphore inferenceSlots;
     private final long generationTimeoutSeconds;
+
+    /** Live generation subprocesses, keyed by projectId — enables Stop. Mirrors FlowerServerManager.runningServers. */
+    final Map<UUID, Process> runningGenerations = new ConcurrentHashMap<>();
+    /** Projects whose in-flight generation was user-stopped (so runGenerationScript returns a "stopped" result, not a 502). */
+    final Set<UUID> stoppedGenerations = ConcurrentHashMap.newKeySet();
 
     @Value("${python.script.infer.path:src/main/resources/scripts/run_infer.sh}")
     private String inferWrapperPath;
@@ -397,39 +404,76 @@ public class InferenceService {
         } catch (IOException e) {
             throw new ServerProcessException("Failed to start generation process", e);
         }
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (!broadcastIfToken(projectId, line)) {
-                    diag.append(line).append('\n');
+        runningGenerations.put(projectId, process);
+        try {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (!broadcastIfToken(projectId, line)) {
+                        diag.append(line).append('\n');
+                    }
                 }
-            }
-            boolean finished = process.waitFor(generationTimeoutSeconds, TimeUnit.SECONDS);
-            if (!finished) {
+                boolean finished = process.waitFor(generationTimeoutSeconds, TimeUnit.SECONDS);
+                if (!finished) {
+                    process.destroyForcibly();
+                    throw new ServerProcessException("Generation timed out after " + generationTimeoutSeconds + "s");
+                }
+            } catch (IOException e) {
+                if (stoppedGenerations.contains(projectId)) return stoppedResult(target.modelType());
+                throw new ServerProcessException("Generation process I/O error", e);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
                 process.destroyForcibly();
-                throw new ServerProcessException("Generation timed out after " + generationTimeoutSeconds + "s");
+                throw new ServerProcessException("Generation interrupted", e);
             }
-        } catch (IOException e) {
-            throw new ServerProcessException("Generation process I/O error", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            process.destroyForcibly();
-            throw new ServerProcessException("Generation interrupted", e);
-        }
-        JsonNode result = readResult(outputFile);
-        if (result == null) {
-            log.warn("Generation produced no result file. Output:\n{}", diag);
-            throw new ServerProcessException("Generation produced no result (exit=" + process.exitValue() + ")");
-        }
-        if (!result.path("ok").asBoolean(false)) {
-            String err = result.path("error").asText("Generation failed");
-            if ("input".equals(result.path("errorKind").asText("internal"))) {
-                throw new IllegalArgumentException(err);
+            JsonNode result = readResult(outputFile);
+            if (result == null) {
+                // A user-stop kills infer.py before it writes the out-file — return a clean "stopped"
+                // result (the client keeps its streamed partial), not a 502.
+                if (stoppedGenerations.contains(projectId)) return stoppedResult(target.modelType());
+                log.warn("Generation produced no result file. Output:\n{}", diag);
+                throw new ServerProcessException("Generation produced no result (exit=" + process.exitValue() + ")");
             }
-            log.warn("Generation internal failure for {}: {}", target.modelType(), err);
-            throw new ServerProcessException("Generation failed while executing the model");
+            if (!result.path("ok").asBoolean(false)) {
+                String err = result.path("error").asText("Generation failed");
+                if ("input".equals(result.path("errorKind").asText("internal"))) {
+                    throw new IllegalArgumentException(err);
+                }
+                log.warn("Generation internal failure for {}: {}", target.modelType(), err);
+                throw new ServerProcessException("Generation failed while executing the model");
+            }
+            return result;
+        } finally {
+            runningGenerations.remove(projectId, process);
+            stoppedGenerations.remove(projectId);
         }
-        return result;
+    }
+
+    /** Cancel the in-flight generation for a project (authz-gated). Returns true if one was running. */
+    public boolean stopGeneration(@NonNull UUID projectId) {
+        projectService.resolveInferenceTarget(projectId); // same participant/org authz as generate (404/403)
+        return stopTrackedGeneration(projectId);
+    }
+
+    /** Mark stopped + destroy the tracked process. Package-private for unit testing. */
+    boolean stopTrackedGeneration(UUID projectId) {
+        Process p = runningGenerations.get(projectId);
+        if (p == null) return false;          // nothing running → harmless no-op (flag NOT set)
+        stoppedGenerations.add(projectId);
+        p.destroyForcibly();
+        return true;
+    }
+
+    /** Synthetic result for a user-stopped generation; the client keeps its streamed partial. */
+    JsonNode stoppedResult(String modelType) {
+        com.fasterxml.jackson.databind.node.ObjectNode n = objectMapper.createObjectNode();
+        n.put("ok", true);
+        n.put("modelType", modelType);
+        n.put("prompt", "");
+        n.put("generatedText", "");
+        n.put("tokenCount", 0);
+        n.put("finishReason", "stopped");
+        return n;
     }
 
     private GenerationResultDto toGenerationDto(JsonNode r, String modelType) {

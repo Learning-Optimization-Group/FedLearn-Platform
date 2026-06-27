@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -51,5 +52,11 @@ public class InferenceController {
             @PathVariable @NonNull UUID projectId,
             @Valid @RequestBody com.federated.fl_platform_api.dto.GenerationRequest request) {
         return ResponseEntity.ok(inferenceService.generate(projectId, request));
+    }
+
+    /** Cancel an in-flight generation for the project. Returns {"stopped": true} if one was running. */
+    @PostMapping("/{projectId}/generate/stop")
+    public ResponseEntity<Map<String, Boolean>> stopGenerate(@PathVariable @NonNull UUID projectId) {
+        return ResponseEntity.ok(Map.of("stopped", inferenceService.stopGeneration(projectId)));
     }
 }
