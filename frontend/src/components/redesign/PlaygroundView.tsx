@@ -48,6 +48,7 @@ export function PlaygroundView() {
     const [streamingText, setStreamingText] = useState('');
     const [stopped, setStopped] = useState(false);
     const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+    const streamingRef = useRef('');
     const chatEndRef = useRef<HTMLDivElement>(null);
 
     const [running, setRunning] = useState(false);
@@ -157,7 +158,7 @@ export function PlaygroundView() {
         setPrompt('');
         setRunning(true);
         setError('');
-        setStreamingText('');
+        setStreamingText(''); streamingRef.current = '';
         setStopped(false);
         const client = new StompClient({ brokerURL: WS_BROKER_URL, reconnectDelay: 5000 });
         const cleanup = () => { if (client.active) client.deactivate(); };
@@ -168,7 +169,7 @@ export function PlaygroundView() {
                 client.subscribe(`/topic/inference/${selected.projectId}`, (msg) => {
                     try {
                         const { token } = JSON.parse(msg.body);
-                        if (typeof token === 'string') setStreamingText((p) => p + token);
+                        if (typeof token === 'string') { streamingRef.current += token; setStreamingText((p) => p + token); }
                     } catch { /* ignore non-token frames */ }
                 });
                 resolve(); // only POST once the subscription is live (avoids the first-token race)
@@ -181,10 +182,8 @@ export function PlaygroundView() {
             const res = await api.runGeneration(selected.projectId, {
                 prompt: userMsg, history, maxNewTokens, temperature,
             });
-            setStreamingText((finalText) => {
-                setMessages((m) => [...m, { role: 'assistant', content: finalText }]);
-                return '';
-            });
+            setMessages((m) => [...m, { role: 'assistant', content: streamingRef.current }]);
+            setStreamingText('');
             if (res.data.finishReason === 'stopped') setStopped(true);
         } catch (e: unknown) {
             const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message

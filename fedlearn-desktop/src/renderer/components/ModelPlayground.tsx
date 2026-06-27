@@ -44,6 +44,7 @@ const ModelPlayground: React.FC = () => {
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const streamingRef = useRef('');
 
   useEffect(() => {
     (async () => {
@@ -82,7 +83,7 @@ const ModelPlayground: React.FC = () => {
   }, [selectedId]);
 
   useEffect(() => {
-    window.fedLearnAPI.onInferenceToken((token: string) => setStreamingText((p) => p + token));
+    window.fedLearnAPI.onInferenceToken((token: string) => { streamingRef.current += token; setStreamingText((p) => p + token); });
     return () => window.fedLearnAPI.removeInferenceTokenListener();
   }, []);
 
@@ -131,7 +132,7 @@ const ModelPlayground: React.FC = () => {
     setStopped(false);
     setRunning(true);
     setError('');
-    setStreamingText('');
+    setStreamingText(''); streamingRef.current = '';
     try {
       const res = await window.fedLearnAPI.runGeneration(selected.projectId, {
         prompt: userMsg,
@@ -139,10 +140,8 @@ const ModelPlayground: React.FC = () => {
         maxNewTokens,
         temperature,
       });
-      setStreamingText((finalText) => {
-        setMessages((m) => [...m, { role: 'assistant', content: finalText }]);
-        return '';
-      });
+      setMessages((m) => [...m, { role: 'assistant', content: streamingRef.current }]);
+      setStreamingText('');
       if (res.success && res.result && (res.result as GenerationResult).finishReason === 'stopped') {
         setStopped(true);
       } else if (!res.success) {
