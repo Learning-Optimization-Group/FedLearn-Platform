@@ -359,7 +359,8 @@ public class InferenceService {
             outputFile = Files.createTempFile("fedlearn-gen-out", ".json");
             inputFile = Files.createTempFile("fedlearn-gen-in", ".json");
             objectMapper.writeValue(inputFile.toFile(),
-                    Map.of("kind", "generation", "prompt", request.getPrompt()));
+                    java.util.Map.of("kind", "generation", "prompt", request.getPrompt(),
+                            "history", request.getHistory() == null ? java.util.List.of() : request.getHistory()));
             if (!inferenceSlots.tryAcquire()) {
                 throw new InferenceBusyException("Inference is at capacity right now. Please retry in a few seconds.");
             }

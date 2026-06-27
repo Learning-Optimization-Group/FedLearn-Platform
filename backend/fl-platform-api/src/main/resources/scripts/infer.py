@@ -165,7 +165,21 @@ def build_vector_tensor(values, expected_dim: int) -> torch.Tensor:
     return torch.from_numpy(arr).unsqueeze(0)  # (1, dim)
 
 
-def generate_text(net, tokenizer, prompt, max_new_tokens, temperature, device="cpu"):
+def render_chat(history, prompt):
+    """Render the conversation as the dolly multi-instruction prompt (open final turn)."""
+    parts = []
+    for turn in history or []:
+        role = turn.get("role")
+        content = turn.get("content", "")
+        if role == "user":
+            parts.append(f"### Instruction:\n{content}\n")
+        elif role == "assistant":
+            parts.append(f"### Response:\n{content}\n")
+    parts.append(f"### Instruction:\n{prompt}\n### Response:\n")
+    return "".join(parts)
+
+
+def generate_text(net, tokenizer, prompt, max_new_tokens, temperature, device="cpu", history=None):
     """Stream a completion for `prompt` using the dolly instruction template.
 
     Prints each decoded chunk to stdout as {"token": "<chunk>"} (the streaming
@@ -174,12 +188,18 @@ def generate_text(net, tokenizer, prompt, max_new_tokens, temperature, device="c
     from threading import Thread
     from transformers import TextIteratorStreamer
 
-    prompt_text = f"### Instruction:\n{prompt}\n### Response:\n"
+    ctx = getattr(net.config, "max_position_embeddings", 2048) or 2048
+    reserve = min(int(max_new_tokens), max(1, ctx // 2))   # leave room to generate
+    budget = max(1, ctx - reserve)
+    hist = list(history or [])
+    prompt_text = render_chat(hist, prompt)
+    while hist and len(tokenizer(prompt_text)["input_ids"]) > budget:
+        hist = hist[2:]                     # drop the oldest user+assistant pair; keep the final turn
+        prompt_text = render_chat(hist, prompt)
     inputs = tokenizer(prompt_text, return_tensors="pt")
     inputs = {k: v.to(device) for k, v in inputs.items()}
     input_len = inputs["input_ids"].shape[-1]
 
-    ctx = getattr(net.config, "max_position_embeddings", 2048) or 2048
     room = max(1, ctx - input_len)
     eff_max = max(1, min(2048, int(max_new_tokens), room))
 
@@ -267,7 +287,8 @@ def main() -> int:
             prompt = payload.get("prompt")
             if not isinstance(prompt, str) or not prompt.strip():
                 raise InputError("generation input requires a non-empty 'prompt' string")
-            result = generate_text(net, image_transform, prompt, args.max_new_tokens, args.temperature, device)
+            history = payload.get("history", [])
+            result = generate_text(net, image_transform, prompt, args.max_new_tokens, args.temperature, device, history=history)
             write_result(result)
             log(f"generated {result['tokenCount']} tokens")
             return 0

@@ -28,4 +28,10 @@ public class GenerationRequest {
     public void setMaxNewTokens(int maxNewTokens) { this.maxNewTokens = maxNewTokens; }
     public double getTemperature() { return temperature; }
     public void setTemperature(double temperature) { this.temperature = temperature; }
+
+    @jakarta.validation.Valid
+    @Size(max = 100)
+    private java.util.List<ChatTurn> history;
+    public java.util.List<ChatTurn> getHistory() { return history; }
+    public void setHistory(java.util.List<ChatTurn> history) { this.history = history; }
 }
