@@ -217,6 +217,8 @@ export interface InferencePayload {
     maxNewTokens?: number;
     /** Sampling temperature (0–2). */
     temperature?: number;
+    /** Prior conversation turns for multi-turn generation. */
+    history?: { role: 'user' | 'assistant'; content: string }[];
 }
 
 export interface GenerationResult {
@@ -230,7 +232,12 @@ export interface GenerationResult {
 /** Runs streaming generation; tokens arrive over /topic/inference/{projectId}, this resolves with the final text. */
 export const runGeneration = (
     projectId: string,
-    payload: { prompt: string; maxNewTokens: number; temperature: number },
+    payload: {
+        prompt: string;
+        maxNewTokens: number;
+        temperature: number;
+        history?: { role: 'user' | 'assistant'; content: string }[];
+    },
 ): Promise<AxiosResponse<GenerationResult>> => {
     return api.post<GenerationResult>(`/inference/${projectId}/generate`, payload);
 };
