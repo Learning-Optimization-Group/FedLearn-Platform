@@ -417,6 +417,9 @@ const ModelPlayground: React.FC = () => {
               {running && streamingText && (
                 <div className="pg-bubble-assistant">{streamingText}</div>
               )}
+              {running && !streamingText && (
+                <div className="pg-bubble-assistant pg-muted">Generating…</div>
+              )}
               <div ref={chatEndRef} />
             </div>
           )
