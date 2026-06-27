@@ -98,4 +98,19 @@ export class InferenceStreamService {
       if (client.active) client.deactivate();
     }
   }
+
+  async stopGeneration(projectId: string): Promise<{ success: boolean; stopped?: boolean; error?: string }> {
+    const header = this.auth.getAuthHeader();
+    if (!header) return { success: false, error: 'Not authenticated' };
+    try {
+      const res = await axios.post(`${this.auth.getApiUrl()}/inference/${projectId}/generate/stop`, {}, {
+        headers: { Authorization: header, 'Content-Type': 'application/json' },
+        validateStatus: (s) => s < 600,
+      });
+      if (res.status !== 200) return { success: false, error: `Stop failed (HTTP ${res.status})` };
+      return { success: true, stopped: !!(res.data && res.data.stopped) };
+    } catch {
+      return { success: false, error: 'Could not reach the backend.' };
+    }
+  }
 }

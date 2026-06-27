@@ -352,6 +352,15 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   },
 
   /**
+   * Cancel an in-flight generation. Best-effort: the streamed partial is kept
+   * by the renderer regardless of the server response.
+   */
+  stopGeneration: async (projectId: string): Promise<{ success: boolean; stopped?: boolean; error?: string }> => {
+    if (!isValidProjectId(projectId)) return { success: false, error: 'Invalid project ID' };
+    return ipcRenderer.invoke('inference:stop-generation', { projectId });
+  },
+
+  /**
    * Register a callback for streaming generation token events pushed by Main.
    * Call removeInferenceTokenListener() on component unmount.
    */

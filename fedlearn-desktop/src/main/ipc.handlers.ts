@@ -427,6 +427,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  ipcMain.handle('inference:stop-generation', async (_event, args: unknown) => {
+    const a = (args ?? {}) as Record<string, unknown>;
+    if (!validateProjectId(a.projectId)) return { success: false, error: 'Invalid project ID' };
+    return await inferenceStreamService.stopGeneration(a.projectId as string);
+  });
+
   // ===================== Client Projects ("models I can train") =====================
 
   ipcMain.handle('client:list-projects', async () => {

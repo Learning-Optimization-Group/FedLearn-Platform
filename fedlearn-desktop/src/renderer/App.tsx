@@ -50,6 +50,7 @@ declare global {
         projectId: string,
         payload: { prompt: string; maxNewTokens: number; temperature: number },
       ) => Promise<{ success: boolean; result?: unknown; error?: string }>;
+      stopGeneration: (projectId: string) => Promise<{ success: boolean; stopped?: boolean; error?: string }>;
       onInferenceToken: (callback: (token: string) => void) => void;
       removeInferenceTokenListener: () => void;
       detectHardware: () => Promise<{

@@ -37,6 +37,7 @@ const ModelPlayground: React.FC = () => {
   const [temperature, setTemperature] = useState(0.7);
   const [streamingText, setStreamingText] = useState('');
   const [genResult, setGenResult] = useState<GenerationResult | null>(null);
+  const [stopped, setStopped] = useState(false);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<InferenceResult | null>(null);
   const [error, setError] = useState('');
@@ -75,6 +76,7 @@ const ModelPlayground: React.FC = () => {
     setPrompt('');
     setStreamingText('');
     setGenResult(null);
+    setStopped(false);
   }, [selectedId]);
 
   useEffect(() => {
@@ -115,17 +117,28 @@ const ModelPlayground: React.FC = () => {
 
   const handleGenerate = useCallback(async () => {
     if (!selected) return;
+    setStopped(false);
     setRunning(true); setError(''); setResult(null); setGenResult(null); setStreamingText('');
     try {
       const res = await window.fedLearnAPI.runGeneration(selected.projectId, { prompt, maxNewTokens, temperature });
-      if (res.success && res.result) setGenResult(res.result as GenerationResult);
-      else setError(res.error || 'Generation failed.');
+      if (res.success && res.result) {
+        if ((res.result as GenerationResult).finishReason === 'stopped') setStopped(true);
+        else setGenResult(res.result as GenerationResult);
+      } else {
+        setError(res.error || 'Generation failed.');
+      }
     } catch {
       setError('Generation failed.');
     } finally {
       setRunning(false);
     }
   }, [selected, prompt, maxNewTokens, temperature]);
+
+  const handleStop = useCallback(async () => {
+    if (!selected) return;
+    setStopped(true);
+    try { await window.fedLearnAPI.stopGeneration(selected.projectId); } catch { /* best-effort */ }
+  }, [selected]);
 
   const handleRun = useCallback(async () => {
     if (!selected) return;
@@ -278,11 +291,15 @@ const ModelPlayground: React.FC = () => {
               </div>
             )}
 
-            <button className="btn btn-primary btn-full"
-              onClick={selected?.inputKind === 'generation' ? handleGenerate : handleRun}
-              disabled={!canRun}>
-              {running ? 'Running…' : (<><Sparkles size={16} strokeWidth={1.5} /> Run inference</>)}
-            </button>
+            {running && selected?.inputKind === 'generation' ? (
+              <button className="btn btn-primary btn-full" onClick={handleStop} disabled={stopped}>Stop</button>
+            ) : (
+              <button className="btn btn-primary btn-full"
+                onClick={selected?.inputKind === 'generation' ? handleGenerate : handleRun}
+                disabled={!canRun}>
+                {running ? 'Running…' : (<><Sparkles size={16} strokeWidth={1.5} /> Run inference</>)}
+              </button>
+            )}
           </div>
         )}
       </section>
@@ -334,6 +351,7 @@ const ModelPlayground: React.FC = () => {
             <span className="pg-top-label">Generated</span>
             <pre className="pg-generated">{genResult ? genResult.generatedText : streamingText}</pre>
             {genResult && <span className="pg-top-conf">{genResult.tokenCount} tokens · {genResult.finishReason}</span>}
+            {stopped && <span className="pg-top-conf">stopped</span>}
           </div>
         )}
 
