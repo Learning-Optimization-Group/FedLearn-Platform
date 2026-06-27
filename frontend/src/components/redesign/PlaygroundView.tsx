@@ -47,6 +47,7 @@ export function PlaygroundView() {
     const [temperature, setTemperature] = useState(0.7);
     const [streamingText, setStreamingText] = useState('');
     const [genResult, setGenResult] = useState<GenerationResult | null>(null);
+    const [stopped, setStopped] = useState(false);
 
     const [running, setRunning] = useState(false);
     const [result, setResult] = useState<InferenceResult | null>(null);
@@ -84,6 +85,7 @@ export function PlaygroundView() {
         setPrompt('');
         setStreamingText('');
         setGenResult(null);
+        setStopped(false);
     }, [selectedId]);
 
     const handleFile = (file: File | undefined) => {
@@ -143,7 +145,7 @@ export function PlaygroundView() {
 
     const handleGenerate = async () => {
         if (!selected) return;
-        setRunning(true); setError(''); setGenResult(null); setStreamingText('');
+        setRunning(true); setError(''); setGenResult(null); setStreamingText(''); setStopped(false);
         const client = new StompClient({ brokerURL: WS_BROKER_URL, reconnectDelay: 5000 });
         const cleanup = () => { if (client.active) client.deactivate(); };
         await new Promise<void>((resolve) => {
@@ -166,7 +168,11 @@ export function PlaygroundView() {
             const res = await api.runGeneration(selected.projectId, {
                 prompt, maxNewTokens, temperature,
             });
-            setGenResult(res.data);
+            if (res.data.finishReason === 'stopped') {
+                setStopped(true);                 // keep the streamed partial; do NOT overwrite with the empty stopped result
+            } else {
+                setGenResult(res.data);
+            }
         } catch (e: unknown) {
             const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
                 || 'Generation failed. Please try again.';
@@ -175,6 +181,12 @@ export function PlaygroundView() {
             cleanup();
             setRunning(false);
         }
+    };
+
+    const handleStop = async () => {
+        if (!selected) return;
+        setStopped(true);                         // instant UI feedback
+        try { await api.stopGeneration(selected.projectId); } catch { /* best-effort */ }
     };
 
     return (
@@ -354,22 +366,32 @@ export function PlaygroundView() {
                                 </div>
                             )}
 
-                            <Button
-                                variant="primary"
-                                onClick={selected?.inputKind === 'generation' ? handleGenerate : handleRun}
-                                disabled={!canRun}
-                                className="mt-1 inline-flex items-center justify-center gap-2"
-                            >
-                                {running ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} /> Running…
-                                    </>
-                                ) : (
-                                    <>
-                                        <Sparkles className="w-4 h-4" strokeWidth={1.5} /> Run inference
-                                    </>
-                                )}
-                            </Button>
+                            {running && selected?.inputKind === 'generation' ? (
+                                <Button
+                                    variant="primary"
+                                    onClick={handleStop}
+                                    className="mt-1 inline-flex items-center justify-center gap-2"
+                                >
+                                    <span className="flex items-center gap-2">Stop</span>
+                                </Button>
+                            ) : (
+                                <Button
+                                    variant="primary"
+                                    onClick={selected?.inputKind === 'generation' ? handleGenerate : handleRun}
+                                    disabled={!canRun}
+                                    className="mt-1 inline-flex items-center justify-center gap-2"
+                                >
+                                    {running ? (
+                                        <span className="flex items-center gap-2">
+                                            <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} /> Running…
+                                        </span>
+                                    ) : (
+                                        <span className="flex items-center gap-2">
+                                            <Sparkles className="w-4 h-4" strokeWidth={1.5} /> Run inference
+                                        </span>
+                                    )}
+                                </Button>
+                            )}
                         </Card>
 
                         {/* ── Result panel ── */}
@@ -441,6 +463,9 @@ export function PlaygroundView() {
                                         <p className="text-label text-fg-muted font-mono tabular-nums">
                                             {genResult.tokenCount} tokens · {genResult.finishReason}
                                         </p>
+                                    )}
+                                    {stopped && (
+                                        <p className="text-label text-fg-muted font-mono tabular-nums">stopped</p>
                                     )}
                                 </div>
                             )}

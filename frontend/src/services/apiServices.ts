@@ -235,6 +235,13 @@ export const runGeneration = (
     return api.post<GenerationResult>(`/inference/${projectId}/generate`, payload);
 };
 
+/** Cancels an in-flight generation for the project. */
+export const stopGeneration = (
+    projectId: string,
+): Promise<AxiosResponse<{ stopped: boolean }>> => {
+    return api.post<{ stopped: boolean }>(`/inference/${projectId}/generate/stop`);
+};
+
 /** Lists the current user's trained models that can be run interactively. */
 export const fetchInferableModels = (): Promise<AxiosResponse<InferableModel[]>> => {
     return api.get<InferableModel[]>('/inference/models');
