@@ -417,10 +417,23 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       const maxNewTokens = Math.max(1, Math.min(2048, Number.isFinite(mnt) ? mnt : 256));
       const t = Number(p.temperature);
       const temperature = Math.max(0, Math.min(2, Number.isFinite(t) ? t : 0.7));
+      const history = Array.isArray(p.history)
+        ? (p.history as unknown[])
+            .filter(
+              (turn): turn is { role: 'user' | 'assistant'; content: string } =>
+                !!turn &&
+                typeof turn === 'object' &&
+                ((turn as Record<string, unknown>).role === 'user' ||
+                  (turn as Record<string, unknown>).role === 'assistant') &&
+                typeof (turn as Record<string, unknown>).content === 'string',
+            )
+            .slice(0, 100)
+        : undefined;
       return await inferenceStreamService.runGeneration(a.projectId as string, {
         prompt,
         maxNewTokens,
         temperature,
+        history,
       });
     } catch (err: unknown) {
       return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
