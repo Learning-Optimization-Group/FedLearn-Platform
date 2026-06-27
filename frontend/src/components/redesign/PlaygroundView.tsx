@@ -370,9 +370,10 @@ export function PlaygroundView() {
                                 <Button
                                     variant="primary"
                                     onClick={handleStop}
+                                    disabled={stopped}
                                     className="mt-1 inline-flex items-center justify-center gap-2"
                                 >
-                                    <span className="flex items-center gap-2">Stop</span>
+                                    Stop
                                 </Button>
                             ) : (
                                 <Button
