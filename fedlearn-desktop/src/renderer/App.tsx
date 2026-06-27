@@ -48,7 +48,7 @@ declare global {
       ) => Promise<{ success: boolean; result?: InferenceResult; error?: string }>;
       runGeneration: (
         projectId: string,
-        payload: { prompt: string; maxNewTokens: number; temperature: number },
+        payload: { prompt: string; maxNewTokens: number; temperature: number; history?: { role: 'user' | 'assistant'; content: string }[] },
       ) => Promise<{ success: boolean; result?: unknown; error?: string }>;
       stopGeneration: (projectId: string) => Promise<{ success: boolean; stopped?: boolean; error?: string }>;
       onInferenceToken: (callback: (token: string) => void) => void;

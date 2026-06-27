@@ -338,7 +338,7 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
    */
   runGeneration: async (
     projectId: string,
-    payload: { prompt: string; maxNewTokens: number; temperature: number },
+    payload: { prompt: string; maxNewTokens: number; temperature: number; history?: { role: 'user' | 'assistant'; content: string }[] },
   ): Promise<{ success: boolean; result?: unknown; error?: string }> => {
     if (!isValidProjectId(projectId)) return { success: false, error: 'Invalid project ID' };
     if (

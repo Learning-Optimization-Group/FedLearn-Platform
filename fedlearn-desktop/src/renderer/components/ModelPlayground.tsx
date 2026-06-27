@@ -2,8 +2,9 @@
 // FedLearn Desktop — Model Playground ("Use a model")
 // =============================================================================
 // Pick a trained model and run inference on it. Image models take an uploaded
-// image; tabular models take a numeric vector. Inference runs server-side via
-// the Main-process InferenceService (reached over IPC).
+// image; tabular models take a numeric vector; generation models use a chat
+// thread. Inference runs server-side via the Main-process InferenceService
+// (reached over IPC).
 // =============================================================================
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -36,12 +37,13 @@ const ModelPlayground: React.FC = () => {
   const [maxNewTokens, setMaxNewTokens] = useState(256);
   const [temperature, setTemperature] = useState(0.7);
   const [streamingText, setStreamingText] = useState('');
-  const [genResult, setGenResult] = useState<GenerationResult | null>(null);
   const [stopped, setStopped] = useState(false);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<InferenceResult | null>(null);
   const [error, setError] = useState('');
+  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -75,14 +77,19 @@ const ModelPlayground: React.FC = () => {
     setTextInput('');
     setPrompt('');
     setStreamingText('');
-    setGenResult(null);
     setStopped(false);
+    setMessages([]);
   }, [selectedId]);
 
   useEffect(() => {
     window.fedLearnAPI.onInferenceToken((token: string) => setStreamingText((p) => p + token));
     return () => window.fedLearnAPI.removeInferenceTokenListener();
   }, []);
+
+  // Auto-scroll chat to bottom when messages or streaming text change
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, streamingText]);
 
   const handleFile = useCallback((file: File | undefined) => {
     if (!file) return;
@@ -115,16 +122,30 @@ const ModelPlayground: React.FC = () => {
     return false;
   }, [selected, running, imageDataUrl, parsedVector, textInput, prompt]);
 
-  const handleGenerate = useCallback(async () => {
-    if (!selected) return;
+  const handleSend = useCallback(async () => {
+    if (!selected || !prompt.trim()) return;
+    const userMsg = prompt.trim();
+    const history = messages;
+    setMessages((m) => [...m, { role: 'user', content: userMsg }]);
+    setPrompt('');
     setStopped(false);
-    setRunning(true); setError(''); setResult(null); setGenResult(null); setStreamingText('');
+    setRunning(true);
+    setError('');
+    setStreamingText('');
     try {
-      const res = await window.fedLearnAPI.runGeneration(selected.projectId, { prompt, maxNewTokens, temperature });
-      if (res.success && res.result) {
-        if ((res.result as GenerationResult).finishReason === 'stopped') setStopped(true);
-        else setGenResult(res.result as GenerationResult);
-      } else {
+      const res = await window.fedLearnAPI.runGeneration(selected.projectId, {
+        prompt: userMsg,
+        history,
+        maxNewTokens,
+        temperature,
+      });
+      setStreamingText((finalText) => {
+        setMessages((m) => [...m, { role: 'assistant', content: finalText }]);
+        return '';
+      });
+      if (res.success && res.result && (res.result as GenerationResult).finishReason === 'stopped') {
+        setStopped(true);
+      } else if (!res.success) {
         setError(res.error || 'Generation failed.');
       }
     } catch {
@@ -132,7 +153,7 @@ const ModelPlayground: React.FC = () => {
     } finally {
       setRunning(false);
     }
-  }, [selected, prompt, maxNewTokens, temperature]);
+  }, [selected, prompt, maxNewTokens, temperature, messages]);
 
   const handleStop = useCallback(async () => {
     if (!selected) return;
@@ -186,7 +207,7 @@ const ModelPlayground: React.FC = () => {
         ) : models.length === 0 ? (
           <div className="pg-empty">
             <FlaskConical size={28} strokeWidth={1.25} />
-            <p>No trained models yet. Finish a training run and it’ll appear here.</p>
+            <p>No trained models yet. Finish a training run and it'll appear here.</p>
           </div>
         ) : (
           <div className="config-inputs">
@@ -209,7 +230,7 @@ const ModelPlayground: React.FC = () => {
 
             {selected && !selected.supported && (
               <p className="pg-muted">
-                Interactive inference for {selected.modelType} models isn’t supported yet.
+                Interactive inference for {selected.modelType} models isn't supported yet.
               </p>
             )}
 
@@ -279,23 +300,50 @@ const ModelPlayground: React.FC = () => {
 
             {selected?.inputKind === 'generation' && (
               <div className="form-group">
-                <label className="form-label" htmlFor="pg-prompt">Prompt</label>
-                <textarea id="pg-prompt" className="form-input" rows={5} value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)} placeholder="Ask the model to write something…" />
+                <textarea
+                  id="pg-prompt"
+                  className="form-input"
+                  rows={4}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Message the model…"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && canRun && !running) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                />
                 <label className="form-label">Max new tokens: {maxNewTokens}</label>
                 <input type="range" min={1} max={2048} step={1} value={maxNewTokens}
                   onChange={(e) => setMaxNewTokens(Number(e.target.value))} />
                 <label className="form-label">Temperature: {temperature.toFixed(1)}</label>
                 <input type="range" min={0} max={2} step={0.1} value={temperature}
                   onChange={(e) => setTemperature(Number(e.target.value))} />
+                <div className="pg-chat-actions">
+                  {running ? (
+                    <button className="btn btn-primary btn-full" onClick={handleStop} disabled={stopped}>Stop</button>
+                  ) : (
+                    <>
+                      <button className="btn btn-primary btn-full" onClick={handleSend} disabled={!canRun}>
+                        <Sparkles size={16} strokeWidth={1.5} /> Send
+                      </button>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => setMessages([])}
+                        disabled={running || messages.length === 0}
+                      >
+                        Clear
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             )}
 
-            {running && selected?.inputKind === 'generation' ? (
-              <button className="btn btn-primary btn-full" onClick={handleStop} disabled={stopped}>Stop</button>
-            ) : (
+            {selected?.inputKind !== 'generation' && (
               <button className="btn btn-primary btn-full"
-                onClick={selected?.inputKind === 'generation' ? handleGenerate : handleRun}
+                onClick={handleRun}
                 disabled={!canRun}>
                 {running ? 'Running…' : (<><Sparkles size={16} strokeWidth={1.5} /> Run inference</>)}
               </button>
@@ -307,8 +355,12 @@ const ModelPlayground: React.FC = () => {
       {/* ── Result panel ── */}
       <section className="panel">
         <div className="panel-header">
-          <h2 className="panel-title">Prediction</h2>
+          <h2 className="panel-title">
+            {selected?.inputKind === 'generation' ? 'Chat' : 'Prediction'}
+          </h2>
         </div>
+
+        {/* Classification / vector / text result */}
         {selected?.inputKind !== 'generation' && (!result ? (
           <div className="pg-empty">
             <FlaskConical size={28} strokeWidth={1.25} />
@@ -346,20 +398,29 @@ const ModelPlayground: React.FC = () => {
           </div>
         ))}
 
-        {selected?.inputKind === 'generation' && (streamingText || genResult) && (
-          <div className="pg-result">
-            <span className="pg-top-label">Generated</span>
-            <pre className="pg-generated">{genResult ? genResult.generatedText : streamingText}</pre>
-            {genResult && <span className="pg-top-conf">{genResult.tokenCount} tokens · {genResult.finishReason}</span>}
-            {stopped && <span className="pg-top-conf">stopped</span>}
-          </div>
-        )}
-
-        {selected?.inputKind === 'generation' && !streamingText && !genResult && (
-          <div className="pg-empty">
-            <FlaskConical size={28} strokeWidth={1.25} />
-            <p>Enter a prompt and run the model to see generated text.</p>
-          </div>
+        {/* Generation chat thread */}
+        {selected?.inputKind === 'generation' && (
+          messages.length === 0 && !streamingText ? (
+            <div className="pg-empty">
+              <FlaskConical size={28} strokeWidth={1.25} />
+              <p>Send a message to start the conversation.</p>
+            </div>
+          ) : (
+            <div className="pg-chat">
+              {messages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={msg.role === 'user' ? 'pg-bubble-user' : 'pg-bubble-assistant'}
+                >
+                  {msg.content}
+                </div>
+              ))}
+              {running && streamingText && (
+                <div className="pg-bubble-assistant">{streamingText}</div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+          )
         )}
       </section>
     </div>

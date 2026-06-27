@@ -37,7 +37,7 @@ export class InferenceStreamService {
 
   async runGeneration(
     projectId: string,
-    payload: { prompt: string; maxNewTokens: number; temperature: number },
+    payload: { prompt: string; maxNewTokens: number; temperature: number; history?: { role: 'user' | 'assistant'; content: string }[] },
   ): Promise<{ success: boolean; result?: GenerationResult; error?: string }> {
     const header = this.auth.getAuthHeader();
     if (!header) return { success: false, error: 'Not authenticated' };
