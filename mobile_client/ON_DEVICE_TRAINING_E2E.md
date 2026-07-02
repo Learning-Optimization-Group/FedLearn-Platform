@@ -110,3 +110,44 @@ post-MVP step.)
   `loadModel` — add an adapter/validator.
 - Path traversal via the file endpoint `{filename}` — strict whitelist.
 - Whole-file (non-streaming) download can OOM on real bundles — fine for the tiny fixture; revisit.
+
+## Status (2026-07-02)
+
+All six phases landed on `vinf`. Each was verified by an automated test that runs without a device or a
+live backend, so the whole critical path is CI-checkable:
+
+| # | Commit | Verified by |
+|---|---|---|
+| P0 | `f8ee131` | Regenerated `fedlearn_pb2` reports package `fedlearn.v2`; `perturbation_seeds`, `int64` `LocalStepSeeds.seeds`, `run_id`/`protocol_version`/`enrollment_token`, `ReportClientMetrics` all present. |
+| P1 | `e03ed46` | Per-RPC in-process tests: register accepts/rejects on `protocol_version`, status exposes `active_clients` + `round_deadline_unix_ms`, config carries `torch_version`/`grad_estimate_method`, `perturbation_seeds` reach the coordinator, metrics recorded. |
+| P3 | `a530ea3` | `stage_model_bundle.py` stages 5 files + `manifest.json`; recomputed sha256 == fixture manifest; data byte-sizes match declared shapes. |
+| P2 | `d991578` | `RunServiceModelBundleTest` (5 Mockito tests): DTO mapping, per-file sha, whitelist + path-traversal 404, missing-bundle 404, feature-flag-disabled 404. |
+| P4 | `5b41aab` | `modelProvisioning.test.ts` (fetch→base64→`stageBundleFile`→mapping, 404 path) + native `stageBundleFile` compiles into the arm64 `.so`. |
+| P5 | *(this)* | `framework/tests/test_v2_grpc_e2e.py`: a full DeComFL round over a **real gRPC socket** (register→heartbeat→status→config→submit→aggregate→advance), protocol-version rejection, int64-seed wire integrity. |
+
+**What P5 proves and what it does not.** The gRPC e2e test stands up the real `grpc.Server` + servicer +
+`FLCoordinator` + `DeComFL` strategy and drives the exact RPC sequence a mobile client performs, over a
+real client channel — so P0 (wire schema) and P1 (servicer semantics) are validated over the socket, not
+just via direct method calls, and the coordinator aggregates + advances the round. Because DeComFL is
+**server-authoritative on seeds**, the scalars-only submission is sufficient: the server reconstructs the
+update from its own `seed_history`, so a device computing scalars for those same seeds produces an
+equivalent result. This is the automatable half.
+
+The **remaining, inherently hands-on half** is the device-in-the-loop: a physical phone completing one
+round against a live backend + v2 `fl_server`, with a gRPC capture confirming no raw feature/label bytes
+leave the device. That needs a reachable backend the phone can hit and a person driving the app; it can't
+run in CI. Runbook:
+
+1. **Stage a bundle:** `python scripts/stage_model_bundle.py --run-id <uuid> --out /var/models` (uses the
+   golden TinyNet fixture). Confirm `/var/models/<uuid>/manifest.json` + the 5 binaries exist.
+2. **Backend:** `SPRING_PROFILES_ACTIVE=dev APP_MODEL_BUNDLE_DIR=/var/models ./gradlew bootRun`. Confirm
+   `GET /api/runs/<uuid>/model-bundle` (authed) returns the DTO and each `/files/*` binary downloads.
+3. **v2 fl_server:** launch the framework server on the DeComFL strategy with `min_clients=1` and a long
+   round deadline, bound to a LAN/Tailscale address the phone can reach (gRPC is plaintext — audit #37).
+4. **Phone:** install the arm64 APK, log in, pick the run; the app calls `provisionTrainingBundle`, stages
+   the files, then registers with `protocol_version=2` + `enrollment_token` and runs the DeComFL loop.
+5. **Assert data-locality:** capture the phone↔server gRPC (Tailscale tap / mitm / server-side frame log)
+   and confirm only seeds + scalars + metrics appear — **no `inputs.f32`/`targets.i64` bytes**. Confirm the
+   server round counter advances and `RoundResult` loss ≈ fixture `golden_loss` (~1.097).
+
+Steps 1–2 are already covered by automated tests; 3–5 are the manual acceptance run.
