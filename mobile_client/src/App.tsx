@@ -7,16 +7,13 @@ import { NavigationContainer } from '@react-navigation/native';
 
 import { AuthProvider } from './context/AuthContext';
 import RootNavigator from './navigation/RootNavigator';
-import { configureApi } from './lib/restClient';
-
-// FEDLEARN_API_URL comes from native build config (15-LLD §8). Wire it via react-native-config /
-// .env in the app project; this env read is a placeholder until that wiring lands.
-const API_URL = (typeof process !== 'undefined' && process.env.FEDLEARN_API_URL) || '';
+import { initServerConfig } from './lib/serverConfig';
 
 export default function App() {
   const { colorScheme } = useColorScheme();
+  // Bind the REST client to the persisted backend URL (Settings → Backend server) before any call.
   useEffect(() => {
-    if (API_URL) configureApi(API_URL);
+    void initServerConfig().catch(() => {});
   }, []);
 
   return (

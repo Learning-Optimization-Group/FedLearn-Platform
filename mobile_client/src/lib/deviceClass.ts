@@ -5,7 +5,9 @@
 // benchmark artifact, not a deployable mobile config — demote it to the server/desktop tier.
 import { Platform } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
-import NativeFedLearnCore from '@spec/NativeFedLearnCore';
+// Import via the nativeCore wrapper (relative) rather than the '@spec/*' tsconfig path alias: Metro
+// does not read tsconfig `paths`, so the alias resolves under tsc but breaks the release JS bundle.
+import nativeCore from './nativeCore';
 import type { DeviceCapabilities } from './deviceCapabilities.types';
 
 export type ModelTier = '1M' | '10M' | '100M';
@@ -41,7 +43,7 @@ export async function collectDeviceCapabilities(): Promise<DeviceCapabilities> {
   const [totalBytes, freeBytes, metrics, androidApiLevel] = await Promise.all([
     DeviceInfo.getTotalMemory().catch(() => 0),
     DeviceInfo.getFreeDiskStorage().catch(() => undefined as number | undefined),
-    NativeFedLearnCore.getDeviceMetrics().catch(() => null),
+    nativeCore.getDeviceMetrics().catch(() => null),
     // Android eligibility is keyed on the API LEVEL (SDK_INT), not the release string. getApiLevel()
     // is async, so fetch it here; iOS uses the (sync) release string below.
     Platform.OS === 'android'
