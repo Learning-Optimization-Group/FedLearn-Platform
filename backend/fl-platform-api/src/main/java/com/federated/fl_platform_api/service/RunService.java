@@ -1,6 +1,7 @@
 package com.federated.fl_platform_api.service;
 
 import com.federated.fl_platform_api.dto.EnrollmentDto;
+import com.federated.fl_platform_api.dto.ModelBundleDto;
 import com.federated.fl_platform_api.dto.RunManifestDto;
 import com.federated.fl_platform_api.dto.RunStatusDto;
 import com.federated.fl_platform_api.exception.ProjectStateException;
@@ -12,14 +13,24 @@ import com.federated.fl_platform_api.repository.RunEnrollmentRepository;
 import com.federated.fl_platform_api.repository.RunRepository;
 import com.federated.fl_platform_api.security.ConnectionTokenService;
 import com.federated.fl_platform_api.security.OrgScope;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.PathResource;
+import org.springframework.core.io.Resource;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -32,9 +43,21 @@ public class RunService {
     @Autowired private AuthorizationService authz;
     @Autowired private OrgScope orgScope;
     @Autowired private ConnectionTokenService tokenService;
+    @Autowired private ObjectMapper objectMapper;
 
     @Value("${app.fl-server.grpc-host:localhost}")
     private String grpcHost;
+
+    // Root of the per-run on-device training bundles staged by scripts/stage_model_bundle.py.
+    @Value("${app.model-bundle.dir:/var/models}")
+    private String modelBundleDir;
+
+    @Value("${feature.model-bundle-delivery.enabled:true}")
+    private boolean bundleDeliveryEnabled;
+
+    // The only filenames the bundle file endpoint will serve (blocks path traversal / arbitrary reads).
+    private static final Set<String> ALLOWED_BUNDLE_FILES =
+            Set.of("loss.pte", "infer.pte", "inputs.f32", "targets.i64");
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -178,6 +201,62 @@ public class RunService {
         dto.setExpiresAt(minted.expiresAt());
         dto.setManifest(toManifest(run));
         return dto;
+    }
+
+    /** Serve the staged on-device training bundle metadata for a run (P2). Same org-scope +
+     *  owner-or-CLIENT gate as status/enroll; file URLs point at {@code /api/runs/{id}/files/...}. */
+    @Transactional(readOnly = true)
+    public ModelBundleDto getModelBundle(UUID runId) {
+        if (!bundleDeliveryEnabled) {
+            throw new ProjectStateException("Model bundle delivery is disabled");
+        }
+        requireParticipantRun(runId);
+        Path manifestPath = Path.of(modelBundleDir, runId.toString(), "manifest.json");
+        if (!Files.isRegularFile(manifestPath)) {
+            throw new ResourceNotFoundException("No model bundle staged for run " + runId);
+        }
+        JsonNode m;
+        try {
+            m = objectMapper.readTree(Files.readString(manifestPath));
+        } catch (IOException e) {
+            throw new ProjectStateException("Failed to read model bundle for run " + runId);
+        }
+        JsonNode mm = m.path("modelManifest");
+        List<ModelBundleDto.ParamSpec> layout = new ArrayList<>();
+        for (JsonNode p : mm.path("paramLayout")) {
+            List<Integer> shape = new ArrayList<>();
+            p.path("shape").forEach(s -> shape.add(s.asInt()));
+            layout.add(new ModelBundleDto.ParamSpec(p.path("name").asText(), shape));
+        }
+        JsonNode ds = m.path("dataset");
+        List<Integer> inputShape = new ArrayList<>();
+        ds.path("inputShape").forEach(s -> inputShape.add(s.asInt()));
+        String base = "/api/runs/" + runId + "/files/";
+        return new ModelBundleDto(
+                runId, layout, mm.path("totalParamCount").asLong(),
+                base + "loss.pte", m.path("lossPte").path("sha256").asText(),
+                base + "infer.pte", mm.path("inferSha256").asText(),
+                base + ds.path("inputsFile").asText("inputs.f32"), ds.path("inputsSha256").asText(), inputShape,
+                base + ds.path("targetsFile").asText("targets.i64"), ds.path("targetsSha256").asText());
+    }
+
+    /** Stream one whitelisted bundle binary. Same auth gate; the whitelist + a startsWith check block
+     *  path traversal (404 on anything not in {@link #ALLOWED_BUNDLE_FILES} or not present). */
+    @Transactional(readOnly = true)
+    public Resource getModelFile(UUID runId, String filename) {
+        if (!bundleDeliveryEnabled) {
+            throw new ProjectStateException("Model bundle delivery is disabled");
+        }
+        requireParticipantRun(runId);
+        if (!ALLOWED_BUNDLE_FILES.contains(filename)) {
+            throw new ResourceNotFoundException("Unknown bundle file: " + filename);
+        }
+        Path base = Path.of(modelBundleDir, runId.toString()).normalize();
+        Path file = base.resolve(filename).normalize();
+        if (!file.startsWith(base) || !Files.isRegularFile(file)) {
+            throw new ResourceNotFoundException("Bundle file not found: " + filename);
+        }
+        return new PathResource(file);
     }
 
     /** Loads a run and enforces org-scope + owner-or-CLIENT participation. */
