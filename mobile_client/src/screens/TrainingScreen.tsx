@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { Square } from 'lucide-react-native';
+import { Play, Square } from 'lucide-react-native';
 
 import { joinRun, type JoinedRun } from '../lib/runJoin';
-import nativeCore from '../lib/nativeCore';
+import nativeCore, { type RoundResult } from '../lib/nativeCore';
 import { connectStomp, type StompHandle } from '../lib/stompClient';
 import { foregroundService } from '../lib/foregroundService';
+import { runTrainingLoop } from '../lib/training';
+import { ModelDeliveryUnavailableError } from '../lib/modelProvisioning';
 import { StatusBadge, type StatusVariant } from '../components/StatusBadge';
 import { DeviceBanner } from '../components/DeviceBanner';
 import { useThemeTokens } from '../theme/useThemeTokens';
@@ -22,8 +24,11 @@ export function TrainingScreen() {
   const [joined, setJoined] = useState<JoinedRun | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [stopping, setStopping] = useState(false);
+  const [training, setTraining] = useState(false);
+  const [latestRound, setLatestRound] = useState<RoundResult | null>(null);
   const logScrollRef = useRef<ScrollView | null>(null);
   const stompRef = useRef<StompHandle | null>(null);
+  const stopRef = useRef(false); // cooperative stop flag polled by the training loop
 
   // Route params from the project picker (Task 4 → navigation.navigate('Training', { projectId })).
   const route = useRoute<any>();
@@ -82,6 +87,7 @@ export function TrainingScreen() {
   // foreground service, and reset the UI to idle.
   const onStop = useCallback(async () => {
     setStopping(true);
+    stopRef.current = true; // break the training loop before the native abort
     try {
       await nativeCore.stop();
     } catch {
@@ -92,9 +98,39 @@ export function TrainingScreen() {
     stompRef.current = null;
     setJoined(null);
     setLogs([]);
+    setTraining(false);
+    setLatestRound(null);
     setPhase('idle');
     setStopping(false);
   }, []);
+
+  // Start the on-device training loop: stage the model + local data, then run rounds. All compute is
+  // on-device; only seeds + gradient scalars are uploaded (raw data never leaves).
+  const onStartTraining = useCallback(async () => {
+    if (!joined) return;
+    setError(null);
+    setLatestRound(null);
+    stopRef.current = false;
+    setTraining(true);
+    foregroundService.start();
+    try {
+      await runTrainingLoop(joined, {
+        onLog: (line) => appendLog(setLogs, line),
+        onRound: (r) => setLatestRound(r),
+        shouldStop: () => stopRef.current,
+      });
+    } catch (e) {
+      if (e instanceof ModelDeliveryUnavailableError) {
+        appendLog(setLogs, `ℹ ${e.message}`);
+      } else {
+        setError(String(e));
+        appendLog(setLogs, `⚠ ${String(e)}`);
+      }
+    } finally {
+      foregroundService.stop();
+      setTraining(false);
+    }
+  }, [joined]);
 
   return (
     <ScrollView className="flex-1 bg-canvas">
@@ -151,9 +187,47 @@ export function TrainingScreen() {
             <Text className="text-caption font-sans text-fg">{joined.manifest.recipeKey} · {joined.manifest.strategy}</Text>
           </View>
           <Text className="mt-3 text-caption font-sans text-fg-subtle">
-            Model download and on-device training arrive in the next update.
+            Training runs entirely on this device — only learning updates (perturbation seeds + gradient
+            scalars) are shared, never your data.
           </Text>
         </View>
+
+        {/* Start on-device training, or show live round progress while it runs. */}
+        {training ? (
+          <View className="mx-4 mt-2 p-4 rounded-card bg-surface-1 border border-hairline">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-body font-sans text-fg">Training on device…</Text>
+              <ActivityIndicator color={colors.accent} />
+            </View>
+            {latestRound ? (
+              <>
+                <View className="mt-2 flex-row justify-between">
+                  <Text className="text-caption font-sans text-fg-muted">Round</Text>
+                  <Text className="text-caption font-mono text-fg">{latestRound.round}</Text>
+                </View>
+                <View className="mt-1 flex-row justify-between">
+                  <Text className="text-caption font-sans text-fg-muted">Loss</Text>
+                  <Text className="text-caption font-mono text-fg">{latestRound.loss.toFixed(4)}</Text>
+                </View>
+                <View className="mt-1 flex-row justify-between">
+                  <Text className="text-caption font-sans text-fg-muted">Scalars uploaded</Text>
+                  <Text className="text-caption font-mono text-fg">{latestRound.scalarsTransmitted}</Text>
+                </View>
+              </>
+            ) : (
+              <Text className="mt-2 text-caption font-sans text-fg-subtle">Staging model + on-device data…</Text>
+            )}
+          </View>
+        ) : (
+          <Pressable
+            className="mx-4 mt-2 flex-row items-center justify-center bg-accent rounded-card py-3"
+            onPress={() => {
+              void onStartTraining();
+            }}>
+            <Play color={colors['accent-fg']} size={18} strokeWidth={1.5} />
+            <Text className="text-accent-fg text-label font-sans ml-2">Start training</Text>
+          </Pressable>
+        )}
 
         {/* Stop control — aborts the native gRPC/training path and the foreground service. */}
         <Pressable

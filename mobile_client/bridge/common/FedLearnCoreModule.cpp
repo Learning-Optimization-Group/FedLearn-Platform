@@ -115,8 +115,9 @@ std::vector<float> parseFloatArray(const std::string& json) {
 
 FedLearnCoreModule::FedLearnCoreModule(std::shared_ptr<react::CallInvoker> jsInvoker,
                                        std::string dataDir)
-    // "NativeFedLearnCore" must match TurboModuleRegistry.getEnforcing(...) in the spec.
-    : react::TurboModule("NativeFedLearnCore", jsInvoker),
+    // The CxxSpec base sets the module name ("NativeFedLearnCore") and wires methodMap_ to delegate
+    // JS calls to this class's methods (registerClient, loadModel, runDeComFLRound, the setters, …).
+    : react::NativeFedLearnCoreCxxSpec<FedLearnCoreModule>(jsInvoker),
       jsInvoker_(std::move(jsInvoker)),
       dataDir_(std::move(dataDir)) {}
 
@@ -151,9 +152,9 @@ void FedLearnCoreModule::setMetricsProvider(std::function<DeviceMetrics()> provi
   metricsProvider_ = std::move(provider);
 }
 
-void FedLearnCoreModule::setTrainingDataFromFiles(const std::string& inputsF32Path,
-                                                  const std::vector<int64_t>& inputShape,
-                                                  const std::string& targetsI64Path) {
+void FedLearnCoreModule::applyTrainingDataFromFiles(const std::string& inputsF32Path,
+                                                    const std::vector<int64_t>& inputShape,
+                                                    const std::string& targetsI64Path) {
   std::lock_guard<std::mutex> lk(stateMutex_);
   // fromRawFiles returns an OwnedBatch (owns the std::vectors); keep it in a member and expose a view.
   // Assigning the OwnedBatch temporary to a non-owning DataBatch would dangle into freed storage and be
@@ -163,7 +164,7 @@ void FedLearnCoreModule::setTrainingDataFromFiles(const std::string& inputsF32Pa
   dataLoaded_ = true;
 }
 
-void FedLearnCoreModule::setModelManifest(const ModelManifest& manifest) {
+void FedLearnCoreModule::applyModelManifest(const ModelManifest& manifest) {
   std::lock_guard<std::mutex> lk(stateMutex_);
   manifest_ = manifest;
   manifestSet_ = true;
@@ -434,6 +435,48 @@ jsi::Value FedLearnCoreModule::getServerStatus(jsi::Runtime& rt, jsi::String run
 jsi::Value FedLearnCoreModule::stop(jsi::Runtime& rt) {
   return runOnWorker(
       rt, [this]() { doStop(); return true; },
+      [](jsi::Runtime&, const bool&) { return jsi::Value::undefined(); });
+}
+
+jsi::Value FedLearnCoreModule::setModelManifest(jsi::Runtime& rt, jsi::Object manifest) {
+  // Unmarshal on the JS thread (jsi values are runtime/thread-bound) into the plain native struct,
+  // then apply on a worker via the platform-hook overload.
+  ModelManifest m;
+  jsi::Array layout = manifest.getProperty(rt, "paramLayout").asObject(rt).asArray(rt);
+  const size_t n = layout.size(rt);
+  m.paramLayout.reserve(n);
+  for (size_t i = 0; i < n; ++i) {
+    jsi::Object ps = layout.getValueAtIndex(rt, i).asObject(rt);
+    fedlearn::ParamSpec spec;
+    spec.name = ps.getProperty(rt, "name").asString(rt).utf8(rt);
+    jsi::Array shape = ps.getProperty(rt, "shape").asObject(rt).asArray(rt);
+    const size_t sn = shape.size(rt);
+    spec.shape.reserve(sn);
+    for (size_t j = 0; j < sn; ++j) {
+      spec.shape.push_back(static_cast<int64_t>(shape.getValueAtIndex(rt, j).asNumber()));
+    }
+    m.paramLayout.push_back(std::move(spec));
+  }
+  m.totalParamCount = static_cast<int64_t>(manifest.getProperty(rt, "totalParamCount").asNumber());
+  m.inferPtePath = manifest.getProperty(rt, "inferPtePath").asString(rt).utf8(rt);
+  m.inferSha256 = manifest.getProperty(rt, "inferSha256").asString(rt).utf8(rt);
+  return runOnWorker(
+      rt, [this, m]() { applyModelManifest(m); return true; },
+      [](jsi::Runtime&, const bool&) { return jsi::Value::undefined(); });
+}
+
+jsi::Value FedLearnCoreModule::setTrainingDataFromFiles(jsi::Runtime& rt, jsi::String inputsF32Path,
+                                                        jsi::Array inputShape,
+                                                        jsi::String targetsI64Path) {
+  std::string ip = inputsF32Path.utf8(rt), tp = targetsI64Path.utf8(rt);
+  std::vector<int64_t> shape;
+  const size_t sn = inputShape.size(rt);
+  shape.reserve(sn);
+  for (size_t j = 0; j < sn; ++j) {
+    shape.push_back(static_cast<int64_t>(inputShape.getValueAtIndex(rt, j).asNumber()));
+  }
+  return runOnWorker(
+      rt, [this, ip, shape, tp]() { applyTrainingDataFromFiles(ip, shape, tp); return true; },
       [](jsi::Runtime&, const bool&) { return jsi::Value::undefined(); });
 }
 

@@ -12,6 +12,8 @@ export type {
   DeviceMetrics,
   ModelInfo,
   InferResult,
+  ParamSpec,
+  ModelManifest,
 } from '../../bridge/specs/NativeFedLearnCore';
 
 export const nativeCore = NativeFedLearnCore;

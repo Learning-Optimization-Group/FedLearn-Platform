@@ -66,6 +66,22 @@ export interface InferResult {
   argmax: number;
 }
 
+// One trainable tensor's flat-order layout (name -> shape). numel = product(shape).
+export interface ParamSpec {
+  name: string;
+  shape: number[]; // int64 on the native side; JS numbers are cast to int64
+}
+
+// The model's ExecuTorch "weights-as-inputs" sidecar manifest (written by scripts/pte_export.py):
+// the trainable param layout, total param count (incl. frozen, for the tier), and the SEPARATE
+// infer graph forward(flat,x)->logits (its own .pte + sha). Must be set before loadModel().
+export interface ModelManifest {
+  paramLayout: ParamSpec[];
+  totalParamCount: number;
+  inferPtePath: string;
+  inferSha256: string;
+}
+
 export interface Spec extends TurboModule {
   // ---- gRPC lifecycle ----
   registerClient(
@@ -79,7 +95,17 @@ export interface Spec extends TurboModule {
   stop(): Promise<void>; // sets the abort flag; joins threads
 
   // ---- model ----
+  // The ExecuTorch loss graph is weights-free, so the trainable-param layout + the infer graph come
+  // from the sidecar manifest; set it before loadModel(). (15-LLD §13 task 14 — model delivery.)
+  setModelManifest(manifest: ModelManifest): Promise<void>;
   loadModel(modelPath: string, expectedSha256: string): Promise<ModelInfo>; // integrity-checked
+  // On-device training data: float32 inputs (row-major, shape inputShape) + int64 targets, read from
+  // app-private files. Raw features/labels live ONLY on the device and never enter any server table.
+  setTrainingDataFromFiles(
+    inputsF32Path: string,
+    inputShape: number[],
+    targetsI64Path: string,
+  ): Promise<void>;
 
   // ---- one round (the bridge runs ONE round per call; the RN layer loops + checks deadline) ----
   runDeComFLRound(runId: string, config: RoundConfig): Promise<RoundResult>;
