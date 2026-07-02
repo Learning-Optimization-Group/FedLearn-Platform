@@ -92,6 +92,7 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   jsi::Value setModelManifest(jsi::Runtime& rt, jsi::Object manifest);
   jsi::Value setTrainingDataFromFiles(jsi::Runtime& rt, jsi::String inputsF32Path, jsi::Array inputShape,
                                       jsi::String targetsI64Path);
+  jsi::Value stageBundleFile(jsi::Runtime& rt, jsi::String filename, jsi::String base64Data);
   jsi::Value loadModel(jsi::Runtime& rt, jsi::String modelPath, jsi::String expectedSha256);
   jsi::Value runDeComFLRound(jsi::Runtime& rt, jsi::String runId, jsi::Object config);
   jsi::Value runFedAvgRound(jsi::Runtime& rt, jsi::String runId, jsi::Object config);
@@ -110,6 +111,8 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   RoundResult doRunFedAvgRound(const std::string& runId, const RoundConfig& cfg);
   InferResult doInfer(const std::string& inputJson);
   DeviceMetrics doGetDeviceMetrics();
+  // Base64-decode `base64Data` and write it to dataDir/bundle/<basename(filename)>; returns the path.
+  std::string doStageBundleFile(const std::string& filename, const std::string& base64Data);
 
   // helpers
   void evalBatch(double& outLoss, double& outAccuracy);  // one forward pass on trainingBatch_

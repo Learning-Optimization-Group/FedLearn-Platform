@@ -1,8 +1,11 @@
 #include "FedLearnCoreModule.h"
 
+#include <sys/stat.h>
+
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <fstream>
 #include <stdexcept>
 #include <thread>
 
@@ -13,6 +16,33 @@
 
 namespace fedlearn::bridge {
 namespace {
+
+// Minimal, dependency-free base64 decoder (skips '=' padding + whitespace). Used to stage downloaded
+// bundle files: provisionTrainingBundle base64-encodes each binary and passes it over JSI.
+std::string base64Decode(const std::string& in) {
+  auto sextet = [](unsigned char c) -> int {
+    if (c >= 'A' && c <= 'Z') return c - 'A';
+    if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+    if (c >= '0' && c <= '9') return c - '0' + 52;
+    if (c == '+') return 62;
+    if (c == '/') return 63;
+    return -1;  // '=' padding, whitespace, or newline
+  };
+  std::string out;
+  out.reserve(in.size() * 3 / 4);
+  int buf = 0, bits = 0;
+  for (unsigned char c : in) {
+    const int v = sextet(c);
+    if (v < 0) continue;
+    buf = (buf << 6) | v;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      out.push_back(static_cast<char>((buf >> bits) & 0xFF));
+    }
+  }
+  return out;
+}
 
 // ---- struct -> jsi::Object converters (typed, field-by-field; NO hand-built JSON) ----
 jsi::Value toJs(jsi::Runtime& rt, const RegisterResult& r) {
@@ -378,6 +408,27 @@ DeviceMetrics FedLearnCoreModule::doGetDeviceMetrics() {
   return d;
 }
 
+std::string FedLearnCoreModule::doStageBundleFile(const std::string& filename,
+                                                  const std::string& base64Data) {
+  // basename only — strip any path components so a server-supplied name can't escape the bundle dir.
+  std::string name = filename;
+  const auto slash = name.find_last_of("/\\");
+  if (slash != std::string::npos) name = name.substr(slash + 1);
+  if (name.empty() || name == "." || name == "..") {
+    throw std::runtime_error("stageBundleFile: invalid filename");
+  }
+  const std::string dir = dataDir_ + "/bundle";
+  ::mkdir(dir.c_str(), 0700);  // idempotent; ignore EEXIST
+  const std::string path = dir + "/" + name;
+  const std::string bytes = base64Decode(base64Data);
+  std::ofstream f(path, std::ios::binary | std::ios::trunc);
+  if (!f) throw std::runtime_error("stageBundleFile: cannot open " + path);
+  f.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+  f.flush();
+  if (!f) throw std::runtime_error("stageBundleFile: write failed for " + path);
+  return path;
+}
+
 // ============================================================================
 // JSI LAYER (RN New Architecture, version-specific — see the header banner).
 // Each method: capture args as plain C++, run the matching do* on a worker thread, and
@@ -478,6 +529,14 @@ jsi::Value FedLearnCoreModule::setTrainingDataFromFiles(jsi::Runtime& rt, jsi::S
   return runOnWorker(
       rt, [this, ip, shape, tp]() { applyTrainingDataFromFiles(ip, shape, tp); return true; },
       [](jsi::Runtime&, const bool&) { return jsi::Value::undefined(); });
+}
+
+jsi::Value FedLearnCoreModule::stageBundleFile(jsi::Runtime& rt, jsi::String filename,
+                                               jsi::String base64Data) {
+  std::string name = filename.utf8(rt), b64 = base64Data.utf8(rt);
+  return runOnWorker(
+      rt, [this, name, b64]() { return doStageBundleFile(name, b64); },
+      [](jsi::Runtime& r, const std::string& p) { return jsi::String::createFromUtf8(r, p); });
 }
 
 jsi::Value FedLearnCoreModule::loadModel(jsi::Runtime& rt, jsi::String modelPath,

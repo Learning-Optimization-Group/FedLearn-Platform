@@ -1,14 +1,11 @@
-// On-device model + training-data provisioning for a run. This is the client-side SEAM the training
-// loop depends on: it must stage the ExecuTorch loss/infer .pte graphs, the sidecar manifest, and the
-// device's local training partition (float32 inputs + int64 targets) into app-private files, and return
-// their paths. Raw features/labels are read from these local files by the native core and never leave
-// the device.
-//
-// Not wired end-to-end yet: it needs (1) the v2 server's model-delivery endpoint and (2) an on-device
-// file-staging layer (a filesystem module such as react-native-fs, or the native GetGlobalModelStream
-// path) to write the binaries. Until both land this throws a clear, catchable error — the training loop
-// (training.ts) is fully wired and runs the moment provisioning returns a bundle.
-import type { ModelManifest } from './nativeCore';
+// On-device model + training-data provisioning for a run. Fetches the run's bundle from the backend
+// (GET /api/runs/{runId}/model-bundle), downloads each binary (the ExecuTorch loss/infer .pte graphs +
+// the on-device data partition), and stages them into app-private storage via the native TurboModule
+// (nativeCore.stageBundleFile). Returns the local paths training.ts feeds to loadModel /
+// setTrainingDataFromFiles. Raw features/labels are read from these local files by the native core and
+// never leave the device.
+import { api } from './restClient';
+import nativeCore, { type ModelManifest, type ParamSpec } from './nativeCore';
 
 export interface ModelBundle {
   manifest: ModelManifest; // paramLayout + totalParamCount + inferPtePath/inferSha256
@@ -19,8 +16,24 @@ export interface ModelBundle {
   targetsI64Path: string; // int64 labels
 }
 
-/** Thrown when the model/data delivery pipeline isn't available yet (distinguished so the UI can show
- *  a precise message rather than a generic failure). */
+// The backend ModelBundleDto (RunController#modelBundle). File fields are URLs under /api/runs/{id}/files.
+interface ModelBundleDto {
+  runId: string;
+  paramLayout: ParamSpec[];
+  totalParamCount: number;
+  lossPteUrl: string;
+  lossSha256: string;
+  inferPteUrl: string;
+  inferSha256: string;
+  inputsUrl: string;
+  inputsSha256: string;
+  inputShape: number[];
+  targetsUrl: string;
+  targetsSha256: string;
+}
+
+/** Thrown when the model/data bundle can't be fetched/staged (distinguished so the UI can show a precise
+ *  message rather than a generic failure). */
 export class ModelDeliveryUnavailableError extends Error {
   constructor(message: string) {
     super(message);
@@ -28,18 +41,77 @@ export class ModelDeliveryUnavailableError extends Error {
   }
 }
 
+/** Download one bundle binary and stage it into app-private storage; returns its local path. */
+async function fetchAndStage(url: string, filename: string): Promise<string> {
+  const res = await api.get(url, { responseType: 'arraybuffer' });
+  const base64 = arrayBufferToBase64(res.data as ArrayBuffer);
+  return nativeCore.stageBundleFile(filename, base64);
+}
+
 /**
- * Fetch + stage the model bundle and on-device training partition for a run.
- *
- * CONTRACT (to be provided by the v2 server + a file-staging layer):
- *   GET /api/runs/{runId}/model-bundle  ->
- *     { manifest, lossPte:{url,sha256}, inferPte:{url,sha256}, dataset:{inputsUrl, inputShape, targetsUrl} }
- *   then each binary is written to app-private storage and this returns the local paths above.
+ * Fetch + stage the model bundle and on-device training partition for a run. The native core sha256-
+ * verifies loss.pte (loadModel) and infer.pte, so a corrupted download is rejected on load.
  */
-export async function provisionTrainingBundle(_runId: string): Promise<ModelBundle> {
-  throw new ModelDeliveryUnavailableError(
-    'On-device model delivery is not available yet. It requires the v2 server model-bundle endpoint ' +
-      'and on-device file staging (the mobile client speaks fedlearn.v2; the current FL server is v1). ' +
-      'The on-device training loop is wired and will run automatically once a bundle can be staged.',
-  );
+export async function provisionTrainingBundle(runId: string): Promise<ModelBundle> {
+  let dto: ModelBundleDto;
+  try {
+    const res = await api.get<ModelBundleDto>(`/api/runs/${runId}/model-bundle`);
+    dto = res.data;
+  } catch (e: unknown) {
+    const status = (e as { response?: { status?: number } })?.response?.status;
+    if (status === 404) {
+      throw new ModelDeliveryUnavailableError('No model bundle is staged for this run yet.');
+    }
+    throw new ModelDeliveryUnavailableError(`Could not fetch the model bundle: ${readError(e)}`);
+  }
+
+  const [lossPtePath, inferPtePath, inputsF32Path, targetsI64Path] = await Promise.all([
+    fetchAndStage(dto.lossPteUrl, 'loss.pte'),
+    fetchAndStage(dto.inferPteUrl, 'infer.pte'),
+    fetchAndStage(dto.inputsUrl, 'inputs.f32'),
+    fetchAndStage(dto.targetsUrl, 'targets.i64'),
+  ]);
+
+  const manifest: ModelManifest = {
+    paramLayout: dto.paramLayout,
+    totalParamCount: dto.totalParamCount,
+    inferPtePath, // rewritten to the staged local path
+    inferSha256: dto.inferSha256,
+  };
+  return {
+    manifest,
+    lossPtePath,
+    lossSha256: dto.lossSha256,
+    inputsF32Path,
+    inputShape: dto.inputShape,
+    targetsI64Path,
+  };
+}
+
+// ArrayBuffer -> base64 (RN Hermes has no btoa/Buffer). Small + correct; the MVP bundle is tiny (a real
+// multi-MB model should stream to a file instead of base64-through-JSI — noted for post-MVP).
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  const at = (j: number) => bytes[j] ?? 0;
+  let out = '';
+  let i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    const n = (at(i) << 16) | (at(i + 1) << 8) | at(i + 2);
+    out += B64[(n >> 18) & 63]! + B64[(n >> 12) & 63]! + B64[(n >> 6) & 63]! + B64[n & 63]!;
+  }
+  const rem = bytes.length - i;
+  if (rem === 1) {
+    const n = at(i) << 16;
+    out += B64[(n >> 18) & 63]! + B64[(n >> 12) & 63]! + '==';
+  } else if (rem === 2) {
+    const n = (at(i) << 16) | (at(i + 1) << 8);
+    out += B64[(n >> 18) & 63]! + B64[(n >> 12) & 63]! + B64[(n >> 6) & 63]! + '=';
+  }
+  return out;
+}
+
+function readError(e: unknown): string {
+  const err = e as { response?: { data?: { message?: string } }; message?: string };
+  return err?.response?.data?.message ?? err?.message ?? String(e);
 }
