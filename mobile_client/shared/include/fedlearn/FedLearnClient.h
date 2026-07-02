@@ -11,6 +11,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 
@@ -78,8 +79,13 @@ class FedLearnClient : public IFedLearnClient {
   void startHeartbeat(const std::string& runId, const std::string& clientId, int currentRound);
   void stopHeartbeat();
 
+  // Lock-free abort: flips the shared abort flag so an in-progress round's shouldStop() poll breaks
+  // out promptly. Safe to call from any thread (e.g. the JS-thread stop()) WITHOUT the round mutex.
+  void requestAbort() { abortFlag_.store(true); }
+
   // --- pure proto<->core marshaling (exposed for unit tests; no network) ---
   static v2::GradientScalars toProtoScalars(const GradientScalars2D& g);
+  static v2::PerturbationSeeds toProtoSeeds(const Seeds2D& s);
   static GradientScalars2D fromProtoScalars(const v2::GradientScalars& g);
   static Seeds2D fromProtoSeeds(const v2::PerturbationSeeds& s);
   static RebuildHistory fromProtoRebuildHistory(const v2::RebuildHistory& h);
@@ -102,6 +108,8 @@ class FedLearnClient : public IFedLearnClient {
   std::atomic<bool> abortFlag_{false};
   std::atomic<bool> heartbeatStop_{false};
   std::thread heartbeatThread_;
+  std::mutex hbCtxMutex_;                 // guards hbCtx_ (the heartbeat's in-flight ClientContext)
+  grpc::ClientContext* hbCtx_ = nullptr;  // non-null while a Heartbeat RPC is in flight, for TryCancel
 };
 
 }  // namespace fedlearn

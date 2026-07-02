@@ -38,16 +38,32 @@ export function isTierAllowed(tier: ModelTier, maxTier: ModelTier): boolean {
  * hard failure). onWifi/npuTops have no source on mobile today → undefined.
  */
 export async function collectDeviceCapabilities(): Promise<DeviceCapabilities> {
-  const [totalBytes, freeBytes, metrics] = await Promise.all([
+  const [totalBytes, freeBytes, metrics, androidApiLevel] = await Promise.all([
     DeviceInfo.getTotalMemory().catch(() => 0),
     DeviceInfo.getFreeDiskStorage().catch(() => undefined as number | undefined),
     NativeFedLearnCore.getDeviceMetrics().catch(() => null),
+    // Android eligibility is keyed on the API LEVEL (SDK_INT), not the release string. getApiLevel()
+    // is async, so fetch it here; iOS uses the (sync) release string below.
+    Platform.OS === 'android'
+      ? DeviceInfo.getApiLevel().catch(() => undefined as number | undefined)
+      : Promise.resolve<number | undefined>(undefined),
   ]);
   const ramGb = (totalBytes ?? 0) / 1024 ** 3;
   const freeStorageGb =
     freeBytes != null && freeBytes >= 0 ? freeBytes / 1024 ** 3 : undefined;
-  const osVersion = DeviceInfo.getSystemVersion(); // SYNC: android "14", ios "17.2"
-  const batteryPct = metrics != null ? Math.round(metrics.batteryLevel * 100) : undefined;
+  // Android: report the API level (e.g. "34") so evaluateEligibility's `parseInt(osVersion) < minOsAndroid`
+  // compares like-for-like (getSystemVersion() returns "14", which fails against a minOsAndroid of 26/29/34
+  // and would gate out every real device). iOS: keep the release string ("17.2").
+  const osVersion =
+    Platform.OS === 'android'
+      ? androidApiLevel != null
+        ? String(androidApiLevel)
+        : DeviceInfo.getSystemVersion()
+      : DeviceInfo.getSystemVersion();
+  // The native layer returns -1.0 for an unreadable battery (DeviceState sentinel). Guard it so it
+  // does not become -100% and trip the soft "battery below N%" warning; leave it undefined instead.
+  const batteryPct =
+    metrics != null && metrics.batteryLevel >= 0 ? Math.round(metrics.batteryLevel * 100) : undefined;
   return {
     ramGb,
     freeStorageGb,

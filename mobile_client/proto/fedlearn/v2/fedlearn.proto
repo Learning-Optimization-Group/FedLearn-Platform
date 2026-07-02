@@ -222,6 +222,9 @@ message SubmitGradientScalarsRequest {
   int32           trained_on_round = 3;
   GradientScalars gradients        = 4;
   int64           num_examples     = 5;   // collected; DeComFL aggregation is UNWEIGHTED (B1 Low note)
+  // Per-(k,p) seeds that produced each g-scalar. DeComFL: server already has them (ignored). FedAvg
+  // ZO-SGD: the CLIENT generates them, so the server needs them to reconstruct z and apply the update.
+  PerturbationSeeds perturbation_seeds = 6;
 }
 
 message SubmitGradientScalarsResponse {

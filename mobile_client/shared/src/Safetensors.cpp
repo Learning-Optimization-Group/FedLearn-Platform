@@ -13,9 +13,16 @@ std::string saveSafetensors(const std::vector<NamedTensor>& tensors, const Metad
     const NamedTensor& nt = tensors[t];
     if (t != 0) header += ",";
     header += "\"" + nt.name + "\":{\"dtype\":\"F32\",\"shape\":[";
-    for (size_t i = 0; i < nt.shape.size(); ++i) {
-      if (i != 0) header += ",";
-      header += std::to_string(nt.shape[i]);
+    if (nt.shape.empty()) {
+      // 0-d scalar -> shape [1] to match the Python safetensors codec byte-for-byte (np.ascontiguousarray
+      // yields ndim>=1). Emitting [] would change the header JSON, the u64 header-length prefix, and any
+      // golden-vector SHA, breaking wire parity.
+      header += "1";
+    } else {
+      for (size_t i = 0; i < nt.shape.size(); ++i) {
+        if (i != 0) header += ",";
+        header += std::to_string(nt.shape[i]);
+      }
     }
     const uint64_t nbytes = static_cast<uint64_t>(nt.data.size()) * sizeof(float);
     header += "],\"data_offsets\":[" + std::to_string(off) + "," + std::to_string(off + nbytes) + "]}";
@@ -156,6 +163,13 @@ std::vector<NamedTensor> loadSafetensors(const std::string& blob, MetadataList* 
       NamedTensor nt;
       nt.name = key;
       nt.shape = shape;
+      // The byte span MUST be a whole number of floats: resize allocates floor(nbytes/4) floats but the
+      // memcpy below copies the full (e0-s0) bytes, so a non-multiple-of-4 span (e.g. data_offsets [0,6])
+      // would write past the vector storage — a heap overflow from a crafted server blob over plaintext
+      // gRPC. Reject it (the Python codec rejects the same input).
+      if ((e0 - s0) % static_cast<int64_t>(sizeof(float)) != 0) {
+        throw std::runtime_error("safetensors: F32 tensor byte length not a multiple of 4");
+      }
       nt.data.resize(static_cast<size_t>(e0 - s0) / sizeof(float));
       std::memcpy(nt.data.data(), dataBase + s0, static_cast<size_t>(e0 - s0));
       tensors.push_back(std::move(nt));

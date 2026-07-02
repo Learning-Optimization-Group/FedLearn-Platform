@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
 
@@ -128,7 +129,10 @@ DeComFLConfig FedLearnClient::getDeComFLConfig(const std::string& runId,
   v2::GetDeComFLConfigResponse resp = fetchDeComFLConfig(runId, clientId);
 
   DeComFLConfig out;
-  out.shouldStop = resp.should_stop();
+  // should_stop lives on HeartbeatResponse, NOT on GetDeComFLConfigResponse — the stop signal already
+  // flows via the heartbeat (HeartbeatResponse.should_stop -> abortFlag_ -> shouldStop()), so the config
+  // path leaves out.shouldStop at its default false. Server-authoritative completion is signalled as
+  // current_round == -1 (handled in FederatedLoop::deComFLRound).
   out.currentRound = resp.current_round();
   out.config.learningRate = std::stod(cfgGet(resp.config(), "lr", "0.001"));
   out.config.mu = std::stod(cfgGet(resp.config(), "mu", "0.001"));
@@ -148,20 +152,16 @@ DeComFLConfig FedLearnClient::getDeComFLConfig(const std::string& runId,
 void FedLearnClient::submitGradientScalars(const std::string& runId, const std::string& clientId,
                                            int trainedOnRound, const Seeds2D& seeds,
                                            const GradientScalars2D& gradients, int64_t numExamples) {
-  // Constraint 7: the interface carries seeds for a unified wire (DeComFL: server already has them;
-  // FedAvg: the client generated them). The current v2 SubmitGradientScalarsRequest has no seeds
-  // field, so the DeComFL path uploads gradients exactly as before. The FedAvg ZO-SGD path needs
-  // the server to know which seeds produced each g-scalar to reconstruct the local trajectory.
-  // TODO(T12, proto v2): add a `perturbation_seeds` field to SubmitGradientScalarsRequest and
-  // marshal `seeds` here via a toProtoSeeds() helper. Do NOT regenerate protos in this task.
-  (void)seeds;
-
+  // Constraint 7: upload the per-(k,p) seeds alongside the g-scalars so the server can reconstruct the
+  // local trajectory (z derived from each seed) that produced each g. Required for the FedAvg ZO-SGD
+  // path (the CLIENT generates the seeds); harmless for DeComFL (the server already owns them).
   v2::SubmitGradientScalarsRequest req;
   req.set_client_id(clientId);
   req.set_run_id(runId);
   req.set_trained_on_round(trainedOnRound);
   req.set_num_examples(numExamples);
   *req.mutable_gradients() = toProtoScalars(gradients);
+  *req.mutable_perturbation_seeds() = toProtoSeeds(seeds);
 
   v2::SubmitGradientScalarsResponse resp;
   grpc::ClientContext ctx;
@@ -281,7 +281,13 @@ void FedLearnClient::startHeartbeat(const std::string& runId, const std::string&
 
       v2::HeartbeatResponse resp;
       grpc::ClientContext ctx;
+      // Bound the RPC to one interval so a dead/half-open TCP can't park the thread forever, and
+      // publish the live context so stopHeartbeat() can TryCancel() it for a prompt exit.
+      ctx.set_deadline(std::chrono::system_clock::now() +
+                       std::chrono::milliseconds(cfg_.heartbeatIntervalMs));
+      { std::lock_guard<std::mutex> lk(hbCtxMutex_); hbCtx_ = &ctx; }
       grpc::Status s = heartbeatStub_->Heartbeat(&ctx, req, &resp);
+      { std::lock_guard<std::mutex> lk(hbCtxMutex_); hbCtx_ = nullptr; }
 
       if (!s.ok()) {
         if (++consecutiveFailures >= cfg_.heartbeatFailureLimit) {
@@ -305,6 +311,8 @@ void FedLearnClient::startHeartbeat(const std::string& runId, const std::string&
 
 void FedLearnClient::stopHeartbeat() {
   heartbeatStop_.store(true);
+  // Cancel any in-flight Heartbeat RPC so join() can't block on a dead/half-open TCP.
+  { std::lock_guard<std::mutex> lk(hbCtxMutex_); if (hbCtx_) hbCtx_->TryCancel(); }
   if (heartbeatThread_.joinable()) heartbeatThread_.join();
 }
 
@@ -316,6 +324,15 @@ v2::GradientScalars FedLearnClient::toProtoScalars(const GradientScalars2D& g) {
   for (const auto& step : g) {
     v2::LocalStepGradients* ls = out.add_local_steps();
     for (double v : step) ls->add_scalars(v);
+  }
+  return out;
+}
+
+v2::PerturbationSeeds FedLearnClient::toProtoSeeds(const Seeds2D& s) {
+  v2::PerturbationSeeds out;
+  for (const auto& step : s) {
+    auto* ls = out.add_local_steps();
+    for (int64_t seed : step) ls->add_seeds(seed);
   }
   return out;
 }

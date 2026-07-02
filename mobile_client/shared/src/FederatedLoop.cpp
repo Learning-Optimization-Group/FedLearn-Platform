@@ -22,6 +22,14 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
 
   DeComFLConfig cfg = net_.getDeComFLConfig(runId, clientId);
   out.round = cfg.currentRound;
+  // Server-authoritative completion: the config path no longer carries should_stop (that lives on the
+  // heartbeat), so the server signals "training complete" with current_round == -1 (matches the Python
+  // client's decomfl_start sentinel). Terminate cleanly.
+  if (cfg.currentRound < 0) {
+    out.shouldStop = true;
+    out.note = "training complete (server signalled round -1)";
+    return out;
+  }
   if (cfg.shouldStop) {
     out.shouldStop = true;
     out.note = "server should_stop in DeComFL config";
@@ -37,6 +45,8 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
   }
   const int K = static_cast<int>(seeds.size());
   const int P = static_cast<int>(seeds[0].size());
+  out.scalarsK = K;  // server-authoritative K/P actually used (for accurate comm-cost reporting)
+  out.scalarsP = P;
 
   // Lazily snapshot the global params into the loop's owned working state.
   if (flatState_.empty()) flatState_ = mm_.getFlatParams();
@@ -93,6 +103,8 @@ RoundOutcome FederatedLoop::fedAvgRound(ExecutorchModel& model, const std::strin
   // scalars: seed = currentRound*1'000'003 + k*P + p (1'000'003 is a prime stride that keeps
   // distinct rounds' seed spaces from colliding for any realistic K*P).
   const int P = numPerturbations > 0 ? numPerturbations : 1;
+  out.scalarsK = numLocalSteps;  // K/P actually used (for accurate comm-cost reporting)
+  out.scalarsP = P;
   const int64_t d = static_cast<int64_t>(flatState_.size());
 
   Seeds2D seeds(static_cast<size_t>(numLocalSteps));

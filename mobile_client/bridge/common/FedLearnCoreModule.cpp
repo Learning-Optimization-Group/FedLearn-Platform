@@ -121,7 +121,30 @@ FedLearnCoreModule::FedLearnCoreModule(std::shared_ptr<react::CallInvoker> jsInv
       dataDir_(std::move(dataDir)) {}
 
 FedLearnCoreModule::~FedLearnCoreModule() {
+  if (net_) net_->requestAbort();  // trip the abort so any in-flight round returns promptly
+  joinAllWorkers();                // wait for worker threads BEFORE members are destroyed (no UAF)
   if (net_) net_->stopHeartbeat();
+}
+
+void FedLearnCoreModule::reapFinishedWorkers() {
+  // caller holds workersMutex_. Join+drop workers that have finished so thread handles don't leak
+  // across a long training session.
+  for (auto it = workers_.begin(); it != workers_.end();) {
+    if (it->done->load()) {
+      if (it->thread.joinable()) it->thread.join();
+      it = workers_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
+void FedLearnCoreModule::joinAllWorkers() {
+  std::vector<Worker> pending;
+  { std::lock_guard<std::mutex> lk(workersMutex_); pending.swap(workers_); }
+  for (auto& w : pending) {
+    if (w.thread.joinable()) w.thread.join();
+  }
 }
 
 void FedLearnCoreModule::setMetricsProvider(std::function<DeviceMetrics()> provider) {
@@ -132,7 +155,11 @@ void FedLearnCoreModule::setTrainingDataFromFiles(const std::string& inputsF32Pa
                                                   const std::vector<int64_t>& inputShape,
                                                   const std::string& targetsI64Path) {
   std::lock_guard<std::mutex> lk(stateMutex_);
-  trainingBatch_ = fedlearn::DataLoader::fromRawFiles(inputsF32Path, inputShape, targetsI64Path);
+  // fromRawFiles returns an OwnedBatch (owns the std::vectors); keep it in a member and expose a view.
+  // Assigning the OwnedBatch temporary to a non-owning DataBatch would dangle into freed storage and be
+  // read every round (evalBatch / deComFLRound / fedAvgRound).
+  trainingOwner_ = fedlearn::DataLoader::fromRawFiles(inputsF32Path, inputShape, targetsI64Path);
+  trainingBatch_ = trainingOwner_.view();
   dataLoaded_ = true;
 }
 
@@ -197,8 +224,13 @@ ServerStatus FedLearnCoreModule::doGetServerStatus(const std::string& runId) {
 }
 
 void FedLearnCoreModule::doStop() {
-  std::lock_guard<std::mutex> lk(stateMutex_);
-  if (net_) net_->stopHeartbeat();
+  // Do NOT take stateMutex_: a running round holds it for its ENTIRE duration, so acquiring it here
+  // would block stop() until the round already finished (a no-op mid-round). Flip the abort flag
+  // lock-free so the round's shouldStop() poll breaks out, then stop the heartbeat.
+  if (net_) {
+    net_->requestAbort();
+    net_->stopHeartbeat();
+  }
 }
 
 ModelInfo FedLearnCoreModule::doLoadModel(const std::string& modelPath,
@@ -261,7 +293,9 @@ RoundResult FedLearnCoreModule::doRunDeComFLRound(const std::string& runId, cons
   RoundResult r;
   r.round = outcome.round;
   r.reverted = true;  // DeComFL snapshot-restore invariant
-  r.scalarsTransmitted = static_cast<int64_t>(cfg.numLocalSteps) * cfg.numPerturbations;
+  // Report the SERVER-authoritative K/P actually used this round (the server may override the client
+  // cfg), not cfg.numLocalSteps/numPerturbations.
+  r.scalarsTransmitted = static_cast<int64_t>(outcome.scalarsK) * outcome.scalarsP;
   r.uplinkBytes = r.scalarsTransmitted * 8;             // K*P doubles uploaded (the O(K*P) wedge)
   r.downlinkBytes = r.scalarsTransmitted * 8;           // K*P int64 seeds downloaded (approx)
   r.computeMs = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
@@ -283,7 +317,7 @@ RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const
   RoundResult r;
   r.round = outcome.round;
   r.reverted = false;  // FedAvg ZO-SGD keeps the locally-advanced params
-  r.scalarsTransmitted = static_cast<int64_t>(cfg.numLocalSteps) * cfg.numPerturbations;
+  r.scalarsTransmitted = static_cast<int64_t>(outcome.scalarsK) * outcome.scalarsP;  // actual K/P used
   r.uplinkBytes = r.scalarsTransmitted * 8;  // K*P doubles uploaded (scalar wedge, not a blob)
   r.computeMs = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
   evalBatch(r.loss, r.accuracy);
@@ -349,83 +383,94 @@ DeviceMetrics FedLearnCoreModule::doGetDeviceMetrics() {
 // resolve/reject the JS Promise via the CallInvoker. createPromiseAsJSIValue + Promise are RN
 // helpers; reconcile signatures against the generated CxxSpec.
 // ============================================================================
-namespace {
-// Run `work` (blocking, on a worker) then `build` the jsi result on the JS thread.
+// Run `work` (blocking, on a worker) then `build` the jsi result on the JS thread. The worker thread is
+// TRACKED (not detached) so ~FedLearnCoreModule / doStop can join it before members are destroyed — a
+// detached worker capturing `this` would otherwise resume against a freed module (use-after-free). The
+// deferred invokeAsync callback captures only value/Runtime state (never `this`), so it is safe to run
+// after the module is gone. rt2 is the app-lifetime jsi::Runtime, which outlives every worker.
 template <typename Work, typename Build>
-jsi::Value promiseFrom(jsi::Runtime& rt, std::shared_ptr<react::CallInvoker> invoker, Work work,
-                       Build build) {
+jsi::Value FedLearnCoreModule::runOnWorker(jsi::Runtime& rt, Work work, Build build) {
+  auto invoker = jsInvoker_;
   return react::createPromiseAsJSIValue(
-      rt, [invoker, work, build](jsi::Runtime& rt2, std::shared_ptr<react::Promise> promise) {
-        std::thread([&rt2, invoker, promise, work, build]() {
+      rt, [this, invoker, work, build](jsi::Runtime& rt2, std::shared_ptr<react::Promise> promise) {
+        auto done = std::make_shared<std::atomic<bool>>(false);
+        // The worker thread body touches no module members directly (work/build are self-contained
+        // callables; workers_/workersMutex_ are handled in the outer lambda below), so it must NOT
+        // capture `this` — RN's -Werror=unused-lambda-capture would reject it, and an unused `this`
+        // on a worker only invites accidental use-after-free later.
+        std::thread t([&rt2, invoker, promise, work, build, done]() {
           try {
-            auto result = work();  // blocking C++
+            auto result = work();  // blocking C++ (touches module state; joined before teardown)
             invoker->invokeAsync([&rt2, promise, build, result]() { promise->resolve(build(rt2, result)); });
           } catch (const std::exception& e) {
             std::string msg = e.what();
             invoker->invokeAsync([promise, msg]() { promise->reject(msg); });
           }
-        }).detach();
+          done->store(true);
+        });
+        std::lock_guard<std::mutex> lk(workersMutex_);
+        reapFinishedWorkers();
+        workers_.push_back(Worker{std::move(t), done});
       });
 }
-}  // namespace
 
 jsi::Value FedLearnCoreModule::registerClient(jsi::Runtime& rt, jsi::String serverAddress,
                                               jsi::String runId, jsi::String clientId,
                                               jsi::String enrollmentToken, bool useTls) {
   std::string addr = serverAddress.utf8(rt), run = runId.utf8(rt), cid = clientId.utf8(rt),
               tok = enrollmentToken.utf8(rt);
-  return promiseFrom(
-      rt, jsInvoker_, [this, addr, run, cid, tok, useTls]() { return doRegister(addr, run, cid, tok, useTls); },
+  return runOnWorker(
+      rt, [this, addr, run, cid, tok, useTls]() { return doRegister(addr, run, cid, tok, useTls); },
       [](jsi::Runtime& r, const RegisterResult& v) { return toJs(r, v); });
 }
 
 jsi::Value FedLearnCoreModule::getServerStatus(jsi::Runtime& rt, jsi::String runId) {
   std::string run = runId.utf8(rt);
-  return promiseFrom(
-      rt, jsInvoker_, [this, run]() { return doGetServerStatus(run); },
+  return runOnWorker(
+      rt, [this, run]() { return doGetServerStatus(run); },
       [](jsi::Runtime& r, const ServerStatus& v) { return toJs(r, v); });
 }
 
 jsi::Value FedLearnCoreModule::stop(jsi::Runtime& rt) {
-  return promiseFrom(
-      rt, jsInvoker_, [this]() { doStop(); return true; },
+  return runOnWorker(
+      rt, [this]() { doStop(); return true; },
       [](jsi::Runtime&, const bool&) { return jsi::Value::undefined(); });
 }
 
 jsi::Value FedLearnCoreModule::loadModel(jsi::Runtime& rt, jsi::String modelPath,
                                          jsi::String expectedSha256) {
   std::string path = modelPath.utf8(rt), sha = expectedSha256.utf8(rt);
-  return promiseFrom(
-      rt, jsInvoker_, [this, path, sha]() { return doLoadModel(path, sha); },
+  return runOnWorker(
+      rt, [this, path, sha]() { return doLoadModel(path, sha); },
       [](jsi::Runtime& r, const ModelInfo& v) { return toJs(r, v); });
 }
 
 jsi::Value FedLearnCoreModule::runDeComFLRound(jsi::Runtime& rt, jsi::String runId, jsi::Object config) {
   std::string run = runId.utf8(rt);
   RoundConfig cfg = roundConfigFromJs(rt, config);
-  return promiseFrom(
-      rt, jsInvoker_, [this, run, cfg]() { return doRunDeComFLRound(run, cfg); },
+  return runOnWorker(
+      rt, [this, run, cfg]() { return doRunDeComFLRound(run, cfg); },
       [](jsi::Runtime& r, const RoundResult& v) { return toJs(r, v); });
 }
 
 jsi::Value FedLearnCoreModule::runFedAvgRound(jsi::Runtime& rt, jsi::String runId, jsi::Object config) {
   std::string run = runId.utf8(rt);
   RoundConfig cfg = roundConfigFromJs(rt, config);
-  return promiseFrom(
-      rt, jsInvoker_, [this, run, cfg]() { return doRunFedAvgRound(run, cfg); },
+  return runOnWorker(
+      rt, [this, run, cfg]() { return doRunFedAvgRound(run, cfg); },
       [](jsi::Runtime& r, const RoundResult& v) { return toJs(r, v); });
 }
 
 jsi::Value FedLearnCoreModule::infer(jsi::Runtime& rt, jsi::String inputJson) {
   std::string in = inputJson.utf8(rt);
-  return promiseFrom(
-      rt, jsInvoker_, [this, in]() { return doInfer(in); },
+  return runOnWorker(
+      rt, [this, in]() { return doInfer(in); },
       [](jsi::Runtime& r, const InferResult& v) { return toJs(r, v); });
 }
 
 jsi::Value FedLearnCoreModule::getDeviceMetrics(jsi::Runtime& rt) {
-  return promiseFrom(
-      rt, jsInvoker_, [this]() { return doGetDeviceMetrics(); },
+  return runOnWorker(
+      rt, [this]() { return doGetDeviceMetrics(); },
       [](jsi::Runtime& r, const DeviceMetrics& v) { return toJs(r, v); });
 }
 

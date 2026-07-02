@@ -22,6 +22,8 @@ struct RoundOutcome {
   bool ranTraining = false;   // true if this client trained + submitted this round
   bool shouldStop = false;    // true if the loop must stop (server should_stop / deadline / terminal)
   int round = 0;
+  int scalarsK = 0;           // server-authoritative K (local steps) actually used this round
+  int scalarsP = 0;           // server-authoritative P (perturbations) actually used this round
   std::string note;           // human-readable reason when shouldStop / skipped
 };
 
