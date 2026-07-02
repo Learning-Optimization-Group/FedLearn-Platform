@@ -1,181 +1,251 @@
 syntax = "proto3";
 
-package fedlearn.v1;
+package fedlearn.v2;
 
-option java_package = "com.fedlearn.v1";
+option java_package = "com.fedlearn.v2";
 option java_multiple_files = true;
 
 // ============================================================================
-// EXISTING SERVICES (keep as-is)
+// SERVICE
 // ============================================================================
 service FederatedLearningService {
-  rpc RegisterClient(RegisterClientRequest) returns (RegisterClientResponse);
-  rpc GetGlobalModel(GetGlobalModelRequest) returns (GetGlobalModelResponse);
-  rpc GetGlobalModelStream(GetGlobalModelRequest) returns (stream ModelChunk);
-  rpc SubmitModelUpdate(SubmitModelUpdateRequest) returns (SubmitModelUpdateResponse);
-  rpc SubmitModelUpdateStream(stream ModelUpdateChunk) returns (SubmitModelUpdateResponse);
-  rpc GetServerStatus(GetServerStatusRequest) returns (GetServerStatusResponse);
-  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  // --- lifecycle / control ---
+  rpc RegisterClient        (RegisterClientRequest)        returns (RegisterClientResponse);
+  rpc GetServerStatus       (GetServerStatusRequest)       returns (GetServerStatusResponse);
+  rpc Heartbeat             (HeartbeatRequest)             returns (HeartbeatResponse);
 
-  // ============================================================================
-  // NEW: DeComFL-specific RPCs
-  // ============================================================================
-  rpc GetDeComFLConfig(GetDeComFLConfigRequest) returns (GetDeComFLConfigResponse);
-  rpc SubmitGradientScalars(SubmitGradientScalarsRequest) returns (SubmitGradientScalarsResponse);
+  // --- model transfer (FedAvg path) ---
+  rpc GetGlobalModel        (GetGlobalModelRequest)        returns (GetGlobalModelResponse);
+  rpc GetGlobalModelStream  (GetGlobalModelRequest)        returns (stream ModelChunk);
+  rpc SubmitModelUpdate     (SubmitModelUpdateRequest)     returns (SubmitModelUpdateResponse);
+  rpc SubmitModelUpdateStream(stream ModelUpdateChunk)     returns (SubmitModelUpdateResponse);
+
+  // --- DeComFL path (scalars + seeds only; no weights on the wire) ---
+  rpc GetDeComFLConfig      (GetDeComFLConfigRequest)      returns (GetDeComFLConfigResponse);
+  rpc SubmitGradientScalars (SubmitGradientScalarsRequest) returns (SubmitGradientScalarsResponse);
+
+  // --- telemetry (closes the mobile observability island, B3 §6.4) ---
+  rpc ReportClientMetrics   (ReportClientMetricsRequest)   returns (ReportClientMetricsResponse);
 }
 
 // ============================================================================
-// EXISTING MESSAGES (keep as-is)
+// CORE MESSAGES
 // ============================================================================
+
+// A single typed tensor. The ONLY weight-bearing wire type; no torch.save blobs.
 message Tensor {
-  bytes data = 1;
-  repeated int64 dims = 2;
-  string dtype = 3;
+  bytes          data  = 1;   // raw bytes, dtype+dims interpret them
+  repeated int64 dims  = 2;
+  string         dtype = 3;   // whitelist: "float32","float64","int32","int64","uint8","bool"
 }
 
 message ModelParameters {
-  map<string, Tensor> tensors = 1;
-  int64 num_examples_trained = 2;
+  map<string, Tensor> tensors              = 1;
+  int64               num_examples_trained = 2;
 }
 
+// ============================================================================
+// REGISTRATION  (binds the client to a run + enrollment identity)
+// ============================================================================
 message RegisterClientRequest {
-  string client_id = 1;
+  string client_id        = 1;   // client-chosen handle (display only; NOT trusted for authz)
+  string run_id           = 2;   // UUID string of the fl_runs row this client joins
+  int32  protocol_version = 3;   // MUST equal server's; mismatch -> REJECTED
+  string enrollment_token = 4;   // backend-minted token binding identity (anti-Sybil, B4/R6)
 }
 
 message RegisterClientResponse {
   enum Status {
     STATUS_UNSPECIFIED = 0;
-    ACCEPTED = 1;
-    REJECTED = 2;
+    ACCEPTED           = 1;
+    REJECTED           = 2;
   }
-  Status status = 1;
-  string message = 2;
+  Status status            = 1;
+  string message           = 2;
+  int32  assigned_round    = 3;   // round the client should start training on (for late joiners)
+  int32  protocol_version  = 4;   // server's version (client logs on mismatch)
 }
 
-message GetGlobalModelRequest {
-  string client_id = 1;
+// ============================================================================
+// SERVER STATUS
+// ============================================================================
+message GetServerStatusRequest {
+  string run_id = 1;
 }
-
-message GetGlobalModelResponse {
-  ModelParameters parameters = 1;
-  int32 current_round = 2;
-  map<string, string> config = 3;
-}
-
-message SubmitModelUpdateRequest {
-  string client_id = 1;
-  ModelParameters parameters = 2;
-  int32 trained_on_round = 3;
-}
-
-message SubmitModelUpdateResponse {
-  bool received = 1;
-}
-
-message GetServerStatusRequest {}
 
 message GetServerStatusResponse {
   enum ServerState {
-    STATE_UNSPECIFIED = 0;
-    INITIALIZING = 1;
+    STATE_UNSPECIFIED   = 0;
+    INITIALIZING        = 1;
     WAITING_FOR_CLIENTS = 2;
-    AGGREGATING = 3;
-    TRAINING_COMPLETE = 4;
+    TRAINING            = 3;
+    AGGREGATING         = 4;
+    TRAINING_COMPLETE   = 5;
+    FAILED              = 6;
   }
-  ServerState server_state = 1;
-  int32 current_round = 2;
-  int32 required_clients_for_round = 3;
-  int32 received_updates_this_round = 4;
+  ServerState server_state               = 1;
+  int32       current_round              = 2;
+  int32       required_clients_for_round = 3;  // the minimum quorum
+  int32       received_updates_this_round= 4;
+  int32       active_clients             = 5;
+  int64       round_deadline_unix_ms     = 6;  // when the current round hard-stops (NO infinite hang)
 }
 
+// ============================================================================
+// HEARTBEAT  (parallel stub; runs while fit() blocks the training stub)
+// ============================================================================
 message HeartbeatRequest {
-  string client_id = 1;
-  string status = 2;
-  int32 current_step = 3;
-  int32 total_steps = 4;
-  int32 current_round = 5;
+  string client_id     = 1;
+  string run_id        = 2;
+  string status        = 3;   // free-text client phase, e.g. "TRAINING","IDLE"
+  int32  current_step  = 4;
+  int32  total_steps   = 5;
+  int32  current_round = 6;
 }
 
 message HeartbeatResponse {
-  bool acknowledged = 1;
-  bool should_stop = 2;
-  string message = 3;
+  bool   acknowledged = 1;
+  bool   should_stop  = 2;   // NOW WIRED: server tells client to abort (deadline/quorum-lost/stopped)
+  string message      = 3;
 }
 
-message ModelUpdateChunk {
+// ============================================================================
+// MODEL TRANSFER — FedAvg path (typed framing both directions)
+// ============================================================================
+message GetGlobalModelRequest {
   string client_id = 1;
-  int32 trained_on_round = 2;
-  int32 chunk_index = 3;
-  int32 total_chunks = 4;
-  bytes chunk_data = 5;
-  bool is_final_chunk = 6;
-  int64 num_examples = 7;
+  string run_id    = 2;
 }
 
+message GetGlobalModelResponse {
+  ModelParameters    parameters    = 1;
+  int32              current_round = 2;
+  map<string,string> config        = 3;
+  int64              total_bytes   = 4;   // for comm-cost accounting
+}
+
+// Streaming chunk — used for models > 300 MB (parameter chunking).
+// v2 fix: explicit framing so save/load are symmetric (no env-inferred compression, A3-C3).
 message ModelChunk {
-  int32 chunk_index = 1;
-  int32 total_chunks = 2;
-  bytes chunk_data = 3;
-  bool is_final_chunk = 4;
-  int32 current_round = 5;
-  map<string, string> config = 6;
+  int32  chunk_index    = 1;
+  int32  total_chunks   = 2;
+  bytes  chunk_data     = 3;
+  bool   is_final_chunk = 4;
+  int32  current_round  = 5;
+  map<string,string> config = 6;
+  // --- v2 framing fields ---
+  string codec          = 7;   // "safetensors" (typed; NOT torch.save) — required, validated
+  bool   compressed     = 8;   // on the wire, not inferred from env (A3-C3); codec="lz4+safetensors" if true
+  int64  total_bytes    = 9;   // full reassembled size; receiver bounds-checks cumulative (H5)
+  string sha256         = 10;  // hash of the full reassembled blob; receiver verifies (integrity)
+}
+
+message SubmitModelUpdateRequest {
+  string          client_id       = 1;
+  string          run_id          = 2;
+  ModelParameters parameters      = 3;
+  int32           trained_on_round= 4;
+}
+
+message SubmitModelUpdateResponse {
+  bool  received        = 1;
+  int64 bytes_received  = 2;   // comm-cost accounting
+}
+
+// Streaming upload chunk. v2 fix for A3-C1: same explicit framing as ModelChunk,
+// so chunks_to_parameters reads a wrapped {parameters, num_examples} blob symmetrically.
+message ModelUpdateChunk {
+  string client_id        = 1;
+  string run_id           = 2;
+  int32  trained_on_round = 3;
+  int32  chunk_index      = 4;
+  int32  total_chunks     = 5;
+  bytes  chunk_data       = 6;
+  bool   is_final_chunk   = 7;
+  int64  num_examples     = 8;
+  // --- v2 framing fields ---
+  string codec       = 9;    // "safetensors"
+  bool   compressed  = 10;
+  int64  total_bytes = 11;   // server bounds-checks cumulative against max_payload_bytes (H5)
+  string sha256      = 12;   // verified on reassembly
 }
 
 // ============================================================================
-// NEW: DeComFL Messages
+// DeComFL — seeds + scalars only (the dimension-free / DLG-resistant path)
 // ============================================================================
 
-// Seeds for generating perturbations
+// Seeds organized as [local_step][perturbation_index].
 message PerturbationSeeds {
-  // Seeds organized as [local_step][perturbation_index]
   repeated LocalStepSeeds local_steps = 1;
 }
-
 message LocalStepSeeds {
-  repeated int32 seeds = 1;  // P seeds for this local step
+  repeated int64 seeds = 1;   // P seeds for this local step (int64 to match C++ int64_t, B1 Low note)
 }
 
-// Gradient scalars computed by client
+// Gradient scalars organized as [local_step][perturbation_index].
 message GradientScalars {
-  // Scalars organized as [local_step][perturbation_index]
   repeated LocalStepGradients local_steps = 1;
 }
-
 message LocalStepGradients {
-  repeated double scalars = 1;  // P gradient scalars for this local step
+  repeated double scalars = 1;   // P gradient scalars for this local step
 }
 
-// History for rebuilding model (missed rounds)
+// Server-maintained history for rebuilding the model after missed rounds (Alg.2 rebuild).
 message RebuildHistory {
   repeated RoundHistory rounds = 1;
 }
-
 message RoundHistory {
-  int32 round_number = 1;
-  PerturbationSeeds seeds = 2;
-  GradientScalars average_gradients = 3;  // Server's averaged gradients
+  int32             round_number      = 1;
+  PerturbationSeeds seeds             = 2;
+  GradientScalars   average_gradients = 3;   // server's AVERAGED (1/N) gradients (B1-C1 fixed)
 }
 
-// Request for DeComFL configuration and seeds
 message GetDeComFLConfigRequest {
   string client_id = 1;
+  string run_id    = 2;
 }
 
 message GetDeComFLConfigResponse {
-  int32 current_round = 1;
-  PerturbationSeeds current_seeds = 2;  // Seeds for current round
-  RebuildHistory rebuild_history = 3;   // History for missed rounds
-  map<string, string> config = 4;       // Training config (lr, mu, etc.)
+  int32             current_round   = 1;
+  PerturbationSeeds current_seeds   = 2;   // seeds for the current round
+  RebuildHistory    rebuild_history = 3;   // history for the rounds this client missed
+  map<string,string> config         = 4;   // lr, mu, P (num_perturbations), K (num_local_steps)
+  // --- v2 determinism contract (B1-C2 / spec §6) ---
+  string torch_version       = 5;   // client MUST match for CPU-canonical RNG parity (else WARN/reject)
+  string grad_estimate_method= 6;   // "forward" | "central" (B1-H2)
+  string golden_vector_sha256= 7;   // RNG golden-vector fixture the client validates against
 }
 
-// Submit gradient scalars instead of full model
 message SubmitGradientScalarsRequest {
-  string client_id = 1;
-  int32 trained_on_round = 2;
-  GradientScalars gradients = 3;
-  int64 num_examples = 4;
+  string          client_id        = 1;
+  string          run_id           = 2;
+  int32           trained_on_round = 3;
+  GradientScalars gradients        = 4;
+  int64           num_examples     = 5;   // collected; DeComFL aggregation is UNWEIGHTED (B1 Low note)
+  // Per-(k,p) seeds that produced each g-scalar. DeComFL: server already has them (ignored). FedAvg
+  // ZO-SGD: the CLIENT generates them, so the server needs them to reconstruct z and apply the update.
+  PerturbationSeeds perturbation_seeds = 6;
 }
 
 message SubmitGradientScalarsResponse {
-  bool received = 1;
+  bool  received       = 1;
+  int64 bytes_received = 2;   // K*P*8 bytes typically — the O(K*P) comm-cost number (B3 §6.2)
+}
+
+// ============================================================================
+// CLIENT METRICS  (closes the mobile observability island, B3 §6.4)
+// ============================================================================
+message ReportClientMetricsRequest {
+  string client_id     = 1;
+  string run_id        = 2;
+  int32  round         = 3;
+  double loss          = 4;
+  double accuracy      = 5;
+  int32  current_step  = 6;
+  int32  total_steps   = 7;
+  string client_type   = 8;   // "desktop" | "docker" | "mobile" — for the per-type split panel
+  int64  compute_ms    = 9;   // local compute time this round
+}
+message ReportClientMetricsResponse {
+  bool acknowledged = 1;
 }

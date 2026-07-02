@@ -7,7 +7,7 @@ from . import fedlearn_pb2 as fedlearn__pb2
 
 class FederatedLearningServiceStub(object):
     """============================================================================
-    EXISTING SERVICES (keep as-is)
+    SERVICE
     ============================================================================
     """
 
@@ -18,66 +18,85 @@ class FederatedLearningServiceStub(object):
             channel: A grpc.Channel.
         """
         self.RegisterClient = channel.unary_unary(
-                '/fedlearn.v1.FederatedLearningService/RegisterClient',
+                '/fedlearn.v2.FederatedLearningService/RegisterClient',
                 request_serializer=fedlearn__pb2.RegisterClientRequest.SerializeToString,
                 response_deserializer=fedlearn__pb2.RegisterClientResponse.FromString,
                 )
-        self.GetGlobalModel = channel.unary_unary(
-                '/fedlearn.v1.FederatedLearningService/GetGlobalModel',
-                request_serializer=fedlearn__pb2.GetGlobalModelRequest.SerializeToString,
-                response_deserializer=fedlearn__pb2.GetGlobalModelResponse.FromString,
-                )
-        self.GetGlobalModelStream = channel.unary_stream(
-                '/fedlearn.v1.FederatedLearningService/GetGlobalModelStream',
-                request_serializer=fedlearn__pb2.GetGlobalModelRequest.SerializeToString,
-                response_deserializer=fedlearn__pb2.ModelChunk.FromString,
-                )
-        self.SubmitModelUpdate = channel.unary_unary(
-                '/fedlearn.v1.FederatedLearningService/SubmitModelUpdate',
-                request_serializer=fedlearn__pb2.SubmitModelUpdateRequest.SerializeToString,
-                response_deserializer=fedlearn__pb2.SubmitModelUpdateResponse.FromString,
-                )
-        self.SubmitModelUpdateStream = channel.stream_unary(
-                '/fedlearn.v1.FederatedLearningService/SubmitModelUpdateStream',
-                request_serializer=fedlearn__pb2.ModelUpdateChunk.SerializeToString,
-                response_deserializer=fedlearn__pb2.SubmitModelUpdateResponse.FromString,
-                )
         self.GetServerStatus = channel.unary_unary(
-                '/fedlearn.v1.FederatedLearningService/GetServerStatus',
+                '/fedlearn.v2.FederatedLearningService/GetServerStatus',
                 request_serializer=fedlearn__pb2.GetServerStatusRequest.SerializeToString,
                 response_deserializer=fedlearn__pb2.GetServerStatusResponse.FromString,
                 )
         self.Heartbeat = channel.unary_unary(
-                '/fedlearn.v1.FederatedLearningService/Heartbeat',
+                '/fedlearn.v2.FederatedLearningService/Heartbeat',
                 request_serializer=fedlearn__pb2.HeartbeatRequest.SerializeToString,
                 response_deserializer=fedlearn__pb2.HeartbeatResponse.FromString,
                 )
+        self.GetGlobalModel = channel.unary_unary(
+                '/fedlearn.v2.FederatedLearningService/GetGlobalModel',
+                request_serializer=fedlearn__pb2.GetGlobalModelRequest.SerializeToString,
+                response_deserializer=fedlearn__pb2.GetGlobalModelResponse.FromString,
+                )
+        self.GetGlobalModelStream = channel.unary_stream(
+                '/fedlearn.v2.FederatedLearningService/GetGlobalModelStream',
+                request_serializer=fedlearn__pb2.GetGlobalModelRequest.SerializeToString,
+                response_deserializer=fedlearn__pb2.ModelChunk.FromString,
+                )
+        self.SubmitModelUpdate = channel.unary_unary(
+                '/fedlearn.v2.FederatedLearningService/SubmitModelUpdate',
+                request_serializer=fedlearn__pb2.SubmitModelUpdateRequest.SerializeToString,
+                response_deserializer=fedlearn__pb2.SubmitModelUpdateResponse.FromString,
+                )
+        self.SubmitModelUpdateStream = channel.stream_unary(
+                '/fedlearn.v2.FederatedLearningService/SubmitModelUpdateStream',
+                request_serializer=fedlearn__pb2.ModelUpdateChunk.SerializeToString,
+                response_deserializer=fedlearn__pb2.SubmitModelUpdateResponse.FromString,
+                )
         self.GetDeComFLConfig = channel.unary_unary(
-                '/fedlearn.v1.FederatedLearningService/GetDeComFLConfig',
+                '/fedlearn.v2.FederatedLearningService/GetDeComFLConfig',
                 request_serializer=fedlearn__pb2.GetDeComFLConfigRequest.SerializeToString,
                 response_deserializer=fedlearn__pb2.GetDeComFLConfigResponse.FromString,
                 )
         self.SubmitGradientScalars = channel.unary_unary(
-                '/fedlearn.v1.FederatedLearningService/SubmitGradientScalars',
+                '/fedlearn.v2.FederatedLearningService/SubmitGradientScalars',
                 request_serializer=fedlearn__pb2.SubmitGradientScalarsRequest.SerializeToString,
                 response_deserializer=fedlearn__pb2.SubmitGradientScalarsResponse.FromString,
+                )
+        self.ReportClientMetrics = channel.unary_unary(
+                '/fedlearn.v2.FederatedLearningService/ReportClientMetrics',
+                request_serializer=fedlearn__pb2.ReportClientMetricsRequest.SerializeToString,
+                response_deserializer=fedlearn__pb2.ReportClientMetricsResponse.FromString,
                 )
 
 
 class FederatedLearningServiceServicer(object):
     """============================================================================
-    EXISTING SERVICES (keep as-is)
+    SERVICE
     ============================================================================
     """
 
     def RegisterClient(self, request, context):
+        """--- lifecycle / control ---
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetServerStatus(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Heartbeat(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def GetGlobalModel(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """--- model transfer (FedAvg path) ---
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -100,22 +119,8 @@ class FederatedLearningServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetServerStatus(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def Heartbeat(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def GetDeComFLConfig(self, request, context):
-        """============================================================================
-        NEW: DeComFL-specific RPCs
-        ============================================================================
+        """--- DeComFL path (scalars + seeds only; no weights on the wire) ---
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -127,6 +132,13 @@ class FederatedLearningServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ReportClientMetrics(self, request, context):
+        """--- telemetry (closes the mobile observability island, B3 §6.4) ---
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_FederatedLearningServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -134,6 +146,16 @@ def add_FederatedLearningServiceServicer_to_server(servicer, server):
                     servicer.RegisterClient,
                     request_deserializer=fedlearn__pb2.RegisterClientRequest.FromString,
                     response_serializer=fedlearn__pb2.RegisterClientResponse.SerializeToString,
+            ),
+            'GetServerStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetServerStatus,
+                    request_deserializer=fedlearn__pb2.GetServerStatusRequest.FromString,
+                    response_serializer=fedlearn__pb2.GetServerStatusResponse.SerializeToString,
+            ),
+            'Heartbeat': grpc.unary_unary_rpc_method_handler(
+                    servicer.Heartbeat,
+                    request_deserializer=fedlearn__pb2.HeartbeatRequest.FromString,
+                    response_serializer=fedlearn__pb2.HeartbeatResponse.SerializeToString,
             ),
             'GetGlobalModel': grpc.unary_unary_rpc_method_handler(
                     servicer.GetGlobalModel,
@@ -155,16 +177,6 @@ def add_FederatedLearningServiceServicer_to_server(servicer, server):
                     request_deserializer=fedlearn__pb2.ModelUpdateChunk.FromString,
                     response_serializer=fedlearn__pb2.SubmitModelUpdateResponse.SerializeToString,
             ),
-            'GetServerStatus': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetServerStatus,
-                    request_deserializer=fedlearn__pb2.GetServerStatusRequest.FromString,
-                    response_serializer=fedlearn__pb2.GetServerStatusResponse.SerializeToString,
-            ),
-            'Heartbeat': grpc.unary_unary_rpc_method_handler(
-                    servicer.Heartbeat,
-                    request_deserializer=fedlearn__pb2.HeartbeatRequest.FromString,
-                    response_serializer=fedlearn__pb2.HeartbeatResponse.SerializeToString,
-            ),
             'GetDeComFLConfig': grpc.unary_unary_rpc_method_handler(
                     servicer.GetDeComFLConfig,
                     request_deserializer=fedlearn__pb2.GetDeComFLConfigRequest.FromString,
@@ -175,16 +187,21 @@ def add_FederatedLearningServiceServicer_to_server(servicer, server):
                     request_deserializer=fedlearn__pb2.SubmitGradientScalarsRequest.FromString,
                     response_serializer=fedlearn__pb2.SubmitGradientScalarsResponse.SerializeToString,
             ),
+            'ReportClientMetrics': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReportClientMetrics,
+                    request_deserializer=fedlearn__pb2.ReportClientMetricsRequest.FromString,
+                    response_serializer=fedlearn__pb2.ReportClientMetricsResponse.SerializeToString,
+            ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'fedlearn.v1.FederatedLearningService', rpc_method_handlers)
+            'fedlearn.v2.FederatedLearningService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
 
 
  # This class is part of an EXPERIMENTAL API.
 class FederatedLearningService(object):
     """============================================================================
-    EXISTING SERVICES (keep as-is)
+    SERVICE
     ============================================================================
     """
 
@@ -199,77 +216,9 @@ class FederatedLearningService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/fedlearn.v1.FederatedLearningService/RegisterClient',
+        return grpc.experimental.unary_unary(request, target, '/fedlearn.v2.FederatedLearningService/RegisterClient',
             fedlearn__pb2.RegisterClientRequest.SerializeToString,
             fedlearn__pb2.RegisterClientResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def GetGlobalModel(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/fedlearn.v1.FederatedLearningService/GetGlobalModel',
-            fedlearn__pb2.GetGlobalModelRequest.SerializeToString,
-            fedlearn__pb2.GetGlobalModelResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def GetGlobalModelStream(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_stream(request, target, '/fedlearn.v1.FederatedLearningService/GetGlobalModelStream',
-            fedlearn__pb2.GetGlobalModelRequest.SerializeToString,
-            fedlearn__pb2.ModelChunk.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def SubmitModelUpdate(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/fedlearn.v1.FederatedLearningService/SubmitModelUpdate',
-            fedlearn__pb2.SubmitModelUpdateRequest.SerializeToString,
-            fedlearn__pb2.SubmitModelUpdateResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def SubmitModelUpdateStream(request_iterator,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.stream_unary(request_iterator, target, '/fedlearn.v1.FederatedLearningService/SubmitModelUpdateStream',
-            fedlearn__pb2.ModelUpdateChunk.SerializeToString,
-            fedlearn__pb2.SubmitModelUpdateResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -284,7 +233,7 @@ class FederatedLearningService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/fedlearn.v1.FederatedLearningService/GetServerStatus',
+        return grpc.experimental.unary_unary(request, target, '/fedlearn.v2.FederatedLearningService/GetServerStatus',
             fedlearn__pb2.GetServerStatusRequest.SerializeToString,
             fedlearn__pb2.GetServerStatusResponse.FromString,
             options, channel_credentials,
@@ -301,9 +250,77 @@ class FederatedLearningService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/fedlearn.v1.FederatedLearningService/Heartbeat',
+        return grpc.experimental.unary_unary(request, target, '/fedlearn.v2.FederatedLearningService/Heartbeat',
             fedlearn__pb2.HeartbeatRequest.SerializeToString,
             fedlearn__pb2.HeartbeatResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetGlobalModel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/fedlearn.v2.FederatedLearningService/GetGlobalModel',
+            fedlearn__pb2.GetGlobalModelRequest.SerializeToString,
+            fedlearn__pb2.GetGlobalModelResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetGlobalModelStream(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/fedlearn.v2.FederatedLearningService/GetGlobalModelStream',
+            fedlearn__pb2.GetGlobalModelRequest.SerializeToString,
+            fedlearn__pb2.ModelChunk.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SubmitModelUpdate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/fedlearn.v2.FederatedLearningService/SubmitModelUpdate',
+            fedlearn__pb2.SubmitModelUpdateRequest.SerializeToString,
+            fedlearn__pb2.SubmitModelUpdateResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SubmitModelUpdateStream(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_unary(request_iterator, target, '/fedlearn.v2.FederatedLearningService/SubmitModelUpdateStream',
+            fedlearn__pb2.ModelUpdateChunk.SerializeToString,
+            fedlearn__pb2.SubmitModelUpdateResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -318,7 +335,7 @@ class FederatedLearningService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/fedlearn.v1.FederatedLearningService/GetDeComFLConfig',
+        return grpc.experimental.unary_unary(request, target, '/fedlearn.v2.FederatedLearningService/GetDeComFLConfig',
             fedlearn__pb2.GetDeComFLConfigRequest.SerializeToString,
             fedlearn__pb2.GetDeComFLConfigResponse.FromString,
             options, channel_credentials,
@@ -335,8 +352,25 @@ class FederatedLearningService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/fedlearn.v1.FederatedLearningService/SubmitGradientScalars',
+        return grpc.experimental.unary_unary(request, target, '/fedlearn.v2.FederatedLearningService/SubmitGradientScalars',
             fedlearn__pb2.SubmitGradientScalarsRequest.SerializeToString,
             fedlearn__pb2.SubmitGradientScalarsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ReportClientMetrics(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/fedlearn.v2.FederatedLearningService/ReportClientMetrics',
+            fedlearn__pb2.ReportClientMetricsRequest.SerializeToString,
+            fedlearn__pb2.ReportClientMetricsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
