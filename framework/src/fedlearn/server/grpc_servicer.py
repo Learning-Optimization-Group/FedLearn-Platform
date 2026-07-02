@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import List, Dict
 
 import grpc
@@ -8,6 +9,10 @@ import torch
 # Import the generated stubs
 from fedlearn.communication.generated import fedlearn_pb2
 from fedlearn.communication.generated import fedlearn_pb2_grpc
+
+# The fedlearn.v2 protocol version this server speaks. Must equal the mobile client's kProtocolVersion
+# (bridge/common/FedLearnCoreModule.h). RegisterClient rejects a mismatched client.
+SERVER_PROTOCOL_VERSION = 2
 
 # Import the business logic layer and helpers
 from .coordinator import FLCoordinator
@@ -25,16 +30,34 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
     def RegisterClient(self, request: fedlearn_pb2.RegisterClientRequest, context):
         client_id = request.client_id
+        run_id = request.run_id
+        client_pv = request.protocol_version
+        # enrollment_token: minted by the Spring backend at enroll (P2). MVP validates permissively
+        # (log-only) — a hard anti-Sybil check lands with the backend token endpoint.
+        _enrollment_token = request.enrollment_token
+
+        # Protocol-version negotiation (v2). A client that sends 0 (unset) is treated permissively;
+        # a set-but-mismatched version is rejected so the two sides never silently disagree on the wire.
+        if client_pv and client_pv != SERVER_PROTOCOL_VERSION:
+            return fedlearn_pb2.RegisterClientResponse(
+                status=fedlearn_pb2.RegisterClientResponse.Status.REJECTED,
+                message=f"Protocol version mismatch: client={client_pv}, server={SERVER_PROTOCOL_VERSION}.",
+                protocol_version=SERVER_PROTOCOL_VERSION,
+            )
+
         success = self.coordinator.register_client(client_id)
         if success:
             return fedlearn_pb2.RegisterClientResponse(
                 status=fedlearn_pb2.RegisterClientResponse.Status.ACCEPTED,
-                message=f"Client '{client_id}' registered successfully."
+                message=f"Client '{client_id}' registered for run '{run_id}'.",
+                assigned_round=self.coordinator.current_round,  # late joiners start at the live round
+                protocol_version=SERVER_PROTOCOL_VERSION,
             )
         else:  # In case registration logic becomes more complex
             return fedlearn_pb2.RegisterClientResponse(
                 status=fedlearn_pb2.RegisterClientResponse.Status.REJECTED,
-                message=f"Registration for '{client_id}' failed."
+                message=f"Registration for '{client_id}' failed.",
+                protocol_version=SERVER_PROTOCOL_VERSION,
             )
 
     def GetGlobalModel(self, request: fedlearn_pb2.GetGlobalModelRequest, context):
@@ -229,11 +252,24 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
     def GetServerStatus(self, request: fedlearn_pb2.GetServerStatusRequest, context):
         status = self.coordinator.get_server_status()
+        active = len(self.coordinator.get_active_clients())
+        State = fedlearn_pb2.GetServerStatusResponse.ServerState
+        if self.coordinator.stop_requested:
+            server_state = State.TRAINING_COMPLETE
+        elif active < status["required_clients_for_round"]:
+            server_state = State.WAITING_FOR_CLIENTS
+        else:
+            server_state = State.TRAINING
+        # A rolling deadline (now + per-round timeout) so a client's status poll never implies an
+        # infinite wait (v2 §6.2). A precise per-round start-stamp can replace this post-MVP.
+        round_deadline_unix_ms = int((time.time() + self.coordinator.round_timeout_s) * 1000)
         return fedlearn_pb2.GetServerStatusResponse(
-            server_state=fedlearn_pb2.GetServerStatusResponse.ServerState.WAITING_FOR_CLIENTS,  # Simplified for now
+            server_state=server_state,
             current_round=status["current_round"],
             required_clients_for_round=status["required_clients_for_round"],
-            received_updates_this_round=status["received_updates_this_round"]
+            received_updates_this_round=status["received_updates_this_round"],
+            active_clients=active,
+            round_deadline_unix_ms=round_deadline_unix_ms,
         )
 
     def Heartbeat(self, request: fedlearn_pb2.HeartbeatRequest, context):
@@ -243,6 +279,7 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         """
         try:
             client_id = request.client_id
+            run_id = request.run_id  # v2 field 2 — the run this heartbeat belongs to
             status = request.status
             current_step = request.current_step
             total_steps = request.total_steps
@@ -320,7 +357,14 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                 current_round=current_round,
                 current_seeds=current_seeds_proto,
                 rebuild_history=rebuild_history_proto,
-                config=config
+                config=config,
+                # v2 determinism contract. The mobile core is RNG-version-independent (RandnEngine byte-
+                # matches torch.randn regardless of torch build), so torch_version is advisory; the client
+                # does not gate on it. grad_estimate_method mirrors the strategy (forward-difference).
+                # golden_vector_sha256 is an optional RNG-parity fixture (empty ⇒ the client skips the check).
+                torch_version=torch.__version__,
+                grad_estimate_method=getattr(strategy, "grad_estimate_method", "forward"),
+                golden_vector_sha256="",
             )
 
         except Exception as e:
@@ -354,8 +398,14 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             # Convert proto gradients to nested list format
             gradient_scalars = self._proto_to_gradients(request.gradients)
 
+            # v2: the DeComFL client echoes the server-issued seeds in perturbation_seeds. The server
+            # reconstructs z from its own shared seed_history (get_or_create_seeds), so the echo is
+            # advisory here (observability / a future integrity cross-check); it is NOT re-derived from.
+            echoed_steps = len(request.perturbation_seeds.local_steps) if request.HasField("perturbation_seeds") else 0
+
             logging.info(f"[Server] Received {len(gradient_scalars)} local steps, "
-                  f"{len(gradient_scalars[0]) if gradient_scalars else 0} perturbations per step")
+                  f"{len(gradient_scalars[0]) if gradient_scalars else 0} perturbations per step "
+                  f"(echoed seed steps: {echoed_steps})")
 
             # Submit to coordinator (modified to handle DeComFL data)
             self.coordinator.submit_decomfl_update(
@@ -374,6 +424,30 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details("An internal server error occurred.")
             return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
+
+    def ReportClientMetrics(self, request: fedlearn_pb2.ReportClientMetricsRequest, context):
+        """v2 telemetry (§6.4): accept a client's per-round loss/accuracy/compute and record it on the
+        coordinator for the dashboard. Best-effort — a telemetry failure never fails the round."""
+        try:
+            self.coordinator.record_client_metrics({
+                "client_id": request.client_id,
+                "run_id": request.run_id,
+                "round": request.round,
+                "loss": request.loss,
+                "accuracy": request.accuracy,
+                "current_step": request.current_step,
+                "total_steps": request.total_steps,
+                "client_type": request.client_type,
+                "compute_ms": request.compute_ms,
+            })
+            logging.info(
+                f"[Server] Metrics from {request.client_id} round {request.round}: "
+                f"loss={request.loss:.4f} acc={request.accuracy:.4f} ({request.compute_ms}ms)"
+            )
+            return fedlearn_pb2.ReportClientMetricsResponse(acknowledged=True)
+        except Exception:
+            logging.error(f"ReportClientMetrics failed for client {request.client_id}", exc_info=True)
+            return fedlearn_pb2.ReportClientMetricsResponse(acknowledged=False)
 
     # Helper methods for proto conversion
     def _seeds_to_proto(self, seeds: List[List[int]]) -> fedlearn_pb2.PerturbationSeeds:

@@ -64,6 +64,8 @@ class FLCoordinator:
         self.current_round = 1  # Start at round 1
         self.stop_requested = False
         self.latest_metrics: Optional[dict] = None
+        # Client-reported training telemetry (loss/accuracy/compute), fed by ReportClientMetrics (v2).
+        self.client_metrics_log: List[dict] = []
         self.client_heartbeats: Dict[str, dict] = {}
         self.heartbeat_lock = Lock()
         self.heartbeat_timeout = 300
@@ -296,6 +298,12 @@ class FLCoordinator:
             last_seen = self.client_heartbeats[client_id]['last_seen']
             return (time.time() - last_seen) < self.heartbeat_timeout
 
+    def record_client_metrics(self, metrics: dict) -> None:
+        """Store a client's per-round training telemetry (ReportClientMetrics, v2 §6.4)."""
+        with self.heartbeat_lock:
+            self.client_metrics_log.append(metrics)
+        self.latest_metrics = metrics
+
     def get_server_status(self) -> dict:
         """Get current server status."""
         with self._lock:
@@ -386,13 +394,18 @@ class FLCoordinator:
                 self.strategy.gradient_history[self.current_round] = avg_gradients
                 log.debug("Stored gradient history for round %d", self.current_round)
 
-            # Evaluate
-            loss, metrics = self.strategy.evaluate(self.current_round, self._global_model_params)
-            self.latest_metrics = {"loss": loss, **metrics}
-            log.info(
-                "Round %d complete (loss=%.4f, metrics=%s)",
-                self.current_round, loss, metrics,
-            )
+            # Evaluate. evaluate() returns None when the server has no evaluate_fn (e.g. a bare
+            # scalar-aggregation MVP); guard so a round completes instead of crashing on unpack.
+            eval_result = self.strategy.evaluate(self.current_round, self._global_model_params)
+            if eval_result is not None:
+                loss, metrics = eval_result
+                self.latest_metrics = {"loss": loss, **metrics}
+                log.info(
+                    "Round %d complete (loss=%.4f, metrics=%s)",
+                    self.current_round, loss, metrics,
+                )
+            else:
+                log.info("Round %d complete (no evaluate_fn configured; eval skipped)", self.current_round)
         else:
             log.warning("DeComFL aggregation for round %d failed", self.current_round)
             self.latest_metrics = None
