@@ -74,7 +74,11 @@ if(FEDLEARN_BUILD_GRPC)
     message(FATAL_ERROR "FEDLEARN_BUILD_GRPC=ON requires -DGENERATED_PROTO_DIR=/path/to/gen/cpp "
                         "(run `buf generate` from the repo proto/ directory first).")
   endif()
-  find_package(Protobuf REQUIRED)
+  # CONFIG mode (not the FindProtobuf module): protobuf 27+ split UTF-8 validation into a separate
+  # utf8_validity target, and the module-mode Protobuf_LIBRARIES only names libprotobuf.a, so the final
+  # link is missing utf8_range::IsStructurallyValid. The CONFIG target protobuf::libprotobuf carries the
+  # full transitive graph (utf8_validity, utf8_range, abseil). GRPC_DIR is on CMAKE_PREFIX_PATH.
+  find_package(protobuf CONFIG REQUIRED)
   find_package(gRPC CONFIG REQUIRED)
   file(GLOB FEDLEARN_GENERATED_SRCS "${GENERATED_PROTO_DIR}/fedlearn/v2/*.cc")
   add_library(fedlearn_grpc STATIC

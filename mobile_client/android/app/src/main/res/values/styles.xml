@@ -1,6 +1,8 @@
 <resources>
   <!-- VERIFY-BEFORE-USE: a minimal RN app theme. Replace with the brand theme if desired. -->
   <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
-    <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+    <!-- No custom editTextBackground: @drawable/rn_edit_text_material was an old RN-template drawable
+         that RN 0.80 no longer ships, and referencing it breaks release resource linking. The platform
+         default EditText background is used. -->
   </style>
 </resources>

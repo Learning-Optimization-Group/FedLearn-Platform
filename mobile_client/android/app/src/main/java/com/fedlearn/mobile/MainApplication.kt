@@ -9,6 +9,7 @@ import com.facebook.react.ReactPackage
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
+import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
 
 // VERIFY-BEFORE-USE: RN 0.80 New Architecture host. The app-defined C++ (CXX) TurboModule
@@ -34,11 +35,17 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
-    SoLoader.init(this, false)
+    // RN 0.80 merges many small JNI libs (react_featureflagsjni, etc.) into libreactnative.so; the
+    // OpenSourceMergedSoMapping tells SoLoader to resolve System.loadLibrary("react_featureflagsjni")
+    // and friends to the merged lib. The old SoLoader.init(this, false) can't find them -> the New-Arch
+    // load() crashes with UnsatisfiedLinkError at startup.
+    SoLoader.init(this, OpenSourceMergedSoMapping)
     // Hand the native FL core its app-private dir (gRPC certs + on-device data) BEFORE any
     // TurboModule lookup constructs FedLearnCoreModule.
     FedLearnNative.setDataDir(filesDir.absolutePath)
-    if (isNewArchEnabled) {
+    // isNewArchEnabled is a property of the ReactNativeHost, not of this Application; use the generated
+    // BuildConfig flag (RN 0.80 template convention) to decide whether to load the New Architecture.
+    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       load()
     }
   }
