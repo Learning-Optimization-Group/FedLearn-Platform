@@ -36,6 +36,34 @@ def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: 
     if hasattr(client, 'set_grpc_client'):
         client.set_grpc_client(comm_client)
 
+    # FR-1: adopt the server's global model so every party shares the same initial model x_0 —
+    # DeComFL's core invariant. Without this the client trains from its own random init and its
+    # gradient scalars are directional derivatives of a DIFFERENT function than the server's
+    # global model, so the aggregate is meaningless and the model cannot converge. This is the
+    # one-shot O(d) initial download the paper assumes; per-round communication stays O(1).
+    try:
+        global_params, _, _ = comm_client.get_global_model()
+    except grpc.RpcError as e:
+        log.error(
+            "[%s] Could not download the global model (%s); exiting rather than training from "
+            "an unsynced init", client_id, e.details(),
+        )
+        comm_client.stop_heartbeat()
+        comm_client.close()
+        return
+
+    if not global_params:
+        log.error(
+            "[%s] Server returned no global model (server not ready or stopping); exiting to "
+            "avoid an unsynced x_0", client_id,
+        )
+        comm_client.stop_heartbeat()
+        comm_client.close()
+        return
+
+    client.load_global_model(global_params)
+    log.info("[%s] Synced local model to the server's global model before training", client_id)
+
     try:
         while True:
             try:

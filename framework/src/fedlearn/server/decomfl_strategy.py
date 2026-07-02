@@ -138,7 +138,16 @@ class DeComFL(Strategy):
 
     def get_rebuild_history(self, client_id: str, current_round: int) -> List[Dict]:
         """Get history needed for client to rebuild model."""
-        last_round = self.client_last_round.get(client_id, -1)
+        last_round = self.client_last_round.get(client_id)
+        if last_round is None:
+            # First contact: the client has just downloaded the CURRENT global model
+            # (x_{current_round-1}) via get_global_model, so it is already synced through
+            # round current_round-1. Record that baseline so a LATE joiner does not replay
+            # pre-join rounds on top of the model it just downloaded (which would double-apply,
+            # FR-1 late-join). For a client present from round 1 this is 0, correctly yielding
+            # an empty history.
+            last_round = current_round - 1
+            self.client_last_round[client_id] = last_round
 
         if last_round >= current_round - 1:
             return []
@@ -180,8 +189,14 @@ class DeComFL(Strategy):
         client_gradients = {}
         for client_id, grad_scalars, num_examples in results:
             client_gradients[client_id] = grad_scalars
-            # Update client's last participation round
-            self.client_last_round[client_id] = server_round
+            # Mark the client as synced THROUGH server_round - 1, not server_round (FR-2).
+            # fit() reverts all K local steps, so after participating in round r the client's
+            # x_current still reflects x_{r-1} (the model it started the round from). It applies
+            # round r's AVERAGED update only at the START of round r+1, via get_rebuild_history,
+            # which returns range(last_round + 1, r + 1). Recording server_round made that range
+            # empty (guard: last_round >= current_round - 1) and pinned a full-participation
+            # client at x_0 forever; recording server_round - 1 makes it replay round r exactly.
+            self.client_last_round[client_id] = server_round - 1
 
         # Get current model parameters
         x_current = self.global_params_flat.clone()

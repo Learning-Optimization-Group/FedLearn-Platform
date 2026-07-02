@@ -64,6 +64,18 @@ class DeComFLClient(Client):
         """Set gRPC client for heartbeat updates."""
         self.grpc_client = grpc_client
 
+    def load_global_model(self, parameters: OrderedDict[str, torch.Tensor]) -> None:
+        """Adopt the server's global model (DeComFL requires every party to share x_0).
+
+        Loads ``parameters`` into the local model and resets the flattened working copy
+        ``x_current`` so the zeroth-order trajectory starts from the *shared* global model,
+        not this client's constructor-time random init. Called once at startup; this is the
+        O(d) initial download the paper assumes — per-round communication stays O(1).
+        """
+        self.model.load_state_dict(parameters)
+        self.x_current = self.zo_estimator._get_flat_params(self.model).to(self.device)
+        log.debug("Synced local model to server global (%d params)", len(self.x_current))
+
     def get_parameters(self) -> OrderedDict[str, torch.Tensor]:
         """Return current model parameters."""
         return self.model.state_dict()
