@@ -2,7 +2,6 @@ package com.federated.fl_platform_api.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.federated.fl_platform_api.dto.DeviceRequirements;
 import com.federated.fl_platform_api.dto.ModelRecipeDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,12 +25,13 @@ import java.util.concurrent.TimeUnit;
  * (via the {@code run_recipes.sh} wrapper), spawning the same way
  * {@link InferenceService}/{@link ModelInitializer} spawn their wrappers.
  *
- * <p>The catalog is the single source of truth for a model type's interactive
- * input kind and class labels. It is loaded once (lazily, on first request) and
- * cached in memory for the JVM lifetime — recipes are static config, so no
- * refresh is needed. If the script is missing or its output can't be parsed, we
- * log a WARNING and fall back to a hardcoded catalog so the app still boots and
- * inference keeps working for the built-in CNN/MLP/Transformer/Pneumonia types.
+ * <p>{@code recipes.py} is the single source of truth for a model type's interactive input kind and
+ * class labels. It is loaded once (lazily, on first request) and cached in memory for the JVM
+ * lifetime — recipes are static config, so no refresh is needed. There is deliberately NO hardcoded
+ * Java fallback (DA-10): a fallback duplicate had already drifted from the catalog (it was missing
+ * BLOOD_CNN/LLM_LORA), and since the app spawns python for all training/inference anyway, a broken
+ * {@code recipes.py} should surface loudly rather than be masked by stale data. A load failure
+ * throws {@link IllegalStateException} and is not cached, so a transient problem recovers on retry.
  */
 @Service
 public class ModelRecipeService {
@@ -49,7 +49,8 @@ public class ModelRecipeService {
     /** Lazily-populated cache; once set it is never re-read. Volatile for safe publication. */
     private volatile List<ModelRecipeDto> cache;
 
-    /** The full catalog, loading + caching on first call. Never null; never empty. */
+    /** The full catalog, loading + caching on first call. Never null/empty; throws
+     * {@link IllegalStateException} if recipes.py can't be loaded (the failure is not cached). */
     public List<ModelRecipeDto> getRecipes() {
         List<ModelRecipeDto> local = cache;
         if (local != null) {
@@ -80,21 +81,28 @@ public class ModelRecipeService {
     // ─── loading ──────────────────────────────────────────────────────────────
 
     private List<ModelRecipeDto> loadRecipes() {
+        List<ModelRecipeDto> parsed;
         try {
-            List<ModelRecipeDto> parsed = runDescribe();
-            if (parsed != null && !parsed.isEmpty()) {
-                log.info("Loaded {} model recipes from {}", parsed.size(), recipesWrapperPath);
-                return parsed;
-            }
-            log.warn("Recipe script returned no recipes; using built-in fallback catalog.");
+            parsed = runDescribe();
         } catch (Exception e) {
-            log.warn("Could not load model recipes from {} ({}); using built-in fallback catalog.",
-                    recipesWrapperPath, e.getMessage());
+            // DA-10: recipes.py is the single source of truth — no hardcoded fallback (it had drifted,
+            // missing BLOOD_CNN/LLM_LORA). Fail loud; getRecipes() only assigns the cache on a clean
+            // return, so this failure is NOT cached and a transient python/script problem recovers on
+            // the next request rather than being masked by a stale duplicate catalog.
+            throw new IllegalStateException(
+                    "Failed to load the model-recipe catalog from " + recipesWrapperPath
+                            + " (recipes.py is the single source of truth): " + e.getMessage(), e);
         }
-        return fallbackRecipes();
+        if (parsed == null || parsed.isEmpty()) {
+            throw new IllegalStateException(
+                    "recipes.py --describe returned no recipes from " + recipesWrapperPath);
+        }
+        log.info("Loaded {} model recipes from {}", parsed.size(), recipesWrapperPath);
+        return parsed;
     }
 
-    private List<ModelRecipeDto> runDescribe() throws IOException, InterruptedException {
+    /** Spawn {@code recipes.py --describe} and parse its JSON. Package-private/overridable as a test seam. */
+    protected List<ModelRecipeDto> runDescribe() throws IOException, InterruptedException {
         File wrapper = new File(recipesWrapperPath);
         String absWrapper = wrapper.getAbsolutePath();
 
@@ -145,35 +153,4 @@ public class ModelRecipeService {
         return sb.toString();
     }
 
-    // ─── fallback ───────────────────────────────────────────────────────────────
-    //
-    // Mirrors the prior hardcoded ProjectService switch so behavior is unchanged
-    // when recipes.py is unavailable: CNN=image/CIFAR-10, MLP=vector/[Normal,
-    // Abnormal], TRANSFORMER=text (no fixed labels), PNEUMONIA_CNN=image/[NORMAL,
-    // PNEUMONIA].
-
-    private static final DeviceRequirements FALLBACK_REQUIREMENTS =
-            new DeviceRequirements(2.0, 0.1, null, null, Boolean.FALSE, null, null, null, null, null, null);
-
-    private List<ModelRecipeDto> fallbackRecipes() {
-        return List.of(
-                new ModelRecipeDto(
-                        "CNN", "CNN (CIFAR-10)", "image",
-                        List.of("airplane", "automobile", "bird", "cat", "deer",
-                                "dog", "frog", "horse", "ship", "truck"),
-                        List.of(), List.of(), FALLBACK_REQUIREMENTS),
-                new ModelRecipeDto(
-                        "MLP", "MLP", "vector",
-                        List.of("Normal", "Abnormal"),
-                        List.of(), List.of(), FALLBACK_REQUIREMENTS),
-                new ModelRecipeDto(
-                        "TRANSFORMER", "Transformer", "text",
-                        List.of(),
-                        List.of(), List.of(), FALLBACK_REQUIREMENTS),
-                new ModelRecipeDto(
-                        "PNEUMONIA_CNN", "Pneumonia CNN", "image",
-                        List.of("NORMAL", "PNEUMONIA"),
-                        List.of(), List.of(), FALLBACK_REQUIREMENTS)
-        );
-    }
 }
