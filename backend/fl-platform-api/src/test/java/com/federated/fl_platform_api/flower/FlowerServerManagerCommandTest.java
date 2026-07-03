@@ -53,4 +53,51 @@ class FlowerServerManagerCommandTest {
         assertTrue(cmd.contains("--task-type"));
         assertEquals("CAUSAL_LM", cmd.get(cmd.indexOf("--task-type") + 1));
     }
+
+    // --- SE-10: allowlist attacker-influenceable project fields before they reach the fl_server
+    // argv. ProcessBuilder(List) never invokes a shell, so the real risks are option injection (a
+    // value starting with '-' misread as a flag by fl_server.py's argparse) and path traversal via
+    // --model-path / --model-name feeding the server-side model load. Fail closed: refuse to build
+    // the command rather than spawn with a poisoned argument.
+
+    @Test
+    void modelNameStartingWithDash_isRejected() {
+        Project p = project("LLM_LORA");
+        p.setModelName("--num-rounds");   // option-injection attempt
+        assertThrows(IllegalArgumentException.class, () ->
+                FlowerServerManager.buildServerCommand(p, "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false));
+    }
+
+    @Test
+    void modelPathWithTraversal_isRejected() {
+        Project p = project("CNN");
+        p.setModelPath("/tmp/../../etc/passwd");
+        assertThrows(IllegalArgumentException.class, () ->
+                FlowerServerManager.buildServerCommand(p, "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false));
+    }
+
+    @Test
+    void strategyWithMetacharacter_isRejected() {
+        Project p = project("CNN");
+        assertThrows(IllegalArgumentException.class, () ->
+                FlowerServerManager.buildServerCommand(p, "FedAvg;whoami", 5, 1, 50000, "/x/run_fl_server.sh", false));
+    }
+
+    @Test
+    void modelNameWithShellMetacharacter_isRejected() {
+        Project p = project("LLM_LORA");
+        p.setModelName("qwen$(whoami)");
+        assertThrows(IllegalArgumentException.class, () ->
+                FlowerServerManager.buildServerCommand(p, "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false));
+    }
+
+    @Test
+    void legitimateHuggingFaceModelName_isAccepted() {
+        // Guard against over-blocking: a real HF repo id carries '/', '.' and '-'.
+        Project p = project("LLM_LORA");
+        p.setModelName("Qwen/Qwen2.5-0.5B");
+        List<String> cmd = FlowerServerManager.buildServerCommand(
+                p, "FedLoRA", 5, 1, 50000, "/x/run_fl_server.sh", false);
+        assertEquals("Qwen/Qwen2.5-0.5B", cmd.get(cmd.indexOf("--model-name") + 1));
+    }
 }

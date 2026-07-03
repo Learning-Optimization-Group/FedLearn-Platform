@@ -203,11 +203,59 @@ public class FlowerServerManager {
         }
     }
 
+    // SE-10: identifier-like fields (strategy, model-type, task-type) — a bare token, no separators.
+    private static final java.util.regex.Pattern SAFE_TOKEN =
+            java.util.regex.Pattern.compile("[A-Za-z0-9_]+");
+    // SE-10: a model reference (local filename stem or a HuggingFace repo id such as
+    // "Qwen/Qwen2.5-0.5B") — alphanumeric start, then the limited set '/._-'. The leading-alnum
+    // anchor blocks option injection ('-x'); ".." is rejected separately to block path traversal.
+    private static final java.util.regex.Pattern SAFE_MODEL_REF =
+            java.util.regex.Pattern.compile("[A-Za-z0-9][A-Za-z0-9._/-]*");
+
+    /**
+     * Reject any attacker-influenceable field before it reaches the {@code fl_server} argv (SE-10).
+     * {@link ProcessBuilder} with a {@code List} never invokes a shell, so the concrete risks are
+     * option injection (a value beginning with {@code -} being read as an argparse flag) and path
+     * traversal via {@code --model-path}/{@code --model-name}. We fail closed — the message names the
+     * field but never echoes the rejected value, so a poisoned input can't inject into logs either.
+     */
+    private static void requireSafeToken(String field, String value) {
+        if (value == null || !SAFE_TOKEN.matcher(value).matches()) {
+            throw new IllegalArgumentException("Illegal " + field + " for FL-server spawn");
+        }
+    }
+
+    private static void requireSafeModelRef(String field, String value) {
+        if (value == null || value.isBlank() || value.contains("..")
+                || !SAFE_MODEL_REF.matcher(value).matches()) {
+            throw new IllegalArgumentException("Illegal " + field + " for FL-server spawn");
+        }
+    }
+
+    private static void requireSafePath(String field, String value) {
+        if (value == null || value.isBlank() || value.startsWith("-") || value.contains("..")
+                || value.chars().anyMatch(c -> c == '\0' || c == '\n' || c == '\r')) {
+            throw new IllegalArgumentException("Illegal " + field + " for FL-server spawn");
+        }
+    }
+
     /** Build the fl_server (or FoT) launch command. LLM_LORA carries --aggregation FFA_LORA. */
     static List<String> buildServerCommand(Project project, String strategy, Integer numRounds,
                                            Integer minClients, int freePort, String absoluteScriptPath,
                                            boolean isWindows) {
         boolean isFoT = "FoT".equalsIgnoreCase(strategy);
+        // SE-10: allowlist every project-derived string this branch will place on the argv. Ints
+        // (rounds/clients/port) and the server-generated UUID are type-safe and need no check.
+        requireSafeToken("strategy", strategy);
+        if (!isFoT) {
+            requireSafePath("model-path", project.getModelPath());
+            requireSafeModelRef("model-name", project.getModelName());
+            requireSafeToken("model-type", project.getModelType());
+            String taskType = project.getTaskType();
+            if (taskType != null && !taskType.isBlank()) {
+                requireSafeToken("task-type", taskType);
+            }
+        }
         List<String> command = new ArrayList<>();
         if (!isWindows) {
             command.add("bash");
