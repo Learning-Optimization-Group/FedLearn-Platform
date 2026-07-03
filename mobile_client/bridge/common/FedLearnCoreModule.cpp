@@ -2,6 +2,7 @@
 
 #include <sys/stat.h>
 
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -13,6 +14,7 @@
 
 #include "DeviceState.h"
 #include "fedlearn/DataLoader.h"
+#include "fedlearn/Sha256.h"
 
 namespace fedlearn::bridge {
 namespace {
@@ -42,6 +44,21 @@ std::string base64Decode(const std::string& in) {
     }
   }
   return out;
+}
+
+// Case-insensitive hex-digest compare without an early exit on the first differing byte (the XOR
+// accumulator runs the full length regardless of where a mismatch sits). Not load-bearing secrecy —
+// the expected digest arrives from the backend, not a key — but it costs nothing to avoid handing a
+// tamperer a position oracle. Case-insensitive because Sha256::hexDigest is lowercase while the
+// backend's encoder is not contractually pinned to a case.
+bool hexDigestEquals(const std::string& a, const std::string& b) {
+  if (a.size() != b.size()) return false;
+  unsigned diff = 0;
+  for (size_t i = 0; i < a.size(); ++i) {
+    diff |= static_cast<unsigned>(std::tolower(static_cast<unsigned char>(a[i]))) ^
+            static_cast<unsigned>(std::tolower(static_cast<unsigned char>(b[i])));
+  }
+  return diff == 0;
 }
 
 // ---- struct -> jsi::Object converters (typed, field-by-field; NO hand-built JSON) ----
@@ -409,7 +426,8 @@ DeviceMetrics FedLearnCoreModule::doGetDeviceMetrics() {
 }
 
 std::string FedLearnCoreModule::doStageBundleFile(const std::string& filename,
-                                                  const std::string& base64Data) {
+                                                  const std::string& base64Data,
+                                                  const std::string& expectedSha256) {
   // basename only — strip any path components so a server-supplied name can't escape the bundle dir.
   std::string name = filename;
   const auto slash = name.find_last_of("/\\");
@@ -417,10 +435,21 @@ std::string FedLearnCoreModule::doStageBundleFile(const std::string& filename,
   if (name.empty() || name == "." || name == "..") {
     throw std::runtime_error("stageBundleFile: invalid filename");
   }
+  const std::string bytes = base64Decode(base64Data);
+  // Untrusted-input rule (MO-7): verify the DECODED bytes against the bundle's declared hash BEFORE
+  // anything touches disk — inputs.f32/targets.i64 are fed straight to training with no later check
+  // (unlike the .pte graphs, which loadModel re-verifies). A tampered file is never staged.
+  if (expectedSha256.empty()) {
+    throw std::runtime_error("stageBundleFile: no expected sha256 declared for " + name);
+  }
+  const std::string actual = Sha256::hexDigest(bytes);
+  if (!hexDigestEquals(actual, expectedSha256)) {
+    throw std::runtime_error("stageBundleFile: sha256 mismatch for " + name + " (expected " +
+                             expectedSha256 + ", got " + actual + ")");
+  }
   const std::string dir = dataDir_ + "/bundle";
   ::mkdir(dir.c_str(), 0700);  // idempotent; ignore EEXIST
   const std::string path = dir + "/" + name;
-  const std::string bytes = base64Decode(base64Data);
   std::ofstream f(path, std::ios::binary | std::ios::trunc);
   if (!f) throw std::runtime_error("stageBundleFile: cannot open " + path);
   f.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
@@ -532,10 +561,10 @@ jsi::Value FedLearnCoreModule::setTrainingDataFromFiles(jsi::Runtime& rt, jsi::S
 }
 
 jsi::Value FedLearnCoreModule::stageBundleFile(jsi::Runtime& rt, jsi::String filename,
-                                               jsi::String base64Data) {
-  std::string name = filename.utf8(rt), b64 = base64Data.utf8(rt);
+                                               jsi::String base64Data, jsi::String expectedSha256) {
+  std::string name = filename.utf8(rt), b64 = base64Data.utf8(rt), sha = expectedSha256.utf8(rt);
   return runOnWorker(
-      rt, [this, name, b64]() { return doStageBundleFile(name, b64); },
+      rt, [this, name, b64, sha]() { return doStageBundleFile(name, b64, sha); },
       [](jsi::Runtime& r, const std::string& p) { return jsi::String::createFromUtf8(r, p); });
 }
 

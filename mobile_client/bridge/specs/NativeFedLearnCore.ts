@@ -109,7 +109,10 @@ export interface Spec extends TurboModule {
   // Write a downloaded bundle file (base64) into app-private storage (dataDir/bundle) and return its
   // absolute local path — used by provisionTrainingBundle to stage the .pte graphs + on-device data
   // before loadModel / setTrainingDataFromFiles. filename is basename-sanitised; data stays on-device.
-  stageBundleFile(filename: string, base64Data: string): Promise<string>;
+  // expectedSha256 is the backend-declared hash of the file: the native side sha256-verifies the
+  // DECODED bytes and rejects on mismatch BEFORE anything is written, so a tampered/corrupted bundle
+  // file is never staged (MO-7 — covers inputs.f32/targets.i64, which loadModel never re-checks).
+  stageBundleFile(filename: string, base64Data: string, expectedSha256: string): Promise<string>;
 
   // ---- one round (the bridge runs ONE round per call; the RN layer loops + checks deadline) ----
   runDeComFLRound(runId: string, config: RoundConfig): Promise<RoundResult>;

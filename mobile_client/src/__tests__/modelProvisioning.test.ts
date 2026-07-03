@@ -34,10 +34,13 @@ describe('provisionTrainingBundle (P4 fetch + stage)', () => {
 
     const b = await provisionTrainingBundle('r1');
 
-    // Files were downloaded as arraybuffer and staged by name.
+    // Files were downloaded as arraybuffer and staged by name, each with ITS OWN declared sha256
+    // so the native layer can verify the decoded bytes before writing (MO-7).
     expect(mApi.get).toHaveBeenCalledWith('/api/runs/r1/files/loss.pte', { responseType: 'arraybuffer' });
-    expect(mCore.stageBundleFile).toHaveBeenCalledWith('loss.pte', 'AQIDBA==');
-    expect(mCore.stageBundleFile).toHaveBeenCalledWith('targets.i64', 'AQIDBA==');
+    expect(mCore.stageBundleFile).toHaveBeenCalledWith('loss.pte', 'AQIDBA==', 'losssha');
+    expect(mCore.stageBundleFile).toHaveBeenCalledWith('infer.pte', 'AQIDBA==', 'infersha');
+    expect(mCore.stageBundleFile).toHaveBeenCalledWith('inputs.f32', 'AQIDBA==', 'insha');
+    expect(mCore.stageBundleFile).toHaveBeenCalledWith('targets.i64', 'AQIDBA==', 'tgtsha');
     expect(mCore.stageBundleFile).toHaveBeenCalledTimes(4);
 
     // Bundle carries the staged local paths + the DTO's shas/shape/layout.
@@ -56,4 +59,41 @@ describe('provisionTrainingBundle (P4 fetch + stage)', () => {
     mApi.get.mockRejectedValue({ response: { status: 404 } });
     await expect(provisionTrainingBundle('r1')).rejects.toBeInstanceOf(ModelDeliveryUnavailableError);
   });
+
+  test('surfaces a native sha256-mismatch rejection as ModelDeliveryUnavailableError naming the file', async () => {
+    mApi.get.mockImplementation((url: string) => {
+      if (url === '/api/runs/r1/model-bundle') return Promise.resolve({ data: DTO });
+      return Promise.resolve({ data: new Uint8Array([1, 2, 3, 4]).buffer });
+    });
+    mCore.stageBundleFile.mockImplementation((name: string) =>
+      name === 'inputs.f32'
+        ? Promise.reject(new Error('stageBundleFile: sha256 mismatch for inputs.f32 (expected insha, got deadbeef)'))
+        : Promise.resolve('/data/app/files/bundle/' + name));
+
+    const p = provisionTrainingBundle('r1');
+    await expect(p).rejects.toBeInstanceOf(ModelDeliveryUnavailableError);
+    await expect(p).rejects.toThrow(/inputs\.f32.*sha256 mismatch/);
+  });
+
+  test.each(['lossSha256', 'inferSha256', 'inputsSha256', 'targetsSha256'] as const)(
+    'refuses to stage when the bundle omits %s (no unverified file reaches the native layer)',
+    async (missing) => {
+      const dto = { ...DTO, [missing]: '' };
+      mApi.get.mockImplementation((url: string) => {
+        if (url === '/api/runs/r1/model-bundle') return Promise.resolve({ data: dto });
+        return Promise.resolve({ data: new Uint8Array([1, 2, 3, 4]).buffer });
+      });
+      mCore.stageBundleFile.mockImplementation((name: string) =>
+        Promise.resolve('/data/app/files/bundle/' + name));
+
+      await expect(provisionTrainingBundle('r1')).rejects.toBeInstanceOf(ModelDeliveryUnavailableError);
+      // The file whose hash is missing must never have been handed to the native stager.
+      const fileForSha: Record<typeof missing, string> = {
+        lossSha256: 'loss.pte', inferSha256: 'infer.pte',
+        inputsSha256: 'inputs.f32', targetsSha256: 'targets.i64',
+      };
+      const staged = mCore.stageBundleFile.mock.calls.map((c: unknown[]) => c[0]);
+      expect(staged).not.toContain(fileForSha[missing]);
+    },
+  );
 });

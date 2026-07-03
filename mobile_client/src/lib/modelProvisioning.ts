@@ -1,7 +1,8 @@
 // On-device model + training-data provisioning for a run. Fetches the run's bundle from the backend
 // (GET /api/runs/{runId}/model-bundle), downloads each binary (the ExecuTorch loss/infer .pte graphs +
 // the on-device data partition), and stages them into app-private storage via the native TurboModule
-// (nativeCore.stageBundleFile). Returns the local paths training.ts feeds to loadModel /
+// (nativeCore.stageBundleFile), which sha256-verifies each file against the bundle's declared hash
+// before writing it (MO-7). Returns the local paths training.ts feeds to loadModel /
 // setTrainingDataFromFiles. Raw features/labels are read from these local files by the native core and
 // never leave the device.
 import { api } from './restClient';
@@ -41,16 +42,33 @@ export class ModelDeliveryUnavailableError extends Error {
   }
 }
 
-/** Download one bundle binary and stage it into app-private storage; returns its local path. */
-async function fetchAndStage(url: string, filename: string): Promise<string> {
+/**
+ * Download one bundle binary and stage it into app-private storage; returns its local path.
+ * expectedSha256 is the backend-declared hash: the native layer verifies the decoded bytes against it
+ * before writing, so a tampered/corrupted file is rejected at staging time (MO-7). A bundle that
+ * doesn't declare a hash for the file is refused outright — nothing unverifiable gets staged.
+ */
+async function fetchAndStage(url: string, filename: string, expectedSha256: string): Promise<string> {
+  if (!expectedSha256) {
+    throw new ModelDeliveryUnavailableError(
+      `The model bundle did not declare a sha256 for ${filename}; refusing to stage an unverifiable file.`,
+    );
+  }
   const res = await api.get(url, { responseType: 'arraybuffer' });
   const base64 = arrayBufferToBase64(res.data as ArrayBuffer);
-  return nativeCore.stageBundleFile(filename, base64);
+  try {
+    return await nativeCore.stageBundleFile(filename, base64, expectedSha256);
+  } catch (e: unknown) {
+    // Most commonly a sha256 mismatch (tampered/corrupted download); surface it as the delivery
+    // error the UI already knows how to present, keeping the native detail in the message.
+    throw new ModelDeliveryUnavailableError(`Could not stage ${filename}: ${readError(e)}`);
+  }
 }
 
 /**
- * Fetch + stage the model bundle and on-device training partition for a run. The native core sha256-
- * verifies loss.pte (loadModel) and infer.pte, so a corrupted download is rejected on load.
+ * Fetch + stage the model bundle and on-device training partition for a run. Every staged file
+ * (loss.pte, infer.pte, inputs.f32, targets.i64) is sha256-verified against the bundle's declared
+ * hashes at staging time; loadModel additionally re-verifies the two .pte graphs on load.
  */
 export async function provisionTrainingBundle(runId: string): Promise<ModelBundle> {
   let dto: ModelBundleDto;
@@ -66,10 +84,10 @@ export async function provisionTrainingBundle(runId: string): Promise<ModelBundl
   }
 
   const [lossPtePath, inferPtePath, inputsF32Path, targetsI64Path] = await Promise.all([
-    fetchAndStage(dto.lossPteUrl, 'loss.pte'),
-    fetchAndStage(dto.inferPteUrl, 'infer.pte'),
-    fetchAndStage(dto.inputsUrl, 'inputs.f32'),
-    fetchAndStage(dto.targetsUrl, 'targets.i64'),
+    fetchAndStage(dto.lossPteUrl, 'loss.pte', dto.lossSha256),
+    fetchAndStage(dto.inferPteUrl, 'infer.pte', dto.inferSha256),
+    fetchAndStage(dto.inputsUrl, 'inputs.f32', dto.inputsSha256),
+    fetchAndStage(dto.targetsUrl, 'targets.i64', dto.targetsSha256),
   ]);
 
   const manifest: ModelManifest = {
