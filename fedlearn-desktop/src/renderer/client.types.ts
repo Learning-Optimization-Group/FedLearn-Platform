@@ -21,4 +21,5 @@ export interface ProjectConnection {
   serverAddress: string;
   partitionId: number;
   status: string;
+  connectionToken?: string;
 }

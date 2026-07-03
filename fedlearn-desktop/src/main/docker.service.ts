@@ -34,6 +34,45 @@ export interface TrainingConfig {
   partitionId: string;
   modelType: string;
   datasetPath: string;
+  // Backend-minted FL connection token (from GET /client/projects/{id}/connection).
+  // Optional so the legacy no-auth flow still type-checks; required in practice once
+  // the FL server is fail-closed (app.fl.require-client-auth=true).
+  connectionToken?: string;
+}
+
+/**
+ * Container env for the docker client path. The framework client reads
+ * FEDLEARN_CONNECTION_TOKEN straight from its process environment (see
+ * fedlearn/security/client_interceptor.maybe_wrap_channel), so the FL connection
+ * token travels as a container env var rather than a CLI arg. Omitted entirely
+ * when absent, so a gate-off server still accepts the legacy no-token flow.
+ */
+export function buildContainerEnv(config: TrainingConfig): string[] {
+  const env = [
+    `PROJECT_ID=${config.projectId}`,
+    `SERVER_ADDRESS=${config.serverAddress}`,
+    `PARTITION_ID=${config.partitionId}`,
+    `MODEL_TYPE=${config.modelType}`,
+    `DATASET_PATH=/data`,
+  ];
+  if (config.connectionToken) {
+    env.push(`FEDLEARN_CONNECTION_TOKEN=${config.connectionToken}`);
+  }
+  return env;
+}
+
+/**
+ * Injects the FL connection token into a spawn env for the native client path.
+ * Same rationale as buildContainerEnv — the framework reads it from the env.
+ * Returns the base env unchanged when no token is set.
+ */
+export function withConnectionTokenEnv(
+  base: NodeJS.ProcessEnv,
+  config: TrainingConfig,
+): NodeJS.ProcessEnv {
+  return config.connectionToken
+    ? { ...base, FEDLEARN_CONNECTION_TOKEN: config.connectionToken }
+    : base;
 }
 
 // Full list of Jetson SoC device nodes required for GPU access inside containers.
@@ -268,7 +307,7 @@ export class DockerService {
     log.info(`[Native] cwd=${invocation.cwd}`);
 
     const child = spawn(invocation.command, args, {
-      env: invocation.env,
+      env: withConnectionTokenEnv(invocation.env, config),
       cwd: invocation.cwd,
     });
 
@@ -338,13 +377,7 @@ export class DockerService {
         throw new Error('MPS profile cannot run under Docker');
     }
 
-    const env = [
-      `PROJECT_ID=${config.projectId}`,
-      `SERVER_ADDRESS=${config.serverAddress}`,
-      `PARTITION_ID=${config.partitionId}`,
-      `MODEL_TYPE=${config.modelType}`,
-      `DATASET_PATH=/data`,
-    ];
+    const env = buildContainerEnv(config);
 
     log.info(`[Docker] Creating container: image=${DOCKER_IMAGE}, project=${config.projectId}`);
 

@@ -147,6 +147,13 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         };
       }
 
+      // Defense-in-depth: a JWT connection token is a bounded string. If it's
+      // missing/malformed, forward undefined — the client then sends no token and a
+      // fail-closed FL server rejects it (correct), while a gate-off server ignores it.
+      const connectionToken = validateStringInput(cfg.connectionToken, 8192)
+        ? cfg.connectionToken
+        : undefined;
+
       const validConfig: TrainingConfig = {
         hardwareProfile: cfg.hardwareProfile as HardwareProfile,
         projectId: cfg.projectId as string,
@@ -155,6 +162,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         modelType: cfg.modelType as string,
         // Use the canonical resolved path, not the raw string from the renderer.
         datasetPath: safeDatasetPath,
+        connectionToken,
       };
 
       log.info(`[IPC:docker:start-training] Starting training with profile=${validConfig.hardwareProfile}, project=${validConfig.projectId}, model=${validConfig.modelType}`);

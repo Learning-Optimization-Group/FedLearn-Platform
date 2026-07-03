@@ -116,6 +116,20 @@ function isValidStringInput(val: unknown, fieldName: string): boolean {
   return true;
 }
 
+// The FL connection token is an HMAC-JWT (three base64url segments joined by dots).
+// It's optional here — absent means the legacy no-auth flow — but when present it must
+// be a bounded token-charset string before we forward it to Main.
+function isValidConnectionToken(val: unknown): boolean {
+  if (val === undefined || val === null) {
+    return true;
+  }
+  if (typeof val !== 'string' || val.length === 0 || val.length > 8192) {
+    console.error('[Preload:Validation] Connection token missing or out of bounds');
+    return false;
+  }
+  return /^[A-Za-z0-9._-]+$/.test(val);
+}
+
 // ========== Secure API exposed to Renderer ==========
 
 export interface TrainingConfigInput {
@@ -125,6 +139,7 @@ export interface TrainingConfigInput {
   partitionId: string;
   modelType: string;
   datasetPath: string;
+  connectionToken?: string;
 }
 
 interface InferencePayloadInput {
@@ -183,6 +198,9 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
     if (!isValidDatasetPath(config.datasetPath)) {
       return { success: false, error: 'Invalid dataset path' };
     }
+    if (!isValidConnectionToken(config.connectionToken)) {
+      return { success: false, error: 'Invalid connection token' };
+    }
 
     return ipcRenderer.invoke('docker:start-training', {
       hardwareProfile: config.hardwareProfile,
@@ -191,6 +209,7 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
       partitionId: config.partitionId,
       modelType: config.modelType,
       datasetPath: config.datasetPath,
+      connectionToken: config.connectionToken,
     });
   },
 

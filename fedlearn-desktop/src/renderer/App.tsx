@@ -26,6 +26,7 @@ declare global {
         partitionId: string;
         modelType: string;
         datasetPath: string;
+        connectionToken?: string;
       }) => Promise<{ success: boolean; error?: string }>;
       stopTraining: () => Promise<{ success: boolean; error?: string }>;
       getDockerStatus: () => Promise<{ success: boolean; status?: string }>;
@@ -186,6 +187,7 @@ const App: React.FC = () => {
       partitionId: string;
       modelType: string;
       datasetPath: string;
+      connectionToken?: string;
     }) => {
       setLogs([]);
       setContainerStatus('pulling');

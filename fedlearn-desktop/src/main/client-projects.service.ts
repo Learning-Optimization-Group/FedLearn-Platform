@@ -31,6 +31,8 @@ export interface ProjectConnection {
   serverAddress: string;
   partitionId: number;
   status: string;
+  // Backend-minted FL connection token (ClientConnectionDto.connectionToken).
+  connectionToken?: string;
 }
 
 export class ClientProjectService {

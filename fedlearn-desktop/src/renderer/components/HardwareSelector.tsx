@@ -33,6 +33,7 @@ interface HardwareSelectorProps {
     partitionId: string;
     modelType: string;
     datasetPath: string;
+    connectionToken?: string;
   }) => void;
   onStop: () => void;
   isRunning: boolean;
@@ -204,6 +205,7 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
         partitionId: String(c.partitionId),
         modelType: c.modelType,
         datasetPath: datasetPath.trim(),
+        connectionToken: c.connectionToken,
       });
     } catch (err: unknown) {
       setValidationError(err instanceof Error ? err.message : 'Failed to start training.');
