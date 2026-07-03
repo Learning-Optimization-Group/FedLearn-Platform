@@ -178,6 +178,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             logging.info(f"=" * 60)
             return fedlearn_pb2.SubmitModelUpdateResponse(received=True)
 
+        except ValueError as e:
+            # A malformed / non-finite payload is rejected by the serializer — a client error, so it
+            # surfaces as INVALID_ARGUMENT (not the generic INTERNAL that hides the client's fault).
+            logging.info(f"[Server] Rejecting invalid model update from {client_id}: {e}")
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, f"invalid model update: {e}")
         except Exception as e:
             logging.error(f"RPC failed for client {client_id}", exc_info=True)
             context.abort(grpc.StatusCode.INTERNAL, "An internal server error occurred.")
@@ -246,6 +251,10 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
             return fedlearn_pb2.SubmitModelUpdateResponse(received=True)
 
+        except ValueError as e:
+            # Malformed / non-finite streamed payload -> client error -> INVALID_ARGUMENT.
+            logging.info(f"[Server] Rejecting invalid streamed model update from {client_id}: {e}")
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, f"invalid model update: {e}")
         except Exception as e:
             logging.error(f"RPC failed for client {client_id}", exc_info=True)
             context.abort(grpc.StatusCode.INTERNAL, "An internal server error occurred.")
