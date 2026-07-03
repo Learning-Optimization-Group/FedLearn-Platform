@@ -7,7 +7,7 @@ import tseslint from 'typescript-eslint';
 // ESLint v9 flat config for the Vite + React 19 + TypeScript dashboard.
 // Referenced by package.json `lint` ("eslint .") and gated in CI (.github/workflows/ci.yml).
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'coverage', 'vite.config.ts'] },
+  { ignores: ['dist', 'node_modules', 'coverage', 'vite.config.ts', 'vitest.config.ts'] },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
