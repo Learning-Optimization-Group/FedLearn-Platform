@@ -122,4 +122,43 @@ export interface Spec extends TurboModule {
   getDeviceMetrics(): Promise<DeviceMetrics>;
 }
 
-export default TurboModuleRegistry.getEnforcing<Spec>('NativeFedLearnCore');
+// The native C++ TurboModule is only registered on builds that actually compiled the FL core (Android
+// with LIBTORCH_DIR, or a future real iOS port — MO-14). getEnforcing() throws SYNCHRONOUSLY at module
+// load when the module is absent, which crashed the whole JS bundle at launch on the iOS scaffold. get()
+// returns null instead, so importing this module is always safe; availability is surfaced via
+// isNativeCoreAvailable() so the UI can disable training instead of crashing (MO-5).
+const nativeModule: Spec | null = TurboModuleRegistry.get<Spec>('NativeFedLearnCore');
+
+// Single, clear, actionable message rejected by every fallback method.
+export const NATIVE_CORE_UNAVAILABLE_MESSAGE = 'native FL core unavailable on this platform';
+
+// True only when the native FL core is registered for this platform/build. The app gates its training
+// entry point(s) on this (re-exported via src/lib/nativeCore.ts) rather than calling into the fallback.
+export function isNativeCoreAvailable(): boolean {
+  return nativeModule != null;
+}
+
+// Every fallback method REJECTS (never throws synchronously) so the `Promise<T>` contract holds and
+// existing `.catch(...)` callers (e.g. deviceClass.collectDeviceCapabilities) still degrade gracefully.
+// The rejection only happens when a method is actually invoked — importing this module never throws.
+function unavailable(): Promise<never> {
+  return Promise.reject(new Error(NATIVE_CORE_UNAVAILABLE_MESSAGE));
+}
+
+// Typed no-op core used when the native module is absent. Keeps the default-export type exactly `Spec`
+// so callers and tsc are unaffected; only actual training/gRPC calls fail (loudly, with the message).
+const fallbackCore: Spec = {
+  registerClient: unavailable,
+  getServerStatus: unavailable,
+  stop: unavailable,
+  setModelManifest: unavailable,
+  loadModel: unavailable,
+  setTrainingDataFromFiles: unavailable,
+  stageBundleFile: unavailable,
+  runDeComFLRound: unavailable,
+  runFedAvgRound: unavailable,
+  infer: unavailable,
+  getDeviceMetrics: unavailable,
+};
+
+export default nativeModule ?? fallbackCore;

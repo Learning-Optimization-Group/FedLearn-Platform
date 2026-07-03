@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Play, Square } from 'lucide-react-native';
 
 import { joinRun, type JoinedRun } from '../lib/runJoin';
-import nativeCore, { type RoundResult } from '../lib/nativeCore';
+import nativeCore, { isNativeCoreAvailable, type RoundResult } from '../lib/nativeCore';
 import { connectStomp, type StompHandle } from '../lib/stompClient';
 import { foregroundService } from '../lib/foregroundService';
 import { runTrainingLoop } from '../lib/training';
@@ -19,6 +19,9 @@ type Phase = 'idle' | 'joining' | 'ready' | 'error';
 
 export function TrainingScreen() {
   const { colors } = useThemeTokens();
+  // Whether the native C++ FL core is compiled into this build. Absent on the iOS scaffold (MO-14),
+  // where on-device training can't run — we render an explicit unavailable state instead (MO-5).
+  const nativeAvailable = isNativeCoreAvailable();
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [joined, setJoined] = useState<JoinedRun | null>(null);
@@ -131,6 +134,32 @@ export function TrainingScreen() {
       setTraining(false);
     }
   }, [joined]);
+
+  // Native core absent (iOS scaffold): disable the training entry point entirely and explain why,
+  // rather than letting Join/Start call into a native module that isn't there. All hooks above still
+  // run unconditionally, so this early return respects the Rules of Hooks.
+  if (!nativeAvailable) {
+    const heading =
+      Platform.OS === 'ios' ? 'iOS training preview unavailable' : 'On-device training unavailable';
+    return (
+      <ScrollView className="flex-1 bg-canvas">
+        <View className="px-4 pt-4 pb-2 flex-row items-center justify-between">
+          <Text className="text-h2 font-sans text-fg">Training</Text>
+          <StatusBadge label="Unavailable" variant="idle" />
+        </View>
+        <View className="mx-4 mt-2 p-4 rounded-card bg-surface-1 border border-hairline">
+          <Text className="text-body font-sans text-fg mb-1">{heading}</Text>
+          <Text className="text-caption text-fg-muted">
+            The native federated-learning core isn’t built into this app on
+            {Platform.OS === 'ios' ? ' iOS' : ' this platform'}, so on-device training is disabled here.
+            You can still browse projects and models. On-device training runs on Android; the native iOS
+            port is in progress (MO-14).
+          </Text>
+        </View>
+        <View className="h-8" />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView className="flex-1 bg-canvas">

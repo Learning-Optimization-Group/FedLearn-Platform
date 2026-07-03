@@ -7,6 +7,15 @@
 # build needs LIBTORCH_DIR/GENERATED_PROTO_DIR. Until the artifacts exist, the JS app still builds and
 # `import FedLearnCore` is simply absent (AppDelegate falls back via `#if canImport`).
 #
+# BUILD GUARD — DO NOT enable FEDLEARN_NATIVE_IOS in CI or default builds (MO-5). This podspec vendors a
+# cross-compiled *libtorch* (full LibTorch/JIT) xcframework, but the shared core (../shared) targets the
+# *ExecuTorch* runtime (the `.pte` weights-as-inputs graphs the bridge loads). libtorch and ExecuTorch
+# are DIFFERENT, incompatible runtimes, so this iOS wiring will not link/run as-is — it is a scaffold.
+# The real iOS port (swap the vendored framework for an ExecuTorch iOS runtime + reconcile the bridge)
+# is tracked in MO-14. Keep FEDLEARN_NATIVE_IOS strictly opt-in on a dev machine until then; on iOS the
+# JS app detects the missing TurboModule (bridge/specs/NativeFedLearnCore.ts → isNativeCoreAvailable())
+# and disables the on-device training entry point instead of crashing.
+#
 # VERIFY-BEFORE-BUILD: provide these absolute paths in the environment before `pod install`:
 #   FEDLEARN_LIBTORCH_XCFRAMEWORK   = /abs/libtorch.xcframework        (scripts/build_libtorch_arm64.sh, iOS slice)
 #   FEDLEARN_GRPC_XCFRAMEWORKS      = /abs/grpc.xcframework:/abs/...   (colon-separated; build_grpc_arm64.sh, iOS slice)
