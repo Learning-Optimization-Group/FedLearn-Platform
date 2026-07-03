@@ -70,6 +70,32 @@ def _internal_headers() -> dict:
     return {"X-Internal-Key": INTERNAL_API_KEY, "Content-Type": "application/json"}
 
 
+def _register_model_artifact(project_id: str, model_type: str, model_path: str) -> None:
+    """Register a run's final model as a versioned, content-addressed artifact (DA-2:
+    write-new-not-overwrite). Additive to the legacy projects.model_path write and non-fatal — a
+    registry outage must never abort a real federated run. Posts the model bytes as multipart
+    (X-Internal-Key only; requests sets the multipart Content-Type itself)."""
+    if not INTERNAL_API_KEY:
+        logging.warning("FEDLEARN_INTERNAL_API_KEY not set; skipping artifact registration.")
+        return
+    kind = "LORA_ADAPTER" if model_type == "LLM_LORA" else "FULL_CHECKPOINT"
+    url = f"{BACKEND_URL}/api/internal/projects/{project_id}/artifacts"
+    try:
+        with open(model_path, "rb") as fh:
+            resp = requests.post(
+                url,
+                files={"model": (os.path.basename(model_path), fh, "application/octet-stream")},
+                data={"kind": kind, "recipeKey": model_type},
+                headers={"X-Internal-Key": INTERNAL_API_KEY},
+                timeout=120,
+            )
+        resp.raise_for_status()
+        logging.info("Registered model artifact for project %s (kind=%s): %s",
+                     project_id, kind, resp.text)
+    except Exception as e:
+        logging.error("Failed to register model artifact (non-fatal): %s", e)
+
+
 if os.environ.get('AWS_HOST'):
     logging.info(f"[NETWORK] Cloud deployment detected. Clients should target AWS Elastic IP: {target_ip}")
 elif os.environ.get('SERVER_HOST'):
@@ -705,6 +731,10 @@ def main():
             logging.info(f"Final model weights successfully saved to: {save_path}")
         except Exception as e:
             logging.error(f"Failed to save final model to {save_path}. Reason: {e}", exc_info=True)
+
+        # DA-2: also register this run's final model as a versioned, content-addressed artifact
+        # (write-new-not-overwrite). Non-fatal; the legacy .npz write above is unchanged.
+        _register_model_artifact(args.project_id, args.model_type, save_path)
     else:
         logging.warning("--- No final model parameters to save. ---")
 
