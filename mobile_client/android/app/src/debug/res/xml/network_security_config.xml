@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DEBUG-ONLY overlay: same resource name as main/res/xml/network_security_config.xml, so it
+     replaces the TLS-only config in debug builds and never ships in a release APK/AAB.
+
+     Why cleartext here: the local demo runs the FL platform on a developer's machine on the
+     same LAN — Spring Boot REST on :8081 and plaintext gRPC on :50000-50010 — with no TLS
+     termination in front of it. The demo host is a private LAN IP entered at runtime in the
+     in-app Settings screen (persisted to device storage), so it cannot be enumerated in a
+     <domain-config> ahead of time; a debug-build-wide allowance is the only shape that covers
+     "whatever local plaintext host the developer points the app at".
+
+     The load-bearing invariant is release-side: main/res keeps
+     cleartextTrafficPermitted="false", so any HTTP/plaintext-gRPC attempt in a release build
+     is refused by the platform. -->
+<network-security-config>
+  <base-config cleartextTrafficPermitted="true">
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+  </base-config>
+</network-security-config>
