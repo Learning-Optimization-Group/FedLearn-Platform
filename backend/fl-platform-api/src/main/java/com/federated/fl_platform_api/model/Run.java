@@ -41,6 +41,14 @@ public class Run {
     @Column(name = "server_port")
     private Integer serverPort;
 
+    // BA-3: OS identity of the spawned FL-server child, recorded at spawn so a StartupReconciler can
+    // reap orphans after a backend crash. process_started_at guards against PID reuse.
+    @Column(name = "server_pid")
+    private Long serverPid;
+
+    @Column(name = "process_started_at")
+    private Instant processStartedAt;
+
     @Column(name = "grpc_ca_fingerprint", length = 128)
     private String grpcCaFingerprint;
 
@@ -85,6 +93,12 @@ public class Run {
     public void setServerHost(String serverHost) { this.serverHost = serverHost; }
     public Integer getServerPort() { return serverPort; }
     public void setServerPort(Integer serverPort) { this.serverPort = serverPort; }
+
+    public Long getServerPid() { return serverPid; }
+    public void setServerPid(Long serverPid) { this.serverPid = serverPid; }
+
+    public Instant getProcessStartedAt() { return processStartedAt; }
+    public void setProcessStartedAt(Instant processStartedAt) { this.processStartedAt = processStartedAt; }
     public String getGrpcCaFingerprint() { return grpcCaFingerprint; }
     public void setGrpcCaFingerprint(String grpcCaFingerprint) { this.grpcCaFingerprint = grpcCaFingerprint; }
     public Long getSeed() { return seed; }

@@ -76,6 +76,10 @@ class FlowerServerManagerIntegrationTest {
         manager = new FlowerServerManager();
         ReflectionTestUtils.setField(manager, "logBroadcaster", ws);
         ReflectionTestUtils.setField(manager, "runTokenRegistry", runTokenRegistry);
+        // BA-3: the stub project carries no active run, so recordProcessIdentity short-circuits — but
+        // wire a mock repo so the field is never null if that changes.
+        ReflectionTestUtils.setField(manager, "runRepository",
+                mock(com.federated.fl_platform_api.repository.RunRepository.class));
         ReflectionTestUtils.setField(manager, "portRangeStart", RANGE_START);
         ReflectionTestUtils.setField(manager, "portRangeEnd", RANGE_END);
         // Short probe window so a healthy start returns quickly; still long enough for the stub to

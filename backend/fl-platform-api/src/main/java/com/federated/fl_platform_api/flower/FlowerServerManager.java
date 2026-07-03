@@ -75,6 +75,11 @@ public class FlowerServerManager {
     @Autowired
     private com.federated.fl_platform_api.security.RunTokenRegistry runTokenRegistry;
 
+    // BA-3: used to record the spawned child's PID + start-instant on the active Run so orphans can be
+    // reconciled after a backend crash.
+    @Autowired
+    private com.federated.fl_platform_api.repository.RunRepository runRepository;
+
     private final Map<UUID, Process> runningServers = new ConcurrentHashMap<>();
 
     // Ports that have been picked by findFreePort() but whose Python child
@@ -146,6 +151,7 @@ public class FlowerServerManager {
 
             process = pb.start();
             runningServers.put(project.getId(), process);
+            recordProcessIdentity(project.getActiveRunId(), process, freePort);
 
             final StringBuilder startupOutput = new StringBuilder();
             final boolean[] errorOccurred = {false};
@@ -351,6 +357,34 @@ public class FlowerServerManager {
         }
         // The FL server verifies with FEDLEARN_FL_TOKEN_SECRET and never needs the web-auth secret.
         env.remove("APP_JWT_SECRET");
+    }
+
+    /**
+     * BA-3: record the spawned child's OS identity (PID + start instant) and reserved port on the
+     * active {@link com.federated.fl_platform_api.model.Run}, so a startup reconciler can later tell a
+     * still-live FL server from a dead — or PID-reused — one after a backend restart. The start
+     * instant is the anti-PID-reuse guard: a recycled PID belonging to an unrelated process will not
+     * share it.
+     *
+     * <p>Best-effort and self-contained: a {@code null} run (e.g. a bare-manager test with no bound
+     * run) or a since-deleted run is a no-op, and a persistence hiccup is logged rather than allowed
+     * to fail an otherwise-healthy spawn.
+     */
+    void recordProcessIdentity(UUID runId, Process process, int port) {
+        if (runId == null) {
+            return;
+        }
+        try {
+            runRepository.findById(runId).ifPresent(run -> {
+                run.setServerPid(process.pid());
+                run.setProcessStartedAt(process.info().startInstant().orElse(null));
+                run.setServerPort(port);
+                runRepository.save(run);
+            });
+        } catch (RuntimeException e) {
+            log.warn("Could not persist FL-server process identity (pid={}, port={}) to run {}: {}",
+                    process.pid(), port, runId, e.toString());
+        }
     }
 
     public boolean stopServerForProject(UUID projectId) {
