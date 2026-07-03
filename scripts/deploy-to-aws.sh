@@ -39,6 +39,10 @@ SCRIPTS_SRC="$BACKEND_DIR/src/main/resources/scripts"
 FRAMEWORK_SRC="$REPO_ROOT/framework"
 REQUIREMENTS_SRC="$REPO_ROOT/framework/requirements.txt"
 BOOTSTRAP_SCRIPT="$REPO_ROOT/scripts/ec2-bootstrap.sh"
+NGINX_CONF_SRC="$REPO_ROOT/deploy/nginx/fedlearn.conf"
+# Public domain the demo is served on — only used for the post-deploy hints
+# here; ec2-bootstrap.sh reads the same variable when provisioning HTTPS.
+FEDLEARN_DOMAIN="${FEDLEARN_DOMAIN:-fedlearn.duckdns.org}"
 
 # ── Parse CLI flags ───────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -135,14 +139,18 @@ if [[ -z "$JAR_PATH" ]]; then
 fi
 echo "      JAR: $JAR_PATH"
 
-# ── Step 2: Upload Python requirements ────────────────────────────────────────
+# ── Step 2: Upload Python requirements + nginx template ──────────────────────
 # Must happen BEFORE bootstrap so ec2-bootstrap.sh's pip-install step finds
 # requirements.txt on first run. (Previously, bootstrap warned + skipped, then
-# requirements landed too late and were never installed.)
+# requirements landed too late and were never installed.) Same ordering for the
+# nginx TLS template: bootstrap's HTTPS step renders it into
+# /etc/nginx/sites-available once certbot has a certificate.
 echo ""
-echo "[2/5] Uploading Python requirements..."
+echo "[2/5] Uploading Python requirements + nginx template..."
 scp_cmd "$REQUIREMENTS_SRC" "$EC2_TARGET:~/requirements.txt"
 echo "      ✓ requirements.txt uploaded"
+scp_cmd "$NGINX_CONF_SRC" "$EC2_TARGET:~/fedlearn-nginx.conf"
+echo "      ✓ nginx template uploaded (deploy/nginx/fedlearn.conf → ~/fedlearn-nginx.conf)"
 
 # ── Step 3 (optional): Bootstrap the EC2 instance ─────────────────────────────
 if [[ "$RUN_BOOTSTRAP" == true ]]; then
@@ -246,6 +254,8 @@ echo " Deploy complete! ✓"
 echo ""
 echo " Verify the backend is healthy:"
 echo "   curl http://$EC2_HOST:8081/actuator/health"
+echo "   # or, once bootstrap has provisioned HTTPS (nginx + certbot):"
+echo "   curl -I https://$FEDLEARN_DOMAIN/actuator/health"
 echo ""
 echo " Tail live logs:"
 echo "   ssh $SSH_OPTS $EC2_TARGET 'sudo journalctl -u fedlearn -f'"

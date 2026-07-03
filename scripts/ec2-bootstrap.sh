@@ -4,10 +4,20 @@
 # =============================================================================
 # Run this ONCE on a fresh Ubuntu 22.04 EC2 instance.
 # It installs all runtime dependencies and creates the app directory layout.
+# Safe to re-run: secrets, certificates, and keypairs are never clobbered.
 #
 # Usage:
 #   chmod +x ec2-bootstrap.sh
 #   ./ec2-bootstrap.sh
+#
+# Optional env overrides (all non-secret):
+#   FEDLEARN_DOMAIN             Public domain for HTTPS (default: fedlearn.duckdns.org)
+#   FEDLEARN_LETSENCRYPT_EMAIL  Contact email for Let's Encrypt expiry notices
+#                               (default: none — registers without an email)
+#   FEDLEARN_NGINX_TEMPLATE     Path to the nginx template uploaded by
+#                               deploy-to-aws.sh (default: ~/fedlearn-nginx.conf)
+#   FEDLEARN_GRPC_TLS=1         Enable TLS on the FL gRPC boundary at bootstrap
+#                               time (default: 0 — wired but OFF; see deploy/TLS.md)
 # =============================================================================
 set -euo pipefail
 
@@ -28,7 +38,7 @@ HOME_DIR=$(eval echo "~$ACTUAL_USER")
 APP_DIR="$HOME_DIR/app"
 SCRIPTS_DIR="$APP_DIR/scripts"
 
-echo "[1/7] Updating system packages..."
+echo "[1/9] Updating system packages..."
 apt-get update -qq
 
 apt-get install -y --no-install-recommends \
@@ -42,11 +52,13 @@ apt-get install -y --no-install-recommends \
   curl \
   unzip \
   htop \
+  nginx \
+  certbot \
   > /dev/null
 echo "      ✓ System packages installed"
 
 echo ""
-echo "[2/7] Installing CPU-only PyTorch (saves ~2GB vs CUDA build)..."
+echo "[2/9] Installing CPU-only PyTorch (saves ~2GB vs CUDA build)..."
 # Install CPU wheels explicitly BEFORE requirements.txt to prevent pip from
 # pulling down the enormous CUDA-enabled torch build.
 sudo -u "$ACTUAL_USER" pip3 install --break-system-packages \
@@ -57,7 +69,7 @@ sudo -u "$ACTUAL_USER" pip3 install --break-system-packages \
 echo "      ✓ PyTorch CPU wheels installed"
 
 echo ""
-echo "[3/7] Installing FedLearn Python dependencies (this may take a while)..."
+echo "[3/9] Installing FedLearn Python dependencies (this may take a while)..."
 if [[ -f "$HOME_DIR/requirements.txt" ]]; then
   sudo -u "$ACTUAL_USER" pip3 install --break-system-packages -r "$HOME_DIR/requirements.txt"
   echo "      ✓ Python dependencies installed"
@@ -67,7 +79,7 @@ else
 fi
 
 echo ""
-echo "[4/7] Creating app directory layout..."
+echo "[4/9] Creating app directory layout..."
 mkdir -p "$APP_DIR"
 mkdir -p "$SCRIPTS_DIR"
 mkdir -p "$APP_DIR/models"
@@ -77,7 +89,7 @@ chown -R "$ACTUAL_USER:$ACTUAL_USER" "$APP_DIR"
 echo "      ✓ Directory layout created at $APP_DIR"
 
 echo ""
-echo "[5/7] Provisioning backend secrets (idempotent)..."
+echo "[5/9] Provisioning backend secrets (idempotent)..."
 # Secrets live in a root-only EnvironmentFile, NOT inline in the systemd unit
 # (unit files are world-readable, so inline Environment= lines leak secrets to
 # every local user). Generated ONCE: re-running bootstrap never clobbers an
@@ -115,7 +127,155 @@ chmod 600 "$SECRETS_FILE"
 echo "      ✓ Secrets ready at $SECRETS_FILE (0600, $SECRETS_OWNER)"
 
 echo ""
-echo "[6/7] Creating systemd service for FedLearn backend..."
+echo "[6/9] Provisioning nginx + certbot HTTPS (idempotent)..."
+# TLS at the edge: nginx terminates HTTPS on :443 and proxies to Spring Boot on
+# 127.0.0.1:8081. Certificate issuance + renewal is automated with certbot in
+# WEBROOT mode (certbot never rewrites our server block — the committed
+# template in deploy/nginx/fedlearn.conf stays the single source of truth).
+# Re-running bootstrap never re-requests a certificate that already exists.
+#
+# Two-phase install, because the TLS server block references the Let's Encrypt
+# cert paths and `nginx -t` fails while they don't exist yet:
+#   Phase 1 (no cert): minimal HTTP-only config — ACME webroot + plain proxy —
+#            then `certbot certonly --webroot` for $DOMAIN.
+#   Phase 2 (cert present): render the committed TLS template (http→https
+#            redirect, HSTS, /ws-logs WebSocket upgrade) and reload.
+DOMAIN="${FEDLEARN_DOMAIN:-fedlearn.duckdns.org}"
+LE_EMAIL="${FEDLEARN_LETSENCRYPT_EMAIL:-}"   # optional, not a secret
+NGINX_TEMPLATE="${FEDLEARN_NGINX_TEMPLATE:-$HOME_DIR/fedlearn-nginx.conf}"
+LIVE_CERT="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
+ACME_WEBROOT="/var/www/certbot"
+SITE_AVAIL="/etc/nginx/sites-available/fedlearn.conf"
+SITE_ENABLED="/etc/nginx/sites-enabled/fedlearn.conf"
+
+if [[ ! -f "$NGINX_TEMPLATE" ]]; then
+  echo "      ⚠ WARNING: nginx template not found at $NGINX_TEMPLATE — skipping HTTPS setup."
+  echo "        deploy-to-aws.sh uploads it (from deploy/nginx/fedlearn.conf);"
+  echo "        SCP it manually or re-run bootstrap after the next deploy."
+else
+  mkdir -p "$ACME_WEBROOT"
+  rm -f /etc/nginx/sites-enabled/default
+
+  if [[ ! -f "$LIVE_CERT" ]]; then
+    echo "      No certificate for $DOMAIN yet — installing HTTP-only config for the ACME challenge..."
+    cat > "$SITE_AVAIL" <<HTTPCONF
+# Bootstrap (pre-certificate) config, written by ec2-bootstrap.sh. Replaced by
+# the TLS server block from deploy/nginx/fedlearn.conf once certbot has issued
+# a certificate for $DOMAIN.
+map \$http_upgrade \$connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $DOMAIN;
+    location /.well-known/acme-challenge/ { root $ACME_WEBROOT; }
+    client_max_body_size 2g;
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_set_header Host              \$host;
+        proxy_set_header X-Real-IP         \$remote_addr;
+        proxy_set_header X-Forwarded-For   \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 120s;
+    }
+    location /ws-logs {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade           \$http_upgrade;
+        proxy_set_header Connection        \$connection_upgrade;
+        proxy_set_header Host              \$host;
+        proxy_set_header X-Forwarded-For   \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+}
+HTTPCONF
+    ln -sf "$SITE_AVAIL" "$SITE_ENABLED"
+    nginx -t
+    systemctl enable --now nginx >/dev/null 2>&1
+    systemctl reload nginx
+
+    echo "      Requesting Let's Encrypt certificate for $DOMAIN (webroot)..."
+    EMAIL_ARGS=(--register-unsafely-without-email)
+    if [[ -n "$LE_EMAIL" ]]; then
+      EMAIL_ARGS=(-m "$LE_EMAIL" --no-eff-email)
+    fi
+    if certbot certonly --webroot -w "$ACME_WEBROOT" -d "$DOMAIN" \
+         --non-interactive --agree-tos --keep-until-expiring \
+         --deploy-hook "systemctl reload nginx" \
+         "${EMAIL_ARGS[@]}"; then
+      echo "      ✓ Certificate issued for $DOMAIN"
+    else
+      echo "      ⚠ WARNING: certbot issuance FAILED. DNS for $DOMAIN must point at this"
+      echo "        instance and :80 must be open in the security group. Staying HTTP-only;"
+      echo "        fix DNS/firewall and re-run bootstrap (it will pick up where it left off)."
+    fi
+  else
+    echo "      Certificate for $DOMAIN already exists — not re-requesting (no clobber)"
+  fi
+
+  if [[ -f "$LIVE_CERT" ]]; then
+    sed "s/__FEDLEARN_DOMAIN__/$DOMAIN/g" "$NGINX_TEMPLATE" > "$SITE_AVAIL"
+    ln -sf "$SITE_AVAIL" "$SITE_ENABLED"
+    nginx -t
+    systemctl enable --now nginx >/dev/null 2>&1
+    systemctl reload nginx
+    # Auto-renewal: the Ubuntu certbot package ships certbot.timer, which runs
+    # `certbot renew` twice daily; the --deploy-hook recorded at issuance
+    # reloads nginx after each renewal. Enable it explicitly rather than
+    # relying on packaging defaults.
+    systemctl enable --now certbot.timer >/dev/null 2>&1 || true
+    echo "      ✓ HTTPS live: https://$DOMAIN → 127.0.0.1:8081 (auto-renew via certbot.timer)"
+  fi
+fi
+
+echo ""
+echo "[7/9] Provisioning FL gRPC TLS material (idempotent; serving is OPT-IN)..."
+# The FL servers listen on ports 50000-50010 and BYPASS nginx entirely, so the
+# edge certificate does not cover them (audit #37: gRPC is plaintext over WAN).
+# SE-2 already wired a fail-closed TLS path into the framework + backend; here
+# we provision the cert material so enabling it is a one-line flip in the
+# systemd unit below. A long-lived self-signed keypair is used instead of the
+# Let's Encrypt cert because (a) the LE live dir is root-only while FL servers
+# run as $ACTUAL_USER, and (b) LE's 90-day rotation would silently break
+# clients that pin the cert. Clients trust it by pinning the PUBLIC cert as
+# their root CA (FEDLEARN_GRPC_ROOT_CERT). Full story: deploy/TLS.md.
+GRPC_TLS_DIR="${FEDLEARN_GRPC_TLS_DIR:-/etc/fedlearn/grpc}"
+GRPC_KEY="$GRPC_TLS_DIR/server.key"
+GRPC_CERT="$GRPC_TLS_DIR/server.crt"
+mkdir -p "$GRPC_TLS_DIR"
+if [[ ! -f "$GRPC_KEY" || ! -f "$GRPC_CERT" ]]; then
+  openssl req -x509 -newkey rsa:2048 -sha256 -days 825 -nodes \
+    -keyout "$GRPC_KEY" -out "$GRPC_CERT" \
+    -subj "/CN=$DOMAIN" \
+    -addext "subjectAltName=DNS:$DOMAIN" 2>/dev/null
+  echo "      ✓ Self-signed gRPC keypair generated at $GRPC_TLS_DIR (CN=$DOMAIN)"
+else
+  echo "      $GRPC_CERT already exists — keeping existing keypair (no clobber)"
+fi
+# The FL server child runs as $ACTUAL_USER (spawned by the backend), so it must
+# be able to read the private key; nobody else needs to.
+chown "$ACTUAL_USER:$ACTUAL_USER" "$GRPC_KEY" "$GRPC_CERT"
+chmod 600 "$GRPC_KEY"
+chmod 644 "$GRPC_CERT"
+
+# Default OFF: every current FL client connects plaintext and would be locked
+# out (the SE-2 policy fails closed). Bootstrap with FEDLEARN_GRPC_TLS=1 — or
+# uncomment the three Environment lines in the unit — once clients are set up
+# with FEDLEARN_GRPC_USE_TLS=1 + FEDLEARN_GRPC_ROOT_CERT=<copy of server.crt>.
+GRPC_TLS_PREFIX="# "
+if [[ "${FEDLEARN_GRPC_TLS:-0}" == "1" ]]; then
+  GRPC_TLS_PREFIX=""
+  echo "      FL gRPC TLS: ENABLED in the unit (FEDLEARN_GRPC_TLS=1)"
+else
+  echo "      FL gRPC TLS: wired but OFF (opt-in — see the unit file / deploy/TLS.md)"
+fi
+
+echo ""
+echo "[8/9] Creating systemd service for FedLearn backend..."
 # Create a systemd unit so the backend auto-restarts on crash/reboot
 cat > /etc/systemd/system/fedlearn.service <<EOF
 [Unit]
@@ -149,6 +309,22 @@ Environment="FEATURE_LOG_PERSISTENCE=false"
 Environment="FEATURE_ROUND_RESULTS=true"
 # Not a secret — set to your frontend origin(s) before starting:
 # Environment="CORS_ALLOWED_ORIGINS=http://localhost:5173"
+# Once HTTPS is live at the nginx edge, mark the auth cookie Secure:
+# Environment="APP_AUTH_COOKIE_SECURE=true"
+
+# ── FL gRPC TLS (SE-2 hooks; default OFF — opt-in) ───────────────────────────
+# The FL servers (ports 50000-50010) bypass nginx. With APP_FL_REQUIRE_TLS=true
+# the backend spawns them with FEDLEARN_GRPC_USE_TLS=1 + FEDLEARN_REQUIRE_TLS=1
+# (fail-closed: an FL server that cannot serve TLS refuses to start) and they
+# read the keypair below, provisioned by ec2-bootstrap.sh. OFF by default
+# because current FL clients dial plaintext (audit #37) and would be rejected.
+# To enable: uncomment these three lines (or re-bootstrap with
+# FEDLEARN_GRPC_TLS=1), daemon-reload + restart, and configure every client
+# with FEDLEARN_GRPC_USE_TLS=1 and FEDLEARN_GRPC_ROOT_CERT=<server.crt copy>.
+# Details + Tailscale alternative: deploy/TLS.md.
+${GRPC_TLS_PREFIX}Environment="APP_FL_REQUIRE_TLS=true"
+${GRPC_TLS_PREFIX}Environment="FEDLEARN_GRPC_SERVER_KEY=$GRPC_KEY"
+${GRPC_TLS_PREFIX}Environment="FEDLEARN_GRPC_SERVER_CERT=$GRPC_CERT"
 
 [Install]
 WantedBy=multi-user.target
@@ -160,7 +336,7 @@ echo "        Set CORS_ALLOWED_ORIGINS in /etc/systemd/system/fedlearn.service, 
 echo "        sudo systemctl daemon-reload && sudo systemctl enable fedlearn && sudo systemctl start fedlearn"
 
 echo ""
-echo "[7/7] Verifying Java version..."
+echo "[9/9] Verifying Java version..."
 java -version 2>&1 | head -1
 echo "      ✓ Java OK"
 
@@ -174,4 +350,14 @@ echo "   2. Secrets were generated into $SECRETS_FILE (0600, root-only) —"
 echo "      only CORS_ALLOWED_ORIGINS still needs setting in the unit file"
 echo "   3. sudo systemctl enable fedlearn && sudo systemctl start fedlearn"
 echo "   4. sudo journalctl -u fedlearn -f   (tail logs)"
+echo ""
+echo " TLS status:"
+if [[ -f "$LIVE_CERT" ]]; then
+  echo "   • HTTPS: live at https://$DOMAIN (auto-renewed by certbot.timer)"
+else
+  echo "   • HTTPS: NOT provisioned (cert issuance skipped/failed) — HTTP only."
+  echo "     Point DNS for $DOMAIN here, open :80/:443, re-run bootstrap."
+fi
+echo "   • FL gRPC: keypair ready at $GRPC_TLS_DIR; serving TLS is opt-in"
+echo "     (see the unit file + deploy/TLS.md)"
 echo "=============================================="
