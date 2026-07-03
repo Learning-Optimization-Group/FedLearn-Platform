@@ -103,6 +103,9 @@ class GrpcClient:
         self.heartbeat_active = False
         self.heartbeat_thread: Optional[threading.Thread] = None
         self.heartbeat_interval = 5
+        # FR-10: an interruptible wait so stop_heartbeat() can end the inter-beat delay immediately
+        # instead of the thread having to sleep out the full interval before noticing it should stop.
+        self._heartbeat_stop = threading.Event()
         self.current_status = "idle"
         self.current_step = 0
         self.total_steps = 0
@@ -273,10 +276,12 @@ class GrpcClient:
                 self.send_heartbeat()
             except Exception:
                 log.debug("[%s] Heartbeat loop exception", self.client_id, exc_info=True)
-            time.sleep(self.heartbeat_interval)
+            # Interruptible: returns immediately once stop_heartbeat() sets the event (FR-10).
+            self._heartbeat_stop.wait(self.heartbeat_interval)
 
     def start_heartbeat(self):
         if not self.heartbeat_active:
+            self._heartbeat_stop.clear()
             self.heartbeat_active = True
             self.heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
             self.heartbeat_thread.start()
@@ -284,6 +289,7 @@ class GrpcClient:
 
     def stop_heartbeat(self):
         self.heartbeat_active = False
+        self._heartbeat_stop.set()   # wake the loop out of its inter-beat wait at once
         if self.heartbeat_thread and self.heartbeat_thread.is_alive():
             self.heartbeat_thread.join(timeout=5)
             log.info("[%s] Heartbeat stopped", self.client_id)

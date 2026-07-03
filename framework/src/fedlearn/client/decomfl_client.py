@@ -152,8 +152,14 @@ class DeComFLClient(Client):
         K = len(seeds)  # Number of local steps
         P = len(seeds[0]) if K > 0 else 0  # Number of perturbations
         eta = float(config.get('learning_rate', 0.001))
+        # FR-10: μ is server-authoritative — apply the server's smoothing_param so the ZO estimate is
+        # of the SAME smoothed function the server reconstructs (keep our default if the server omits
+        # it). A mismatched μ makes the gradient scalars derivatives of a different function.
+        mu = config.get('smoothing_param')
+        if mu is not None:
+            self.zo_estimator.mu = float(mu)
 
-        log.debug("Starting local DeComFL training (K=%d, P=%d)", K, P)
+        log.debug("Starting local DeComFL training (K=%d, P=%d, mu=%s)", K, P, self.zo_estimator.mu)
 
         # Track total perturbation for in-place revert to avoid OOM
         total_perturbation = torch.zeros_like(self.x_current)

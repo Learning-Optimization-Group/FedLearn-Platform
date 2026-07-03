@@ -77,6 +77,20 @@ class _WholeSetLoader:
         return int(self.X.shape[0])
 
 
+def test_fit_applies_the_servers_smoothing_param_to_the_estimator():
+    # FR-10: μ (smoothing_param) is server-authoritative — the client must ZO-estimate with the μ the
+    # server sends in the DeComFL config, not its construction-time default. A mismatched μ makes the
+    # client's gradient scalars directional derivatives of a differently-smoothed function than the
+    # server reconstructs, degrading the aggregate (same invariant class as shared seeds and lr).
+    X, y = _toy_dataset()
+    client = DeComFLClient(model=LogReg(), train_loader=_WholeSetLoader(X, y), device="cpu")
+    assert client.zo_estimator.mu == 0.001                       # construction-time default
+
+    client.fit(None, {"seeds": [[11, 22]], "learning_rate": 0.01, "smoothing_param": 0.05})
+
+    assert client.zo_estimator.mu == 0.05                        # applied from the server config
+
+
 def _make_strategy(init_model: nn.Module, K: int, P: int, eta: float, seed: int = 7) -> DeComFL:
     init = OrderedDict((k, v.clone()) for k, v in init_model.state_dict().items())
     return DeComFL(
