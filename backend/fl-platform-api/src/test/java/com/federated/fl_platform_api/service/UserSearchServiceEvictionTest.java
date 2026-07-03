@@ -3,13 +3,16 @@ package com.federated.fl_platform_api.service;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
+import java.time.Instant;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Proves the rate-limit bucket map is bounded: stale (expired-window) buckets
- * are swept by {@link UserSearchService#evictStale(long)}, while buckets whose
- * window is the current minute survive. Pure unit test — no Spring context, no
- * dependencies — exercising the eviction seam directly.
+ * Proves the rate-limit bucket map is bounded: buckets whose rolling window has
+ * fully drained are swept by {@link UserSearchService#evictStale(Instant)},
+ * while a bucket with a live (recent) request survives. Pure unit test — no
+ * Spring context, no dependencies — exercising the eviction seam directly.
  */
 class UserSearchServiceEvictionTest {
 
@@ -21,43 +24,43 @@ class UserSearchServiceEvictionTest {
     }
 
     @Test
-    void evictStale_removesExpiredWindows_keepsCurrentWindow() {
+    void evictStale_removesDrainedWindows_keepsLiveWindow() {
         UserSearchService svc = new UserSearchService();
 
-        long nowMin = 1_000_000L;
-        // 5 stale buckets (windows in the past) ...
+        Instant now = Instant.parse("2026-07-03T12:00:00Z");
+        // 5 drained buckets: their only request has aged out of the window ...
         for (long i = 0; i < 5; i++) {
-            svc.seedBucket(i, nowMin - 1);
+            svc.seedBucket(i, now.minus(Duration.ofMinutes(2)));
         }
-        // ... and 1 current-window bucket that must survive.
-        svc.seedBucket(99L, nowMin);
+        // ... and 1 with a request inside the window that must survive.
+        svc.seedBucket(99L, now);
         assertThat(svc.bucketCount()).isEqualTo(6);
 
-        svc.evictStale(nowMin);
+        svc.evictStale(now);
 
         assertThat(svc.bucketCount())
-                .as("all stale windows swept; only the current-minute bucket remains")
+                .as("all drained windows swept; only the live bucket remains")
                 .isEqualTo(1);
     }
 
     @Test
-    void overCap_sweepDropsStaleBuckets() {
+    void overCap_sweepDropsDrainedBuckets() {
         UserSearchService svc = new UserSearchService();
         // Lower the cap so we can exercise the over-cap sweep cheaply.
         UserSearchService.MAX_BUCKETS = 3;
 
-        long nowMin = 2_000_000L;
-        // Seed 4 stale buckets (> cap of 3) with expired windows.
+        Instant now = Instant.parse("2026-07-03T12:00:00Z");
+        // Seed 4 drained buckets (> cap of 3) whose windows have all aged out.
         for (long i = 0; i < 4; i++) {
-            svc.seedBucket(i, nowMin - 2);
+            svc.seedBucket(i, now.minus(Duration.ofMinutes(5)));
         }
         assertThat(svc.bucketCount()).isGreaterThan(UserSearchService.MAX_BUCKETS);
 
         // The same sweep the over-cap branch runs in consumeToken.
-        svc.evictStale(nowMin);
+        svc.evictStale(now);
 
         assertThat(svc.bucketCount())
-                .as("once over cap, all expired-window buckets are evicted")
+                .as("once over cap, all drained buckets are evicted")
                 .isZero();
     }
 }

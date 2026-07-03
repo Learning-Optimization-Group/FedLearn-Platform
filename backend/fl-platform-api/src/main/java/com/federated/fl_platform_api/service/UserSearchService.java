@@ -8,8 +8,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -32,7 +36,23 @@ public class UserSearchService {
      */
     static int MAX_BUCKETS = 50_000;
 
-    private final ConcurrentHashMap<Long, RateState> buckets = new ConcurrentHashMap<>();
+    /** Rolling window of recent request timestamps per caller (oldest first). */
+    private final ConcurrentHashMap<Long, Deque<Instant>> buckets = new ConcurrentHashMap<>();
+
+    /** Length of the rolling rate-limit window. */
+    private static final Duration WINDOW = Duration.ofMinutes(1);
+
+    /** Injectable clock so a test can drive window expiry deterministically. */
+    private final Clock clock;
+
+    public UserSearchService() {
+        this.clock = Clock.systemUTC();
+    }
+
+    /** Test seam: construct with a controllable clock. */
+    UserSearchService(Clock clock) {
+        this.clock = clock;
+    }
 
     public List<UserSearchResultDto> search(String query) {
         Long callerId = authz.currentUser().getId();
@@ -53,33 +73,48 @@ public class UserSearchService {
     }
 
     private boolean consumeToken(Long callerId) {
-        long nowMin = Instant.now().getEpochSecond() / 60;
+        Instant now = clock.instant();
         // Opportunistic eviction: only when the map has grown past the cap do we
-        // pay for a sweep, dropping buckets whose rate-limit window has already
-        // expired (minute < now). Keeps the common path a single map lookup.
+        // pay for a sweep, dropping buckets whose window has fully drained. Keeps
+        // the common path a single map lookup.
         if (buckets.size() > MAX_BUCKETS) {
-            evictStale(nowMin);
+            evictStale(now);
         }
-        RateState s = buckets.computeIfAbsent(callerId, k -> new RateState(nowMin, 0));
-        synchronized (s) {
-            if (s.minute != nowMin) {
-                s.minute = nowMin;
-                s.count = 0;
-            }
-            if (s.count >= MAX_REQUESTS_PER_MINUTE) return false;
-            s.count++;
+        Deque<Instant> window = buckets.computeIfAbsent(callerId, k -> new ArrayDeque<>());
+        synchronized (window) {
+            pruneExpired(window, now);
+            if (window.size() >= MAX_REQUESTS_PER_MINUTE) return false;
+            window.addLast(now);
             return true;
         }
     }
 
     /**
-     * Removes buckets whose rate-limit window is older than {@code nowMin}. A
-     * stale bucket carries no live count for the current minute, so dropping it
-     * is safe — a returning caller simply gets a fresh bucket. Package-private
-     * for direct testing.
+     * Drops timestamps at or beyond the window edge relative to {@code now}.
+     * Requests are appended in time order, so expired entries are always at the
+     * head — a single forward scan suffices.
      */
-    void evictStale(long nowMin) {
-        buckets.entrySet().removeIf(e -> e.getValue().minute < nowMin);
+    private static void pruneExpired(Deque<Instant> window, Instant now) {
+        Instant cutoff = now.minus(WINDOW);
+        while (!window.isEmpty() && !window.peekFirst().isAfter(cutoff)) {
+            window.pollFirst();
+        }
+    }
+
+    /**
+     * Removes buckets whose rolling window has fully drained as of {@code now} —
+     * every retained timestamp has aged out. A returning caller simply gets a
+     * fresh window, so dropping an empty one is safe. Package-private for direct
+     * testing.
+     */
+    void evictStale(Instant now) {
+        buckets.entrySet().removeIf(e -> {
+            Deque<Instant> window = e.getValue();
+            synchronized (window) {
+                pruneExpired(window, now);
+                return window.isEmpty();
+            }
+        });
     }
 
     /** Test seam: current number of retained rate-limit buckets. */
@@ -87,14 +122,10 @@ public class UserSearchService {
         return buckets.size();
     }
 
-    /** Test seam: seed a bucket whose window is {@code minute}. */
-    void seedBucket(Long callerId, long minute) {
-        buckets.put(callerId, new RateState(minute, 0));
-    }
-
-    private static class RateState {
-        long minute;
-        int count;
-        RateState(long m, int c) { this.minute = m; this.count = c; }
+    /** Test seam: seed a bucket carrying a single request made at {@code timestamp}. */
+    void seedBucket(Long callerId, Instant timestamp) {
+        Deque<Instant> window = new ArrayDeque<>();
+        window.addLast(timestamp);
+        buckets.put(callerId, window);
     }
 }
