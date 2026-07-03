@@ -49,6 +49,10 @@ export function PlaygroundView() {
     const [stopped, setStopped] = useState(false);
     const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
     const streamingRef = useRef('');
+    // True once the STOMP subscription actually went live (onConnect fired), as
+    // opposed to the promise resolving via onStompError / onWebSocketError / timeout.
+    // Lets the finish step tell a real live preview apart from a dead stream.
+    const streamLiveRef = useRef(false);
     const chatEndRef = useRef<HTMLDivElement>(null);
 
     const [running, setRunning] = useState(false);
@@ -159,6 +163,7 @@ export function PlaygroundView() {
         setRunning(true);
         setError('');
         setStreamingText(''); streamingRef.current = '';
+        streamLiveRef.current = false;
         setStopped(false);
         const client = new StompClient({ brokerURL: WS_BROKER_URL, reconnectDelay: 5000 });
         const cleanup = () => { if (client.active) client.deactivate(); };
@@ -166,6 +171,7 @@ export function PlaygroundView() {
             const t = setTimeout(resolve, 8000);
             client.onConnect = () => {
                 clearTimeout(t);
+                streamLiveRef.current = true;
                 client.subscribe(`/topic/inference/${selected.projectId}`, (msg) => {
                     try {
                         const { token } = JSON.parse(msg.body);
@@ -182,7 +188,17 @@ export function PlaygroundView() {
             const res = await api.runGeneration(selected.projectId, {
                 prompt: userMsg, history, maxNewTokens, temperature,
             });
-            setMessages((m) => [...m, { role: 'assistant', content: streamingRef.current }]);
+            // The REST response carries the full, authoritative generation; the WS
+            // stream is only a live preview. If the subscription never went live
+            // (broker unreachable, STOMP error, or connect timeout) streamingRef stays
+            // empty and committing it would leave a blank bubble. Reconcile to the REST
+            // body, falling back to whatever streamed only when the REST body is empty.
+            // Exactly one bubble is committed (never stream + REST concatenated), so
+            // there is no duplicated content when both are present.
+            const restText = res.data.generatedText ?? '';
+            const streamed = streamLiveRef.current ? streamingRef.current : '';
+            const finalText = restText.length > 0 ? restText : streamed;
+            setMessages((m) => [...m, { role: 'assistant', content: finalText }]);
             setStreamingText('');
             if (res.data.finishReason === 'stopped') setStopped(true);
         } catch (e: unknown) {
