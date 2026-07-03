@@ -66,6 +66,9 @@ public class BootstrapRunner implements ApplicationRunner {
     private final PasswordEncoder encoder;
     private final Environment env;
 
+    @org.springframework.beans.factory.annotation.Value("${app.fl-server.grpc-host:localhost}")
+    private String grpcHost;
+
     public BootstrapRunner(BootstrapProps props,
                            UserRepository users,
                            OrganizationRepository orgs,
@@ -82,9 +85,36 @@ public class BootstrapRunner implements ApplicationRunner {
         this.env = env;
     }
 
+    /**
+     * OP-3: a deployed profile with a non-client-reachable grpc-host (localhost/127.0.0.1/0.0.0.0/::1)
+     * hands FL clients an address that resolves to their OWN machine, so they silently fail to connect
+     * to the FL server. Return a problem message in that case, else empty. Static + pure for testing.
+     */
+    static java.util.Optional<String> grpcHostMisconfig(java.util.Collection<String> activeProfiles,
+                                                         String grpcHost) {
+        boolean deployed = activeProfiles.contains("ec2demo") || activeProfiles.contains("production");
+        if (!deployed) {
+            return java.util.Optional.empty();
+        }
+        String h = grpcHost == null ? "" : grpcHost.trim().toLowerCase(java.util.Locale.ROOT);
+        if (h.isEmpty() || h.equals("localhost") || h.equals("127.0.0.1")
+                || h.equals("0.0.0.0") || h.equals("::1")) {
+            return java.util.Optional.of(
+                    "app.fl-server.grpc-host is '" + grpcHost + "' under deployed profile(s) "
+                    + activeProfiles + " — FL clients would dial their own machine and silently fail. "
+                    + "Set FL_SERVER_GRPC_HOST to the server's client-reachable address.");
+        }
+        return java.util.Optional.empty();
+    }
+
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        grpcHostMisconfig(java.util.Arrays.asList(env.getActiveProfiles()), grpcHost).ifPresent(msg -> {
+            LOG.error("[bootstrap] FATAL CONFIG: {}", msg);
+            throw new IllegalStateException(msg);   // OP-3: fail loud rather than silently mis-route clients
+        });
+
         if (props.adminEmail() == null || props.adminEmail().isBlank()) {
             LOG.info("[bootstrap] no admin email configured; skipping");
             return;
