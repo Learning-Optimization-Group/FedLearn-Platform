@@ -46,6 +46,11 @@ public class FlowerServerManager {
     @Value("${app.fl.require-client-auth:false}")
     private boolean requireClientAuth;
 
+    // SE-2: require the FL server to serve TLS (fail closed on plaintext). Default OFF — activating
+    // needs server certs provisioned; flipping it without them would refuse to start.
+    @Value("${app.fl.require-tls:false}")
+    private boolean requireTls;
+
     @Value("${python.script.fl-server.path:src/main/resources/scripts/run_fl_server.sh}")
     private String flServerWrapperPath;
 
@@ -124,7 +129,8 @@ public class FlowerServerManager {
 
             configureChildEnv(pb.environment(), internalApiKey, backendInternalUrl,
                     flTokenSecret, requireClientAuth,
-                    project.getActiveRunId() != null ? project.getActiveRunId().toString() : null);
+                    project.getActiveRunId() != null ? project.getActiveRunId().toString() : null,
+                    requireTls);
 
             log.debug("Starting FL server for project {} via script {}", project.getId(), absoluteScriptPath);
 
@@ -311,7 +317,8 @@ public class FlowerServerManager {
      * isolation). Package-private + static so it is unit-testable without spawning a process.
      */
     static void configureChildEnv(Map<String, String> env, String internalApiKey, String backendUrl,
-                                  String flTokenSecret, boolean requireClientAuth, String runId) {
+                                  String flTokenSecret, boolean requireClientAuth, String runId,
+                                  boolean requireTls) {
         env.put("FEDLEARN_INTERNAL_API_KEY", internalApiKey == null ? "" : internalApiKey);
         if (!isBlank(backendUrl)) {
             env.put("FEDLEARN_BACKEND_URL", backendUrl);
@@ -323,6 +330,12 @@ public class FlowerServerManager {
         // FR-7: bind the server to the run it serves, so a token minted for another run is rejected.
         if (!isBlank(runId)) {
             env.put("FEDLEARN_RUN_ID", runId);
+        }
+        // SE-2: when the deploy requires TLS, enable it AND fail closed on plaintext. The cert paths
+        // (FEDLEARN_GRPC_SERVER_KEY/CERT) are inherited from the backend process env.
+        if (requireTls) {
+            env.put("FEDLEARN_GRPC_USE_TLS", "1");
+            env.put("FEDLEARN_REQUIRE_TLS", "1");
         }
         // The FL server verifies with FEDLEARN_FL_TOKEN_SECRET and never needs the web-auth secret.
         env.remove("APP_JWT_SECRET");

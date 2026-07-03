@@ -12,6 +12,7 @@ from .strategy import FedAvgAggregator
 from .grpc_servicer import FederatedLearningServiceServicer
 from ..communication.generated import fedlearn_pb2_grpc
 from ..security.interceptor import interceptor_from_env
+from ..security.tls import check_server_tls_policy
 import logging
 import sys
 import os
@@ -116,8 +117,9 @@ def start_server(
         grpc_server
     )
 
-    # Bind address. Uses TLS when FEDLEARN_GRPC_USE_TLS=1.
-    use_tls = os.environ.get("FEDLEARN_GRPC_USE_TLS", "0") == "1"
+    # Bind address. Uses TLS when FEDLEARN_GRPC_USE_TLS=1. SE-2: fail closed rather than serve a
+    # deployed profile (FEDLEARN_REQUIRE_TLS=1) in plaintext, and require the certs when TLS is on.
+    use_tls = check_server_tls_policy()
     if use_tls:
         server_key_path = os.environ["FEDLEARN_GRPC_SERVER_KEY"]
         server_cert_path = os.environ["FEDLEARN_GRPC_SERVER_CERT"]
