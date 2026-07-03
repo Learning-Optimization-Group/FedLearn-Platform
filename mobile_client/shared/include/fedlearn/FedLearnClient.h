@@ -19,6 +19,7 @@
 
 #include "fedlearn/v2/fedlearn.grpc.pb.h"  // buf-generated; -I <gen/cpp>
 
+#include "fedlearn/AuthMetadata.h"
 #include "fedlearn/IFedLearnClient.h"
 #include "fedlearn/Types.h"
 
@@ -95,11 +96,18 @@ class FedLearnClient : public IFedLearnClient {
 
  private:
   std::shared_ptr<grpc::Channel> makeChannel() const;
+  // Attaches the FL connection token (if any) as x-connection-token metadata so a fail-closed
+  // server's ConnectionTokenInterceptor admits the call. No-op when connectionToken_ is empty.
+  void applyAuth(grpc::ClientContext& ctx) const;
   // The raw GetDeComFLConfig RPC (proto response); getDeComFLConfig() marshals it to core types.
   v2::GetDeComFLConfigResponse fetchDeComFLConfig(const std::string& runId,
                                                   const std::string& clientId);
 
   GrpcClientConfig cfg_;
+  // Backend-minted FL connection token, set once at registerClient and attached as
+  // x-connection-token metadata on every RPC. Written before the heartbeat thread starts
+  // (safe publication), so no lock is needed.
+  std::string connectionToken_;
   std::shared_ptr<grpc::Channel> trainingChannel_;
   std::shared_ptr<grpc::Channel> heartbeatChannel_;  // SEPARATE channel (dual-heartbeat invariant)
   std::unique_ptr<v2::FederatedLearningService::Stub> trainingStub_;

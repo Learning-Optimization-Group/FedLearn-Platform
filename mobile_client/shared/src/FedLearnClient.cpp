@@ -82,6 +82,15 @@ FedLearnClient::FedLearnClient(const GrpcClientConfig& cfg) : cfg_(cfg) {
 
 FedLearnClient::~FedLearnClient() { stopHeartbeat(); }
 
+// Attaches the connection-token auth metadata to a client context (no-op when unset).
+// Applied to every RPC's ClientContext so a fail-closed server's ConnectionTokenInterceptor
+// admits the call; harmless when the server is fail-open or the method is unprotected.
+void FedLearnClient::applyAuth(grpc::ClientContext& ctx) const {
+  for (const auto& kv : authMetadata(connectionToken_)) {
+    ctx.AddMetadata(kv.first, kv.second);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Unary control
 // ---------------------------------------------------------------------------
@@ -89,6 +98,13 @@ v2::RegisterClientResponse FedLearnClient::registerClient(const std::string& run
                                                           const std::string& clientId,
                                                           const std::string& enrollmentToken,
                                                           int protocolVersion) {
+  // The bridge passes the backend-minted JWT (EnrollmentDto.connectionToken) as enrollmentToken.
+  // Keep it in the enrollment_token proto field (server enrollment path) AND remember it for the
+  // x-connection-token auth metadata on every subsequent RPC. Written once here, before the
+  // heartbeat thread is spawned (startHeartbeat runs after registration), so it publishes safely
+  // to that thread without a lock.
+  connectionToken_ = enrollmentToken;
+
   v2::RegisterClientRequest req;
   req.set_client_id(clientId);
   req.set_run_id(runId);
@@ -97,6 +113,7 @@ v2::RegisterClientResponse FedLearnClient::registerClient(const std::string& run
 
   v2::RegisterClientResponse resp;
   grpc::ClientContext ctx;
+  applyAuth(ctx);
   grpc::Status s = trainingStub_->RegisterClient(&ctx, req, &resp);
   if (!s.ok()) throw std::runtime_error("RegisterClient failed: " + statusStr(s));
   return resp;
@@ -107,6 +124,7 @@ v2::GetServerStatusResponse FedLearnClient::getServerStatus(const std::string& r
   req.set_run_id(runId);
   v2::GetServerStatusResponse resp;
   grpc::ClientContext ctx;
+  applyAuth(ctx);
   grpc::Status s = trainingStub_->GetServerStatus(&ctx, req, &resp);
   if (!s.ok()) throw std::runtime_error("GetServerStatus failed: " + statusStr(s));
   return resp;
@@ -119,6 +137,7 @@ v2::GetDeComFLConfigResponse FedLearnClient::fetchDeComFLConfig(const std::strin
   req.set_run_id(runId);
   v2::GetDeComFLConfigResponse resp;
   grpc::ClientContext ctx;
+  applyAuth(ctx);
   grpc::Status s = trainingStub_->GetDeComFLConfig(&ctx, req, &resp);
   if (!s.ok()) throw std::runtime_error("GetDeComFLConfig failed: " + statusStr(s));
   return resp;
@@ -165,6 +184,7 @@ void FedLearnClient::submitGradientScalars(const std::string& runId, const std::
 
   v2::SubmitGradientScalarsResponse resp;
   grpc::ClientContext ctx;
+  applyAuth(ctx);
   grpc::Status s = trainingStub_->SubmitGradientScalars(&ctx, req, &resp);
   if (!s.ok()) throw std::runtime_error("SubmitGradientScalars failed: " + statusStr(s));
   // resp.bytes_received() ~ K*P*8 — the comm-cost number (dropped: interface returns void)
@@ -180,6 +200,7 @@ std::string FedLearnClient::getGlobalModelStream(const std::string& runId,
   req.set_run_id(runId);
 
   grpc::ClientContext ctx;
+  applyAuth(ctx);
   std::unique_ptr<grpc::ClientReader<v2::ModelChunk>> reader(
       trainingStub_->GetGlobalModelStream(&ctx, req));
 
@@ -227,6 +248,7 @@ v2::SubmitModelUpdateResponse FedLearnClient::submitModelUpdateStream(
 
   v2::SubmitModelUpdateResponse resp;
   grpc::ClientContext ctx;
+  applyAuth(ctx);
   std::unique_ptr<grpc::ClientWriter<v2::ModelUpdateChunk>> writer(
       trainingStub_->SubmitModelUpdateStream(&ctx, &resp));
 
@@ -257,6 +279,7 @@ v2::SubmitModelUpdateResponse FedLearnClient::submitModelUpdateStream(
 void FedLearnClient::reportClientMetrics(const v2::ReportClientMetricsRequest& metrics) {
   v2::ReportClientMetricsResponse resp;
   grpc::ClientContext ctx;
+  applyAuth(ctx);
   // Best-effort: telemetry must never break a training round, so the status is ignored.
   trainingStub_->ReportClientMetrics(&ctx, metrics, &resp);
 }
@@ -281,6 +304,7 @@ void FedLearnClient::startHeartbeat(const std::string& runId, const std::string&
 
       v2::HeartbeatResponse resp;
       grpc::ClientContext ctx;
+      applyAuth(ctx);
       // Bound the RPC to one interval so a dead/half-open TCP can't park the thread forever, and
       // publish the live context so stopHeartbeat() can TryCancel() it for a prompt exit.
       ctx.set_deadline(std::chrono::system_clock::now() +
