@@ -74,6 +74,20 @@ def test_register_with_valid_token_succeeds(authed_server):
         assert reg.status == pb.RegisterClientResponse.Status.ACCEPTED
 
 
+def test_register_with_forged_token_is_unauthenticated(authed_server):
+    # SE-13: a tampered token must be refused over the wire, not just in a unit test. Flip a char in
+    # the PAYLOAD (not the last sig char, whose low bits are base64 padding) so the signature over the
+    # tampered payload no longer matches — the real "attacker edited the claims" forgery.
+    header, payload, sig = _GOLDEN["token"].split(".")
+    tampered_payload = payload[:5] + ("A" if payload[5] != "A" else "B") + payload[6:]
+    forged = ".".join([header, tampered_payload, sig])
+    with grpc.insecure_channel(authed_server) as channel:
+        stub = pbg.FederatedLearningServiceStub(channel)
+        with pytest.raises(grpc.RpcError) as excinfo:
+            stub.RegisterClient(_register_request(), metadata=[(METADATA_KEY, forged)])
+        assert excinfo.value.code() == grpc.StatusCode.UNAUTHENTICATED
+
+
 def test_client_interceptor_and_server_interceptor_interoperate(authed_server):
     # Slice 3: the CLIENT interceptor attaches the token so no explicit per-call metadata is needed;
     # the server accepts it. Proves the two halves interoperate end to end.
