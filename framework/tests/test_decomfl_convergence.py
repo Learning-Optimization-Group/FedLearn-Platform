@@ -115,6 +115,52 @@ def _global_loss(strategy: DeComFL, X: torch.Tensor, y: torch.Tensor) -> float:
         return nn.CrossEntropyLoss()(model(X), y).item()
 
 
+def test_two_client_decomfl_converges_and_both_stay_in_sync():
+    # TE-1: the flagship is FEDERATED — prove the MULTI-client DeComFL path works, not just one client.
+    # Two clients hold DIFFERENT data partitions (a real average, not two identical gradients); across
+    # rounds the server's loss on the full set must fall, and after each round's rebuild BOTH clients'
+    # local x must equal the server's global x (the DeComFL state-equality invariant, across 2 peers).
+    # Fully seeded -> deterministic -> not flaky.
+    torch.manual_seed(0)
+    X, y = _toy_dataset(n=96)
+    X1, y1, X2, y2 = X[:48], y[:48], X[48:], y[48:]          # heterogeneous partitions
+    K, P, eta, rounds = 1, 10, 0.05, 40
+
+    init = LogReg()
+    strategy = DeComFL(
+        initial_parameters=OrderedDict((k, v.clone()) for k, v in init.state_dict().items()),
+        evaluate_fn=None, min_fit_clients=2, clients_per_round=2,
+        num_local_steps=K, num_perturbations=P, learning_rate=eta, smoothing_param=0.001, seed=7)
+    coord = FLCoordinator(strategy, min_clients_for_aggregation=2, clients_per_round=2)
+
+    global_sd = strategy._unflatten_params(strategy.global_params_flat, strategy.initial_parameters)
+    clients = {
+        "c1": DeComFLClient(model=LogReg(), train_loader=_WholeSetLoader(X1, y1), device="cpu"),
+        "c2": DeComFLClient(model=LogReg(), train_loader=_WholeSetLoader(X2, y2), device="cpu"),
+    }
+    for c in clients.values():
+        c.load_global_model(OrderedDict((k, v.clone()) for k, v in global_sd.items()))
+
+    loss_start = _global_loss(strategy, X, y)
+    for _ in range(rounds):
+        r = coord.current_round
+        seeds = strategy.get_or_create_seeds(r)              # shared seeds -> shared perturbation dirs
+        for cid, c in clients.items():
+            rebuild = strategy.get_rebuild_history(cid, r)
+            if rebuild:
+                c.rebuild_model(rebuild, eta)
+            assert torch.allclose(c.x_current.detach().cpu(),
+                                  strategy.global_params_flat.detach().cpu(), atol=1e-5), \
+                f"round {r} client {cid} desynced from the server global"
+        for cid, c in clients.items():
+            grads, n = c.fit(None, {"seeds": seeds, "learning_rate": eta})
+            coord.submit_decomfl_update(cid, grads, n, r)    # aggregates + advances after the 2nd submit
+    loss_end = _global_loss(strategy, X, y)
+
+    assert loss_end < loss_start * 0.9, \
+        f"2-client DeComFL did not converge: {loss_start:.4f} -> {loss_end:.4f}"
+
+
 def _run_rounds(strategy, coordinator, client, client_id, num_rounds, eta, X, y, assert_sync):
     """Drive the DeComFL round protocol in-process, mirroring what grpc_servicer + the coordinator do."""
     for _ in range(num_rounds):
