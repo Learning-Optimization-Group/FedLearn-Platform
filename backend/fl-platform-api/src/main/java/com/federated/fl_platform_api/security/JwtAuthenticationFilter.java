@@ -28,9 +28,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final CustomUserDetailsService customUserDetailsService;
 
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, CustomUserDetailsService customUserDetailsService) {
+    private final TokenRevocationService tokenRevocationService;
+
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
+                                   CustomUserDetailsService customUserDetailsService,
+                                   TokenRevocationService tokenRevocationService) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.customUserDetailsService = customUserDetailsService;
+        this.tokenRevocationService = tokenRevocationService;
     }
 
     @Override
@@ -66,7 +71,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
 
-                if (jwtTokenProvider.validateToken(jwt, userDetails)) {
+                if (jwtTokenProvider.validateToken(jwt, userDetails)
+                        && !tokenRevocationService.isRevoked(jwtTokenProvider.getJti(jwt))) {  // SE-8: honor logout
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities()
                     );

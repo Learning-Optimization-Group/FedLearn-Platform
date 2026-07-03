@@ -11,6 +11,7 @@ import com.federated.fl_platform_api.security.AuditingAuthenticationFailureHandl
 import com.federated.fl_platform_api.security.AuditingAuthenticationSuccessHandler;
 import com.federated.fl_platform_api.security.JwtTokenProvider;
 import com.federated.fl_platform_api.security.LoginRateLimiter;
+import com.federated.fl_platform_api.security.TokenRevocationService;
 import com.federated.fl_platform_api.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -46,6 +47,7 @@ public class AuthController {
     private final AuditingAuthenticationSuccessHandler successHandler;
     private final AuditingAuthenticationFailureHandler failureHandler;
     private final LoginRateLimiter loginRateLimiter;
+    private final TokenRevocationService tokenRevocationService;
 
     @Value("${app.auth.cookie.secure:true}")
     private boolean cookieSecure;
@@ -53,15 +55,18 @@ public class AuthController {
     @Value("${app.auth.cookie.same-site:Strict}")
     private String cookieSameSite;
 
-    @Value("${app.auth.cookie.max-age-seconds:3600}")
-    private long cookieMaxAgeSeconds;
+    // SE-8: the auth cookie must not outlive the JWT (a valid-looking cookie past the JWT's exp yields
+    // silent 401s). Derive the cookie max-age from the JWT lifetime so the two can't drift.
+    @Value("${app.jwt.expiration-ms}")
+    private long jwtExpirationMs;
 
     @Autowired
     public AuthController(UserService userService, AuthenticationManager authenticationManager,
                           JwtTokenProvider tokenProvider, UserRepository userRepository,
                           AuditingAuthenticationSuccessHandler successHandler,
                           AuditingAuthenticationFailureHandler failureHandler,
-                          LoginRateLimiter loginRateLimiter) {
+                          LoginRateLimiter loginRateLimiter,
+                          TokenRevocationService tokenRevocationService) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.tokenProvider = tokenProvider;
@@ -69,6 +74,7 @@ public class AuthController {
         this.successHandler = successHandler;
         this.failureHandler = failureHandler;
         this.loginRateLimiter = loginRateLimiter;
+        this.tokenRevocationService = tokenRevocationService;
     }
 
     @PostMapping("/register")
@@ -149,7 +155,7 @@ public class AuthController {
                 .httpOnly(true)
                 .secure(cookieSecure)
                 .path("/")
-                .maxAge(cookieMaxAgeSeconds)
+                .maxAge(jwtExpirationMs / 1000)   // SE-8: cookie expires with the JWT
                 .sameSite(cookieSameSite)
                 .build();
 
@@ -205,7 +211,17 @@ public class AuthController {
      */
     @PostMapping("/logout")
     @Auditable(action = AuditAction.USER_LOGGED_OUT)
-    public ResponseEntity<Void> logout() {
+    public ResponseEntity<Void> logout(HttpServletRequest http) {
+        // SE-8: revoke the current token's jti so it stops working immediately. Clearing the cookie
+        // alone leaves the token itself valid until exp — a stolen copy would keep working.
+        String jwt = readJwtCookie(http);
+        if (jwt != null && !jwt.isEmpty()) {
+            try {
+                tokenRevocationService.revoke(tokenProvider.getJti(jwt), tokenProvider.getExpiration(jwt));
+            } catch (RuntimeException e) {
+                log.debug("logout: could not revoke token ({})", e.getClass().getSimpleName());
+            }
+        }
         ResponseCookie cleared = ResponseCookie.from("jwtToken", "")
                 .httpOnly(true)
                 .secure(cookieSecure)
@@ -216,5 +232,16 @@ public class AuthController {
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, cleared.toString())
                 .build();
+    }
+
+    private static String readJwtCookie(HttpServletRequest http) {
+        if (http.getCookies() != null) {
+            for (jakarta.servlet.http.Cookie c : http.getCookies()) {
+                if ("jwtToken".equals(c.getName())) {
+                    return c.getValue();
+                }
+            }
+        }
+        return null;
     }
 }

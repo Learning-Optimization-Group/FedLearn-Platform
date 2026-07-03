@@ -40,6 +40,7 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .subject(userPrincipal.getUsername())
+                .id(java.util.UUID.randomUUID().toString())   // SE-8: jti, so the token can be revoked on logout
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(jwtSecretKey)
@@ -48,6 +49,16 @@ public class JwtTokenProvider {
 
     public String getUsernameFromToken(String token) {
         return extractClaim(token, Claims::getSubject);
+    }
+
+    /** The token's jti (JWT ID), used for revocation (SE-8). */
+    public String getJti(String token) {
+        return extractClaim(token, Claims::getId);
+    }
+
+    /** The token's expiry as an Instant — bounds how long a revocation entry must be kept. */
+    public java.time.Instant getExpiration(String token) {
+        return extractExpiration(token).toInstant();
     }
 
 

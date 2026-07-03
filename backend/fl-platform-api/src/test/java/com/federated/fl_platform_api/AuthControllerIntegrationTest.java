@@ -83,6 +83,40 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void logout_revokesTheToken_soTheSameCookieStopsWorking() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        restTemplate.postForEntity("/api/auth/register",
+                new HttpEntity<>(registerPayload("revoker", "revoker@example.com", "Password1!"), headers),
+                Map.class);
+        ResponseEntity<Map<String, Object>> login = restTemplate.postForEntity("/api/auth/login",
+                new HttpEntity<>(Map.of("username", "revoker", "password", "Password1!"), headers),
+                (Class<Map<String, Object>>) (Class<?>) Map.class);
+        String cookie = login.getHeaders().getFirst(HttpHeaders.SET_COOKIE).split(";")[0];  // jwtToken=<value>
+
+        HttpHeaders authed = new HttpHeaders();
+        authed.add(HttpHeaders.COOKIE, cookie);
+
+        // The token works before logout.
+        ResponseEntity<Map<String, Object>> before = restTemplate.exchange("/api/auth/me",
+                org.springframework.http.HttpMethod.GET, new HttpEntity<>(authed),
+                (Class<Map<String, Object>>) (Class<?>) Map.class);
+        assertEquals(HttpStatus.OK, before.getStatusCode());
+
+        // Log out (revokes the token's jti).
+        ResponseEntity<Void> logout = restTemplate.exchange("/api/auth/logout",
+                org.springframework.http.HttpMethod.POST, new HttpEntity<>(authed), Void.class);
+        assertEquals(HttpStatus.NO_CONTENT, logout.getStatusCode());
+
+        // The SAME (unexpired) token is now rejected — clearing the cookie alone wouldn't do this.
+        ResponseEntity<Map<String, Object>> after = restTemplate.exchange("/api/auth/me",
+                org.springframework.http.HttpMethod.GET, new HttpEntity<>(authed),
+                (Class<Map<String, Object>>) (Class<?>) Map.class);
+        assertEquals(HttpStatus.UNAUTHORIZED, after.getStatusCode());
+    }
+
+    @Test
     void login_withWrongPassword_shouldReturn401() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
