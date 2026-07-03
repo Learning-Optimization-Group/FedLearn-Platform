@@ -177,7 +177,22 @@ class FLCoordinator:
         with self._lock:
             if self.stop_requested:
                 return None, -1, {}
-            return self._global_model_params, self.current_round, {}
+            return self._global_model_params, self.current_round, self._strategy_client_config()
+
+    def _strategy_client_config(self) -> dict:
+        """Per-round client-side hyperparameters the strategy wants delivered to clients.
+
+        This is the params-path analogue of DeComFL's GetDeComFLConfig (which ships lr + seeds):
+        a strategy that needs to push client-side knobs — e.g. FedProx's proximal ``mu`` — exposes
+        ``get_client_config()`` returning a str->str dict (the proto config is map<string,string>).
+        Strategies without it (FedAvg / DeComFL / FedLoRA) yield an empty config, preserving the
+        prior behaviour exactly. The result is read by the client trainer's fit(), mirroring how
+        ``learning_rate`` is plumbed.
+        """
+        get_cfg = getattr(self.strategy, "get_client_config", None)
+        if get_cfg is None:
+            return {}
+        return get_cfg()
 
     # Maximum allowed num_examples to prevent model poisoning via inflated dataset sizes
     MAX_NUM_EXAMPLES = 100_000

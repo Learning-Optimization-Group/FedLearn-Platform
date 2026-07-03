@@ -286,3 +286,208 @@ class FedLoRA(Strategy):
                     "FedLoRA requires homogeneous rank/config."
                 )
 
+
+class FedProx(Strategy):
+    """FedProx (Li et al. 2020, "Federated Optimization in Heterogeneous Networks",
+    https://arxiv.org/abs/1812.06127).
+
+    Server aggregation is IDENTICAL to FedAvg: the num-examples-weighted mean of the client
+    models (reuses FedAvgAggregator — no reimplementation). FedProx's entire difference from
+    FedAvg is CLIENT-SIDE: each client minimises its local objective plus a proximal penalty
+
+        min_w  F_i(w) + (mu/2) * || w - w_global ||^2
+
+    which keeps the local solution near the round's starting global model (mitigates client
+    drift under heterogeneity + partial work). Because that term lives in the client's loss,
+    `mu` never touches server aggregation — so ``mu = 0`` makes aggregation bitwise-identical
+    to FedAvg. ``mu`` is plumbed to clients via :meth:`get_client_config` -> config[
+    "proximal_mu"], read by :meth:`fedlearn.client.local_trainer.LocalTrainer.fit` exactly the
+    way DeComFLClient.fit reads config["learning_rate"].
+    """
+
+    def __init__(
+            self,
+            initial_parameters: OrderedDict[str, torch.Tensor],
+            evaluate_fn: Optional[Callable] = None,
+            min_fit_clients: int = 1,
+            clients_per_round: int = None,
+            proximal_mu: float = 0.0,
+            learning_rate: float = 0.01,
+            local_epochs: int = 1,
+    ):
+        self.initial_parameters = initial_parameters
+        self.evaluate_fn = evaluate_fn
+        self.min_fit_clients = min_fit_clients
+        self.clients_per_round = clients_per_round if clients_per_round is not None else min_fit_clients
+        # Client-side hyperparameters shipped via get_client_config (see class docstring).
+        self.mu = float(proximal_mu)
+        self.learning_rate = float(learning_rate)
+        self.local_epochs = int(local_epochs)
+        self.aggregator = FedAvgAggregator()
+
+    def initialize_parameters(self) -> Optional[OrderedDict[str, torch.Tensor]]:
+        return self.initial_parameters
+
+    def aggregate_fit(
+            self,
+            server_round: int,
+            results: list[Tuple[OrderedDict[str, torch.Tensor], int]],
+    ) -> Optional[OrderedDict[str, torch.Tensor]]:
+        if not results:
+            return None
+        # Pure FedAvg aggregation — mu is applied in the client objective, never here.
+        return self.aggregator.aggregate(results)
+
+    def get_client_config(self) -> dict:
+        """Per-round hyperparameters delivered to clients (proto config is map<string,string>).
+
+        Values are stringified so they can flow through the string-keyed/valued protobuf config
+        map unchanged; the client coerces them back (float(config["proximal_mu"])).
+        """
+        return {
+            "proximal_mu": str(self.mu),
+            "learning_rate": str(self.learning_rate),
+            "local_epochs": str(self.local_epochs),
+        }
+
+    def evaluate(
+            self, server_round: int, parameters: OrderedDict[str, torch.Tensor]
+    ) -> Optional[Tuple[float, dict]]:
+        if self.evaluate_fn is None:
+            return None
+        loss, metrics = self.evaluate_fn(server_round, parameters)
+        log.info("FedProx eval round=%d loss=%.4f metrics=%s", server_round, loss, metrics)
+        return loss, metrics
+
+
+class FedOpt(Strategy):
+    """Server-side adaptive federated optimisation — FedAdam / FedYogi
+    (Reddi et al. 2021, "Adaptive Federated Optimization", https://arxiv.org/abs/2003.00295).
+
+    Clients do ordinary local SGD (e.g. LocalTrainer with mu=0). The server aggregates the
+    returned client MODELS into ``x_bar`` with the usual num-examples-weighted mean
+    (FedAvgAggregator), forms a pseudo-gradient, and applies an Adam-style adaptive step while
+    persisting the moment state ``(m, v)`` ACROSS rounds.
+
+    Pseudo-gradient (FR-11 spec): ``g_t = w_global(old) - x_bar``. This is ``-Delta_t`` in the
+    paper (they define ``Delta_t = x_bar - w_global`` and ASCEND with +Delta); using ``g_t`` and
+    DESCENDING is algebraically identical. Per-coordinate update:
+
+        m_t = beta1 * m_{t-1} + (1 - beta1) * g_t
+        FedAdam:  v_t = beta2 * v_{t-1} + (1 - beta2) * g_t^2
+        FedYogi:  v_t = v_{t-1} - (1 - beta2) * sign(v_{t-1} - g_t^2) * g_t^2
+        w_global(new) = w_global(old) - eta * m_t / (sqrt(v_t) + tau)
+
+    ``eta`` is the SERVER learning rate; ``tau`` is the adaptivity/degeneracy constant. Moments
+    initialise to zero and accumulate, so a round's step depends on the whole history — a later
+    round's update differs from an earlier one on the same aggregated input.
+    """
+
+    def __init__(
+            self,
+            initial_parameters: OrderedDict[str, torch.Tensor],
+            evaluate_fn: Optional[Callable] = None,
+            min_fit_clients: int = 1,
+            clients_per_round: int = None,
+            server_learning_rate: float = 1.0,
+            beta1: float = 0.9,
+            beta2: float = 0.99,
+            tau: float = 1e-3,
+            variant: str = "adam",
+            learning_rate: float = 0.01,
+            local_epochs: int = 1,
+    ):
+        variant = str(variant).lower()
+        if variant not in ("adam", "yogi"):
+            raise ValueError(f"FedOpt variant must be 'adam' or 'yogi', got {variant!r}")
+
+        self.initial_parameters = initial_parameters
+        self.evaluate_fn = evaluate_fn
+        self.min_fit_clients = min_fit_clients
+        self.clients_per_round = clients_per_round if clients_per_round is not None else min_fit_clients
+
+        # Server optimiser hyperparameters.
+        self.eta = float(server_learning_rate)
+        self.beta1 = float(beta1)
+        self.beta2 = float(beta2)
+        self.tau = float(tau)
+        self.variant = variant
+
+        # Client-side SGD hyperparameters (FedOpt clients train plainly; proximal_mu=0).
+        self.learning_rate = float(learning_rate)
+        self.local_epochs = int(local_epochs)
+
+        self.aggregator = FedAvgAggregator()
+
+        # The server owns the authoritative global model; it needs the PREVIOUS value each round
+        # to form g_t = old - x_bar. Kept as float32 to match the aggregator's output dtype.
+        self._global = OrderedDict(
+            (k, v.detach().clone().to(torch.float32)) for k, v in initial_parameters.items()
+        )
+        # Persistent Adam moments (m, v), lazily allocated on the first aggregate_fit so their
+        # shapes/dtypes match the aggregated tensors exactly. None => "no round has run yet".
+        self._m: Optional[OrderedDict[str, torch.Tensor]] = None
+        self._v: Optional[OrderedDict[str, torch.Tensor]] = None
+
+        log.info(
+            "FedOpt initialised: variant=%s eta=%g beta1=%g beta2=%g tau=%g",
+            self.variant, self.eta, self.beta1, self.beta2, self.tau,
+        )
+
+    def initialize_parameters(self) -> Optional[OrderedDict[str, torch.Tensor]]:
+        return self.initial_parameters
+
+    def aggregate_fit(
+            self,
+            server_round: int,
+            results: list[Tuple[OrderedDict[str, torch.Tensor], int]],
+    ) -> Optional[OrderedDict[str, torch.Tensor]]:
+        if not results:
+            return None
+
+        # x_bar: num-examples-weighted mean of the client models (reuse FedAvg aggregation).
+        aggregated = self.aggregator.aggregate(results)
+
+        if self._m is None:
+            self._m = OrderedDict((k, torch.zeros_like(v)) for k, v in self._global.items())
+            self._v = OrderedDict((k, torch.zeros_like(v)) for k, v in self._global.items())
+
+        new_global = OrderedDict()
+        for key, old in self._global.items():
+            x_bar = aggregated[key].to(old.dtype)
+            g = old - x_bar                                    # pseudo-gradient (== -Delta_t)
+
+            m = self.beta1 * self._m[key] + (1.0 - self.beta1) * g
+            g2 = g * g
+            if self.variant == "adam":
+                v = self.beta2 * self._v[key] + (1.0 - self.beta2) * g2
+            else:  # yogi
+                v = self._v[key] - (1.0 - self.beta2) * torch.sign(self._v[key] - g2) * g2
+
+            new = old - self.eta * m / (torch.sqrt(v) + self.tau)
+
+            self._m[key] = m
+            self._v[key] = v
+            new_global[key] = new
+
+        self._global = new_global
+        # Return a copy so a downstream mutation of the served model can't corrupt server state.
+        return OrderedDict((k, v.clone()) for k, v in new_global.items())
+
+    def get_client_config(self) -> dict:
+        """Client-side SGD hyperparameters (proto config is map<string,string>)."""
+        return {
+            "learning_rate": str(self.learning_rate),
+            "local_epochs": str(self.local_epochs),
+            "proximal_mu": "0.0",
+        }
+
+    def evaluate(
+            self, server_round: int, parameters: OrderedDict[str, torch.Tensor]
+    ) -> Optional[Tuple[float, dict]]:
+        if self.evaluate_fn is None:
+            return None
+        loss, metrics = self.evaluate_fn(server_round, parameters)
+        log.info("FedOpt eval round=%d loss=%.4f metrics=%s", server_round, loss, metrics)
+        return loss, metrics
+
