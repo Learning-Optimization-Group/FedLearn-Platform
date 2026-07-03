@@ -63,6 +63,9 @@ class ProjectServiceTest {
     @Mock
     private RunService runService;
 
+    @Mock
+    private com.federated.fl_platform_api.service.ProjectStatusService projectStatusService;
+
     @InjectMocks
     private ProjectService projectService;
 
@@ -73,6 +76,15 @@ class ProjectServiceTest {
 
     @BeforeEach
     void setUp() {
+        // BA-4: project status is now derived. Mock the deriver as the identity on the project's
+        // stored status string so the existing status assertions still describe the same behavior;
+        // the real run->status derivation is covered by ProjectStatusServiceTest.
+        org.mockito.Mockito.lenient().when(projectStatusService.currentStatus(org.mockito.ArgumentMatchers.any()))
+            .thenAnswer(inv -> {
+                String s = ((Project) inv.getArgument(0)).getStatus();
+                return s == null ? com.federated.fl_platform_api.model.ProjectStatus.CREATED
+                                 : com.federated.fl_platform_api.model.ProjectStatus.valueOf(s);
+            });
         projectName = "My Test CNN Project";
         modelType = "CNN";
 

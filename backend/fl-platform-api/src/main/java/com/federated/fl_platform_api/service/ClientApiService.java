@@ -24,6 +24,7 @@ public class ClientApiService {
     @Autowired private ProjectRepository projectRepository;
     @Autowired private ProjectMembershipRepository membershipRepository;
     @Autowired private RunRepository runRepository;
+    @Autowired private ProjectStatusService projectStatusService;   // BA-4: derive status from the active run
     @Autowired private RunService runService;
     @Autowired private AuthorizationService authz;
     @Autowired private com.federated.fl_platform_api.security.OrgScope orgScope;
@@ -121,7 +122,7 @@ public class ClientApiService {
         dto.setModelType(project.getModelType());
         dto.setServerAddress(enrollment.getGrpcEndpoint());
         dto.setPartitionId(enrollment.getPartitionId());
-        dto.setStatus(project.getStatus());
+        dto.setStatus(projectStatusService.currentStatus(project).name());   // BA-4
         dto.setConnectionToken(enrollment.getConnectionToken());
         return dto;
     }
@@ -132,7 +133,7 @@ public class ClientApiService {
         d.setName(p.getName());
         d.setModelType(p.getModelType());
         d.setRecipeKey(p.getModelType());
-        d.setStatus(p.getStatus());
+        d.setStatus(projectStatusService.currentStatus(p).name());   // BA-4
         d.setVisibility(p.getVisibility() != null ? p.getVisibility().name() : null);
         d.setJoined(joined);
         if (p.getActiveRunId() != null) {

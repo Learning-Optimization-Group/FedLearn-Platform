@@ -7,6 +7,7 @@ import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.model.AccessRequestStatus;
 import com.federated.fl_platform_api.model.MembershipRole;
 import com.federated.fl_platform_api.model.PlatformRole;
+import com.federated.fl_platform_api.model.ProjectStatus;
 import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.OwnerPromotionRequestRepository;
 import com.federated.fl_platform_api.repository.ProjectAccessRequestRepository;
@@ -32,6 +33,7 @@ public class AdminService {
     @Autowired private OwnerPromotionRequestRepository ownerRequestRepository;
     @Autowired private ProjectDeletionRequestRepository deletionRequestRepository;
     @Autowired private ProjectAccessRequestRepository accessRequestRepository;
+    @Autowired private ProjectStatusService projectStatusService;   // BA-4: derive status from the active run
 
     public List<AdminUserDto> listUsers() {
         return userRepository.findAll().stream().map(this::toDto).collect(Collectors.toList());
@@ -70,7 +72,7 @@ public class AdminService {
             d.setModelName(p.getModelName());
             d.setServerPort(p.getServerPort());
             d.setOptimizer(p.getOptimizer());
-            d.setStatus(p.getStatus());
+            d.setStatus(projectStatusService.currentStatus(p).name());   // BA-4
             d.setVisibility(p.getVisibility() != null ? p.getVisibility().name() : null);
             d.setOwnerUsername(p.getUser() != null ? p.getUser().getUsername() : null);
             // Participants = MEMBER + CLIENT rows (exclude the internal OWNER_SELF
@@ -90,8 +92,10 @@ public class AdminService {
         o.setOwners(userRepository.countByPlatformRole(PlatformRole.PROJECT_OWNER));
         o.setAdmins(userRepository.countByPlatformRole(PlatformRole.PLATFORM_ADMIN));
         o.setTotalProjects(projectRepository.count());
+        // BA-4: derive from the active run so a project whose run FAILED is no longer over-counted
+        // as running (the old projects.status string stayed "RUNNING" after a failed run).
         o.setRunningProjects(projectRepository.findAll().stream()
-            .filter(p -> "RUNNING".equals(p.getStatus())).count());
+            .filter(p -> projectStatusService.currentStatus(p) == ProjectStatus.RUNNING).count());
         o.setPendingOwnerRequests(ownerRequestRepository.countByStatus(AccessRequestStatus.PENDING));
         o.setPendingDeletionRequests(deletionRequestRepository.countByStatus(AccessRequestStatus.PENDING));
         o.setPendingAccessRequests(accessRequestRepository.countByStatus(AccessRequestStatus.PENDING));

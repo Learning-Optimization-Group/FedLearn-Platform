@@ -48,6 +48,7 @@ class ProjectServiceExtendedTest {
     @Mock private com.federated.fl_platform_api.repository.ProjectMembershipRepository membershipRepository;
     @Mock private com.federated.fl_platform_api.security.OrgScope orgScope;
     @Mock private RunService runService;
+    @Mock private com.federated.fl_platform_api.service.ProjectStatusService projectStatusService;
 
     @InjectMocks
     private ProjectService projectService;
@@ -57,6 +58,14 @@ class ProjectServiceExtendedTest {
 
     @BeforeEach
     void setUp() {
+        // BA-4: mock the status deriver as the identity on the stored status string (see
+        // ProjectServiceTest); real run->status derivation is covered by ProjectStatusServiceTest.
+        org.mockito.Mockito.lenient().when(projectStatusService.currentStatus(org.mockito.ArgumentMatchers.any()))
+            .thenAnswer(inv -> {
+                String s = ((Project) inv.getArgument(0)).getStatus();
+                return s == null ? com.federated.fl_platform_api.model.ProjectStatus.CREATED
+                                 : com.federated.fl_platform_api.model.ProjectStatus.valueOf(s);
+            });
         testUser = new User();
         testUser.setId(1L);
         testUser.setUsername("testuser");

@@ -63,6 +63,8 @@ public class ProjectService {
     @Autowired
     private NotificationService notificationService;
     @Autowired
+    private ProjectStatusService projectStatusService;   // BA-4: derive status from the active run
+    @Autowired
     private OrganizationMembershipRepository orgMembershipRepository;
     @Autowired
     private com.federated.fl_platform_api.security.OrgScope orgScope;
@@ -117,7 +119,7 @@ public class ProjectService {
         dto.setModelName(project.getModelName());
         dto.setServerPort(project.getServerPort());
         dto.setOptimizer(project.getOptimizer());
-        dto.setStatus(project.getStatus());
+        dto.setStatus(projectStatusService.currentStatus(project).name());   // BA-4: derived from active run
         dto.setVisibility(project.getVisibility() != null ? project.getVisibility().name() : null);
 
         return dto;
@@ -487,7 +489,7 @@ public class ProjectService {
             trimmed.setId(project.getId());
             trimmed.setName(project.getName());
             trimmed.setModelType(project.getModelType());
-            trimmed.setStatus(project.getStatus());
+            trimmed.setStatus(projectStatusService.currentStatus(project).name());   // BA-4
             trimmed.setVisibility("PUBLIC");
             return trimmed;
         }
@@ -562,7 +564,7 @@ public class ProjectService {
             dto.setName(p.getName());
             dto.setModelType(p.getModelType());
             dto.setModelName(p.getModelName());
-            dto.setStatus(p.getStatus());
+            dto.setStatus(projectStatusService.currentStatus(p).name());   // BA-4
             dto.setInputKind(kind);
             dto.setClasses(classesFor(p.getModelType()));
             dto.setSupported(kind != null);

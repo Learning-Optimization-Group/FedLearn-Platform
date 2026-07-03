@@ -34,8 +34,22 @@ class ClientApiServiceTest {
     @Mock AuthorizationService authz;
     @Mock OrgScope orgScope;
     @Mock RequirementsService requirementsService;
+    @Mock com.federated.fl_platform_api.service.ProjectStatusService projectStatusService;
 
     @InjectMocks ClientApiService service;
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubDerivedStatus() {
+        // BA-4: project status is derived from the active run; mock the deriver as the identity on
+        // the stored status string so these DTO tests keep asserting the same values. Real
+        // run->status derivation is covered by ProjectStatusServiceTest.
+        org.mockito.Mockito.lenient().when(projectStatusService.currentStatus(org.mockito.ArgumentMatchers.any()))
+            .thenAnswer(inv -> {
+                String s = ((Project) inv.getArgument(0)).getStatus();
+                return s == null ? com.federated.fl_platform_api.model.ProjectStatus.CREATED
+                                 : com.federated.fl_platform_api.model.ProjectStatus.valueOf(s);
+            });
+    }
 
     private User user(long id) { User u = new User(); u.setId(id); return u; }
 
