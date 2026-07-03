@@ -1,6 +1,7 @@
 # FedLearn Mobile Client (v2)
 
-Native React Native + C++ (libtorch) federated-learning client. Built fresh per
+Native React Native + C++ (ExecuTorch on the shared core + Android; iOS libtorch
+xcframework build glue migration still pending) federated-learning client. Built fresh per
 [`docs/v2/build/15-LLD-mobile.md`](../docs/v2/build/15-LLD-mobile.md); see also the
 build order in [`docs/v2/build/90-BUILD-SEQUENCE.md`](../docs/v2/build/90-BUILD-SEQUENCE.md).
 
