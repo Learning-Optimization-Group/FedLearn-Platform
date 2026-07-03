@@ -4,7 +4,7 @@
 // Wired to existing AuthContext for user profile and logout. Plain-language
 // nav labels grouped under quiet uppercase section headers.
 
-import { LayoutDashboard, Settings, Boxes, Network, Database, LogOut, FlaskConical, Gauge } from 'lucide-react';
+import { LayoutDashboard, Settings, Boxes, Users, Database, LogOut, FlaskConical, Gauge } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
@@ -14,12 +14,14 @@ import { Wordmark } from '../brand';
 type NavItem = { icon: typeof LayoutDashboard; label: string; path: string; end?: boolean };
 type NavGroup = { heading: string; items: NavItem[] };
 
-// Project-management surfaces (Devices / Data) are owner+admin only — a plain
-// USER's sidebar shows Overview + the model surfaces it's allowed to use.
-const OWNER_ITEMS: NavItem[] = [
-    { icon: Network, label: 'Devices', path: '/nodes' },
-    { icon: Database, label: 'Data', path: '/datasets' },
-];
+// Data is a project-management surface — owner+admin. A plain USER's sidebar
+// shows Overview + the model surfaces it's allowed to use.
+const OWNER_DATA_ITEM: NavItem = { icon: Database, label: 'Data', path: '/datasets' };
+
+// /nodes is platform user-account management (not devices) backed by an
+// admin-only endpoint, so it belongs under Admin and never shows for owners
+// or plain users. See NodeNetwork.tsx.
+const ADMIN_USERS_ITEM: NavItem = { icon: Users, label: 'Users', path: '/nodes' };
 
 function navGroupsForRole(role: Role): NavGroup[] {
     const workspace: NavItem[] = [
@@ -28,15 +30,16 @@ function navGroupsForRole(role: Role): NavGroup[] {
         { icon: FlaskConical, label: 'Use a model', path: '/playground' },
     ];
     if (role === 'PROJECT_OWNER' || role === 'PLATFORM_ADMIN') {
-        // Devices sits next to Models; Data after.
-        workspace.splice(1, 0, OWNER_ITEMS[0]);
-        workspace.push(OWNER_ITEMS[1]);
+        workspace.push(OWNER_DATA_ITEM);
     }
     const groups: NavGroup[] = [{ heading: 'Workspace', items: workspace }];
     if (role === 'PLATFORM_ADMIN') {
         groups.push({
             heading: 'Admin',
-            items: [{ icon: Gauge, label: 'Benchmarks', path: '/admin/benchmarks' }],
+            items: [
+                ADMIN_USERS_ITEM,
+                { icon: Gauge, label: 'Benchmarks', path: '/admin/benchmarks' },
+            ],
         });
     }
     groups.push({ heading: 'Account', items: [{ icon: Settings, label: 'Settings', path: '/settings' }] });

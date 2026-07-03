@@ -81,12 +81,15 @@ function App() {
 
                         {/* Owner / admin only */}
                         <Route element={<RoleRoute allow={['PROJECT_OWNER', 'PLATFORM_ADMIN']} />}>
-                            <Route path="/nodes" element={<NodeNetwork />} />
                             <Route path="/datasets" element={<DatasetsView />} />
                         </Route>
 
-                        {/* Admin only */}
+                        {/* Admin only. /nodes is really platform user-account
+                            management backed by an admin-only endpoint, so an
+                            owner hitting it would only ever 403 — it lives here,
+                            not in the owner block. See NodeNetwork.tsx. */}
                         <Route element={<RoleRoute allow={['PLATFORM_ADMIN']} />}>
+                            <Route path="/nodes" element={<NodeNetwork />} />
                             <Route path="/admin/benchmarks" element={<BenchmarkDashboard />} />
                         </Route>
                     </Route>
