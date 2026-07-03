@@ -1,9 +1,11 @@
 package com.federated.fl_platform_api.service;
 
 import com.federated.fl_platform_api.model.MembershipRole;
+import com.federated.fl_platform_api.model.OrganizationMembership;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.ProjectMembership;
 import com.federated.fl_platform_api.model.User;
+import com.federated.fl_platform_api.repository.OrganizationMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.UserRepository;
 import com.federated.fl_platform_api.security.OrgScope;
@@ -15,8 +17,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Central authorization helpers. All project-scoped checks across the
@@ -28,6 +33,7 @@ public class AuthorizationService {
 
     @Autowired private UserRepository userRepository;
     @Autowired private ProjectMembershipRepository membershipRepository;
+    @Autowired private OrganizationMembershipRepository orgMembershipRepository;
     @Autowired private OrgScope orgScope;
 
     /**
@@ -114,6 +120,48 @@ public class AuthorizationService {
         if (m.isPresent() && (m.get().getRole() == MembershipRole.MEMBER
                            || m.get().getRole() == MembershipRole.CLIENT)) return;
         throw new AccessDeniedException("You do not have access to this project");
+    }
+
+    /**
+     * STOMP subscription gate for a project-scoped topic. Enforces the exact same
+     * rules as the REST read path ({@code ProjectService.getProject} /
+     * {@code resolveInferenceTarget}): a project outside the caller's visible orgs
+     * is denied first (cross-tenant isolation), then a non-participant is denied.
+     *
+     * <p>Runs on the STOMP inbound-channel thread, where there is no bound HTTP
+     * request — so it resolves org scope directly from
+     * {@code organization_memberships} instead of the request-scoped
+     * {@link OrgScope} bean (which is only populated by {@code OrgScopeFilter}
+     * during a servlet request). The participant check reuses
+     * {@link #requireParticipant(Project)}. The caller must have set the
+     * {@code SecurityContext} from the STOMP session principal before invoking.
+     */
+    public void requireSubscribable(Project project) {
+        requireOrgVisible(project);
+        requireParticipant(project);
+    }
+
+    /**
+     * Off-request-thread equivalent of the {@code orgScope.allows(orgId)} gate.
+     * Mirrors {@code OrgScopeFilter}: platform admins are unrestricted; a user
+     * with no org memberships falls back to the transitional bootstrap org so the
+     * single-org deployment keeps working, and multi-org isolation becomes real
+     * once memberships exist.
+     */
+    private void requireOrgVisible(Project project) {
+        if (isPlatformAdmin()) {
+            return;
+        }
+        User self = currentUser();
+        Set<UUID> visibleOrgIds = orgMembershipRepository.findByUserId(self.getId()).stream()
+                .map(OrganizationMembership::getOrgId)
+                .collect(Collectors.toCollection(HashSet::new));
+        if (visibleOrgIds.isEmpty()) {
+            visibleOrgIds.add(ProjectService.DEFAULT_ORG_ID);
+        }
+        if (!visibleOrgIds.contains(project.getOrgId())) {
+            throw new AccessDeniedException("Project is outside your organization scope");
+        }
     }
 
     /** True iff the caller holds the given {@code ROLE_*} authority. */
