@@ -37,6 +37,15 @@ public class FlowerServerManager {
     @Value("${app.backend.internal-url:}")
     private String backendInternalUrl;
 
+    // SE-1/SE-7: the FL connection-token verify secret handed to the spawned FL server, and whether
+    // it enforces client auth. Kept OFF by default — activating locks out clients whose launcher
+    // does not yet pass FEDLEARN_CONNECTION_TOKEN.
+    @Value("${app.fl.token-secret:}")
+    private String flTokenSecret;
+
+    @Value("${app.fl.require-client-auth:false}")
+    private boolean requireClientAuth;
+
     @Value("${python.script.fl-server.path:src/main/resources/scripts/run_fl_server.sh}")
     private String flServerWrapperPath;
 
@@ -113,11 +122,8 @@ public class FlowerServerManager {
 
             ProcessBuilder pb = new ProcessBuilder(command);
 
-            Map<String, String> env = pb.environment();
-            env.put("FEDLEARN_INTERNAL_API_KEY", internalApiKey == null ? "" : internalApiKey);
-            if (!isBlank(backendInternalUrl)) {
-                env.put("FEDLEARN_BACKEND_URL", backendInternalUrl);
-            }
+            configureChildEnv(pb.environment(), internalApiKey, backendInternalUrl,
+                    flTokenSecret, requireClientAuth);
 
             log.debug("Starting FL server for project {} via script {}", project.getId(), absoluteScriptPath);
 
@@ -294,6 +300,27 @@ public class FlowerServerManager {
             }
         }
         return command;
+    }
+
+    /**
+     * Populate the spawned FL server's child environment (SE-1/SE-7). Sets the internal-API key and
+     * backend URL (as before), hands the FL server the connection-token VERIFY secret and the
+     * enforcement toggle, and — crucially — SCRUBS the web-auth JWT secret from the child so a
+     * compromise of the network-facing FL server cannot forge web/admin sessions (trust-domain
+     * isolation). Package-private + static so it is unit-testable without spawning a process.
+     */
+    static void configureChildEnv(Map<String, String> env, String internalApiKey, String backendUrl,
+                                  String flTokenSecret, boolean requireClientAuth) {
+        env.put("FEDLEARN_INTERNAL_API_KEY", internalApiKey == null ? "" : internalApiKey);
+        if (!isBlank(backendUrl)) {
+            env.put("FEDLEARN_BACKEND_URL", backendUrl);
+        }
+        if (!isBlank(flTokenSecret)) {
+            env.put("FEDLEARN_FL_TOKEN_SECRET", flTokenSecret);
+        }
+        env.put("FEDLEARN_REQUIRE_CLIENT_AUTH", requireClientAuth ? "1" : "0");
+        // The FL server verifies with FEDLEARN_FL_TOKEN_SECRET and never needs the web-auth secret.
+        env.remove("APP_JWT_SECRET");
     }
 
     public boolean stopServerForProject(UUID projectId) {

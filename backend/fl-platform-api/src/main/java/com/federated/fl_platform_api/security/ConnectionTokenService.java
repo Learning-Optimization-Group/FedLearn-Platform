@@ -24,7 +24,9 @@ public class ConnectionTokenService {
 
     public static final String AUDIENCE = "fedlearn-fl-server";
 
-    @Value("${app.jwt.secret}")
+    // SE-7: signed with the dedicated FL secret (app.fl.token-secret), which defaults to app.jwt.secret
+    // but should be set distinctly in production so the FL trust domain is isolated from web auth.
+    @Value("${app.fl.token-secret}")
     private String secretString;
 
     @Value("${app.fl.connection-token.ttl-seconds:120}")
