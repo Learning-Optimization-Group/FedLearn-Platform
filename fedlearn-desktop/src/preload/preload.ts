@@ -277,14 +277,22 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   },
 
   /**
-   * Set the backend server URL. Persisted across app restarts.
-   * Users enter the URL (e.g. http://192.168.1.100:8081) and /api is appended automatically.
+   * Set the backend server URL. Persisted across app restarts; /api is appended
+   * automatically. Plaintext http:// to a non-loopback host is refused with
+   * code 'INSECURE_HTTP' unless opts.allowInsecureHttp is set — and even then
+   * the response carries a warning the caller must surface (credentials and the
+   * session token traverse the network unencrypted).
    */
-  setServerUrl: async (url: string): Promise<{ success: boolean; url?: string; error?: string }> => {
+  setServerUrl: async (
+    url: string,
+    opts?: { allowInsecureHttp?: boolean },
+  ): Promise<{ success: boolean; url?: string; error?: string; code?: string; warning?: string }> => {
     if (!isValidStringInput(url, 'serverUrl')) {
       return { success: false, error: 'Invalid server URL' };
     }
-    return ipcRenderer.invoke('auth:set-server-url', url);
+    // Forward only the known flag — never an arbitrary renderer object.
+    const forwarded = opts?.allowInsecureHttp === true ? { allowInsecureHttp: true } : undefined;
+    return ipcRenderer.invoke('auth:set-server-url', url, forwarded);
   },
 
   /**

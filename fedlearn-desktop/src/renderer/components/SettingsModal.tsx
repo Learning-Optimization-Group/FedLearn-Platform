@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, AlertTriangle, Check } from 'lucide-react';
 
-// Re-declare the window.fedLearnAPI interface locally for this component 
+// Re-declare the window.fedLearnAPI interface locally for this component
 // if it is not exported from App.tsx or available globally in this file's context.
 
 interface SettingsModalProps {
@@ -13,6 +13,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  // DE-13: remote plaintext http:// is refused by Main unless explicitly
+  // acknowledged; the acknowledgement only holds for the current URL.
+  const [insecureWarning, setInsecureWarning] = useState('');
+  const [allowInsecure, setAllowInsecure] = useState(false);
 
   useEffect(() => {
     // Fetch the current server URL on mount
@@ -29,18 +33,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     fetchUrl();
   }, []);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const save = async (overrideInsecure: boolean) => {
     setIsSaving(true);
     setError('');
     setSuccessMsg('');
 
     try {
-      const result = await window.fedLearnAPI.setServerUrl(serverUrl);
+      const result = await window.fedLearnAPI.setServerUrl(
+        serverUrl,
+        overrideInsecure ? { allowInsecureHttp: true } : undefined,
+      );
       if (result.success) {
+        // Accepted via override — keep the plaintext warning visible.
+        setInsecureWarning(result.warning ?? '');
         setSuccessMsg('Server URL updated successfully.');
         // Optionally close after a short delay
         setTimeout(() => onClose(), 1500);
+      } else if (result.code === 'INSECURE_HTTP') {
+        setInsecureWarning(result.error || 'This server uses unencrypted HTTP.');
       } else {
         setError(result.error || 'Failed to update server URL.');
       }
@@ -49,6 +59,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await save(allowInsecure);
+  };
+
+  const handleAllowInsecure = async () => {
+    setAllowInsecure(true);
+    await save(true);
   };
 
   return (
@@ -71,11 +91,33 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 className="form-input"
                 type="text"
                 value={serverUrl}
-                onChange={(e) => setServerUrl(e.target.value)}
-                placeholder="http://your-aws-alb-url.com:8081"
+                onChange={(e) => {
+                  setServerUrl(e.target.value);
+                  // A different URL needs a fresh transport decision.
+                  setAllowInsecure(false);
+                  setInsecureWarning('');
+                }}
+                placeholder="https://your-aws-alb-url.com:8081"
                 disabled={isSaving}
               />
             </div>
+
+            {insecureWarning && (
+              <div className="auth-warning" role="alert">
+                <span className="error-icon"><AlertTriangle strokeWidth={1.5} size={16} /></span>
+                <span>{insecureWarning}</span>
+                {!allowInsecure && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    onClick={handleAllowInsecure}
+                    disabled={isSaving}
+                  >
+                    Use HTTP anyway
+                  </button>
+                )}
+              </div>
+            )}
 
             {error && (
               <div className="auth-error" role="alert">

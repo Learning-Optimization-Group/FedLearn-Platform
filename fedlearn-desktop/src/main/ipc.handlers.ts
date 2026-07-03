@@ -11,6 +11,7 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import { DockerService, TrainingConfig, HardwareProfile } from './docker.service';
 import {
+  evaluateServerUrl,
   sanitizeDatasetPath,
   validateHardwareProfile,
   validateProjectId,
@@ -269,27 +270,32 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   // ===================== Server URL Channel =====================
 
-  ipcMain.handle('auth:set-server-url', async (_event, url: unknown) => {
+  ipcMain.handle('auth:set-server-url', async (_event, url: unknown, opts?: unknown) => {
     try {
-      if (typeof url !== 'string' || url.length === 0 || url.length > 512) {
-        log.error('[IPC:auth:set-server-url] Invalid URL input');
-        return { success: false, error: 'Invalid server URL' };
+      // DE-13: credentials + the session JWT flow to this URL, so plaintext
+      // http:// to a remote host is refused unless the user explicitly
+      // acknowledged the risk in the renderer (allowInsecureHttp).
+      const allowInsecureHttp =
+        !!opts &&
+        typeof opts === 'object' &&
+        (opts as Record<string, unknown>).allowInsecureHttp === true;
+
+      const evaluation = evaluateServerUrl(url, allowInsecureHttp);
+      if (!evaluation.ok) {
+        if (evaluation.code === 'INSECURE_HTTP') {
+          log.error('[IPC:auth:set-server-url] Refused remote plaintext http:// URL (no override)');
+          return { success: false, error: evaluation.error, code: evaluation.code };
+        }
+        log.error(`[IPC:auth:set-server-url] Rejected URL: ${evaluation.error}`);
+        return { success: false, error: evaluation.error };
       }
 
-      // Require http:// or https:// protocol
-      if (!/^https?:\/\//i.test(url.trim())) {
-        log.error('[IPC:auth:set-server-url] Rejected URL missing http(s):// protocol');
-        return { success: false, error: 'URL must start with http:// or https://' };
+      authService.setApiUrl(evaluation.url as string);
+      if (evaluation.warning) {
+        log.warn('[IPC:auth:set-server-url] Accepted remote plaintext http:// URL on explicit user override');
+        return { success: true, url: evaluation.url, warning: evaluation.warning };
       }
-
-      // Normalize: ensure it ends with /api
-      let normalized = url.trim().replace(/\/+$/, '');
-      if (!normalized.endsWith('/api')) {
-        normalized += '/api';
-      }
-
-      authService.setApiUrl(normalized);
-      return { success: true, url: normalized };
+      return { success: true, url: evaluation.url };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       log.error(`[IPC:auth:set-server-url] Failed: ${message}`);

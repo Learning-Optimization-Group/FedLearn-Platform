@@ -8,6 +8,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { Network, ChevronDown, ChevronRight, Check, AlertTriangle } from 'lucide-react';
+import { isPlaintextRemoteUrl } from '../../shared/urlSecurity';
 
 interface AuthModalProps {
   onLoginSuccess: () => void;
@@ -21,6 +22,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverSaved, setServerSaved] = useState(false);
+  // DE-13: remote plaintext http:// is refused by Main unless the user
+  // explicitly opts in. insecureWarning holds the refusal/override message;
+  // allowInsecure remembers the acknowledgement for the current URL only.
+  const [insecureWarning, setInsecureWarning] = useState('');
+  const [allowInsecure, setAllowInsecure] = useState(false);
 
   // Load saved server URL on mount
   useEffect(() => {
@@ -39,26 +45,54 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
     loadUrl();
   }, []);
 
-  const handleSaveServer = useCallback(async () => {
-    if (!serverUrl.trim()) {
-      setError('Please enter a server URL.');
-      return;
-    }
-
-    try {
-      const result = await window.fedLearnAPI.setServerUrl(serverUrl.trim());
-      if (result.success) {
-        setServerSaved(true);
-        setError('');
-        setTimeout(() => setServerSaved(false), 2000);
-      } else {
-        setError(result.error || 'Failed to save server URL.');
+  const saveServer = useCallback(
+    async (overrideInsecure: boolean): Promise<boolean> => {
+      if (!serverUrl.trim()) {
+        setError('Please enter a server URL.');
+        return false;
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(`Failed to save server URL: ${message}`);
+
+      try {
+        const result = await window.fedLearnAPI.setServerUrl(
+          serverUrl.trim(),
+          overrideInsecure ? { allowInsecureHttp: true } : undefined,
+        );
+        if (result.success) {
+          setError('');
+          // Accepted via override — keep the plaintext warning visible.
+          setInsecureWarning(result.warning ?? '');
+          return true;
+        }
+        if (result.code === 'INSECURE_HTTP') {
+          setShowServerConfig(true);
+          setInsecureWarning(result.error || 'This server uses unencrypted HTTP.');
+          return false;
+        }
+        setError(result.error || 'Failed to save server URL.');
+        return false;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setError(`Failed to save server URL: ${message}`);
+        return false;
+      }
+    },
+    [serverUrl],
+  );
+
+  const handleSaveServer = useCallback(async () => {
+    if (await saveServer(allowInsecure)) {
+      setServerSaved(true);
+      setTimeout(() => setServerSaved(false), 2000);
     }
-  }, [serverUrl]);
+  }, [saveServer, allowInsecure]);
+
+  const handleAllowInsecure = useCallback(async () => {
+    setAllowInsecure(true);
+    if (await saveServer(true)) {
+      setServerSaved(true);
+      setTimeout(() => setServerSaved(false), 2000);
+    }
+  }, [saveServer]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -73,8 +107,23 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
       setIsLoading(true);
 
       try {
-        // Ensure server URL is saved before login attempt
-        await window.fedLearnAPI.setServerUrl(serverUrl.trim());
+        // Ensure server URL is saved before login attempt. If Main refuses it
+        // (remote plaintext http:// without acknowledgement), do NOT proceed —
+        // login would silently go to the previously stored URL.
+        const urlResult = await window.fedLearnAPI.setServerUrl(
+          serverUrl.trim(),
+          allowInsecure ? { allowInsecureHttp: true } : undefined,
+        );
+        if (!urlResult.success) {
+          if (urlResult.code === 'INSECURE_HTTP') {
+            setShowServerConfig(true);
+            setInsecureWarning(urlResult.error || 'This server uses unencrypted HTTP.');
+          } else {
+            setError(urlResult.error || 'Invalid server URL.');
+          }
+          return;
+        }
+        setInsecureWarning(urlResult.warning ?? '');
 
         const result = await window.fedLearnAPI.login(username, password);
 
@@ -91,7 +140,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
         setIsLoading(false);
       }
     },
-    [username, password, serverUrl, onLoginSuccess],
+    [username, password, serverUrl, allowInsecure, onLoginSuccess],
   );
 
   return (
@@ -138,6 +187,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
                       onChange={(e) => {
                         setServerUrl(e.target.value);
                         setServerSaved(false);
+                        // A different URL needs a fresh transport decision.
+                        setAllowInsecure(false);
+                        setInsecureWarning('');
                       }}
                       placeholder="http://your-server:8081"
                       disabled={isLoading}
@@ -153,6 +205,25 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
                     </button>
                   </div>
                   <p className="server-hint">/api is appended automatically</p>
+
+                  {insecureWarning && (
+                    <div className="auth-warning" role="alert">
+                      <span className="error-icon">
+                        <AlertTriangle strokeWidth={1.5} size={16} />
+                      </span>
+                      <span>{insecureWarning}</span>
+                      {!allowInsecure && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-secondary"
+                          onClick={handleAllowInsecure}
+                          disabled={isLoading}
+                        >
+                          Use HTTP anyway
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -217,9 +288,16 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
             </button>
           </form>
 
-          <p className="auth-footer-text">
-            Secure authentication via encrypted IPC bridge
-          </p>
+          {isPlaintextRemoteUrl(serverUrl) ? (
+            <p className="auth-footer-text auth-footer-text--warning">
+              Unencrypted connection — this server uses plaintext HTTP, so credentials are not
+              protected in transit
+            </p>
+          ) : (
+            <p className="auth-footer-text">
+              Secure authentication via encrypted IPC bridge
+            </p>
+          )}
         </div>
       </div>
     </div>

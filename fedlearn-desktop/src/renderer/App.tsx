@@ -43,7 +43,10 @@ declare global {
       getProjectConnection: (
         projectId: string,
       ) => Promise<{ success: boolean; connection?: ProjectConnection; error?: string }>;
-      setServerUrl: (url: string) => Promise<{ success: boolean; url?: string; error?: string }>;
+      setServerUrl: (
+        url: string,
+        opts?: { allowInsecureHttp?: boolean },
+      ) => Promise<{ success: boolean; url?: string; error?: string; code?: string; warning?: string }>;
       getServerUrl: () => Promise<{ success: boolean; url?: string }>;
       selectDatasetPath: () => Promise<{ success: boolean; path?: string; error?: string }>;
       listModels: () => Promise<{ success: boolean; models?: InferableModel[]; error?: string }>;

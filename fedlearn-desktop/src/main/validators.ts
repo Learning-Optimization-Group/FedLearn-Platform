@@ -4,6 +4,11 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+  isPlaintextRemoteUrl,
+  PLAINTEXT_HTTP_REFUSAL,
+  PLAINTEXT_HTTP_WARNING,
+} from '../shared/urlSecurity';
 // Type-only import — erased at compile time, so this module stays free of the
 // electron runtime deps docker.service pulls in. Lets validateHardwareProfile
 // narrow to the exact HardwareProfile union the shipped code relies on.
@@ -72,4 +77,51 @@ export function validateServerAddress(addr: unknown): addr is string {
 
 export function validateStringInput(val: unknown, maxLength: number): val is string {
   return typeof val === 'string' && val.length > 0 && val.length <= maxLength;
+}
+
+export const MAX_SERVER_URL_LEN = 512;
+
+export interface ServerUrlEvaluation {
+  ok: boolean;
+  /** Normalized URL (trailing slashes stripped, /api appended) — present when ok. */
+  url?: string;
+  /** Persistent transport warning — present when a plaintext override was used. */
+  warning?: string;
+  /** Rejection reason — present when !ok. */
+  error?: string;
+  /** Machine-readable rejection cause the renderer keys its UI off. */
+  code?: 'INSECURE_HTTP';
+}
+
+/**
+ * Full decision for auth:set-server-url (DE-13). Validates shape and protocol
+ * (as before), then applies the transport policy: plaintext http:// to a
+ * non-loopback host is REFUSED unless `allowInsecureHttp` is explicitly set,
+ * and even then the acceptance carries a warning for the UI to surface.
+ * Loopback http:// and all https:// URLs pass warning-free.
+ */
+export function evaluateServerUrl(raw: unknown, allowInsecureHttp = false): ServerUrlEvaluation {
+  if (typeof raw !== 'string' || raw.length === 0 || raw.length > MAX_SERVER_URL_LEN) {
+    return { ok: false, error: 'Invalid server URL' };
+  }
+
+  const trimmed = raw.trim();
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return { ok: false, error: 'URL must start with http:// or https://' };
+  }
+
+  const insecure = isPlaintextRemoteUrl(trimmed);
+  if (insecure && !allowInsecureHttp) {
+    return { ok: false, error: PLAINTEXT_HTTP_REFUSAL, code: 'INSECURE_HTTP' };
+  }
+
+  // Normalize: ensure it ends with /api
+  let normalized = trimmed.replace(/\/+$/, '');
+  if (!normalized.endsWith('/api')) {
+    normalized += '/api';
+  }
+
+  return insecure
+    ? { ok: true, url: normalized, warning: PLAINTEXT_HTTP_WARNING }
+    : { ok: true, url: normalized };
 }

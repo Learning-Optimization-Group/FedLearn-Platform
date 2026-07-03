@@ -698,6 +698,31 @@ body {
   flex-shrink: 0;
 }
 
+/* Plaintext-HTTP transport warning (DE-13) — same shape as .auth-error but
+   keyed to --warning: the URL is refused/risky, not malformed. */
+.auth-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-sm);
+  color: var(--warning);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.auth-warning .btn {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.auth-footer-text--warning {
+  color: var(--warning);
+}
+
 /* ========== Log Panel ========== */
 
 .log-panel-container {
