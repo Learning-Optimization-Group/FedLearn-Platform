@@ -12,6 +12,7 @@ import torch
 from fedlearn.communication.generated import fedlearn_pb2
 from fedlearn.communication.generated import fedlearn_pb2_grpc
 from fedlearn.communication.serializer import parameters_to_proto, parameters_to_chunks
+from fedlearn.security.client_interceptor import maybe_wrap_channel
 
 log = logging.getLogger(__name__)
 
@@ -93,11 +94,13 @@ class GrpcClient:
             ('grpc.max_connection_age_grace_ms', 600000),
         ]
 
-        self.channel = _build_channel(server_address, grpc_options)
+        # SE-1: attach the connection token (from FEDLEARN_CONNECTION_TOKEN) to every call if present;
+        # a no-op when unset, so dev / unauthenticated servers are unaffected.
+        self.channel = maybe_wrap_channel(_build_channel(server_address, grpc_options))
         self.stub = fedlearn_pb2_grpc.FederatedLearningServiceStub(self.channel)
 
         # Parallel channel for heartbeats so they don't contend with long transfers.
-        self.heartbeat_channel = _build_channel(server_address, grpc_options)
+        self.heartbeat_channel = maybe_wrap_channel(_build_channel(server_address, grpc_options))
         self.heartbeat_stub = fedlearn_pb2_grpc.FederatedLearningServiceStub(self.heartbeat_channel)
 
         self.heartbeat_active = False

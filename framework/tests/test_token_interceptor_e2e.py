@@ -72,3 +72,17 @@ def test_register_with_valid_token_succeeds(authed_server):
         reg = stub.RegisterClient(_register_request(),
                                   metadata=[(METADATA_KEY, _GOLDEN["token"])])
         assert reg.status == pb.RegisterClientResponse.Status.ACCEPTED
+
+
+def test_client_interceptor_and_server_interceptor_interoperate(authed_server):
+    # Slice 3: the CLIENT interceptor attaches the token so no explicit per-call metadata is needed;
+    # the server accepts it. Proves the two halves interoperate end to end.
+    from fedlearn.security.client_interceptor import maybe_wrap_channel
+    base = grpc.insecure_channel(authed_server)
+    channel = maybe_wrap_channel(base, token=_GOLDEN["token"])
+    try:
+        stub = pbg.FederatedLearningServiceStub(channel)
+        reg = stub.RegisterClient(_register_request())          # no metadata= here — the interceptor adds it
+        assert reg.status == pb.RegisterClientResponse.Status.ACCEPTED
+    finally:
+        base.close()
