@@ -77,6 +77,36 @@ class AdminControllerIntegrationTest {
         assertEquals(2, resp.getBody().size());
     }
 
+    // --- SE-5: actuator management endpoints are admin-only; /actuator/health stays public ---
+    @Test
+    void nonAdmin_gets403OnActuatorLoggers() {
+        createUser("user_act", PlatformRole.USER);
+        String cookie = loginAs("user_act");
+
+        ResponseEntity<String> resp = restTemplate.exchange(
+            "/actuator/loggers", HttpMethod.GET,
+            new HttpEntity<>(headers(cookie)), String.class);
+        assertEquals(HttpStatus.FORBIDDEN, resp.getStatusCode());
+    }
+
+    @Test
+    void admin_canReadActuatorLoggers() {
+        createUser("admin_act", PlatformRole.PLATFORM_ADMIN);
+        String cookie = loginAs("admin_act");
+
+        ResponseEntity<String> resp = restTemplate.exchange(
+            "/actuator/loggers", HttpMethod.GET,
+            new HttpEntity<>(headers(cookie)), String.class);
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+    }
+
+    @Test
+    void actuatorHealth_isReachableWithoutAuth() {
+        ResponseEntity<String> resp = restTemplate.exchange(
+            "/actuator/health", HttpMethod.GET, HttpEntity.EMPTY, String.class);
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+    }
+
     @Test
     void demoteOnlyAdmin_returns409() {
         createUser("admin_a3", PlatformRole.PLATFORM_ADMIN);

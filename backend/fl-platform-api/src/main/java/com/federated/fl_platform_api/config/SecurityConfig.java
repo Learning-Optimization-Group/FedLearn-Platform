@@ -134,6 +134,11 @@ public class SecurityConfig {
                         // here because InternalApiKeyFilter (added below) rejects any request without
                         // a valid X-Internal-Key header before Spring Security sees it.
                         .requestMatchers("/api/internal/**").permitAll()
+                        // SE-5: actuator management endpoints (loggers/metrics/…) are admin-only —
+                        // a plain USER could otherwise POST /actuator/loggers to flip log levels
+                        // (log-flood DoS / recon). /actuator/health stays permitAll via publicPaths
+                        // above for load-balancer liveness checks.
+                        .requestMatchers("/actuator/**").hasRole("PLATFORM_ADMIN")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
