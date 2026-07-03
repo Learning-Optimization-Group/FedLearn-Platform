@@ -143,6 +143,9 @@ public class FlowerServerManager {
             // it to the child — never a secret it could use to forge another project's token. It is
             // evicted when the server stops (stopServerForProject).
             String internalRunToken = runTokenRegistry.mint(project.getId(), project.getActiveRunId());
+            // BA-3: persist the token's hash on the run so a re-adopted server's token can be
+            // rehydrated after a restart (the plaintext goes only to the child, below).
+            String internalTokenHash = runTokenRegistry.hash(internalRunToken);
             configureChildEnv(pb.environment(), internalApiKey, backendInternalUrl,
                     flTokenSecret, requireClientAuth,
                     project.getActiveRunId() != null ? project.getActiveRunId().toString() : null,
@@ -156,7 +159,7 @@ public class FlowerServerManager {
             process = pb.start();
             runningServers.put(project.getId(), process.toHandle());
             try {
-                recordProcessIdentity(project.getActiveRunId(), process, freePort);
+                recordProcessIdentity(project.getActiveRunId(), process, freePort, internalTokenHash);
             } catch (RuntimeException e) {
                 // BA-3: we spawned a child but could not persist its identity — after a crash it would
                 // be an unreconcilable orphan holding its port with no PID on record to reap it. Fail
@@ -388,7 +391,7 @@ public class FlowerServerManager {
      * the child), because a live server whose identity was never recorded is an orphan that can never
      * be reconciled or reaped — exactly the leak this feature exists to prevent.
      */
-    void recordProcessIdentity(UUID runId, Process process, int port) {
+    void recordProcessIdentity(UUID runId, Process process, int port, String internalTokenHash) {
         if (runId == null) {
             return;
         }
@@ -396,6 +399,7 @@ public class FlowerServerManager {
             run.setServerPid(process.pid());
             run.setProcessStartedAt(process.info().startInstant().orElse(null));
             run.setServerPort(port);
+            run.setInternalTokenHash(internalTokenHash);
             runRepository.save(run);
         });
     }

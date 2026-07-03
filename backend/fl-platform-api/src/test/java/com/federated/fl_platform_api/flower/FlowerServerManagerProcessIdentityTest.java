@@ -46,18 +46,19 @@ class FlowerServerManagerProcessIdentityTest {
         when(repo.findById(runId)).thenReturn(Optional.of(run));
 
         Instant started = Instant.parse("2026-07-03T12:00:00Z");
-        managerWith(repo).recordProcessIdentity(runId, processWith(4242L, started), 50005);
+        managerWith(repo).recordProcessIdentity(runId, processWith(4242L, started), 50005, "deadbeefhash");
 
         assertEquals(4242L, run.getServerPid());
         assertEquals(started, run.getProcessStartedAt());
         assertEquals(50005, run.getServerPort());
+        assertEquals("deadbeefhash", run.getInternalTokenHash());   // BA-3: persisted for token rehydration
         verify(repo).save(run);
     }
 
     @Test
     void nullRunId_isANoOp() {
         RunRepository repo = mock(RunRepository.class);
-        managerWith(repo).recordProcessIdentity(null, mock(Process.class), 50005);
+        managerWith(repo).recordProcessIdentity(null, mock(Process.class), 50005, "hash");
         verifyNoInteractions(repo);
     }
 
@@ -68,7 +69,7 @@ class FlowerServerManagerProcessIdentityTest {
         when(repo.findById(runId)).thenReturn(Optional.empty());
 
         // Process is never touched when the run is gone — so leave it unstubbed.
-        managerWith(repo).recordProcessIdentity(runId, mock(Process.class), 50005);
+        managerWith(repo).recordProcessIdentity(runId, mock(Process.class), 50005, "hash");
 
         verify(repo, never()).save(any());
     }
@@ -84,6 +85,6 @@ class FlowerServerManagerProcessIdentityTest {
         doThrow(new RuntimeException("db down")).when(repo).save(run);
 
         assertThrows(RuntimeException.class, () -> managerWith(repo)
-                .recordProcessIdentity(runId, processWith(7L, Instant.parse("2026-07-03T12:00:00Z")), 50007));
+                .recordProcessIdentity(runId, processWith(7L, Instant.parse("2026-07-03T12:00:00Z")), 50007, "hash"));
     }
 }

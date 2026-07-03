@@ -58,4 +58,47 @@ class RunTokenRegistryTest {
         assertTrue(reg.resolve(tokenA).isEmpty(), "project A's token is gone after its server stops");
         assertTrue(reg.resolve(tokenB).isPresent(), "project B is unaffected");
     }
+
+    // BA-3: tokens are stored/persisted by SHA-256 hash (never plaintext) so a re-adopted server's
+    // token can be rehydrated after a restart from the hash alone.
+
+    @Test
+    void hash_isDeterministicSha256Hex() {
+        RunTokenRegistry reg = new RunTokenRegistry();
+        String token = reg.mint(UUID.randomUUID(), UUID.randomUUID());
+
+        String h1 = reg.hash(token);
+        assertEquals(h1, reg.hash(token), "hash is deterministic");
+        assertEquals(64, h1.length(), "SHA-256 hex is 64 chars");
+        assertTrue(h1.matches("[0-9a-f]{64}"));
+    }
+
+    @Test
+    void rehydrate_restoresATokenAfterARestart_fromItsHashAlone() {
+        // A survivor's plaintext token lives only in the still-running child; the backend kept its hash.
+        RunTokenRegistry original = new RunTokenRegistry();
+        UUID projectId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        String token = original.mint(projectId, runId);
+        String persistedHash = original.hash(token);
+
+        // A restart: a brand-new, empty registry that never saw the plaintext.
+        RunTokenRegistry afterRestart = new RunTokenRegistry();
+        assertTrue(afterRestart.resolve(token).isEmpty(), "token is unknown before rehydration");
+
+        afterRestart.rehydrate(persistedHash, new RunTokenRegistry.Scope(projectId, runId));
+
+        RunTokenRegistry.Scope scope = afterRestart.resolve(token).orElseThrow();
+        assertEquals(projectId, scope.projectId());
+        assertEquals(runId, scope.runId());
+    }
+
+    @Test
+    void rehydrate_ignoresBlankHashOrNullScope() {
+        RunTokenRegistry reg = new RunTokenRegistry();
+        reg.rehydrate(null, new RunTokenRegistry.Scope(UUID.randomUUID(), UUID.randomUUID()));
+        reg.rehydrate("", new RunTokenRegistry.Scope(UUID.randomUUID(), UUID.randomUUID()));
+        reg.rehydrate("abc", null);
+        assertEquals(0, reg.size(), "no-op rehydrations add nothing");
+    }
 }

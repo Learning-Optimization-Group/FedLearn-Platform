@@ -6,6 +6,7 @@ import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.model.RunStatus;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.RunRepository;
+import com.federated.fl_platform_api.security.RunTokenRegistry;
 import com.federated.fl_platform_api.service.RunService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,9 +38,10 @@ class StartupReconcilerTest {
     private final RunService runService = mock(RunService.class);
     private final FlowerServerManager manager = mock(FlowerServerManager.class);
     private final ProcessProbe probe = mock(ProcessProbe.class);
+    private final RunTokenRegistry tokenRegistry = mock(RunTokenRegistry.class);
 
     private final StartupReconciler reconciler =
-            new StartupReconciler(runRepo, projectRepo, runService, manager, probe);
+            new StartupReconciler(runRepo, projectRepo, runService, manager, probe, tokenRegistry);
 
     private static final Instant STARTED = Instant.parse("2026-07-03T12:00:00Z");
 
@@ -65,6 +67,7 @@ class StartupReconcilerTest {
     void liveIdentityMatchedRun_isReadopted() {
         UUID projectId = UUID.randomUUID();
         Run run = runWith(projectId, 100L, STARTED);
+        run.setInternalTokenHash("hash-100");
         when(runRepo.findByStatusIn(anyCollection())).thenReturn(List.of(run));
         ProcessHandle handle = handleStartedAt(STARTED);   // exact match, within tolerance
         when(probe.of(100L)).thenReturn(Optional.of(handle));
@@ -72,6 +75,8 @@ class StartupReconcilerTest {
         StartupReconciler.ReconciliationResult result = reconciler.reconcile();
 
         verify(manager).adopt(eq(projectId), eq(handle));
+        // BA-3: the survivor's token is rehydrated so its callbacks keep authorizing after restart.
+        verify(tokenRegistry).rehydrate("hash-100", new RunTokenRegistry.Scope(projectId, run.getId()));
         verify(runService, never()).markFailed(any());
         assertEquals(1, result.adopted());
         assertEquals(0, result.reaped());

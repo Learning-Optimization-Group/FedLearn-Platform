@@ -49,6 +49,11 @@ public class Run {
     @Column(name = "process_started_at")
     private Instant processStartedAt;
 
+    // BA-3: SHA-256 hash of this run's per-run internal token, so a re-adopted server's token can be
+    // rehydrated into the RunTokenRegistry after a restart (the plaintext lives only in the child).
+    @Column(name = "internal_token_hash", length = 64)
+    private String internalTokenHash;
+
     @Column(name = "grpc_ca_fingerprint", length = 128)
     private String grpcCaFingerprint;
 
@@ -99,6 +104,9 @@ public class Run {
 
     public Instant getProcessStartedAt() { return processStartedAt; }
     public void setProcessStartedAt(Instant processStartedAt) { this.processStartedAt = processStartedAt; }
+
+    public String getInternalTokenHash() { return internalTokenHash; }
+    public void setInternalTokenHash(String internalTokenHash) { this.internalTokenHash = internalTokenHash; }
     public String getGrpcCaFingerprint() { return grpcCaFingerprint; }
     public void setGrpcCaFingerprint(String grpcCaFingerprint) { this.grpcCaFingerprint = grpcCaFingerprint; }
     public Long getSeed() { return seed; }

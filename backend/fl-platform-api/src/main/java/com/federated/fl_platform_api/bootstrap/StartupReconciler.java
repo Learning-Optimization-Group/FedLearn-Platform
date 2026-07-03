@@ -5,6 +5,7 @@ import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.model.RunStatus;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.RunRepository;
+import com.federated.fl_platform_api.security.RunTokenRegistry;
 import com.federated.fl_platform_api.service.RunService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,6 +63,7 @@ public class StartupReconciler implements HealthIndicator {
     private final RunService runService;
     private final FlowerServerManager serverManager;
     private final ProcessProbe processProbe;
+    private final RunTokenRegistry runTokenRegistry;
 
     // Auto-reconcile on boot in real deploys; disabled under test so the ApplicationRunner doesn't
     // reap runs across the shared Testcontainers DB (the reconcile() logic is exercised directly).
@@ -72,12 +74,13 @@ public class StartupReconciler implements HealthIndicator {
 
     public StartupReconciler(RunRepository runRepository, ProjectRepository projectRepository,
                              RunService runService, FlowerServerManager serverManager,
-                             ProcessProbe processProbe) {
+                             ProcessProbe processProbe, RunTokenRegistry runTokenRegistry) {
         this.runRepository = runRepository;
         this.projectRepository = projectRepository;
         this.runService = runService;
         this.serverManager = serverManager;
         this.processProbe = processProbe;
+        this.runTokenRegistry = runTokenRegistry;
     }
 
     /**
@@ -177,6 +180,10 @@ public class StartupReconciler implements HealthIndicator {
         }
 
         serverManager.adopt(run.getProjectId(), handle);
+        // Restore the surviving server's token so its result/benchmark callbacks keep authorizing —
+        // the plaintext lives only in the still-running child; we rehydrate from the persisted hash.
+        runTokenRegistry.rehydrate(run.getInternalTokenHash(),
+                new RunTokenRegistry.Scope(run.getProjectId(), run.getId()));
         return true;
     }
 

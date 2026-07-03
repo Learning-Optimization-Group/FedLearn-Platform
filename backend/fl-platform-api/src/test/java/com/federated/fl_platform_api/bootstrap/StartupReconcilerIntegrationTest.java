@@ -9,6 +9,7 @@ import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.repository.RunRepository;
 import com.federated.fl_platform_api.repository.UserRepository;
+import com.federated.fl_platform_api.security.RunTokenRegistry;
 import com.federated.fl_platform_api.service.RunService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -47,6 +48,7 @@ class StartupReconcilerIntegrationTest {
     @Autowired FlowerServerManager serverManager;
     @Autowired UserRepository userRepository;
     @Autowired PasswordEncoder passwordEncoder;
+    @Autowired RunTokenRegistry runTokenRegistry;
 
     private Project seedProject() {
         User owner = userRepository.save(new User(
@@ -92,6 +94,33 @@ class StartupReconcilerIntegrationTest {
             assertTrue(serverManager.stopServerForProject(project.getId()));
             assertTrue(proc.waitFor(5, TimeUnit.SECONDS), "stop should terminate the adopted process");
             assertFalse(serverManager.isServerRunning(project.getId()));
+        } finally {
+            proc.destroyForcibly();
+        }
+    }
+
+    @Test
+    void reAdoptedServer_tokenIsRehydrated_soCallbacksKeepAuthorizing() throws Exception {
+        Process proc = new ProcessBuilder("bash", "-c", "sleep 60").start();
+        try {
+            Project project = seedProject();
+
+            // Mint the run's token, then evict it to simulate the in-memory registry being empty after
+            // a restart — the run row keeps only its SHA-256 hash.
+            String token = runTokenRegistry.mint(project.getId(), UUID.randomUUID());
+            String tokenHash = runTokenRegistry.hash(token);
+            runTokenRegistry.evictForProject(project.getId());
+            assertTrue(runTokenRegistry.resolve(token).isEmpty(), "token is gone after the simulated restart");
+
+            Run run = seedRunningRun(project, proc.pid(), proc.info().startInstant().orElseThrow());
+            run.setInternalTokenHash(tokenHash);
+            runRepository.save(run);
+
+            reconciler.reconcile();
+
+            var scope = runTokenRegistry.resolve(token);
+            assertTrue(scope.isPresent(), "a re-adopted server's token must be rehydrated");
+            assertEquals(project.getId(), scope.get().projectId());
         } finally {
             proc.destroyForcibly();
         }
