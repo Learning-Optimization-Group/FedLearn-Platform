@@ -60,6 +60,9 @@ export function OwnerDashboard() {
 
     const [managedProject, setManagedProject] = useState<OwnedProject | null>(null);
 
+    // Project ids with a deletion request awaiting platform-admin approval.
+    const [pendingDeletions, setPendingDeletions] = useState<Record<string, boolean>>({});
+
     const stompClientRef = useRef<StompClient | null>(null);
     const subStatusRef = useRef<StompSubscription | null>(null);
     const subResultsRef = useRef<StompSubscription | null>(null);
@@ -83,6 +86,24 @@ export function OwnerDashboard() {
                     });
                     setResultsMap((prev) => ({ ...prev, ...newMap }));
                 });
+
+                // Which projects already have a pending deletion request, so the
+                // card shows the pending state instead of "Request deletion".
+                Promise.allSettled(
+                    loaded.map((p) =>
+                        api
+                            .fetchProjectDeletionRequest(p.id)
+                            .then((res) => ({ id: p.id, pending: !api.isEmptyBody(res.data) })),
+                    ),
+                ).then((delData) => {
+                    const nextPending: Record<string, boolean> = {};
+                    delData.forEach((d) => {
+                        if (d.status === 'fulfilled') nextPending[d.value.id] = d.value.pending;
+                    });
+                    setPendingDeletions(nextPending);
+                });
+            } else {
+                setPendingDeletions({});
             }
         } catch {
             setError('Failed to fetch your projects.');
@@ -206,6 +227,15 @@ export function OwnerDashboard() {
         }
     };
 
+    const handleRequestDeletion = async (projectId: string, reason: string) => {
+        try {
+            await api.submitDeletionRequest(projectId, reason || undefined);
+            setPendingDeletions((prev) => ({ ...prev, [projectId]: true }));
+        } catch (err) {
+            setError(api.errorMessage(err, 'Could not submit a deletion request.'));
+        }
+    };
+
     const handleOpenResults = async (project: OwnedProject) => {
         try {
             const res = await api.fetchProjectResults(project.id);
@@ -285,6 +315,8 @@ export function OwnerDashboard() {
                                     setIsEditModalOpen(true);
                                 }}
                                 onDeleteProject={() => handleDeleteProject(project.id)}
+                                onRequestDeletion={(reason) => handleRequestDeletion(project.id, reason)}
+                                deletionPending={!!pendingDeletions[project.id]}
                                 onManageProject={() => setManagedProject(project)}
                             />
                         ))}

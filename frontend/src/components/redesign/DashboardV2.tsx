@@ -50,6 +50,9 @@ export function DashboardV2() {
   // Store results for all projects to power the sparkline charts
   const [resultsMap, setResultsMap] = useState<Record<string, ProjectResult[]>>({});
 
+  // Project ids with a deletion request awaiting platform-admin approval.
+  const [pendingDeletions, setPendingDeletions] = useState<Record<string, boolean>>({});
+
   const stompClientRef = useRef<StompClient | null>(null);
   const subscriptionStatusRef = useRef<StompSubscription | null>(null);
   const subscriptionResultsRef = useRef<StompSubscription | null>(null);
@@ -75,6 +78,21 @@ export function DashboardV2() {
           });
           setResultsMap(prev => ({ ...prev, ...newMap }));
         });
+
+        // Flag projects that already have a pending deletion request.
+        Promise.allSettled(
+          loadedProjects.map(p =>
+            api.fetchProjectDeletionRequest(p.id).then(res => ({ id: p.id, pending: !api.isEmptyBody(res.data) }))
+          )
+        ).then((delData) => {
+          const nextPending: Record<string, boolean> = {};
+          delData.forEach(d => {
+            if (d.status === 'fulfilled') nextPending[d.value.id] = d.value.pending;
+          });
+          setPendingDeletions(nextPending);
+        });
+      } else {
+        setPendingDeletions({});
       }
     } catch {
       setError('Failed to fetch projects.');
@@ -198,6 +216,15 @@ export function DashboardV2() {
     }
   };
 
+  const handleRequestDeletion = async (projectId: string, reason: string) => {
+    try {
+      await api.submitDeletionRequest(projectId, reason || undefined);
+      setPendingDeletions((prev) => ({ ...prev, [projectId]: true }));
+    } catch (err) {
+      setError(api.errorMessage(err, 'Could not submit a deletion request.'));
+    }
+  };
+
   const handleOpenResults = async (project: Project) => {
     try {
       const res = await api.fetchProjectResults(project.id);
@@ -278,6 +305,8 @@ export function DashboardV2() {
                 onToggleServer={() => handleToggleServer(project)}
                 onEditProject={() => { setEditProject(project); setIsEditModalOpen(true); }}
                 onDeleteProject={() => handleDeleteProject(project.id)}
+                onRequestDeletion={(reason) => handleRequestDeletion(project.id, reason)}
+                deletionPending={!!pendingDeletions[project.id]}
               />
             ))}
           </div>

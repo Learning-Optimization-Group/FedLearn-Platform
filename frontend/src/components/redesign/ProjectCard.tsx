@@ -5,9 +5,10 @@
 
 import { useState } from 'react';
 import { ResponsiveContainer, LineChart, Line, YAxis } from 'recharts';
-import { Activity, Cpu, Trash2, Copy, Check, MoreHorizontal, Edit3, Play, Square, Settings2 } from 'lucide-react';
+import { Activity, Cpu, Trash2, Copy, Check, MoreHorizontal, Edit3, Play, Square, Settings2, Clock } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { Card, Button, StatusPill, ConfirmDialog, type StatusKind } from '../ui';
+import { Card, Button, Input, Modal, StatusPill, ConfirmDialog, type StatusKind } from '../ui';
+import { useAuth } from '../../context/AuthContext';
 import type { Project, ProjectResult } from '../../services/apiServices';
 
 interface ProjectCardProps {
@@ -17,7 +18,21 @@ interface ProjectCardProps {
   onOpenLogs: () => void;
   onToggleServer: () => void;
   onEditProject: () => void;
+  /**
+   * Hard delete (DELETE /projects/{id}). Admin-only on the backend — the card
+   * only routes here for PLATFORM_ADMIN. Non-admin owners go through
+   * `onRequestDeletion` instead.
+   */
   onDeleteProject: () => void;
+  /**
+   * Non-admin owner path: submit a deletion request (POST
+   * /projects/{id}/deletion-request) for a platform admin to approve. When
+   * provided, non-admins see "Request deletion" (with a reason capture) instead
+   * of the hard "Delete project".
+   */
+  onRequestDeletion?: (reason: string) => void;
+  /** A deletion request is already pending admin approval for this project. */
+  deletionPending?: boolean;
   /**
    * Owner-only: opens the manage panel (visibility, join requests, members,
    * request-deletion). When provided, a "Manage" item appears in the menu.
@@ -93,10 +108,20 @@ export function ProjectCard({
   onToggleServer,
   onEditProject,
   onDeleteProject,
+  onRequestDeletion,
+  deletionPending = false,
   onManageProject,
 }: ProjectCardProps) {
+  const { isAdmin } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [requestDelete, setRequestDelete] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+
+  // Admins hard-delete; everyone else (project owners) files a deletion request
+  // for an admin to approve. The card never routes an owner to DELETE — that
+  // returns 403 for non-admins on the backend.
+  const canRequestDeletion = !isAdmin && !!onRequestDeletion;
 
   const isRunning = project.status === 'RUNNING';
   const isCompleted = project.status === 'COMPLETED';
@@ -146,8 +171,9 @@ export function ProjectCard({
       <div className="flex justify-between items-start gap-3">
         <div className="flex-1 min-w-0">
           <h3 className="text-h4 font-display font-semibold tracking-tight truncate">{project.name}</h3>
-          <div className="flex items-center gap-2 mt-1.5">
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <StatusPill status={toStatusKind(project.status)}>{statusLabel(project.status)}</StatusPill>
+            {deletionPending && <StatusPill status="pending">Deletion pending</StatusPill>}
           </div>
         </div>
 
@@ -187,16 +213,34 @@ export function ProjectCard({
                   </button>
                 )}
                 <div className="h-px bg-hairline my-1" />
-                <button
-                  onClick={() => {
-                    setConfirmDelete(true);
-                    setShowMenu(false);
-                  }}
-                  className="w-full px-4 py-2 text-left text-body font-medium transition-colors flex items-center gap-2 text-danger hover:bg-surface-3"
-                >
-                  <Trash2 className="w-4 h-4" strokeWidth={1.5} />
-                  Delete project
-                </button>
+                {deletionPending ? (
+                  <div className="w-full px-4 py-2 text-left text-body font-medium flex items-center gap-2 text-warning">
+                    <Clock className="w-4 h-4" strokeWidth={1.5} />
+                    Deletion pending
+                  </div>
+                ) : canRequestDeletion ? (
+                  <button
+                    onClick={() => {
+                      setRequestDelete(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full px-4 py-2 text-left text-body font-medium transition-colors flex items-center gap-2 text-danger hover:bg-surface-3"
+                  >
+                    <Trash2 className="w-4 h-4" strokeWidth={1.5} />
+                    Request deletion
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setConfirmDelete(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full px-4 py-2 text-left text-body font-medium transition-colors flex items-center gap-2 text-danger hover:bg-surface-3"
+                  >
+                    <Trash2 className="w-4 h-4" strokeWidth={1.5} />
+                    Delete project
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -300,6 +344,7 @@ export function ProjectCard({
         </Button>
       </div>
 
+      {/* Admin hard delete (DELETE /projects/{id}). */}
       <ConfirmDialog
         open={confirmDelete}
         title="Delete project?"
@@ -313,6 +358,44 @@ export function ProjectCard({
         }}
         onCancel={() => setConfirmDelete(false)}
       />
+
+      {/* Owner deletion request (POST /projects/{id}/deletion-request) — a
+          platform admin approves the actual delete. */}
+      <Modal
+        open={requestDelete}
+        onClose={() => setRequestDelete(false)}
+        title="Request project deletion"
+        size="sm"
+        showClose={false}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setRequestDelete(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                onRequestDeletion?.(deleteReason.trim());
+                setRequestDelete(false);
+                setDeleteReason('');
+              }}
+            >
+              Request deletion
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <p className="text-body text-fg-muted">
+            Deleting “{project.name}” is permanent and must be approved by a platform admin.
+          </p>
+          <Input
+            value={deleteReason}
+            onChange={(e) => setDeleteReason(e.target.value)}
+            placeholder="Optional: reason for deletion"
+          />
+        </div>
+      </Modal>
     </Card>
   );
 }
