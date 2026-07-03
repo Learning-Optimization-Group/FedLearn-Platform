@@ -1,0 +1,75 @@
+# Proto governance — the buf gate for the canonical gRPC contract (proto/fedlearn/v2/fedlearn.proto).
+#
+# This is what kills the v1 proto drift the audit found (a malformed SubmitModelUpdate RPC that
+# diverged across copies). It runs only when the contract or one of its in-tree mirrors changes:
+#   - buf lint      — STANDARD ruleset (see proto/buf.yaml for the documented excepts)
+#   - buf breaking  — fail a PR that breaks the wire contract, compared against main
+#   - buf generate  — regeneration must be a no-op (proves committed stubs, if any, are fresh)
+#   - mirror check  — the framework + mobile copies must stay byte-identical to canonical
+#
+# Make this a required check in branch protection (docs/v2/ci-and-branch-protection.md).
+name: proto
+
+on:
+  pull_request:
+    paths:
+      - 'proto/**'
+      - 'framework/**/protos/**'
+      - '.github/workflows/proto.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'proto/**'
+      - 'framework/**/protos/**'
+      - '.github/workflows/proto.yml'
+
+concurrency:
+  group: proto-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  buf:
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 — `buf breaking --against '.git#branch=main'` needs the main branch ref,
+      # which a shallow (depth-1) checkout does not include.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: bufbuild/buf-setup-action@v1
+
+      - name: buf lint
+        working-directory: proto
+        run: buf lint
+
+      # On a push to main this compares main against itself (a no-op); on a PR it compares the
+      # PR head against main and fails on any breaking change to the contract.
+      - name: buf breaking (against main)
+        working-directory: proto
+        run: buf breaking --against '.git#branch=main'
+
+      # Regenerating the stubs must produce no change. Catches both a modified tracked stub and a
+      # newly generated (never-committed) one, so committed generated code cannot silently rot.
+      - name: buf generate — freshness (regeneration must be a no-op)
+        working-directory: proto
+        run: |
+          buf generate
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "::error::buf generate produced changes — regenerated stubs are stale. Run 'buf generate' in proto/ and commit the result."
+            git status --porcelain
+            git diff
+            exit 1
+          fi
+          git diff --exit-code
+
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The framework (Python) and mobile (C++) copies of the proto must stay byte-identical to
+      # the canonical proto/fedlearn/v2/fedlearn.proto. One stray edit to a mirror fails here.
+      - name: byte-check proto mirrors (framework + mobile)
+        run: bash scripts/check_proto_mirror.sh

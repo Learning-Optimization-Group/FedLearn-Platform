@@ -39,20 +39,36 @@ runtime for mobile is **not** produced by buf — it is cross-compiled separatel
 `mobile_client/scripts/build_grpc_arm64.sh` (pinned); buf emits only the C++ stubs that compile
 against it.
 
-## The mobile mirror
+## The in-tree mirrors (framework + mobile)
 
-The native mobile core needs the proto in-tree for its CMake build, so a byte-identical mirror
-lives at `mobile_client/proto/fedlearn/v2/fedlearn.proto`. It is **not** an independent copy —
-`scripts/check_proto_mirror.sh` (wired into CI as `proto.yml`) fails the build if it diverges
-from this canonical file. To update the mirror after changing the contract:
+Two units keep a **byte-identical copy** of this file in-tree because their build systems need
+the proto locally rather than pulling from `buf`:
+
+| Copy | Path | Why it exists |
+|---|---|---|
+| **framework** | `framework/src/fedlearn/communication/protos/fedlearn.proto` | the running Python framework generates its `fedlearn_pb2` stubs from here |
+| **mobile** | `mobile_client/proto/fedlearn/v2/fedlearn.proto` | the native mobile core's CMake build |
+
+Both are **mirrors, not independent copies**: they are regenerated/synced from this canonical
+file and **must never be hand-edited**. Edit only `fedlearn/v2/fedlearn.proto`, then `cp` it out:
 
 ```bash
+cp proto/fedlearn/v2/fedlearn.proto framework/src/fedlearn/communication/protos/fedlearn.proto
 cp proto/fedlearn/v2/fedlearn.proto mobile_client/proto/fedlearn/v2/fedlearn.proto
 ```
+
+Two gates enforce this so a mirror can never silently drift:
+
+- **`scripts/check_proto_mirror.sh`** — byte-compares *both* mirrors against canonical and exits
+  non-zero (with the exact `cp` fix) on any difference. Run it locally before pushing.
+- **`.github/workflows/proto.yml`** — the CI proto gate. Runs `buf lint`, `buf breaking`
+  (against `main`), a `buf generate` freshness check, and `check_proto_mirror.sh`. It triggers on
+  any change under `proto/**` or `framework/**/protos/**`, so a stray edit to a mirror fails the
+  PR.
 
 ## Changing the contract
 
 1. Edit `fedlearn/v2/fedlearn.proto` only.
 2. Run `buf lint` and `buf breaking` (a breaking change requires a deliberate package bump).
 3. Re-run `buf generate` in every consumer; commit the regenerated stubs (or generate in CI).
-4. `cp` the mirror and run `scripts/check_proto_mirror.sh`.
+4. `cp` **both** mirrors (framework + mobile) and run `scripts/check_proto_mirror.sh`.
