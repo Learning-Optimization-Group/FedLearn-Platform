@@ -8,6 +8,7 @@ from typing import Optional, List, Tuple, Dict
 import time
 from threading import Lock
 from .strategy import Strategy
+from .robust_aggregation import clip_l2_norm
 from .decomfl_strategy import DeComFL   # FR-6: typed dispatch (no circular import — decomfl_strategy doesn't import coordinator)
 
 log = logging.getLogger(__name__)
@@ -55,7 +56,8 @@ class FLCoordinator:
 
     def __init__(self, strategy: Strategy, min_clients_for_aggregation: int, clients_per_round: int,
                  round_timeout_s: Optional[float] = None,
-                 grad_clip_threshold: Optional[float] = 1000.0):
+                 grad_clip_threshold: Optional[float] = 1000.0,
+                 client_update_l2_clip: Optional[float] = None):
         self.strategy = strategy
         self.min_clients = min_clients_for_aggregation
         self.clients_per_round = clients_per_round
@@ -70,6 +72,13 @@ class FLCoordinator:
         # reputation; robust aggregation (trimmed-mean/median) is a large-cohort feature deferred
         # behind a min-cohort gate, being a no-op at the 1-3 client cohorts this platform runs.
         self.grad_clip_threshold = grad_clip_threshold
+
+        # SE-3 poisoning defense (FedAvg path): optional server-side L2 clip of each client's UPDATE
+        # DELTA (params - current global) to this budget, so no single client can move the global by
+        # more than it. None disables it (the default): unlike the DeComFL scalar clamp, a too-tight
+        # bound on dense FedAvg deltas can bias honest convergence, so it is an opt-in knob. Non-finite
+        # rejection (below and in the serializer) is always on and has no such tradeoff.
+        self.client_update_l2_clip = client_update_l2_clip
 
         # Per-round dropout deadline. Precedence: explicit constructor arg >
         # FEDLEARN_ROUND_TIMEOUT_S env var > module default.
@@ -217,8 +226,25 @@ class FLCoordinator:
                 return
             num_examples = min(num_examples, self.MAX_NUM_EXAMPLES)
 
+            # SE-3: reject non-finite params before they reach aggregation — one NaN/Inf would corrupt
+            # the averaged global for every honest client in the round. The serializer already rejects
+            # these on the gRPC path; this makes the coordinator self-defending against any direct
+            # caller too (mirroring submit_decomfl_update). Raised, not dropped, so the servicer maps
+            # it to a client-visible INVALID_ARGUMENT. Validated in float32 — the aggregation precision —
+            # so a value that is finite in a wider dtype but overflows float32 (e.g. 1e300 as float64)
+            # is rejected here rather than silently becoming inf/NaN downstream (or inside the clip).
+            if not all(self._tensor_is_finite(t) for t in params.values()):
+                raise ValueError(
+                    f"non-finite tensor value in model update from {client_id} (poisoning defense)")
+
+            # SE-3: optionally clip the client's update delta to a configured L2 budget.
+            if self.client_update_l2_clip is not None and self._global_model_params is not None:
+                params = self._clip_update_delta(client_id, params)
+
             log.debug("Received update from %s for round %d", client_id, self.current_round)
-            self._client_updates_received.append((params, num_examples))
+            # SE-3: tag with the client identity so a poisoned update is attributable (and consistent
+            # with the DeComFL path). Strategy aggregators accept this 3-tuple form.
+            self._client_updates_received.append((client_id, params, num_examples))
 
             if len(self._client_updates_received) == self.clients_per_round:
                 log.info(
@@ -226,6 +252,57 @@ class FLCoordinator:
                     self.clients_per_round, self.current_round,
                 )
                 self._trigger_aggregation_and_evaluation()
+
+    @staticmethod
+    def _tensor_is_finite(t: "torch.Tensor") -> bool:
+        """SE-3: finite in the tensor's own dtype AND in float32 (the aggregation precision).
+
+        A value finite only in a wider dtype — e.g. 1e300 as float64 — overflows to inf when downcast
+        to float32 and would silently corrupt the average, or become NaN inside the delta clip
+        (clip_l2_norm scales an inf delta by 0 -> NaN). Treating it as non-finite here rejects it at
+        ingress instead. Integer/bool buffers are always finite (and torch.isfinite is float/complex
+        only, so we short-circuit them).
+        """
+        if not (t.is_floating_point() or t.is_complex()):
+            return True
+        if not bool(torch.isfinite(t).all()):
+            return False
+        if t.is_floating_point():
+            return bool(torch.isfinite(t.to(torch.float32)).all())
+        return True
+
+    def _clip_update_delta(self, client_id: str, params: "OrderedDict[str, torch.Tensor]"):
+        """SE-3: clip the client's update DELTA (``params - current global``) to ``client_update_l2_clip``
+        in joint L2 norm, returning ``global + clipped_delta``. Only floating-point tensors that match a
+        global key/shape are clipped; non-float buffers (e.g. BatchNorm counters) and shape-mismatched or
+        new keys pass through unchanged. Bounds any single client's per-round influence on the global.
+        Called while ``self._lock`` is held.
+        """
+        global_params = self._global_model_params
+        delta: "OrderedDict[str, torch.Tensor]" = OrderedDict()
+        for k, v in params.items():
+            g = global_params.get(k)
+            if v.is_floating_point() and g is not None and g.shape == v.shape:
+                # Align to the global's device: a CUDA-hosted server holds the global on cuda while a
+                # deserialized client update is on cpu, and mixing devices in the subtraction raises.
+                delta[k] = v.float().to(g.device) - g.float()
+        if not delta:
+            return params  # nothing clippable (e.g. all-integer buffers) — leave as-is
+
+        clipped, orig_norm = clip_l2_norm(delta, self.client_update_l2_clip)
+        if orig_norm > self.client_update_l2_clip:
+            log.warning(
+                "Clipped update delta from %s: L2 norm %.4g -> %.4g (SE-3 poisoning defense)",
+                client_id, orig_norm, self.client_update_l2_clip,
+            )
+
+        out: "OrderedDict[str, torch.Tensor]" = OrderedDict()
+        for k, v in params.items():
+            if k in delta:
+                out[k] = global_params[k].float() + clipped[k]
+            else:
+                out[k] = v
+        return out
 
     def _trigger_round_completion(self):
         """Dispatch a completed/force-resolved round to the strategy-appropriate aggregation path.

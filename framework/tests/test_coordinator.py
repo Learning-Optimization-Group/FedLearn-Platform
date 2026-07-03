@@ -51,8 +51,8 @@ class TestFLCoordinator:
         # Submit one valid update - it should be stored (not trigger aggregation yet since 2 clients needed)
         self.coordinator.submit_client_update("c1", make_params(1.0), 200_000, trained_on_round=1)
         assert len(self.coordinator._client_updates_received) == 1
-        # The stored num_examples should be capped
-        _, stored_count = self.coordinator._client_updates_received[0]
+        # The stored num_examples should be capped. SE-3: entries are (client_id, params, num_examples).
+        _, _, stored_count = self.coordinator._client_updates_received[0]
         assert stored_count <= FLCoordinator.MAX_NUM_EXAMPLES
 
     def test_submit_client_update_triggers_aggregation_when_all_clients_report(self):
