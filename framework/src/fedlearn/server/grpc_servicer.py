@@ -15,7 +15,7 @@ from fedlearn.communication.generated import fedlearn_pb2_grpc
 SERVER_PROTOCOL_VERSION = 2
 
 # Import the business logic layer and helpers
-from .coordinator import FLCoordinator
+from .coordinator import FLCoordinator, MalformedDeComFLSubmission
 from fedlearn.communication.serializer import proto_to_parameters, parameters_to_proto, chunks_to_parameters
 from fedlearn.server.decomfl_strategy import DeComFL
 
@@ -418,6 +418,14 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             logging.info(f"[Server] Successfully received gradient scalars from {client_id}")
 
             return fedlearn_pb2.SubmitGradientScalarsResponse(received=True)
+
+        except MalformedDeComFLSubmission as e:
+            # FR-5: a wrong-shaped grid is the client's fault, not a server error — surface it as
+            # INVALID_ARGUMENT so the client can correct the payload, rather than an opaque INTERNAL.
+            logging.info(f"[Server] Rejecting malformed DeComFL submit from {request.client_id}: {e}")
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details(str(e))
+            return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
 
         except Exception as e:
             logging.error(f"RPC failed for client {request.client_id}", exc_info=True)

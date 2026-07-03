@@ -38,6 +38,15 @@ def _round_timeout_from_env(default: float) -> float:
     return value
 
 
+class MalformedDeComFLSubmission(ValueError):
+    """A DeComFL gradient-scalar submission whose shape is not the round's expected K x P grid.
+
+    Raised at coordinator ingress so the gRPC servicer can surface it as INVALID_ARGUMENT — a
+    malformed grid would otherwise reach aggregate_fit (which indexes grad_scalars[k][p]) and crash
+    the aggregation thread after the client was already acknowledged.
+    """
+
+
 class FLCoordinator:
     """
     A class that owns the concept of rounds and signals the main loop when a round is complete.
@@ -366,6 +375,30 @@ class FLCoordinator:
                 client_id, self.current_round,
                 len(self._client_updates_received) + 1, self.clients_per_round,
             )
+
+            # FR-5: validate the K x P grid shape against the strategy's configuration BEFORE the
+            # scalars can reach aggregate_fit (which does grad_scalars[k][p] and would otherwise
+            # crash the aggregation thread on a wrong shape, long after the client was acknowledged).
+            # Raised — not silently dropped — so the servicer maps it to a client-visible
+            # INVALID_ARGUMENT. Validated on a copy of the shape only; content checks follow below.
+            expected_k = getattr(self.strategy, "K", None)
+            expected_p = getattr(self.strategy, "P", None)
+            if expected_k is not None and expected_p is not None:
+                if len(gradient_scalars) != expected_k or any(len(row) != expected_p for row in gradient_scalars):
+                    raise MalformedDeComFLSubmission(
+                        f"expected {expected_k}x{expected_p} gradient scalars from {client_id}, "
+                        f"got {len(gradient_scalars)} step(s) with widths {[len(r) for r in gradient_scalars]}"
+                    )
+
+            # FR-5: dedup. A client that already submitted (and was accepted) this round must not be
+            # appended again — a second submission would be double-counted in the averaged update,
+            # inflating that one client's weight. Keep the first accepted update, ignore the rest.
+            if any(cid == client_id for cid, _, _ in self._client_updates_received):
+                log.warning(
+                    "Ignoring duplicate DeComFL update from %s in round %d",
+                    client_id, self.current_round,
+                )
+                return
 
             # Reject non-finite gradient scalars before they reach aggregation (SE-3 poisoning
             # defense): a single NaN/Inf would corrupt the averaged update for every honest client

@@ -106,6 +106,27 @@ def test_full_decomfl_round_over_grpc(live_server):
     assert coord.client_metrics_log[0]["client_id"] == "mobile-1"
 
 
+def test_malformed_submit_rejected_as_invalid_argument(live_server):
+    """FR-5: a submission whose scalar grid isn't K x P is refused over the wire with
+    INVALID_ARGUMENT (not silently accepted then crashed on the aggregation thread)."""
+    addr, coord, _ = live_server
+    with grpc.insecure_channel(addr) as channel:
+        stub = pbg.FederatedLearningServiceStub(channel)
+        stub.RegisterClient(pb.RegisterClientRequest(
+            client_id="m1", run_id="r1", protocol_version=SERVER_PROTOCOL_VERSION,
+            enrollment_token="t"))
+        stub.GetDeComFLConfig(pb.GetDeComFLConfigRequest(client_id="m1"))
+
+        # The round expects P=2 scalars per step; send 3 -> malformed shape.
+        bad = pb.GradientScalars(local_steps=[pb.LocalStepGradients(scalars=[0.1, 0.2, 0.3])])
+        with pytest.raises(grpc.RpcError) as excinfo:
+            stub.SubmitGradientScalars(pb.SubmitGradientScalarsRequest(
+                client_id="m1", trained_on_round=1, num_examples=8, gradients=bad))
+        assert excinfo.value.code() == grpc.StatusCode.INVALID_ARGUMENT
+
+    assert coord.current_round == 1                    # round not advanced or corrupted by the bad submit
+
+
 def test_protocol_version_mismatch_rejected_over_grpc(live_server):
     addr, _, _ = live_server
     with grpc.insecure_channel(addr) as channel:
