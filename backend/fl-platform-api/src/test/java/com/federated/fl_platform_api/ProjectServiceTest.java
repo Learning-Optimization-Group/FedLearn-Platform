@@ -19,8 +19,21 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.federated.fl_platform_api.model.Run;
+import com.federated.fl_platform_api.exception.ProjectStateException;
+
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -204,5 +217,64 @@ class ProjectServiceTest {
         ProjectResponseDto j = dtos.stream().filter(d -> "joined-as-client".equals(d.getName())).findFirst().orElseThrow();
         assertEquals("CLIENT", j.getMyRelationship());
         assertEquals("PUBLIC", j.getVisibility());
+    }
+
+    // BA-2: concurrent /start for one project must spawn EXACTLY ONE FL server. The check-then-act
+    // (isServerRunning -> spawn) race previously let N callers all pass the running-check before any
+    // spawn registered, then all spawn — duplicate servers, one orphaned/untracked process.
+    @Test
+    void concurrentStart_spawnsExactlyOneServer_losersGet409() throws Exception {
+        UUID projectId = testProject.getId();
+        testProject.setStatus("CREATED");
+
+        lenient().when(projectRepository.findById(projectId)).thenReturn(Optional.of(testProject));
+        lenient().when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Run run = mock(Run.class);
+        lenient().when(run.getId()).thenReturn(UUID.randomUUID());
+        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt())).thenReturn(run);
+
+        // Model the FlowerServerManager runningServers map: a spawn flips it "running" and briefly
+        // holds — widening the check-then-act window the race would otherwise exploit.
+        AtomicBoolean running = new AtomicBoolean(false);
+        AtomicInteger spawnCount = new AtomicInteger(0);
+        lenient().when(flowerServerManager.isServerRunning(projectId)).thenAnswer(inv -> running.get());
+        lenient().when(flowerServerManager.startServerForProject(any(), any(), anyInt(), anyInt()))
+            .thenAnswer(inv -> {
+                spawnCount.incrementAndGet();
+                Thread.sleep(60);
+                running.set(true);
+                return Optional.of(50000);
+            });
+
+        int n = 8;
+        ExecutorService pool = Executors.newFixedThreadPool(n);
+        CountDownLatch ready = new CountDownLatch(n);
+        CountDownLatch go = new CountDownLatch(1);
+        AtomicInteger successes = new AtomicInteger(0);
+        AtomicInteger conflicts = new AtomicInteger(0);
+        List<Future<?>> futures = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            futures.add(pool.submit(() -> {
+                ready.countDown();
+                try {
+                    go.await();
+                    projectService.startServerForProject(projectId, null);
+                    successes.incrementAndGet();
+                } catch (ProjectStateException e) {
+                    conflicts.incrementAndGet();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }));
+        }
+        assertTrue(ready.await(5, TimeUnit.SECONDS), "threads did not arm in time");
+        go.countDown();  // release all n callers at once — they hit the running-check together
+        for (Future<?> f : futures) f.get(15, TimeUnit.SECONDS);
+        pool.shutdownNow();
+
+        assertEquals(1, spawnCount.get(), "exactly one FL server spawned (no double-spawn)");
+        assertEquals(1, successes.get(), "exactly one caller succeeds");
+        assertEquals(n - 1, conflicts.get(), "losers get a deterministic 409 (ProjectStateException)");
     }
 }

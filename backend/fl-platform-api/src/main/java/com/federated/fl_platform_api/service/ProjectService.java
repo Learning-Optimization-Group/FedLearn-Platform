@@ -35,6 +35,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 @Service
@@ -72,6 +74,10 @@ public class ProjectService {
     private ModelRecipeService modelRecipeService;
     @Autowired
     private RunService runService;
+
+    // BA-2: serialize per-project /start so two concurrent calls can't both pass the isServerRunning
+    // check and double-spawn a server. One lock per project id; the project set is bounded, so is the map.
+    private final ConcurrentHashMap<UUID, ReentrantLock> startLocks = new ConcurrentHashMap<>();
 
     /**
      * Default org UUID seeded by the V5 migration — the single transitional
@@ -215,41 +221,51 @@ public class ProjectService {
         log.debug("Starting project {} with strategy={}, rounds={}, minClients={}",
                 projectId, strategyToUse, numRoundsToUse, minClients);
 
-        if (flowerServerManager.isServerRunning(projectId)) {
-            // Was previously a silent fall-through that double-spawned the server.
-            throw new ProjectStateException(
-                    "FL server is already running for project " + projectId
-                            + " on port " + project.getServerPort());
-        }
-
-        int clientsPerRound = (request != null && request.getClientsPerRound() != null)
-                ? request.getClientsPerRound()
-                : minClients;
-
-        Run run = null;
+        // BA-2: the running-check, run creation and spawn must be one atomic per-project critical
+        // section. Without it, two concurrent /start calls both see isServerRunning==false and both
+        // spawn — duplicate servers, one orphaned/untracked. The loser now finds the server running
+        // and gets a deterministic 409 (ProjectStateException) instead.
+        ReentrantLock startLock = startLocks.computeIfAbsent(projectId, k -> new ReentrantLock());
+        startLock.lock();
         try {
-            run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound);
-            project.setActiveRunId(run.getId());
-            projectRepository.save(project);
+            if (flowerServerManager.isServerRunning(projectId)) {
+                // Was previously a silent fall-through that double-spawned the server.
+                throw new ProjectStateException(
+                        "FL server is already running for project " + projectId
+                                + " on port " + project.getServerPort());
+            }
 
-            Optional<Integer> port = flowerServerManager.startServerForProject(
-                    project, strategyToUse, numRoundsToUse, minClients);
-            project.setServerPort(port.orElse(null));
-            project.setStatus("RUNNING");
-            Project updatedProject = projectRepository.save(project);
-            runService.markRunning(run.getId(), port.orElse(null));
+            int clientsPerRound = (request != null && request.getClientsPerRound() != null)
+                    ? request.getClientsPerRound()
+                    : minClients;
 
-            ProjectStatusUpdateDto update = new ProjectStatusUpdateDto(
-                    updatedProject.getId(),
-                    projectStatusService.currentStatus(updatedProject).name(),   // BA-4 follow-up: derived, single source
-                    updatedProject.getServerPort());
-            webSocketService.sendStatusUpdate(update);
-            log.info("Started FL server for project {} (run {}) on port {}",
-                    projectId, run.getId(), port.orElse(null));
-            return convertToDto(updatedProject);
-        } catch (RuntimeException ex) {
-            if (run != null) { runService.markFailed(run.getId()); }
-            throw ex;
+            Run run = null;
+            try {
+                run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound);
+                project.setActiveRunId(run.getId());
+                projectRepository.save(project);
+
+                Optional<Integer> port = flowerServerManager.startServerForProject(
+                        project, strategyToUse, numRoundsToUse, minClients);
+                project.setServerPort(port.orElse(null));
+                project.setStatus("RUNNING");
+                Project updatedProject = projectRepository.save(project);
+                runService.markRunning(run.getId(), port.orElse(null));
+
+                ProjectStatusUpdateDto update = new ProjectStatusUpdateDto(
+                        updatedProject.getId(),
+                        projectStatusService.currentStatus(updatedProject).name(),   // BA-4 follow-up: derived, single source
+                        updatedProject.getServerPort());
+                webSocketService.sendStatusUpdate(update);
+                log.info("Started FL server for project {} (run {}) on port {}",
+                        projectId, run.getId(), port.orElse(null));
+                return convertToDto(updatedProject);
+            } catch (RuntimeException ex) {
+                if (run != null) { runService.markFailed(run.getId()); }
+                throw ex;
+            }
+        } finally {
+            startLock.unlock();
         }
     }
 
