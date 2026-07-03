@@ -47,34 +47,38 @@ interface HardwareProfileOption {
   dockerConfig: string;
 }
 
+// dockerConfig states how the profile actually executes. Only Jetson runs under
+// Docker (direct /dev device mounts); every other profile runs the bundled
+// native client — see DockerService.startTraining, where hardwareProfile is the
+// sole dispatcher.
 const HARDWARE_PROFILES: HardwareProfileOption[] = [
   {
     id: 'discrete',
     label: 'Discrete GPU',
-    description: 'NVIDIA workstation with dedicated PCIe GPU. Uses --gpus all via DeviceRequests.',
+    description: 'NVIDIA workstation with a dedicated PCIe GPU (CUDA). Runs the bundled native client.',
     icon: MonitorCog,
-    dockerConfig: 'DeviceRequests: --gpus all',
+    dockerConfig: 'Native process (bundled client)',
   },
   {
     id: 'jetson',
     label: 'Jetson SoC',
-    description: 'NVIDIA Jetson edge device with integrated Tegra GPU. Uses direct /dev/nvhost-* mounts.',
+    description: 'NVIDIA Jetson edge device with an integrated Tegra GPU. Runs in a Docker container with direct /dev device mounts.',
     icon: CircuitBoard,
-    dockerConfig: 'Devices: /dev/nvhost-ctrl, nvhost-ctrl-gpu, ...',
+    dockerConfig: 'Docker container (direct /dev device mounts)',
   },
   {
     id: 'mps',
     label: 'Apple Silicon',
-    description: 'Mac M1/M2/M3/M4 with Metal GPU. Runs natively (no Docker) for MPS acceleration.',
+    description: 'Mac M1/M2/M3/M4 with Metal (MPS) acceleration. Runs the bundled native client.',
     icon: Command,
-    dockerConfig: 'Native process (no Docker)',
+    dockerConfig: 'Native process (bundled client)',
   },
   {
     id: 'cpu',
     label: 'CPU Only',
-    description: 'Standard CPU training without GPU acceleration. Compatible with any hardware.',
+    description: 'Standard CPU training without GPU acceleration. Runs the bundled native client.',
     icon: Cpu,
-    dockerConfig: 'No GPU configuration',
+    dockerConfig: 'Native process (bundled client)',
   },
 ];
 
@@ -122,7 +126,9 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
         else parts.push(`${d.platform}/${d.arch}`);
 
         if (d.cudaAvailable) parts.push(`CUDA — ${d.cudaInfo || 'NVIDIA GPU'}`);
-        if (!d.nativeBundleAvailable) parts.push('native bundle missing — falling back to Docker');
+        // Non-jetson profiles train via the bundled native client (no Docker fallback);
+        // if the bundle is missing, training can't run until the app is reinstalled.
+        if (!d.nativeBundleAvailable) parts.push('native client bundle missing — reinstall to enable training');
 
         setDetectionLabel(parts.join(' · '));
       } catch {

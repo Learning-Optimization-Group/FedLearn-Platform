@@ -365,16 +365,18 @@ export class DockerService {
         hostConfig.Devices = JETSON_DEVICE_MOUNTS;
         log.info('[Docker] Profile: Jetson SoC (direct device mounts)');
         break;
-      case 'discrete':
-        hostConfig.DeviceRequests = [{ Count: -1, Capabilities: [['gpu']] }];
-        log.info('[Docker] Profile: discrete GPU (DeviceRequests --gpus all)');
-        break;
-      case 'cpu':
-        log.info('[Docker] Profile: CPU only');
-        break;
       case 'mps':
-        // Shouldn't reach here — MPS is native-only. Guarded for completeness.
+        // MPS is native-only; it can never run under Docker.
         throw new Error('MPS profile cannot run under Docker');
+      default:
+        // Jetson is the ONLY profile that uses the Docker path — startTraining()
+        // routes every other profile (discrete/cpu/mps) to the bundled native
+        // client and never calls this method for them. Reaching here with a
+        // non-jetson profile means a routing regression, so fail loudly instead
+        // of silently building a Docker container for a native profile.
+        throw new Error(
+          `Profile '${config.hardwareProfile}' does not use the Docker path — only 'jetson' runs under Docker`,
+        );
     }
 
     const env = buildContainerEnv(config);

@@ -2,14 +2,28 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import { BrowserWindow } from 'electron';
 
+// autoUpdater is a process-wide singleton. createWindow() can run more than once
+// per process (e.g. macOS 'activate' re-creates the window after all windows are
+// closed), so guard registration to happen EXACTLY once — otherwise every
+// updater event listener stacks up and each IPC message fires N times.
+let updaterInitialized = false;
+
 export function initializeUpdater(mainWindow: BrowserWindow) {
+  if (updaterInitialized) {
+    return;
+  }
+  updaterInitialized = true;
+
   // Configure logging for the auto-updater
   autoUpdater.logger = log;
   (autoUpdater.logger as any).transports.file.level = 'info';
 
   log.info('App starting... Initializing autoUpdater');
 
-  // Disable auto-download so we can prompt the user first (or show progress)
+  // Auto-download an update as soon as one is found. The UpdateBanner surfaces
+  // the "downloading in background… → progress → restart to install" flow, so
+  // there is no separate download prompt. autoInstallOnAppQuit then applies the
+  // already-downloaded update on the next quit.
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 

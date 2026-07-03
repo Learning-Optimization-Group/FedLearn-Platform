@@ -5,6 +5,7 @@ Object.defineProperty(global, 'localStorage', {
 });
 
 const path = require('path');
+const webpack = require('webpack');
 const TerserPlugin = require('terser-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
@@ -157,6 +158,11 @@ const rendererConfig = {
     ],
   },
   plugins: [
+    // Inject the real app version from package.json so the packaged UI never
+    // ships a stale hardcoded version string.
+    new webpack.DefinePlugin({
+      __APP_VERSION__: JSON.stringify(require('./package.json').version),
+    }),
     new HtmlWebpackPlugin({
       template: './src/renderer/index.html',
       filename: 'index.html',

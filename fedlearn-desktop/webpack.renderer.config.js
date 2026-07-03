@@ -5,6 +5,7 @@ Object.defineProperty(global, 'localStorage', {
 });
 
 const path = require('path');
+const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
@@ -41,6 +42,11 @@ module.exports = {
     ],
   },
   plugins: [
+    // Inject the real app version from package.json so the UI never ships a
+    // stale hardcoded version string.
+    new webpack.DefinePlugin({
+      __APP_VERSION__: JSON.stringify(require('./package.json').version),
+    }),
     new HtmlWebpackPlugin({
       template: './src/renderer/index.html',
       filename: 'index.html',

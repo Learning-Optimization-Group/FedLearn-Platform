@@ -15,6 +15,10 @@ import type { InferableModel, InferenceResult } from './inference.types';
 import type { ClientProject, ProjectConnection } from './client.types';
 import './styles.css';
 
+// Injected at build time by webpack DefinePlugin (reads `version` from package.json).
+// See webpack.renderer.config.js and webpack.prod.config.js.
+declare const __APP_VERSION__: string;
+
 // Type declaration for the secure preload API
 declare global {
   interface Window {
@@ -313,7 +317,7 @@ const App: React.FC = () => {
       {/* Footer */}
       <footer className="app-footer">
         <span className="footer-text">FedLearn — Train AI together. Share nothing.</span>
-        <span className="footer-version">v1.0.0</span>
+        <span className="footer-version">v{__APP_VERSION__}</span>
       </footer>
 
       {/* Settings Modal Layer */}
