@@ -53,6 +53,16 @@ _SAFE_DTYPES = {
 }
 
 
+def _reject_non_finite(name: str, np_array: np.ndarray) -> None:
+    """Reject a deserialized tensor carrying NaN/Inf. A single malicious or buggy client could
+    otherwise push non-finite weights that propagate into the averaged global model and destroy it
+    for every honest client in a round (SE-3 poisoning defense)."""
+    if not np.isfinite(np_array).all():
+        raise ValueError(
+            f"Tensor '{name}' contains non-finite values (NaN/Inf); rejecting poisoned update."
+        )
+
+
 def proto_to_parameters(proto: ModelParameters) -> Tuple[OrderedDict[str, torch.Tensor], int]:
     """Deserialize a proto message to a PyTorch state_dict."""
     parameters: OrderedDict[str, torch.Tensor] = OrderedDict()
@@ -73,6 +83,7 @@ def proto_to_parameters(proto: ModelParameters) -> Tuple[OrderedDict[str, torch.
                 f"Shape mismatch for tensor '{name}': dims product {expected_size} != data length {len(np_array)}")
 
         np_array = np_array.reshape(tensor_proto.dims).copy()
+        _reject_non_finite(name, np_array)
         parameters[name] = torch.tensor(np_array)
     return parameters, proto.num_examples_trained
 
@@ -165,6 +176,7 @@ def chunks_to_parameters(
 
         params: OrderedDict[str, torch.Tensor] = OrderedDict()
         for name, arr in named_arrays:
+            _reject_non_finite(name, arr)
             params[name] = torch.tensor(arr)
 
         num_examples = int(meta["num_examples"])

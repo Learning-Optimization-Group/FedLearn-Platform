@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import threading
 from collections import OrderedDict
@@ -353,6 +354,16 @@ class FLCoordinator:
                 client_id, self.current_round,
                 len(self._client_updates_received) + 1, self.clients_per_round,
             )
+
+            # Reject non-finite gradient scalars before they reach aggregation (SE-3 poisoning
+            # defense): a single NaN/Inf would corrupt the averaged update for every honest client
+            # in the round, an unattributable denial-of-integrity attack over a plaintext channel.
+            if not all(math.isfinite(g) for row in gradient_scalars for g in row):
+                log.warning(
+                    "Rejecting DeComFL update from %s: non-finite gradient scalars (poisoning defense)",
+                    client_id,
+                )
+                return
 
             # Store as tuple: (client_id, gradient_scalars, num_examples)
             self._client_updates_received.append((client_id, gradient_scalars, num_examples))
