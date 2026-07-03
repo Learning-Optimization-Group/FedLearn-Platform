@@ -14,6 +14,16 @@ export async function performLogin(username: string, password: string): Promise<
   return { username: res.data.username ?? username };
 }
 
+/** POST /api/auth/register, then immediately log in with the same credentials. */
+export async function performRegister(
+  username: string,
+  email: string,
+  password: string,
+): Promise<Identity> {
+  await api.post('/api/auth/register', { username, email, password });
+  return performLogin(username, password);
+}
+
 /** GET /api/auth/me as the bootstrap session probe. Null if no token or the probe fails. */
 export async function probeSession(): Promise<Identity | null> {
   const token = await getToken();
@@ -30,6 +40,7 @@ interface AuthValue {
   status: Status;
   username: string | null;
   login: (u: string, p: string) => Promise<void>;
+  register: (u: string, e: string, p: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 const AuthCtx = createContext<AuthValue | null>(null);
@@ -61,7 +72,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStatus('authenticated');
   }, []);
 
-  return <AuthCtx.Provider value={{ status, username, login, logout }}>{children}</AuthCtx.Provider>;
+  const register = useCallback(async (u: string, e: string, p: string) => {
+    const id = await performRegister(u, e, p);
+    setUsername(id.username);
+    setStatus('authenticated');
+  }, []);
+
+  return (
+    <AuthCtx.Provider value={{ status, username, login, register, logout }}>
+      {children}
+    </AuthCtx.Provider>
+  );
 }
 
 export function useAuth(): AuthValue {

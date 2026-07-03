@@ -9,7 +9,9 @@ const KEY = 'fedlearn.serverBaseUrl';
 
 // The committed EC2 demo backend (frontend .env.ec2demo → VITE_PROXY_TARGET). The mobile restClient
 // calls absolute `/api/...` paths, so the base URL is the host root (no `/api` suffix).
-export const DEFAULT_BASE_URL = 'https://fedlearn.duckdns.org';
+// DEMO BUILD default: the on-LAN developer machine running the FL platform over plain HTTP.
+// Override any time in the in-app Settings screen (e.g. back to https://fedlearn.duckdns.org).
+export const DEFAULT_BASE_URL = 'http://10.0.0.130:8081';
 
 /** Trim, drop any trailing slash, and require an http(s) origin. Throws on invalid input. */
 export function normalizeBaseUrl(raw: string): string {

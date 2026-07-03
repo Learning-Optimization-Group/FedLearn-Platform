@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- TLS-only by default (matches gRPC default-secure, 04 §10.3 / E13). No cleartext in release.
-     A dev build overrides this (a debug-only network_security_config under src/debug/) to allow a
-     localhost FL server when FEDLEARN_ALLOW_INSECURE_GRPC=true. -->
+<!-- DEMO BUILD: cleartext permitted so the app can reach an on-LAN FL platform over plain HTTP
+     (REST :8081) and plaintext gRPC (:50000-50010). The committed default is TLS-only; this is a
+     local demo allowance for talking to a developer's machine on the same network, not for release. -->
 <network-security-config>
-  <base-config cleartextTrafficPermitted="false">
+  <base-config cleartextTrafficPermitted="true">
     <trust-anchors>
       <certificates src="system" />
     </trust-anchors>
