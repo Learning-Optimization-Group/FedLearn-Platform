@@ -30,7 +30,7 @@ from torch.utils.data import DataLoader
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 import fedlearn as fl
-from fedlearn.server import DeComFL, FedLoRA  # Import strategies from framework
+from fedlearn.server import DeComFL, FedLoRA, FedProx, FedOpt, RobustAggregator  # Import strategies from framework
 from models import CnnNet
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
@@ -171,6 +171,112 @@ def perplexity_from_loss(avg_loss):
     """exp(mean LM loss); overflow-guarded so a diverged round reports inf rather than raising."""
     import math
     return math.exp(avg_loss) if avg_loss < 30 else float("inf")
+
+
+def select_strategy(args, initial_parameters, evaluate_fn):
+    """Map ``--strategy`` to a constructed framework Strategy instance.
+
+    Pure dispatch extracted from ``main()`` so it is unit-testable without spinning up a gRPC
+    server. Every branch wires the same core (``initial_parameters`` + ``evaluate_fn`` +
+    ``min_fit_clients``); each strategy adds its own hyperparameters.
+
+    The DeComFL / FedLoRA / FedAvg branches are preserved verbatim (FedAvg remains the fallback
+    for both the explicit ``fedavg`` name and any unrecognized strategy). FedProx / FedOpt /
+    RobustAggregator (FR-11/FR-12) are constructed here with SENSIBLE DEFAULTS for their extra
+    hyperparameters — full plumbing of those values from the run config / project UI is a
+    separate follow-up.
+    """
+    if args.strategy.lower() == 'decomfl':
+        logging.info("Using DeComFL strategy from framework")
+
+        # Get DeComFL config (use 'ecg' config for ECG dataset, otherwise 'default')
+        decomfl_config = get_decomfl_config('ecg' if args.dataset == 'ecg' else 'default')
+
+        strategy = DeComFL(
+            initial_parameters=initial_parameters,
+            evaluate_fn=evaluate_fn,
+            min_fit_clients=args.min_clients,
+            num_local_steps=decomfl_config.num_local_steps,
+            num_perturbations=decomfl_config.num_perturbations,
+            learning_rate=decomfl_config.learning_rate,
+            smoothing_param=decomfl_config.smoothing_param,
+            seed=decomfl_config.seed
+        )
+
+        logging.info(f"DeComFL initialized with: K={decomfl_config.num_local_steps}, "
+                     f"P={decomfl_config.num_perturbations}, "
+                     f"η={decomfl_config.learning_rate}, "
+                     f"μ={decomfl_config.smoothing_param}")
+    elif args.strategy.lower() == 'fedlora':
+        logging.info(f"Using FedLoRA strategy (aggregation={args.aggregation})")
+        strategy = FedLoRA(
+            initial_parameters=initial_parameters,
+            evaluate_fn=evaluate_fn,
+            min_fit_clients=args.min_clients,
+            aggregation=args.aggregation,
+        )
+    elif args.strategy.lower() == 'fedprox':
+        # FR-11: FedProx. Server aggregation is identical to FedAvg; the proximal term lives in
+        # the client objective and is shipped via get_client_config. Default μ=0.1 gives a mild
+        # anti-drift pull (μ=0 would be bitwise-identical to FedAvg).
+        proximal_mu = 0.1
+        logging.info(f"Using FedProx strategy (proximal μ={proximal_mu})")
+        strategy = FedProx(
+            initial_parameters=initial_parameters,
+            evaluate_fn=evaluate_fn,
+            min_fit_clients=args.min_clients,
+            proximal_mu=proximal_mu,
+        )
+    elif args.strategy.lower() == 'fedopt':
+        # FR-11: server-side adaptive optimisation (FedAdam by default). Standard FedAdam
+        # hyperparameters (Reddi et al. 2021); moments persist across rounds inside the strategy.
+        fedopt_variant = "adam"
+        server_learning_rate = 1.0
+        beta1, beta2, tau = 0.9, 0.99, 1e-3
+        logging.info(f"Using FedOpt strategy (variant={fedopt_variant}, "
+                     f"server_lr={server_learning_rate}, β1={beta1}, β2={beta2}, τ={tau})")
+        strategy = FedOpt(
+            initial_parameters=initial_parameters,
+            evaluate_fn=evaluate_fn,
+            min_fit_clients=args.min_clients,
+            server_learning_rate=server_learning_rate,
+            beta1=beta1,
+            beta2=beta2,
+            tau=tau,
+            variant=fedopt_variant,
+        )
+    elif args.strategy.lower() == 'robust':
+        # FR-12: Byzantine-robust aggregation. Default to coordinate-wise median (breakdown 0.5),
+        # clipping disabled and byzantine_fraction=0 so the guard never refuses a healthy round.
+        robust_method = "median"
+        robust_trim_ratio = 0.1
+        robust_clip_norm = None
+        robust_byzantine_fraction = 0.0
+        logging.info(f"Using RobustAggregator strategy (method={robust_method}, "
+                     f"trim_ratio={robust_trim_ratio}, clip_norm={robust_clip_norm}, "
+                     f"byzantine_fraction={robust_byzantine_fraction})")
+        strategy = RobustAggregator(
+            initial_parameters=initial_parameters,
+            evaluate_fn=evaluate_fn,
+            min_fit_clients=args.min_clients,
+            method=robust_method,
+            trim_ratio=robust_trim_ratio,
+            clip_norm=robust_clip_norm,
+            byzantine_fraction=robust_byzantine_fraction,
+        )
+    else:
+        if args.strategy.lower() != 'fedavg':
+            logging.warning(f"Strategy '{args.strategy}' not recognized. Defaulting to FedAvg.")
+
+        strategy = fl.FedAvg(
+            initial_parameters=initial_parameters,
+            evaluate_fn=evaluate_fn,
+            min_fit_clients=args.min_clients
+        )
+
+        logging.info("Using FedAvg strategy")
+
+    return strategy
 
 
 # ==============================================================================
@@ -632,47 +738,8 @@ def main():
         logging.error("LLM_LORA does not support the DeComFL strategy (use FedAvg/FedLoRA).")
         sys.exit(1)
 
-    # Create strategy based on user selection
-    if args.strategy.lower() == 'decomfl':
-        logging.info("Using DeComFL strategy from framework")
-
-        # Get DeComFL config (use 'ecg' config for ECG dataset, otherwise 'default')
-        decomfl_config = get_decomfl_config('ecg' if args.dataset == 'ecg' else 'default')
-
-        strategy = DeComFL(
-            initial_parameters=initial_parameters,
-            evaluate_fn=server_side_evaluate,
-            min_fit_clients=args.min_clients,
-            num_local_steps=decomfl_config.num_local_steps,
-            num_perturbations=decomfl_config.num_perturbations,
-            learning_rate=decomfl_config.learning_rate,
-            smoothing_param=decomfl_config.smoothing_param,
-            seed=decomfl_config.seed
-        )
-
-        logging.info(f"DeComFL initialized with: K={decomfl_config.num_local_steps}, "
-                     f"P={decomfl_config.num_perturbations}, "
-                     f"η={decomfl_config.learning_rate}, "
-                     f"μ={decomfl_config.smoothing_param}")
-    elif args.strategy.lower() == 'fedlora':
-        logging.info(f"Using FedLoRA strategy (aggregation={args.aggregation})")
-        strategy = FedLoRA(
-            initial_parameters=initial_parameters,
-            evaluate_fn=server_side_evaluate,
-            min_fit_clients=args.min_clients,
-            aggregation=args.aggregation,
-        )
-    else:
-        if args.strategy.lower() != 'fedavg':
-            logging.warning(f"Strategy '{args.strategy}' not recognized. Defaulting to FedAvg.")
-
-        strategy = fl.FedAvg(
-            initial_parameters=initial_parameters,
-            evaluate_fn=server_side_evaluate,
-            min_fit_clients=args.min_clients
-        )
-
-        logging.info("Using FedAvg strategy")
+    # Create strategy based on user selection (dispatch extracted to select_strategy for testability)
+    strategy = select_strategy(args, initial_parameters, server_side_evaluate)
 
     # Start gRPC server
     server_address = f"{bind_address}:{args.port}"
