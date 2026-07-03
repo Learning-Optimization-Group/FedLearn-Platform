@@ -112,6 +112,38 @@ def test_aborts_and_stops_when_not_enough_clients_reported():
     assert "0/2" in coord.last_round_message
 
 
+def _decomfl_coordinator_for_timeout(round_timeout_s, clients_per_round=2):
+    from fedlearn.server.decomfl_strategy import DeComFL
+    strat = DeComFL(
+        OrderedDict({"w": torch.zeros(3)}),
+        evaluate_fn=lambda rnd, params: (0.5, {"accuracy": 0.9}),
+        min_fit_clients=1, clients_per_round=clients_per_round,
+        num_local_steps=1, num_perturbations=2, learning_rate=0.01, smoothing_param=0.001, seed=1,
+    )
+    coord = FLCoordinator(
+        strategy=strat, min_clients_for_aggregation=1,
+        clients_per_round=clients_per_round, round_timeout_s=round_timeout_s,
+    )
+    return coord, strat
+
+
+def test_decomfl_round_timeout_runs_the_decomfl_trigger():
+    # FR-4: a DeComFL round resolved by TIMEOUT (1 of 2 clients reported) must run the
+    # DeComFL-appropriate trigger, which records gradient_history[round]. Clients replay that history
+    # via get_rebuild_history to rebuild their local model; the FedAvg trigger skips it, silently
+    # desyncing every client from round r+1 onward (the FR-1/2/3 bug class).
+    coord, strat = _decomfl_coordinator_for_timeout(round_timeout_s=0.5, clients_per_round=2)
+    strat.get_or_create_seeds(coord.current_round)          # a client normally seeds the round
+    coord.submit_decomfl_update("c1", [[0.1, 0.2]], 100, coord.current_round)   # 1 of 2 -> no aggregate
+    assert coord.current_round == 1
+
+    coord._handle_round_timeout()                            # force-resolve with the client that reported
+
+    assert 1 in strat.gradient_history                       # DeComFL trigger ran (skipped pre-FR-4)
+    assert coord.current_round == 2                          # round advanced
+    assert coord.stop_requested is False
+
+
 def test_common_path_unchanged_when_all_clients_report_in_time():
     # Generous timeout; both clients report immediately -> normal completion.
     coord = make_coordinator(round_timeout_s=60.0, min_clients=2, clients_per_round=2)

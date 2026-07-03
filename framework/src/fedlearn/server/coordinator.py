@@ -152,7 +152,11 @@ class FLCoordinator:
                     f"Round {self.current_round} timed out after {self.round_timeout_s:.1f}s; "
                     f"force-aggregated {received}/{total} clients (min required={required})."
                 )
-                self._trigger_aggregation_and_evaluation()
+                # FR-4: dispatch to the strategy-appropriate trigger. The submit paths are protocol-
+                # specific (FedAvg->submit_client_update, DeComFL->submit_decomfl_update) so they call
+                # their trigger directly, but this timeout path is strategy-agnostic and must not
+                # hardcode the FedAvg trigger — that would skip DeComFL's gradient_history write.
+                self._trigger_round_completion()
             else:
                 log.error(
                     "Round %d timed out after %.1fs with only %d of %d clients reported "
@@ -206,6 +210,20 @@ class FLCoordinator:
                     self.clients_per_round, self.current_round,
                 )
                 self._trigger_aggregation_and_evaluation()
+
+    def _trigger_round_completion(self):
+        """Dispatch a completed/force-resolved round to the strategy-appropriate aggregation path.
+
+        DeComFL needs its own trigger: it records gradient_history[round] (clients replay it via
+        get_rebuild_history to rebuild locally) and guards a None evaluate. The default FedAvg trigger
+        does neither, so routing a DeComFL round through it silently desyncs every client and can
+        crash on a run with no evaluate_fn. Uses the same DeComFL detection as the DeComFL trigger.
+        Called while self._lock is held.
+        """
+        if 'DeComFL' in str(type(self.strategy)) and hasattr(self.strategy, 'gradient_history'):
+            self._trigger_decomfl_aggregation_and_evaluation()
+        else:
+            self._trigger_aggregation_and_evaluation()
 
     def _trigger_aggregation_and_evaluation(self):
         """Aggregate client updates and advance the round counter.
