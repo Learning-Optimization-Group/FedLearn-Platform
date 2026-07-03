@@ -240,7 +240,9 @@ public class ProjectService {
             runService.markRunning(run.getId(), port.orElse(null));
 
             ProjectStatusUpdateDto update = new ProjectStatusUpdateDto(
-                    updatedProject.getId(), "RUNNING", updatedProject.getServerPort());
+                    updatedProject.getId(),
+                    projectStatusService.currentStatus(updatedProject).name(),   // BA-4 follow-up: derived, single source
+                    updatedProject.getServerPort());
             webSocketService.sendStatusUpdate(update);
             log.info("Started FL server for project {} (run {}) on port {}",
                     projectId, run.getId(), port.orElse(null));
@@ -273,6 +275,14 @@ public class ProjectService {
         if (finalProjectState.getActiveRunId() != null) {
             runService.markStopped(finalProjectState.getActiveRunId());
         }
+
+        // BA-4 follow-up: notify live watchers of the stop over STOMP. The stop path previously pushed
+        // nothing, so the dashboard stayed on RUNNING until a manual refresh. Push the DERIVED status
+        // (computed after markStopped) so the real-time value matches what the REST DTOs now return.
+        webSocketService.sendStatusUpdate(new ProjectStatusUpdateDto(
+                finalProjectState.getId(),
+                projectStatusService.currentStatus(finalProjectState).name(),
+                null));
 
         return convertToDto(finalProjectState);
     }
@@ -325,7 +335,8 @@ public class ProjectService {
         }
 
         webSocketService.sendStatusUpdate(
-                new ProjectStatusUpdateDto(project.getId(), "COMPLETED", null));
+                new ProjectStatusUpdateDto(project.getId(),
+                        projectStatusService.currentStatus(project).name(), null));   // BA-4 follow-up: derived
         log.info("Project {} marked as completed", projectId);
     }
 

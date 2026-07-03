@@ -119,6 +119,10 @@ class ProjectServiceExtendedTest {
 
         assertEquals("STOPPED", dto.getStatus());
         verify(projectRepository).save(any(Project.class));
+        // BA-4 follow-up: stopping must notify live watchers over STOMP (previously it never pushed,
+        // so the dashboard stayed on RUNNING until a manual refresh).
+        verify(webSocketService).sendStatusUpdate(
+                org.mockito.ArgumentMatchers.argThat(u -> "STOPPED".equals(u.getNewStatus())));
     }
 
     @Test
