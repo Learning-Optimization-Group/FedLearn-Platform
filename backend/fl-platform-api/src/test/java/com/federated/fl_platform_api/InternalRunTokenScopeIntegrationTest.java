@@ -1,11 +1,18 @@
 package com.federated.fl_platform_api;
 
+import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.ProjectVisibility;
+import com.federated.fl_platform_api.model.User;
+import com.federated.fl_platform_api.repository.ProjectRepository;
+import com.federated.fl_platform_api.repository.RoundResultRepository;
+import com.federated.fl_platform_api.repository.UserRepository;
 import com.federated.fl_platform_api.security.RunTokenRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.*;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.UUID;
@@ -23,8 +30,14 @@ class InternalRunTokenScopeIntegrationTest {
 
     private static final String INTERNAL_KEY = "test-internal-key";  // application-test.properties
 
+    private static final UUID DEFAULT_ORG_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
     @Autowired private TestRestTemplate rest;
     @Autowired private RunTokenRegistry runTokenRegistry;
+    @Autowired private ProjectRepository projectRepository;
+    @Autowired private UserRepository userRepository;
+    @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private RoundResultRepository roundResultRepository;
 
     private HttpHeaders headers(String runToken) {
         HttpHeaders h = new HttpHeaders();
@@ -34,6 +47,21 @@ class InternalRunTokenScopeIntegrationTest {
             h.set("X-Internal-Run-Token", runToken);
         }
         return h;
+    }
+
+    private Project seedProject() {
+        User owner = userRepository.save(new User(
+                "ing-" + System.nanoTime(), "ing-" + System.nanoTime() + "@example.com",
+                passwordEncoder.encode("Password1!")));
+        Project p = new Project();
+        p.setName("ing-" + System.nanoTime());
+        p.setModelType("CNN");
+        p.setModelName("net");
+        p.setStatus("CREATED");
+        p.setUser(owner);
+        p.setOrgId(DEFAULT_ORG_ID);
+        p.setVisibility(ProjectVisibility.PRIVATE);
+        return projectRepository.save(p);
     }
 
     @Test
@@ -78,5 +106,53 @@ class InternalRunTokenScopeIntegrationTest {
         // (which 404s because project A was never persisted). The point: NOT blocked by the gate.
         assertNotEquals(HttpStatus.UNAUTHORIZED, resp.getStatusCode());
         assertNotEquals(HttpStatus.FORBIDDEN, resp.getStatusCode());
+    }
+
+    // BA-7 done-when: the same project-scope guarantee holds for the benchmark ingest endpoint (parity
+    // with results), and legitimate ingestion for the token's OWN project actually succeeds end to end.
+
+    @Test
+    void benchmarkRunTokenScopedToProjectA_cannotMutateProjectB() {
+        UUID projectA = UUID.randomUUID();
+        UUID projectB = UUID.randomUUID();
+        String tokenA = runTokenRegistry.mint(projectA, UUID.randomUUID());
+
+        ResponseEntity<String> resp = rest.exchange(
+            "/api/internal/benchmarks/" + projectB, HttpMethod.POST,
+            new HttpEntity<>("{\"serverRound\":1,\"modelType\":\"CNN\",\"loss\":0.5,\"accuracy\":0.9}", headers(tokenA)),
+            String.class);
+
+        assertEquals(HttpStatus.FORBIDDEN, resp.getStatusCode(),
+            "a run A token must not ingest benchmarks for project B");
+    }
+
+    @Test
+    void legitimateResultIngestionForOwnProject_succeeds() {
+        Project project = seedProject();
+        String token = runTokenRegistry.mint(project.getId(), UUID.randomUUID());
+        long before = roundResultRepository.count();
+
+        ResponseEntity<String> resp = rest.exchange(
+            "/api/internal/results/" + project.getId(), HttpMethod.POST,
+            new HttpEntity<>("{\"serverRound\":1,\"loss\":0.5,\"accuracy\":0.9,\"gpuUtilization\":0.4}", headers(token)),
+            String.class);
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode(),
+            "a run's token ingesting a result for its own project must succeed");
+        assertEquals(before + 1, roundResultRepository.count(), "the round result was persisted");
+    }
+
+    @Test
+    void legitimateBenchmarkIngestionForOwnProject_succeeds() {
+        Project project = seedProject();
+        String token = runTokenRegistry.mint(project.getId(), UUID.randomUUID());
+
+        ResponseEntity<String> resp = rest.exchange(
+            "/api/internal/benchmarks/" + project.getId(), HttpMethod.POST,
+            new HttpEntity<>("{\"serverRound\":1,\"modelType\":\"CNN\",\"loss\":0.5,\"accuracy\":0.9}", headers(token)),
+            String.class);
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode(),
+            "a run's token ingesting a benchmark for its own project must succeed");
     }
 }

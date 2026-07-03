@@ -52,10 +52,19 @@ public class ResultsController {
         result.setGpuUtilization(resultDto.getGpuUtilization());
 
         RoundResult saved = roundResultRepository.save(result);
-        
-        // Broadcast the result to connected clients
-        webSocketService.sendResultUpdate(projectId, saved);
-        
+
+        // Broadcast a DTO, not the JPA entity. The entity's lazy Hibernate proxies (project -> user)
+        // are not JSON-serializable by the STOMP message converter (no Hibernate Jackson module is
+        // registered), which previously threw MessageConversionException and 500'd this callback
+        // AFTER the row had already been saved — the client never got the live update.
+        RoundResultDto out = new RoundResultDto();
+        out.setId(saved.getId());
+        out.setServerRound(saved.getServerRound());
+        out.setLoss(saved.getLoss());
+        out.setAccuracy(saved.getAccuracy());
+        out.setGpuUtilization(saved.getGpuUtilization());
+        webSocketService.sendResultUpdate(projectId, out);
+
         return ResponseEntity.ok().build();
     }
 
