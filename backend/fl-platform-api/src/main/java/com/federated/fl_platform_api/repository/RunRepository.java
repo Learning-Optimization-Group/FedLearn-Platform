@@ -21,4 +21,7 @@ public interface RunRepository extends JpaRepository<Run, UUID> {
     Optional<Run> findFirstByProjectIdAndStatusOrderByStartedAtDesc(UUID projectId, RunStatus status);
 
     List<Run> findByProjectId(UUID projectId);
+
+    // BA-3: the still-in-flight runs a StartupReconciler must reconcile against live OS processes.
+    List<Run> findByStatusIn(java.util.Collection<RunStatus> statuses);
 }

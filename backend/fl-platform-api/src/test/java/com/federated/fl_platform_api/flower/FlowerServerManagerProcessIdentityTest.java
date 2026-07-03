@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 /**
@@ -70,5 +71,19 @@ class FlowerServerManagerProcessIdentityTest {
         managerWith(repo).recordProcessIdentity(runId, mock(Process.class), 50005);
 
         verify(repo, never()).save(any());
+    }
+
+    @Test
+    void persistenceFailure_propagates_soTheSpawnCanFailClosed() {
+        // A live server whose identity can't be persisted would be an unreconcilable orphan, so the
+        // failure must NOT be swallowed — it propagates and the spawn path kills the child + fails.
+        RunRepository repo = mock(RunRepository.class);
+        UUID runId = UUID.randomUUID();
+        Run run = new Run();
+        when(repo.findById(runId)).thenReturn(Optional.of(run));
+        doThrow(new RuntimeException("db down")).when(repo).save(run);
+
+        assertThrows(RuntimeException.class, () -> managerWith(repo)
+                .recordProcessIdentity(runId, processWith(7L, Instant.parse("2026-07-03T12:00:00Z")), 50007));
     }
 }

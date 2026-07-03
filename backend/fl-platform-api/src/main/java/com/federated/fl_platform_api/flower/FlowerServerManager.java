@@ -80,7 +80,11 @@ public class FlowerServerManager {
     @Autowired
     private com.federated.fl_platform_api.repository.RunRepository runRepository;
 
-    private final Map<UUID, Process> runningServers = new ConcurrentHashMap<>();
+    // BA-3: ProcessHandle (not Process) so a StartupReconciler can re-adopt a child that outlived a
+    // backend crash — a restarted JVM can only recover a handle to an orphan, never the original
+    // Process object. Freshly-spawned servers are stored via process.toHandle(); the stdout reader
+    // still uses the live Process captured at spawn.
+    private final Map<UUID, ProcessHandle> runningServers = new ConcurrentHashMap<>();
 
     // Ports that have been picked by findFreePort() but whose Python child
     // has not yet bound — see findFreePort/releasePort. Without this,
@@ -150,8 +154,21 @@ public class FlowerServerManager {
             pb.directory(new File("."));
 
             process = pb.start();
-            runningServers.put(project.getId(), process);
-            recordProcessIdentity(project.getActiveRunId(), process, freePort);
+            runningServers.put(project.getId(), process.toHandle());
+            try {
+                recordProcessIdentity(project.getActiveRunId(), process, freePort);
+            } catch (RuntimeException e) {
+                // BA-3: we spawned a child but could not persist its identity — after a crash it would
+                // be an unreconcilable orphan holding its port with no PID on record to reap it. Fail
+                // closed: kill the child and surface the failure rather than leak silently.
+                log.error("Could not record FL-server identity for project {}; terminating the child to "
+                        + "avoid an unrecoverable orphan", project.getId(), e);
+                process.destroyForcibly();
+                runningServers.remove(project.getId());
+                // the outer finally releases the reserved port
+                throw new ServerProcessException(
+                        "Failed to record FL-server process identity for project " + project.getId(), e);
+            }
 
             final StringBuilder startupOutput = new StringBuilder();
             final boolean[] errorOccurred = {false};
@@ -366,38 +383,37 @@ public class FlowerServerManager {
      * instant is the anti-PID-reuse guard: a recycled PID belonging to an unrelated process will not
      * share it.
      *
-     * <p>Best-effort and self-contained: a {@code null} run (e.g. a bare-manager test with no bound
-     * run) or a since-deleted run is a no-op, and a persistence hiccup is logged rather than allowed
-     * to fail an otherwise-healthy spawn.
+     * <p>A {@code null} run (e.g. a bare-manager test with no bound run) or a since-deleted run is a
+     * no-op. A persistence failure, however, PROPAGATES: the caller must fail the spawn closed (kill
+     * the child), because a live server whose identity was never recorded is an orphan that can never
+     * be reconciled or reaped — exactly the leak this feature exists to prevent.
      */
     void recordProcessIdentity(UUID runId, Process process, int port) {
         if (runId == null) {
             return;
         }
-        try {
-            runRepository.findById(runId).ifPresent(run -> {
-                run.setServerPid(process.pid());
-                run.setProcessStartedAt(process.info().startInstant().orElse(null));
-                run.setServerPort(port);
-                runRepository.save(run);
-            });
-        } catch (RuntimeException e) {
-            log.warn("Could not persist FL-server process identity (pid={}, port={}) to run {}: {}",
-                    process.pid(), port, runId, e.toString());
-        }
+        runRepository.findById(runId).ifPresent(run -> {
+            run.setServerPid(process.pid());
+            run.setProcessStartedAt(process.info().startInstant().orElse(null));
+            run.setServerPort(port);
+            runRepository.save(run);
+        });
     }
 
     public boolean stopServerForProject(UUID projectId) {
         runTokenRegistry.evictForProject(projectId);   // SE-7: invalidate this run's internal token
-        Process process = runningServers.get(projectId);
-        if (process != null && process.isAlive()) {
+        ProcessHandle handle = runningServers.get(projectId);
+        if (handle != null && handle.isAlive()) {
             log.info("Stopping FL server for project {}", projectId);
-            process.destroyForcibly();
+            handle.destroyForcibly();
             try {
-                process.waitFor(stopWaitSeconds(), TimeUnit.SECONDS);
+                handle.onExit().get(stopWaitSeconds(), TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 log.warn("Interrupted while waiting for FL server {} to terminate", projectId);
                 Thread.currentThread().interrupt();
+            } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException e) {
+                log.warn("FL server {} did not terminate within {}s of destroyForcibly: {}",
+                        projectId, stopWaitSeconds(), e.getClass().getSimpleName());
             }
             runningServers.remove(projectId);
             return true;
@@ -422,11 +438,14 @@ public class FlowerServerManager {
             try {
                 if (p.isAlive()) {
                     p.destroyForcibly();
-                    p.waitFor(stopWaitSeconds(), TimeUnit.SECONDS);
+                    p.onExit().get(stopWaitSeconds(), TimeUnit.SECONDS);
                 }
             } catch (InterruptedException e) {
                 log.warn("Interrupted while waiting for FL server {} to terminate during shutdown", id);
                 Thread.currentThread().interrupt();
+            } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException e) {
+                log.warn("FL server {} did not terminate within {}s during shutdown: {}",
+                        id, stopWaitSeconds(), e.getClass().getSimpleName());
             } catch (RuntimeException e) {
                 log.warn("Failed to terminate FL server for project {}: {}",
                         id, e.getClass().getSimpleName());
@@ -436,8 +455,28 @@ public class FlowerServerManager {
     }
 
     public boolean isServerRunning(UUID projectId) {
-        Process p = runningServers.get(projectId);
+        ProcessHandle p = runningServers.get(projectId);
         return (p != null && p.isAlive());
+    }
+
+    /**
+     * BA-3: re-adopt an FL-server child that outlived a backend restart, so it is tracked again and a
+     * later {@link #stopServerForProject} can terminate it. The port needs no reservation — a live
+     * server holds it at the OS level, so {@link #findFreePort} (which probes an actual bind) won't
+     * hand it out. Only the startup reconciler, which has already verified PID + start-instant
+     * identity, calls this.
+     */
+    public void adopt(UUID projectId, ProcessHandle handle) {
+        ProcessHandle existing = runningServers.putIfAbsent(projectId, handle);
+        if (existing != null) {
+            // A process is already tracked for this project. Reconciliation runs before the HTTP layer
+            // opens, so this should not happen — but never clobber a live tracked handle (that would
+            // orphan it and leak its port). Keep the existing one.
+            log.warn("Skipped re-adopting FL server for project {} (pid {}): a process is already tracked",
+                    projectId, handle.pid());
+            return;
+        }
+        log.info("Re-adopted orphaned FL server for project {} (pid {})", projectId, handle.pid());
     }
 
     /**
