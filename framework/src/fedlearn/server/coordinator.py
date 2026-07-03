@@ -44,10 +44,22 @@ class FLCoordinator:
     """
 
     def __init__(self, strategy: Strategy, min_clients_for_aggregation: int, clients_per_round: int,
-                 round_timeout_s: Optional[float] = None):
+                 round_timeout_s: Optional[float] = None,
+                 grad_clip_threshold: Optional[float] = 1000.0):
         self.strategy = strategy
         self.min_clients = min_clients_for_aggregation
         self.clients_per_round = clients_per_round
+
+        # SE-3 poisoning defense (layer 2): clamp each DeComFL gradient scalar into
+        # [-grad_clip_threshold, +grad_clip_threshold] at ingress. The honest zeroth-order scalar
+        # envelope is ~O(10) (O(100) at init), so the 1e3 default sits >=10x above honest support:
+        # the clamp is the identity map on honest values, preserving DeComFL's bounded-gradient
+        # convergence assumption with zero trajectory bias, while capping a 1e9-scale hijack to a
+        # bounded, recoverable per-round step. Set to None to disable. NOT covered here (documented
+        # scope): within-bound stealth bias and rail collusion need client identity (SE-1) +
+        # reputation; robust aggregation (trimmed-mean/median) is a large-cohort feature deferred
+        # behind a min-cohort gate, being a no-op at the 1-3 client cohorts this platform runs.
+        self.grad_clip_threshold = grad_clip_threshold
 
         # Per-round dropout deadline. Precedence: explicit constructor arg >
         # FEDLEARN_ROUND_TIMEOUT_S env var > module default.
@@ -364,6 +376,21 @@ class FLCoordinator:
                     client_id,
                 )
                 return
+
+            # Layer 2 (SE-3): clamp finite-but-large scalars to a bounded magnitude (see __init__).
+            # A client sending g=1e9 would otherwise dominate g_sum and hijack the averaged step for
+            # every honest client. We CLAMP (not reject) to preserve liveness, and do it here at
+            # ingress — before storage — so both consumers of the stored scalars stay in lockstep:
+            # aggregate_fit (steps the real global model) and _calculate_average_gradients (feeds
+            # gradient_history, which clients replay to rebuild locally) read identical values.
+            tau = self.grad_clip_threshold
+            if tau is not None:
+                if any(abs(g) > tau for row in gradient_scalars for g in row):
+                    log.warning(
+                        "Clamping out-of-range gradient scalars from %s to +/-%g (SE-3 poisoning defense)",
+                        client_id, tau,
+                    )
+                gradient_scalars = [[max(-tau, min(tau, g)) for g in row] for row in gradient_scalars]
 
             # Store as tuple: (client_id, gradient_scalars, num_examples)
             self._client_updates_received.append((client_id, gradient_scalars, num_examples))

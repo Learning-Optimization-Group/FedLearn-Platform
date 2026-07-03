@@ -64,3 +64,33 @@ def test_decomfl_submit_rejects_non_finite_scalars_without_corrupting_the_round(
 
     coord.submit_decomfl_update("poisoned", [[float("nan"), 0.2]], 100, coord.current_round)
     assert len(coord._client_updates_received) == 1  # NaN submission rejected, round not corrupted
+
+
+# --- DeComFL path, layer 2: a finite-but-LARGE adversarial scalar must be CLAMPED (not rejected) --
+# to a bounded magnitude at ingress, before it is stored. Both downstream consumers — aggregate_fit
+# (steps the real global model) and _calculate_average_gradients (feeds gradient_history, which
+# clients replay to rebuild locally) — read the stored scalars, so clamping once here keeps the
+# server model and the client-rebuilt model in lockstep. Clamp preserves liveness; NaN is dropped.
+def test_decomfl_submit_bounds_a_large_poisoning_scalar():
+    # Threshold-independent: an astronomically large scalar must be reduced, whatever the default is.
+    coord = _decomfl_coordinator(clients_per_round=2)
+    coord.submit_decomfl_update("attacker", [[1e12, -1e12]], 100, coord.current_round)
+    _, stored, _ = coord._client_updates_received[0]        # update accepted (clamped, not dropped)
+    assert abs(stored[0][0]) < 1e12, "large poisoning scalar was not bounded"
+    assert abs(stored[0][1]) < 1e12
+
+
+def test_decomfl_submit_clamps_symmetrically_to_the_threshold():
+    coord = _decomfl_coordinator(clients_per_round=2)
+    tau = coord.grad_clip_threshold
+    coord.submit_decomfl_update("attacker", [[tau * 1e6, -tau * 1e6]], 100, coord.current_round)
+    _, stored, _ = coord._client_updates_received[0]
+    assert stored == [[tau, -tau]]                          # clamped into [-tau, tau], sign preserved
+
+
+def test_decomfl_submit_leaves_in_range_honest_scalars_untouched():
+    # Guard against convergence bias: a scalar within [-tau, tau] must pass through as the identity.
+    coord = _decomfl_coordinator(clients_per_round=2)
+    coord.submit_decomfl_update("good", [[0.1, -0.2]], 100, coord.current_round)
+    _, stored, _ = coord._client_updates_received[0]
+    assert stored == [[0.1, -0.2]]
