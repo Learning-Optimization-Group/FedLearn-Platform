@@ -5,10 +5,18 @@
 import axios, { type AxiosInstance } from 'axios';
 import { getToken, clearToken } from './authStore';
 
+// Native-client marker (SE-9): the backend accepts `Authorization: Bearer` only when the
+// request also carries this header — browsers stay strictly cookie-only. The value is a
+// plain client identifier (an intent signal), NOT a secret.
+export const NATIVE_CLIENT_HEADER = 'X-FedLearn-Client';
+export const NATIVE_CLIENT_VALUE = 'fedlearn-mobile';
+
 export const api: AxiosInstance = axios.create({
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
+// Shared default — every outbound request identifies itself as the native mobile client.
+api.defaults.headers.common[NATIVE_CLIENT_HEADER] = NATIVE_CLIENT_VALUE;
 
 export function configureApi(baseUrl: string): void {
   if (!baseUrl) throw new Error('configureApi: FEDLEARN_API_URL is required');

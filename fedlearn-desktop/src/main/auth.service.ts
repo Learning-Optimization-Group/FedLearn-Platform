@@ -14,8 +14,9 @@
 
 import Store from 'electron-store';
 import { safeStorage } from 'electron';
-import axios, { AxiosError } from 'axios';
+import { AxiosError } from 'axios';
 import log from 'electron-log';
+import { http } from './http';
 
 interface AuthStore {
   encryptedJwt: string;
@@ -96,7 +97,7 @@ export class AuthService {
     try {
       log.info(`[AuthService] Attempting login for user: ${username}`);
 
-      const response = await axios.post(
+      const response = await http.post(
         `${this.apiBaseUrl}/auth/login`,
         { username, password },
         {

@@ -6,10 +6,21 @@
 import { Client, type IFrame, type IMessage } from '@stomp/stompjs';
 import { getToken } from './authStore';
 import { getServerBaseUrl } from './serverConfig';
+import { NATIVE_CLIENT_HEADER, NATIVE_CLIENT_VALUE } from './restClient';
 
 /** REST base (http/https) → the ws/wss origin for the /ws-logs STOMP endpoint. */
 function toWsUrl(base: string): string {
   return base.replace(/\/+$/, '').replace(/^http/i, 'ws') + '/ws-logs';
+}
+
+/**
+ * Headers for both the WS upgrade and the STOMP CONNECT frame: the Bearer token (when
+ * present) plus the native-client marker (SE-9) that scoped Bearer acceptance requires.
+ */
+export function stompAuthHeaders(token: string | null): Record<string, string> {
+  const headers: Record<string, string> = { [NATIVE_CLIENT_HEADER]: NATIVE_CLIENT_VALUE };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
 }
 
 export interface StompHandle {
@@ -25,7 +36,7 @@ export interface StompHandle {
 export async function connectStomp(onError?: (msg: string) => void): Promise<StompHandle> {
   const [token, base] = await Promise.all([getToken(), getServerBaseUrl()]);
   const url = toWsUrl(base);
-  const auth: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+  const auth = stompAuthHeaders(token);
 
   const client = new Client({
     // 3rd arg (options.headers) is React Native's WebSocket extension — sets the upgrade headers.

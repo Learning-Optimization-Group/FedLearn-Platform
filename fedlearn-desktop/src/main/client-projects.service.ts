@@ -11,9 +11,9 @@
 // this only through IPC.
 // =============================================================================
 
-import axios from 'axios';
 import log from 'electron-log';
 import { AuthService } from './auth.service';
+import { http } from './http';
 
 export interface ClientProject {
   projectId: string;
@@ -45,7 +45,7 @@ export class ClientProjectService {
       return { success: false, error: 'Not authenticated' };
     }
     try {
-      const res = await axios.get(`${this.auth.getApiUrl()}/client/projects`, {
+      const res = await http.get(`${this.auth.getApiUrl()}/client/projects`, {
         headers: { Authorization: header },
         validateStatus: (s) => s < 500,
       });
@@ -73,7 +73,7 @@ export class ClientProjectService {
       return { success: false, error: 'Not authenticated' };
     }
     try {
-      const res = await axios.get(
+      const res = await http.get(
         `${this.auth.getApiUrl()}/client/projects/${projectId}/connection`,
         {
           headers: { Authorization: header },

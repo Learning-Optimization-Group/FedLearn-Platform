@@ -1,7 +1,16 @@
-import { api, setAuthLostHandler } from '../lib/restClient';
+import {
+  api,
+  setAuthLostHandler,
+  NATIVE_CLIENT_HEADER,
+  NATIVE_CLIENT_VALUE,
+} from '../lib/restClient';
+import { stompAuthHeaders } from '../lib/stompClient';
 import * as authStore from '../lib/authStore';
 
 jest.mock('../lib/authStore');
+// stompClient pulls in serverConfig (native encrypted storage) — not needed for the
+// pure header-builder under test here.
+jest.mock('../lib/serverConfig', () => ({ getServerBaseUrl: jest.fn() }));
 const store = authStore as jest.Mocked<typeof authStore>;
 
 describe('restClient interceptors', () => {
@@ -41,5 +50,38 @@ describe('restClient interceptors', () => {
       rejected({ response: { status: 401 }, config: { url: '/api/auth/me' } }),
     ).rejects.toBeDefined();
     expect(onLost).not.toHaveBeenCalled();
+  });
+});
+
+// SE-9: the backend honors `Authorization: Bearer` only when the request also carries the
+// X-FedLearn-Client marker (browsers stay cookie-only). Every mobile request must send it.
+describe('native-client marker (SE-9)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('X-FedLearn-Client is a shared default header on the api instance', () => {
+    expect(NATIVE_CLIENT_HEADER).toBe('X-FedLearn-Client');
+    expect(api.defaults.headers.common[NATIVE_CLIENT_HEADER]).toBe('fedlearn-mobile');
+  });
+
+  test('an outbound request carries the marker alongside the Bearer token', async () => {
+    store.getToken.mockResolvedValue('jwt-xyz');
+    let seen: { get(name: string): unknown } | null = null;
+    // Stub adapter — captures the fully-merged headers without touching the network.
+    await api.get('/api/client/projects', {
+      adapter: async (config) => {
+        seen = config.headers as unknown as { get(name: string): unknown };
+        return { data: {}, status: 200, statusText: 'OK', headers: {}, config };
+      },
+    });
+    expect(seen!.get(NATIVE_CLIENT_HEADER)).toBe(NATIVE_CLIENT_VALUE);
+    expect(seen!.get('Authorization')).toBe('Bearer jwt-xyz');
+  });
+
+  test('STOMP headers (WS upgrade + CONNECT frame) carry the marker with and without a token', () => {
+    expect(stompAuthHeaders('jwt-xyz')).toEqual({
+      [NATIVE_CLIENT_HEADER]: NATIVE_CLIENT_VALUE,
+      Authorization: 'Bearer jwt-xyz',
+    });
+    expect(stompAuthHeaders(null)).toEqual({ [NATIVE_CLIENT_HEADER]: NATIVE_CLIENT_VALUE });
   });
 });

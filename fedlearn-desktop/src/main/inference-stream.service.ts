@@ -11,11 +11,11 @@
 // =============================================================================
 
 import { BrowserWindow } from 'electron';
-import axios from 'axios';
 import { Client as StompClient } from '@stomp/stompjs';
 import WS from 'ws';
 import log from 'electron-log';
 import { AuthService } from './auth.service';
+import { http, NATIVE_CLIENT_HEADER, NATIVE_CLIENT_VALUE } from './http';
 
 interface GenerationResult {
   modelType: string;
@@ -44,7 +44,10 @@ export class InferenceStreamService {
 
     const client = new StompClient({
       webSocketFactory: () =>
-        new WS(this.wsBrokerUrl(), { headers: { Authorization: header } }) as unknown as WebSocket,
+        new WS(this.wsBrokerUrl(), {
+          // Bearer on the upgrade needs the native-client marker too (SE-9 scoping).
+          headers: { Authorization: header, [NATIVE_CLIENT_HEADER]: NATIVE_CLIENT_VALUE },
+        }) as unknown as WebSocket,
       reconnectDelay: 0, // single-shot; don't reconnect after the request ends
     });
 
@@ -74,7 +77,7 @@ export class InferenceStreamService {
     });
 
     try {
-      const res = await axios.post(
+      const res = await http.post(
         `${this.auth.getApiUrl()}/inference/${projectId}/generate`,
         payload,
         {
@@ -103,7 +106,7 @@ export class InferenceStreamService {
     const header = this.auth.getAuthHeader();
     if (!header) return { success: false, error: 'Not authenticated' };
     try {
-      const res = await axios.post(`${this.auth.getApiUrl()}/inference/${projectId}/generate/stop`, {}, {
+      const res = await http.post(`${this.auth.getApiUrl()}/inference/${projectId}/generate/stop`, {}, {
         headers: { Authorization: header, 'Content-Type': 'application/json' },
         validateStatus: (s) => s < 600,
       });

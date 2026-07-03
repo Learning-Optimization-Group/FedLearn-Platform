@@ -6,9 +6,9 @@
 // class probabilities. The renderer reaches this only through IPC.
 // =============================================================================
 
-import axios from 'axios';
 import log from 'electron-log';
 import { AuthService } from './auth.service';
+import { http } from './http';
 
 export interface InferableModel {
   projectId: string;
@@ -46,7 +46,7 @@ export class InferenceService {
       return { success: false, error: 'Not authenticated' };
     }
     try {
-      const res = await axios.get(`${this.auth.getApiUrl()}/inference/models`, {
+      const res = await http.get(`${this.auth.getApiUrl()}/inference/models`, {
         headers: { Authorization: header },
         validateStatus: (s) => s < 500,
       });
@@ -71,7 +71,7 @@ export class InferenceService {
       return { success: false, error: 'Not authenticated' };
     }
     try {
-      const res = await axios.post(`${this.auth.getApiUrl()}/inference/${projectId}`, payload, {
+      const res = await http.post(`${this.auth.getApiUrl()}/inference/${projectId}`, payload, {
         headers: { Authorization: header, 'Content-Type': 'application/json' },
         // Accept 4xx so we can surface the backend's message instead of throwing.
         validateStatus: (s) => s < 600,
