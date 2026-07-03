@@ -24,6 +24,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
+    /**
+     * Native-client marker header (SE-9). Its presence with a non-blank value is what allows an
+     * {@code Authorization: Bearer} token to authenticate — see {@link #isNativeClient}.
+     */
+    public static final String NATIVE_CLIENT_HEADER = "X-FedLearn-Client";
+
     private final JwtTokenProvider jwtTokenProvider;
 
     private final CustomUserDetailsService customUserDetailsService;
@@ -45,19 +51,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     )throws ServletException, IOException {
 
-        String authHeader = request.getHeader("Authorization");
-        String jwt = null;
         String username = null;
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            jwt = authHeader.substring(7);
-        } else if (request.getCookies() != null) {
-            for (jakarta.servlet.http.Cookie cookie : request.getCookies()) {
-                if ("jwtToken".equals(cookie.getName())) {
-                    jwt = cookie.getValue();
-                    break;
-                }
-            }
+        // SE-9 — Bearer acceptance is scoped to native clients; the browser is strictly cookie-only.
+        //
+        // The documented browser auth contract is cookies-only: the JWT lives in an HttpOnly,
+        // SameSite jwtToken cookie that JS cannot read (defeats XSS token exfiltration), and the SPA
+        // never sends an Authorization header. Native clients (mobile/desktop) cannot rely on the
+        // HttpOnly cookie — they read the accessToken from the /auth/login response body (see
+        // AuthController), stash it in secure platform storage (Keychain / EncryptedSharedPreferences),
+        // and replay it as `Authorization: Bearer <jwt>`.
+        //
+        // To keep those two worlds from bleeding into each other we:
+        //   1. ALWAYS honor a valid jwtToken cookie (the browser path — unchanged); and
+        //   2. accept a Bearer header ONLY when the request also carries the native-client marker
+        //      (NATIVE_CLIENT_HEADER). A browser-origin request presenting a Bearer header but no
+        //      marker is treated as anonymous — the header is ignored, never authenticated from.
+        // This is deliberately fail-closed: absent the explicit marker, Bearer does nothing. Native
+        // clients MUST send NATIVE_CLIENT_HEADER for their Bearer token to be accepted.
+        String jwt = readJwtCookie(request);
+        if (jwt == null && isNativeClient(request)) {
+            jwt = readBearerToken(request);
         }
 
         if (jwt == null) {
@@ -94,5 +108,38 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * SE-9: a request is treated as a native client (mobile/desktop) — and therefore allowed to
+     * authenticate via a Bearer header — only when it carries a non-blank {@link #NATIVE_CLIENT_HEADER}.
+     * Browser SPAs never set this header, so their requests fall through to the cookie-only path.
+     * The marker is an explicit intent signal, not a secret; it does not weaken any check — a marked
+     * request still runs the full signature/expiry validation and jti revocation checks below.
+     */
+    private static boolean isNativeClient(HttpServletRequest request) {
+        String marker = request.getHeader(NATIVE_CLIENT_HEADER);
+        return marker != null && !marker.isBlank();
+    }
+
+    /** Reads the browser auth cookie. Returns {@code null} when no {@code jwtToken} cookie is present. */
+    private static String readJwtCookie(HttpServletRequest request) {
+        if (request.getCookies() != null) {
+            for (jakarta.servlet.http.Cookie cookie : request.getCookies()) {
+                if ("jwtToken".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Extracts the token from an {@code Authorization: Bearer <jwt>} header, or {@code null}. */
+    private static String readBearerToken(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+        return null;
     }
 }
