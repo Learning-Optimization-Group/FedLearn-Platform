@@ -27,6 +27,7 @@ jobs:
       backend_scripts: ${{ steps.filter.outputs.backend_scripts }}
       frontend: ${{ steps.filter.outputs.frontend }}
       desktop: ${{ steps.filter.outputs.desktop }}
+      mobile: ${{ steps.filter.outputs.mobile }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -44,6 +45,8 @@ jobs:
               - 'frontend/**'
             desktop:
               - 'fedlearn-desktop/**'
+            mobile:
+              - 'mobile_client/**'
 
   framework:
     needs: changes
@@ -143,3 +146,24 @@ jobs:
           npm ci
           npm run lint --if-present
           npm test
+
+  # TE-3: the mobile RN TypeScript app had ZERO CI gate — tsc + jest never ran anywhere. Gate them
+  # here (type-check + jest). NOT eslint: mobile has no flat config yet (TE-9). Fast JS-only job,
+  # kept separate from the heavy native Android (.so) build.
+  mobile-js:
+    needs: changes
+    if: ${{ needs.changes.outputs.mobile == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile_client/package-lock.json
+      - name: Install + typecheck + jest
+        working-directory: mobile_client
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npx jest --ci

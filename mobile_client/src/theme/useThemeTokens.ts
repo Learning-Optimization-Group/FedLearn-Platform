@@ -8,7 +8,11 @@ import { useColorScheme } from 'nativewind';
 
 import { tokens } from './tokens.generated';
 
-export type Palette = typeof tokens.colorLight;
+// Semantic color vocabulary → resolved color string. Keyed off the light palette's shape (light and
+// dark share the same keys); values are widened to `string` so BOTH palettes satisfy it — the dark
+// hexes are distinct literals from the light ones, and consumers (SVG fills, tint props) want a
+// plain color string anyway, not a specific literal.
+export type Palette = { readonly [K in keyof typeof tokens.colorLight]: string };
 
 /**
  * Returns the active semantic palette (light or dark) following the OS color scheme — the same
