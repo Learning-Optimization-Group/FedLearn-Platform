@@ -47,7 +47,7 @@ setup(
     package_dir={'': 'src'},
 
     # Python version requirement
-    python_requires='>=3.8',
+    python_requires='>=3.10',   # FR-9: match the documented target (README/CLAUDE say 3.10+)
 
     # Dependencies
     install_requires=read_requirements(),

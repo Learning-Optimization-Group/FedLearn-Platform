@@ -28,11 +28,21 @@ class JSONFormatter(logging.Formatter):
             log_obj["stackTrace"] = self.formatException(record.exc_info)
         return json.dumps(log_obj)
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(JSONFormatter())
-logger.handlers = [handler]
+def configure_logging() -> None:
+    """Configure root logging as JSON-on-stdout for the FL-server process.
+
+    Called explicitly by start_server (the entrypoint) — NOT at import time — so importing the
+    framework as a library does not hijack the host application's root logger (FR-9). The FL server
+    runs as its own process spawned by the backend, which parses this JSON stdout, so owning the
+    root logger is appropriate for that entrypoint.
+    """
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JSONFormatter())
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.handlers = [handler]
+
+
 @dataclass
 class ServerConfig:
     num_rounds: int = 3
@@ -55,6 +65,7 @@ def start_server(
     Returns:
         Tuple of (history, final_parameters)
     """
+    configure_logging()   # FR-9: set up JSON root logging at the entrypoint, not at import time
     logging.info(f"Starting FedLearn server on {server_address}")
 
     # Create coordinator
