@@ -2,8 +2,41 @@ import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 
 const envBaseUrl = import.meta.env.VITE_FEDLEARN_API_URL;
 
-if (import.meta.env.PROD && !envBaseUrl) {
-    throw new Error('VITE_FEDLEARN_API_URL must be set for production builds');
+// FE-7: real host-injection path.
+// The committed `.env.production` intentionally ships a placeholder host, so a
+// production bundle must have its real API origin injected out-of-band — NEVER
+// by editing the committed `.env.production`. Two supported channels:
+//   - local prod builds: a gitignored `frontend/.env.local` (highest Vite
+//     precedence) with `VITE_FEDLEARN_API_URL=https://api.example.com/api`
+//   - CI/CD: export `VITE_FEDLEARN_API_URL` (+ `VITE_SERVER_ROOT_URL`) in the
+//     build environment (Vite's `loadEnv` lets process env override the file).
+// See `frontend/.env.example`. The guard below fails the PROD path loudly if a
+// build forgot to inject one, rather than silently bundling a dead origin.
+const PLACEHOLDER_API_HOST = 'REPLACE_WITH_YOUR_API_HOST';
+
+if (import.meta.env.PROD) {
+    if (!envBaseUrl) {
+        throw new Error(
+            'VITE_FEDLEARN_API_URL must be set for production builds. ' +
+            'Inject a real https:// API origin via a gitignored frontend/.env.local ' +
+            'or a CI-exported env var (see frontend/.env.example).'
+        );
+    }
+    if (envBaseUrl.includes(PLACEHOLDER_API_HOST)) {
+        throw new Error(
+            `VITE_FEDLEARN_API_URL is still the placeholder "${PLACEHOLDER_API_HOST}" from ` +
+            '.env.production. Replace it with your real https:// API origin via a gitignored ' +
+            'frontend/.env.local or a CI-exported env var (see frontend/.env.example).'
+        );
+    }
+    if (!envBaseUrl.startsWith('https://')) {
+        throw new Error(
+            `VITE_FEDLEARN_API_URL must be an https:// origin in production (got "${envBaseUrl}"). ` +
+            'The SPA is served over HTTPS, so an http:// backend is blocked by the browser as mixed ' +
+            'content. Set it via a gitignored frontend/.env.local or a CI-exported env var ' +
+            '(see frontend/.env.example).'
+        );
+    }
 }
 
 // Local-dev fallback only; production builds fail fast above.
