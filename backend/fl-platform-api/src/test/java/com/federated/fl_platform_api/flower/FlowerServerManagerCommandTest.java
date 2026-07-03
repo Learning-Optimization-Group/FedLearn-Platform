@@ -98,8 +98,9 @@ class FlowerServerManagerCommandTest {
         env.put("APP_JWT_SECRET", "web-auth-secret");   // inherited from the backend process
         env.put("PATH", "/usr/bin");                     // unrelated inherited var must survive
         FlowerServerManager.configureChildEnv(env, "internal-key", "http://backend", "fl-secret", true,
-                "run-abc", true);
+                "run-abc", true, "scoped-run-token-xyz");
         assertEquals("internal-key", env.get("FEDLEARN_INTERNAL_API_KEY"));
+        assertEquals("scoped-run-token-xyz", env.get("FEDLEARN_INTERNAL_RUN_TOKEN"));  // SE-7: scoped per-run token
         assertEquals("http://backend", env.get("FEDLEARN_BACKEND_URL"));
         assertEquals("fl-secret", env.get("FEDLEARN_FL_TOKEN_SECRET"));  // FL server can verify tokens
         assertEquals("1", env.get("FEDLEARN_REQUIRE_CLIENT_AUTH"));       // enforcement activated
@@ -114,10 +115,11 @@ class FlowerServerManagerCommandTest {
     @Test
     void configureChildEnv_authAndTlsDisabledByDefaultNoBackendUrlNoRun() {
         java.util.Map<String, String> env = new java.util.HashMap<>();
-        FlowerServerManager.configureChildEnv(env, "k", null, "fl-secret", false, null, false);
+        FlowerServerManager.configureChildEnv(env, "k", null, "fl-secret", false, null, false, null);
         assertEquals("0", env.get("FEDLEARN_REQUIRE_CLIENT_AUTH"));  // off unless explicitly required
         assertNull(env.get("FEDLEARN_BACKEND_URL"));                 // blank backend url -> unset
         assertNull(env.get("FEDLEARN_RUN_ID"));                      // null run -> unset
+        assertNull(env.get("FEDLEARN_INTERNAL_RUN_TOKEN"));          // SE-7: null token -> unset
         assertNull(env.get("FEDLEARN_REQUIRE_TLS"));                 // SE-2: TLS not forced -> plaintext (dev/demo)
         assertNull(env.get("FEDLEARN_GRPC_USE_TLS"));
     }

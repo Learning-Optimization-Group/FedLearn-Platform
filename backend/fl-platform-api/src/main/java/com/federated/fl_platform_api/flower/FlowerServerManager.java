@@ -72,6 +72,9 @@ public class FlowerServerManager {
     @Autowired
     private WebSocketService logBroadcaster;
 
+    @Autowired
+    private com.federated.fl_platform_api.security.RunTokenRegistry runTokenRegistry;
+
     private final Map<UUID, Process> runningServers = new ConcurrentHashMap<>();
 
     // Ports that have been picked by findFreePort() but whose Python child
@@ -127,10 +130,14 @@ public class FlowerServerManager {
 
             ProcessBuilder pb = new ProcessBuilder(command);
 
+            // SE-7: mint a random per-run internal token scoped to (projectId, runId) and hand ONLY
+            // it to the child — never a secret it could use to forge another project's token. It is
+            // evicted when the server stops (stopServerForProject).
+            String internalRunToken = runTokenRegistry.mint(project.getId(), project.getActiveRunId());
             configureChildEnv(pb.environment(), internalApiKey, backendInternalUrl,
                     flTokenSecret, requireClientAuth,
                     project.getActiveRunId() != null ? project.getActiveRunId().toString() : null,
-                    requireTls);
+                    requireTls, internalRunToken);
 
             log.debug("Starting FL server for project {} via script {}", project.getId(), absoluteScriptPath);
 
@@ -318,8 +325,13 @@ public class FlowerServerManager {
      */
     static void configureChildEnv(Map<String, String> env, String internalApiKey, String backendUrl,
                                   String flTokenSecret, boolean requireClientAuth, String runId,
-                                  boolean requireTls) {
+                                  boolean requireTls, String internalRunToken) {
         env.put("FEDLEARN_INTERNAL_API_KEY", internalApiKey == null ? "" : internalApiKey);
+        // SE-7: scoped per-run token the child presents on /api/internal/** callbacks, so the backend
+        // can bind each call to this run's project (a leaked run token can mutate only its project).
+        if (!isBlank(internalRunToken)) {
+            env.put("FEDLEARN_INTERNAL_RUN_TOKEN", internalRunToken);
+        }
         if (!isBlank(backendUrl)) {
             env.put("FEDLEARN_BACKEND_URL", backendUrl);
         }
@@ -342,6 +354,7 @@ public class FlowerServerManager {
     }
 
     public boolean stopServerForProject(UUID projectId) {
+        runTokenRegistry.evictForProject(projectId);   // SE-7: invalidate this run's internal token
         Process process = runningServers.get(projectId);
         if (process != null && process.isAlive()) {
             log.info("Stopping FL server for project {}", projectId);

@@ -57,6 +57,8 @@ class GlobalExceptionHandlerTest {
 
     @MockitoBean
     private com.federated.fl_platform_api.security.TokenRevocationService tokenRevocationService;
+    @MockitoBean
+    private com.federated.fl_platform_api.security.RunTokenRegistry runTokenRegistry;
     // SecurityConfig's @Bean wiring for the auditing handlers transitively requires these.
     @MockitoBean
     private com.federated.fl_platform_api.repository.UserRepository userRepository;

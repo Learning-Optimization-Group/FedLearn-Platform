@@ -60,6 +60,11 @@ BACKEND_URL = os.environ.get('FEDLEARN_BACKEND_URL', f"http://{base_url}:8081").
 # will succeed, and the task should surface that loudly.
 INTERNAL_API_KEY = os.environ.get('FEDLEARN_INTERNAL_API_KEY', '').strip()
 
+# SE-7: a scoped, random per-run token minted by the backend at spawn and bound to THIS run's
+# project. Sent alongside the shared key on every /api/internal/** callback so the backend can
+# reject any call whose target project isn't ours — a leaked run token can mutate only its project.
+INTERNAL_RUN_TOKEN = os.environ.get('FEDLEARN_INTERNAL_RUN_TOKEN', '').strip()
+
 
 def _internal_headers() -> dict:
     """Headers for /api/internal/** callbacks. Raises if no key is configured."""
@@ -68,7 +73,11 @@ def _internal_headers() -> dict:
             "FEDLEARN_INTERNAL_API_KEY is not set; refusing to call backend /api/internal/** "
             "without a shared secret."
         )
-    return {"X-Internal-Key": INTERNAL_API_KEY, "Content-Type": "application/json"}
+    return {
+        "X-Internal-Key": INTERNAL_API_KEY,
+        "X-Internal-Run-Token": INTERNAL_RUN_TOKEN,
+        "Content-Type": "application/json",
+    }
 
 
 def _register_model_artifact(project_id: str, model_type: str, model_path: str,
@@ -97,7 +106,8 @@ def _register_model_artifact(project_id: str, model_type: str, model_path: str,
                 url,
                 files={"model": (os.path.basename(model_path), fh, "application/octet-stream")},
                 data=data,
-                headers={"X-Internal-Key": INTERNAL_API_KEY},
+                headers={"X-Internal-Key": INTERNAL_API_KEY,
+                         "X-Internal-Run-Token": INTERNAL_RUN_TOKEN},
                 timeout=120,
             )
         resp.raise_for_status()
