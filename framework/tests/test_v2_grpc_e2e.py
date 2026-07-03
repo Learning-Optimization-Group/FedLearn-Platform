@@ -39,7 +39,11 @@ def _free_port() -> int:
 @pytest.fixture
 def live_server():
     init = OrderedDict(w=torch.zeros(4), b=torch.zeros(2))
-    strat = DeComFL(init, evaluate_fn=lambda rnd, params: (1.097, {"accuracy": 0.5}),
+    # No evaluate_fn: this suite asserts protocol/wire behaviour (registration, submit,
+    # round advancement, metric recording), not server-side evaluation. A fixed-return
+    # stub here only invited confusion with the client-reported telemetry below. Real
+    # server evaluation is covered by test_decomfl_convergence.py (TE-1).
+    strat = DeComFL(init, evaluate_fn=None,
                     min_fit_clients=1, clients_per_round=1, num_local_steps=K, num_perturbations=P,
                     learning_rate=0.01, smoothing_param=0.01, seed=42)
     coord = FLCoordinator(strat, min_clients_for_aggregation=1, clients_per_round=1, round_timeout_s=30)

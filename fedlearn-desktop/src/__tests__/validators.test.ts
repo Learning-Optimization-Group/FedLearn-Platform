@@ -39,8 +39,13 @@ describe('sanitizeDatasetPath', () => {
     expect(sanitizeDatasetPath({})).toBeNull();
   });
 
-  test('returns null for empty string', () => {
-    expect(sanitizeDatasetPath('')).toBeNull();
+  test('returns empty string for empty/whitespace input (optional dataset → container default)', () => {
+    // Shipped semantics (the diverged case): an empty dataset path means "use the
+    // default dataset baked into the training container", so it is accepted and
+    // normalized to '' — NOT rejected. The dead copy of this module returned null
+    // here, contradicting what ipc.handlers.ts actually ships.
+    expect(sanitizeDatasetPath('')).toBe('');
+    expect(sanitizeDatasetPath('   ')).toBe('');
   });
 
   test('returns null when path is too long', () => {

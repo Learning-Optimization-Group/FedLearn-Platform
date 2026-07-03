@@ -9,9 +9,15 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
-import * as fs from 'fs';
-import * as path from 'path';
 import { DockerService, TrainingConfig, HardwareProfile } from './docker.service';
+import {
+  sanitizeDatasetPath,
+  validateHardwareProfile,
+  validateProjectId,
+  validatePartitionId,
+  validateServerAddress,
+  validateStringInput,
+} from './validators';
 import { AuthService } from './auth.service';
 import { InferenceService, InferencePayload } from './inference.service';
 import { ClientProjectService } from './client-projects.service';
@@ -19,67 +25,12 @@ import { InferenceStreamService } from './inference-stream.service';
 import { detectHardware } from './hardware.probe';
 import { collectDeviceCapabilities } from './deviceCapabilities.collector';
 
-const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> = new Set(['discrete', 'jetson', 'cpu', 'mps']);
-const PROJECT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
-const PARTITION_ID_PATTERN = /^[0-9]{1,10}$/;
-const SERVER_ADDRESS_PATTERN = /^[a-zA-Z0-9._:/-]{1,256}$/;
-const MAX_DATASET_PATH_LEN = 2048;
 const MAX_IMAGE_BASE64_LEN = 14 * 1024 * 1024; // ~10 MB decoded
 const MAX_VECTOR_LEN = 100_000;
 
-/**
- * Normalizes and validates a dataset path before it's bind-mounted into a
- * training container. The renderer normally selects the path through the
- * native dialog (which is safe), but a compromised renderer or future text
- * input could craft a path that, once interpolated into the Docker bind
- * string `${path}:/data`, escapes to a sensitive host directory.
- *
- * Rules:
- *   - String of bounded length, no NUL bytes (no directory-traversal via
- *     embedded null terminator).
- *   - Resolves to an absolute path with no remaining `..` segments.
- *   - Path must currently exist and be a directory (catches typos and
- *     prevents bind-mounting non-existent paths which Docker would create
- *     as empty directories owned by root).
- *
- * Returns the canonical absolute path on success, or null on rejection.
- */
-function sanitizeDatasetPath(raw: unknown): string | null {
-  // Dataset path is optional — empty string means "use default dataset inside container".
-  if (typeof raw === 'string' && raw.trim() === '') {
-    return '';
-  }
-  if (typeof raw !== 'string' || raw.length === 0 || raw.length > MAX_DATASET_PATH_LEN) {
-    return null;
-  }
-  if (raw.includes('\0')) {
-    return null;
-  }
-  let resolved: string;
-  try {
-    resolved = path.resolve(raw);
-  } catch {
-    return null;
-  }
-  // After resolve(), `..` segments should already be collapsed. If any
-  // remain (only possible on platforms with unusual semantics), bail out.
-  if (resolved.split(path.sep).some((seg) => seg === '..')) {
-    return null;
-  }
-  if (!path.isAbsolute(resolved)) {
-    return null;
-  }
-  let stat: fs.Stats;
-  try {
-    stat = fs.statSync(resolved);
-  } catch {
-    return null;
-  }
-  if (!stat.isDirectory()) {
-    return null;
-  }
-  return resolved;
-}
+// Input validators (sanitizeDatasetPath, validateHardwareProfile, validateProjectId,
+// validatePartitionId, validateServerAddress, validateStringInput) live in ./validators
+// so they can be unit-tested directly. This file used to carry a diverged inline copy.
 
 let dockerService: DockerService;
 let authService: AuthService;
@@ -123,26 +74,6 @@ function sanitizeInferencePayload(raw: unknown): InferencePayload | null {
  */
 export function getDockerService(): DockerService | undefined {
   return dockerService;
-}
-
-function validateHardwareProfile(profile: unknown): profile is HardwareProfile {
-  return typeof profile === 'string' && ALLOWED_HARDWARE_PROFILES.has(profile);
-}
-
-function validateProjectId(id: unknown): id is string {
-  return typeof id === 'string' && PROJECT_ID_PATTERN.test(id);
-}
-
-function validatePartitionId(id: unknown): id is string {
-  return typeof id === 'string' && PARTITION_ID_PATTERN.test(id);
-}
-
-function validateServerAddress(addr: unknown): addr is string {
-  return typeof addr === 'string' && SERVER_ADDRESS_PATTERN.test(addr);
-}
-
-function validateStringInput(val: unknown, maxLength: number): val is string {
-  return typeof val === 'string' && val.length > 0 && val.length <= maxLength;
 }
 
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {

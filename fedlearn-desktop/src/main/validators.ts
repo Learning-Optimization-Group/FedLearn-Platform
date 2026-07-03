@@ -4,6 +4,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+// Type-only import — erased at compile time, so this module stays free of the
+// electron runtime deps docker.service pulls in. Lets validateHardwareProfile
+// narrow to the exact HardwareProfile union the shipped code relies on.
+import type { HardwareProfile } from './docker.service';
 
 export const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> =
   new Set(['discrete', 'jetson', 'cpu', 'mps']);
@@ -14,6 +18,12 @@ export const SERVER_ADDRESS_PATTERN = /^[a-zA-Z0-9._:/-]{1,256}$/;
 export const MAX_DATASET_PATH_LEN = 2048;
 
 export function sanitizeDatasetPath(raw: unknown): string | null {
+  // Dataset path is optional — an empty/whitespace value means "use the default
+  // dataset baked into the training container", so normalize it to '' rather than
+  // rejecting it. (This is the case the previously-diverged inline copy got wrong.)
+  if (typeof raw === 'string' && raw.trim() === '') {
+    return '';
+  }
   if (typeof raw !== 'string' || raw.length === 0 || raw.length > MAX_DATASET_PATH_LEN) {
     return null;
   }
@@ -44,7 +54,7 @@ export function sanitizeDatasetPath(raw: unknown): string | null {
   return resolved;
 }
 
-export function validateHardwareProfile(profile: unknown): profile is string {
+export function validateHardwareProfile(profile: unknown): profile is HardwareProfile {
   return typeof profile === 'string' && ALLOWED_HARDWARE_PROFILES.has(profile);
 }
 
