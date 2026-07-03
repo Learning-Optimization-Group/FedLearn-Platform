@@ -161,7 +161,7 @@ export function ClientDashboard() {
                         {isApproved ? (
                             <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success/10 px-4 py-3 text-body font-medium text-success">
                                 <StatusPill status="completed">Approved</StatusPill>
-                                You're now a project owner — sign out and back in to see your owner dashboard.
+                                You're now a project owner — your owner dashboard will appear shortly (switch tabs and back to refresh now).
                             </div>
                         ) : hasPending ? (
                             <div className="flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-body font-medium text-warning">
