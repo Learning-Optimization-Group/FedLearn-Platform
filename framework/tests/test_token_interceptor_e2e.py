@@ -32,22 +32,28 @@ def _free_port() -> int:
     return port
 
 
-@pytest.fixture
-def authed_server():
+def _start_server(expected_run_id=None):
+    """Start a real FL server whose interceptor is bound to expected_run_id. Returns (addr, server)."""
     strat = DeComFL(OrderedDict(w=torch.zeros(4)), evaluate_fn=lambda r, p: (1.0, {}),
                     min_fit_clients=1, clients_per_round=1, num_local_steps=1, num_perturbations=2,
                     learning_rate=0.01, smoothing_param=0.01, seed=42)
     coord = FLCoordinator(strat, min_clients_for_aggregation=1, clients_per_round=1, round_timeout_s=30)
     server = grpc.server(
         concurrent.futures.ThreadPoolExecutor(max_workers=4),
-        interceptors=[ConnectionTokenInterceptor(_GOLDEN["secret_base64"])],
+        interceptors=[ConnectionTokenInterceptor(_GOLDEN["secret_base64"], expected_run_id=expected_run_id)],
     )
     pbg.add_FederatedLearningServiceServicer_to_server(FederatedLearningServiceServicer(coord), server)
     port = _free_port()
     server.add_insecure_port(f"127.0.0.1:{port}")
     server.start()
+    return f"127.0.0.1:{port}", server
+
+
+@pytest.fixture
+def authed_server():
+    addr, server = _start_server()
     try:
-        yield f"127.0.0.1:{port}"
+        yield addr
     finally:
         server.stop(grace=None)
 
@@ -86,6 +92,32 @@ def test_register_with_forged_token_is_unauthenticated(authed_server):
         with pytest.raises(grpc.RpcError) as excinfo:
             stub.RegisterClient(_register_request(), metadata=[(METADATA_KEY, forged)])
         assert excinfo.value.code() == grpc.StatusCode.UNAUTHENTICATED
+
+
+def test_token_for_a_different_run_is_permission_denied():
+    # FR-7: a valid token minted for run 111...  presented to a server serving a DIFFERENT run must be
+    # refused PERMISSION_DENIED (authenticated, but not for this federation).
+    addr, server = _start_server(expected_run_id="99999999-9999-9999-9999-999999999999")
+    try:
+        with grpc.insecure_channel(addr) as channel:
+            stub = pbg.FederatedLearningServiceStub(channel)
+            with pytest.raises(grpc.RpcError) as excinfo:
+                stub.RegisterClient(_register_request(), metadata=[(METADATA_KEY, _GOLDEN["token"])])
+            assert excinfo.value.code() == grpc.StatusCode.PERMISSION_DENIED
+    finally:
+        server.stop(grace=None)
+
+
+def test_token_for_the_served_run_is_accepted():
+    # The same token IS accepted when the server serves that run (111...).
+    addr, server = _start_server(expected_run_id=_GOLDEN["claims"]["runId"])
+    try:
+        with grpc.insecure_channel(addr) as channel:
+            stub = pbg.FederatedLearningServiceStub(channel)
+            reg = stub.RegisterClient(_register_request(), metadata=[(METADATA_KEY, _GOLDEN["token"])])
+            assert reg.status == pb.RegisterClientResponse.Status.ACCEPTED
+    finally:
+        server.stop(grace=None)
 
 
 def test_client_interceptor_and_server_interceptor_interoperate(authed_server):

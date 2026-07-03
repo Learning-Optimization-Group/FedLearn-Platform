@@ -97,22 +97,25 @@ class FlowerServerManagerCommandTest {
         java.util.Map<String, String> env = new java.util.HashMap<>();
         env.put("APP_JWT_SECRET", "web-auth-secret");   // inherited from the backend process
         env.put("PATH", "/usr/bin");                     // unrelated inherited var must survive
-        FlowerServerManager.configureChildEnv(env, "internal-key", "http://backend", "fl-secret", true);
+        FlowerServerManager.configureChildEnv(env, "internal-key", "http://backend", "fl-secret", true,
+                "run-abc");
         assertEquals("internal-key", env.get("FEDLEARN_INTERNAL_API_KEY"));
         assertEquals("http://backend", env.get("FEDLEARN_BACKEND_URL"));
         assertEquals("fl-secret", env.get("FEDLEARN_FL_TOKEN_SECRET"));  // FL server can verify tokens
         assertEquals("1", env.get("FEDLEARN_REQUIRE_CLIENT_AUTH"));       // enforcement activated
+        assertEquals("run-abc", env.get("FEDLEARN_RUN_ID"));             // FR-7: server bound to its run
         assertNull(env.get("APP_JWT_SECRET"),
                 "the web-auth secret must be scrubbed from the network-facing FL child (SE-7)");
         assertEquals("/usr/bin", env.get("PATH"));
     }
 
     @Test
-    void configureChildEnv_authDisabledByDefaultAndNoBackendUrl() {
+    void configureChildEnv_authDisabledByDefaultAndNoBackendUrlNoRun() {
         java.util.Map<String, String> env = new java.util.HashMap<>();
-        FlowerServerManager.configureChildEnv(env, "k", null, "fl-secret", false);
+        FlowerServerManager.configureChildEnv(env, "k", null, "fl-secret", false, null);
         assertEquals("0", env.get("FEDLEARN_REQUIRE_CLIENT_AUTH"));  // off unless explicitly required
         assertNull(env.get("FEDLEARN_BACKEND_URL"));                 // blank backend url -> unset
+        assertNull(env.get("FEDLEARN_RUN_ID"));                      // null run -> unset
     }
 
     @Test

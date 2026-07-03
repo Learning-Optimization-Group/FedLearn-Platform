@@ -123,7 +123,8 @@ public class FlowerServerManager {
             ProcessBuilder pb = new ProcessBuilder(command);
 
             configureChildEnv(pb.environment(), internalApiKey, backendInternalUrl,
-                    flTokenSecret, requireClientAuth);
+                    flTokenSecret, requireClientAuth,
+                    project.getActiveRunId() != null ? project.getActiveRunId().toString() : null);
 
             log.debug("Starting FL server for project {} via script {}", project.getId(), absoluteScriptPath);
 
@@ -310,7 +311,7 @@ public class FlowerServerManager {
      * isolation). Package-private + static so it is unit-testable without spawning a process.
      */
     static void configureChildEnv(Map<String, String> env, String internalApiKey, String backendUrl,
-                                  String flTokenSecret, boolean requireClientAuth) {
+                                  String flTokenSecret, boolean requireClientAuth, String runId) {
         env.put("FEDLEARN_INTERNAL_API_KEY", internalApiKey == null ? "" : internalApiKey);
         if (!isBlank(backendUrl)) {
             env.put("FEDLEARN_BACKEND_URL", backendUrl);
@@ -319,6 +320,10 @@ public class FlowerServerManager {
             env.put("FEDLEARN_FL_TOKEN_SECRET", flTokenSecret);
         }
         env.put("FEDLEARN_REQUIRE_CLIENT_AUTH", requireClientAuth ? "1" : "0");
+        // FR-7: bind the server to the run it serves, so a token minted for another run is rejected.
+        if (!isBlank(runId)) {
+            env.put("FEDLEARN_RUN_ID", runId);
+        }
         // The FL server verifies with FEDLEARN_FL_TOKEN_SECRET and never needs the web-auth secret.
         env.remove("APP_JWT_SECRET");
     }
