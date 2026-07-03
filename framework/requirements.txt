@@ -27,6 +27,10 @@ aiohappyeyeballs==2.6.1
 aiosignal==1.4.0
 requests>=2.33.0,<3.0  # CVE-2026-25645
 
+# Security — FL-boundary connection-token verification (SE-1). Vetted JWT lib for a security gate
+# (alg-confusion / none-alg handled) rather than hand-rolled JWS parsing.
+PyJWT>=2.8,<3
+
 # Google Cloud / Monitoring
 google-api-core==2.25.1
 google-auth==2.40.3
