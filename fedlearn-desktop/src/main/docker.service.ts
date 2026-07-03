@@ -275,8 +275,13 @@ export class DockerService {
 
   private async startNativeProcess(config: TrainingConfig): Promise<void> {
     if (this.nativeProcess) {
-      this.nativeProcess.kill('SIGTERM');
-      this.nativeProcess = null;
+      // Fully drain the previous native client before respawning. stopTraining runs
+      // the SIGTERM → 5s grace → SIGKILL sequence and keeps this.nativeProcess SET
+      // until the old child actually exits. A fire-and-forget kill here would let the
+      // new client connect to the FL server on the same partition while the old one is
+      // still alive — a double-client race on one partition. Awaiting the drain
+      // guarantees at most one live native process per partition across a respawn.
+      await this.stopTraining();
     }
 
     const invocation = this.resolveNativeInvocation();
