@@ -2,10 +2,16 @@
 // FedLearn Frontend — CreateProjectModal (Ember design system)
 // =============================================================================
 
-import { useState, useEffect } from 'react';
-import { Sparkles, AlertCircle } from 'lucide-react';
-import { fetchModelRecipes, errorMessage, type ModelRecipe } from '../../services/apiServices';
+import { useState, useEffect, useRef } from 'react';
+import { Sparkles, AlertCircle, Loader2 } from 'lucide-react';
+import { fetchModelRecipes, fetchProject, errorMessage, type ModelRecipe, type Project } from '../../services/apiServices';
 import { Modal, Input, Select, Button } from '../ui';
+
+// BA-1: a freshly created project comes back INITIALIZING while the backend prepares its weights on an
+// async worker. The modal polls the project until it resolves before closing.
+const PREPARE_POLL_MS = 1500;
+const PREPARE_TIMEOUT_MS = 120_000;
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 // Last-resort fallback if the catalog can't be fetched (e.g. offline). The
 // primary source is GET /api/model-recipes — this only keeps the modal usable.
@@ -30,6 +36,7 @@ const FALLBACK_RECIPES: ModelRecipe[] = [
 
 interface CreateProjectModalProps {
   isOpen: boolean;
+  /** Creates the project and resolves with it. The returned project may be INITIALIZING (BA-1). */
   onSubmit: (data: {
     name: string;
     modelType: string;
@@ -37,7 +44,9 @@ interface CreateProjectModalProps {
     optimizer: string;
     pretrainEpochs: number;
     taskType?: string;
-  }) => Promise<void>;
+  }) => Promise<Project>;
+  /** Called once the created project is persisted (ready or failed) so the parent can refresh its list. */
+  onCreated: () => void;
   onClose: () => void;
   isLoading?: boolean;
 }
@@ -45,7 +54,7 @@ interface CreateProjectModalProps {
 const labelClass = 'text-label font-medium text-fg';
 const helpClass = 'text-caption text-fg-subtle';
 
-export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = false }: CreateProjectModalProps) {
+export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isLoading = false }: CreateProjectModalProps) {
   const [name, setName] = useState('');
   const [recipes, setRecipes] = useState<ModelRecipe[]>([]);
   const [recipesLoading, setRecipesLoading] = useState(false);
@@ -55,6 +64,10 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
   const [pretrainEpochs, setPretrainEpochs] = useState(0);
   const [taskType, setTaskType] = useState('SEQ_CLASSIFICATION');
   const [error, setError] = useState('');
+  // 'form' shows the inputs; 'preparing' shows the spinner while init is polled (BA-1).
+  const [phase, setPhase] = useState<'form' | 'preparing'>('form');
+  // Flipped true when the modal closes so an in-flight poll stops touching state.
+  const cancelledRef = useRef(false);
 
   // Fetch the model catalog when the modal opens.
   useEffect(() => {
@@ -91,25 +104,67 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
     setTaskType('SEQ_CLASSIFICATION');
   }, [modelType, selectedRecipe]);
 
-  // Reset on close
+  // Reset on close; also cancel any in-flight init poll so it stops updating state.
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
+      cancelledRef.current = false;
+    } else {
+      cancelledRef.current = true;
       setName('');
       setModelType('');
       setPretrainEpochs(0);
       setError('');
+      setPhase('form');
     }
   }, [isOpen]);
+
+  // Poll a just-created project until its async model init finishes (BA-1).
+  const pollUntilReady = async (id: string): Promise<'READY' | 'FAILED' | 'TIMEOUT'> => {
+    const deadline = Date.now() + PREPARE_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      await delay(PREPARE_POLL_MS);
+      if (cancelledRef.current) return 'TIMEOUT';
+      try {
+        const { data } = await fetchProject(id);
+        if (data.status === 'FAILED') return 'FAILED';
+        if (data.status !== 'INITIALIZING') return 'READY';
+      } catch {
+        // Transient error (e.g. a blip) — keep polling until the deadline.
+      }
+    }
+    return 'TIMEOUT';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
-      await onSubmit({ name, modelType, modelName, optimizer, pretrainEpochs,
+      const created = await onSubmit({ name, modelType, modelName, optimizer, pretrainEpochs,
                        ...(modelType === 'LLM_LORA' ? { taskType } : {}) });
+
+      // BA-1: model init runs on an async worker, so the project comes back INITIALIZING. Show a
+      // "Preparing" state and poll until it's ready (CREATED) or failed before we close — don't drop
+      // the user onto a not-yet-trainable project.
+      if (created.status === 'INITIALIZING') {
+        setPhase('preparing');
+        const outcome = await pollUntilReady(created.id);
+        if (cancelledRef.current) return;   // modal was closed mid-poll
+        if (outcome === 'FAILED') {
+          setPhase('form');
+          setError('Model preparation failed. You can delete this project and try again.');
+          onCreated();                      // still refresh so the failed project shows in the list
+          return;
+        }
+        // READY or TIMEOUT both close: on TIMEOUT the project is still preparing, and the list's
+        // "Preparing" pill (plus the on-focus refresh) will catch up shortly.
+      }
+
+      onCreated();
+      onClose();
     } catch (err) {
       // Keep the modal open and surface the backend detail inline, rather than
       // letting the failure render on the route hidden behind the modal.
+      setPhase('form');
       setError(errorMessage(err, 'Could not create project. Please try again.'));
     }
   };
@@ -125,6 +180,18 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
         </span>
       }
     >
+      {phase === 'preparing' ? (
+        <div className="flex flex-col items-center gap-4 py-10 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-accent" strokeWidth={1.5} />
+          <div className="flex flex-col gap-1">
+            <p className="text-body font-medium text-fg">Preparing your model…</p>
+            <p className="text-caption text-fg-subtle">
+              Setting up the initial weights. This can take a moment.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
       <p className="-mt-1 mb-5 text-body text-fg-muted">
         A project is one model you'll train together with your devices.
       </p>
@@ -238,6 +305,8 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
           </Button>
         </div>
       </form>
+        </>
+      )}
     </Modal>
   );
 }

@@ -164,12 +164,13 @@ export function OwnerDashboard() {
         };
     }, []);
 
-    const handleCreateProject = async (projectData: api.ProjectData) => {
+    const handleCreateProject = async (projectData: api.ProjectData): Promise<api.Project> => {
         try {
             setIsCreating(true);
-            await api.createProject(projectData);
-            setIsCreateModalOpen(false);
-            loadProjects();
+            const res = await api.createProject(projectData);
+            // BA-1: the project comes back INITIALIZING; the modal polls it and then closes + refreshes
+            // via onClose/onCreated once it's ready or failed.
+            return res.data;
         } catch (err) {
             // Let the modal keep itself open and render the detail inline,
             // instead of flashing a banner on the route behind the modal.
@@ -350,6 +351,7 @@ export function OwnerDashboard() {
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
                 onSubmit={handleCreateProject}
+                onCreated={loadProjects}
                 isLoading={isCreating}
             />
 

@@ -43,6 +43,8 @@ interface ProjectCardProps {
 /** Map domain status -> the 5 Ember status kinds. */
 function toStatusKind(status: Project['status']): StatusKind {
   switch (status) {
+    case 'INITIALIZING':
+      return 'pending';
     case 'RUNNING':
       return 'running';
     case 'COMPLETED':
@@ -57,6 +59,8 @@ function toStatusKind(status: Project['status']): StatusKind {
 /** Plain-language status label shown to people. */
 function statusLabel(status: Project['status']): string {
   switch (status) {
+    case 'INITIALIZING':
+      return 'Preparing';
     case 'RUNNING':
       return 'Training';
     case 'COMPLETED':

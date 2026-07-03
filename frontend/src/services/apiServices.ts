@@ -62,7 +62,9 @@ export interface Project {
     modelType: string;
     modelName: string;
     optimizer: string;
-    status: 'RUNNING' | 'STOPPED' | 'COMPLETED' | 'FAILED';
+    // INITIALIZING: the one-time model-init worker is still preparing the weights (BA-1); CREATED: no
+    // active run yet. Both were previously absent here though the backend always sent CREATED.
+    status: 'INITIALIZING' | 'CREATED' | 'RUNNING' | 'STOPPED' | 'COMPLETED' | 'FAILED';
     serverPort?: number;
 }
 
@@ -140,6 +142,15 @@ export const fetchProjects = async (): Promise<AxiosResponse<Project[]>> => {
 
 export const createProject = (projectData: ProjectData): Promise<AxiosResponse<Project>> => {
     return api.post<Project>('/projects', projectData);
+};
+
+/**
+ * Fetches a single project by id. Used to poll a just-created project while its model init runs
+ * asynchronously (BA-1): the create response comes back INITIALIZING, and the UI polls this until the
+ * project resolves to CREATED (ready) or FAILED.
+ */
+export const fetchProject = (projectId: string): Promise<AxiosResponse<Project>> => {
+    return api.get<Project>(`/projects/${projectId}`);
 };
 
 export const startProjectServer = (projectId: string, startData: StartServerData): Promise<AxiosResponse<Project>> => {
