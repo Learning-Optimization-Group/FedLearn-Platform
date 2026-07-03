@@ -1,0 +1,74 @@
+"""SE-1 slice 2 — the connection-token interceptor gates a REAL gRPC server.
+
+Stands up an actual grpc.Server with the interceptor + the real FL servicer, and confirms over the
+wire that RegisterClient is refused UNAUTHENTICATED without a token and accepted with the golden
+Java-minted token in x-connection-token metadata.
+"""
+import concurrent.futures
+import json
+import pathlib
+import socket
+from collections import OrderedDict
+
+import grpc
+import pytest
+import torch
+
+from fedlearn.communication.generated import fedlearn_pb2 as pb
+from fedlearn.communication.generated import fedlearn_pb2_grpc as pbg
+from fedlearn.security.interceptor import METADATA_KEY, ConnectionTokenInterceptor
+from fedlearn.server.coordinator import FLCoordinator
+from fedlearn.server.decomfl_strategy import DeComFL
+from fedlearn.server.grpc_servicer import SERVER_PROTOCOL_VERSION, FederatedLearningServiceServicer
+
+_GOLDEN = json.loads((pathlib.Path(__file__).parent / "fixtures" / "golden_connection_token.json").read_text())
+
+
+def _free_port() -> int:
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
+@pytest.fixture
+def authed_server():
+    strat = DeComFL(OrderedDict(w=torch.zeros(4)), evaluate_fn=lambda r, p: (1.0, {}),
+                    min_fit_clients=1, clients_per_round=1, num_local_steps=1, num_perturbations=2,
+                    learning_rate=0.01, smoothing_param=0.01, seed=42)
+    coord = FLCoordinator(strat, min_clients_for_aggregation=1, clients_per_round=1, round_timeout_s=30)
+    server = grpc.server(
+        concurrent.futures.ThreadPoolExecutor(max_workers=4),
+        interceptors=[ConnectionTokenInterceptor(_GOLDEN["secret_base64"])],
+    )
+    pbg.add_FederatedLearningServiceServicer_to_server(FederatedLearningServiceServicer(coord), server)
+    port = _free_port()
+    server.add_insecure_port(f"127.0.0.1:{port}")
+    server.start()
+    try:
+        yield f"127.0.0.1:{port}"
+    finally:
+        server.stop(grace=None)
+
+
+def _register_request():
+    return pb.RegisterClientRequest(
+        client_id="mobile-1", run_id="run-1", protocol_version=SERVER_PROTOCOL_VERSION,
+        enrollment_token="ignored-by-interceptor")
+
+
+def test_register_without_token_is_unauthenticated(authed_server):
+    with grpc.insecure_channel(authed_server) as channel:
+        stub = pbg.FederatedLearningServiceStub(channel)
+        with pytest.raises(grpc.RpcError) as excinfo:
+            stub.RegisterClient(_register_request())
+        assert excinfo.value.code() == grpc.StatusCode.UNAUTHENTICATED
+
+
+def test_register_with_valid_token_succeeds(authed_server):
+    with grpc.insecure_channel(authed_server) as channel:
+        stub = pbg.FederatedLearningServiceStub(channel)
+        reg = stub.RegisterClient(_register_request(),
+                                  metadata=[(METADATA_KEY, _GOLDEN["token"])])
+        assert reg.status == pb.RegisterClientResponse.Status.ACCEPTED

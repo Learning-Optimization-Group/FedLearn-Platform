@@ -11,6 +11,7 @@ from .coordinator import FLCoordinator
 from .strategy import FedAvgAggregator
 from .grpc_servicer import FederatedLearningServiceServicer
 from ..communication.generated import fedlearn_pb2_grpc
+from ..security.interceptor import interceptor_from_env
 import logging
 import sys
 import os
@@ -79,8 +80,14 @@ def start_server(
     # Create gRPC server with proper options
     max_expected_clients = int(os.environ.get('MAX_CLIENTS', 50))
     optimal_workers = (max_expected_clients * 2) + 10
+    # SE-1: gate the FL boundary on a valid connection token when FEDLEARN_REQUIRE_CLIENT_AUTH=1.
+    # Absent (local/dev) -> no interceptor -> fail-open. Enforce-on but no secret -> raises here.
+    auth_interceptor = interceptor_from_env()
+    logging.info("FL-boundary client-token auth %s",
+                 "ENABLED" if auth_interceptor is not None else "disabled (dev fail-open)")
     grpc_server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=optimal_workers),
+        interceptors=[auth_interceptor] if auth_interceptor is not None else [],
         options=[
             # Keepalive settings for long-running clients
             ('grpc.keepalive_time_ms', 120000),  # 120 seconds
