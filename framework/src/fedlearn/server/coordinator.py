@@ -8,6 +8,7 @@ from typing import Optional, List, Tuple, Dict
 import time
 from threading import Lock
 from .strategy import Strategy
+from .decomfl_strategy import DeComFL   # FR-6: typed dispatch (no circular import — decomfl_strategy doesn't import coordinator)
 
 log = logging.getLogger(__name__)
 
@@ -220,7 +221,7 @@ class FLCoordinator:
         crash on a run with no evaluate_fn. Uses the same DeComFL detection as the DeComFL trigger.
         Called while self._lock is held.
         """
-        if 'DeComFL' in str(type(self.strategy)) and hasattr(self.strategy, 'gradient_history'):
+        if isinstance(self.strategy, DeComFL):
             self._trigger_decomfl_aggregation_and_evaluation()
         else:
             self._trigger_aggregation_and_evaluation()
@@ -477,8 +478,8 @@ class FLCoordinator:
             # Calculate average gradients and store in strategy history
             avg_gradients = self._calculate_average_gradients(results)
 
-            # Check if strategy is DeComFL and has gradient_history
-            if 'DeComFL' in str(type(self.strategy)) and hasattr(self.strategy, 'gradient_history'):
+            # FR-6: typed dispatch — isinstance guarantees gradient_history exists on a DeComFL.
+            if isinstance(self.strategy, DeComFL):
                 # Keyed by round (dict) so it aligns with seed_history + get_rebuild_history (audit #29)
                 self.strategy.gradient_history[self.current_round] = avg_gradients
                 log.debug("Stored gradient history for round %d", self.current_round)

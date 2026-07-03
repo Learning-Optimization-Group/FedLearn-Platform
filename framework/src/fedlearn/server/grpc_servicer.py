@@ -311,11 +311,8 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         try:
             client_id = request.client_id
 
-            # Import here to avoid circular import
-            from fedlearn.server.decomfl_strategy import DeComFL
-
-            # Check if using DeComFL strategy
-            if 'DeComFL' not in str(type(self.coordinator.strategy)):
+            # FR-6: typed dispatch (DeComFL is imported at module level — no circular import).
+            if not isinstance(self.coordinator.strategy, DeComFL):
                 error_msg = "Server is not configured for DeComFL."
                 logging.info(f"[Server] ERROR: {error_msg}")
                 context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
@@ -384,16 +381,14 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
             logging.info(f"[Server] Receiving gradient scalars from {client_id} for round {trained_on_round}")
 
-            # Import here to avoid circular import
-            from fedlearn.server.decomfl_strategy import DeComFL
-
-            # Check if using DeComFL strategy
-            if 'DeComFL' not in str(type(self.coordinator.strategy)):
+            # FR-6: typed dispatch (DeComFL is imported at module level — no circular import).
+            if not isinstance(self.coordinator.strategy, DeComFL):
                 error_msg = "Server is not configured for DeComFL."
                 logging.info(f"[Server] ERROR: {error_msg}")
                 context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
                 context.set_details(error_msg)
-                return fedlearn_pb2.GetDeComFLConfigResponse()
+                # FR-6: return THIS RPC's response type, not GetDeComFLConfigResponse.
+                return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
 
             # Convert proto gradients to nested list format
             gradient_scalars = self._proto_to_gradients(request.gradients)
