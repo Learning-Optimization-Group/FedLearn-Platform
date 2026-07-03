@@ -24,6 +24,7 @@ jobs:
     outputs:
       framework: ${{ steps.filter.outputs.framework }}
       backend: ${{ steps.filter.outputs.backend }}
+      backend_scripts: ${{ steps.filter.outputs.backend_scripts }}
       frontend: ${{ steps.filter.outputs.frontend }}
       desktop: ${{ steps.filter.outputs.desktop }}
     steps:
@@ -36,6 +37,9 @@ jobs:
               - 'framework/**'
             backend:
               - 'backend/**'
+            backend_scripts:
+              - 'backend/fl-platform-api/src/main/resources/scripts/**'
+              - 'backend/fl-platform-api/requirements.txt'
             frontend:
               - 'frontend/**'
             desktop:
@@ -78,6 +82,30 @@ jobs:
         env:
           SPRING_PROFILES_ACTIVE: test
         run: ./gradlew test --no-daemon
+
+  # TE-4: the FL trainer scripts (recipes/client/init_model/fl_server/infer) ship a committed
+  # pytest suite that ran in no CI job. Gate it here so a script regression fails a PR. Runs only
+  # when the scripts (or their requirements) change — Java-only backend edits skip this job.
+  backend-scripts:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend_scripts == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install (CPU torch + FL-script deps + pytest)
+        run: |
+          python -m pip install --upgrade pip
+          # CPU wheels to avoid the CUDA download; versions pinned to requirements.txt so pip
+          # treats them as satisfied and does not re-resolve torch off the default index.
+          pip install --index-url https://download.pytorch.org/whl/cpu \
+            "torch==2.5.1" "torchvision==0.20.1" "torchaudio==2.5.1"
+          pip install -r backend/fl-platform-api/requirements.txt pytest
+      - name: pytest (FL trainer scripts; pytest.ini deselects -m slow)
+        working-directory: backend/fl-platform-api/src/main/resources/scripts
+        run: python -m pytest -q
 
   frontend:
     needs: changes
