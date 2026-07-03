@@ -69,6 +69,61 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return () => { cancelled = true; };
     }, []);
 
+    // Keep the in-memory identity fresh while the tab is authenticated.
+    // Authorities are reloaded from the DB on every backend request, so a
+    // server-side role change only needs a re-poll of /auth/me to surface —
+    // no full page reload. We re-poll when the tab regains focus or becomes
+    // visible again, debounced so rapid focus/visibility toggles don't hammer
+    // the endpoint. Listeners are registered only while authenticated and torn
+    // down on logout/unmount. Uses the same cookie-backed call as bootstrap —
+    // no token handling, no transport change.
+    const isAuthenticated = user !== null;
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        let cancelled = false;
+        let inFlight = false;
+        let lastRefreshAt = 0;
+        const MIN_INTERVAL_MS = 5000;
+
+        const refresh = () => {
+            if (cancelled || inFlight) return;
+            const now = Date.now();
+            if (now - lastRefreshAt < MIN_INTERVAL_MS) return;
+            lastRefreshAt = now;
+            inFlight = true;
+            fetchCurrentUser()
+                .then((res) => {
+                    if (cancelled) return;
+                    const identity: AuthIdentity = res.data;
+                    setUser({
+                        username: identity.username,
+                        email: identity.email,
+                        role: normalizeRole(identity.role),
+                    });
+                })
+                .catch(() => {
+                    // A failed refresh (transient network blip, silent 401)
+                    // shouldn't tear down a working session — leave state as-is.
+                })
+                .finally(() => {
+                    inFlight = false;
+                });
+        };
+
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') refresh();
+        };
+
+        window.addEventListener('focus', refresh);
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => {
+            cancelled = true;
+            window.removeEventListener('focus', refresh);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
+    }, [isAuthenticated]);
+
     const setSession = useCallback((newUser: User) => {
         setUser({ ...newUser, role: normalizeRole(newUser.role) });
     }, []);
