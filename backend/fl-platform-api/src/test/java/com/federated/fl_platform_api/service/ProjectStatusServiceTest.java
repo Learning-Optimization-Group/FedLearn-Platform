@@ -1,6 +1,7 @@
 package com.federated.fl_platform_api.service;
 
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.ProjectInitStatus;
 import com.federated.fl_platform_api.model.ProjectStatus;
 import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.model.RunStatus;
@@ -61,5 +62,34 @@ class ProjectStatusServiceTest {
         UUID rid = UUID.randomUUID();
         when(runRepository.findById(rid)).thenReturn(Optional.empty());
         assertEquals(ProjectStatus.CREATED, service.currentStatus(projectWithActiveRun(rid)));
+    }
+
+    // BA-1: model init happens at CREATE time, before any run exists, so an in-progress or failed
+    // init is a project-level phase that must take precedence over run-derivation (which would
+    // otherwise read a project mid-init as the idle CREATED).
+
+    @Test
+    void initStatusInitializing_isInitializing_beforeRunDerivation() {
+        Project p = projectWithActiveRun(UUID.randomUUID());   // even with an active run id set...
+        p.setInitStatus(ProjectInitStatus.INITIALIZING);
+        assertEquals(ProjectStatus.INITIALIZING, service.currentStatus(p));   // ...INITIALIZING wins
+        verifyNoInteractions(runRepository);                                  // and short-circuits the run lookup
+    }
+
+    @Test
+    void initStatusFailed_isFailed_beforeRunDerivation() {
+        Project p = new Project();
+        p.setInitStatus(ProjectInitStatus.FAILED);
+        assertEquals(ProjectStatus.FAILED, service.currentStatus(p));
+        verifyNoInteractions(runRepository);
+    }
+
+    @Test
+    void initStatusDone_fallsThroughToRunDerivation() {
+        UUID rid = UUID.randomUUID();
+        when(runRepository.findById(rid)).thenReturn(Optional.of(runWith(RunStatus.RUNNING)));
+        Project p = projectWithActiveRun(rid);
+        p.setInitStatus(ProjectInitStatus.DONE);   // init finished -> defer to the run, as today
+        assertEquals(ProjectStatus.RUNNING, service.currentStatus(p));
     }
 }

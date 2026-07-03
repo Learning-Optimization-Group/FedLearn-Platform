@@ -52,6 +52,13 @@ public class Project {
     @Column(nullable = false)
     private String status;
 
+    // BA-1: the one-time model-init phase, independent of the run-derived status (BA-4). Defaults to
+    // DONE so every legacy row (created synchronously) reads as already-initialised; createProject
+    // sets INITIALIZING and the async worker flips it to DONE/FAILED.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "init_status", nullable = false, length = 16)
+    private ProjectInitStatus initStatus = ProjectInitStatus.DONE;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private ProjectVisibility visibility = ProjectVisibility.PRIVATE;
@@ -128,6 +135,10 @@ public class Project {
     }
 
     public String getStatus() { return status; }
+
+    public ProjectInitStatus getInitStatus() { return initStatus; }
+
+    public void setInitStatus(ProjectInitStatus initStatus) { this.initStatus = initStatus; }
 
     public ProjectVisibility getVisibility() {
         return visibility;

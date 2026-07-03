@@ -9,6 +9,7 @@ import com.federated.fl_platform_api.model.AuditAction;
 import com.federated.fl_platform_api.model.MembershipRole;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.ProjectAccessRequest;
+import com.federated.fl_platform_api.model.ProjectInitStatus;
 import com.federated.fl_platform_api.model.ProjectMembership;
 import com.federated.fl_platform_api.model.ProjectVisibility;
 import com.federated.fl_platform_api.model.Run;
@@ -29,6 +30,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -53,7 +56,7 @@ public class ProjectService {
     @Autowired
     private FlowerServerManager flowerServerManager;
     @Autowired
-    private ModelInitializer modelInitializer;
+    private ModelInitializationWorker modelInitWorker;
     @Autowired
     private ProjectMembershipRepository membershipRepository;
     @Autowired
@@ -165,6 +168,10 @@ public class ProjectService {
         project.setOrgId(orgId);
         project.setRequirementsOverride(request.getRequirementsOverride());
         project.setStatus("CREATED");
+        // BA-1: the project begins life INITIALIZING; the async worker flips it to DONE/FAILED once
+        // model init finishes. Status is run-derived (BA-4) and this init phase takes precedence, so
+        // the project reads as INITIALIZING until then (no run exists yet).
+        project.setInitStatus(ProjectInitStatus.INITIALIZING);
         Project savedProject = projectRepository.save(project);
         log.debug("Persisted project shell with id={}", savedProject.getId());
 
@@ -175,27 +182,36 @@ public class ProjectService {
         }
         String absoluteModelPath = modelFile.getAbsolutePath();
         savedProject.setModelPath(absoluteModelPath);
+        Project shell = projectRepository.save(savedProject);
 
-        try {
-            modelInitializer.initializeModelFile(
-                    request.getModelType(),
-                    request.getModelName(),
-                    request.getOptimizer(),
-                    absoluteModelPath,
-                    request.getPretrainEpochs(),
-                    project.getTaskType());
-        } catch (IOException | InterruptedException e) {
-            // Allow the @Transactional rollback to drop the orphan project row.
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw new ServerProcessException(
-                    "Model initialization failed for project " + savedProject.getId(), e);
+        // BA-1: model init spawns an unbounded Python process — running it inside this @Transactional
+        // request pinned a DB connection and a Tomcat thread for its whole duration. Dispatch it to the
+        // bounded async worker instead, but only AFTER this transaction commits so the worker's own
+        // unit of work sees the persisted row. createProject thus returns 201 immediately with the
+        // project INITIALIZING; the worker transitions it to CREATED (success) or FAILED (timeout/error)
+        // and broadcasts the change for a polling client.
+        final UUID projectId = shell.getId();
+        final String modelType = request.getModelType();
+        final String modelName = request.getModelName();
+        final String optimizer = request.getOptimizer();
+        final String taskType = shell.getTaskType();
+        final int pretrainEpochs = request.getPretrainEpochs();
+        Runnable dispatchInit = () -> modelInitWorker.initialize(
+                projectId, modelType, modelName, optimizer, absoluteModelPath, pretrainEpochs, taskType);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    dispatchInit.run();
+                }
+            });
+        } else {
+            // No ambient transaction (e.g. a Mockito unit test) — nothing to wait for; dispatch now.
+            dispatchInit.run();
         }
 
-        Project finalProject = projectRepository.save(savedProject);
-        log.info("Project {} fully initialised at {}", finalProject.getId(), absoluteModelPath);
-        return convertToDto(finalProject);
+        log.info("Project {} created (INITIALIZING); model init dispatched to async worker", projectId);
+        return convertToDto(shell);
     }
 
     @Auditable(action = AuditAction.RUN_STARTED, targetIdParam = "projectId", targetType = "PROJECT")

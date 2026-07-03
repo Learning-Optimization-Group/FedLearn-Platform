@@ -2,9 +2,8 @@ package com.federated.fl_platform_api;
 
 import com.federated.fl_platform_api.dto.CreateProjectRequest;
 import com.federated.fl_platform_api.dto.ProjectResponseDto;
-import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.flower.FlowerServerManager;
-import com.federated.fl_platform_api.service.ModelInitializer;
+import com.federated.fl_platform_api.service.ModelInitializationWorker;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.ProjectRepository;
@@ -22,7 +21,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.exception.ProjectStateException;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -53,7 +51,7 @@ class ProjectServiceTest {
     private FlowerServerManager flowerServerManager;
 
     @Mock
-    private ModelInitializer modelInitializer;
+    private ModelInitializationWorker modelInitWorker;
 
     @Mock
     private RoundResultRepository roundResultRepository;
@@ -112,7 +110,7 @@ class ProjectServiceTest {
     }
 
     @Test
-    void whenCreateProject_thenShouldSucceedAndReturnProjectWithPortAndPath() throws Exception {
+    void whenCreateProject_thenPersistsShellAndDispatchesAsyncInit() throws Exception {
         // --- 1. ARRANGE ---
         when(authz.currentUser()).thenReturn(testUser);
 
@@ -123,8 +121,6 @@ class ProjectServiceTest {
             }
             return p;
         });
-
-        doNothing().when(modelInitializer).initializeModelFile(anyString(), any(), any(), anyString(), anyInt(), any());
 
         CreateProjectRequest request = new CreateProjectRequest();
         request.setName(projectName);
@@ -139,40 +135,15 @@ class ProjectServiceTest {
         assertEquals(testProject.getId(), createdProject.getId());
         assertEquals(projectName, createdProject.getName());
 
+        // BA-1: model init no longer runs inline in the request. The shell (+ model path) is persisted
+        // in two saves, then the Python-spawning init is dispatched to the async worker. There is no
+        // ambient transaction in this Mockito unit test, so the dispatch fires immediately rather than
+        // after-commit — verifying the worker is invoked exactly once with the project's parameters.
         verify(projectRepository, times(2)).save(any(Project.class));
-        verify(modelInitializer, times(1)).initializeModelFile(eq(modelType), any(), any(), anyString(), eq(5), any());
-    }
-
-    @Test
-    void whenModelInitializationFails_thenShouldThrowException() throws Exception {
-        // --- ARRANGE ---
-        when(authz.currentUser()).thenReturn(testUser);
-
-        when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> {
-            Project p = invocation.getArgument(0);
-            if (p.getId() == null) {
-                p.setId(testProject.getId()); // Simulate ID generation on first save
-            }
-            return p;
-        });
-
-        doThrow(new IOException("Python script not found!"))
-                .when(modelInitializer).initializeModelFile(anyString(), any(), any(), anyString(), anyInt(), any());
-
-        CreateProjectRequest request = new CreateProjectRequest();
-        request.setName(projectName);
-        request.setModelType(modelType);
-        request.setPretrainEpochs(5);
-
-        // --- ACT & ASSERT ---
-        // ProjectService now wraps IOException/InterruptedException coming out
-        // of ModelInitializer in ServerProcessException so the @ControllerAdvice
-        // can map it to a single 502 Bad Gateway response. The original cause
-        // is preserved on the exception chain.
-        ServerProcessException ex = assertThrows(ServerProcessException.class,
-                () -> projectService.createProject(request));
-        assertNotNull(ex.getCause());
-        assertEquals(IOException.class, ex.getCause().getClass());
+        verify(modelInitWorker, times(1))
+                .initialize(eq(testProject.getId()), eq(modelType), any(), any(), anyString(), eq(5), any());
+        // The init failure path (formerly a synchronous throw here) is now the worker's concern and is
+        // covered by ModelInitializationWorkerTest.failedInit_marksFailed_andBroadcastsFailed.
     }
 
     @Test

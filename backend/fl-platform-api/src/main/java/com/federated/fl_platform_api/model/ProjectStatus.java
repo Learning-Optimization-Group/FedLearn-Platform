@@ -14,6 +14,12 @@ package com.federated.fl_platform_api.model;
  * byte-compatible with the previous {@code String} and needs no Flyway migration.</p>
  */
 public enum ProjectStatus {
+    /**
+     * The one-time model-init worker is still preparing the initial weights (BA-1). Reached only
+     * before any run exists, via {@link ProjectInitStatus#INITIALIZING}; the SPA renders it as a
+     * "Preparing" pill and polls until it resolves to {@link #CREATED} or {@link #FAILED}.
+     */
+    INITIALIZING,
     /** No active run yet (or the active run was deleted). The SPA renders this as an idle "Ready" pill. */
     CREATED,
     /** An active run is starting up or training. */
