@@ -15,6 +15,7 @@ import benchmarks  # noqa: E402
 import recipes      # noqa: E402  (class labels per recipe, for per-class metrics)
 
 import torch
+import json
 import logging
 import time
 import psutil
@@ -70,8 +71,9 @@ def _internal_headers() -> dict:
     return {"X-Internal-Key": INTERNAL_API_KEY, "Content-Type": "application/json"}
 
 
-def _register_model_artifact(project_id: str, model_type: str, model_path: str) -> None:
-    """Register a run's final model as a versioned, content-addressed artifact (DA-2:
+def _register_model_artifact(project_id: str, model_type: str, model_path: str,
+                             eval_card: str = None) -> None:
+    """Register a run's final model as a versioned, content-addressed artifact (DA-2/DA-3:
     write-new-not-overwrite). Additive to the legacy projects.model_path write and non-fatal — a
     registry outage must never abort a real federated run. Posts the model bytes as multipart
     (X-Internal-Key only; requests sets the multipart Content-Type itself)."""
@@ -79,13 +81,22 @@ def _register_model_artifact(project_id: str, model_type: str, model_path: str) 
         logging.warning("FEDLEARN_INTERNAL_API_KEY not set; skipping artifact registration.")
         return
     kind = "LORA_ADAPTER" if model_type == "LLM_LORA" else "FULL_CHECKPOINT"
+    data = {"kind": kind, "recipeKey": model_type}
+    if kind == "LORA_ADAPTER":
+        # The frozen Apache-2.0 base the adapter was trained over — required so the backend can
+        # link an ADAPTER_OF lineage edge (DA-3). Sourced from recipes.py LLM_LORA base_models
+        # (["qwen2.5-0.5b", ...]); sourcing it from the recipe registry directly is a later refinement.
+        data["baseModelRef"] = "qwen2.5-0.5b"
+        data["licenseTag"] = "Apache-2.0"
+    if eval_card:
+        data["evalCard"] = eval_card
     url = f"{BACKEND_URL}/api/internal/projects/{project_id}/artifacts"
     try:
         with open(model_path, "rb") as fh:
             resp = requests.post(
                 url,
                 files={"model": (os.path.basename(model_path), fh, "application/octet-stream")},
-                data={"kind": kind, "recipeKey": model_type},
+                data=data,
                 headers={"X-Internal-Key": INTERNAL_API_KEY},
                 timeout=120,
             )
@@ -732,9 +743,25 @@ def main():
         except Exception as e:
             logging.error(f"Failed to save final model to {save_path}. Reason: {e}", exc_info=True)
 
-        # DA-2: also register this run's final model as a versioned, content-addressed artifact
-        # (write-new-not-overwrite). Non-fatal; the legacy .npz write above is unchanged.
-        _register_model_artifact(args.project_id, args.model_type, save_path)
+        # DA-2/DA-3: register this run's final model as a versioned, content-addressed artifact
+        # (write-new-not-overwrite) with an eval card built from the honest server-side evaluation
+        # (final-round metrics + config). Non-fatal; the legacy .npz write above is unchanged.
+        eval_card = None
+        try:
+            final = history[-1][1] if history else {}
+            eval_card = json.dumps({
+                "recipe_key": args.model_type,
+                "strategy": args.strategy,
+                "rounds": args.num_rounds,
+                "final_loss": final.get("loss"),
+                "final_accuracy": final.get("accuracy"),
+                "torch_version": torch.__version__,
+                "seed": getattr(args, "seed", None),
+                "framework": "fedlearn",
+            })
+        except Exception as _e:
+            logging.warning("Could not build eval card: %s", _e)
+        _register_model_artifact(args.project_id, args.model_type, save_path, eval_card=eval_card)
     else:
         logging.warning("--- No final model parameters to save. ---")
 

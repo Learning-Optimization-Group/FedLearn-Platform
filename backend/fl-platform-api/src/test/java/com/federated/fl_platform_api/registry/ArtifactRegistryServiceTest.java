@@ -69,8 +69,9 @@ class ArtifactRegistryServiceTest {
     void identical_bytes_from_two_runs_dedup_the_blob_but_not_the_provenance() {
         UUID org = UUID.randomUUID(), project = UUID.randomUUID();
         byte[] same = "identical-model-bytes".getBytes(StandardCharsets.UTF_8);
-        ModelArtifact a1 = registry.register(org, project, UUID.randomUUID(), same, ArtifactKind.LORA_ADAPTER, null, null, null, null);
-        ModelArtifact a2 = registry.register(org, project, UUID.randomUUID(), same, ArtifactKind.LORA_ADAPTER, null, null, null, null);
+        // adapters now require a base (DA-3); the dedup being tested is at the adapter blob, not the base.
+        ModelArtifact a1 = registry.register(org, project, UUID.randomUUID(), same, ArtifactKind.LORA_ADAPTER, "LLM_LORA", "qwen2.5-0.5b", "Apache-2.0", null);
+        ModelArtifact a2 = registry.register(org, project, UUID.randomUUID(), same, ArtifactKind.LORA_ADAPTER, "LLM_LORA", "qwen2.5-0.5b", "Apache-2.0", null);
 
         assertThat(a1.getBlobSha256()).isEqualTo(a2.getBlobSha256());   // storage dedups
         assertThat(a1.getId()).isNotEqualTo(a2.getId());                 // provenance does not
