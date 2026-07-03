@@ -8,6 +8,7 @@ import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.model.AuditAction;
 import com.federated.fl_platform_api.model.MembershipRole;
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.ProjectAccessRequest;
 import com.federated.fl_platform_api.model.ProjectMembership;
 import com.federated.fl_platform_api.model.ProjectVisibility;
 import com.federated.fl_platform_api.model.Run;
@@ -32,7 +33,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -312,19 +316,57 @@ public class ProjectService {
                 ? projectRepository.findOwnedOrMemberOf(caller.getId())
                 : projectRepository.findOwnedOrMemberOfInOrgs(
                         caller.getId(), orgScope.visibleOrgIds());
+        // BA-10: one membership query for every listed project, joined in memory,
+        // instead of one findByIdProjectIdAndIdUserId per project (the N+1).
+        Map<UUID, ProjectMembership> myMemberships = membershipsByProject(caller.getId(), projects);
         return projects.stream().map(p -> {
             ProjectResponseDto dto = convertToDto(p);
             dto.setVisibility(p.getVisibility() != null ? p.getVisibility().name() : null);
             if (p.getUser() != null && p.getUser().getId().equals(caller.getId())) {
                 dto.setMyRelationship("OWNER");
             } else {
-                ProjectMembership m = membershipRepository
-                        .findByIdProjectIdAndIdUserId(p.getId(), caller.getId())
-                        .orElse(null);
+                ProjectMembership m = myMemberships.get(p.getId());
                 dto.setMyRelationship(m != null && m.getRole() != null ? m.getRole().name() : null);
             }
             return dto;
         }).collect(Collectors.toList());
+    }
+
+    /**
+     * Loads the caller's memberships for the given projects in a SINGLE query and
+     * keys them by project id for O(1) in-memory joins (BA-10). Returns an empty
+     * map for an empty project list so we never emit an empty {@code IN ()}. At
+     * most one membership can exist per (project, user) — the pair is the PK — so
+     * the first-wins merge is only defensive.
+     */
+    private Map<UUID, ProjectMembership> membershipsByProject(Long userId, List<Project> projects) {
+        if (projects.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<UUID> projectIds = projects.stream().map(Project::getId).collect(Collectors.toList());
+        Map<UUID, ProjectMembership> byProject = new HashMap<>();
+        for (ProjectMembership m : membershipRepository.findByIdUserIdAndIdProjectIdIn(userId, projectIds)) {
+            byProject.putIfAbsent(m.getId().getProjectId(), m);
+        }
+        return byProject;
+    }
+
+    /**
+     * Loads the caller's access requests for the given projects in a SINGLE query
+     * and keys them by project id (BA-10). Returns an empty map for an empty
+     * project list so we never emit an empty {@code IN ()}. The (project, user)
+     * pair is uniquely constrained, so the first-wins merge is only defensive.
+     */
+    private Map<UUID, ProjectAccessRequest> accessRequestsByProject(Long userId, List<Project> projects) {
+        if (projects.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<UUID> projectIds = projects.stream().map(Project::getId).collect(Collectors.toList());
+        Map<UUID, ProjectAccessRequest> byProject = new HashMap<>();
+        for (ProjectAccessRequest r : accessRequestRepository.findByUserIdAndProjectIdIn(userId, projectIds)) {
+            byProject.putIfAbsent(r.getProject().getId(), r);
+        }
+        return byProject;
     }
 
     public List<RoundResultDto> getResultsForProject(@NonNull UUID projectId) {
@@ -631,19 +673,25 @@ public class ProjectService {
                 ? projectRepository.findDiscoverable(caller.getId())
                 : projectRepository.findDiscoverableInOrgs(
                         caller.getId(), orgScope.visibleOrgIds());
+        // BA-10: batch the per-candidate membership + access-request lookups into
+        // two queries keyed by the caller, joined in memory (was 2 queries per
+        // candidate — the N+1).
+        Map<UUID, ProjectMembership> myMemberships = membershipsByProject(caller.getId(), candidates);
+        Map<UUID, ProjectAccessRequest> myRequests = accessRequestsByProject(caller.getId(), candidates);
         return candidates
                 .stream()
                 .filter(p -> p.getUser() == null || !p.getUser().getId().equals(caller.getId()))
-                .filter(p -> membershipRepository
-                        .findByIdProjectIdAndIdUserId(p.getId(), caller.getId())
-                        .map(m -> m.getRole() != MembershipRole.MEMBER
-                                  && m.getRole() != MembershipRole.CLIENT)
-                        .orElse(true))
-                .map(p -> toDiscoverDto(p, caller.getId()))
+                .filter(p -> {
+                    ProjectMembership m = myMemberships.get(p.getId());
+                    return m == null
+                            || (m.getRole() != MembershipRole.MEMBER
+                                && m.getRole() != MembershipRole.CLIENT);
+                })
+                .map(p -> toDiscoverDto(p, myRequests.get(p.getId())))
                 .collect(Collectors.toList());
     }
 
-    private DiscoverProjectDto toDiscoverDto(Project p, Long callerId) {
+    private DiscoverProjectDto toDiscoverDto(Project p, ProjectAccessRequest myRequest) {
         DiscoverProjectDto d = new DiscoverProjectDto();
         d.setId(p.getId());
         d.setName(p.getName());
@@ -651,10 +699,7 @@ public class ProjectService {
         d.setOwnerUsername(p.getUser() != null ? p.getUser().getUsername() : null);
         d.setModelType(p.getModelType());
         d.setDescription(p.getModelDescription());
-        d.setMyRequestStatus(accessRequestRepository
-                .findByProjectIdAndUserId(p.getId(), callerId)
-                .map(r -> r.getStatus().name())
-                .orElse("NONE"));
+        d.setMyRequestStatus(myRequest != null ? myRequest.getStatus().name() : "NONE");
         return d;
     }
 }

@@ -204,9 +204,12 @@ class ProjectServiceTest {
 
         com.federated.fl_platform_api.model.ProjectMembership m =
             new com.federated.fl_platform_api.model.ProjectMembership();
+        m.setId(new com.federated.fl_platform_api.model.ProjectMembershipId(joined.getId(), 42L));
         m.setRole(com.federated.fl_platform_api.model.MembershipRole.CLIENT);
-        when(membershipRepository.findByIdProjectIdAndIdUserId(joined.getId(), 42L))
-            .thenReturn(java.util.Optional.of(m));
+        // BA-10: the dashboard list now batches the caller's memberships in one
+        // query (findByIdUserIdAndIdProjectIdIn) instead of one lookup per project.
+        when(membershipRepository.findByIdUserIdAndIdProjectIdIn(eq(42L), any()))
+            .thenReturn(java.util.List.of(m));
 
         java.util.List<ProjectResponseDto> dtos = projectService.getProjectsForCurrentUser();
 

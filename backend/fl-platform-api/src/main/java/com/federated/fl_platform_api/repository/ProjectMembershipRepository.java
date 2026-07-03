@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +22,15 @@ public interface ProjectMembershipRepository
     List<ProjectMembership> findByIdUserId(Long userId);
 
     Optional<ProjectMembership> findByIdProjectIdAndIdUserId(UUID projectId, Long userId);
+
+    /**
+     * All of {@code userId}'s memberships across the supplied project ids, in ONE
+     * query. Batches the per-project membership lookup on the dashboard list
+     * endpoints (BA-10) so listing N projects no longer issues N membership
+     * SELECTs. Callers must skip this for an empty {@code projectIds} — an empty
+     * {@code IN ()} clause is invalid SQL on most databases.
+     */
+    List<ProjectMembership> findByIdUserIdAndIdProjectIdIn(Long userId, Collection<UUID> projectIds);
 
     boolean existsByIdProjectIdAndIdUserIdAndRole(UUID projectId, Long userId, MembershipRole role);
 
