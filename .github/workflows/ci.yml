@@ -28,6 +28,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       desktop: ${{ steps.filter.outputs.desktop }}
       mobile: ${{ steps.filter.outputs.mobile }}
+      client_docker: ${{ steps.filter.outputs.client_docker }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -47,6 +48,8 @@ jobs:
               - 'fedlearn-desktop/**'
             mobile:
               - 'mobile_client/**'
+            client_docker:
+              - 'client-docker/**'
 
   framework:
     needs: changes
@@ -167,3 +170,42 @@ jobs:
           npm ci
           npx tsc --noEmit
           npx jest --ci
+
+  # TE-6: client-docker is a full deployable unit (containerized FL client, a thin wrapper around
+  # framework/) that shipped with ZERO CI — a broken Dockerfile or requirements.txt went unnoticed
+  # until a user pulled the image. Build the image on PRs that touch it, then smoke-test that the
+  # entrypoint launches the client. Runs only when client-docker/ changes.
+  #
+  # amd64 ONLY. The Dockerfile's default BASE_IMAGE is x86 PyTorch/CUDA; GitHub-hosted runners are
+  # amd64 and have no GPU, but CUDA runtime libs load lazily so a CPU-only build + `--help` is fine.
+  # The Jetson lane (--build-arg BASE_IMAGE=nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3) is arm64
+  # and needs real CUDA hardware — it belongs on a separate self-hosted arm64 runner, NOT here.
+  client-docker:
+    needs: changes
+    if: ${{ needs.changes.outputs.client_docker == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      # Build context is the repo root: the Dockerfile COPYs both framework/ and client-docker/.
+      # gha layer cache keeps unchanged base/dep layers warm across runs.
+      - name: Build image (amd64 default BASE_IMAGE)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: client-docker/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: fedlearn-client:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      # Smoke: run through the real entrypoint. It requires the three env vars, then execs
+      # `client.py <flags> --help`; argparse prints help and exits 0 before any gRPC connect,
+      # so this proves the framework + client imports load and the entrypoint wiring is sound.
+      - name: Smoke-test entrypoint (client.py --help)
+        run: |
+          docker run --rm \
+            -e PROJECT_ID=smoke \
+            -e SERVER_ADDRESS=localhost:50000 \
+            -e PARTITION_ID=0 \
+            fedlearn-client:ci --help
