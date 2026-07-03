@@ -66,10 +66,18 @@ jobs:
           # CPU torch pinned to the golden-fixture version (framework/tests/fixtures/decomfl_golden);
           # the perturbation version-gate compares the base version (2.12.0).
           pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.12.0"
-          pip install -r framework/requirements.txt pytest
+          # executorch pinned to the validated toolchain pairing (mobile_client/scripts/pte_export.py:
+          # torch 2.12.0 + executorch 1.3.1) so the PTE-export parity test RUNS here instead of
+          # silently skipping on importorskip — the exact false green TE-10 exists to catch.
+          pip install -r framework/requirements.txt pytest "executorch==1.3.1"
           pip install -e framework
+      # TE-10: the skip-integrity guard in framework/tests/conftest.py fails this job if any test
+      # is SKIPPED for a non-allowlisted reason (`-m "not slow"` deselection is not a skip and
+      # stays fine). Env var set explicitly so the gate doesn't ride on the implicit CI=true.
       - name: pytest
         working-directory: framework
+        env:
+          FEDLEARN_FAIL_ON_UNEXPECTED_SKIP: '1'
         run: PYTHONPATH=src python -m pytest -q
 
   backend:
@@ -109,8 +117,12 @@ jobs:
           pip install --index-url https://download.pytorch.org/whl/cpu \
             "torch==2.5.1" "torchvision==0.20.1" "torchaudio==2.5.1"
           pip install -r backend/fl-platform-api/requirements.txt pytest
+      # TE-10: the skip-integrity guard in tests/conftest.py fails this job if any test is
+      # SKIPPED (this suite allowlists no skip reasons; `-m "not slow"` deselection is not a skip).
       - name: pytest (FL trainer scripts; pytest.ini deselects -m slow)
         working-directory: backend/fl-platform-api/src/main/resources/scripts
+        env:
+          FEDLEARN_FAIL_ON_UNEXPECTED_SKIP: '1'
         run: python -m pytest -q
 
   frontend:
@@ -144,6 +156,10 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: fedlearn-desktop/package-lock.json
+      # TE-10: jest has no forbid-skip switch — statically reject .skip/.only/xit/fit &c. so a
+      # skipped test can't ride a green run.
+      - name: No skipped/focused jest tests
+        run: bash scripts/check_no_skipped_tests.sh fedlearn-desktop
       - name: Install + lint + test
         working-directory: fedlearn-desktop
         run: |
@@ -165,6 +181,10 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: mobile_client/package-lock.json
+      # TE-10: jest has no forbid-skip switch — statically reject .skip/.only/xit/fit &c. so a
+      # skipped test can't ride a green run.
+      - name: No skipped/focused jest tests
+        run: bash scripts/check_no_skipped_tests.sh mobile_client
       - name: Install + typecheck + jest
         working-directory: mobile_client
         run: |
