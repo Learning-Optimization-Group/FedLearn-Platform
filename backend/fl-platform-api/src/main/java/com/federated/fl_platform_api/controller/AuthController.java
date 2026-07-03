@@ -10,6 +10,7 @@ import com.federated.fl_platform_api.repository.UserRepository;
 import com.federated.fl_platform_api.security.AuditingAuthenticationFailureHandler;
 import com.federated.fl_platform_api.security.AuditingAuthenticationSuccessHandler;
 import com.federated.fl_platform_api.security.JwtTokenProvider;
+import com.federated.fl_platform_api.security.LoginRateLimiter;
 import com.federated.fl_platform_api.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -44,6 +45,7 @@ public class AuthController {
     private final UserRepository userRepository;
     private final AuditingAuthenticationSuccessHandler successHandler;
     private final AuditingAuthenticationFailureHandler failureHandler;
+    private final LoginRateLimiter loginRateLimiter;
 
     @Value("${app.auth.cookie.secure:true}")
     private boolean cookieSecure;
@@ -58,13 +60,15 @@ public class AuthController {
     public AuthController(UserService userService, AuthenticationManager authenticationManager,
                           JwtTokenProvider tokenProvider, UserRepository userRepository,
                           AuditingAuthenticationSuccessHandler successHandler,
-                          AuditingAuthenticationFailureHandler failureHandler) {
+                          AuditingAuthenticationFailureHandler failureHandler,
+                          LoginRateLimiter loginRateLimiter) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.tokenProvider = tokenProvider;
         this.userRepository = userRepository;
         this.successHandler = successHandler;
         this.failureHandler = failureHandler;
+        this.loginRateLimiter = loginRateLimiter;
     }
 
     @PostMapping("/register")
@@ -100,6 +104,16 @@ public class AuthController {
         // AuthenticationException (bad credentials, disabled, locked, etc.) → 401 via
         // GlobalExceptionHandler. We catch it here only long enough to emit a
         // USER_LOGIN_FAILED audit row, then rethrow so the existing 401 path is unchanged.
+        // SE-4: throttle brute-force. Block a locked-out username or source IP before even
+        // attempting authentication; a valid login below clears the account's counter.
+        String usernameKey = "u:" + loginRequest.getUsername();
+        String ipKey = "ip:" + http.getRemoteAddr();
+        if (loginRateLimiter.isLocked(usernameKey) || loginRateLimiter.isLocked(ipKey)) {
+            log.warn("Login throttled for user '{}' from {}", loginRequest.getUsername(), http.getRemoteAddr());
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.<String, Object>of("error", "Too many failed login attempts. Please try again later."));
+        }
+
         Authentication authentication;
         try {
             authentication = authenticationManager.authenticate(
@@ -110,6 +124,8 @@ public class AuthController {
             );
         } catch (AuthenticationException ex) {
             failureHandler.onFailure(loginRequest.getUsername(), http);
+            loginRateLimiter.recordFailure(usernameKey);
+            loginRateLimiter.recordFailure(ipKey);
             throw ex;
         }
 
@@ -127,6 +143,7 @@ public class AuthController {
         // Emit USER_LOGIN_SUCCEEDED audit row and update last_login_at BEFORE building
         // the response so a transient DB issue surfaces as a 500 rather than a half-committed login.
         successHandler.onSuccess(authenticatedPrincipalName, http);
+        loginRateLimiter.reset(usernameKey); // a good password ends the throttle for this account
 
         ResponseCookie jwtCookie = ResponseCookie.from("jwtToken", jwt)
                 .httpOnly(true)
