@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Play } from 'lucide-react';
-import { Project } from '../../services/apiServices';
+import { Play, AlertCircle } from 'lucide-react';
+import { Project, errorMessage } from '../../services/apiServices';
 import { createLogger } from '../../lib/logger';
 import { Modal, Input, Select, Button } from '../ui';
 
@@ -28,6 +28,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
   const [numRounds, setNumRounds] = useState(5);
   const [minClients, setMinClients] = useState(2);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   if (!project) return null;
 
@@ -35,6 +36,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     try {
       setIsLoading(true);
       await onSubmit(project.id, {
@@ -47,6 +49,9 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       setNumRounds(5);
       setMinClients(2);
     } catch (err) {
+      // Keep the modal open and surface the backend detail inline, so the
+      // failure isn't hidden behind the modal on the route beneath it.
+      setError(errorMessage(err, 'Could not start training. Please try again.'));
       log.error('startProject submit failed', err);
     } finally {
       setIsLoading(false);
@@ -70,6 +75,13 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        {error && (
+          <p className="flex items-center gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2.5 text-label text-danger">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
+            {error}
+          </p>
+        )}
+
         {/* Strategy */}
         <div className="flex flex-col gap-1.5">
           <label className={labelClass}>Training method</label>

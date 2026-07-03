@@ -171,8 +171,10 @@ export function OwnerDashboard() {
             setIsCreateModalOpen(false);
             loadProjects();
         } catch (err) {
-            setError(api.errorMessage(err, 'Failed to create project.'));
+            // Let the modal keep itself open and render the detail inline,
+            // instead of flashing a banner on the route behind the modal.
             log.error('createProject failed', err);
+            throw err;
         } finally {
             setIsCreating(false);
         }
@@ -193,14 +195,12 @@ export function OwnerDashboard() {
     };
 
     const handleStartSubmit = async (projectId: string, config: api.StartServerData) => {
-        try {
-            const res = await api.startProjectServer(projectId, config);
-            setProjects((prev) => prev.map((p) => (p.id === res.data.id ? { ...p, ...res.data } : p)));
-            setIsStartModalOpen(false);
-            setStartProject(null);
-        } catch {
-            setError('Failed to start server.');
-        }
+        // Errors propagate to StartProjectModal, which stays open and renders
+        // the backend detail inline; the modal is only closed here on success.
+        const res = await api.startProjectServer(projectId, config);
+        setProjects((prev) => prev.map((p) => (p.id === res.data.id ? { ...p, ...res.data } : p)));
+        setIsStartModalOpen(false);
+        setStartProject(null);
     };
 
     const handleUpdateProject = async (id: string, projectData: Partial<Project>) => {
@@ -211,8 +211,9 @@ export function OwnerDashboard() {
             setIsEditModalOpen(false);
             setEditProject(null);
         } catch (err) {
-            setError('Failed to update project.');
+            // Let EditProjectModal keep itself open and render the detail inline.
             log.error('updateProject failed', err);
+            throw err;
         } finally {
             setIsUpdating(false);
         }

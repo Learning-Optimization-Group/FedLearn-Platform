@@ -3,8 +3,8 @@
 // =============================================================================
 
 import { useState, useEffect } from 'react';
-import { Edit3 } from 'lucide-react';
-import { fetchModelRecipes, type ModelRecipe, type Project } from '../../services/apiServices';
+import { Edit3, AlertCircle } from 'lucide-react';
+import { fetchModelRecipes, errorMessage, type ModelRecipe, type Project } from '../../services/apiServices';
 import { Modal, Input, Select, Button } from '../ui';
 
 // Last-resort fallback if the catalog can't be fetched (e.g. offline). The
@@ -31,7 +31,7 @@ const FALLBACK_RECIPES: ModelRecipe[] = [
 interface EditProjectModalProps {
   isOpen: boolean;
   project: Project | null;
-  onSubmit: (id: string, data: Partial<Project>) => void;
+  onSubmit: (id: string, data: Partial<Project>) => Promise<void>;
   onClose: () => void;
   isLoading?: boolean;
 }
@@ -53,6 +53,7 @@ export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading
   const [modelName, setModelName] = useState('');
   const [optimizer, setOptimizer] = useState('');
   const [pretrainEpochs, setPretrainEpochs] = useState(0);
+  const [error, setError] = useState('');
 
   // Fetch the model catalog when the modal opens.
   useEffect(() => {
@@ -81,6 +82,7 @@ export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading
     if (!project || !isOpen || recipes.length === 0) return;
     const recipe = resolveRecipe(recipes, project.modelType);
     setName(project.name);
+    setError('');
     setModelType(recipe?.key ?? '');
     setModelName(project.modelName);
     setOptimizer(project.optimizer);
@@ -103,9 +105,16 @@ export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading
 
   if (!project) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(project.id, { name, modelType, modelName, optimizer, pretrainEpochs } as Partial<Project>);
+    setError('');
+    try {
+      await onSubmit(project.id, { name, modelType, modelName, optimizer, pretrainEpochs } as Partial<Project>);
+    } catch (err) {
+      // Keep the modal open and surface the backend detail inline, rather than
+      // letting the failure render on the route hidden behind the modal.
+      setError(errorMessage(err, 'Could not save changes. Please try again.'));
+    }
   };
 
   return (
@@ -120,6 +129,13 @@ export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        {error && (
+          <p className="flex items-center gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2.5 text-label text-danger">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
+            {error}
+          </p>
+        )}
+
         {/* Project Name */}
         <div className="flex flex-col gap-1.5">
           <label className={labelClass}>Project name</label>

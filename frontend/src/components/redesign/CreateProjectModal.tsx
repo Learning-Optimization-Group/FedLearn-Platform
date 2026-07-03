@@ -3,8 +3,8 @@
 // =============================================================================
 
 import { useState, useEffect } from 'react';
-import { Sparkles } from 'lucide-react';
-import { fetchModelRecipes, type ModelRecipe } from '../../services/apiServices';
+import { Sparkles, AlertCircle } from 'lucide-react';
+import { fetchModelRecipes, errorMessage, type ModelRecipe } from '../../services/apiServices';
 import { Modal, Input, Select, Button } from '../ui';
 
 // Last-resort fallback if the catalog can't be fetched (e.g. offline). The
@@ -37,7 +37,7 @@ interface CreateProjectModalProps {
     optimizer: string;
     pretrainEpochs: number;
     taskType?: string;
-  }) => void;
+  }) => Promise<void>;
   onClose: () => void;
   isLoading?: boolean;
 }
@@ -54,6 +54,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
   const [optimizer, setOptimizer] = useState('');
   const [pretrainEpochs, setPretrainEpochs] = useState(0);
   const [taskType, setTaskType] = useState('SEQ_CLASSIFICATION');
+  const [error, setError] = useState('');
 
   // Fetch the model catalog when the modal opens.
   useEffect(() => {
@@ -96,13 +97,21 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
       setName('');
       setModelType('');
       setPretrainEpochs(0);
+      setError('');
     }
   }, [isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ name, modelType, modelName, optimizer, pretrainEpochs,
-               ...(modelType === 'LLM_LORA' ? { taskType } : {}) });
+    setError('');
+    try {
+      await onSubmit({ name, modelType, modelName, optimizer, pretrainEpochs,
+                       ...(modelType === 'LLM_LORA' ? { taskType } : {}) });
+    } catch (err) {
+      // Keep the modal open and surface the backend detail inline, rather than
+      // letting the failure render on the route hidden behind the modal.
+      setError(errorMessage(err, 'Could not create project. Please try again.'));
+    }
   };
 
   return (
@@ -121,6 +130,13 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onClose, isLoading = fa
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        {error && (
+          <p className="flex items-center gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2.5 text-label text-danger">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
+            {error}
+          </p>
+        )}
+
         {/* Project Name */}
         <div className="flex flex-col gap-1.5">
           <label className={labelClass}>Project name</label>
