@@ -117,6 +117,44 @@ def _register_model_artifact(project_id: str, model_type: str, model_path: str,
         logging.error("Failed to register model artifact (non-fatal): %s", e)
 
 
+def build_eval_card(args, history, strategy=None) -> str:
+    """Build the eval-card JSON attached to the registered model artifact (DA-2/DA-3).
+
+    SE-11: when the run's strategy carried differential privacy (``strategy.dp_enabled``), the
+    card gains a ``dp`` object holding the accounted-(ε, δ) trace. Every value is read verbatim
+    from the strategy — ``accounted_epsilon`` in particular is the strategy's committed value,
+    NEVER recomputed or rounded here (the strategy's RDP accountant is the single source of
+    truth for the privacy claim). When DP is off there is NO ``dp`` key at all: the backend
+    upload gate treats absence as "non-DP artifact", and a DP claim without a full trace as 400.
+
+    Note: on the raw-z path (no δ/rounds supplied) ``accounted_epsilon`` is null; the backend
+    gate rejects that upload by design — the platform refuses unaccounted DP claims.
+    """
+    final = history[-1][1] if history else {}
+    card = {
+        "recipe_key": args.model_type,
+        "strategy": args.strategy,
+        "rounds": args.num_rounds,
+        "final_loss": final.get("loss"),
+        "final_accuracy": final.get("accuracy"),
+        "torch_version": torch.__version__,
+        "seed": getattr(args, "seed", None),
+        "framework": "fedlearn",
+    }
+    if strategy is not None and getattr(strategy, "dp_enabled", False):
+        card["dp"] = {
+            "enabled": True,
+            "accounted_epsilon": getattr(strategy, "dp_accounted_epsilon", None),
+            "delta": getattr(strategy, "dp_delta", None),
+            "clip_norm": getattr(strategy, "dp_clip_norm", None),
+            "noise_multiplier": getattr(strategy, "dp_noise_multiplier", None),
+            "q": getattr(strategy, "dp_q", None),
+            "rounds": getattr(strategy, "dp_rounds", None),
+            "target_epsilon": getattr(strategy, "dp_target_epsilon", None),
+        }
+    return json.dumps(card)
+
+
 if os.environ.get('AWS_HOST'):
     logging.info(f"[NETWORK] Cloud deployment detected. Clients should target AWS Elastic IP: {target_ip}")
 elif os.environ.get('SERVER_HOST'):
@@ -217,28 +255,43 @@ def select_strategy(args, initial_parameters, evaluate_fn):
         dp_clip_norm = getattr(args, "dp_clip_norm", None)
         dp_noise_multiplier = getattr(args, "dp_noise_multiplier", None)
         dp_seed = getattr(args, "dp_seed", None)
+        # SE-11: ε-budget passthrough. FedLoRA owns all DP validation and the ε→z solve (RDP
+        # accountant, fedlearn.privacy.dp_accountant) — exactly one of z / target-ε is accepted,
+        # enforced there; nothing is validated or recomputed here.
+        dp_target_epsilon = getattr(args, "dp_target_epsilon", None)
+        dp_delta = getattr(args, "dp_delta", None)
+        dp_num_clients = getattr(args, "dp_num_clients", None)
+        dp_rounds = getattr(args, "dp_rounds", None)
         if dp_enabled:
             logging.info(
                 "Using FedLoRA strategy (aggregation=%s) with DIFFERENTIAL PRIVACY "
-                "(clip_norm=%s, noise_multiplier=%s, seed=%s)",
-                args.aggregation, dp_clip_norm, dp_noise_multiplier, dp_seed,
+                "(clip_norm=%s, noise_multiplier=%s, target_epsilon=%s, delta=%s, "
+                "num_clients=%s, rounds=%s, seed=%s)",
+                args.aggregation, dp_clip_norm, dp_noise_multiplier, dp_target_epsilon,
+                dp_delta, dp_num_clients, dp_rounds, dp_seed,
             )
-            # TODO(integration): dp_target_epsilon -> required_noise_multiplier(accountant)
-            #   Accept an epsilon budget (+ delta / N / rounds) here and solve z via the RDP
-            #   accountant (fedlearn.privacy.dp_accountant) before constructing FedLoRA, instead of
-            #   taking the noise multiplier z directly from --dp-noise-multiplier.
         else:
             logging.info(f"Using FedLoRA strategy (aggregation={args.aggregation})")
-        strategy = FedLoRA(
-            initial_parameters=initial_parameters,
-            evaluate_fn=evaluate_fn,
-            min_fit_clients=args.min_clients,
-            aggregation=args.aggregation,
-            dp_enabled=dp_enabled,
-            dp_clip_norm=dp_clip_norm,
-            dp_noise_multiplier=dp_noise_multiplier,
-            dp_seed=dp_seed,
-        )
+        try:
+            strategy = FedLoRA(
+                initial_parameters=initial_parameters,
+                evaluate_fn=evaluate_fn,
+                min_fit_clients=args.min_clients,
+                aggregation=args.aggregation,
+                dp_enabled=dp_enabled,
+                dp_clip_norm=dp_clip_norm,
+                dp_noise_multiplier=dp_noise_multiplier,
+                dp_seed=dp_seed,
+                dp_target_epsilon=dp_target_epsilon,
+                dp_delta=dp_delta,
+                dp_num_clients=dp_num_clients,
+                dp_rounds=dp_rounds,
+            )
+        except ValueError as e:
+            # A bad DP config must fail loudly AT SPAWN — the backend's 3-second exit window
+            # surfaces this captured output — never silently mid-run with a broken privacy claim.
+            logging.error("FedLoRA configuration rejected: %s", e)
+            sys.exit(1)
     elif args.strategy.lower() == 'fedprox':
         # FR-11: FedProx. Server aggregation is identical to FedAvg; the proximal term lives in
         # the client objective and is shipped via get_client_config. Default μ=0.1 gives a mild
@@ -306,7 +359,10 @@ def select_strategy(args, initial_parameters, evaluate_fn):
 # ==============================================================================
 # Main Execution Block
 # ==============================================================================
-def main():
+def build_arg_parser() -> argparse.ArgumentParser:
+    """CLI contract of the FL server entrypoint. Extracted from main() so the flag surface —
+    pinned against the backend spawner (FlowerServerManager builds exactly these flags) — is
+    unit-testable without booting a server."""
     parser = argparse.ArgumentParser(description="FedLearn gRPC Server with Heartbeat for a Project")
     parser.add_argument("--model-path", type=str, required=True, help="Path to initial model weights (.npz)")
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
@@ -317,15 +373,25 @@ def main():
     parser.add_argument("--port", type=int, default=50051, help="gRPC server port")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="Aggregation strategy")
     parser.add_argument("--aggregation", type=str, default="FFA_LORA", choices=["FFA_LORA", "FEDIT"], help="LoRA aggregation sub-mode (LLM_LORA only)")
-    # FR-13: central differential privacy for FedLoRA (default OFF). Takes the noise multiplier z
-    # directly this slice; wiring an epsilon budget -> z via the RDP accountant is a follow-up.
+    # FR-13 + SE-11: central differential privacy for FedLoRA (default OFF). Noise is calibrated
+    # from EITHER a raw noise multiplier z (--dp-noise-multiplier) OR an ε budget
+    # (--dp-target-epsilon + --dp-delta + --dp-rounds, solved to z inside FedLoRA via the RDP
+    # accountant). Exactly one of the two — FedLoRA enforces it.
     parser.add_argument("--dp-enabled", action="store_true", help="Enable central differential privacy on FedLoRA aggregation (FedLoRA only)")
     parser.add_argument("--dp-clip-norm", type=float, default=None, help="DP L2 clip bound S applied to each client's adapter delta (required with --dp-enabled)")
-    parser.add_argument("--dp-noise-multiplier", type=float, default=None, help="DP Gaussian noise multiplier z; per-coordinate std is z*S/N (required with --dp-enabled)")
+    parser.add_argument("--dp-noise-multiplier", type=float, default=None, help="DP Gaussian noise multiplier z; per-coordinate std is z*S/N (mutually exclusive with --dp-target-epsilon)")
     parser.add_argument("--dp-seed", type=int, default=None, help="DP noise RNG seed for reproducibility/testing; omit in production for fresh entropy")
+    parser.add_argument("--dp-target-epsilon", type=float, default=None, help="DP privacy budget ε; FedLoRA solves the noise multiplier z from it via the RDP accountant (requires --dp-delta and --dp-rounds; mutually exclusive with --dp-noise-multiplier)")
+    parser.add_argument("--dp-delta", type=float, default=None, help="DP δ for the accountant (required with --dp-target-epsilon)")
+    parser.add_argument("--dp-num-clients", type=int, default=None, help="Enrolled client population N for the accountant's subsampling rate q = cohort/N (omit => q=1, conservative no-amplification assumption)")
+    parser.add_argument("--dp-rounds", type=int, default=None, help="Round count T the ε budget is accounted over (required with --dp-target-epsilon)")
     parser.add_argument("--task-type", type=str, default="SEQ_CLASSIFICATION", choices=["SEQ_CLASSIFICATION", "CAUSAL_LM"], help="LLM_LORA task type (generative vs classification)")
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
-    args = parser.parse_args()
+    return parser
+
+
+def main():
+    args = build_arg_parser().parse_args()
 
     # if args.model_type == 'TRANSFORMER' and args.strategy.lower() == 'decomfl':
     #     args.min_clients = 1
@@ -852,20 +918,11 @@ def main():
 
         # DA-2/DA-3: register this run's final model as a versioned, content-addressed artifact
         # (write-new-not-overwrite) with an eval card built from the honest server-side evaluation
-        # (final-round metrics + config). Non-fatal; the legacy .npz write above is unchanged.
+        # (final-round metrics + config; SE-11 adds the accounted-(ε, δ) DP trace when the strategy
+        # ran with DP). Non-fatal; the legacy .npz write above is unchanged.
         eval_card = None
         try:
-            final = history[-1][1] if history else {}
-            eval_card = json.dumps({
-                "recipe_key": args.model_type,
-                "strategy": args.strategy,
-                "rounds": args.num_rounds,
-                "final_loss": final.get("loss"),
-                "final_accuracy": final.get("accuracy"),
-                "torch_version": torch.__version__,
-                "seed": getattr(args, "seed", None),
-                "framework": "fedlearn",
-            })
+            eval_card = build_eval_card(args, history, strategy)
         except Exception as _e:
             logging.warning("Could not build eval card: %s", _e)
         _register_model_artifact(args.project_id, args.model_type, save_path, eval_card=eval_card)

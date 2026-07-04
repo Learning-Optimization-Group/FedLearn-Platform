@@ -72,3 +72,77 @@ def test_select_strategy_wires_evaluate_fn():
     sentinel = object()
     strategy = fl_server.select_strategy(_args("robust"), _initial_parameters(), sentinel)
     assert strategy.evaluate_fn is sentinel
+
+
+# --- SE-11: DP ε-budget passthrough ------------------------------------------------------------
+
+
+def test_select_strategy_passes_dp_epsilon_budget_to_fedlora():
+    """The four ε-budget fields reach FedLoRA, which solves z and commits the accounted trace."""
+    args = _args("fedlora")
+    args.dp_enabled = True
+    args.dp_clip_norm = 1.0
+    args.dp_target_epsilon = 8.0
+    args.dp_delta = 1e-5
+    args.dp_num_clients = 10
+    args.dp_rounds = 5
+    strategy = fl_server.select_strategy(args, _initial_parameters(), None)
+    assert isinstance(strategy, FedLoRA)
+    assert strategy.dp_enabled is True
+    assert strategy.dp_target_epsilon == 8.0
+    assert strategy.dp_delta == 1e-5
+    assert strategy.dp_num_clients == 10
+    assert strategy.dp_rounds == 5
+    # FedLoRA owns the ε→z solve: z materialises even though --dp-noise-multiplier was not given,
+    # and the accountant's committed ε trace is exposed for the eval card.
+    assert strategy.dp_noise_multiplier is not None
+    assert strategy.dp_noise_multiplier > 0
+    assert strategy.dp_accounted_epsilon is not None
+    # q = clients_per_round / N (min_clients=1, N=10)
+    assert strategy.dp_q == pytest.approx(0.1)
+
+
+def test_select_strategy_passes_raw_noise_multiplier_unchanged():
+    """The pre-SE-11 raw-z path still works: z taken verbatim, budget fields stay None."""
+    args = _args("fedlora")
+    args.dp_enabled = True
+    args.dp_clip_norm = 0.5
+    args.dp_noise_multiplier = 1.1
+    strategy = fl_server.select_strategy(args, _initial_parameters(), None)
+    assert strategy.dp_enabled is True
+    assert strategy.dp_noise_multiplier == 1.1
+    assert strategy.dp_target_epsilon is None
+    assert strategy.dp_accounted_epsilon is None  # no δ/rounds => no accounted trace
+
+
+def test_select_strategy_bare_namespace_still_constructs_fedlora_dp_off():
+    """Tests build bare Namespaces without any dp_* fields — the getattr guards must hold."""
+    strategy = fl_server.select_strategy(_args("fedlora"), _initial_parameters(), None)
+    assert isinstance(strategy, FedLoRA)
+    assert strategy.dp_enabled is False
+    assert strategy.dp_target_epsilon is None
+    assert strategy.dp_accounted_epsilon is None
+
+
+@pytest.mark.parametrize(
+    "bad_fields",
+    [
+        # target ε without δ/rounds — accountant cannot solve z
+        {"dp_target_epsilon": 8.0},
+        # both z and target ε — ambiguous budget
+        {"dp_target_epsilon": 8.0, "dp_delta": 1e-5, "dp_rounds": 5, "dp_noise_multiplier": 1.0},
+        # DP on with neither z nor target ε
+        {},
+    ],
+)
+def test_select_strategy_bad_dp_config_is_fatal_startup_error(bad_fields):
+    """FedLoRA's ValueError surfaces as a fatal startup exit so the backend's 3-second
+    spawn window catches a bad DP config instead of it detonating mid-run."""
+    args = _args("fedlora")
+    args.dp_enabled = True
+    args.dp_clip_norm = 1.0
+    for k, v in bad_fields.items():
+        setattr(args, k, v)
+    with pytest.raises(SystemExit) as excinfo:
+        fl_server.select_strategy(args, _initial_parameters(), None)
+    assert excinfo.value.code == 1
