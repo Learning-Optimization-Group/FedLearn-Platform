@@ -375,8 +375,13 @@ class FLCoordinator:
 
 
     def update_client_heartbeat(self, client_id:str, status:str, current_step:int, total_steps:int, current_round:int)->tuple[bool,bool,str]:
-        """
-        Update the last  heartbeat time for a client
+        """Record a client heartbeat and return the server's stop directive.
+
+        Returns ``(acknowledged, should_stop, message)``. FR-10: ``should_stop`` reflects the
+        coordinator's REAL stop state (``stop_requested``, set by signal_stop() and the
+        quorum-lost round-timeout path) instead of a hardcoded False — a globally-stopped
+        coordinator asks every heart-beating client to halt its fit loop. The heartbeat is
+        still recorded first so liveness bookkeeping stays accurate during teardown.
         """
 
         with self.heartbeat_lock:
@@ -396,9 +401,10 @@ class FLCoordinator:
                 client_id, status, current_round, current_step, total_steps, progress,
             )
 
-        should_stop = False
+        if self.stop_requested:
+            return True, True, f"Server stop requested; {client_id} should abort training"
 
-        return True, should_stop, f"Heartbeat received for {client_id}"
+        return True, False, f"Heartbeat received for {client_id}"
 
     def get_active_clients(self)->list[str]:
         """

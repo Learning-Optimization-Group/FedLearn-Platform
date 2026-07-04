@@ -110,6 +110,15 @@ class GrpcClient:
         # FR-10: an interruptible wait so stop_heartbeat() can end the inter-beat delay immediately
         # instead of the thread having to sleep out the full interval before noticing it should stop.
         self._heartbeat_stop = threading.Event()
+        # FR-10: server-driven stop. Latched by the heartbeat thread when a HeartbeatResponse
+        # carries should_stop=True; the training thread's fit loop polls it between local steps
+        # (should_stop_training()) and aborts the round. This is the cross-stub signal that lets
+        # the parallel heartbeat stub halt a fit() blocking the training stub.
+        self._stop_training = threading.Event()
+        # Guards the status triple shared between the training thread (update_status writer)
+        # and the heartbeat thread (snapshot reader) so a heartbeat never sees a torn write —
+        # e.g. the status of one phase with the step count of another.
+        self._status_lock = threading.Lock()
         self.current_status = "idle"
         self.current_step = 0
         self.total_steps = 0
@@ -279,17 +288,22 @@ class GrpcClient:
         return self._submit_update_unary(params, num_examples, round_number)
 
     def send_heartbeat(self) -> bool:
+        status, current_step, total_steps, current_round = self._status_snapshot()
         req = fedlearn_pb2.HeartbeatRequest(
             client_id=self.client_id,
-            status=self.current_status,
-            current_step=self.current_step,
-            total_steps=self.total_steps,
-            current_round=self.current_round,
+            status=status,
+            current_step=current_step,
+            total_steps=total_steps,
+            current_round=current_round,
         )
         try:
             res = self.heartbeat_stub.Heartbeat(req, timeout=30.0)
             if res.should_stop:
                 log.info("[%s] Server requested training stop", self.client_id)
+                # FR-10: latch the stop so the training thread's fit loop can see it and
+                # abort between local steps. Previously this response was discarded by
+                # _heartbeat_loop, making the server's stop request a no-op.
+                self._stop_training.set()
                 return False
             return res.acknowledged
         except grpc.RpcError as e:
@@ -323,10 +337,30 @@ class GrpcClient:
             self.heartbeat_thread.join(timeout=5)
             log.info("[%s] Heartbeat stopped", self.client_id)
 
+    def should_stop_training(self) -> bool:
+        """True once the server has asked this client to abort training (via heartbeat).
+
+        FR-10: polled by the fit loop between local steps on the TRAINING thread; set by the
+        heartbeat thread. Once set it stays set — a server-driven stop ends the run.
+        """
+        return self._stop_training.is_set()
+
     def update_status(self, status: str, current_step: int, total_steps: int):
-        self.current_status = status
-        self.current_step = current_step
-        self.total_steps = total_steps
+        """Publish the training thread's status triple for the heartbeat thread to report.
+
+        Written under _status_lock so the paired _status_snapshot() read on the heartbeat
+        thread can never observe a torn triple (three bare attribute stores are not atomic
+        as a unit).
+        """
+        with self._status_lock:
+            self.current_status = status
+            self.current_step = current_step
+            self.total_steps = total_steps
+
+    def _status_snapshot(self) -> Tuple[str, int, int, int]:
+        """Consistent (status, current_step, total_steps, current_round) for a heartbeat."""
+        with self._status_lock:
+            return self.current_status, self.current_step, self.total_steps, self.current_round
 
     def close(self):
         self.stop_heartbeat()

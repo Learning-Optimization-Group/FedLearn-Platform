@@ -86,8 +86,20 @@ class LocalTrainer(Client):
 
         total_steps = max(1, local_epochs)
         step = 0
+        # FR-10: server-driven stop — polled between minibatch steps so a stop request arriving
+        # on the heartbeat thread aborts within ~one heartbeat interval + one optimiser step.
+        # On abort we return the current (partially trained) state; the caller must check
+        # should_stop_training() and skip the submit — the server has stopped the run.
+        stopped = False
         for _ in range(local_epochs):
+            if stopped:
+                break
             for batch in self.train_loader:
+                if self.grpc_client is not None and self.grpc_client.should_stop_training():
+                    log.info("Server requested stop; aborting local training at epoch %d/%d",
+                             step, total_steps)
+                    stopped = True
+                    break
                 inputs, targets = batch
                 if isinstance(inputs, dict):
                     inputs = {k: v.to(self.device) for k, v in inputs.items()}

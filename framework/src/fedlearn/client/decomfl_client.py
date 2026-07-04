@@ -170,6 +170,17 @@ class DeComFLClient(Client):
 
         # Algorithm 4, Line 14: Loop over local steps k = 1, ..., K
         for k in range(K):
+            # FR-10: honour a server-driven stop between local steps. The heartbeat thread
+            # latches the server's should_stop into the gRPC client's stop Event while this
+            # loop blocks the training stub; checking it here bounds the abort latency to
+            # ~one heartbeat interval + one local step instead of the full K-step round.
+            # total_perturbation only accumulates APPLIED steps, so the revert below stays
+            # exact for a partial run; the caller sees the stop via should_stop_training()
+            # and must not submit the partial scalars (the server has stopped anyway).
+            if self.grpc_client is not None and self.grpc_client.should_stop_training():
+                log.info("Server requested stop; aborting local training at step %d/%d", k, K)
+                break
+
             delta = torch.zeros_like(self.x_current)
             k_gradient_scalars = []
 

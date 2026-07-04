@@ -66,6 +66,11 @@ def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: 
 
     try:
         while True:
+            # FR-10: server-driven stop (delivered via the heartbeat response). Exit before
+            # starting another round once the server has asked this client to halt.
+            if comm_client.should_stop_training():
+                log.info("[%s] Server requested stop via heartbeat; shutting down", client_id)
+                break
             try:
                 # 1. Get DeComFL configuration (seeds + rebuild history)
                 log.debug("[%s] Fetching DeComFL config", client_id)
@@ -97,6 +102,14 @@ def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: 
                     training_config['seeds'] = seeds
 
                     gradient_scalars, num_examples = client.fit(None, training_config)
+
+                    # FR-10: if the server stopped mid-fit, fit() broke out of the K-step loop
+                    # early and the scalars are a partial (non-KxP) grid the server would
+                    # reject anyway — do not submit; shut down.
+                    if comm_client.should_stop_training():
+                        log.info("[%s] Round %d aborted by server stop; discarding partial "
+                                 "scalars and shutting down", client_id, server_round)
+                        break
 
                     # 4. Submit gradient scalars
                     log.debug("[%s] Submitting gradient scalars for round %d",
