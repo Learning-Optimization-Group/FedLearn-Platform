@@ -1,3 +1,4 @@
+import hashlib
 import io
 import logging
 import os
@@ -141,6 +142,14 @@ class GrpcClient:
             total_chunks = 0
             download_start = time.time()
 
+            # FR-8 (download half): verify the server-declared sha256 of the full payload
+            # before deserializing. Hash incrementally as chunks arrive so no second copy
+            # of the payload is ever materialized (same OOM rationale as the BytesIO note
+            # above). The server sets the hash on every chunk; accept it from whichever
+            # chunk carries it (empty = pre-integrity server, verification skipped).
+            hasher = hashlib.sha256()
+            declared_sha256 = ""
+
             for chunk in self.stub.GetGlobalModelStream(req, timeout=3600):
                 if chunk.chunk_index == 0:
                     current_round = chunk.current_round
@@ -149,13 +158,30 @@ class GrpcClient:
                     log.info("[%s] Receiving %d chunk(s) for round %d",
                              self.client_id, total_chunks, current_round)
 
+                if chunk.sha256:
+                    declared_sha256 = chunk.sha256
                 buffer.write(chunk.chunk_data)
+                hasher.update(chunk.chunk_data)
                 if (chunk.chunk_index + 1) % 2 == 0 or chunk.is_final_chunk:
                     progress = (chunk.chunk_index + 1) / chunk.total_chunks * 100
                     log.debug("[%s] Chunk %d/%d (%.1f%%)",
                               self.client_id, chunk.chunk_index + 1, chunk.total_chunks, progress)
 
             log.info("[%s] Download complete in %.1fs", self.client_id, time.time() - download_start)
+
+            if declared_sha256:
+                actual_sha256 = hasher.hexdigest()
+                if actual_sha256 != declared_sha256:
+                    buffer.close()
+                    raise ValueError(
+                        f"[{self.client_id}] Global model download failed sha256 integrity check: "
+                        f"server declared {declared_sha256}, received payload hashes to "
+                        f"{actual_sha256}. Refusing to deserialize."
+                    )
+                log.debug("[%s] Payload sha256 verified (%s...)", self.client_id, declared_sha256[:12])
+            else:
+                log.debug("[%s] Server declared no payload sha256 (pre-integrity server); "
+                          "skipping verification", self.client_id)
 
             buffer.seek(0)
             model_data = torch.load(buffer, map_location='cpu', weights_only=True)

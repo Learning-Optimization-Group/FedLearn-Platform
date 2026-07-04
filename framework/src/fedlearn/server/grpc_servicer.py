@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import time
 from typing import List, Dict
@@ -116,12 +117,19 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             data_to_send = buffer.getvalue()
             buffer.close()
 
+            # FR-8 (download half): declare the sha256 of the FULL payload so receivers can
+            # verify the reassembled blob. Set on EVERY chunk: the mobile C++ client reads it
+            # from the first chunk (FedLearnClient.cpp), the Python client from the final one.
+            # Purely additive — receivers that ignore the field behave exactly as before.
+            payload_sha256 = hashlib.sha256(data_to_send).hexdigest()
+
             # Chunk the data
             chunk_size = 50 * 1024 * 1024  # 50 MB
             total_size = len(data_to_send)
             num_chunks = (total_size + chunk_size - 1) // chunk_size
 
-            logging.info(f"[Server] Sending {num_chunks} chunk(s) ({total_size / (1024 ** 2):.2f} MB)")
+            logging.info(f"[Server] Sending {num_chunks} chunk(s) ({total_size / (1024 ** 2):.2f} MB, "
+                         f"sha256={payload_sha256[:12]}...)")
 
             # Stream chunks
             for i in range(num_chunks):
@@ -134,7 +142,8 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                     chunk_data=data_to_send[start:end],
                     is_final_chunk=(i == num_chunks - 1),
                     current_round=current_round,
-                    config=config if i == 0 else {}
+                    config=config if i == 0 else {},
+                    sha256=payload_sha256
                 )
 
                 if (i + 1) % 2 == 0 or (i == num_chunks - 1):
