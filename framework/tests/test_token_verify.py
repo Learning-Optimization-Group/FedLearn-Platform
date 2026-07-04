@@ -83,8 +83,10 @@ def test_wrong_audience_is_rejected():
 def test_degenerate_or_dirty_secret_fails_closed():
     # Defense-in-depth (review findings 1+2): a secret that decodes to an empty/short HMAC key, or a
     # non-standard-base64 secret, must be REJECTED — never operate the gate under a forgeable key.
-    forged = pyjwt.encode(
-        {"aud": DEFAULT_AUDIENCE, "exp": int(time.time()) + 300, "runId": "x"}, b"", algorithm="HS256")
+    # The token is minted with a valid key (PyJWT >= 2.13 refuses to sign with an empty key); what's
+    # under test is the VERIFY-side secret being degenerate — the verifier rejects on the secret
+    # precheck, before any signature work, so the token's own signing key is irrelevant here.
+    forged = _mint(runId="x")
     with pytest.raises(TokenVerificationError):
         verify_connection_token(forged, "")          # empty secret -> empty key -> reject on length
     with pytest.raises(TokenVerificationError):
