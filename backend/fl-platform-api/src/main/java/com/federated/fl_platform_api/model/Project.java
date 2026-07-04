@@ -195,4 +195,58 @@ public class Project {
 
     public com.federated.fl_platform_api.dto.DeviceRequirements getRequirementsOverride() { return requirementsOverride; }
     public void setRequirementsOverride(com.federated.fl_platform_api.dto.DeviceRequirements requirementsOverride) { this.requirementsOverride = requirementsOverride; }
+
+    // SE-11: run-level DP policy (V17). A regulated project may not start a run unless DP is
+    // enabled with a complete config (enforced at the FlowerServerManager start gate); when
+    // dp_enabled, the three knobs flow to the FL server as --dp-* flags. Knobs are nullable by
+    // design: a non-DP project carries no config.
+
+    @Column(name = "regulated", nullable = false)
+    private boolean regulated = false;
+
+    @Column(name = "dp_enabled", nullable = false)
+    private boolean dpEnabled = false;
+
+    /** Target privacy budget epsilon (> 0; guidance ~4-8 for medical/regulated data). */
+    @Column(name = "dp_target_epsilon")
+    private Double dpTargetEpsilon;
+
+    /** DP failure probability delta, in (0,1) exclusive. */
+    @Column(name = "dp_delta")
+    private Double dpDelta;
+
+    /** Per-user (per-client) L2 contribution bound S (> 0). */
+    @Column(name = "dp_clip_norm")
+    private Double dpClipNorm;
+
+    public boolean isRegulated() { return regulated; }
+    public void setRegulated(boolean regulated) { this.regulated = regulated; }
+
+    public boolean isDpEnabled() { return dpEnabled; }
+    public void setDpEnabled(boolean dpEnabled) { this.dpEnabled = dpEnabled; }
+
+    public Double getDpTargetEpsilon() { return dpTargetEpsilon; }
+    public void setDpTargetEpsilon(Double dpTargetEpsilon) { this.dpTargetEpsilon = dpTargetEpsilon; }
+
+    public Double getDpDelta() { return dpDelta; }
+    public void setDpDelta(Double dpDelta) { this.dpDelta = dpDelta; }
+
+    public Double getDpClipNorm() { return dpClipNorm; }
+    public void setDpClipNorm(Double dpClipNorm) { this.dpClipNorm = dpClipNorm; }
+
+    /**
+     * SE-11: true iff (epsilon, delta, S) form a complete, sane DP config — epsilon > 0, delta in
+     * (0,1) exclusive, clip norm S > 0. Single source of truth for the creation validation, the
+     * run-start gate and the spawn-time argv check.
+     */
+    public static boolean isCompleteDpConfig(Double epsilon, Double delta, Double clipNorm) {
+        return epsilon != null && epsilon > 0
+                && delta != null && delta > 0 && delta < 1
+                && clipNorm != null && clipNorm > 0;
+    }
+
+    /** SE-11: this project's stored DP config is complete and sane. */
+    public boolean hasCompleteDpConfig() {
+        return isCompleteDpConfig(dpTargetEpsilon, dpDelta, dpClipNorm);
+    }
 }

@@ -1,5 +1,8 @@
 package com.federated.fl_platform_api.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.federated.fl_platform_api.model.ArtifactBlob;
 import com.federated.fl_platform_api.model.ArtifactKind;
 import com.federated.fl_platform_api.model.ArtifactLineage;
@@ -37,17 +40,20 @@ public class ArtifactRegistryService {
     private final ModelArtifactRepository artifacts;
     private final ArtifactLineageRepository lineage;
     private final ProjectRepository projects;
+    private final ObjectMapper objectMapper;
 
     public ArtifactRegistryService(ArtifactBlobStore blobStore,
                                    ArtifactBlobRepository blobs,
                                    ModelArtifactRepository artifacts,
                                    ArtifactLineageRepository lineage,
-                                   ProjectRepository projects) {
+                                   ProjectRepository projects,
+                                   ObjectMapper objectMapper) {
         this.blobStore = blobStore;
         this.blobs = blobs;
         this.artifacts = artifacts;
         this.lineage = lineage;
         this.projects = projects;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -66,6 +72,7 @@ public class ArtifactRegistryService {
         if (kind == ArtifactKind.LORA_ADAPTER && (baseModelRef == null || baseModelRef.isBlank())) {
             throw new IllegalArgumentException("a LORA_ADAPTER must reference exactly one base model (baseModelRef)");
         }
+        requireAccountantTraceForDpClaim(evalCardJson);   // SE-11: no DP label without a committed trace
 
         // Find the project's current head BEFORE inserting the new row, so CONTINUED_FROM points at
         // the prior artifact rather than the one we are about to create.
@@ -150,6 +157,44 @@ public class ArtifactRegistryService {
                     base.setCreatedAt(Instant.now());
                     return artifacts.save(base);
                 });
+    }
+
+    /**
+     * SE-11: "no DP label without a committed accountant trace". If the submitted eval card claims
+     * DP ({@code dp.enabled == true}), it must carry the accountant's committed trace: a numeric
+     * {@code accounted_epsilon > 0} and a numeric {@code delta} in (0,1) exclusive. Cards without a
+     * {@code dp} section, or with {@code dp.enabled != true}, are unaffected. A card that is not
+     * parseable JSON cannot carry a machine-readable DP claim, so it passes through unchanged
+     * (pre-existing contract: the card is stored opaque).
+     */
+    private void requireAccountantTraceForDpClaim(String evalCardJson) {
+        if (evalCardJson == null || evalCardJson.isBlank()) {
+            return;
+        }
+        JsonNode root;
+        try {
+            root = objectMapper.readTree(evalCardJson);
+        } catch (JsonProcessingException e) {
+            return; // unparseable card: no machine-readable DP claim to police
+        }
+        if (root == null || !root.isObject()) {
+            return;
+        }
+        JsonNode dp = root.get("dp");
+        if (dp == null || !dp.isObject() || !dp.path("enabled").asBoolean(false)) {
+            return;
+        }
+        JsonNode epsilon = dp.get("accounted_epsilon");
+        JsonNode delta = dp.get("delta");
+        boolean committed = epsilon != null && epsilon.isNumber() && epsilon.asDouble() > 0
+                && delta != null && delta.isNumber()
+                && delta.asDouble() > 0 && delta.asDouble() < 1;
+        if (!committed) {
+            throw new IllegalArgumentException(
+                    "an artifact may not claim DP without a committed accountant trace: "
+                            + "dp.enabled=true requires a numeric dp.accounted_epsilon > 0 "
+                            + "and a numeric dp.delta in (0,1)");
+        }
     }
 
     private String putBlob(byte[] content) {

@@ -70,4 +70,34 @@ public class CreateProjectRequest {
     private DeviceRequirements requirementsOverride;
     public DeviceRequirements getRequirementsOverride() { return requirementsOverride; }
     public void setRequirementsOverride(DeviceRequirements requirementsOverride) { this.requirementsOverride = requirementsOverride; }
+
+    // SE-11: run-level DP policy. If regulated or dpEnabled is true, the three knobs must form a
+    // complete config — dpTargetEpsilon > 0 (guidance ~4-8 for medical/regulated data), dpDelta in
+    // (0,1) exclusive, dpClipNorm > 0 — enforced cross-field in ProjectService.createProject
+    // (single-field bean validation can't express the conditional completeness rule).
+
+    private Boolean regulated;
+
+    private Boolean dpEnabled;
+
+    private Double dpTargetEpsilon;
+
+    private Double dpDelta;
+
+    private Double dpClipNorm;
+
+    public Boolean getRegulated() { return regulated; }
+    public void setRegulated(Boolean regulated) { this.regulated = regulated; }
+
+    public Boolean getDpEnabled() { return dpEnabled; }
+    public void setDpEnabled(Boolean dpEnabled) { this.dpEnabled = dpEnabled; }
+
+    public Double getDpTargetEpsilon() { return dpTargetEpsilon; }
+    public void setDpTargetEpsilon(Double dpTargetEpsilon) { this.dpTargetEpsilon = dpTargetEpsilon; }
+
+    public Double getDpDelta() { return dpDelta; }
+    public void setDpDelta(Double dpDelta) { this.dpDelta = dpDelta; }
+
+    public Double getDpClipNorm() { return dpClipNorm; }
+    public void setDpClipNorm(Double dpClipNorm) { this.dpClipNorm = dpClipNorm; }
 }

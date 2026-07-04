@@ -251,4 +251,112 @@ class ProjectServiceTest {
         assertEquals(1, successes.get(), "exactly one caller succeeds");
         assertEquals(n - 1, conflicts.get(), "losers get a deterministic 409 (ProjectStateException)");
     }
+
+    // ─── SE-11: DP policy at project creation ────────────────────────────────────────────────────
+    // A regulated (or DP-enabled) project must carry a complete DP config at creation:
+    // dpTargetEpsilon > 0, dpDelta in (0,1) exclusive, dpClipNorm > 0.
+
+    private CreateProjectRequest dpRequest(Boolean regulated, Boolean dpEnabled,
+                                           Double epsilon, Double delta, Double clipNorm) {
+        CreateProjectRequest r = new CreateProjectRequest();
+        r.setName(projectName);
+        r.setModelType(modelType);
+        r.setPretrainEpochs(5);
+        r.setRegulated(regulated);
+        r.setDpEnabled(dpEnabled);
+        r.setDpTargetEpsilon(epsilon);
+        r.setDpDelta(delta);
+        r.setDpClipNorm(clipNorm);
+        return r;
+    }
+
+    @Test
+    void createRegulatedProject_withoutDpConfig_isRejectedBeforePersisting() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> projectService.createProject(dpRequest(true, false, null, null, null)));
+        // The message must be actionable: name the three knobs and the guidance range.
+        assertTrue(ex.getMessage().contains("dpTargetEpsilon"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("dpDelta"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("dpClipNorm"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("4-8"), "message should carry the epsilon guidance range: " + ex.getMessage());
+        verify(projectRepository, never()).save(any(Project.class));
+        verify(modelInitWorker, never()).initialize(any(), any(), any(), any(), any(), anyInt(), any());
+    }
+
+    @Test
+    void createDpEnabledProject_withIncompleteConfig_isRejected() {
+        // clip norm missing
+        assertThrows(IllegalArgumentException.class,
+                () -> projectService.createProject(dpRequest(false, true, 6.0, 1e-5, null)));
+        verify(projectRepository, never()).save(any(Project.class));
+    }
+
+    @Test
+    void createDpProject_withNonPositiveEpsilonOrClipNorm_isRejected() {
+        assertThrows(IllegalArgumentException.class,
+                () -> projectService.createProject(dpRequest(false, true, 0.0, 1e-5, 1.5)));
+        assertThrows(IllegalArgumentException.class,
+                () -> projectService.createProject(dpRequest(false, true, 6.0, 1e-5, 0.0)));
+        verify(projectRepository, never()).save(any(Project.class));
+    }
+
+    @Test
+    void createDpProject_withDeltaOutsideOpenUnitInterval_isRejected() {
+        assertThrows(IllegalArgumentException.class,
+                () -> projectService.createProject(dpRequest(false, true, 6.0, 0.0, 1.5)));
+        assertThrows(IllegalArgumentException.class,
+                () -> projectService.createProject(dpRequest(false, true, 6.0, 1.0, 1.5)));
+        verify(projectRepository, never()).save(any(Project.class));
+    }
+
+    @Test
+    void createRegulatedDpProject_withCompleteConfig_persistsThePolicyFields() throws Exception {
+        when(authz.currentUser()).thenReturn(testUser);
+        when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> {
+            Project p = invocation.getArgument(0);
+            if (p.getId() == null) {
+                p.setId(testProject.getId());
+            }
+            return p;
+        });
+
+        projectService.createProject(dpRequest(true, true, 6.0, 1e-5, 1.5));
+
+        org.mockito.ArgumentCaptor<Project> saved = org.mockito.ArgumentCaptor.forClass(Project.class);
+        verify(projectRepository, times(2)).save(saved.capture());
+        Project persisted = saved.getValue();
+        assertTrue(persisted.isRegulated());
+        assertTrue(persisted.isDpEnabled());
+        assertEquals(6.0, persisted.getDpTargetEpsilon());
+        assertEquals(1e-5, persisted.getDpDelta());
+        assertEquals(1.5, persisted.getDpClipNorm());
+    }
+
+    @Test
+    void createPlainProject_defaultsDpPolicyOff() throws Exception {
+        when(authz.currentUser()).thenReturn(testUser);
+        when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> {
+            Project p = invocation.getArgument(0);
+            if (p.getId() == null) {
+                p.setId(testProject.getId());
+            }
+            return p;
+        });
+
+        CreateProjectRequest request = new CreateProjectRequest();
+        request.setName(projectName);
+        request.setModelType(modelType);
+        request.setPretrainEpochs(5);
+
+        projectService.createProject(request);
+
+        org.mockito.ArgumentCaptor<Project> saved = org.mockito.ArgumentCaptor.forClass(Project.class);
+        verify(projectRepository, times(2)).save(saved.capture());
+        Project persisted = saved.getValue();
+        assertFalse(persisted.isRegulated());
+        assertFalse(persisted.isDpEnabled());
+        assertNull(persisted.getDpTargetEpsilon());
+        assertNull(persisted.getDpDelta());
+        assertNull(persisted.getDpClipNorm());
+    }
 }

@@ -133,4 +133,78 @@ class FlowerServerManagerCommandTest {
                 p, "FedLoRA", 5, 1, 50000, "/x/run_fl_server.sh", false);
         assertEquals("Qwen/Qwen2.5-0.5B", cmd.get(cmd.indexOf("--model-name") + 1));
     }
+
+    // --- SE-11: DP flag passthrough. The --dp-* flag names are a pinned contract with
+    // fl_server.py's argparse — do not rename. All values are typed numbers formatted via
+    // String.valueOf (SE-10: nothing project-derived reaches the argv as a raw string).
+
+    private Project dpProject() {
+        Project p = project("CNN");
+        p.setDpEnabled(true);
+        p.setDpTargetEpsilon(6.0);
+        p.setDpDelta(1e-5);
+        p.setDpClipNorm(1.5);
+        return p;
+    }
+
+    @Test
+    void dpEnabledProject_carriesTheExactPinnedDpArgv() {
+        Project p = dpProject();
+        List<String> cmd = FlowerServerManager.buildServerCommand(
+                p, "FedAvg", 5, 2, 50000, "/x/run_fl_server.sh", false);
+        assertEquals(List.of(
+                "bash", "/x/run_fl_server.sh",
+                "--project-id", p.getId().toString(),
+                "--model-path", "/tmp/model.npz",
+                "--port", "50000",
+                "--strategy", "FedAvg",
+                "--num-rounds", "5",
+                "--model-type", "CNN",
+                "--model-name", "qwen2.5-0.5b",
+                "--min-clients", "2",
+                "--dp-enabled",
+                "--dp-clip-norm", "1.5",
+                "--dp-target-epsilon", "6.0",
+                "--dp-delta", "1.0E-5",
+                "--dp-rounds", "5",
+                "--dp-num-clients", "2"), cmd);
+    }
+
+    @Test
+    void nonDpProject_argvIsByteForByteUnchanged() {
+        Project p = project("CNN");
+        List<String> cmd = FlowerServerManager.buildServerCommand(
+                p, "FedAvg", 5, 2, 50000, "/x/run_fl_server.sh", false);
+        assertEquals(List.of(
+                "bash", "/x/run_fl_server.sh",
+                "--project-id", p.getId().toString(),
+                "--model-path", "/tmp/model.npz",
+                "--port", "50000",
+                "--strategy", "FedAvg",
+                "--num-rounds", "5",
+                "--model-type", "CNN",
+                "--model-name", "qwen2.5-0.5b",
+                "--min-clients", "2"), cmd);
+        assertTrue(cmd.stream().noneMatch(a -> a.startsWith("--dp")),
+                "a non-DP project must emit no --dp-* flags");
+    }
+
+    @Test
+    void dpEnabledWithIncompleteConfig_failsClosedAtSpawn() {
+        // Creation validates completeness, but the spawn seam re-checks: a null knob must never
+        // reach the argv as the string "null".
+        Project p = dpProject();
+        p.setDpClipNorm(null);
+        assertThrows(IllegalArgumentException.class, () ->
+                FlowerServerManager.buildServerCommand(p, "FedAvg", 5, 2, 50000, "/x/run_fl_server.sh", false));
+    }
+
+    @Test
+    void dpEnabledFoTRun_isRejected() {
+        // The FoT text-federation server has no DP contract; spawning it for a DP-enabled project
+        // would silently train without DP. Fail closed instead.
+        Project p = dpProject();
+        assertThrows(IllegalArgumentException.class, () ->
+                FlowerServerManager.buildServerCommand(p, "FoT", 5, 2, 50000, "/x/run_fot.sh", false));
+    }
 }

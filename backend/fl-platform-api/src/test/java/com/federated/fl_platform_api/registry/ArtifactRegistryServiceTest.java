@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * The write-new-not-overwrite core (DA-2): registering a run's final model stores its bytes
@@ -76,5 +77,76 @@ class ArtifactRegistryServiceTest {
         assertThat(a1.getBlobSha256()).isEqualTo(a2.getBlobSha256());   // storage dedups
         assertThat(a1.getId()).isNotEqualTo(a2.getId());                 // provenance does not
         assertThat(artifacts.findByBlobSha256(a1.getBlobSha256())).hasSize(2);
+    }
+
+    // ─── SE-11: "no DP label without a committed accountant trace" ──────────────────────────────
+    // An eval card claiming dp.enabled=true must carry the accountant's committed trace: numeric
+    // accounted_epsilon > 0 and delta in (0,1). Cards without a dp section (or dp.enabled != true)
+    // are unaffected.
+
+    @Test
+    void dp_claim_without_accountant_trace_is_rejected_and_nothing_is_persisted() {
+        UUID org = UUID.randomUUID(), project = UUID.randomUUID();
+        assertThatThrownBy(() -> registry.register(org, project, UUID.randomUUID(),
+                "dp-model-no-trace".getBytes(StandardCharsets.UTF_8), ArtifactKind.FULL_CHECKPOINT,
+                "CNN", null, null, "{\"dp\":{\"enabled\":true}}"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("committed accountant trace");
+        assertThat(artifacts.findFirstByProjectIdAndKindOrderByCreatedAtDesc(
+                project, ArtifactKind.FULL_CHECKPOINT)).isEmpty();
+    }
+
+    @Test
+    void dp_claim_with_non_numeric_epsilon_is_rejected() {
+        // A stringly-typed epsilon is not a committed numeric trace.
+        assertThatThrownBy(() -> registry.register(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                "dp-model-string-eps".getBytes(StandardCharsets.UTF_8), ArtifactKind.FULL_CHECKPOINT,
+                "CNN", null, null,
+                "{\"dp\":{\"enabled\":true,\"accounted_epsilon\":\"4.2\",\"delta\":1.0E-5}}"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("committed accountant trace");
+    }
+
+    @Test
+    void dp_claim_with_delta_outside_zero_one_is_rejected() {
+        assertThatThrownBy(() -> registry.register(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                "dp-model-bad-delta".getBytes(StandardCharsets.UTF_8), ArtifactKind.FULL_CHECKPOINT,
+                "CNN", null, null,
+                "{\"dp\":{\"enabled\":true,\"accounted_epsilon\":4.2,\"delta\":1.0}}"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("committed accountant trace");
+    }
+
+    @Test
+    void dp_claim_with_committed_trace_is_accepted_and_the_stored_card_carries_it() {
+        String card = "{\"accuracy\":0.91,\"dp\":{\"enabled\":true,\"accounted_epsilon\":5.2,"
+                + "\"delta\":1.0E-5,\"noise_multiplier\":0.87}}";
+        ModelArtifact a = registry.register(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                "dp-model-with-trace".getBytes(StandardCharsets.UTF_8), ArtifactKind.FULL_CHECKPOINT,
+                "CNN", null, null, card);
+
+        ModelArtifact reloaded = artifacts.findById(a.getId()).orElseThrow();
+        // The committed (epsilon, delta) trace rides the persisted eval card verbatim.
+        assertThat(reloaded.getEvalCardJson()).isEqualTo(card);
+        assertThat(reloaded.getEvalCardJson()).contains("\"accounted_epsilon\":5.2");
+        assertThat(reloaded.getEvalCardJson()).contains("\"delta\":1.0E-5");
+    }
+
+    @Test
+    void cards_without_a_dp_section_or_with_dp_disabled_are_unaffected() {
+        UUID org = UUID.randomUUID(), project = UUID.randomUUID();
+        ModelArtifact noDp = registry.register(org, project, UUID.randomUUID(),
+                "plain-model".getBytes(StandardCharsets.UTF_8), ArtifactKind.FULL_CHECKPOINT,
+                "CNN", null, null, "{\"accuracy\":0.9}");
+        ModelArtifact dpOff = registry.register(org, project, UUID.randomUUID(),
+                "dp-off-model".getBytes(StandardCharsets.UTF_8), ArtifactKind.FULL_CHECKPOINT,
+                "CNN", null, null, "{\"dp\":{\"enabled\":false}}");
+        ModelArtifact noCard = registry.register(org, project, UUID.randomUUID(),
+                "cardless-model".getBytes(StandardCharsets.UTF_8), ArtifactKind.FULL_CHECKPOINT,
+                "CNN", null, null, null);
+
+        assertThat(noDp.getId()).isNotNull();
+        assertThat(dpOff.getId()).isNotNull();
+        assertThat(noCard.getId()).isNotNull();
     }
 }

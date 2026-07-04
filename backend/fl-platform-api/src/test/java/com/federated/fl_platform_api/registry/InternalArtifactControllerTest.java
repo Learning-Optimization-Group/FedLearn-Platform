@@ -1,6 +1,7 @@
 package com.federated.fl_platform_api.registry;
 
 import com.federated.fl_platform_api.controller.InternalArtifactController;
+import com.federated.fl_platform_api.exception.GlobalExceptionHandler;
 import com.federated.fl_platform_api.model.ArtifactKind;
 import com.federated.fl_platform_api.model.ModelArtifact;
 import com.federated.fl_platform_api.service.ArtifactRegistryService;
@@ -11,6 +12,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -55,5 +57,35 @@ class InternalArtifactControllerTest {
 
         verify(registry).registerForProject(eq(projectId), any(byte[].class), eq(ArtifactKind.LORA_ADAPTER),
                 eq("LLM_LORA"), isNull(), isNull(), isNull());
+    }
+
+    /**
+     * SE-11: a DP-policy refusal from the registry ({@code IllegalArgumentException}) must surface
+     * to the uploading FL server as a 400 with the policy message — wired through
+     * {@link GlobalExceptionHandler} exactly as in the deployed app.
+     */
+    @Test
+    void dp_policy_rejection_surfaces_as_a_400_with_the_policy_message() throws Exception {
+        UUID projectId = UUID.randomUUID();
+        when(registry.registerForProject(eq(projectId), any(byte[].class), eq(ArtifactKind.LORA_ADAPTER),
+                any(), any(), any(), any()))
+                .thenThrow(new IllegalArgumentException(
+                        "an artifact may not claim DP without a committed accountant trace"));
+
+        MockMvc mvcWithAdvice = MockMvcBuilders
+                .standaloneSetup(new InternalArtifactController(registry))
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        MockMultipartFile model = new MockMultipartFile(
+                "model", "model.npz", "application/octet-stream", "the-model-bytes".getBytes());
+
+        mvcWithAdvice.perform(multipart("/api/internal/projects/{id}/artifacts", projectId)
+                        .file(model)
+                        .param("kind", "LORA_ADAPTER")
+                        .param("evalCard", "{\"dp\":{\"enabled\":true}}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message",
+                        containsString("committed accountant trace")));
     }
 }

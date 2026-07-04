@@ -102,6 +102,29 @@ public class ProjectService {
     }
 
     /**
+     * SE-11: a regulated (HIPAA-class) or DP-enabled project must carry a complete, sane DP config
+     * at creation: dpTargetEpsilon &gt; 0, dpDelta in (0,1) exclusive, dpClipNorm &gt; 0. Only
+     * positivity/sanity is enforced — the epsilon guidance range (~4-8 for medical/regulated data)
+     * is documented in the error, never hard-enforced. Package-private + static to mirror
+     * resolveStrategy/resolveTaskType.
+     */
+    static void validateDpConfig(CreateProjectRequest request) {
+        boolean regulated = Boolean.TRUE.equals(request.getRegulated());
+        boolean dpEnabled = Boolean.TRUE.equals(request.getDpEnabled());
+        if (!regulated && !dpEnabled) {
+            return;
+        }
+        if (!Project.isCompleteDpConfig(
+                request.getDpTargetEpsilon(), request.getDpDelta(), request.getDpClipNorm())) {
+            throw new IllegalArgumentException(
+                    "A regulated or DP-enabled project requires a complete differential-privacy "
+                            + "config: dpTargetEpsilon > 0 (guidance: 4-8 for medical/regulated "
+                            + "data), dpDelta in (0,1) exclusive, and dpClipNorm > 0 (the per-user "
+                            + "contribution bound).");
+        }
+    }
+
+    /**
      * The effective FL strategy for a run. LLM_LORA projects ONLY work under FedLoRA
      * (FedAvg drops lora_A from the global → server-eval uses a random A); the model
      * type therefore dictates the strategy. Everything else honors the requested
@@ -148,6 +171,10 @@ public class ProjectService {
         // Plain USERs must first be promoted via the owner-promotion workflow.
         authz.requireCanCreateProject();
 
+        // SE-11: a regulated or DP-enabled project must carry a complete DP config — reject before
+        // anything is persisted.
+        validateDpConfig(request);
+
         User owner = authz.currentUser();
 
         Project project = new Project();
@@ -156,6 +183,11 @@ public class ProjectService {
         project.setModelName(request.getModelName());
         project.setOptimizer(request.getOptimizer());
         project.setTaskType(resolveTaskType(request.getTaskType()));
+        project.setRegulated(Boolean.TRUE.equals(request.getRegulated()));
+        project.setDpEnabled(Boolean.TRUE.equals(request.getDpEnabled()));
+        project.setDpTargetEpsilon(request.getDpTargetEpsilon());
+        project.setDpDelta(request.getDpDelta());
+        project.setDpClipNorm(request.getDpClipNorm());
         project.setUser(owner);
         // V5 made projects.org_id NOT NULL. Pin the project to the owner's first
         // org membership; fall back to the Default org (seeded by V5) for users

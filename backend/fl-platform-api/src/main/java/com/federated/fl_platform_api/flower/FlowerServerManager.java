@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.flower;
 
+import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.service.WebSocketService;
@@ -102,6 +103,7 @@ public class FlowerServerManager {
      */
     public Optional<Integer> startServerForProject(Project project, String strategy,
                                                    Integer numRounds, Integer minClients) {
+        requireDpPolicySatisfied(project);   // SE-11: gate every start path, before any spawn
         if (!isBlank(ecsClusterName)) {
             // The ECS/Fargate production path is not implemented: runTask returned no reachable
             // host:port (it handed back 0), the task was never tracked in runningServers, and
@@ -285,11 +287,44 @@ public class FlowerServerManager {
         }
     }
 
+    /**
+     * SE-11 run-start DP policy gate: a {@code regulated} project may not start unless DP is
+     * enabled AND its (epsilon, delta, clip-norm) config is complete. Enforced here — the single
+     * spawn seam — so no start path can bypass it. Throws {@link ProjectStateException} (→ 409 with
+     * the message intact via {@code GlobalExceptionHandler}) because the project's stored config,
+     * not this request, is what blocks the start.
+     */
+    private static void requireDpPolicySatisfied(Project project) {
+        if (!project.isRegulated()) {
+            return;
+        }
+        if (!project.isDpEnabled()) {
+            throw new ProjectStateException(
+                    "Cannot start regulated project " + project.getId()
+                            + ": differential privacy must be enabled (dpEnabled=true) before a "
+                            + "regulated project may train.");
+        }
+        if (!project.hasCompleteDpConfig()) {
+            throw new ProjectStateException(
+                    "Cannot start regulated project " + project.getId()
+                            + ": incomplete DP config — requires dpTargetEpsilon > 0 (guidance: "
+                            + "4-8 for medical/regulated data), dpDelta in (0,1) exclusive, and "
+                            + "dpClipNorm > 0 (the per-user contribution bound).");
+        }
+    }
+
     /** Build the fl_server (or FoT) launch command. LLM_LORA carries --aggregation FFA_LORA. */
     static List<String> buildServerCommand(Project project, String strategy, Integer numRounds,
                                            Integer minClients, int freePort, String absoluteScriptPath,
                                            boolean isWindows) {
         boolean isFoT = "FoT".equalsIgnoreCase(strategy);
+        // SE-11: the FoT text-federation server has no DP flag contract; spawning it for a
+        // DP-enabled project would silently train without DP. Fail closed.
+        if (isFoT && project.isDpEnabled()) {
+            throw new IllegalArgumentException(
+                    "DP is not supported for FoT text-federation runs; disable dpEnabled or use a "
+                            + "gradient strategy.");
+        }
         // SE-10: allowlist every project-derived string this branch will place on the argv. Ints
         // (rounds/clients/port) and the server-generated UUID are type-safe and need no check.
         requireSafeToken("strategy", strategy);
@@ -337,6 +372,31 @@ public class FlowerServerManager {
                 String tt = project.getTaskType();
                 command.add("--task-type");
                 command.add(tt == null || tt.isBlank() ? "SEQ_CLASSIFICATION" : tt);
+            }
+            if (project.isDpEnabled()) {
+                // SE-11: the --dp-* flag names are a pinned contract with fl_server.py's argparse —
+                // do not rename. Creation validates completeness, but the spawn seam re-checks so a
+                // null knob can never reach the argv as the string "null" (SE-10 fail-closed). All
+                // values are typed numbers formatted via String.valueOf, never raw strings.
+                Double epsilon = project.getDpTargetEpsilon();
+                Double delta = project.getDpDelta();
+                Double clipNorm = project.getDpClipNorm();
+                if (!Project.isCompleteDpConfig(epsilon, delta, clipNorm)) {
+                    throw new IllegalArgumentException(
+                            "Incomplete DP config for FL-server spawn: requires dpTargetEpsilon > 0 "
+                                    + "(guidance: 4-8), dpDelta in (0,1), and dpClipNorm > 0.");
+                }
+                command.add("--dp-enabled");
+                command.add("--dp-clip-norm");
+                command.add(String.valueOf(clipNorm.doubleValue()));
+                command.add("--dp-target-epsilon");
+                command.add(String.valueOf(epsilon.doubleValue()));
+                command.add("--dp-delta");
+                command.add(String.valueOf(delta.doubleValue()));
+                command.add("--dp-rounds");
+                command.add(String.valueOf(numRounds));
+                command.add("--dp-num-clients");
+                command.add(String.valueOf(minClients));
             }
         }
         return command;
