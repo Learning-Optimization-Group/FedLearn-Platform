@@ -235,7 +235,8 @@ class FedLoRA(Strategy):
 
     def __init__(self, initial_parameters, evaluate_fn=None, min_fit_clients=1,
                  clients_per_round=None, aggregation="FFA_LORA",
-                 dp_enabled=False, dp_clip_norm=None, dp_noise_multiplier=None, dp_seed=None):
+                 dp_enabled=False, dp_clip_norm=None, dp_noise_multiplier=None, dp_seed=None,
+                 dp_target_epsilon=None, dp_delta=None, dp_num_clients=None, dp_rounds=None):
         self.initial_parameters = initial_parameters
         self.evaluate_fn = evaluate_fn
         self.min_fit_clients = min_fit_clients
@@ -261,15 +262,47 @@ class FedLoRA(Strategy):
         self.dp_clip_norm = None if dp_clip_norm is None else float(dp_clip_norm)
         self.dp_noise_multiplier = None if dp_noise_multiplier is None else float(dp_noise_multiplier)
         self.dp_seed = None if dp_seed is None else int(dp_seed)
+        self.dp_target_epsilon = None if dp_target_epsilon is None else float(dp_target_epsilon)
+        self.dp_delta = None if dp_delta is None else float(dp_delta)
+        self.dp_num_clients = None if dp_num_clients is None else int(dp_num_clients)
+        self.dp_rounds = None if dp_rounds is None else int(dp_rounds)
+        # Accounted (ε, δ) trace for the chosen noise multiplier (eval-card / SE-11). None when DP is
+        # off or the accounting params (δ + round count) weren't supplied.
+        self.dp_accounted_epsilon = None
+        self.dp_q = None
         if self.dp_enabled:
             if self.dp_clip_norm is None or self.dp_clip_norm <= 0:
                 raise ValueError("FedLoRA dp_enabled requires dp_clip_norm (S) > 0.")
-            if self.dp_noise_multiplier is None or self.dp_noise_multiplier < 0:
-                raise ValueError("FedLoRA dp_enabled requires dp_noise_multiplier (z) >= 0.")
-            # TODO(integration): dp_target_epsilon -> required_noise_multiplier(accountant)
-            #   This slice takes the noise multiplier z DIRECTLY. When an epsilon budget is supplied
-            #   instead, solve z via the RDP accountant (fedlearn.privacy.dp_accountant, owned by a
-            #   separate slice) here before this constructor stores dp_noise_multiplier.
+            # Subsampling rate for the accountant: cohort / enrolled population (q=1 if the population
+            # is unknown — the conservative no-amplification assumption).
+            self.dp_q = (self.clients_per_round / self.dp_num_clients) if self.dp_num_clients else 1.0
+
+            # Calibrate the noise multiplier z: supplied directly, OR solved from a target-ε budget
+            # via the RDP accountant. Exactly one of the two must be given.
+            from fedlearn.privacy.dp_accountant import (
+                compute_rdp, get_epsilon, required_noise_multiplier,
+            )
+            if self.dp_target_epsilon is not None:
+                if self.dp_noise_multiplier is not None:
+                    raise ValueError(
+                        "FedLoRA DP: give either dp_noise_multiplier OR dp_target_epsilon, not both.")
+                if self.dp_delta is None or self.dp_rounds is None:
+                    raise ValueError(
+                        "FedLoRA dp_target_epsilon requires dp_delta and dp_rounds to solve z.")
+                self.dp_noise_multiplier = float(required_noise_multiplier(
+                    self.dp_target_epsilon, self.dp_q, self.dp_rounds, self.dp_delta))
+            elif self.dp_noise_multiplier is None:
+                raise ValueError(
+                    "FedLoRA dp_enabled requires exactly one of dp_noise_multiplier (z) or "
+                    "dp_target_epsilon.")
+            if self.dp_noise_multiplier < 0:
+                raise ValueError("FedLoRA dp_noise_multiplier (z) must be >= 0.")
+
+            # Best-effort accounted-ε trace: computable whenever δ and the round count are known.
+            if self.dp_delta is not None and self.dp_rounds is not None:
+                self.dp_accounted_epsilon = float(get_epsilon(
+                    compute_rdp(self.dp_q, self.dp_noise_multiplier, self.dp_rounds),
+                    self.dp_delta)[0])
 
         # Running global reference for the DP delta (mirrors RobustAggregator._global). Kept float32
         # to match the aggregator's output dtype so a delta subtraction never silently upcasts. This
