@@ -274,6 +274,17 @@ else
   echo "      FL gRPC TLS: wired but OFF (opt-in — see the unit file / deploy/TLS.md)"
 fi
 
+# Auth cookie Secure flag: ON automatically once a Let's Encrypt cert exists (HTTPS is live at the
+# nginx edge), OFF during a plain-HTTP bring-up so the browser doesn't silently drop the login
+# cookie before the cert is issued. Env var overrides application-ec2demo.properties (env > file).
+COOKIE_SECURE_PREFIX="# "
+if [[ -f "$LIVE_CERT" ]]; then
+  COOKIE_SECURE_PREFIX=""
+  echo "      Auth cookie Secure: ENABLED (Let's Encrypt cert present — HTTPS live)"
+else
+  echo "      Auth cookie Secure: OFF (no cert yet — plain-HTTP bring-up; re-run after issuance)"
+fi
+
 echo ""
 echo "[8/9] Creating systemd service for FedLearn backend..."
 # Create a systemd unit so the backend auto-restarts on crash/reboot
@@ -309,8 +320,10 @@ Environment="FEATURE_LOG_PERSISTENCE=false"
 Environment="FEATURE_ROUND_RESULTS=true"
 # Not a secret — set to your frontend origin(s) before starting:
 # Environment="CORS_ALLOWED_ORIGINS=http://localhost:5173"
-# Once HTTPS is live at the nginx edge, mark the auth cookie Secure:
-# Environment="APP_AUTH_COOKIE_SECURE=true"
+# Auth cookie Secure — auto-enabled when a Let's Encrypt cert is present (HTTPS live at the nginx
+# edge), commented during a plain-HTTP bring-up so the login cookie isn't dropped before the cert
+# exists. Re-run ec2-bootstrap.sh after issuance to flip it on.
+${COOKIE_SECURE_PREFIX}Environment="APP_AUTH_COOKIE_SECURE=true"
 
 # ── FL gRPC TLS (SE-2 hooks; default OFF — opt-in) ───────────────────────────
 # The FL servers (ports 50000-50010) bypass nginx. With APP_FL_REQUIRE_TLS=true
