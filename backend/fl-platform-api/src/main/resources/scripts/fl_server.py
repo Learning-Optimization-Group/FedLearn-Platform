@@ -208,12 +208,36 @@ def select_strategy(args, initial_parameters, evaluate_fn):
                      f"η={decomfl_config.learning_rate}, "
                      f"μ={decomfl_config.smoothing_param}")
     elif args.strategy.lower() == 'fedlora':
-        logging.info(f"Using FedLoRA strategy (aggregation={args.aggregation})")
+        # FR-13: optional central differential privacy. Default OFF (dp_enabled=False) => byte-for-
+        # byte the historical weighted-average + frozen-A path. When --dp-enabled, the strategy
+        # clips each client's adapter delta to S, uniform-averages, and adds Gaussian noise z*S/N on
+        # the aggregatable keys only (the frozen A is carried through bit-identical). getattr guards
+        # keep select_strategy callable from tests that build a bare args without the dp_* fields.
+        dp_enabled = bool(getattr(args, "dp_enabled", False))
+        dp_clip_norm = getattr(args, "dp_clip_norm", None)
+        dp_noise_multiplier = getattr(args, "dp_noise_multiplier", None)
+        dp_seed = getattr(args, "dp_seed", None)
+        if dp_enabled:
+            logging.info(
+                "Using FedLoRA strategy (aggregation=%s) with DIFFERENTIAL PRIVACY "
+                "(clip_norm=%s, noise_multiplier=%s, seed=%s)",
+                args.aggregation, dp_clip_norm, dp_noise_multiplier, dp_seed,
+            )
+            # TODO(integration): dp_target_epsilon -> required_noise_multiplier(accountant)
+            #   Accept an epsilon budget (+ delta / N / rounds) here and solve z via the RDP
+            #   accountant (fedlearn.privacy.dp_accountant) before constructing FedLoRA, instead of
+            #   taking the noise multiplier z directly from --dp-noise-multiplier.
+        else:
+            logging.info(f"Using FedLoRA strategy (aggregation={args.aggregation})")
         strategy = FedLoRA(
             initial_parameters=initial_parameters,
             evaluate_fn=evaluate_fn,
             min_fit_clients=args.min_clients,
             aggregation=args.aggregation,
+            dp_enabled=dp_enabled,
+            dp_clip_norm=dp_clip_norm,
+            dp_noise_multiplier=dp_noise_multiplier,
+            dp_seed=dp_seed,
         )
     elif args.strategy.lower() == 'fedprox':
         # FR-11: FedProx. Server aggregation is identical to FedAvg; the proximal term lives in
@@ -293,6 +317,12 @@ def main():
     parser.add_argument("--port", type=int, default=50051, help="gRPC server port")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="Aggregation strategy")
     parser.add_argument("--aggregation", type=str, default="FFA_LORA", choices=["FFA_LORA", "FEDIT"], help="LoRA aggregation sub-mode (LLM_LORA only)")
+    # FR-13: central differential privacy for FedLoRA (default OFF). Takes the noise multiplier z
+    # directly this slice; wiring an epsilon budget -> z via the RDP accountant is a follow-up.
+    parser.add_argument("--dp-enabled", action="store_true", help="Enable central differential privacy on FedLoRA aggregation (FedLoRA only)")
+    parser.add_argument("--dp-clip-norm", type=float, default=None, help="DP L2 clip bound S applied to each client's adapter delta (required with --dp-enabled)")
+    parser.add_argument("--dp-noise-multiplier", type=float, default=None, help="DP Gaussian noise multiplier z; per-coordinate std is z*S/N (required with --dp-enabled)")
+    parser.add_argument("--dp-seed", type=int, default=None, help="DP noise RNG seed for reproducibility/testing; omit in production for fresh entropy")
     parser.add_argument("--task-type", type=str, default="SEQ_CLASSIFICATION", choices=["SEQ_CLASSIFICATION", "CAUSAL_LM"], help="LLM_LORA task type (generative vs classification)")
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
     args = parser.parse_args()

@@ -234,7 +234,8 @@ class FedLoRA(Strategy):
     """
 
     def __init__(self, initial_parameters, evaluate_fn=None, min_fit_clients=1,
-                 clients_per_round=None, aggregation="FFA_LORA"):
+                 clients_per_round=None, aggregation="FFA_LORA",
+                 dp_enabled=False, dp_clip_norm=None, dp_noise_multiplier=None, dp_seed=None):
         self.initial_parameters = initial_parameters
         self.evaluate_fn = evaluate_fn
         self.min_fit_clients = min_fit_clients
@@ -251,6 +252,39 @@ class FedLoRA(Strategy):
                 "the shared frozen A); none found — ensure the initial adapter is the FULL adapter (A+B+head)."
             )
 
+        # ---- Differential privacy (FR-13). Default OFF: when disabled the aggregate_fit path below
+        # is byte-for-byte the original num_examples-weighted average + frozen-A re-attach. When
+        # enabled, aggregate_fit takes the central-DP path (clip each client's adapter delta to S,
+        # UNIFORM-average, add Gaussian noise z*S/N on the aggregatable keys only) implemented in
+        # fedlearn.privacy.dp_mechanism, then re-attaches the frozen A bit-identical (FFA invariant).
+        self.dp_enabled = bool(dp_enabled)
+        self.dp_clip_norm = None if dp_clip_norm is None else float(dp_clip_norm)
+        self.dp_noise_multiplier = None if dp_noise_multiplier is None else float(dp_noise_multiplier)
+        self.dp_seed = None if dp_seed is None else int(dp_seed)
+        if self.dp_enabled:
+            if self.dp_clip_norm is None or self.dp_clip_norm <= 0:
+                raise ValueError("FedLoRA dp_enabled requires dp_clip_norm (S) > 0.")
+            if self.dp_noise_multiplier is None or self.dp_noise_multiplier < 0:
+                raise ValueError("FedLoRA dp_enabled requires dp_noise_multiplier (z) >= 0.")
+            # TODO(integration): dp_target_epsilon -> required_noise_multiplier(accountant)
+            #   This slice takes the noise multiplier z DIRECTLY. When an epsilon budget is supplied
+            #   instead, solve z via the RDP accountant (fedlearn.privacy.dp_accountant, owned by a
+            #   separate slice) here before this constructor stores dp_noise_multiplier.
+
+        # Running global reference for the DP delta (mirrors RobustAggregator._global). Kept float32
+        # to match the aggregator's output dtype so a delta subtraction never silently upcasts. This
+        # is a NEW side-channel: it does not alter the non-DP return value (see aggregate_fit).
+        self._global = OrderedDict(
+            (k, v.detach().clone().to(torch.float32)) for k, v in initial_parameters.items()
+        )
+        # A seeded RNG persisted across rounds when dp_seed is given (reproducible tests). Advancing
+        # ONE generator across rounds avoids reusing identical noise every round (a per-round reseed
+        # would). Production leaves dp_seed=None => fresh entropy per round.
+        self._dp_generator = None
+        if self.dp_enabled and self.dp_seed is not None:
+            self._dp_generator = torch.Generator()
+            self._dp_generator.manual_seed(self.dp_seed)
+
     def initialize_parameters(self):
         return self.initial_parameters
 
@@ -258,11 +292,53 @@ class FedLoRA(Strategy):
         if not results:
             return None
         self._assert_homogeneous(results)
-        aggregated = self.aggregator.aggregate(results)
+        if self.dp_enabled:
+            aggregated = self._aggregate_fit_dp(results)
+        else:
+            # --- Non-DP path: byte-for-byte the original weighted-average + frozen-A re-attach. ---
+            aggregated = self.aggregator.aggregate(results)
+            if self.aggregation == "FFA_LORA":
+                for k, v in self._frozen_a.items():
+                    aggregated[k] = v.clone()
+        # Update the running reference for next round's DP delta. Side-effect only: it CLONES
+        # `aggregated`, so the object returned to the caller is unchanged (the non-DP return stays
+        # byte-identical to the pre-DP behaviour).
+        self._global = OrderedDict(
+            (k, v.detach().clone().to(torch.float32)) for k, v in aggregated.items()
+        )
+        return aggregated
+
+    def _aggregate_fit_dp(self, results):
+        """Central-DP aggregation path (FR-13). Clip each client's adapter delta to S, uniform-
+        average, add Gaussian noise z*S/N on the aggregatable keys ONLY (every client key that is
+        NOT a frozen lora_A key), then re-attach the frozen A bit-identical (zero noise on A keeps
+        the FFA invariant avg(B)@A == avg(B@A) exact)."""
+        from fedlearn.privacy.dp_mechanism import dp_aggregate  # lazy import avoids an import cycle
+
+        aggregatable_keys = [k for k in self._client_keys(results) if k not in self._frozen_a]
+        aggregated = dp_aggregate(
+            results,
+            global_params=self._global,
+            aggregatable_keys=aggregatable_keys,
+            clip_norm=self.dp_clip_norm,
+            noise_multiplier=self.dp_noise_multiplier,
+            generator=self._dp_generator,
+        )
+        # Re-attach the frozen A exactly as the non-DP FFA path does (bit-identical, never noised).
         if self.aggregation == "FFA_LORA":
             for k, v in self._frozen_a.items():
                 aggregated[k] = v.clone()
         return aggregated
+
+    @staticmethod
+    def _client_keys(results):
+        """The parameter key list of the first client (homogeneity already asserted upstream),
+        decoding a JSON-string payload if necessary — mirrors FedAvgAggregator's wire shapes."""
+        entry = results[0]
+        params = entry[1] if len(entry) == 3 else entry[0]
+        if isinstance(params, str):
+            params = json.loads(params)
+        return list(params.keys())
 
     def evaluate(self, server_round, parameters):
         if self.evaluate_fn is None:
