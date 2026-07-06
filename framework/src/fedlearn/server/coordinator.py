@@ -216,6 +216,20 @@ class FLCoordinator:
                 # Client is ahead, something is wrong. Ignore.
                 return
 
+            # FR-5: dedup. A retried FedAvg submit (ABORTED/UNAVAILABLE/DEADLINE_EXCEEDED are
+            # client-retryable, so the server can see the same client's update twice in a round)
+            # must be counted ONCE — a second append both inflates that client's weight in the
+            # weighted average AND can trip the clients_per_round aggregation trigger with fewer
+            # than N distinct clients. First accepted update wins; a duplicate is an idempotent
+            # no-op. Mirrors the DeComFL submit path; derived from the pending list so it resets
+            # with it each round.
+            if any(cid == client_id for cid, _p, _n in self._client_updates_received):
+                log.warning(
+                    "Ignoring duplicate update from %s in round %d (already counted)",
+                    client_id, self.current_round,
+                )
+                return
+
             # Sanitize num_examples to prevent model poisoning
             if num_examples <= 0:
                 # Suspicious payload — keep at WARNING so it shows up without DEBUG noise.
