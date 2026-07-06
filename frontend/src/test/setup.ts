@@ -32,3 +32,9 @@ if (typeof window.ResizeObserver === 'undefined') {
   }
   window.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
 }
+
+// jsdom has no layout, so scrollIntoView (chat autoscroll in PlaygroundView) is
+// missing from Element. No-op it — scroll position is not something we assert.
+if (typeof window.Element.prototype.scrollIntoView !== 'function') {
+  window.Element.prototype.scrollIntoView = () => {};
+}
