@@ -8,6 +8,7 @@ import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.model.AuditAction;
 import com.federated.fl_platform_api.model.MembershipRole;
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.ProjectStatus;
 import com.federated.fl_platform_api.model.ProjectAccessRequest;
 import com.federated.fl_platform_api.model.ProjectInitStatus;
 import com.federated.fl_platform_api.model.ProjectMembership;
@@ -199,7 +200,7 @@ public class ProjectService {
                 .orElse(DEFAULT_ORG_ID);
         project.setOrgId(orgId);
         project.setRequirementsOverride(request.getRequirementsOverride());
-        project.setStatus("CREATED");
+        project.setStatus(ProjectStatus.CREATED.name());
         // BA-1: the project begins life INITIALIZING; the async worker flips it to DONE/FAILED once
         // model init finishes. Status is run-derived (BA-4) and this init phase takes precedence, so
         // the project reads as INITIALIZING until then (no run exists yet).
@@ -300,7 +301,7 @@ public class ProjectService {
                 Optional<Integer> port = flowerServerManager.startServerForProject(
                         project, strategyToUse, numRoundsToUse, minClients);
                 project.setServerPort(port.orElse(null));
-                project.setStatus("RUNNING");
+                project.setStatus(ProjectStatus.RUNNING.name());
                 Project updatedProject = projectRepository.save(project);
                 runService.markRunning(run.getId(), port.orElse(null));
 
@@ -331,9 +332,9 @@ public class ProjectService {
 
         boolean stopped = flowerServerManager.stopServerForProject(projectId);
         Project finalProjectState = project;
-        if (stopped || "RUNNING".equals(project.getStatus())) {
+        if (stopped || ProjectStatus.RUNNING.name().equals(project.getStatus())) {
             project.setServerPort(null);
-            project.setStatus("STOPPED");
+            project.setStatus(ProjectStatus.STOPPED.name());
             finalProjectState = projectRepository.save(project);
             log.info("Stopped FL server for project {}", projectId);
         } else {
@@ -432,7 +433,7 @@ public class ProjectService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
 
-        project.setStatus("COMPLETED");
+        project.setStatus(ProjectStatus.COMPLETED.name());
         project.setServerPort(null);
         projectRepository.save(project);
 
