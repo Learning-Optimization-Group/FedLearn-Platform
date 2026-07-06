@@ -7,7 +7,21 @@ import * as api from '../../services/apiServices';
 import { useAuth } from '../../context/AuthContext';
 import { makeAuth } from '../../test/authFixtures';
 
-vi.mock('../../services/apiServices');
+// Mock only the network calls; the pure helpers stay REAL. isEmptyBody in
+// particular: the "no deletion request pending yet" branch must track the
+// actual empty-body semantics (a 204 reaches axios as ''), not a copy of the
+// helper pasted into the test that would keep passing if the real one drifted.
+vi.mock('../../services/apiServices', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../services/apiServices')>();
+  return {
+    ...actual,
+    fetchOwnedProjects: vi.fn(),
+    fetchProjectResults: vi.fn(),
+    fetchProjectDeletionRequest: vi.fn(),
+    submitDeletionRequest: vi.fn(),
+    deleteProject: vi.fn(),
+  };
+});
 vi.mock('@stomp/stompjs', () => ({ Client: vi.fn() }));
 vi.mock('../../context/AuthContext', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../context/AuthContext')>();
@@ -53,9 +67,9 @@ describe('OwnerDashboard/ProjectCard — deletion routes by role (FE-2)', () => 
     }) as unknown as InstanceType<typeof StompClient>);
     vi.mocked(api.fetchOwnedProjects).mockResolvedValue(resp([PROJECT]));
     vi.mocked(api.fetchProjectResults).mockResolvedValue(resp([]));
-    // 204 / empty body ⇒ no deletion request pending yet.
+    // 204 ⇒ axios yields '' — the real isEmptyBody must read this as
+    // "no deletion request pending yet" or the card hides the request flow.
     vi.mocked(api.fetchProjectDeletionRequest).mockResolvedValue(resp(''));
-    vi.mocked(api.isEmptyBody).mockImplementation((data) => data === '' || data == null);
   });
 
   it('a non-admin owner files a deletion request — never DELETE /projects/{id}', async () => {
