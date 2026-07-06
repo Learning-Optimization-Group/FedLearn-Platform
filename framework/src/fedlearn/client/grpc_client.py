@@ -12,7 +12,9 @@ import torch
 
 from fedlearn.communication.generated import fedlearn_pb2
 from fedlearn.communication.generated import fedlearn_pb2_grpc
-from fedlearn.communication.serializer import parameters_to_proto, parameters_to_chunks
+from fedlearn.communication.serializer import (
+    parameters_to_proto, parameters_to_chunks, chunks_to_parameters,
+)
 from fedlearn.security.client_interceptor import maybe_wrap_channel
 
 log = logging.getLogger(__name__)
@@ -149,6 +151,7 @@ class GrpcClient:
             current_round = 0
             config: Dict[str, str] = {}
             total_chunks = 0
+            codec = ""
             download_start = time.time()
 
             # FR-8 (download half): verify the server-declared sha256 of the full payload
@@ -164,6 +167,7 @@ class GrpcClient:
                     current_round = chunk.current_round
                     config = dict(chunk.config)
                     total_chunks = chunk.total_chunks
+                    codec = chunk.codec
                     log.info("[%s] Receiving %d chunk(s) for round %d",
                              self.client_id, total_chunks, current_round)
 
@@ -192,11 +196,23 @@ class GrpcClient:
                 log.debug("[%s] Server declared no payload sha256 (pre-integrity server); "
                           "skipping verification", self.client_id)
 
-            buffer.seek(0)
-            model_data = torch.load(buffer, map_location='cpu', weights_only=True)
+            blob = buffer.getvalue()
             buffer.close()
 
-            params = model_data['parameters']
+            # FR-8 (download half) version gate: decode the SAFETENSORS wire (the current
+            # format, symmetric with upload and the mobile C++ core) but transparently fall
+            # back to a legacy torch.save pickle blob so a new client still works against an
+            # old server during a staged rollout. The codec field is the primary signal; a
+            # magic-byte sniff is the backstop when an old server sets no codec. Integrity
+            # (sha256) was already verified above, format-agnostically.
+            is_pickle = len(blob) >= 2 and (blob[:2] == b"PK" or blob[0] == 0x80)
+            if codec.endswith("safetensors") if codec else not is_pickle:
+                params, _num_examples = chunks_to_parameters(
+                    blob, compressed=codec.startswith("lz4"))
+            else:
+                model_data = torch.load(io.BytesIO(blob), map_location='cpu', weights_only=True)
+                params = model_data['parameters']
+
             self.current_round = current_round
             return params, current_round, config
 

@@ -88,6 +88,23 @@ def proto_to_parameters(proto: ModelParameters) -> Tuple[OrderedDict[str, torch.
     return parameters, proto.num_examples_trained
 
 
+def state_dict_to_safetensors(params: OrderedDict[str, torch.Tensor], num_examples: int = 0) -> bytes:
+    """Serialize a full state_dict to a single deterministic safetensors blob — the inverse of
+    chunks_to_parameters. float32-only and FAIL-LOUD: a non-float tensor raises here rather than
+    being silently coerced to F32 (save_safetensors would otherwise cast int/bool and corrupt the
+    model). Shared by the upload chunk stream AND the global-model DOWNLOAD stream so the wire is
+    safetensors — never torch.save/pickle — and decodable by the libtorch-free, F32-only mobile
+    C++ core."""
+    for name, tensor in params.items():
+        if tensor.dtype != torch.float32:
+            raise ValueError(
+                f"Tensor '{name}' has dtype {tensor.dtype}; only float32 is supported "
+                "on the safetensors wire format. Cast to float32 before training."
+            )
+    named_arrays = [(name, tensor.detach().cpu().numpy()) for name, tensor in params.items()]
+    return save_safetensors(named_arrays, metadata={"num_examples": str(num_examples)})
+
+
 def parameters_to_chunks(
         params: OrderedDict[str, torch.Tensor],
         num_examples: int,
@@ -101,16 +118,7 @@ def parameters_to_chunks(
     try:
         log.debug("Serializing %d tensors with safetensors", len(params))
 
-        # Guard: all tensors must be float32; silent cast of int/bool corrupts aggregation.
-        for name, tensor in params.items():
-            if tensor.dtype != torch.float32:
-                raise ValueError(
-                    f"Tensor '{name}' has dtype {tensor.dtype}; only float32 is supported "
-                    "on the safetensors wire format. Cast to float32 before training."
-                )
-
-        named_arrays = [(name, tensor.detach().cpu().numpy()) for name, tensor in params.items()]
-        serialized = save_safetensors(named_arrays, metadata={"num_examples": str(num_examples)})
+        serialized = state_dict_to_safetensors(params, num_examples)
 
         original_size = len(serialized)
         log.debug("Serialized size: %.2f MB", original_size / (1024 ** 2))

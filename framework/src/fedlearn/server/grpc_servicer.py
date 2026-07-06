@@ -17,7 +17,9 @@ SERVER_PROTOCOL_VERSION = 2
 
 # Import the business logic layer and helpers
 from .coordinator import FLCoordinator, MalformedDeComFLSubmission
-from fedlearn.communication.serializer import proto_to_parameters, parameters_to_proto, chunks_to_parameters
+from fedlearn.communication.serializer import (
+    proto_to_parameters, parameters_to_proto, chunks_to_parameters, state_dict_to_safetensors,
+)
 from fedlearn.server.decomfl_strategy import DeComFL
 
 
@@ -111,16 +113,19 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
 
 
-            buffer = io.BytesIO()
-            model_data = {'parameters': params, 'num_examples': 0}
-            torch.save(model_data, buffer)
-            data_to_send = buffer.getvalue()
-            buffer.close()
+            # FR-8 (download half): serialize the global model as a deterministic SAFETENSORS
+            # blob — the same libtorch-free wire the upload path and the mobile C++ core already
+            # use — instead of a torch.save pickle blob. F32-only and fail-loud (a non-float
+            # param raises here rather than shipping a silently-cast/corrupt model). The mobile
+            # FedLearnClient rejects any first chunk whose codec is not 'safetensors'; setting it
+            # (with total_bytes) is what makes the FedAvg download decode instead of throw.
+            data_to_send = state_dict_to_safetensors(params, num_examples=0)
+            download_codec = "safetensors"
 
-            # FR-8 (download half): declare the sha256 of the FULL payload so receivers can
-            # verify the reassembled blob. Set on EVERY chunk: the mobile C++ client reads it
-            # from the first chunk (FedLearnClient.cpp), the Python client from the final one.
-            # Purely additive — receivers that ignore the field behave exactly as before.
+            # Declare the sha256 of the FULL payload so receivers can verify the reassembled
+            # blob. Set on EVERY chunk: the mobile C++ client reads it from the first chunk
+            # (FedLearnClient.cpp), the Python client from the final one. Integrity is
+            # verified format-agnostically, before any deserialization.
             payload_sha256 = hashlib.sha256(data_to_send).hexdigest()
 
             # Chunk the data
@@ -143,6 +148,8 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                     is_final_chunk=(i == num_chunks - 1),
                     current_round=current_round,
                     config=config if i == 0 else {},
+                    codec=download_codec,
+                    total_bytes=total_size,
                     sha256=payload_sha256
                 )
 

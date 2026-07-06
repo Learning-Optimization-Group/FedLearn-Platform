@@ -6,27 +6,35 @@ blob; receiver verifies (integrity)", and the mobile C++ client already enforces
 side of the same contract over a REAL gRPC socket (same substrate as
 test_v2_grpc_e2e.py — an actual grpc.Server + client channel, no stub mocks):
 
-- the server populates ``sha256`` with the hex digest of the full torch.save payload
-  on every chunk (mobile reads the first chunk, the Python client the final one);
-- the Python client verifies the reassembled bytes and REFUSES to torch.load a
-  tampered stream (raises before deserialization);
+- the server populates ``sha256`` with the hex digest of the full payload on every
+  chunk (mobile reads the first chunk, the Python client the final one);
+- the Python client verifies the reassembled bytes and REFUSES to deserialize a
+  tampered stream (raises before decode);
 - an empty ``sha256`` (an older server) still decodes — verification is skip-if-absent,
   so the field stays purely additive and backward-compatible.
 
-The wire format itself (torch.save/torch.load weights_only=True) is unchanged.
+The wire format itself is SAFETENSORS (FR-8 download half): the server emits a
+deterministic safetensors blob with ``codec='safetensors'`` + ``total_bytes`` framing
+(symmetric with the upload path and the libtorch-free mobile C++ core), and the client
+decodes it — transparently falling back to a legacy torch.save pickle blob when an old
+server sends one (version gate), see test_download_stream_is_safetensors_not_pickle and
+test_new_client_decodes_legacy_pickle_stream below.
 """
 import concurrent.futures
 import hashlib
+import io
 import socket
 from collections import OrderedDict
 
 import grpc
+import numpy as np
 import pytest
 import torch
 
 from fedlearn.client.grpc_client import GrpcClient
 from fedlearn.communication.generated import fedlearn_pb2 as pb
 from fedlearn.communication.generated import fedlearn_pb2_grpc as pbg
+from fedlearn.communication.safetensors_codec import load_safetensors
 from fedlearn.server.coordinator import FLCoordinator
 from fedlearn.server.grpc_servicer import FederatedLearningServiceServicer
 from fedlearn.server.strategy import FedAvg
@@ -178,6 +186,69 @@ def test_empty_hash_from_legacy_server_still_decodes(client_for):
     """Backward compat: an older server that never sets sha256 must not trip a false
     rejection — the check is skip-if-absent."""
     client = client_for(_LegacyNoHashServicer)
+    params, current_round, _config = client.get_global_model()
+    assert params is not None
+    for name, tensor in INIT_PARAMS.items():
+        assert torch.equal(params[name], tensor)
+    assert current_round == 1
+
+
+# ---------------------------------------------------------------------------
+# FR-8 (download half, cross-segment): the wire format itself — safetensors, not pickle.
+# ---------------------------------------------------------------------------
+
+class _LegacyPickleServicer(FederatedLearningServiceServicer):
+    """A pre-FR-8 server: streams a torch.save PICKLE blob with codec unset (the old wire).
+    Used to prove a NEW client still decodes an OLD server during a staged rollout — the
+    Python-side version gate must not hard-break a mixed-version deployment."""
+
+    def GetGlobalModelStream(self, request, context):
+        params, current_round, config = self.coordinator.get_global_model_for_client()
+        buffer = io.BytesIO()
+        torch.save({'parameters': params, 'num_examples': 0}, buffer)
+        data = buffer.getvalue()
+        yield pb.ModelChunk(
+            chunk_index=0, total_chunks=1, chunk_data=data, is_final_chunk=True,
+            current_round=current_round, config=config,
+            sha256=hashlib.sha256(data).hexdigest(),
+        )
+
+
+def test_download_stream_is_safetensors_not_pickle(serve):
+    """The global-model download stream must carry a deterministic SAFETENSORS blob with
+    the codec/total_bytes framing set — never a torch.save/pickle blob. This makes the
+    download symmetric with the upload path and decodable by the libtorch-free mobile C++
+    core, whose FedLearnClient::validateCodec rejects any first chunk whose codec is not
+    'safetensors'/'lz4+safetensors' (so today's empty-codec pickle stream throws there)."""
+    addr = serve(FederatedLearningServiceServicer)
+    with grpc.insecure_channel(addr) as channel:
+        stub = pbg.FederatedLearningServiceStub(channel)
+        chunks = list(stub.GetGlobalModelStream(
+            pb.GetGlobalModelRequest(client_id="fmt-probe")))
+    assert chunks, "server streamed no chunks"
+    payload = b"".join(c.chunk_data for c in chunks)
+
+    # (a) NOT a torch.save pickle/zip blob (raw pickle -> 0x80; torch.save zip -> 'PK').
+    assert payload[:2] != b"PK" and payload[0] != 0x80, \
+        "download payload is still a torch.save pickle/zip blob"
+
+    # (b) decodes as safetensors to the exact global model.
+    named, _meta = load_safetensors(payload)
+    got = dict(named)
+    assert set(got.keys()) == set(INIT_PARAMS.keys())
+    for name, tensor in INIT_PARAMS.items():
+        assert np.array_equal(got[name], tensor.numpy())
+
+    # (c) the mobile C++ framing contract: codec + total_bytes declared on the first chunk.
+    assert chunks[0].codec == "safetensors", "first chunk must declare codec='safetensors'"
+    assert chunks[0].total_bytes == len(payload), "first chunk must declare total_bytes"
+
+
+def test_new_client_decodes_legacy_pickle_stream(client_for):
+    """Version gate: a new client talking to an OLD (pre-FR-8) server that still emits a
+    torch.save pickle blob must transparently fall back and decode it — the migration must
+    not hard-break a mixed-version deployment on the Python side."""
+    client = client_for(_LegacyPickleServicer)
     params, current_round, _config = client.get_global_model()
     assert params is not None
     for name, tensor in INIT_PARAMS.items():
