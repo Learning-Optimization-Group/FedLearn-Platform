@@ -17,6 +17,8 @@ import recipes      # noqa: E402  (class labels per recipe, for per-class metric
 import torch
 import json
 import logging
+import random
+import secrets
 import time
 import psutil
 import gc
@@ -372,6 +374,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-name", type=str, required=True, help="Model name")
     parser.add_argument("--port", type=int, default=50051, help="gRPC server port")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="Aggregation strategy")
+    parser.add_argument("--seed", type=int, default=None, help="Global run seed for torch/numpy/random; omitted => a fresh seed is generated at startup and recorded on the eval card")
     parser.add_argument("--aggregation", type=str, default="FFA_LORA", choices=["FFA_LORA", "FEDIT"], help="LoRA aggregation sub-mode (LLM_LORA only)")
     # FR-13 + SE-11: central differential privacy for FedLoRA (default OFF). Noise is calibrated
     # from EITHER a raw noise multiplier z (--dp-noise-multiplier) OR an ε budget
@@ -390,8 +393,34 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def resolve_run_seed(args) -> int:
+    """DA-3: pin the run to a concrete seed and seed every RNG the trainer touches.
+
+    ``--seed`` is optional on the CLI; when the caller omits it a fresh seed is drawn from the
+    OS CSPRNG instead of leaving it None — the eval card must always record the exact integer
+    the run was seeded with, or the run isn't reproducible. The resolved value is written back
+    onto ``args.seed`` so build_eval_card commits the seed that actually seeded the RNGs.
+
+    Deliberately independent of ``--dp-seed``: that knob seeds only the DP noise RNG inside
+    FedLoRA (fresh entropy in production by design); this one governs the global
+    random/numpy/torch state.
+    """
+    seed = getattr(args, "seed", None)
+    if seed is None:
+        seed = secrets.randbelow(2**31)
+    args.seed = seed
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    logging.info("Run seed resolved to %d (random/numpy/torch seeded; pass --seed %d to reproduce)", seed, seed)
+    return seed
+
+
 def main():
     args = build_arg_parser().parse_args()
+    resolve_run_seed(args)  # DA-3: seed RNGs before any data loading/training; card records it
 
     # if args.model_type == 'TRANSFORMER' and args.strategy.lower() == 'decomfl':
     #     args.min_clients = 1

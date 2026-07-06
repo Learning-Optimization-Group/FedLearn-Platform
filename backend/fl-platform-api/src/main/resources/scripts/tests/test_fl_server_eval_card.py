@@ -5,13 +5,18 @@ The privacy contract under test:
     strategy's committed value, verbatim (never recomputed, never rounded).
   * DP-off run => the eval card has NO ``dp`` key at all (the backend upload gate treats a
     missing trace on a DP-claimed artifact as a 400; absence == non-DP artifact).
+
+DA-3 adds the run-seed contract: the card's ``seed`` field is always a concrete integer —
+the value of ``--seed`` when passed, otherwise a seed generated at startup — never null.
 """
 import json
 import os
+import random
 import sys
 from argparse import Namespace
 from collections import OrderedDict
 
+import numpy as np
 import torch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -151,3 +156,50 @@ def test_arg_parser_dp_budget_flags_default_to_none():
     assert args.dp_delta is None
     assert args.dp_num_clients is None
     assert args.dp_rounds is None
+
+
+# --- DA-3: the run seed committed to the eval card ----------------------------------------------
+
+
+_BASE_ARGV = [
+    "--model-path", "/tmp/m.npz",
+    "--project-id", "p1",
+    "--model-type", "CNN",
+    "--model-name", "cnn",
+]
+
+
+def _parse(extra=()):
+    return fl_server.build_arg_parser().parse_args([*_BASE_ARGV, *extra])
+
+
+def test_eval_card_seed_records_the_passed_seed():
+    args = _parse(["--seed", "1234"])
+    fl_server.resolve_run_seed(args)  # main() runs this straight after parse_args
+    card = json.loads(fl_server.build_eval_card(args, _HISTORY, None))
+    assert card["seed"] == 1234
+
+
+def test_eval_card_seed_is_generated_when_flag_omitted():
+    args = _parse()
+    resolved = fl_server.resolve_run_seed(args)
+    card = json.loads(fl_server.build_eval_card(args, _HISTORY, None))
+    # Never null: an omitted --seed still yields a concrete, recorded integer (DA-3).
+    assert card["seed"] is not None
+    assert isinstance(card["seed"], int) and not isinstance(card["seed"], bool)
+    assert card["seed"] == resolved
+    assert 0 <= card["seed"] < 2**31
+
+
+def test_resolve_run_seed_seeds_the_rngs_deterministically():
+    fl_server.resolve_run_seed(_parse(["--seed", "4242"]))
+    assert torch.initial_seed() == 4242
+    first = (random.random(), float(np.random.rand()), torch.rand(1).item())
+    fl_server.resolve_run_seed(_parse(["--seed", "4242"]))
+    assert (random.random(), float(np.random.rand()), torch.rand(1).item()) == first
+
+
+def test_run_seed_is_independent_of_dp_seed():
+    args = _parse(["--seed", "7", "--dp-seed", "99"])
+    assert args.seed == 7
+    assert args.dp_seed == 99
