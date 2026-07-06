@@ -310,13 +310,24 @@ class FedLoRA(Strategy):
         self._global = OrderedDict(
             (k, v.detach().clone().to(torch.float32)) for k, v in initial_parameters.items()
         )
-        # A seeded RNG persisted across rounds when dp_seed is given (reproducible tests). Advancing
-        # ONE generator across rounds avoids reusing identical noise every round (a per-round reseed
-        # would). Production leaves dp_seed=None => fresh entropy per round.
+        # The DP noise generator is ALWAYS a DEDICATED torch.Generator (never the global default),
+        # persisted across rounds so advancing it never reuses identical noise. With an explicit
+        # dp_seed it is reproducible (tests/audits); in production (dp_seed=None) it is seeded from
+        # FRESH OS entropy, INDEPENDENT of any global torch seed.
+        #
+        # This isolation is load-bearing for the (epsilon, delta) guarantee: fl_server.resolve_run_seed
+        # calls torch.manual_seed(S) for data/model-init reproducibility and DISCLOSES S on the eval
+        # card + logs. If the DP noise were drawn from the global default generator (the old
+        # dp_seed=None path passed generator=None), it would become a deterministic function of that
+        # disclosed seed — an adversary holding the card could replay the run and STRIP the noise,
+        # recovering the un-noised client-level aggregate and voiding DP (DA-3 x FR-13 interaction).
         self._dp_generator = None
-        if self.dp_enabled and self.dp_seed is not None:
+        if self.dp_enabled:
             self._dp_generator = torch.Generator()
-            self._dp_generator.manual_seed(self.dp_seed)
+            if self.dp_seed is not None:
+                self._dp_generator.manual_seed(self.dp_seed)
+            else:
+                self._dp_generator.seed()  # non-deterministic OS-entropy seed, independent of global RNG
 
     def initialize_parameters(self):
         return self.initial_parameters
