@@ -16,8 +16,9 @@
 #                               (default: none — registers without an email)
 #   FEDLEARN_NGINX_TEMPLATE     Path to the nginx template uploaded by
 #                               deploy-to-aws.sh (default: ~/fedlearn-nginx.conf)
-#   FEDLEARN_GRPC_TLS=1         Enable TLS on the FL gRPC boundary at bootstrap
-#                               time (default: 0 — wired but OFF; see deploy/TLS.md)
+#   FEDLEARN_GRPC_TLS=0         DISABLE FL gRPC TLS (escape hatch). Default: TLS is
+#                               ON/fail-closed (SE-2); =0 re-opens plaintext for a
+#                               mixed-version client rollout. See deploy/TLS.md.
 # =============================================================================
 set -euo pipefail
 
@@ -262,16 +263,21 @@ chown "$ACTUAL_USER:$ACTUAL_USER" "$GRPC_KEY" "$GRPC_CERT"
 chmod 600 "$GRPC_KEY"
 chmod 644 "$GRPC_CERT"
 
-# Default OFF: every current FL client connects plaintext and would be locked
-# out (the SE-2 policy fails closed). Bootstrap with FEDLEARN_GRPC_TLS=1 — or
-# uncomment the three Environment lines in the unit — once clients are set up
-# with FEDLEARN_GRPC_USE_TLS=1 + FEDLEARN_GRPC_ROOT_CERT=<copy of server.crt>.
-GRPC_TLS_PREFIX="# "
-if [[ "${FEDLEARN_GRPC_TLS:-0}" == "1" ]]; then
-  GRPC_TLS_PREFIX=""
-  echo "      FL gRPC TLS: ENABLED in the unit (FEDLEARN_GRPC_TLS=1)"
+# FL gRPC TLS is now the ec2demo/production DEFAULT (app.fl.require-tls=true in
+# application-ec2demo.properties, SE-2 full flip). The backend spawns each FL server fail-closed
+# (FEDLEARN_GRPC_USE_TLS=1 + FEDLEARN_REQUIRE_TLS=1) and REFUSES to bind plaintext, so the unit
+# MUST hand it the keypair below (always active) — otherwise NO FL server can launch. Every client
+# must dial with FEDLEARN_GRPC_USE_TLS=1 + FEDLEARN_GRPC_ROOT_CERT=<copy of server.crt>.
+#
+# ESCAPE HATCH: bootstrap with FEDLEARN_GRPC_TLS=0 to re-open plaintext for a mixed-version rollout
+# (existing plaintext desktop/mobile clients that predate TLS). It emits APP_FL_REQUIRE_TLS=false
+# in the unit, which OUTRANKS the profile default (OS env > properties file, Spring relaxed binding).
+GRPC_PLAINTEXT_PREFIX="# "   # default: keep the plaintext override commented out -> TLS stays on
+if [[ "${FEDLEARN_GRPC_TLS:-1}" == "0" ]]; then
+  GRPC_PLAINTEXT_PREFIX=""
+  echo "      FL gRPC TLS: DISABLED via escape hatch (FEDLEARN_GRPC_TLS=0 -> APP_FL_REQUIRE_TLS=false)"
 else
-  echo "      FL gRPC TLS: wired but OFF (opt-in — see the unit file / deploy/TLS.md)"
+  echo "      FL gRPC TLS: ENABLED (fail-closed default); serving keypair from $GRPC_TLS_DIR"
 fi
 
 # Auth cookie Secure flag: ON automatically once a Let's Encrypt cert exists (HTTPS is live at the
@@ -325,19 +331,18 @@ Environment="FEATURE_ROUND_RESULTS=true"
 # exists. Re-run ec2-bootstrap.sh after issuance to flip it on.
 ${COOKIE_SECURE_PREFIX}Environment="APP_AUTH_COOKIE_SECURE=true"
 
-# ── FL gRPC TLS (SE-2 hooks; default OFF — opt-in) ───────────────────────────
-# The FL servers (ports 50000-50010) bypass nginx. With APP_FL_REQUIRE_TLS=true
-# the backend spawns them with FEDLEARN_GRPC_USE_TLS=1 + FEDLEARN_REQUIRE_TLS=1
-# (fail-closed: an FL server that cannot serve TLS refuses to start) and they
-# read the keypair below, provisioned by ec2-bootstrap.sh. OFF by default
-# because current FL clients dial plaintext (audit #37) and would be rejected.
-# To enable: uncomment these three lines (or re-bootstrap with
-# FEDLEARN_GRPC_TLS=1), daemon-reload + restart, and configure every client
-# with FEDLEARN_GRPC_USE_TLS=1 and FEDLEARN_GRPC_ROOT_CERT=<server.crt copy>.
+# ── FL gRPC TLS (SE-2): TLS is the fail-closed DEFAULT ───────────────────────
+# The FL servers (ports 50000-50010) bypass nginx. app.fl.require-tls=true (ec2demo profile
+# default) makes the backend spawn them with FEDLEARN_GRPC_USE_TLS=1 + FEDLEARN_REQUIRE_TLS=1
+# (fail-closed: an FL server that cannot serve TLS refuses to start), so it MUST read the keypair
+# below — provisioned above and left ACTIVE here. Configure every client with
+# FEDLEARN_GRPC_USE_TLS=1 and FEDLEARN_GRPC_ROOT_CERT=<server.crt copy>.
+# Plaintext escape hatch (mixed-version rollout): the APP_FL_REQUIRE_TLS=false line below is
+# emitted (uncommented) ONLY when bootstrapped with FEDLEARN_GRPC_TLS=0, forcing plaintext.
 # Details + Tailscale alternative: deploy/TLS.md.
-${GRPC_TLS_PREFIX}Environment="APP_FL_REQUIRE_TLS=true"
-${GRPC_TLS_PREFIX}Environment="FEDLEARN_GRPC_SERVER_KEY=$GRPC_KEY"
-${GRPC_TLS_PREFIX}Environment="FEDLEARN_GRPC_SERVER_CERT=$GRPC_CERT"
+${GRPC_PLAINTEXT_PREFIX}Environment="APP_FL_REQUIRE_TLS=false"
+Environment="FEDLEARN_GRPC_SERVER_KEY=$GRPC_KEY"
+Environment="FEDLEARN_GRPC_SERVER_CERT=$GRPC_CERT"
 
 [Install]
 WantedBy=multi-user.target
@@ -371,6 +376,6 @@ else
   echo "   • HTTPS: NOT provisioned (cert issuance skipped/failed) — HTTP only."
   echo "     Point DNS for $DOMAIN here, open :80/:443, re-run bootstrap."
 fi
-echo "   • FL gRPC: keypair ready at $GRPC_TLS_DIR; serving TLS is opt-in"
+echo "   • FL gRPC: TLS fail-closed by default (keypair at $GRPC_TLS_DIR); FEDLEARN_GRPC_TLS=0 to re-open plaintext"
 echo "     (see the unit file + deploy/TLS.md)"
 echo "=============================================="
