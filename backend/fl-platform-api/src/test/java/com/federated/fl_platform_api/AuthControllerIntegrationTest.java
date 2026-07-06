@@ -76,10 +76,65 @@ class AuthControllerIntegrationTest {
         String cookie = response.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
         assertNotNull(cookie);
         assertTrue(cookie.contains("jwtToken"));
-        // Body must also carry accessToken for native clients (mobile/desktop)
+        // SE-8: this login carried NO X-FedLearn-Client marker (a browser SPA), which
+        // authenticates via the HttpOnly cookie + GET /api/auth/me. The body must carry
+        // identity only — no JS-readable accessToken.
         assertNotNull(response.getBody());
-        assertNotNull(response.getBody().get("accessToken"));
+        assertEquals("charlie", response.getBody().get("username"));
+        assertFalse(response.getBody().containsKey("accessToken"),
+                "browser login (no native-client marker) must not return accessToken in the body (SE-8)");
+    }
+
+    @Test
+    void login_withNativeClientMarker_returnsAccessTokenInBody() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        restTemplate.postForEntity("/api/auth/register",
+                new HttpEntity<>(registerPayload("nat", "nat@example.com", "Password1!"), headers),
+                Map.class);
+
+        // A native client (desktop/mobile) self-identifies with the X-FedLearn-Client marker and
+        // still needs the token in the body — it cannot read the HttpOnly Set-Cookie and replays
+        // the JWT as a Bearer (the same marker SE-9 gates Bearer acceptance on).
+        HttpHeaders nativeHeaders = new HttpHeaders();
+        nativeHeaders.setContentType(MediaType.APPLICATION_JSON);
+        nativeHeaders.add("X-FedLearn-Client", "fedlearn-desktop");
+        @SuppressWarnings("unchecked")
+        ResponseEntity<Map<String, Object>> response = restTemplate.postForEntity("/api/auth/login",
+                new HttpEntity<>(Map.of("username", "nat", "password", "Password1!"), nativeHeaders),
+                (Class<Map<String, Object>>) (Class<?>) Map.class);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertNotNull(response.getBody().get("accessToken"), "native client must still get accessToken (SE-8)");
         assertFalse(response.getBody().get("accessToken").toString().isBlank());
+        assertTrue(response.getHeaders().containsKey(HttpHeaders.SET_COOKIE));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void login_whenThrottled_returns429WithRetryAfterHeader() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        restTemplate.postForEntity("/api/auth/register",
+                new HttpEntity<>(registerPayload("throttled", "throttled@example.com", "Password1!"), headers),
+                Map.class);
+        HttpEntity<Map<String, Object>> badLogin = new HttpEntity<>(
+                Map.of("username", "throttled", "password", "WrongPass1!"), headers);
+
+        // Exhaust the failure window (MAX_FAILURES=5) -> the account key locks.
+        for (int i = 0; i < 5; i++) {
+            restTemplate.postForEntity("/api/auth/login", badLogin, Map.class);
+        }
+
+        ResponseEntity<Map<String, Object>> throttled = restTemplate.postForEntity(
+                "/api/auth/login", badLogin, (Class<Map<String, Object>>) (Class<?>) Map.class);
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, throttled.getStatusCode());
+        String retryAfter = throttled.getHeaders().getFirst(HttpHeaders.RETRY_AFTER);
+        assertNotNull(retryAfter, "429 must carry a Retry-After header (SE-4 done-when #1)");
+        long seconds = Long.parseLong(retryAfter);
+        assertTrue(seconds > 0 && seconds <= 15 * 60,
+                "Retry-After should be a positive delay within the 15-min lockout, got " + seconds);
     }
 
     @Test

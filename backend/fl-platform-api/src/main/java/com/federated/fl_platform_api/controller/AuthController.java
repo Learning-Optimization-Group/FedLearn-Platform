@@ -9,6 +9,7 @@ import com.federated.fl_platform_api.model.User;
 import com.federated.fl_platform_api.repository.UserRepository;
 import com.federated.fl_platform_api.security.AuditingAuthenticationFailureHandler;
 import com.federated.fl_platform_api.security.AuditingAuthenticationSuccessHandler;
+import com.federated.fl_platform_api.security.JwtAuthenticationFilter;
 import com.federated.fl_platform_api.security.JwtTokenProvider;
 import com.federated.fl_platform_api.security.LoginRateLimiter;
 import com.federated.fl_platform_api.security.TokenRevocationService;
@@ -32,7 +33,11 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -115,8 +120,18 @@ public class AuthController {
         String usernameKey = "u:" + loginRequest.getUsername();
         String ipKey = "ip:" + http.getRemoteAddr();
         if (loginRateLimiter.isLocked(usernameKey) || loginRateLimiter.isLocked(ipKey)) {
-            log.warn("Login throttled for user '{}' from {}", loginRequest.getUsername(), http.getRemoteAddr());
+            // SE-4 (done-when #1): tell the caller how long to back off. Use the longer of the two
+            // locked keys' remaining windows, rounded up to whole seconds (>= 1) per RFC 7231.
+            long retryAfterSeconds = Stream.of(usernameKey, ipKey)
+                    .map(loginRateLimiter::retryAfter)
+                    .flatMap(Optional::stream)
+                    .mapToLong(d -> Math.max(1L, (long) Math.ceil(d.toMillis() / 1000.0)))
+                    .max()
+                    .orElse(1L);
+            log.warn("Login throttled for user '{}' from {} (retry after {}s)",
+                    loginRequest.getUsername(), http.getRemoteAddr(), retryAfterSeconds);
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header(HttpHeaders.RETRY_AFTER, Long.toString(retryAfterSeconds))
                     .body(Map.<String, Object>of("error", "Too many failed login attempts. Please try again later."));
         }
 
@@ -161,15 +176,21 @@ public class AuthController {
 
         // The JWT is set as an HttpOnly cookie (defeats XSS exfiltration) for browser SPAs,
         // which ignore the body and rely on the cookie + GET /api/auth/me for session checks.
-        // The body also carries accessToken for native clients (mobile/desktop) that cannot
-        // reliably read the HttpOnly Set-Cookie header — they store it in secure platform
-        // storage (e.g. Keychain / EncryptedSharedPreferences) and send it as a Bearer token.
-        Map<String, Object> responseBody = Map.of(
-                "username", appUser.getUsername(),
-                "email", appUser.getEmail(),
-                "role", appUser.getPlatformRole().name(),
-                "accessToken", jwt
-        );
+        // SE-8 (done-when #3): the browser must NOT receive a JS-readable token in the body.
+        // Only native clients (mobile/desktop) — which cannot read the HttpOnly Set-Cookie and
+        // replay the JWT as a Bearer from secure platform storage — get accessToken. They
+        // self-identify with the X-FedLearn-Client marker, the same signal SE-9 gates Bearer
+        // acceptance on, so a browser login response carries identity only.
+        String clientMarker = http.getHeader(JwtAuthenticationFilter.NATIVE_CLIENT_HEADER);
+        boolean nativeClient = clientMarker != null && !clientMarker.isBlank();
+
+        Map<String, Object> responseBody = new LinkedHashMap<>();
+        responseBody.put("username", appUser.getUsername());
+        responseBody.put("email", appUser.getEmail());
+        responseBody.put("role", appUser.getPlatformRole().name());
+        if (nativeClient) {
+            responseBody.put("accessToken", jwt);
+        }
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())

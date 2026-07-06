@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -61,6 +62,39 @@ public class LoginRateLimiter {
     /** Clear {@code key} — called on a successful login so a good password ends the throttle. */
     public void reset(String key) {
         failures.remove(key);
+    }
+
+    /**
+     * SE-4: how long until {@code key} unlocks — the earliest a pruned window drops back below
+     * {@link #MAX_FAILURES} — or empty if the key is not currently locked. The controller emits this
+     * as the {@code Retry-After} header on the 429 so a throttled client backs off for the right
+     * delay instead of hammering {@code /api/auth/login}.
+     */
+    public Optional<Duration> retryAfter(String key) {
+        Deque<Instant> window = failures.get(key);
+        if (window == null) {
+            return Optional.empty();
+        }
+        synchronized (window) {
+            prune(window);
+            if (window.size() < MAX_FAILURES) {
+                return Optional.empty();
+            }
+            // The lock releases when enough of the OLDEST failures age out to drop the count below
+            // the threshold: that is when the failure at index (size - MAX_FAILURES) from the oldest
+            // expires (peekFirst for exactly MAX_FAILURES). The deque iterates oldest -> newest.
+            int releaseIdx = window.size() - MAX_FAILURES;
+            Instant releasing = window.peekFirst();
+            int i = 0;
+            for (Instant t : window) {
+                if (i++ == releaseIdx) {
+                    releasing = t;
+                    break;
+                }
+            }
+            Duration remaining = Duration.between(clock.instant(), releasing.plus(LOCKOUT));
+            return Optional.of(remaining.isNegative() ? Duration.ZERO : remaining);
+        }
     }
 
     private void prune(Deque<Instant> window) {
