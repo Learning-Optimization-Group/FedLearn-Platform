@@ -29,11 +29,15 @@ class ProjectServiceStatusLiteralGuardTest {
                 .as("ProjectService must not call setStatus(\"...\") with a raw literal (BA-4)")
                 .doesNotContain("setStatus(\"");
 
-        // No raw-literal status comparison either (e.g. \"RUNNING\".equals(project.getStatus())).
+        // Strong form: no raw project-status String literal may appear ANYWHERE in the service. This
+        // catches every shape the narrow setStatus("...")/"X".equals scan missed — the natural
+        // getStatus().equals("RUNNING") direction, an intermediate String s = "RUNNING", a
+        // setStatus(var) with var = "RUNNING", etc. — all of which must instead use
+        // ProjectStatus.<X>.name(). (Verified: the fixed service contains zero such literals.)
         for (String status : List.of("CREATED", "RUNNING", "STOPPED", "COMPLETED", "FAILED", "INITIALIZING")) {
             assertThat(code)
-                    .as("ProjectService must not compare against the raw status literal \"%s\" (BA-4)", status)
-                    .doesNotContain("\"" + status + "\".equals");
+                    .as("ProjectService must not contain the raw status literal \"%s\" — use ProjectStatus.%s.name() (BA-4)", status, status)
+                    .doesNotContain("\"" + status + "\"");
         }
     }
 }
