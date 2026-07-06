@@ -23,6 +23,14 @@ from fedlearn.estimators.perturbation import canonical_perturbation
 log = logging.getLogger(__name__)
 
 
+class DeComFLRebuildGap(RuntimeError):
+    """A client's DeComFL rebuild chain has a missing round: the server lacks the shared
+    seeds and/or averaged gradients for a round the client must replay to catch up. Handing
+    back a history with that round SILENTLY DROPPED (the old behaviour) would let the client
+    rebuild on an incomplete update chain and diverge from the true global model with no
+    error surfaced anywhere — so we fail loud instead (FR-4)."""
+
+
 class DeComFL(Strategy):
     """
     DeComFL strategy with dimension-free communication.
@@ -154,13 +162,32 @@ class DeComFL(Strategy):
 
         rebuild_history = []
         for r in range(last_round + 1, current_round):
-            # Check if history exists for this round (dicts keyed by round number)
-            if r in self.seed_history and r in self.gradient_history:
-                rebuild_history.append({
-                    'round_number': r,
-                    'seeds': self.seed_history[r],
-                    'gradients': self.gradient_history[r]
-                })
+            # Every completed round in the catch-up range MUST have both its shared seeds
+            # (recorded once by get_or_create_seeds) and its averaged gradients (recorded by
+            # aggregate_fit). A missing round is a torn server history: silently dropping it
+            # (the old behaviour) handed the client an incomplete update chain and diverged
+            # its local model from the true global model with no error anywhere. Fail loud
+            # (FR-4) — the servicer maps this to a hard RPC error and logs it, so the gap is
+            # detected instead of corrupting the client.
+            has_seeds = r in self.seed_history
+            has_grads = r in self.gradient_history
+            if not (has_seeds and has_grads):
+                missing = []
+                if not has_seeds:
+                    missing.append("seeds")
+                if not has_grads:
+                    missing.append("gradients")
+                raise DeComFLRebuildGap(
+                    f"DeComFL rebuild history for client '{client_id}' is missing "
+                    f"{' and '.join(missing)} for round {r} "
+                    f"(catch-up range {last_round + 1}..{current_round - 1}). Refusing to hand "
+                    "back a torn rebuild chain that would silently diverge the client's model."
+                )
+            rebuild_history.append({
+                'round_number': r,
+                'seeds': self.seed_history[r],
+                'gradients': self.gradient_history[r]
+            })
 
         return rebuild_history
 
