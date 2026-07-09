@@ -26,7 +26,6 @@ describe('DockerService startup', () => {
       webContents: { send: jest.fn(), isDestroyed: () => false, isLoading: () => false },
     } as never;
 
-    // eslint-disable-next-line no-new
     new DockerService(fakeWindow);
 
     expect(ping).not.toHaveBeenCalled();

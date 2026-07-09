@@ -24,6 +24,12 @@ interface AuthStore {
   username: string;
 }
 
+/** Keys persisted in the encrypted electron-store file (see constructor). */
+interface AuthStoreSchema {
+  serverUrl: string;
+  auth: AuthStore;
+}
+
 /** Held only in main-process memory when OS-level encryption is unavailable. */
 interface SessionMemory {
   jwt: string;
@@ -40,7 +46,7 @@ const JWT_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours — matches backend's max
 const DEFAULT_API_BASE_URL = 'http://localhost:8081/api';
 
 export class AuthService {
-  private store: any;
+  private store: Store<AuthStoreSchema>;
   private apiBaseUrl: string;
   /**
    * Holds the JWT in process memory when {@link safeStorage} cannot
@@ -59,7 +65,7 @@ export class AuthService {
     // written by an older build that used a different encryptionKey. Without
     // this, a SyntaxError here would propagate up through registerIpcHandlers
     // and prevent mainWindow.loadFile from running, leaving a black window.
-    this.store = new Store({
+    this.store = new Store<AuthStoreSchema>({
       name: 'fedlearn-auth',
       clearInvalidConfig: true,
     });

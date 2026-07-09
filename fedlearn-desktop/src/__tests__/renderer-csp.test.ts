@@ -6,7 +6,7 @@
 // This also doubles as a syntax check that webpack.csp.js and both renderer
 // webpack configs still load, following the pattern in webpack-app-version.test.ts.
 
-/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable @typescript-eslint/no-require-imports */
 import * as fs from 'fs';
 import * as path from 'path';
 

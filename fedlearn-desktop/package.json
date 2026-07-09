@@ -23,6 +23,7 @@
     "build:renderer": "webpack --config webpack.renderer.config.js --mode production",
     "build": "webpack --config webpack.prod.config.js",
     "test": "jest",
+    "lint": "eslint .",
     "check:bundle": "node scripts/check-native-bundle.js",
     "package": "node scripts/check-native-bundle.js && npm run build && electron-builder --config electron-builder.yml",
     "package:mac": "node scripts/check-native-bundle.js mac && npm run build && electron-builder --mac --config electron-builder.yml",
@@ -46,6 +47,7 @@
     "protobufjs": ">=7.5.5"
   },
   "devDependencies": {
+    "@eslint/js": "^9.22.0",
     "@fontsource/bricolage-grotesque": "^5.2.10",
     "@fontsource/hanken-grotesk": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
@@ -59,12 +61,16 @@
     "css-loader": "7.1.2",
     "electron": "^42.4.0",
     "electron-builder": "^26.8.1",
+    "eslint": "^9.22.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^16.0.0",
     "html-webpack-plugin": "5.6.3",
     "style-loader": "4.0.0",
     "terser-webpack-plugin": "^5.4.0",
     "ts-jest": "^29.3.2",
     "ts-loader": "9.5.1",
     "typescript": "5.7.3",
+    "typescript-eslint": "^8.59.3",
     "webpack": "^5.106.2",
     "webpack-cli": "6.0.1",
     "webpack-dev-server": "^5.2.3"

@@ -13,20 +13,40 @@ jest.mock('../lib/authStore');
 jest.mock('../lib/serverConfig', () => ({ getServerBaseUrl: jest.fn() }));
 const store = authStore as jest.Mocked<typeof authStore>;
 
+// Axios's public TS types don't expose InterceptorManager's internal `.handlers` array — reaching
+// into it is the simplest way to invoke a registered interceptor directly, without a live network
+// call. These describe only the shape restClient.ts's own interceptors actually consume/return.
+interface RequestInterceptors {
+  handlers: Array<{
+    fulfilled: (config: {
+      headers: Record<string, string>;
+      url?: string;
+    }) => Promise<{ headers: Record<string, string> }>;
+  }>;
+}
+interface ResponseInterceptors {
+  handlers: Array<{
+    rejected: (error: {
+      response?: { status: number };
+      config?: { url?: string };
+    }) => Promise<never>;
+  }>;
+}
+
 describe('restClient interceptors', () => {
   beforeEach(() => jest.clearAllMocks());
 
   test('request interceptor attaches Bearer when a token exists', async () => {
     store.getToken.mockResolvedValue('jwt-xyz');
     // Run the request interceptor directly against a config object.
-    const handler = (api.interceptors.request as any).handlers[0].fulfilled;
+    const handler = (api.interceptors.request as unknown as RequestInterceptors).handlers[0]!.fulfilled;
     const cfg = await handler({ headers: {}, url: '/api/client/projects' });
     expect(cfg.headers.Authorization).toBe('Bearer jwt-xyz');
   });
 
   test('request interceptor omits Bearer when no token', async () => {
     store.getToken.mockResolvedValue(null);
-    const handler = (api.interceptors.request as any).handlers[0].fulfilled;
+    const handler = (api.interceptors.request as unknown as RequestInterceptors).handlers[0]!.fulfilled;
     const cfg = await handler({ headers: {}, url: '/api/client/projects' });
     expect(cfg.headers.Authorization).toBeUndefined();
   });
@@ -34,7 +54,7 @@ describe('restClient interceptors', () => {
   test('401 (non-probe) clears token and signals auth-lost', async () => {
     const onLost = jest.fn();
     setAuthLostHandler(onLost);
-    const rejected = (api.interceptors.response as any).handlers[0].rejected;
+    const rejected = (api.interceptors.response as unknown as ResponseInterceptors).handlers[0]!.rejected;
     await expect(
       rejected({ response: { status: 401 }, config: { url: '/api/projects' } }),
     ).rejects.toBeDefined();
@@ -45,7 +65,7 @@ describe('restClient interceptors', () => {
   test('401 on /auth/me probe does NOT signal auth-lost', async () => {
     const onLost = jest.fn();
     setAuthLostHandler(onLost);
-    const rejected = (api.interceptors.response as any).handlers[0].rejected;
+    const rejected = (api.interceptors.response as unknown as ResponseInterceptors).handlers[0]!.rejected;
     await expect(
       rejected({ response: { status: 401 }, config: { url: '/api/auth/me' } }),
     ).rejects.toBeDefined();

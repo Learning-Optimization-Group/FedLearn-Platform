@@ -37,7 +37,6 @@ const isClassifyModel = (m: InferableModel) =>
 // stream over STOMP (/topic/inference/{projectId}); the on-device native-inference path stays on the
 // Testing tab.
 export function PlaygroundScreen() {
-  const { colors } = useThemeTokens();
   const [mode, setMode] = useState<Mode>('classify');
   const [models, setModels] = useState<InferableModel[]>([]);
   const [selected, setSelected] = useState<InferableModel | null>(null);

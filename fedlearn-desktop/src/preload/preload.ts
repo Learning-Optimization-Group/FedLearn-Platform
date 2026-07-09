@@ -16,8 +16,11 @@
 // =============================================================================
 
 import { contextBridge, ipcRenderer } from 'electron';
+import type { UpdateInfo, ProgressInfo } from 'electron-updater';
 // NOTE: electron-log cannot be used in sandboxed preload scripts.
 // console.error is forwarded to the main process console automatically.
+// electron-updater is type-only here (erased at compile time) — the preload bundle never pulls
+// in its runtime code, only the UpdateInfo/ProgressInfo shapes forwarded from Main via IPC.
 
 // ========== Validation Constants ==========
 
@@ -72,7 +75,7 @@ function isValidModelType(val: unknown): boolean {
     console.error(`[Preload:Validation] Model type is not a string: ${typeof val}`);
     return false;
   }
-  const valid = /^[a-zA-Z0-9_\-\.]{1,128}$/.test(val);
+  const valid = /^[a-zA-Z0-9_\-.]{1,128}$/.test(val);
   if (!valid) {
     console.error(`[Preload:Validation] Rejected model type failing pattern: "${val}"`);
   }
@@ -433,15 +436,15 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
 
   // ===================== Auto Updater =====================
 
-  onUpdateAvailable: (callback: (info: any) => void): void => {
+  onUpdateAvailable: (callback: (info: UpdateInfo) => void): void => {
     ipcRenderer.on('updater:update-available', (_event, info) => callback(info));
   },
 
-  onUpdateProgress: (callback: (progress: any) => void): void => {
+  onUpdateProgress: (callback: (progress: ProgressInfo) => void): void => {
     ipcRenderer.on('updater:download-progress', (_event, progress) => callback(progress));
   },
 
-  onUpdateDownloaded: (callback: (info: any) => void): void => {
+  onUpdateDownloaded: (callback: (info: UpdateInfo) => void): void => {
     ipcRenderer.on('updater:update-downloaded', (_event, info) => callback(info));
   },
 

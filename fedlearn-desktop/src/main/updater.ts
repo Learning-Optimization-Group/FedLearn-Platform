@@ -16,7 +16,7 @@ export function initializeUpdater(mainWindow: BrowserWindow) {
 
   // Configure logging for the auto-updater
   autoUpdater.logger = log;
-  (autoUpdater.logger as any).transports.file.level = 'info';
+  log.transports.file.level = 'info';
 
   log.info('App starting... Initializing autoUpdater');
 
@@ -40,7 +40,7 @@ export function initializeUpdater(mainWindow: BrowserWindow) {
     mainWindow.webContents.send('updater:update-available', info);
   });
 
-  autoUpdater.on('update-not-available', (info) => {
+  autoUpdater.on('update-not-available', () => {
     log.info('Update not available.');
   });
 

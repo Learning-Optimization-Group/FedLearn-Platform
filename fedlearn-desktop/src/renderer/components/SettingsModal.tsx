@@ -54,8 +54,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
       } else {
         setError(result.error || 'Failed to update server URL.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Unknown error occurred.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error occurred.');
     } finally {
       setIsSaving(false);
     }

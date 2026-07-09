@@ -3,7 +3,7 @@
 // 'v1.0.0'). This test also doubles as a syntax check that both webpack
 // configs still load.
 
-/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable @typescript-eslint/no-require-imports */
 const expectedDefine = JSON.stringify(require('../../package.json').version);
 
 interface DefineLike {

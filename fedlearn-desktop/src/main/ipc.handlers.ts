@@ -134,7 +134,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         return { success: false, error: 'Invalid partition ID' };
       }
 
-      if (typeof cfg.modelType !== 'string' || !/^[a-zA-Z0-9_\-\.]{1,128}$/.test(cfg.modelType)) {
+      if (typeof cfg.modelType !== 'string' || !/^[a-zA-Z0-9_\-.]{1,128}$/.test(cfg.modelType)) {
         log.error(`[IPC:docker:start-training] Rejected invalid model type: ${String(cfg.modelType)}`);
         return { success: false, error: 'Invalid model type' };
       }

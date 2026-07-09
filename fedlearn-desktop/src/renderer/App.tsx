@@ -13,6 +13,7 @@ import UpdateBanner from './components/UpdateBanner';
 import ModelPlayground from './components/ModelPlayground';
 import type { InferableModel, InferenceResult } from './inference.types';
 import type { ClientProject, ProjectConnection } from './client.types';
+import type { UpdateInfo, ProgressInfo } from 'electron-updater';
 import './styles.css';
 
 // Injected at build time by webpack DefinePlugin (reads `version` from package.json).
@@ -79,9 +80,9 @@ declare global {
         error?: string;
       }>;
       // Auto-updater
-      onUpdateAvailable: (callback: (info: any) => void) => void;
-      onUpdateProgress: (callback: (progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => void;
-      onUpdateDownloaded: (callback: (info: any) => void) => void;
+      onUpdateAvailable: (callback: (info: UpdateInfo) => void) => void;
+      onUpdateProgress: (callback: (progress: ProgressInfo) => void) => void;
+      onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => void;
       onUpdateNotAvailable: (callback: () => void) => void;
       onUpdateError: (callback: (message: string) => void) => void;
       installUpdate: () => Promise<{ success: boolean; error?: string }>;

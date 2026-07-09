@@ -31,6 +31,10 @@ const A_ROUND_CONFIG = {
 function loadSpec(): typeof import('@spec/NativeFedLearnCore') {
   let mod: typeof import('@spec/NativeFedLearnCore') | undefined;
   jest.isolateModules(() => {
+    // jest.isolateModules swaps the module registry synchronously around this callback, so the
+    // re-import must be a synchronous require() — a static import or dynamic import() can't be
+    // scoped inside it and would resolve against the wrong (already-restored) registry.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     mod = require('@spec/NativeFedLearnCore');
   });
   return mod as typeof import('@spec/NativeFedLearnCore');

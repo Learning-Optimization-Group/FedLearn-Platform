@@ -168,12 +168,12 @@ jobs:
         working-directory: fedlearn-desktop
         run: |
           npm ci
-          npm run lint --if-present
+          npm run lint
           npm test
 
   # TE-3: the mobile RN TypeScript app had ZERO CI gate — tsc + jest never ran anywhere. Gate them
-  # here (type-check + jest). NOT eslint: mobile has no flat config yet (TE-9). Fast JS-only job,
-  # kept separate from the heavy native Android (.so) build.
+  # here (type-check + jest + lint). Fast JS-only job, kept separate from the heavy native Android
+  # (.so) build.
   mobile-js:
     needs: changes
     if: ${{ needs.changes.outputs.mobile == 'true' }}
@@ -189,10 +189,13 @@ jobs:
       # skipped test can't ride a green run.
       - name: No skipped/focused jest tests
         run: bash scripts/check_no_skipped_tests.sh mobile_client
-      - name: Install + typecheck + jest
+      # TE-9: mobile now ships a real ESLint 9 flat config (eslint.config.mjs) — gate it same as
+      # every other JS/TS unit instead of silently no-op'ing.
+      - name: Install + lint + typecheck + jest
         working-directory: mobile_client
         run: |
           npm ci
+          npm run lint
           npx tsc --noEmit
           npx jest --ci
 
