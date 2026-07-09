@@ -137,7 +137,11 @@ def run_config(*, label, epsilon, recipe, initial, aggregation, model_name, clip
     # Aggregatable-coordinate count d and the signal/noise diagnostic. The clipped aggregate has L2
     # norm <= S spread over d coords, so signal ~ S/sqrt(d) per coord; DP adds z*S/N per coord. The
     # ratio (independent of S) is N/(z*sqrt(d)) — utility survives only when it is >~ 1.
-    agg_keys = [k for k in initial if not k.startswith("lora_A")]
+    # d = the coords the DP mechanism actually clips+noises = client keys MINUS the frozen lora_A.
+    # peft keys are full paths (base_model.model...lora_A.weight), so match lora_A by SUBSTRING, exactly
+    # as FedLoRA._frozen_a / recipes.llm_lora_adapter_keys do — `startswith("lora_A")` never matches a
+    # real peft key and would wrongly count the frozen (never-noised) lora_A coords into d.
+    agg_keys = [k for k in initial if "lora_A" not in k]
     d = sum(initial[k].numel() for k in agg_keys)
     z = getattr(strategy, "dp_noise_multiplier", None)
     snr = (num_clients / (z * (d ** 0.5))) if z else None
