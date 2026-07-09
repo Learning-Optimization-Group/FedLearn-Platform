@@ -9,17 +9,21 @@
 // no remote font hosts, since Bricolage Grotesque, Hanken Grotesk, and
 // JetBrains Mono are bundled locally (see src/renderer/fonts.css) instead of
 // loaded from Google Fonts.
+//
+// style-src follows the same dev/prod split: dev uses style-loader (runtime
+// <style> tag injection, required for HMR) so it needs 'unsafe-inline'; prod
+// extracts CSS via MiniCssExtractPlugin into a real .css file loaded through
+// a <link rel="stylesheet">, so no inline styles are ever injected and
+// 'unsafe-inline' can be dropped from style-src.
 // =============================================================================
 
-function buildRendererCsp({ allowEval }) {
+function buildRendererCsp({ allowEval, allowInlineStyle }) {
   const scriptSrc = allowEval ? "script-src 'self' 'unsafe-eval'" : "script-src 'self'";
+  const styleSrc = allowInlineStyle ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'";
   return [
     "default-src 'self'",
     scriptSrc,
-    // 'unsafe-inline' is required regardless of environment: style-loader
-    // injects bundled CSS (styles.css, tokens.css, the local font faces) as
-    // literal <style> tags at runtime.
-    "style-src 'self' 'unsafe-inline'",
+    styleSrc,
     "font-src 'self'",
     "img-src 'self' data:",
     "connect-src 'self' http://localhost:* https://localhost:* ws://localhost:* wss://localhost:*",

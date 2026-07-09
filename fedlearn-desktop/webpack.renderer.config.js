@@ -53,8 +53,10 @@ module.exports = {
       filename: 'index.html',
       // Dev build keeps 'unsafe-eval' — webpack's development build uses the
       // `eval` devtool, so the eval'd module wrappers need script-src to allow it.
+      // It also keeps 'unsafe-inline' in style-src — style-loader injects
+      // bundled CSS as literal <style> tags at runtime, required for HMR.
       templateParameters: {
-        csp: buildRendererCsp({ allowEval: true }),
+        csp: buildRendererCsp({ allowEval: true, allowInlineStyle: true }),
       },
     }),
   ],

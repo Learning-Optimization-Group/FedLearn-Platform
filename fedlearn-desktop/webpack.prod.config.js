@@ -8,6 +8,7 @@ const path = require('path');
 const webpack = require('webpack');
 const TerserPlugin = require('terser-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const { buildRendererCsp } = require('./webpack.csp');
 
 // =============================================================================
@@ -146,7 +147,10 @@ const rendererConfig = {
       },
       {
         test: /\.css$/,
-        use: ['style-loader', 'css-loader'],
+        // Prod extracts CSS to a real file (loaded via <link rel="stylesheet">
+        // that HtmlWebpackPlugin auto-injects) instead of style-loader's runtime
+        // <style> tag injection, so the CSP's style-src can drop 'unsafe-inline'.
+        use: [MiniCssExtractPlugin.loader, 'css-loader'],
       },
       {
         test: /\.(png|svg|jpg|jpeg|gif|ico)$/i,
@@ -164,6 +168,9 @@ const rendererConfig = {
     new webpack.DefinePlugin({
       __APP_VERSION__: JSON.stringify(require('./package.json').version),
     }),
+    new MiniCssExtractPlugin({
+      filename: 'styles.[contenthash].css',
+    }),
     new HtmlWebpackPlugin({
       template: './src/renderer/index.html',
       filename: 'index.html',
@@ -173,9 +180,11 @@ const rendererConfig = {
         removeRedundantAttributes: true,
       },
       // Packaged (production) build: no 'unsafe-eval' — devtool is disabled
-      // above (devtool: false) so nothing at runtime needs it.
+      // above (devtool: false) so nothing at runtime needs it. No inline
+      // styles either — CSS is extracted by MiniCssExtractPlugin and loaded
+      // via <link rel="stylesheet">.
       templateParameters: {
-        csp: buildRendererCsp({ allowEval: false }),
+        csp: buildRendererCsp({ allowEval: false, allowInlineStyle: false }),
       },
     }),
   ],
