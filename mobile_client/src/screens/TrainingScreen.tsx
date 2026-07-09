@@ -34,7 +34,7 @@ export function TrainingScreen() {
   const stopRef = useRef(false); // cooperative stop flag polled by the training loop
 
   // Route params from the project picker (Task 4 → navigation.navigate('Training', { projectId })).
-  // No typed ParamList exists yet for the navigators (see AppNavigator.tsx) — same rationale as
+  // No typed ParamList exists yet for the navigators (see RootNavigator.tsx) — same rationale as
   // ProjectPickerScreen.tsx's identical useNavigation<any>().
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const route = useRoute<any>();

@@ -2,7 +2,8 @@
    FedLearn Desktop — Self-hosted fonts (DE-14)
    =============================================================================
    Bundled locally via @fontsource instead of loaded from Google Fonts, so the
-   packaged app's CSP does not need to allow fonts.googleapis.com / fonts.gstatic.com.
+   packaged app's CSP needs no remote font-host allowances at all. (No remote host
+   literals in this file, so a regression grep over the built bundle stays clean.)
    Family names below match tokens.css (--font-sans / --font-display / --font-mono)
    exactly, so no other CSS changes are required. Weights mirror what the app
    previously requested from Google Fonts:
