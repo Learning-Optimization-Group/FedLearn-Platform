@@ -324,14 +324,13 @@ public class FlowerServerManager {
      * lets an unknown-but-clean token (e.g. "FOOBAR") reach a spawn that can only crash at recipe
      * load. Fail fast here.
      *
-     * <p>Requires an EXACT-CASE catalog key, not merely a case-insensitive hit. {@code findByKey} is
-     * case-insensitive (the display/inference paths want that), but the modelType flows onto the
-     * fl_server argv where several branches compare it case-SENSITIVELY ({@code == 'MLP'},
-     * {@code == 'LLM_LORA'}, {@code == 'TRANSFORMER'}, {@code == 'PNEUMONIA_CNN'}) inconsistently with
-     * other {@code .upper()}-normalized checks. A case-variant like "mlp" would clear a lenient gate
-     * and then SILENTLY mis-train (wrong dataset / wrong artifact kind) with no error -- worse than
-     * the late crash this gate targets. So reject anything but the canonical key; legit clients always
-     * send the exact key from GET /api/model-recipes.
+     * <p>Requires an EXACT-CASE catalog key, not merely a case-insensitive hit. This is a
+     * canonical-key CONSISTENCY policy, not crash-prevention: {@code fl_server.py}'s {@code --model-type}
+     * argparse uses {@code type=str.upper}, so a lowercase variant is in fact normalized there and would
+     * NOT mistrain (an earlier rationale here claiming a case-sensitive downstream mistrain was
+     * incorrect -- corrected per an adversarial audit). Requiring the canonical key keeps the persisted
+     * modelType and its registry recipeKey identical to the catalog; legit clients always send the exact
+     * key from GET /api/model-recipes, so this rejects only hand-crafted non-canonical requests.
      *
      * <p>Throws {@link IllegalArgumentException} (mapped to 400 by GlobalExceptionHandler) because an
      * unknown/non-canonical modelType is invalid input -- distinct from the DP gate's 409, which is a
