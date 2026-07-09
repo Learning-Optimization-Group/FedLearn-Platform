@@ -18,22 +18,22 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\tfot.proto\x12\x0c\x66\x65\x64learn.fot\"S\n\x1bSubmitReasoningTraceRequest\x12\x11\n\tclient_id\x18\x01 \x01(\t\x12\r\n\x05round\x18\x02 \x01(\x05\x12\x12\n\ntrace_json\x18\x03 \x01(\t\"@\n\x1cSubmitReasoningTraceResponse\x12\x10\n\x08\x61\x63\x63\x65pted\x18\x01 \x01(\x08\x12\x0e\n\x06reason\x18\x02 \x01(\t\"D\n\x18GetInsightLibraryRequest\x12\x11\n\tclient_id\x18\x01 \x01(\t\x12\x15\n\rknown_version\x18\x02 \x01(\x05\"U\n\x19GetInsightLibraryResponse\x12\x11\n\tunchanged\x18\x01 \x01(\x08\x12\x0f\n\x07version\x18\x02 \x01(\x05\x12\x14\n\x0clibrary_json\x18\x03 \x01(\t2\xe1\x01\n\nFoTService\x12m\n\x14SubmitReasoningTrace\x12).fedlearn.fot.SubmitReasoningTraceRequest\x1a*.fedlearn.fot.SubmitReasoningTraceResponse\x12\x64\n\x11GetInsightLibrary\x12&.fedlearn.fot.GetInsightLibraryRequest\x1a\'.fedlearn.fot.GetInsightLibraryResponseB\x12\n\x10\x63om.fedlearn.fotb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\tfot.proto\x12\x0f\x66\x65\x64learn.fot.v1\"S\n\x1bSubmitReasoningTraceRequest\x12\x11\n\tclient_id\x18\x01 \x01(\t\x12\r\n\x05round\x18\x02 \x01(\x05\x12\x12\n\ntrace_json\x18\x03 \x01(\t\"@\n\x1cSubmitReasoningTraceResponse\x12\x10\n\x08\x61\x63\x63\x65pted\x18\x01 \x01(\x08\x12\x0e\n\x06reason\x18\x02 \x01(\t\"D\n\x18GetInsightLibraryRequest\x12\x11\n\tclient_id\x18\x01 \x01(\t\x12\x15\n\rknown_version\x18\x02 \x01(\x05\"U\n\x19GetInsightLibraryResponse\x12\x11\n\tunchanged\x18\x01 \x01(\x08\x12\x0f\n\x07version\x18\x02 \x01(\x05\x12\x14\n\x0clibrary_json\x18\x03 \x01(\t2\xed\x01\n\nFoTService\x12s\n\x14SubmitReasoningTrace\x12,.fedlearn.fot.v1.SubmitReasoningTraceRequest\x1a-.fedlearn.fot.v1.SubmitReasoningTraceResponse\x12j\n\x11GetInsightLibrary\x12).fedlearn.fot.v1.GetInsightLibraryRequest\x1a*.fedlearn.fot.v1.GetInsightLibraryResponseB\x15\n\x13\x63om.fedlearn.fot.v1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'fot_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
-  _globals['DESCRIPTOR']._serialized_options = b'\n\020com.fedlearn.fot'
-  _globals['_SUBMITREASONINGTRACEREQUEST']._serialized_start=27
-  _globals['_SUBMITREASONINGTRACEREQUEST']._serialized_end=110
-  _globals['_SUBMITREASONINGTRACERESPONSE']._serialized_start=112
-  _globals['_SUBMITREASONINGTRACERESPONSE']._serialized_end=176
-  _globals['_GETINSIGHTLIBRARYREQUEST']._serialized_start=178
-  _globals['_GETINSIGHTLIBRARYREQUEST']._serialized_end=246
-  _globals['_GETINSIGHTLIBRARYRESPONSE']._serialized_start=248
-  _globals['_GETINSIGHTLIBRARYRESPONSE']._serialized_end=333
-  _globals['_FOTSERVICE']._serialized_start=336
-  _globals['_FOTSERVICE']._serialized_end=561
+  _globals['DESCRIPTOR']._serialized_options = b'\n\023com.fedlearn.fot.v1'
+  _globals['_SUBMITREASONINGTRACEREQUEST']._serialized_start=30
+  _globals['_SUBMITREASONINGTRACEREQUEST']._serialized_end=113
+  _globals['_SUBMITREASONINGTRACERESPONSE']._serialized_start=115
+  _globals['_SUBMITREASONINGTRACERESPONSE']._serialized_end=179
+  _globals['_GETINSIGHTLIBRARYREQUEST']._serialized_start=181
+  _globals['_GETINSIGHTLIBRARYREQUEST']._serialized_end=249
+  _globals['_GETINSIGHTLIBRARYRESPONSE']._serialized_start=251
+  _globals['_GETINSIGHTLIBRARYRESPONSE']._serialized_end=336
+  _globals['_FOTSERVICE']._serialized_start=339
+  _globals['_FOTSERVICE']._serialized_end=576
 # @@protoc_insertion_point(module_scope)

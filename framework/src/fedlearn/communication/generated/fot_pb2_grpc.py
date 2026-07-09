@@ -35,12 +35,12 @@ class FoTServiceStub(object):
             channel: A grpc.Channel.
         """
         self.SubmitReasoningTrace = channel.unary_unary(
-                '/fedlearn.fot.FoTService/SubmitReasoningTrace',
+                '/fedlearn.fot.v1.FoTService/SubmitReasoningTrace',
                 request_serializer=fot__pb2.SubmitReasoningTraceRequest.SerializeToString,
                 response_deserializer=fot__pb2.SubmitReasoningTraceResponse.FromString,
                 _registered_method=True)
         self.GetInsightLibrary = channel.unary_unary(
-                '/fedlearn.fot.FoTService/GetInsightLibrary',
+                '/fedlearn.fot.v1.FoTService/GetInsightLibrary',
                 request_serializer=fot__pb2.GetInsightLibraryRequest.SerializeToString,
                 response_deserializer=fot__pb2.GetInsightLibraryResponse.FromString,
                 _registered_method=True)
@@ -78,9 +78,9 @@ def add_FoTServiceServicer_to_server(servicer, server):
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'fedlearn.fot.FoTService', rpc_method_handlers)
+            'fedlearn.fot.v1.FoTService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('fedlearn.fot.FoTService', rpc_method_handlers)
+    server.add_registered_method_handlers('fedlearn.fot.v1.FoTService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
@@ -101,7 +101,7 @@ class FoTService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/fedlearn.fot.FoTService/SubmitReasoningTrace',
+            '/fedlearn.fot.v1.FoTService/SubmitReasoningTrace',
             fot__pb2.SubmitReasoningTraceRequest.SerializeToString,
             fot__pb2.SubmitReasoningTraceResponse.FromString,
             options,
@@ -128,7 +128,7 @@ class FoTService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/fedlearn.fot.FoTService/GetInsightLibrary',
+            '/fedlearn.fot.v1.FoTService/GetInsightLibrary',
             fot__pb2.GetInsightLibraryRequest.SerializeToString,
             fot__pb2.GetInsightLibraryResponse.FromString,
             options,
