@@ -152,6 +152,26 @@ class FlowerServerManagerCatalogGateTest {
         verify(modelRecipeService, never()).findByKey(any());
     }
 
+    @Test
+    void caseVariantModelType_isRejected_becauseFlServerComparesCaseSensitively() {
+        // "mlp" is a case-INSENSITIVE hit on the catalog key "MLP", but fl_server.py compares
+        // model_type case-SENSITIVELY (== 'MLP' / == 'LLM_LORA' / ...), so a lowercase value would
+        // clear a lenient gate and then silently mis-train (wrong dataset / artifact kind). The gate
+        // must require the exact canonical key.
+        Project p = project("mlp");
+        ModelRecipeDto canonical = new ModelRecipeDto(
+                "MLP", "MLP", "tabular", List.of(), List.of(), List.of(), null);
+        when(modelRecipeService.findByKey("mlp")).thenReturn(Optional.of(canonical));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> manager.startServerForProject(p, "FedAvg", 5, 1));
+
+        assertTrue(ex.getMessage().contains("model type"), ex.getMessage());
+        assertFalse(ex.getMessage().contains("mlp"), ex.getMessage());   // no-reflect
+        assertFalse(manager.isServerRunning(p.getId()), "a case-variant modelType must not spawn");
+        verifyNoInteractions(ws);
+    }
+
     private Project project(String modelType) {
         Project p = new Project();
         p.setId(UUID.randomUUID());

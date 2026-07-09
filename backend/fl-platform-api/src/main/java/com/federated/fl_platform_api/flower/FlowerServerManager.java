@@ -324,22 +324,36 @@ public class FlowerServerManager {
      * lets an unknown-but-clean token (e.g. "FOOBAR") reach a spawn that can only crash at recipe
      * load. Fail fast here.
      *
+     * <p>Requires an EXACT-CASE catalog key, not merely a case-insensitive hit. {@code findByKey} is
+     * case-insensitive (the display/inference paths want that), but the modelType flows onto the
+     * fl_server argv where several branches compare it case-SENSITIVELY ({@code == 'MLP'},
+     * {@code == 'LLM_LORA'}, {@code == 'TRANSFORMER'}, {@code == 'PNEUMONIA_CNN'}) inconsistently with
+     * other {@code .upper()}-normalized checks. A case-variant like "mlp" would clear a lenient gate
+     * and then SILENTLY mis-train (wrong dataset / wrong artifact kind) with no error -- worse than
+     * the late crash this gate targets. So reject anything but the canonical key; legit clients always
+     * send the exact key from GET /api/model-recipes.
+     *
      * <p>Throws {@link IllegalArgumentException} (mapped to 400 by GlobalExceptionHandler) because an
-     * unknown modelType is invalid input -- distinct from the DP gate's 409, which is a fixable
-     * regulated-config conflict. The message names the field + projectId but never echoes the raw
-     * value (SE-10 no-reflect convention: the stored modelType is not yet char-class validated here).
-     * FoT text-federation carries no model-type on its argv (see buildServerCommand's !isFoT branch),
-     * so it is exempt. A catalog LOAD failure surfaces as IllegalStateException from getRecipes() and
-     * propagates unchanged (-> 500), never masked as a 400.
+     * unknown/non-canonical modelType is invalid input -- distinct from the DP gate's 409, which is a
+     * fixable regulated-config conflict. The message names the field + projectId but never echoes the
+     * raw value (SE-10 no-reflect convention: the stored modelType is not yet char-class validated
+     * here). FoT text-federation carries no model-type on its argv (see buildServerCommand's !isFoT
+     * branch), so it is exempt. A catalog LOAD failure surfaces as IllegalStateException from
+     * getRecipes() and is handled by GlobalExceptionHandler as 409 (an infra failure is arguably a
+     * 5xx, but the key property is only that it is never masked as this 400).
      */
     private void requireModelTypeInCatalog(Project project, String strategy) {
         if ("FoT".equalsIgnoreCase(strategy)) {
             return;
         }
-        if (modelRecipeService.findByKey(project.getModelType()).isEmpty()) {
+        String modelType = project.getModelType();
+        boolean canonicalMatch = modelRecipeService.findByKey(modelType)
+                .map(recipe -> recipe.key().equals(modelType))   // exact-case, not just a lenient hit
+                .orElse(false);
+        if (!canonicalMatch) {
             throw new IllegalArgumentException(
-                    "Unknown model type for project " + project.getId()
-                            + " -- not a recipe in the catalog; cannot start an FL server.");
+                    "Unknown or non-canonical model type for project " + project.getId()
+                            + " -- must be an exact recipe-catalog key; cannot start an FL server.");
         }
     }
 
