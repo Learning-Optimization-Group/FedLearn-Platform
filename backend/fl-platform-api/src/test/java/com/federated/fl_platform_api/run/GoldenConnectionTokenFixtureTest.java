@@ -1,5 +1,7 @@
 package com.federated.fl_platform_api.run;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.federated.fl_platform_api.security.ConnectionTokenService;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
@@ -45,6 +47,29 @@ class GoldenConnectionTokenFixtureTest {
         assertEquals("42", c.getSubject());
         assertEquals(RUN_ID, c.get("runId", String.class));
         assertEquals(3, c.get("partitionId", Integer.class));
+
+        // SE-13: a real cross-language contract guard, not just a self-round-trip. Load the COMMITTED
+        // golden (the exact bytes the Python PyJWT verifier checks in test_token_verify_golden.py) and
+        // assert the CURRENT ConnectionTokenService still (a) VERIFIES it and (b) mints the SAME claim
+        // shape. (a) catches verify-side drift (a stricter/renamed-claim verify path); (b) catches
+        // minting-side format drift (an added/renamed/dropped claim a stale fixture would otherwise
+        // hide). Either failure means Java has drifted from what Python accepts -> regenerate the
+        // fixture per the javadoc. This runs on the backend gradle job, which now triggers on
+        // backend/** (SE-13 done-when #2), so a ConnectionTokenService edit that breaks Java<->Python
+        // compat fails CI here rather than silently at an FL client's first connect.
+        Path fixture = Path.of("..", "..", "framework", "tests", "fixtures", "golden_connection_token.json");
+        JsonNode golden = new ObjectMapper().readTree(Files.readString(fixture));
+        Claims committed = svc.verify(golden.get("token").asText());   // (a) still verifies
+        JsonNode goldenClaims = golden.get("claims");
+        assertEquals(goldenClaims.get("sub").asText(), committed.getSubject());
+        assertEquals(goldenClaims.get("runId").asText(), committed.get("runId", String.class));
+        assertEquals(goldenClaims.get("partitionId").asInt(), committed.get("partitionId", Integer.class));
+        assertEquals(goldenClaims.get("clientKind").asText(), committed.get("clientKind", String.class));
+        // (b) a fresh mint carries the SAME claim names as the committed golden (iat/exp differ in
+        // value but are present in both; the JJWT array-form `aud` interop is exercised Python-side).
+        assertEquals(committed.keySet(), c.keySet(),
+                "fresh mint claim-set drifted from the committed golden — regenerate the fixture "
+                        + "(run this test, copy build/golden_connection_token.json over the committed one)");
 
         // Emit for regeneration (build/ is gitignored). The committed fixture is copied from this.
         String json = "{\n"

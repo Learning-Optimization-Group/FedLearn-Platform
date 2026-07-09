@@ -53,7 +53,11 @@ jobs:
 
   framework:
     needs: changes
-    if: ${{ needs.changes.outputs.framework == 'true' }}
+    # SE-13 done-when #2: the FL-boundary security suite (token interceptor e2e, non-finite rejection,
+    # insecure-bind refusal, the Java->Python token golden) must run on BOTH framework/** and
+    # backend/** changes — a backend ConnectionTokenService/servicer-contract edit that breaks
+    # Java<->Python compat must trip this gate, not just a framework-side edit.
+    if: ${{ needs.changes.outputs.framework == 'true' || needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
