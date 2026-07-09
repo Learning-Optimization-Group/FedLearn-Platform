@@ -1,5 +1,5 @@
 {
   "secret_base64": "ZmVkbGVhcm4tZ29sZGVuLXRva2VuLXNlY3JldC0zMmI=",
   "token": "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOlsiZmVkbGVhcm4tZmwtc2VydmVyIl0sInN1YiI6IjQyIiwicnVuSWQiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJwcm9qZWN0SWQiOiIyMjIyMjIyMi0yMjIyLTIyMjItMjIyMi0yMjIyMjIyMjIyMjIiLCJwYXJ0aXRpb25JZCI6MywiZ3JwY0VuZHBvaW50IjoiMTI3LjAuMC4xOjUwMDUxIiwiY2xpZW50S2luZCI6IlNIQVJEIiwiaWF0IjoxNzgzMDUzNzQ0LCJleHAiOjQ5MzY2NTM3NDR9.WL6oe_3kGPDscYS0eyekK-h8m6GUkHSKrj5uktIVQdA",
-  "claims": {"sub": "42", "runId": "11111111-1111-1111-1111-111111111111", "projectId": "22222222-2222-2222-2222-222222222222", "partitionId": 3, "clientKind": "SHARD"}
+  "claims": {"sub": "42", "runId": "11111111-1111-1111-1111-111111111111", "projectId": "22222222-2222-2222-2222-222222222222", "partitionId": 3, "grpcEndpoint": "127.0.0.1:50051", "clientKind": "SHARD"}
 }

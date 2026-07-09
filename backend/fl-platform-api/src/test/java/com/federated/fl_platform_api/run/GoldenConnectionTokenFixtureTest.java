@@ -14,6 +14,7 @@ import java.util.Base64;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * SE-1 Java-&gt;Python cross-language pin. Mints a real JJWT connection token with a FIXED secret +
@@ -63,8 +64,20 @@ class GoldenConnectionTokenFixtureTest {
         JsonNode goldenClaims = golden.get("claims");
         assertEquals(goldenClaims.get("sub").asText(), committed.getSubject());
         assertEquals(goldenClaims.get("runId").asText(), committed.get("runId", String.class));
+        assertEquals(goldenClaims.get("projectId").asText(), committed.get("projectId", String.class));
         assertEquals(goldenClaims.get("partitionId").asInt(), committed.get("partitionId", Integer.class));
         assertEquals(goldenClaims.get("clientKind").asText(), committed.get("clientKind", String.class));
+        assertEquals(goldenClaims.get("grpcEndpoint").asText(), committed.get("grpcEndpoint", String.class));
+        // grpcEndpoint value-format guard on the FRESH MINT -- NOT the frozen committed token, which by
+        // construction can't exhibit minting drift, so an instanceof check on it would be
+        // non-falsifiable. If the current ConnectionTokenService ever emitted grpcEndpoint as a
+        // non-String (e.g. a nested object), the Python golden's value-check would become meaningless;
+        // assert the LIVE mint keeps it a "host:port" String.
+        Object freshGrpc = c.get("grpcEndpoint");
+        assertTrue(freshGrpc instanceof String,
+                "fresh mint grpcEndpoint must be a String, was: "
+                        + (freshGrpc == null ? "null" : freshGrpc.getClass()));
+        assertEquals("127.0.0.1:50051", freshGrpc);
         // (b) a fresh mint carries the SAME claim names as the committed golden (iat/exp differ in
         // value but are present in both; the JJWT array-form `aud` interop is exercised Python-side).
         assertEquals(committed.keySet(), c.keySet(),
@@ -76,7 +89,8 @@ class GoldenConnectionTokenFixtureTest {
                 + "  \"secret_base64\": \"" + SECRET_B64 + "\",\n"
                 + "  \"token\": \"" + minted.token() + "\",\n"
                 + "  \"claims\": {\"sub\": \"42\", \"runId\": \"" + RUN_ID + "\", \"projectId\": \""
-                + PROJECT_ID + "\", \"partitionId\": 3, \"clientKind\": \"SHARD\"}\n"
+                + PROJECT_ID + "\", \"partitionId\": 3, \"grpcEndpoint\": \"127.0.0.1:50051\", "
+                + "\"clientKind\": \"SHARD\"}\n"
                 + "}\n";
         Files.writeString(Path.of("build", "golden_connection_token.json"), json);
     }
