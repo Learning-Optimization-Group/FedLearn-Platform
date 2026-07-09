@@ -83,7 +83,7 @@ def _internal_headers() -> dict:
 
 
 def _register_model_artifact(project_id: str, model_type: str, model_path: str,
-                             eval_card: str = None) -> None:
+                             base_model_ref: str = None, eval_card: str = None) -> None:
     """Register a run's final model as a versioned, content-addressed artifact (DA-2/DA-3:
     write-new-not-overwrite). Additive to the legacy projects.model_path write and non-fatal — a
     registry outage must never abort a real federated run. Posts the model bytes as multipart
@@ -95,9 +95,9 @@ def _register_model_artifact(project_id: str, model_type: str, model_path: str,
     data = {"kind": kind, "recipeKey": model_type}
     if kind == "LORA_ADAPTER":
         # The frozen Apache-2.0 base the adapter was trained over — required so the backend can
-        # link an ADAPTER_OF lineage edge (DA-3). Sourced from recipes.py LLM_LORA base_models
-        # (["qwen2.5-0.5b", ...]); sourcing it from the recipe registry directly is a later refinement.
-        data["baseModelRef"] = "qwen2.5-0.5b"
+        # link an ADAPTER_OF lineage edge (DA-3). Callers pass the run's actual base (args.model_name);
+        # the "qwen2.5-0.5b" fallback only applies if a caller omits it.
+        data["baseModelRef"] = base_model_ref or "qwen2.5-0.5b"
         data["licenseTag"] = "Apache-2.0"
     if eval_card:
         data["evalCard"] = eval_card
@@ -117,6 +117,34 @@ def _register_model_artifact(project_id: str, model_type: str, model_path: str,
                      project_id, kind, resp.text)
     except Exception as e:
         logging.error("Failed to register model artifact (non-fatal): %s", e)
+
+
+def _emit_and_register_lora_bundle(project_id, model_type, model_name, final_parameters, save_path, eval_card=None):
+    """DA-9: emit a real fedlearn.bundle for a LoRA run -- the ADAPTER as safetensors + a manifest
+    whose artifact_sha256 is the content hash of exactly those bytes -- and register THOSE bytes, so
+    the manifest's artifact_sha256 resolves to the content-addressed registry row (not the legacy
+    full .npz). Non-fatal: a bundle/registry problem must never abort a real federated run; on failure
+    it falls back to registering the .npz so the run is still recorded."""
+    try:
+        from fedlearn.bundle.manifest import adapter_to_safetensors, build_manifest, sha256_hex
+        blob = adapter_to_safetensors(final_parameters)
+        artifact_sha256 = sha256_hex(blob)
+        lora_cfg = recipes.get_recipe(model_type).lora
+        adapter_path = save_path + ".adapter.safetensors"
+        with open(adapter_path, "wb") as fh:
+            fh.write(blob)   # byte-exact: the registered bytes are exactly what artifact_sha256 hashes
+        manifest = build_manifest(
+            artifact_sha256=artifact_sha256, kind="LORA_ADAPTER", recipe_key=model_type,
+            base_model_ref=model_name, license_tag="Apache-2.0", lora=lora_cfg, eval_card_ref=None,
+            files=[{"name": os.path.basename(adapter_path), "sha256": artifact_sha256}])
+        with open(save_path + ".bundle.json", "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
+        logging.info("Emitted adapter bundle for project %s (artifact_sha256=%s)", project_id, artifact_sha256)
+    except Exception as e:
+        logging.error("Failed to emit adapter bundle (non-fatal); registering the .npz instead: %s", e)
+        _register_model_artifact(project_id, model_type, save_path, base_model_ref=model_name, eval_card=eval_card)
+        return
+    _register_model_artifact(project_id, model_type, adapter_path, base_model_ref=model_name, eval_card=eval_card)
 
 
 def build_eval_card(args, history, strategy=None) -> str:
@@ -954,7 +982,12 @@ def main():
             eval_card = build_eval_card(args, history, strategy)
         except Exception as _e:
             logging.warning("Could not build eval card: %s", _e)
-        _register_model_artifact(args.project_id, args.model_type, save_path, eval_card=eval_card)
+        if args.model_type == "LLM_LORA":
+            _emit_and_register_lora_bundle(args.project_id, args.model_type, args.model_name,
+                                           final_parameters, save_path, eval_card=eval_card)
+        else:
+            _register_model_artifact(args.project_id, args.model_type, save_path,
+                                     base_model_ref=args.model_name, eval_card=eval_card)
     else:
         logging.warning("--- No final model parameters to save. ---")
 

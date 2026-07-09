@@ -76,6 +76,27 @@ def test_a_lora_adapter_bundle_without_a_base_is_rejected():
         )
 
 
+def test_lora_bundle_artifact_sha256_is_the_content_hash_of_the_registered_bytes(tmp_path):
+    # A realistic adapter-shaped state_dict (numpy is fine — adapter_to_safetensors accepts it).
+    sd = {"base_model.model.layers.0.self_attn.q_proj.lora_A.weight": np.random.RandomState(0).randn(8, 16).astype("float32"),
+          "base_model.model.layers.0.self_attn.q_proj.lora_B.weight": np.random.RandomState(1).randn(16, 8).astype("float32"),
+          "score.weight": np.random.RandomState(2).randn(2, 16).astype("float32")}
+    blob = adapter_to_safetensors(sd)
+    artifact_sha256 = sha256_hex(blob)
+    # fl_server writes the blob to disk then uploads that file; prove the disk round-trip is byte-exact.
+    p = tmp_path / "x.adapter.safetensors"; p.write_bytes(blob)
+    assert sha256_hex(p.read_bytes()) == artifact_sha256
+    manifest = build_manifest(artifact_sha256=artifact_sha256, kind="LORA_ADAPTER", recipe_key="LLM_LORA",
+                              base_model_ref="qwen2.5-0.5b", license_tag="Apache-2.0",
+                              lora={"r": 8, "alpha": 16, "dropout": 0.05,   # the exact LLM_LORA recipe lora
+                                    "target_modules": ["q_proj", "v_proj"]}, eval_card_ref=None,
+                              files=[{"name": "x.adapter.safetensors", "sha256": artifact_sha256}])
+    jsonschema.validate(manifest, load_schema())   # the emitted bundle must be schema-valid ("name", not "path")
+    assert manifest["artifact_sha256"] == artifact_sha256   # the manifest points at exactly those bytes
+    # deterministic: re-serializing the same state_dict yields the same content hash
+    assert sha256_hex(adapter_to_safetensors(sd)) == artifact_sha256
+
+
 def test_full_checkpoint_bundle_manifest_validates_without_a_base():
     manifest = build_manifest(
         artifact_sha256="b" * 64, kind="FULL_CHECKPOINT", recipe_key="PNEUMONIA_CNN",

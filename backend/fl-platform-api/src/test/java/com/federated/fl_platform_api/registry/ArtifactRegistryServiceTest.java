@@ -52,6 +52,23 @@ class ArtifactRegistryServiceTest {
     }
 
     @Test
+    void registeredBlobSha256IsStandardLowercaseHexSha256() throws Exception {
+        // DA-9: the manifest's artifact_sha256 (Python's hashlib.sha256(...).hexdigest()) must equal
+        // this row's blobSha256 for the same bytes -- proves the registry's content-address is
+        // standard lowercase-hex SHA-256, not some other digest/encoding.
+        byte[] content = "fedlearn-da9-adapter-bytes".getBytes(StandardCharsets.UTF_8);
+        var md = java.security.MessageDigest.getInstance("SHA-256");
+        byte[] d = md.digest(content);
+        StringBuilder hex = new StringBuilder();
+        for (byte b : d) hex.append(String.format("%02x", b));
+
+        ModelArtifact a = registry.register(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                content, ArtifactKind.LORA_ADAPTER, "LLM_LORA", "qwen2.5-0.5b", "Apache-2.0", null);
+
+        assertThat(a.getBlobSha256()).isEqualTo(hex.toString());
+    }
+
+    @Test
     void two_runs_produce_two_distinct_artifacts_and_the_prior_blob_survives() {
         UUID org = UUID.randomUUID(), project = UUID.randomUUID();
         ModelArtifact a1 = registry.register(org, project, UUID.randomUUID(),
