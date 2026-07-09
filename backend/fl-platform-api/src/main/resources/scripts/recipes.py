@@ -46,18 +46,6 @@ RECIPE_METADATA = [
                          "max_trainable_params": 5000000, "min_os_android": 27, "min_os_ios": "13.0"},
     },
     {
-        "key": "BLOOD_CNN",
-        "display_name": "Blood Cell Classification",
-        "input_kind": "image",
-        "classes": ["Basophil", "Eosinophil", "Erythroblast",
-                    "Immature granulocyte", "Lymphocyte", "Monocyte",
-                    "Neutrophil", "Platelet"],
-        "base_models": ["blood_cnn"],
-        "optimizers": ["Adam", "SGD", "AdamW", "RMSprop"],
-        "requirements": {"min_ram_gb": 4, "min_storage_gb": 0.2, "mobile_safe": True,
-                         "max_trainable_params": 5000000, "min_os_android": 27, "min_os_ios": "13.0"},
-    },
-    {
         "key": "CNN",
         "display_name": "Image classifier (CIFAR-10)",
         "input_kind": "image",
@@ -345,6 +333,22 @@ def load_pneumonia_server_test_data(batch_size=32):
 #
 # Data resolution: MedMNIST auto-downloads BloodMNIST (.npz, ~30MB, cached under
 # ~/.medmnist) on first use. Same recipe-backed contract as PNEUMONIA_CNN.
+#
+# NOT in RECIPE_METADATA / the project-creation catalog (SE-10): the recipe
+# below is fully functional (build_blood_cnn() and load_blood_*_data() have
+# been verified to build the model and pull a real BloodMNIST batch), but
+# `medmnist` — and its transitive `scikit-image`/`fire` deps — is not declared
+# in any of this repo's requirement files (framework/requirements.txt drives
+# the actual fl_server.py spawn env; backend/fl-platform-api/requirements.txt,
+# client-docker/requirements.txt and client-docker/packaging/requirements-
+# client.txt cover the rest). Advertising this key would let the SE-10 catalog
+# gate pass and then crash the spawn on ModuleNotFoundError the moment
+# load_blood_server_test_data() runs — the same failure class SE-10 exists to
+# prevent, just one import deeper. Re-enable by adding those dependencies
+# everywhere fl_server.py/client.py run (verify aarch64/Jetson wheel
+# availability for scikit-image first), re-adding the RECIPE_METADATA entry,
+# and wiring is_blood dispatch branches in fl_server.py/client.py mirroring
+# the PNEUMONIA_CNN branches.
 # ---------------------------------------------------------------------------
 BLOOD_CLASSES = ["Basophil", "Eosinophil", "Erythroblast",
                  "Immature granulocyte", "Lymphocyte", "Monocyte",
