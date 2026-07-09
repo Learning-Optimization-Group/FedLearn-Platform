@@ -155,3 +155,8 @@ id_rsa*
 
 # Playwright MCP browser session artifacts (local tooling output)
 .playwright-mcp/
+
+# research/ is the paper's durable versioned home — re-include its salvaged result copies
+# (the broad results/ rule above would otherwise ignore them).
+!research/results/
+!research/results/**
