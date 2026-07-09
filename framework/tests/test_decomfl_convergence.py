@@ -174,6 +174,15 @@ def test_two_client_decomfl_converges_and_both_stay_in_sync():
     assert w1 > w2 > w3, \
         f"DeComFL loss trend not monotonically decreasing across thirds: {w1:.4f} !> {w2:.4f} !> {w3:.4f}"
 
+    # The 3-window check alone is blind to a regression confined to the back ~third of the run: a
+    # short late divergence gets diluted into window 3's mean and w1>w2>w3 still holds (empirically a
+    # ~10-round tail sign-flip leaves the model diverging 12-15% above its best while the windows
+    # pass). So also assert the run ENDED near its best — this catches a converge-then-diverge
+    # regression the windows miss. (A regression slope<0 does NOT catch it: the steep early descent
+    # dominates the fit and keeps the slope negative, so the min-reference is the right instrument.)
+    assert loss_end <= 1.1 * min(loss_history), \
+        f"DeComFL converged then diverged: end {loss_end:.4f} > 1.1x its best {min(loss_history):.4f}"
+
 
 def _run_rounds(strategy, coordinator, client, client_id, num_rounds, eta, X, y, assert_sync):
     """Drive the DeComFL round protocol in-process, mirroring what grpc_servicer + the coordinator do."""
