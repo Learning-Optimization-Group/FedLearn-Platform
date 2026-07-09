@@ -8,6 +8,7 @@ const path = require('path');
 const webpack = require('webpack');
 const TerserPlugin = require('terser-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const { buildRendererCsp } = require('./webpack.csp');
 
 // =============================================================================
 // FedLearn Desktop — Production Webpack Configuration
@@ -170,6 +171,11 @@ const rendererConfig = {
         collapseWhitespace: true,
         removeComments: true,
         removeRedundantAttributes: true,
+      },
+      // Packaged (production) build: no 'unsafe-eval' — devtool is disabled
+      // above (devtool: false) so nothing at runtime needs it.
+      templateParameters: {
+        csp: buildRendererCsp({ allowEval: false }),
       },
     }),
   ],

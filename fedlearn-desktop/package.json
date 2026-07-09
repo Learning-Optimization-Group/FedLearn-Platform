@@ -46,6 +46,9 @@
     "protobufjs": ">=7.5.5"
   },
   "devDependencies": {
+    "@fontsource/bricolage-grotesque": "^5.2.10",
+    "@fontsource/hanken-grotesk": "^5.2.8",
+    "@fontsource/jetbrains-mono": "^5.2.8",
     "@types/dockerode": "3.3.34",
     "@types/jest": "^29.5.14",
     "@types/react": "18.3.18",

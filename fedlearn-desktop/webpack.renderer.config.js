@@ -7,6 +7,7 @@ Object.defineProperty(global, 'localStorage', {
 const path = require('path');
 const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const { buildRendererCsp } = require('./webpack.csp');
 
 module.exports = {
   mode: 'development',
@@ -50,6 +51,11 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './src/renderer/index.html',
       filename: 'index.html',
+      // Dev build keeps 'unsafe-eval' — webpack's development build uses the
+      // `eval` devtool, so the eval'd module wrappers need script-src to allow it.
+      templateParameters: {
+        csp: buildRendererCsp({ allowEval: true }),
+      },
     }),
   ],
   devServer: {
@@ -59,8 +65,11 @@ module.exports = {
       directory: path.resolve(__dirname, 'dist/renderer'),
     },
     headers: {
+      // Applies when the dev server is hit directly in a browser tab (bypassing
+      // Electron's own onHeadersReceived injection in src/main/main.ts). Fonts
+      // are bundled locally (src/renderer/fonts.css) so no remote host is needed.
       'Content-Security-Policy':
-        "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws://localhost:9000 http://localhost:9000;",
+        "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' ws://localhost:9000 http://localhost:9000;",
     },
   },
 };

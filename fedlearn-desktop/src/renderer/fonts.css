@@ -1,0 +1,26 @@
+/* =============================================================================
+   FedLearn Desktop — Self-hosted fonts (DE-14)
+   =============================================================================
+   Bundled locally via @fontsource instead of loaded from Google Fonts, so the
+   packaged app's CSP does not need to allow fonts.googleapis.com / fonts.gstatic.com.
+   Family names below match tokens.css (--font-sans / --font-display / --font-mono)
+   exactly, so no other CSS changes are required. Weights mirror what the app
+   previously requested from Google Fonts:
+     - Bricolage Grotesque: only weight 600 is used (see styles.css .app-title /
+       .auth-title / .pg-top-value); 400 is bundled too as the family's default.
+     - Hanken Grotesk: 400/500/600/700/800 (same set as the old Google Fonts link).
+     - JetBrains Mono: 400/500/700 (same set as the old Google Fonts link).
+   ============================================================================= */
+
+@import '@fontsource/bricolage-grotesque/400.css';
+@import '@fontsource/bricolage-grotesque/600.css';
+
+@import '@fontsource/hanken-grotesk/400.css';
+@import '@fontsource/hanken-grotesk/500.css';
+@import '@fontsource/hanken-grotesk/600.css';
+@import '@fontsource/hanken-grotesk/700.css';
+@import '@fontsource/hanken-grotesk/800.css';
+
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/700.css';

@@ -71,10 +71,16 @@ function createWindow(): void {
     : [];
   const apiConnectSrc = [...defaultApiOrigins, ...apiOriginsFromEnv].join(' ');
 
-  // CSP is injected via a <meta> tag in index.html for packaged (file://) builds,
-  // because Chromium's interpretation of 'self' under file:// origins is inconsistent
-  // and can block legitimate scripts bundled in the asar. For dev builds served over
-  // HTTP, the response-header approach works correctly.
+  // CSP is injected via a <meta> tag in index.html for packaged (file://) builds
+  // (baked in at build time by HtmlWebpackPlugin — see webpack.csp.js and
+  // webpack.prod.config.js), because Chromium's interpretation of 'self' under
+  // file:// origins is inconsistent and can block legitimate scripts bundled in
+  // the asar. For dev builds served over HTTP, the response-header approach
+  // works correctly, and 'unsafe-eval' is required here because webpack's
+  // development build uses the `eval` devtool — the packaged production build
+  // carries neither this header nor 'unsafe-eval' in its meta CSP. Fonts are
+  // bundled locally (src/renderer/fonts.css), so no remote font host is needed
+  // in either environment.
   if (isDev) {
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
       callback({
@@ -84,8 +90,8 @@ function createWindow(): void {
             [
               "default-src 'self'",
               "script-src 'self' 'unsafe-eval'",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com",
+              "style-src 'self' 'unsafe-inline'",
+              "font-src 'self'",
               "img-src 'self' data:",
               `connect-src 'self' ${apiConnectSrc}`.trim(),
               "frame-src 'none'",

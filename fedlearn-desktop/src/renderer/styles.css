@@ -12,6 +12,9 @@
 /* tokens.css MUST load first so :root / .dark custom properties are global. */
 @import './tokens.css';
 
+/* Self-hosted fonts (DE-14) — see fonts.css for details. */
+@import './fonts.css';
+
 /* ========== Token aliases ==========
    The class definitions below were written against an older violet/glass
    variable vocabulary. Rather than touch every rule, we re-point the old
