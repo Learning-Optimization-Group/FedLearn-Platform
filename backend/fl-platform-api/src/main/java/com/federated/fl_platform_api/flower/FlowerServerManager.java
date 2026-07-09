@@ -81,6 +81,9 @@ public class FlowerServerManager {
     @Autowired
     private com.federated.fl_platform_api.repository.RunRepository runRepository;
 
+    @Autowired
+    private com.federated.fl_platform_api.service.ModelRecipeService modelRecipeService;
+
     // BA-3: ProcessHandle (not Process) so a StartupReconciler can re-adopt a child that outlived a
     // backend crash — a restarted JVM can only recover a handle to an orphan, never the original
     // Process object. Freshly-spawned servers are stored via process.toHandle(); the stdout reader
@@ -104,6 +107,7 @@ public class FlowerServerManager {
     public Optional<Integer> startServerForProject(Project project, String strategy,
                                                    Integer numRounds, Integer minClients) {
         requireDpPolicySatisfied(project);   // SE-11: gate every start path, before any spawn
+        requireModelTypeInCatalog(project, strategy);   // SE-10: unknown modelType -> 400 before spawn
         if (!isBlank(ecsClusterName)) {
             // The ECS/Fargate production path is not implemented: runTask returned no reachable
             // host:port (it handed back 0), the task was never tracked in runningServers, and
@@ -310,6 +314,32 @@ public class FlowerServerManager {
                             + ": incomplete DP config — requires dpTargetEpsilon > 0 (guidance: "
                             + "4-8 for medical/regulated data), dpDelta in (0,1) exclusive, and "
                             + "dpClipNorm > 0 (the per-user contribution bound).");
+        }
+    }
+
+    /**
+     * SE-10: refuse to spawn a gradient FL server whose modelType is not a key in the recipe
+     * catalog (recipes.py -- the same source of truth GET /api/model-recipes and the inference
+     * paths use). buildServerCommand's char-class allowlist blocks argv option-injection but still
+     * lets an unknown-but-clean token (e.g. "FOOBAR") reach a spawn that can only crash at recipe
+     * load. Fail fast here.
+     *
+     * <p>Throws {@link IllegalArgumentException} (mapped to 400 by GlobalExceptionHandler) because an
+     * unknown modelType is invalid input -- distinct from the DP gate's 409, which is a fixable
+     * regulated-config conflict. The message names the field + projectId but never echoes the raw
+     * value (SE-10 no-reflect convention: the stored modelType is not yet char-class validated here).
+     * FoT text-federation carries no model-type on its argv (see buildServerCommand's !isFoT branch),
+     * so it is exempt. A catalog LOAD failure surfaces as IllegalStateException from getRecipes() and
+     * propagates unchanged (-> 500), never masked as a 400.
+     */
+    private void requireModelTypeInCatalog(Project project, String strategy) {
+        if ("FoT".equalsIgnoreCase(strategy)) {
+            return;
+        }
+        if (modelRecipeService.findByKey(project.getModelType()).isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Unknown model type for project " + project.getId()
+                            + " -- not a recipe in the catalog; cannot start an FL server.");
         }
     }
 

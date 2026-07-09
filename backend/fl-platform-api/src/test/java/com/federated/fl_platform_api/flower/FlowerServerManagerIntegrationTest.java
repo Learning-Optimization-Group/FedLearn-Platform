@@ -80,6 +80,15 @@ class FlowerServerManagerIntegrationTest {
         // wire a mock repo so the field is never null if that changes.
         ReflectionTestUtils.setField(manager, "runRepository",
                 mock(com.federated.fl_platform_api.repository.RunRepository.class));
+
+        com.federated.fl_platform_api.service.ModelRecipeService modelRecipeService =
+                mock(com.federated.fl_platform_api.service.ModelRecipeService.class);
+        when(modelRecipeService.findByKey(any())).thenReturn(Optional.of(
+                new com.federated.fl_platform_api.dto.ModelRecipeDto(
+                        "CNN", "CNN", "image",
+                        java.util.List.of(), java.util.List.of(), java.util.List.of(), null)));
+        ReflectionTestUtils.setField(manager, "modelRecipeService", modelRecipeService);
+
         ReflectionTestUtils.setField(manager, "portRangeStart", RANGE_START);
         ReflectionTestUtils.setField(manager, "portRangeEnd", RANGE_END);
         // Short probe window so a healthy start returns quickly; still long enough for the stub to
