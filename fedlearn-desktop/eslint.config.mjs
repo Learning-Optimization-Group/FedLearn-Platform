@@ -60,4 +60,27 @@ export default tseslint.config(
       globals: { ...globals.node, ...globals.jest },
     },
   },
+  {
+    // TE-9 follow-up: root-level CommonJS build/config scripts (webpack configs, jest.config.js,
+    // the electron-builder preflight script) previously matched no `files` block above and so got
+    // zero rule enforcement. These are plain Node CommonJS, not TypeScript — recommended JS rules
+    // only, with Node globals (module/require/__dirname are already in `globals.node`).
+    files: ['*.{js,cjs}', 'scripts/**/*.js'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'commonjs',
+      globals: { ...globals.node },
+    },
+  },
+  {
+    // The flat config file itself is ESM (`.mjs`) regardless of the CommonJS package.json default.
+    files: ['*.mjs'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { ...globals.node },
+    },
+  },
 );

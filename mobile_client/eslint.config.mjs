@@ -51,4 +51,29 @@ export default tseslint.config(
       globals: { ...globals.jest },
     },
   },
+  {
+    // TE-9 follow-up: root-level CommonJS build/config files (babel/metro/react-native/tailwind
+    // config) previously matched no `files` block above and so got zero rule enforcement. These
+    // are plain Node CommonJS, not TypeScript — recommended JS rules only, with Node globals
+    // (module/require/__dirname are already in `globals.node`).
+    files: ['*.{js,cjs}', 'scripts/**/*.js'],   // include scripts/** for parity with desktop (future-proof)
+    extends: [js.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'commonjs',
+      globals: { ...globals.node },
+    },
+  },
+  {
+    // index.js (RN entry point) and the flat config file itself use `import`/`export` — ESM —
+    // even though they're plain `.js`/`.mjs`, not TypeScript, so override sourceType back to
+    // 'module' for just these two.
+    files: ['index.js', '*.mjs'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { ...globals.node },
+    },
+  },
 );
