@@ -99,3 +99,44 @@ also a ~36%-of-weighted-mass attack under FedAvg's num_examples weighting (Robus
 unweighted by design, so this does not affect its rows). The report's "attacker weight share" column
 makes this explicit rather than letting a "20%" headline imply a smaller weighted share than what was
 actually run. See `results/robust_aggregation_attack.md` for the full measured tables.
+
+## `--matrix` — multi-attack ablation (attack family x aggregator)
+
+The same harness also supports a family of Byzantine attacks, selectable via `--attack` for a single
+run, or all five at once via `--matrix`:
+
+- `sign_flip_scale` — the baseline attack above (`-10x` an honest delta).
+- `same_dir_scale` — control (`+10x`); expected NOT adversarial, confirms the harness responds to
+  attack *direction*, not just magnitude.
+- `label_flip` — attackers retrain locally on label-permuted data (`y -> num_classes-1-y`; Tolpegin
+  et al. 2020), then upload the result honestly (pure data poisoning, no post-hoc scaling).
+- `ipm` — inner-product manipulation (Xie et al. 2019, "Fall of Empires"): colluding attackers upload
+  the identical `-epsilon * mean(honest deltas)`.
+- `alie` — "A Little Is Enough" (Baruch et al. 2019): colluding attackers upload the identical
+  `mean(honest deltas) - z * std(honest deltas)`, designed to stay embedded in the honest per-
+  coordinate range and survive median/trimmed-mean.
+
+```bash
+cd framework
+PYTHONPATH=src python benchmarks/robust_aggregation_attack.py --matrix \
+    --rounds 25 --clients 10 --attack-fraction 0.2 --trim-beta 0.2
+```
+
+Artifacts land in `benchmarks/results/robust_aggregation_multiattack.{json,md}`, with a retention
+matrix (rows = attacks, cols = FedAvg / trimmed-mean / median) plus per-attack commentary.
+
+**The result, including the honesty-critical one**: trimmed-mean and median retain 100% against
+every attack tested here — `sign_flip_scale`, `label_flip` (FedAvg retains 77.4%, a genuine but
+partial poisoning), `ipm` (FedAvg collapses to 0.1%), and a calibrated `alie` (FedAvg collapses to
+19.3%). The `alie` result needs unpacking rather than taken at face value: the textbook tail-
+probability z* is negligible against undefended FedAvg at this benchmark's scale (FedAvg retains
+≥99% up to z=10), so a pre-registered calibration ladder (tested against undefended FedAvg *only*,
+before ever running the robust aggregators) found z=20 as the smallest value with material effect —
+but at that z the corrupted upload's L2 norm is ~13x the honest median, i.e. it stops looking
+"embedded" and becomes a plain magnitude/rank outlier that both estimators reject just like the
+gross attacks. This is a genuine property of this benchmark's low inter-client gradient variance
+(a well-separated, near-noiseless synthetic task), **not** evidence that median/trimmed-mean defeat
+ALIE in general — the attack's stealth premise needs a regime with real inter-client heterogeneity
+to have budget to exploit, which a real non-IID dataset would exercise better than this synthetic
+one (see `research/README.md`'s open-experiments list). See `results/robust_aggregation_multiattack.md`
+for the full disclosure, including the calibration ladder and every honesty caveat.
