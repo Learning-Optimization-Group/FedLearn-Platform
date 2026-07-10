@@ -85,7 +85,11 @@ npm install --legacy-peer-deps     # RN 0.80 deps (a react-navigation peer range
 and buf-generated stubs for both platforms (`scripts/build_*_arm64.sh`, `buf generate`); a real
 **release signing config** for both (Android app `build.gradle` and iOS currently use debug/none);
 the shared `@fedlearn/tokens` package replacing the local `src/theme` placeholder; and on-device
-training-data wiring (`FedLearnCoreModule::setTrainingDataFromFiles`). Once the Android project
+training-data wiring (`FedLearnCoreModule::setTrainingDataFromFiles`). Note the on-device DeComFL
+path currently loads the **fixed golden TinyNet fixture** (`Linear(4,5)→ReLU→Linear(5,3)`, fc2 frozen:
+43 params, 25 trainable) staged as the device's local partition — **not a per-recipe model**;
+per-recipe / per-device bundles and real on-device data are a deliberate post-MVP step (see
+`ON_DEVICE_TRAINING_E2E.md`). Once the Android project
 assembles, set the repo variable `MOBILE_NATIVE_CI=true` to enable the `android-so-size` CI job.
 
 The TurboModule bridge (tasks 11–13) is in `bridge/` — see `bridge/README.md` for its

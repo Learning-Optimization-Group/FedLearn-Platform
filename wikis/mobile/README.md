@@ -1,10 +1,10 @@
 # FedLearn Mobile — Wiki
 
 > **Part of:** [FedLearn Platform Docs](../README.md)  
-> **Stack:** React Native 0.80, TypeScript, native C++ (libtorch) via a TurboModule (JSI) bridge, Android + iOS  
+> **Stack:** React Native 0.80, TypeScript, native C++ (ExecuTorch on the shared core + Android; iOS libtorch xcframework build glue migration still pending) via a TurboModule (JSI) bridge, Android + iOS  
 > **Version:** `2.1.0` (adopted the **Ember** design system + brand fonts this cycle)
 
-The mobile client (`mobile_client/`) is an **on-device** federated-learning participant for phones and tablets. The React Native / TypeScript layer owns the UI, authentication, and round orchestration; the heavy lifting — the **DeComFL zeroth-order (ZO) training path** — runs **natively in C++ on libtorch**, reached through a TurboModule bridge. Training data never leaves the device.
+The mobile client (`mobile_client/`) is an **on-device** federated-learning participant for phones and tablets. The React Native / TypeScript layer owns the UI, authentication, and round orchestration; the heavy lifting — the **DeComFL zeroth-order (ZO) training path** — runs **natively in C++ on the ExecuTorch runtime** (the shared C++ core and the Android build link ExecuTorch, not libtorch/ATen; the iOS libtorch xcframework glue is a pending, incompatible scaffold), reached through a TurboModule bridge. Training data never leaves the device.
 
 The single product name is **FedLearn** (the v1 `FedMob` / `com.mobileclientnew` names are retired). "Ember" is the design system/theme adopted in `2.1.0`, not a product rename.
 
@@ -43,7 +43,7 @@ DeComFL only works if the Python server and this C++ client regenerate **identic
 
 ```
 mobile_client/
-├── shared/             # C++ FL core (libtorch) + gtest parity/dtype/marshal tests
+├── shared/             # C++ FL core (ExecuTorch runtime) + gtest parity/dtype/marshal tests
 │   ├── src/  include/  tests/
 │   └── CMakeLists.txt
 ├── bridge/             # TurboModule: TS spec, common C++ module, Android JNI + iOS .mm
@@ -61,13 +61,20 @@ mobile_client/
 
 Both app projects are now **buildable**: the two prior template-scaffolding blockers were resolved and committed — the Android **Gradle wrapper** (`./gradlew` bootstraps Gradle 8.14.1) and the iOS **`FedLearn.xcodeproj`** (regenerate with `ios/generate_xcodeproj.sh`). The native FL core is wired into both targets (Android `externalNativeBuild` → `libfedlearn_jni.so`; iOS `FedLearnCore.podspec`, enabled with `FEDLEARN_NATIVE_IOS=1`).
 
-The **C++ core is fully implemented and tested** (parity, dtype, serialize round-trip, DeComFL equivalence, gRPC marshal). What still gates a shippable release: the cross-compiled **ARM64 libtorch + gRPC** artifacts and buf-generated stubs, real **signing configs** for both platforms, the shared `@fedlearn/tokens` package replacing the local theme placeholder, and on-device training-data wiring.
+The **C++ core is fully implemented and tested** (parity, dtype, serialize round-trip, DeComFL equivalence, gRPC marshal). What still gates a shippable release: the cross-compiled **ARM64 ExecuTorch + gRPC** artifacts and buf-generated stubs (the Android core links ExecuTorch statically; the iOS libtorch xcframework wiring is a separate, still-pending migration), real **signing configs** for both platforms, the shared `@fedlearn/tokens` package replacing the local theme placeholder, and on-device training-data wiring.
 
 ### Host parity gate (run the C++ core tests in isolation)
 
+The C++ core links the **ExecuTorch runtime** (no libtorch/ATen), so build ExecuTorch v1.3.1
+from source first, then point the build at it (must match the pinned torch 2.12.0):
+
 ```bash
-export LIBTORCH_DIR=/path/to/libtorch      # CPU build is fine; must match torch 2.12.0
-cmake -S mobile_client -B mobile_client/build -DLIBTORCH_DIR="$LIBTORCH_DIR"
+# ET_SRC        — ExecuTorch v1.3.1 source tree (the dir MUST be named "executorch")
+# ET_BUILD      — its host build output (cmake-out); the static libs are resolved out of it
+# TORCH_INCLUDE — a venv torch include dir (supplies only the one missing headeronly macro header)
+cmake -S mobile_client -B mobile_client/build -DFEDLEARN_BUILD_TESTS=ON \
+  -DET_SRC=/tmp/executorch -DET_BUILD=/tmp/executorch/cmake-out \
+  -DTORCH_INCLUDE=<venv>/lib/pythonX/site-packages/torch/include
 cmake --build mobile_client/build -j
 ctest --test-dir mobile_client/build --output-on-failure
 # Python side of the same contract:
@@ -75,6 +82,25 @@ cd framework && PYTHONPATH=src pytest tests/test_perturbation.py -v
 ```
 
 CI (`.github/workflows/mobile.yml`) runs the proto-mirror, Python-parity, and C++-parity gates; the golden-vector test gates the build.
+
+---
+
+## On-device model bundle — current state (honest disclosure)
+
+The on-device DeComFL path does **not** yet load a per-recipe model. What it loads today is a
+**fixed golden TinyNet fixture**: `Linear(4,5) → ReLU → Linear(5,3)` with `fc2` frozen —
+**43 total parameters, 25 trainable** (`flat_dim = 25`). This is the committed fixture at
+`framework/tests/fixtures/decomfl_golden/` (see `zo_manifest.json`), the same fixture that
+backs the C++ parity gate.
+
+In the end-to-end on-device run, that fixture is *staged as the device's local partition* — it
+stands in for genuine per-device data, and its `.pte` loss/infer graphs stand in for a real
+per-recipe model. This is a deliberate MVP shortcut, **not representative federation**:
+per-recipe / per-device bundles and real on-device data are an explicit post-MVP step. The full
+plumbing, phases, and manual acceptance runbook are documented in
+[`mobile_client/ON_DEVICE_TRAINING_E2E.md`](../../mobile_client/ON_DEVICE_TRAINING_E2E.md)
+(the loaded model reports exactly 25 trainable params, and a round's loss ≈ the fixture
+`golden_loss` ~1.097).
 
 ---
 
