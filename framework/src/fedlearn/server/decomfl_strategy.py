@@ -266,8 +266,39 @@ class DeComFL(Strategy):
         """
         return canonical_perturbation(seed, len(self.global_params_flat)).to(self.device)
 
+    @property
+    def model_dim(self) -> int:
+        """Length of the server's flat parameter vector — the dimension the shared-seed perturbation
+        ``z`` spans. MUST equal each participating client's trainable flat dim (its
+        ``estimators.params.num_trainable(model)``); see :meth:`validate_participant_dim`."""
+        return len(self.global_params_flat)
+
+    def validate_participant_dim(self, client_flat_dim: int, client_id: str = "") -> None:
+        """FR-14 fail-loud guard: reject a client whose trainable flat dimension does not match the
+        server's, instead of letting the shared-seed perturbation misalign and the model diverge
+        silently. The mismatch means the server was built with a different parameter set than the
+        client trains — almost always a full ``state_dict()`` (buffers + frozen params) was passed as
+        ``initial_parameters`` where :func:`estimators.params.trainable_state` should have been."""
+        if client_flat_dim != self.model_dim:
+            who = f" (client {client_id})" if client_id else ""
+            raise ValueError(
+                f"DeComFL participant dimension mismatch{who}: client reports {client_flat_dim} "
+                f"trainable params but the server model_dim is {self.model_dim}. The server's "
+                f"initial_parameters must be the requires_grad-filtered trainable layout "
+                f"(estimators.params.trainable_state(model)), NOT a full state_dict() — buffers and "
+                f"frozen params otherwise inflate the server's flat vector and misalign the "
+                f"shared-seed perturbation."
+            )
+
     def _flatten_params(self, params: OrderedDict[str, torch.Tensor]) -> torch.Tensor:
-        """Flatten OrderedDict parameters to 1D tensor."""
+        """Flatten OrderedDict parameters to a 1D tensor.
+
+        CONTRACT (FR-14): ``params`` must be the client's TRAINABLE layout — the requires_grad-filtered
+        ``named_parameters()`` order (build it with ``estimators.params.trainable_state(model)``). It is
+        NOT a full ``state_dict()``: buffers + frozen params would extend this vector beyond the
+        client's and silently misalign the shared-seed perturbation z. Validated per client via
+        :meth:`validate_participant_dim`.
+        """
         flat = []
         for name, tensor in params.items():
             flat.append(tensor.view(-1))

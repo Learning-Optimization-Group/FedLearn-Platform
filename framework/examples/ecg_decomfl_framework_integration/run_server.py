@@ -138,7 +138,11 @@ def main():
         device=Config.DEVICE
     )
 
-    initial_parameters = initial_model.state_dict()
+    # FR-14: a DeComFL server must be initialized with the client's TRAINABLE layout (requires_grad-
+    # filtered), NOT a full state_dict — otherwise buffers/frozen params inflate the server's flat vector
+    # past the client's and the shared-seed perturbation misaligns. trainable_state() is that layout.
+    from fedlearn.estimators import params
+    initial_parameters = params.trainable_state(initial_model)
     print(f"Model initialized with {sum(p.numel() for p in initial_model.parameters()):,} parameters")
 
     # Create DeComFL strategy
