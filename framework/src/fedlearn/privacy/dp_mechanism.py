@@ -29,15 +29,15 @@ All arithmetic is done in float32 on CPU: this is a small, server-side reduction
 deltas, and a CPU generator keeps the noise reproducible regardless of the aggregator's device.
 """
 
-import json
 from collections import OrderedDict
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import Iterable, Optional, Sequence
 
 import torch
 
 # Reuse the exact same global-L2-norm clip the robust-aggregation path (FR-12) uses, so DP clipping
 # and Byzantine clipping share one definition of "an update's norm". Imported at module top; the
 # strategy imports THIS module lazily (inside the DP branch) to avoid an import cycle.
+from fedlearn.server._update_normalize import normalize_updates
 from fedlearn.server.robust_aggregation import clip_l2_norm
 
 
@@ -93,14 +93,15 @@ def dp_aggregate(
             raise KeyError(f"aggregatable key {k!r} missing from global_params.")
         ref[k] = global_params[k].detach().float().cpu()
 
-    normalized = _normalize(results)
+    # The DP average is uniform, so num_examples is intentionally ignored (the third element).
+    normalized = normalize_updates(results)
     n = len(normalized)
 
     # Sum of per-client CLIPPED deltas over the aggregatable keys.
     sum_delta: "OrderedDict[str, torch.Tensor]" = OrderedDict(
         (k, torch.zeros_like(ref[k])) for k in keys
     )
-    for _client_id, params in normalized:
+    for _client_id, params, _num_examples in normalized:
         delta: "OrderedDict[str, torch.Tensor]" = OrderedDict()
         for k in keys:
             if k not in params:
@@ -121,32 +122,4 @@ def dp_aggregate(
             noise.normal_(mean=0.0, std=std, generator=generator)
             mean_delta = mean_delta + noise
         out[k] = ref[k] + mean_delta
-    return out
-
-
-def _normalize(
-    results: Sequence[tuple],
-) -> List[Tuple[Optional[str], "OrderedDict[str, torch.Tensor]"]]:
-    """Coerce the accepted wire shapes into ``(client_id, state_dict)``, dropping ``num_examples``.
-
-    Mirrors ``FedAvgAggregator.aggregate``'s front-matter: entries may be ``(client_id, params,
-    n)`` or ``(params, n)``, and ``params`` may be a JSON string decoding to a plain dict of lists.
-    The DP path is uniform-weighted, so ``num_examples`` is parsed only to unpack the tuple.
-    """
-    out: List[Tuple[Optional[str], "OrderedDict[str, torch.Tensor]"]] = []
-    for entry in results:
-        if len(entry) == 3:
-            client_id, params, _num_examples = entry
-        else:
-            params, _num_examples = entry
-            client_id = None
-
-        if isinstance(params, str):
-            try:
-                decoded = json.loads(params)
-                params = OrderedDict((k, torch.tensor(v)) for k, v in decoded.items())
-            except Exception as e:  # noqa: BLE001 — surface the offending client id
-                raise ValueError(f"Failed to deserialize parameters from {client_id}: {e}")
-
-        out.append((client_id, params))
     return out

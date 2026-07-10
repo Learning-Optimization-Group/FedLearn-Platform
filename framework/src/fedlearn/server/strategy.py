@@ -3,9 +3,8 @@ from abc import ABC, abstractmethod
 from typing import Optional, Callable, Tuple
 from collections import OrderedDict
 import torch
-import json
 
-from fedlearn.estimators.perturbation import canonical_perturbation
+from fedlearn.server._update_normalize import normalize_update, normalize_updates
 
 log = logging.getLogger(__name__)
 
@@ -88,32 +87,11 @@ class FedAvgAggregator:
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        deserialized_updates = []
-        for entry in updates:
-            # If you have (client_id, params, num_examples)
-            if len(entry) == 3:
-                client_id, params, num_examples = entry
-            else:
-                params, num_examples = entry
-                client_id = None
+        # Coerce the accepted wire shapes (2-/3-tuples, JSON-encoded params) into a uniform list of
+        # (client_id, state_dict, num_examples) via the shared normalizer.
+        updates = normalize_updates(updates)
 
-            # If params is a string (JSON), parse and convert to tensors
-            if isinstance(params, str):
-                try:
-                    params = json.loads(params)
-                    params = OrderedDict({k: torch.tensor(v) for k, v in params.items()})
-                except Exception as e:
-                    raise ValueError(f"Failed to deserialize parameters from {client_id}: {e}")
-
-            deserialized_updates.append((client_id, params, num_examples))
-
-        updates = deserialized_updates
-
-        if len(updates[0]) == 3:
-            _, template_params, _ = updates[0]
-        else:
-            template_params, _ = updates[0]
-
+        _, template_params, _ = updates[0]
         template_params = {k: v.to(device) for k, v in template_params.items()}
 
         aggregated_params = OrderedDict(
@@ -144,84 +122,6 @@ class FedAvgAggregator:
             params.clear()
 
         return aggregated_params
-
-    def aggregate_scalars(self, global_params, results, eta, num_perturbations):
-        """FedAvg over ZO gradient scalars (DECISION D1).
-
-        Reconstruct each client's update
-            Δ_c = (eta/P)·Σ_{k,p} g_c[k][p]·canonical_perturbation(seed_c[k][p], d)
-        and return the num_examples-weighted global
-            global_new = global_old - Σ_c w_c·Δ_c
-        as an OrderedDict matching global_params.
-
-        Args:
-            global_params: OrderedDict[str, Tensor] — the prior global model.
-            results: list of (client_id, seeds, gradients, num_examples) where
-                     seeds[k][p] and gradients[k][p] are the client's K×P
-                     seed/g scalars.
-            eta: learning rate η.
-            num_perturbations: P (perturbations per local step).
-
-        Returns:
-            OrderedDict with the same keys/shapes as global_params.
-
-        Raises:
-            ValueError: if results is empty after sanitization, or if any
-                        client's seeds/gradients have a shape mismatch.
-        """
-        if not results:
-            raise ValueError("Cannot aggregate an empty list of updates.")
-
-        # Sanitize num_examples: cap and reject invalid values (mirrors aggregate()).
-        sanitized = [
-            (cid, seeds, grads, min(n, self.MAX_SAMPLES))
-            for cid, seeds, grads, n in results if n > 0
-        ]
-        if not sanitized:
-            raise ValueError("No valid updates after sanitization.")
-
-        # Flatten global params to a 1-D float32 CPU tensor.
-        flat_global = torch.cat(
-            [t.view(-1) for t in global_params.values()]
-        ).float().cpu()
-        d = flat_global.numel()
-
-        total = sum(n for _, _, _, n in sanitized)
-        agg_delta = torch.zeros(d, dtype=torch.float32)
-
-        for cid, seeds, grads, n in sanitized:
-            # Validate rectangular K×P layout — malformed payloads fail loudly.
-            if len(seeds) != len(grads):
-                raise ValueError(
-                    f"Client {cid}: len(seeds)={len(seeds)} != len(gradients)={len(grads)}"
-                )
-            for k, (s_row, g_row) in enumerate(zip(seeds, grads)):
-                if len(s_row) != num_perturbations or len(g_row) != num_perturbations:
-                    raise ValueError(
-                        f"Client {cid} step k={k}: expected P={num_perturbations} "
-                        f"entries, got seeds={len(s_row)} gradients={len(g_row)}"
-                    )
-
-            # Δ_c = (eta/P) · Σ_{k,p} g[k][p] · canonical_perturbation(seed[k][p], d)
-            delta_c = torch.zeros(d, dtype=torch.float32)
-            for s_row, g_row in zip(seeds, grads):
-                for seed, g in zip(s_row, g_row):
-                    delta_c += g * canonical_perturbation(seed, d)
-            delta_c *= eta / num_perturbations
-
-            weight = n / total
-            agg_delta += weight * delta_c
-
-        new_flat = flat_global - agg_delta
-
-        # Unflatten back to the same keys/shapes as global_params.
-        out = OrderedDict()
-        offset = 0
-        for name, tensor in global_params.items():
-            numel = tensor.numel()
-            out[name] = new_flat[offset:offset + numel].view_as(tensor).clone()
-            offset += numel
-        return out
 
 
 class FedLoRA(Strategy):
@@ -377,11 +277,8 @@ class FedLoRA(Strategy):
     @staticmethod
     def _client_keys(results):
         """The parameter key list of the first client (homogeneity already asserted upstream),
-        decoding a JSON-string payload if necessary — mirrors FedAvgAggregator's wire shapes."""
-        entry = results[0]
-        params = entry[1] if len(entry) == 3 else entry[0]
-        if isinstance(params, str):
-            params = json.loads(params)
+        decoding a JSON-string payload if necessary via the shared update normalizer."""
+        _cid, params, _n = normalize_update(results[0])
         return list(params.keys())
 
     def evaluate(self, server_round, parameters):

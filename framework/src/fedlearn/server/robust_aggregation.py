@@ -35,7 +35,6 @@ Both are large-cohort defenses and degrade at the 1-3 client cohorts the platfor
 is exactly why the estimator is opt-in per project rather than the default.
 """
 
-import json
 import logging
 from collections import OrderedDict
 from typing import Callable, List, Optional, Tuple
@@ -43,6 +42,7 @@ from typing import Callable, List, Optional, Tuple
 import torch
 
 from fedlearn.communication.serializer import _reject_non_finite
+from fedlearn.server._update_normalize import normalize_updates
 from fedlearn.server.strategy import Strategy
 
 log = logging.getLogger(__name__)
@@ -210,7 +210,7 @@ class RobustAggregator(Strategy):
 
         # Normalise the wire formats FedAvgAggregator also accepts (2-/3-tuples, JSON-encoded
         # params) into a uniform list of (client_id, state_dict, num_examples).
-        normalized = _normalize_updates(results)
+        normalized = normalize_updates(results)
 
         # Drop non-finite clients (reusing the canonical serializer check) and clip the survivors.
         survivors: List["OrderedDict[str, torch.Tensor]"] = []
@@ -305,30 +305,3 @@ def _is_finite(params: "OrderedDict[str, torch.Tensor]") -> bool:
         except ValueError:
             return False
     return True
-
-
-def _normalize_updates(
-        results: List[Tuple],
-) -> List[Tuple[Optional[str], "OrderedDict[str, torch.Tensor]", int]]:
-    """Coerce the accepted wire shapes into ``(client_id, state_dict, num_examples)``.
-
-    Mirrors ``FedAvgAggregator.aggregate``'s front-matter: entries may be ``(client_id, params, n)``
-    or ``(params, n)``, and ``params`` may be a JSON string that decodes to a plain dict of lists.
-    """
-    normalized = []
-    for entry in results:
-        if len(entry) == 3:
-            client_id, params, num_examples = entry
-        else:
-            params, num_examples = entry
-            client_id = None
-
-        if isinstance(params, str):
-            try:
-                decoded = json.loads(params)
-                params = OrderedDict({k: torch.tensor(v) for k, v in decoded.items()})
-            except Exception as e:  # noqa: BLE001 — surface the offending client id
-                raise ValueError(f"Failed to deserialize parameters from {client_id}: {e}")
-
-        normalized.append((client_id, params, num_examples))
-    return normalized
