@@ -154,9 +154,15 @@ public class ScriptModelBundleStager implements ModelBundleStager {
             // ExecuTorch toolchain needed); everything else takes the best-effort real-export path.
             boolean fixtureBacked = isFixtureBacked(recipeKey);
             String path = fixtureBacked ? "fixture" : "export";
+            // Resolve the (relative-by-default) script to an absolute path: the backend runs from a module
+            // subdir (backend/fl-platform-api) under bootRun, but the helper scripts live at the repo-root
+            // scripts/, so a bare relative path would not resolve from the process CWD (→ python exit 2 →
+            // silent 404). The scripts themselves locate their fixtures via __file__, so an absolute
+            // invocation from any CWD is safe.
+            String script = resolveScriptPath(fixtureBacked ? stageScript : exportScript);
             List<String> command = fixtureBacked
-                    ? List.of(pythonExecutable, stageScript, runId.toString(), "--out", modelBundleDir)
-                    : List.of(pythonExecutable, exportScript, runId.toString(),
+                    ? List.of(pythonExecutable, script, runId.toString(), "--out", modelBundleDir)
+                    : List.of(pythonExecutable, script, runId.toString(),
                             "--recipe", recipeKey, "--out", modelBundleDir);
             int exit = invoker.run(command, timeoutSeconds);
             if (exit == 0) {
@@ -193,6 +199,37 @@ public class ScriptModelBundleStager implements ModelBundleStager {
             }
         }
         return false;
+    }
+
+    /** Resolve a configured script path against the JVM working directory (see the static overload). */
+    private String resolveScriptPath(String configured) {
+        return resolveScriptPath(configured, System.getProperty("user.dir"));
+    }
+
+    /**
+     * Resolve a (possibly relative) script path to an existing absolute path by walking up from
+     * {@code baseDir} through its ancestors. The helper Python scripts live at the repo-root
+     * {@code scripts/}, but the backend can run from a module subdir (e.g. {@code backend/fl-platform-api}
+     * under {@code bootRun}), where a bare relative path would not resolve. Returns {@code configured}
+     * unchanged if nothing matches (deployed JAR without a source tree) so the miss surfaces as a logged
+     * failure rather than a fabricated path.
+     */
+    static String resolveScriptPath(String configured, String baseDir) {
+        if (configured == null || configured.isBlank()) {
+            return configured;
+        }
+        Path rel = Path.of(configured);
+        if (rel.isAbsolute()) {
+            return configured;
+        }
+        Path start = Path.of(baseDir == null || baseDir.isBlank() ? "." : baseDir).toAbsolutePath();
+        for (Path d = start; d != null; d = d.getParent()) {
+            Path candidate = d.resolve(rel);
+            if (Files.isRegularFile(candidate)) {
+                return candidate.normalize().toString();
+            }
+        }
+        return configured;
     }
 
     /**

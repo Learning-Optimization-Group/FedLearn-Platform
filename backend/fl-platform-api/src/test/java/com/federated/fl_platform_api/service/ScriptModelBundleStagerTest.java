@@ -2,7 +2,9 @@ package com.federated.fl_platform_api.service;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.nio.file.Files;
@@ -77,8 +79,13 @@ class ScriptModelBundleStagerTest {
         s.stageForRun(runId, "PNEUMONIA_CNN");
 
         assertEquals(1, calls.get());
-        assertEquals(List.of("python3", "scripts/export_model.py", runId.toString(),
-                "--recipe", "PNEUMONIA_CNN", "--out", dir.toString()), cmd.get());
+        // The script is resolved to an absolute path (found by walking up from the CWD); assert the
+        // structure + tail rather than the brittle relative literal.
+        List<String> c = cmd.get();
+        assertEquals("python3", c.get(0));
+        assertTrue(c.get(1).endsWith("export_model.py"), "export path: " + c.get(1));
+        assertEquals(List.of(runId.toString(), "--recipe", "PNEUMONIA_CNN", "--out", dir.toString()),
+                c.subList(2, c.size()));
     }
 
     @Test
@@ -91,10 +98,13 @@ class ScriptModelBundleStagerTest {
         s.stageForRun(runId, "TINYNET_GOLDEN");
 
         assertEquals(1, calls.get());
-        // Fixture-backed recipe -> the stdlib-only stage_model_bundle.py path, WITHOUT --recipe (that
-        // script copies the committed golden fixture and takes no recipe key).
-        assertEquals(List.of("python3", "scripts/stage_model_bundle.py", runId.toString(),
-                "--out", dir.toString()), cmd.get());
+        // Fixture-backed recipe -> the stdlib-only stage_model_bundle.py path (resolved to absolute),
+        // WITHOUT --recipe (that script copies the committed golden fixture and takes no recipe key).
+        List<String> c = cmd.get();
+        assertEquals("python3", c.get(0));
+        assertTrue(c.get(1).endsWith("stage_model_bundle.py"), "stage path: " + c.get(1));
+        assertEquals(List.of(runId.toString(), "--out", dir.toString()), c.subList(2, c.size()));
+        assertFalse(c.contains("--recipe"), "fixture path must not pass --recipe");
     }
 
     @Test
@@ -105,8 +115,36 @@ class ScriptModelBundleStagerTest {
 
         s.stageForRun(runId, "tinynet_golden");   // lower-case must match the fixture-recipe set
 
-        assertEquals(List.of("python3", "scripts/stage_model_bundle.py", runId.toString(),
-                "--out", dir.toString()), cmd.get());
+        List<String> c = cmd.get();
+        assertEquals("python3", c.get(0));
+        assertTrue(c.get(1).endsWith("stage_model_bundle.py"), "stage path: " + c.get(1));
+        assertEquals(List.of(runId.toString(), "--out", dir.toString()), c.subList(2, c.size()));
+    }
+
+    // ── BA-16 path-resolution: the script is resolved to an absolute path by walking up from the JVM
+    //    working dir, so a relative default (scripts/…) is found even when the backend runs from a module
+    //    subdir (backend/fl-platform-api) under bootRun — the live bug the fake-invoker tests missed. ──
+
+    @Test
+    void resolveScriptPath_walksUpFromModuleSubdir_toRepoRootScript(@TempDir Path root) throws Exception {
+        Files.createDirectories(root.resolve("scripts"));
+        Path script = root.resolve("scripts/stage_model_bundle.py");
+        Files.writeString(script, "# fixture stager");
+        Path moduleCwd = root.resolve("backend/fl-platform-api");   // where bootRun actually runs
+        Files.createDirectories(moduleCwd);
+
+        String resolved = ScriptModelBundleStager.resolveScriptPath(
+                "scripts/stage_model_bundle.py", moduleCwd.toString());
+        assertEquals(script.toAbsolutePath().normalize().toString(), resolved,
+                "must resolve the repo-root script from a module subdir CWD");
+    }
+
+    @Test
+    void resolveScriptPath_absolutePassesThrough_andMissingReturnedUnchanged(@TempDir Path root) {
+        assertEquals("/abs/x.py", ScriptModelBundleStager.resolveScriptPath("/abs/x.py", root.toString()),
+                "an absolute path is used verbatim");
+        assertEquals("scripts/nope.py", ScriptModelBundleStager.resolveScriptPath("scripts/nope.py", root.toString()),
+                "a not-found script returns unchanged so the miss surfaces as a logged failure");
     }
 
     @Test
