@@ -16,5 +16,30 @@ export default defineConfig({
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     clearMocks: true,
     restoreMocks: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      include: ['src/**/*.{ts,tsx}'],
+      // Excluded from the denominator: specs + their fixtures, config/entry files, and
+      // type-only declarations carry no runtime behaviour worth a coverage number.
+      exclude: [
+        'src/**/*.{test,spec}.{ts,tsx}',
+        'src/test/**',
+        'src/**/*.d.ts',
+        'src/main.tsx',
+        'src/vite-env.d.ts',
+        '**/*.config.*',
+      ],
+      // Regression floor — set a few points below the measured baseline
+      // (stmts/lines 58.08%, branches 70.95%, funcs 38.07% as of this commit).
+      // Green on current code; the intent is to catch coverage drops, not to
+      // pin an aspirational target. Ratchet up as the suite grows.
+      thresholds: {
+        lines: 54,
+        statements: 54,
+        functions: 34,
+        branches: 66,
+      },
+    },
   },
 });

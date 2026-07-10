@@ -23,6 +23,7 @@
     "build:renderer": "webpack --config webpack.renderer.config.js --mode production",
     "build": "webpack --config webpack.prod.config.js",
     "test": "jest",
+    "test:coverage": "jest --coverage",
     "lint": "eslint .",
     "check:bundle": "node scripts/check-native-bundle.js",
     "package": "node scripts/check-native-bundle.js && npm run build && electron-builder --config electron-builder.yml",

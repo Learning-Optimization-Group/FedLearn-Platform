@@ -9,6 +9,7 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "test": "jest",
+    "test:coverage": "jest --coverage --ci",
     "codegen": "react-native codegen"
   },
   "//": "VERSIONS ARE verify-before-use (02-TECH-STACK.md §17): pin exact via `npm view <pkg> version`. RN 0.8x line, NativeWind 4.x, TypeScript 5.x. react-native-reusables components are copied in (shadcn-style), not an npm dependency.",
@@ -55,7 +56,22 @@
     },
     "transformIgnorePatterns": [
       "node_modules/(?!(?:@react-native|react-native|nativewind|react-native-css-interop|react-native-reanimated|react-native-worklets|react-native-safe-area-context|react-native-svg|lucide-react-native|@react-navigation)/)"
-    ]
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.{ts,tsx}",
+      "!src/**/__tests__/**",
+      "!src/**/__mocks__/**",
+      "!src/**/*.types.ts",
+      "!src/theme/tokens.generated.ts"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "statements": 30,
+        "branches": 30,
+        "functions": 18,
+        "lines": 30
+      }
+    }
   },
   "codegenConfig": {
     "name": "NativeFedLearnCoreSpec",

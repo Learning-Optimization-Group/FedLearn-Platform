@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'jacoco'
     id 'org.springframework.boot' version '3.4.5'
     id 'io.spring.dependency-management' version '1.1.4'
 }
@@ -82,4 +83,36 @@ tasks.named('test') {
     // rejects ("client version 1.32 is too old; minimum is 1.40").
     def apiVersion = System.getenv('DOCKER_API_VERSION')
     if (apiVersion) { systemProperty 'api.version', apiVersion }
+
+    // Emit coverage data whenever the test suite runs.
+    finalizedBy tasks.named('jacocoTestReport')
+}
+
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+tasks.named('jacocoTestReport') {
+    dependsOn tasks.named('test')
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+// Bundle-level regression floor: keep overall line coverage from slipping below
+// the current measured level. This is a modest anti-regression guard, not an
+// aspirational target — bump it up as coverage improves.
+tasks.named('jacocoTestCoverageVerification') {
+    dependsOn tasks.named('test')
+    violationRules {
+        rule {
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                // Measured line coverage was 74.6%; floor sits a few points below.
+                minimum = 0.70
+            }
+        }
+    }
 }

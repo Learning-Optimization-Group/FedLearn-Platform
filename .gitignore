@@ -138,6 +138,9 @@ htmlcov/
 wheels/
 *.egg
 
+# JS/JVM coverage report output (vitest/jest v8 + jacoco html) — generated, never committed (TE-11)
+coverage/
+
 # OS
 Thumbs.db
 ehthumbs.db

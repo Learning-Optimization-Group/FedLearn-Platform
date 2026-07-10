@@ -73,7 +73,8 @@ jobs:
           # executorch pinned to the validated toolchain pairing (mobile_client/scripts/pte_export.py:
           # torch 2.12.0 + executorch 1.3.1) so the PTE-export parity test RUNS here instead of
           # silently skipping on importorskip — the exact false green TE-10 exists to catch.
-          pip install -r framework/requirements.txt pytest "executorch==1.3.1"
+          # pytest-cov: framework/pytest.ini addopts enforce --cov=fedlearn --cov-fail-under (TE-11).
+          pip install -r framework/requirements.txt pytest pytest-cov "executorch==1.3.1"
           pip install -e framework
       # TE-10: the skip-integrity guard in framework/tests/conftest.py fails this job if any test
       # is SKIPPED for a non-allowlisted reason (`-m "not slow"` deselection is not a skip and
@@ -99,7 +100,8 @@ jobs:
         working-directory: backend/fl-platform-api
         env:
           SPRING_PROFILES_ACTIVE: test
-        run: ./gradlew test --no-daemon
+        # TE-11: jacocoTestCoverageVerification enforces the bundle line-coverage floor (0.70).
+        run: ./gradlew test jacocoTestCoverageVerification --no-daemon
 
   # TE-4: the FL trainer scripts (recipes/client/init_model/fl_server/infer) ship a committed
   # pytest suite that ran in no CI job. Gate it here so a script regression fails a PR. Runs only
@@ -153,7 +155,7 @@ jobs:
           npm ci
           npm run lint
           npx tsc --noEmit
-          npm run test:run
+          npm run test:coverage   # TE-11: vitest --coverage; thresholds enforced from vitest.config.ts
           npm run build
 
   desktop:
@@ -176,7 +178,7 @@ jobs:
         run: |
           npm ci
           npm run lint
-          npm test
+          npm run test:coverage   # TE-11: jest --coverage; coverageThreshold enforced from jest.config.js
 
   # TE-3: the mobile RN TypeScript app had ZERO CI gate — tsc + jest never ran anywhere. Gate them
   # here (type-check + jest + lint). Fast JS-only job, kept separate from the heavy native Android
@@ -204,7 +206,7 @@ jobs:
           npm ci
           npm run lint
           npx tsc --noEmit
-          npx jest --ci
+          npm run test:coverage   # TE-11: jest --coverage --ci; coverageThreshold enforced from package.json
 
   # TE-6: client-docker is a full deployable unit (containerized FL client, a thin wrapper around
   # framework/) that shipped with ZERO CI — a broken Dockerfile or requirements.txt went unnoticed
