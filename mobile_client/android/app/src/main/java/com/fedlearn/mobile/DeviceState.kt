@@ -9,7 +9,12 @@ import android.os.PowerManager
 // nativeSetState -> DeviceStateJni.cpp (Java_com_fedlearn_mobile_DeviceState_nativeSetState).
 object DeviceState {
   init {
-    System.loadLibrary("fedlearn_jni")
+    // The FedLearn C++ core (incl. DeviceStateJni.cpp) is grafted into libappmodules.so by the app's
+    // CMakeLists (RN New Architecture app build) — there is NO standalone libfedlearn_jni.so. Loading
+    // "fedlearn_jni" here threw UnsatisfiedLinkError and crashed the app the moment device sampling
+    // started (FlForegroundService -> DeviceState.<clinit>). Match FedLearnNative.kt, which correctly
+    // loads "appmodules".
+    System.loadLibrary("appmodules")
   }
 
   @JvmStatic
