@@ -25,7 +25,7 @@ FedLearn Platform is an **open-source**, end-to-end solution for federated learn
 
 ### Key Innovations
 
-🔥 **Parameter Chunking** - Handles models >300MB by automatically chunking parameters during gRPC transmission
+🔥 **Parameter Chunking** - Parameters are always chunked during gRPC transmission — the state_dict is serialized to one safetensors blob and split into fixed-size chunks (`FEDLEARN_CHUNK_SIZE_MB`, default 4MB); a small model simply emits a single chunk
 
 ⚡ **Parallel Heartbeat** - Dual gRPC stub architecture prevents server timeout during long training sessions
 
@@ -49,7 +49,7 @@ FedLearn Platform is an **open-source**, end-to-end solution for federated learn
 | ---------------------- | ------------------------ | ---------------------------------------- | --------------------------------------------------- |
 | **Frontend**     | React 19 + Vite + TS     | Web dashboard, real-time telemetry       | Local Vite (`:5173`) or static bundle               |
 | **Backend API**  | Spring Boot 3 (Java 21)  | REST + STOMP, auth, FL-server lifecycle  | AWS EC2 behind nginx + Let's Encrypt                |
-| **Database**     | H2 (file-mode)           | Users, projects, training results        | EBS-backed on the same EC2; PostgreSQL is `production` profile (unfinished) |
+| **Database**     | PostgreSQL 16            | Users, projects, training results        | Every profile (H2 retired); local via Docker Compose, deploy via `SPRING_DATASOURCE_*` |
 | **FL Framework** | Python 3.10 + PyTorch    | Custom federated learning server         | Spawned by backend via `ProcessBuilder`             |
 | **FL Clients**   | Docker + Python          | Containerized training clients           | Heterogeneous: Jetson AGX Orin / M4 Max / Zephyrus  |
 | **Desktop**      | Electron + TS + dockerode | Host-side orchestrator for FL clients   | Packaged for macOS / Linux / Windows (CPU + CUDA)   |
@@ -60,7 +60,7 @@ FedLearn Platform is an **open-source**, end-to-end solution for federated learn
 Browser
   → nginx :443 (TLS, Let's Encrypt) — only on EC2; local dev hits :8081 direct
   → Spring Boot REST + STOMP (:8081, loopback-only on EC2)
-  → H2 / PostgreSQL  (project + user state)
+  → PostgreSQL  (project + user state)
   → spawns Python FL server via ProcessBuilder
   → FL server gRPC on a dynamic port in :50000-50010
   → FL clients (Docker / native) connect over gRPC
@@ -95,16 +95,18 @@ Built entirely from scratch without relying on existing FL frameworks like Flowe
 
 ### 2. Parameter Chunking for Large Models
 
-**Challenge**: Models like LLMs can exceed 300MB, causing gRPC transmission failures.
+**Challenge**: A single gRPC message has a hard size ceiling, so large models (LLMs) cannot be sent in one shot.
 
-**Solution**: Automatic parameter chunking during serialization.
+**Solution**: Parameters are **always** chunked during serialization — there is no size threshold. The `state_dict` is serialized to one deterministic safetensors blob, then split into fixed-size chunks (`FEDLEARN_CHUNK_SIZE_MB`, default **4MB**). A small model simply emits a single chunk.
 
 ```python
-# Automatically chunks parameters >300MB
-if model_size > 300_000_000:  # 300MB threshold
-    chunks = chunk_parameters(parameters)
-    for chunk in chunks:
-        send_chunk(chunk)
+# framework/src/fedlearn/communication/serializer.py — always chunk, no threshold
+CHUNK_SIZE = int(os.environ.get("FEDLEARN_CHUNK_SIZE_MB", "4")) * 1024 * 1024
+
+serialized = state_dict_to_safetensors(params, num_examples)   # one safetensors blob
+num_chunks = (len(serialized) + CHUNK_SIZE - 1) // CHUNK_SIZE   # small model → 1 chunk
+for i in range(num_chunks):
+    send_chunk(serialized[i * CHUNK_SIZE : (i + 1) * CHUNK_SIZE])
 ```
 
 **Benefits**:
@@ -239,7 +241,7 @@ This deliberately closes the XSS exfiltration vector: there is no `localStorage`
 - **Spring Security** + **JWT** delivered as HttpOnly cookies
 - **WebSocket (STOMP)** for live log + telemetry streaming
 - **JPA / Hibernate** (validate-only) — schema owned by **Flyway**
-- **H2** (file-mode) on the EC2 demo; **PostgreSQL** wired in the `production` profile
+- **PostgreSQL 16** for every profile (H2 retired) — local via Docker Compose, tests via Testcontainers, deploy via `SPRING_DATASOURCE_*`
 - **Deployment**: AWS EC2 (Ubuntu) behind **nginx** + **Let's Encrypt**
 
 ### FL Framework
@@ -342,7 +344,7 @@ FedLearn-Platform/
 - **Python 3.10+** (only if you run the FL framework directly; the Docker client bundles its own runtime)
 - **Docker** (for FL clients)
 
-H2 is file-mode in dev — no PostgreSQL needed locally.
+PostgreSQL 16 is required locally — `cd backend/fl-platform-api && docker compose up -d` starts one at `localhost:5432/federance`.
 
 ### Run the full stack
 
@@ -512,7 +514,7 @@ Live at **https://fedlearn.duckdns.org**. Deploy procedure: [`docs/guides/aws_de
 - AWS EC2 (Ubuntu 24.04 LTS, `r5.large`)
 - nginx terminates TLS on `:443`, proxies to Spring Boot on `127.0.0.1:8081`
 - Let's Encrypt certbot for auto-renewing TLS
-- H2 file-mode at `~/app/data/`, EBS-backed across reboots
+- PostgreSQL 16 (local Docker Compose or host package) on the EC2 host, data dir EBS-backed across reboots
 - Spring Boot as a systemd service (`fedlearn.service`)
 - Python FL servers spawned by `FlowerServerManager`
 

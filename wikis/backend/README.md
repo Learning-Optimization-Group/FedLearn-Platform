@@ -4,7 +4,7 @@ Welcome to the internal documentation for the **FedLearn-Platform Backend**.
 
 This section of the wiki covers the Spring Boot 3 API, the database interactions, security, WebSockets, and how the federated learning python processes are orchestrated natively or scaled on AWS ECS Fargate.
 
-> ⚠️ **Branch reality.** The running backend uses **H2** (file-mode in `dev`/`ec2demo`, in-memory in `test`); PostgreSQL is the intended production/Fargate target and that path is unfinished. Authorization on this branch is the single coarse `users.role IN (USER, ADMIN)` column (migration `V2`; highest committed migration `V3`). The identity / multi-tenancy / audit subsystem documented in page 06 is **designed on a separate identity-foundations branch and is not present here.**
+> ⚠️ **Branch reality.** The backend runs on **PostgreSQL** for every profile (H2 has been retired) — `dev`/`ec2demo` against a local Postgres (`backend/fl-platform-api/docker-compose.yml` → `docker compose up -d`) and `test` against Testcontainers Postgres. The highest committed Flyway migration is **`V19`**. Authorization on this branch is the single coarse `users.role IN (USER, ADMIN)` column (migration `V2`). The identity / multi-tenancy / audit subsystem documented in page 06 is **designed on a separate identity-foundations branch and is not present here.**
 
 ## Documentation Index
 

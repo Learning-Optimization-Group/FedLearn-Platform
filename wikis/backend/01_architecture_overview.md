@@ -9,15 +9,15 @@ The FedLearn backend is designed as an **Orchestration API**. It does not perfor
 The backend acts as the central control plane connecting the React web interface to the distributed Python FL ecosystem.
 
 > ⚠️ **Branch reality.** Two parts of this overview describe designed-but-not-yet-committed work:
-> 1. **Database** — the running backend uses **H2** (file-mode in `dev`/`ec2demo`, in-memory in `test`). **PostgreSQL is the intended production / ECS-Fargate target and that path is unfinished.**
-> 2. **Identity / multi-tenancy / audit** — the `audit/`, `bootstrap/`, and `email/` packages, the `Organization` / `OrganizationMembership` / `ProjectMembership` / `ProjectAccessRequest` / `AuditEvent` entities, `PlatformRole` / `OrgScope` / `AuthorizationService`, and the `V4`–`V6` migrations live on a **separate identity-foundations branch and are _not present_ on this branch.** This branch ships only `users.role IN (USER, ADMIN)` (migration `V2`); the highest committed migration is `V3`. See [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md).
+> 1. **Database** — the backend runs on **PostgreSQL** for every profile (H2 has been retired): `dev`/`ec2demo` against a local Postgres (`backend/fl-platform-api/docker-compose.yml` → `docker compose up -d`), `test` against Testcontainers Postgres (`jdbc:tc:postgresql:16.6-alpine`), and deployed envs override `SPRING_DATASOURCE_*`. The highest committed Flyway migration is **`V19`**.
+> 2. **Identity / multi-tenancy / audit** — the `audit/`, `bootstrap/`, and `email/` packages, the `Organization` / `OrganizationMembership` / `ProjectMembership` / `ProjectAccessRequest` / `AuditEvent` entities, `PlatformRole` / `OrgScope` / `AuthorizationService`, and the `V4`–`V6` migrations live on a **separate identity-foundations branch and are _not present_ on this branch.** This branch ships only `users.role IN (USER, ADMIN)` (migration `V2`). See [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md).
 >
 > The orchestration (`flower/`), project, results, logging, security-filter, config, controller, and DTO machinery described below is current.
 
 ### Tech Stack
 * **Language:** Java 21
 * **Framework:** Spring Boot 3.4.1
-* **Database:** H2 (file-mode; accessed via Spring Data JPA / Hibernate). PostgreSQL is the intended production/Fargate target — that path is unfinished.
+* **Database:** PostgreSQL 16 for every profile (H2 retired; accessed via Spring Data JPA / Hibernate). Local dev via Docker Compose; tests via Testcontainers; deployed envs override `SPRING_DATASOURCE_*`.
 * **Authentication:** Stateless JWT (JSON Web Tokens)
 * **Real-time Comms:** Spring WebSocket (STOMP protocol)
 * **Cloud Integration:** AWS SDK v2 (ECS/Fargate)
