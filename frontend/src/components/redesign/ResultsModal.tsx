@@ -3,12 +3,13 @@
 // =============================================================================
 // Wired to real ProjectResult[] from apiServices.
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ResponsiveContainer, LineChart, Line, YAxis, XAxis, Tooltip, CartesianGrid } from 'recharts';
 import { X, Trophy, Timer, TrendingDown, Table, LineChart as ChartIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { ProjectResult } from '../../services/apiServices';
 import { Button, MetricTile } from '../ui';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface ResultsModalProps {
   isOpen: boolean;
@@ -19,6 +20,21 @@ interface ResultsModalProps {
 
 export function ResultsModalV2({ isOpen, onClose, projectName, results }: ResultsModalProps) {
   const [activeTab, setActiveTab] = useState<'chart' | 'table'>('chart');
+
+  // FE-13: this is a standalone dialog (not the shared Modal primitive, since it needs a
+  // full-bleed 6xl/90vh layout). Give it the same a11y contract — dialog role, focus trap +
+  // restore via useFocusTrap, and Escape-to-close.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(isOpen, panelRef);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -33,8 +49,20 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
   const finalLoss = hasResults ? results[results.length - 1].loss : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-black/75 backdrop-blur-md font-sans">
-      <div className="bg-surface-1 border border-line w-full max-w-6xl h-full max-h-[90vh] rounded-card flex flex-col overflow-hidden text-fg shadow-[0_30px_90px_-24px_rgba(0,0,0,0.95)]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-black/75 backdrop-blur-md font-sans"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${projectName} — Results`}
+        tabIndex={-1}
+        className="bg-surface-1 border border-line w-full max-w-6xl h-full max-h-[90vh] rounded-card flex flex-col overflow-hidden text-fg shadow-[0_30px_90px_-24px_rgba(0,0,0,0.95)]"
+      >
 
         {/* Header */}
         <div className="flex items-center justify-between p-8 pb-6 border-b border-hairline">

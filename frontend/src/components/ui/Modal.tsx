@@ -1,7 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 export interface ModalProps {
     open: boolean;
@@ -40,6 +41,10 @@ export function Modal({
     className,
 }: ModalProps) {
     const [mounted, setMounted] = useState(false);
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // Trap focus inside the panel while open; restore it to the trigger on close.
+    useFocusTrap(open, panelRef);
 
     // Drive the enter transition on the frame after mount.
     useEffect(() => {
@@ -77,6 +82,8 @@ export function Modal({
             }}
         >
             <div
+                ref={panelRef}
+                tabIndex={-1}
                 className={cn(
                     'relative w-full bg-surface-1 border border-line rounded-card',
                     'shadow-[0_30px_90px_-24px_rgba(0,0,0,0.95)]',

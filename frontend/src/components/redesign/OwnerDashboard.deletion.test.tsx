@@ -83,10 +83,10 @@ describe('OwnerDashboard/ProjectCard — deletion routes by role (FE-2)', () => 
 
     await renderAndOpenProjectMenu();
 
-    // Owners see the approval flow, not the hard delete.
-    expect(screen.queryByRole('button', { name: 'Delete project' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Request deletion' }));
-    // Reason-capture modal → confirm the request (reason left blank).
+    // Owners see the approval flow, not the hard delete. (FE-13: the kebab items are ARIA menuitems.)
+    expect(screen.queryByRole('menuitem', { name: 'Delete project' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Request deletion' }));
+    // Reason-capture modal → confirm the request (reason left blank). The modal button is a plain button.
     fireEvent.click(screen.getByRole('button', { name: 'Request deletion' }));
 
     await waitFor(() => expect(api.submitDeletionRequest).toHaveBeenCalledWith('p1', undefined));
@@ -105,12 +105,42 @@ describe('OwnerDashboard/ProjectCard — deletion routes by role (FE-2)', () => 
 
     await renderAndOpenProjectMenu();
 
-    expect(screen.queryByRole('button', { name: 'Request deletion' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Delete project' }));
-    // ConfirmDialog → confirm.
+    expect(screen.queryByRole('menuitem', { name: 'Request deletion' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete project' }));
+    // ConfirmDialog → confirm (a plain button in the shared Modal).
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(api.deleteProject).toHaveBeenCalledWith('p1'));
     expect(api.submitDeletionRequest).not.toHaveBeenCalled();
+  });
+
+  it('FE-13: the actions menu has ARIA menu semantics; arrow keys roam and Escape closes + restores focus', async () => {
+    mockedUseAuth.mockReturnValue(
+      makeAuth({
+        currentUser: { username: 'olive', email: 'olive@example.com', role: 'PROJECT_OWNER' },
+        isOwner: true,
+      }),
+    );
+
+    render(<OwnerDashboard />);
+    await screen.findByText('Fraud model');
+    const trigger = screen.getByRole('button', { name: 'Project actions' });
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu');
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(trigger);
+    const menu = screen.getByRole('menu', { name: 'Project actions' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    // Opening the menu moves focus onto the first item (WAI-ARIA menu-button pattern).
+    const items = screen.getAllByRole('menuitem');
+    expect(items[0]).toHaveFocus();
+
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(items[1]).toHaveFocus();
+
+    // Escape closes the menu and returns focus to the trigger — no lost place.
+    fireEvent.keyDown(menu, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    expect(trigger).toHaveFocus();
   });
 });

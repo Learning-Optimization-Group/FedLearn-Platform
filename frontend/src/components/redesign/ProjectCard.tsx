@@ -3,7 +3,7 @@
 // =============================================================================
 // Full feature parity: delete, copy ID, copy port, start/stop, results, logs.
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
 import { ResponsiveContainer, LineChart, Line, YAxis } from 'recharts';
 import { Activity, Cpu, Trash2, Copy, Check, MoreHorizontal, Edit3, Play, Square, Settings2, Clock } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -122,6 +122,56 @@ export function ProjectCard({
   const [requestDelete, setRequestDelete] = useState(false);
   const [deleteReason, setDeleteReason] = useState('');
 
+  // FE-13: WAI-ARIA menu-button semantics for the project-actions kebab. On open,
+  // focus the first item; arrow keys roam, Home/End jump, Escape closes and returns
+  // focus to the trigger, Tab closes without trapping. Selecting an item just closes
+  // (the modal/dialog it opens manages its own focus via useFocusTrap).
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!showMenu) return;
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [showMenu]);
+
+  const closeMenu = (restoreFocus = true) => {
+    setShowMenu(false);
+    if (restoreFocus) menuButtonRef.current?.focus();
+  };
+
+  const onMenuKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(
+      menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [],
+    );
+    if (items.length === 0) return;
+    const idx = items.indexOf(document.activeElement as HTMLElement);
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        items[(idx + 1) % items.length].focus();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        items[(idx - 1 + items.length) % items.length].focus();
+        break;
+      case 'Home':
+        e.preventDefault();
+        items[0].focus();
+        break;
+      case 'End':
+        e.preventDefault();
+        items[items.length - 1].focus();
+        break;
+      case 'Escape':
+        e.preventDefault();
+        closeMenu();
+        break;
+      case 'Tab':
+        closeMenu(false);
+        break;
+    }
+  };
+
   // Admins hard-delete; everyone else (project owners) files a deletion request
   // for an admin to approve. The card never routes an owner to DELETE — that
   // returns 403 for non-admins on the backend.
@@ -184,17 +234,28 @@ export function ProjectCard({
         {/* Actions Menu */}
         <div className="relative">
           <button
+            ref={menuButtonRef}
             onClick={() => setShowMenu(!showMenu)}
             className="w-8 h-8 flex items-center justify-center rounded-pill hover:bg-surface-3 text-fg-muted hover:text-fg transition-colors"
             aria-label="Project actions"
+            aria-haspopup="menu"
+            aria-expanded={showMenu}
           >
             <MoreHorizontal className="w-4 h-4" strokeWidth={1.5} />
           </button>
           {showMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-              <div className="absolute right-0 top-10 z-20 bg-surface-2 border border-line rounded-lg py-1 w-48 shadow-[0_16px_48px_-16px_rgba(0,0,0,0.9)]">
+              <div
+                ref={menuRef}
+                role="menu"
+                aria-label="Project actions"
+                onKeyDown={onMenuKeyDown}
+                className="absolute right-0 top-10 z-20 bg-surface-2 border border-line rounded-lg py-1 w-48 shadow-[0_16px_48px_-16px_rgba(0,0,0,0.9)]"
+              >
                 <button
+                  role="menuitem"
+                  tabIndex={-1}
                   onClick={() => {
                     onEditProject();
                     setShowMenu(false);
@@ -206,6 +267,8 @@ export function ProjectCard({
                 </button>
                 {onManageProject && (
                   <button
+                    role="menuitem"
+                    tabIndex={-1}
                     onClick={() => {
                       onManageProject();
                       setShowMenu(false);
@@ -218,12 +281,19 @@ export function ProjectCard({
                 )}
                 <div className="h-px bg-hairline my-1" />
                 {deletionPending ? (
-                  <div className="w-full px-4 py-2 text-left text-body font-medium flex items-center gap-2 text-warning">
+                  <div
+                    role="menuitem"
+                    aria-disabled="true"
+                    tabIndex={-1}
+                    className="w-full px-4 py-2 text-left text-body font-medium flex items-center gap-2 text-warning"
+                  >
                     <Clock className="w-4 h-4" strokeWidth={1.5} />
                     Deletion pending
                   </div>
                 ) : canRequestDeletion ? (
                   <button
+                    role="menuitem"
+                    tabIndex={-1}
                     onClick={() => {
                       setRequestDelete(true);
                       setShowMenu(false);
@@ -235,6 +305,8 @@ export function ProjectCard({
                   </button>
                 ) : (
                   <button
+                    role="menuitem"
+                    tabIndex={-1}
                     onClick={() => {
                       setConfirmDelete(true);
                       setShowMenu(false);
