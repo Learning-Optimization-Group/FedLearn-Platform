@@ -246,3 +246,29 @@ jobs:
             -e SERVER_ADDRESS=localhost:50000 \
             -e PARTITION_ID=0 \
             fedlearn-client:ci --help
+
+  # TE-14: the single required status check. Configure branch protection to require ONLY this job
+  # ("ci-gate"); it passes iff every unit job that actually RAN succeeded. A job
+  # skipped by the `changes` paths-filter reports 'skipped' and is fine (nothing changed there to
+  # gate); a 'failure'/'cancelled' fails the gate. One aggregator that tolerates the per-unit path
+  # filtering is what makes "all unit jobs are required" enforceable — a plain required-check list
+  # would wedge every PR on the jobs that legitimately skipped. Each unit job runs its TE-11 coverage
+  # floor on PRs, so a change that drops coverage below a unit's floor fails that job and thus this gate
+  # (the coverage-regression gate); a finer base-vs-PR coverage delta is a follow-up (needs a coverage
+  # service or a base re-run).
+  ci-gate:
+    needs: [framework, backend, backend-scripts, frontend, desktop, mobile-js, client-docker]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every unit job to have succeeded (or been skipped by the paths-filter)
+        run: |
+          results='${{ join(needs.*.result, ' ') }}'
+          echo "unit job results: ${results}"
+          for r in ${results}; do
+            case "${r}" in
+              success|skipped) ;;
+              *) echo "::error::a required unit job did not pass (result=${r})"; exit 1 ;;
+            esac
+          done
+          echo "All unit jobs passed or were skipped by the paths-filter."
