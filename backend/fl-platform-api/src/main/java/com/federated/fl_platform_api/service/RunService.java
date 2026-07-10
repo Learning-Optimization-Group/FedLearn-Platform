@@ -22,6 +22,11 @@ import org.springframework.core.io.Resource;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.core.env.Environment;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import jakarta.annotation.PostConstruct;
+import java.util.Arrays;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -45,8 +50,28 @@ public class RunService {
     @Autowired private ConnectionTokenService tokenService;
     @Autowired private ObjectMapper objectMapper;
 
+    private static final Logger log = LoggerFactory.getLogger(RunService.class);
+
     @Value("${app.fl-server.grpc-host:localhost}")
     private String grpcHost;
+
+    @Autowired private Environment environment;
+
+    // OP-15: the host actually ADVERTISED to clients. In dev, a default 'localhost' is upgraded to the
+    // detected LAN IP so a same-LAN client (phone) can reach the FL server; an explicit FL_SERVER_GRPC_HOST
+    // and every non-dev profile are used verbatim. Resolved once at startup.
+    private String effectiveGrpcHost;
+
+    @PostConstruct
+    void resolveGrpcHost() {
+        boolean isDev = Arrays.asList(environment.getActiveProfiles()).contains("dev");
+        effectiveGrpcHost = FlGrpcHostResolver.resolve(grpcHost, isDev, LanAddressDetector::primarySiteLocalIPv4);
+        if (!effectiveGrpcHost.equals(grpcHost)) {
+            log.info("OP-15: dev profile — advertising FL gRPC host as {} (detected LAN IP) instead of the "
+                    + "default '{}' so same-LAN clients (e.g. a phone) can connect; set FL_SERVER_GRPC_HOST "
+                    + "to override.", effectiveGrpcHost, grpcHost);
+        }
+    }
 
     // Root of the per-run on-device training bundles staged by scripts/stage_model_bundle.py.
     @Value("${app.model-bundle.dir:/var/models}")
@@ -82,7 +107,7 @@ public class RunService {
     public void markRunning(UUID runId, Integer port) {
         Run run = runRepository.findById(runId)
                 .orElseThrow(() -> ResourceNotFoundException.run(runId));
-        run.setServerHost(grpcHost);
+        run.setServerHost(advertisedHost());
         run.setServerPort(port);
         run.setStatus(RunStatus.RUNNING);
         run.setStartedAt(Instant.now());
@@ -148,8 +173,14 @@ public class RunService {
     }
 
     String endpoint(Run run) {
-        String host = run.getServerHost() != null ? run.getServerHost() : grpcHost;
+        String host = run.getServerHost() != null ? run.getServerHost() : advertisedHost();
         return host + ":" + run.getServerPort();
+    }
+
+    /** The advertised gRPC host: the OP-15-resolved effective host once startup has run, else the raw
+     *  configured host (so Mockito unit tests without @PostConstruct keep their configured value). */
+    private String advertisedHost() {
+        return effectiveGrpcHost != null ? effectiveGrpcHost : grpcHost;
     }
 
     @Transactional
