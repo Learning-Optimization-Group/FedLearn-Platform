@@ -57,21 +57,30 @@ public class RunService {
     @Value("${app.fl-server.grpc-host:localhost}")
     private String grpcHost;
 
+    // BA-16: when auto-detecting (dev + default localhost), prefer a Tailscale/CGNAT 100.64.0.0/10 address
+    // over a site-local LAN IP. Default true because our cross-network demo devices reach the server via the
+    // tailnet; set FL_SERVER_PREFER_CGNAT=false to prefer the LAN IP, or FL_SERVER_GRPC_HOST to pin a host.
+    @Value("${app.fl-server.prefer-cgnat:true}")
+    private boolean preferCgnat;
+
     @Autowired private Environment environment;
 
-    // OP-15: the host actually ADVERTISED to clients. In dev, a default 'localhost' is upgraded to the
-    // detected LAN IP so a same-LAN client (phone) can reach the FL server; an explicit FL_SERVER_GRPC_HOST
-    // and every non-dev profile are used verbatim. Resolved once at startup.
+    // OP-15 / BA-16: the host actually ADVERTISED to clients. In dev, a default 'localhost' is upgraded to
+    // the detected client-reachable IP (Tailscale/CGNAT-preferred, then site-local LAN) so a remote client
+    // (a phone on the tailnet) can reach the FL server; an explicit FL_SERVER_GRPC_HOST and every non-dev
+    // profile are used verbatim. Resolved once at startup.
     private String effectiveGrpcHost;
 
     @PostConstruct
     void resolveGrpcHost() {
         boolean isDev = Arrays.asList(environment.getActiveProfiles()).contains("dev");
-        effectiveGrpcHost = FlGrpcHostResolver.resolve(grpcHost, isDev, LanAddressDetector::primarySiteLocalIPv4);
+        effectiveGrpcHost = FlGrpcHostResolver.resolve(
+                grpcHost, isDev, () -> LanAddressDetector.primaryReachableIPv4(preferCgnat));
         if (!effectiveGrpcHost.equals(grpcHost)) {
-            log.info("OP-15: dev profile — advertising FL gRPC host as {} (detected LAN IP) instead of the "
-                    + "default '{}' so same-LAN clients (e.g. a phone) can connect; set FL_SERVER_GRPC_HOST "
-                    + "to override.", effectiveGrpcHost, grpcHost);
+            log.info("OP-15/BA-16: dev profile — advertising FL gRPC host as {} (detected {} IP) instead of "
+                    + "the default '{}' so remote clients (e.g. a phone on the tailnet) can connect; set "
+                    + "FL_SERVER_GRPC_HOST to override or FL_SERVER_PREFER_CGNAT=false to prefer the LAN IP.",
+                    effectiveGrpcHost, preferCgnat ? "Tailscale/CGNAT-preferred" : "LAN-preferred", grpcHost);
         }
     }
 

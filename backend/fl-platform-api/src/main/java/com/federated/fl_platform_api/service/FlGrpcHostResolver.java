@@ -4,14 +4,28 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
- * OP-15: resolve the FL gRPC host the backend ADVERTISES to clients (in the enroll response).
+ * OP-15 / BA-16: resolve the FL gRPC host the backend ADVERTISES to clients (in the enroll response).
  *
- * <p>In the {@code dev} profile, a run FL server binds all interfaces but the advertised host defaults to
- * {@code localhost} — unreachable by a same-LAN client (e.g. a phone), which then dials its own loopback.
- * This upgrades a default {@code localhost} to the detected LAN IP so local mobile/multi-host testing
- * works out of the box, while respecting an explicit {@code FL_SERVER_GRPC_HOST} override and leaving
- * every non-dev profile untouched (deployed profiles are governed by OP-3's fail-loud check in
- * {@code BootstrapRunner}). Pure + side-effect-free: the LAN lookup is supplied by the caller.
+ * <p>A run FL server binds all interfaces, but the advertised host defaults to {@code localhost} —
+ * unreachable by a remote client (a phone, another laptop), which then dials its own loopback. This
+ * applies a fixed, documented resolution precedence:</p>
+ * <ol>
+ *   <li><b>Explicit config always wins.</b> A non-{@code localhost} {@code app.fl-server.grpc-host} /
+ *       {@code FL_SERVER_GRPC_HOST} is returned verbatim in every profile — the operator's escape hatch.</li>
+ *   <li><b>Auto-detect (dev only, default {@code localhost}).</b> Consult {@code reachableIp} for the best
+ *       client-reachable address: a Tailscale/CGNAT {@code 100.64.0.0/10} address is preferred over a
+ *       site-local LAN IP by default (see {@link LanAddressDetector}); reachable across the whole tailnet,
+ *       it is what our cross-network demo devices actually dial. Neither present → fall back to
+ *       {@code localhost}.</li>
+ *   <li><b>Non-dev profiles are never auto-upgraded here</b> — deployed profiles are governed by OP-3's
+ *       fail-loud check in {@code BootstrapRunner} (which accepts a real host, incl. a {@code 100.x}).</li>
+ * </ol>
+ *
+ * <p><b>Heuristic caveat:</b> if a host has both a Tailscale and a LAN address but clients are actually on
+ * the LAN, preferring the Tailscale address could be sub-optimal. The choice is predictable and
+ * overridable: flip {@code app.fl-server.prefer-cgnat=false} to prefer the LAN IP, or set
+ * {@code FL_SERVER_GRPC_HOST} explicitly (rule 1) to pin an exact host. Pure + side-effect-free: the
+ * detection lookup is supplied by the caller.</p>
  */
 public final class FlGrpcHostResolver {
 
@@ -22,10 +36,11 @@ public final class FlGrpcHostResolver {
     /**
      * @param configuredHost the {@code app.fl-server.grpc-host} value (null/blank normalized to localhost)
      * @param isDev          whether the {@code dev} profile is active
-     * @param lanIp          supplier of the detected primary LAN IPv4 (only consulted when needed)
+     * @param reachableIp    supplier of the detected best client-reachable IPv4 — CGNAT/Tailscale-preferred
+     *                       (only consulted when auto-detecting, i.e. dev + default localhost)
      * @return the host to advertise
      */
-    public static String resolve(String configuredHost, boolean isDev, Supplier<Optional<String>> lanIp) {
+    public static String resolve(String configuredHost, boolean isDev, Supplier<Optional<String>> reachableIp) {
         String host = (configuredHost == null || configuredHost.isBlank()) ? LOOPBACK : configuredHost.trim();
         if (!isDev) {
             return host;                       // non-dev: unchanged (OP-3 guards deployed localhost)
@@ -33,9 +48,9 @@ public final class FlGrpcHostResolver {
         if (!host.equals(LOOPBACK)) {
             return host;                       // explicit dev override respected
         }
-        return lanIp.get()
+        return reachableIp.get()
                 .filter(ip -> ip != null && !ip.isBlank())
                 .map(String::trim)
-                .orElse(LOOPBACK);             // upgrade localhost -> LAN IP, or fall back to localhost
+                .orElse(LOOPBACK);             // upgrade localhost -> reachable IP, or fall back to localhost
     }
 }

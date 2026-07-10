@@ -58,4 +58,18 @@ class FlGrpcHostResolverTest {
         assertEquals("myhost", FlGrpcHostResolver.resolve("myhost", true, boom));
         assertEquals("localhost", FlGrpcHostResolver.resolve("localhost", false, boom));
     }
+
+    // BA-16: the detector supplier now yields the best client-reachable IP (CGNAT/Tailscale-preferred).
+    // The resolver stays agnostic to which class of address the supplier returns.
+
+    @Test
+    void devWithDefaultLocalhost_isUpgradedToTheDetectedTailscaleAddress() {
+        assertEquals("100.100.7.9", FlGrpcHostResolver.resolve("localhost", true, lan("100.100.7.9")));
+    }
+
+    @Test
+    void devWithExplicitOverride_winsEvenWhenATailscaleAddressIsDetected() {
+        // The always-wins escape hatch: an explicit FL_SERVER_GRPC_HOST is never overridden by auto-detect.
+        assertEquals("fl.internal", FlGrpcHostResolver.resolve("fl.internal", true, lan("100.100.7.9")));
+    }
 }

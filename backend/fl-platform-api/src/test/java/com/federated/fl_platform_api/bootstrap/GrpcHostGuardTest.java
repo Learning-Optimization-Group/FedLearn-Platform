@@ -29,6 +29,14 @@ class GrpcHostGuardTest {
     }
 
     @Test
+    void deployedProfileWithTailscaleCgnatHost_isOk() {
+        // BA-16: a Tailscale/CGNAT 100.64.0.0/10 address is client-reachable across the tailnet, so the
+        // deployed-profile guard must NOT flag it — auto-advertising a detected 100.x must satisfy the guard.
+        assertTrue(BootstrapRunner.grpcHostMisconfig(List.of("ec2demo"), "100.64.0.7").isEmpty());
+        assertTrue(BootstrapRunner.grpcHostMisconfig(List.of("production"), "100.127.255.255").isEmpty());
+    }
+
+    @Test
     void nonDeployedProfiles_areNeverFlagged() {
         assertTrue(BootstrapRunner.grpcHostMisconfig(List.of("dev"), "localhost").isEmpty());
         assertTrue(BootstrapRunner.grpcHostMisconfig(List.of("test"), "localhost").isEmpty());
