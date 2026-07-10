@@ -31,6 +31,10 @@ on:
       - 'framework/tests/fixtures/decomfl_golden/**'
       - 'framework/src/fedlearn/estimators/perturbation.py'
       - '.github/workflows/mobile.yml'
+  # TE-8: nightly native .so build. The arm64 ExecuTorch/gRPC APK build is far too heavy to gate every
+  # PR on, but must not bit-rot silently — run it once a night for regression signal + an APK artifact.
+  schedule:
+    - cron: '0 7 * * *' # 07:00 UTC daily
 
 concurrency:
   group: mobile-${{ github.ref }}
@@ -127,7 +131,9 @@ jobs:
   #      ExecuTorch is the lean runtime — the arm64 cross-compile is minutes (not the hours libtorch
   #      took), which makes this APK build tractable on a hosted runner. ----
   android-so-size:
-    if: ${{ vars.MOBILE_NATIVE_CI == 'true' }}
+    # TE-8: gated OFF for normal push/PR (the arm64 native build is heavy), but runs on the nightly
+    # schedule for regression signal — and can still be force-enabled anytime via MOBILE_NATIVE_CI.
+    if: ${{ github.event_name == 'schedule' || vars.MOBILE_NATIVE_CI == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -194,3 +200,12 @@ jobs:
           MB=$(( SO / 1024 / 1024 ))
           echo "libfedlearn_jni.so = ${MB} MB (budget ${SO_BUDGET_MB} MB)"
           test "${MB}" -le "${SO_BUDGET_MB}"
+      # TE-8: keep the nightly APK so the native build is retrievable (and its .so inspectable) without
+      # a local NDK toolchain. Only on the scheduled run — on-demand MOBILE_NATIVE_CI runs skip it.
+      - name: Upload the nightly release APK
+        if: ${{ github.event_name == 'schedule' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: mobile_client/android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 14
