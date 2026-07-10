@@ -26,18 +26,40 @@
 const fs = require('fs');
 const path = require('path');
 
-// Map a target platform to the entry binary PyInstaller emits inside the bundle.
-const BINARY_BY_PLATFORM = {
-  win: 'fedlearn-client.exe',
-  mac: 'fedlearn-client',
-  linux: 'fedlearn-client',
-};
+// Platform/arch/variant knowledge lives in ONE place: the typed manifest at
+// src/shared/bundleVariants.ts. That file is TypeScript and has no build output
+// available at preflight time (this script runs BEFORE `npm run build`), so we
+// transpile it in-memory with the TypeScript compiler API — the same thing
+// ts-node/ts-jest do — and read its exported maps. The manifest is deliberately
+// import-free and self-contained so this load stays trivial. The input is a
+// trusted, checked-in repo file (not user input), so the `new Function` eval
+// below carries no injection surface beyond "can already edit the repo".
+function loadBundleManifest() {
+  const ts = require('typescript');
+  const manifestPath = path.resolve(
+    __dirname,
+    '..',
+    'src',
+    'shared',
+    'bundleVariants.ts',
+  );
+  const source = fs.readFileSync(manifestPath, 'utf8');
+  const { outputText } = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2019,
+    },
+  });
+  const mod = { exports: {} };
+  new Function('module', 'exports', 'require', outputText)(mod, mod.exports, require);
+  return mod.exports;
+}
 
-const BUILD_CMD_BY_PLATFORM = {
-  win: 'client-docker/packaging/build-win-cpu.ps1   (or build-win-cuda.ps1)',
-  mac: 'client-docker/packaging/build-mac.sh',
-  linux: 'client-docker/packaging/build-linux.sh',
-};
+const manifest = loadBundleManifest();
+// Entry binary PyInstaller emits inside the bundle, per platform (from manifest).
+const BINARY_BY_PLATFORM = manifest.PLATFORM_NATIVE_BINARY;
+// "Build it first" hint per platform (from manifest).
+const BUILD_CMD_BY_PLATFORM = manifest.PLATFORM_BUILD_COMMAND;
 
 function targetPlatform() {
   const arg = (process.argv[2] || '').toLowerCase();

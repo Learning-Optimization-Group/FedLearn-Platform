@@ -61,17 +61,24 @@ asarUnpack:
   - node_modules/dockerode/**/*
 
 # ======================== macOS ========================
+# arm64 (Apple Silicon) only — we deliberately do NOT ship an Intel (x64) mac
+# build. The embedded native PyInstaller client bundle is produced per
+# platform+arch (client-docker/packaging/build-mac.sh targets the host arch),
+# and the whole platform is oriented at arm64 (Apple Silicon dev machines +
+# Jetson arm64 edge clients). An x64 mac artifact would be built and shipped
+# without ever being exercised on real Intel hardware, so we don't publish an
+# untested target. See src/shared/bundleVariants.ts for the shippable-variant
+# manifest. Re-add `x64` here (and a matching manifest entry) only if an Intel
+# mac build is actually validated end-to-end.
 mac:
   category: public.app-category.developer-tools
   target:
     - target: dmg
       arch:
         - arm64
-        - x64
     - target: zip
       arch:
         - arm64
-        - x64
   icon: build/icon.icns
   darkModeSupport: true
   # Ad-hoc signed (identity: null) — no Apple Developer ID. Hardened runtime
