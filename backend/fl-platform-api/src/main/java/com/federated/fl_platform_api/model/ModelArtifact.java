@@ -62,6 +62,14 @@ public class ModelArtifact {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    /** FE-12: published to the org-internal adapter marketplace (LORA_ADAPTER only). */
+    @Column(name = "published", nullable = false)
+    private boolean published = false;
+
+    /** When it was published — the marketplace feed's sort key. Null unless {@link #published}. */
+    @Column(name = "published_at")
+    private Instant publishedAt;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getOrgId() { return orgId; }
@@ -86,4 +94,8 @@ public class ModelArtifact {
     public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public boolean isPublished() { return published; }
+    public void setPublished(boolean published) { this.published = published; }
+    public Instant getPublishedAt() { return publishedAt; }
+    public void setPublishedAt(Instant publishedAt) { this.publishedAt = publishedAt; }
 }

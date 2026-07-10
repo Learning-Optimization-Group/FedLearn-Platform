@@ -26,13 +26,15 @@ public record ArtifactDto(
         String licenseTag,
         String evalCardJson,
         Long createdBy,
-        Instant createdAt) {
+        Instant createdAt,
+        boolean published,
+        Instant publishedAt) {
 
     public static ArtifactDto from(ModelArtifact a) {
         return new ArtifactDto(
                 a.getId(), a.getOrgId(), a.getProjectId(), a.getRunId(),
                 a.getKind().name(), a.getBlobSha256(), a.getRecipeKey(),
                 a.getBaseModelRef(), a.getLicenseTag(), a.getEvalCardJson(), a.getCreatedBy(),
-                a.getCreatedAt());
+                a.getCreatedAt(), a.isPublished(), a.getPublishedAt());
     }
 }

@@ -20,4 +20,11 @@ public interface ModelArtifactRepository extends JpaRepository<ModelArtifact, UU
 
     /** The project's current head artifact of a kind (the CONTINUED_FROM parent for the next run). */
     Optional<ModelArtifact> findFirstByProjectIdAndKindOrderByCreatedAtDesc(UUID projectId, ArtifactKind kind);
+
+    /** FE-12 marketplace discovery, scoped to a caller's visible orgs (leak-proof at the DB level). */
+    List<ModelArtifact> findByOrgIdInAndKindAndPublishedIsTrueOrderByPublishedAtDesc(
+            java.util.Collection<UUID> orgIds, ArtifactKind kind);
+
+    /** FE-12 marketplace discovery for a platform admin (unrestricted org scope). */
+    List<ModelArtifact> findByKindAndPublishedIsTrueOrderByPublishedAtDesc(ArtifactKind kind);
 }
