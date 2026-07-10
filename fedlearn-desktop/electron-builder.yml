@@ -32,6 +32,10 @@ directories:
   buildResources: build
   output: release
 
+# DE-12: after all installers are built, emit release/SHA256SUMS.txt covering every installer artifact
+# plus a rolled-up digest of the embedded native client bundle, so downloads can be integrity-verified.
+afterAllArtifactBuild: scripts/generate-checksums.js
+
 files:
   - dist/**/*
   - "!dist/**/*.map"
