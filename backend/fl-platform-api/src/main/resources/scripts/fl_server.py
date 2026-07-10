@@ -404,7 +404,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
     parser.add_argument("--num-rounds", type=int, default=5, help="Number of FL rounds")
     parser.add_argument("--min-clients", type=int, default=1, help="Minimum clients per round")
-    parser.add_argument("--model-type", type=str.upper, required=True, choices=['CNN', 'TRANSFORMER', 'MLP', 'PNEUMONIA_CNN', 'LLM_LORA'], help="Model type")
+    parser.add_argument("--model-type", type=str.upper, required=True, choices=['CNN', 'TRANSFORMER', 'MLP', 'PNEUMONIA_CNN', 'LLM_LORA', 'TINYNET_GOLDEN'], help="Model type")
     parser.add_argument("--model-name", type=str, required=True, help="Model name")
     parser.add_argument("--port", type=int, default=50051, help="gRPC server port")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="Aggregation strategy")
@@ -648,6 +648,14 @@ def main():
         """
         Evaluate the aggregated model on the server's test dataset.
         """
+        # DEMO (TINYNET_GOLDEN / mobile DeComFL): there is no server-side eval dataset for the golden
+        # TinyNet — the default loader serves image batches that don't fit the 4-dim TinyNet input,
+        # crashing eval. Since evaluate() runs INSIDE the DeComFL aggregation trigger with no try/except
+        # (coordinator.py), that crash fails the client's SubmitGradientScalars RPC even though the
+        # aggregation itself already succeeded. Skip eval for this model so the round completes.
+        if args.model_type.upper() == 'TINYNET_GOLDEN':
+            return 0.0, {"accuracy": 0.0, "note": "eval skipped (no golden eval dataset)"}
+
         print(f"\n{'='*60}")
         print(f"Round {server_round} - Server-side Evaluation")
         print(f"{'='*60}")
@@ -676,7 +684,11 @@ def main():
             eval_net.to(DEVICE)
             eval_net.eval()
         else:
-            net.load_state_dict(parameters, strict=True)
+            # TINYNET_GOLDEN (DeComFL demo) syncs ONLY the 25 trainable fc1 params; fc2 is frozen and
+            # lives only in the freshly-built net, so a strict load fails on the missing fc2 keys.
+            # Load non-strict for it (fc2 keeps the build-time init); every other type stays strict.
+            _strict = args.model_type.upper() != 'TINYNET_GOLDEN'
+            net.load_state_dict(parameters, strict=_strict)
             net.to(DEVICE)
             net.eval()
             eval_net = net

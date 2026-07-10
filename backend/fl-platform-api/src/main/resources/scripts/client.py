@@ -759,6 +759,63 @@ ECG_NUM_CLIENTS = 5  # Hardcoded number of clients for ECG
 ECG_STRATEGY = "DeComFL"  # Hardcoded strategy for MLP
 
 
+def _resolve_decomfl_golden_fixture_dir():
+    """Locate the committed golden fixture dir (framework/tests/fixtures/decomfl_golden) by walking
+    up from this script to the repo root that carries it — mirrors tests/conftest.py's framework/src
+    walk, so it resolves in a bare checkout and in a deploy without a hard-coded absolute path."""
+    d = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(12):
+        candidate = os.path.join(d, "framework", "tests", "fixtures", "decomfl_golden")
+        if os.path.isdir(candidate):
+            return candidate
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    raise FileNotFoundError(
+        "decomfl_golden fixture dir not found (framework/tests/fixtures/decomfl_golden)"
+    )
+
+
+def build_tinynet_golden_model(device=DEVICE):
+    """Build the golden DeComFL TinyNet from the SHARED recipe — the SINGLE source of truth, the
+    exact builder the server uses (init_model.get_model / fl_server → recipes). Never redefine the
+    TinyNet inline here: building via the recipe guarantees the client's state_dict keys and the
+    frozen fc2 backbone are byte-identical to the server-built net and the phone's golden .pte."""
+    import recipes
+    return recipes.get_recipe("TINYNET_GOLDEN").build_model(device)
+
+
+def build_tinynet_golden_decomfl_loader(partition_id=0, batch_size=8):
+    """Real DataLoader for a TINYNET_GOLDEN DeComFL desktop client.
+
+    Data source: the committed canonical golden fixture — zo_inputs.f32 + zo_targets.i64 (shapes
+    read from zo_manifest.json) — the SAME 4-dim golden batch the mobile ExecuTorch client and the
+    cross-language g-scalar goldens train on, so a desktop client co-trains the *identical* golden
+    task as the phone. ``partition_id`` seeds a deterministic per-client shuffle so multiple desktop
+    clients form a genuine (non-identical batch-order) federation off the shared batch. Yields
+    ``(inputs[B,4] float32, targets[B] int64)`` and supports ``len(loader.dataset)``.
+    """
+    import json
+    from torch.utils.data import TensorDataset
+
+    fx = _resolve_decomfl_golden_fixture_dir()
+    with open(os.path.join(fx, "zo_manifest.json")) as f:
+        manifest = json.load(f)
+
+    inputs = np.fromfile(os.path.join(fx, manifest["inputs_file"]), dtype="<f4").reshape(
+        manifest["inputs_shape"]
+    )
+    targets = np.fromfile(os.path.join(fx, manifest["targets_file"]), dtype="<i8").reshape(
+        manifest["targets_shape"]
+    )
+    x = torch.from_numpy(inputs.copy()).float()
+    y = torch.from_numpy(targets.copy()).long()
+
+    generator = torch.Generator().manual_seed(int(partition_id))
+    return DataLoader(TensorDataset(x, y), batch_size=batch_size, shuffle=True, generator=generator)
+
+
 def create_decomfl_compatible_loader(original_loader, is_llm=False):
     """
     Wrap a DataLoader to make it compatible with DeComFLClient.
@@ -808,7 +865,7 @@ def main():
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
     parser.add_argument("--server-address", type=str, required=True, help="gRPC server address")
     parser.add_argument("--partition-id", type=int, required=True, choices=range(0, NUM_PARTITIONS), help="Client partition ID")
-    parser.add_argument("--model-type", type=str, choices=["CNN", "TRANSFORMER", "MLP", "PNEUMONIA_CNN", "LLM_LORA"], help="Model type")
+    parser.add_argument("--model-type", type=str, choices=["CNN", "TRANSFORMER", "MLP", "PNEUMONIA_CNN", "LLM_LORA", "TINYNET_GOLDEN"], help="Model type")
     parser.add_argument("--model-name", type=str, help="Model name")
     parser.add_argument("--aggregation", type=str, default="FFA_LORA", choices=["FFA_LORA", "FEDIT"], help="LoRA aggregation sub-mode (LLM_LORA only)")
     parser.add_argument("--task-type", type=str, default="SEQ_CLASSIFICATION", choices=["SEQ_CLASSIFICATION", "CAUSAL_LM"], help="LLM_LORA task type (generative vs classification)")
@@ -988,6 +1045,15 @@ def main():
 
             # Wrap the loader to make it DeComFL-compatible
             trainloader = create_decomfl_compatible_loader(trainloader_original, is_llm=True)
+
+        elif args.model_type and args.model_type.upper() == 'TINYNET_GOLDEN':
+            # Golden DeComFL demo: a desktop client co-training the on-device TinyNet, with the
+            # phone as another client. Model + frozen backbone come from the SHARED recipe (single
+            # source of truth → keys match the server), and the 4-dim task data comes from the
+            # committed golden fixture, so this desktop trains the IDENTICAL task as the phone.
+            decomfl_config = get_decomfl_config("default")
+            net = build_tinynet_golden_model(DEVICE)
+            trainloader = build_tinynet_golden_decomfl_loader(partition_id=args.partition_id)
 
         else:
             # CNN with DeComFL (if needed)

@@ -90,6 +90,19 @@ RECIPE_METADATA = [
         "requirements": {"min_ram_gb": 8, "min_storage_gb": 2, "mobile_safe": False,
                          "max_trainable_params": 2000000, "min_os_android": 0, "min_os_ios": "0"},
     },
+    {
+        # DEMO/TEST recipe: the golden DeComFL TinyNet (Linear(4,5)->ReLU->Linear(5,3), fc2 FROZEN;
+        # 25 trainable). Exists so fl_server can build + eval the SAME model the mobile ExecuTorch
+        # golden .pte encodes, enabling an on-device DeComFL round-trip end to end. See MO-15.
+        "key": "TINYNET_GOLDEN",
+        "display_name": "On-device DeComFL demo (TinyNet)",
+        "input_kind": "vector",
+        "classes": ["c0", "c1", "c2"],
+        "base_models": ["tinynet_golden"],
+        "optimizers": ["SGD"],
+        "requirements": {"min_ram_gb": 1, "min_storage_gb": 0.01, "mobile_safe": True,
+                         "max_trainable_params": 25, "min_os_android": 27, "min_os_ios": "13.0"},
+    },
 ]
 
 _METADATA_BY_KEY = {r["key"]: r for r in RECIPE_METADATA}
@@ -98,6 +111,37 @@ _METADATA_BY_KEY = {r["key"]: r for r in RECIPE_METADATA}
 def describe():
     """Return the catalog metadata (list of dicts). Used by --describe."""
     return RECIPE_METADATA
+
+
+def build_tinynet_golden():
+    """DEMO: the golden DeComFL TinyNet — Linear(4,5)->ReLU->Linear(5,3), fc2 FROZEN.
+    Byte-matches framework/tests/fixtures/decomfl_golden/generate_zo.py so fl_server can build +
+    server-side-eval the SAME model the mobile ExecuTorch golden .pte encodes (25 trainable = fc1).
+
+    DETERMINISTIC init (seed 0, exactly as generate_zo.py freezes the golden): the frozen fc2 is
+    NEVER synced over the wire (only the 25 trainable fc1 params are), so every federation peer —
+    the phone's golden .pte AND every desktop client that builds via this recipe — must materialise
+    the *identical* frozen backbone, or their zeroth-order gradient scalars would be derivatives of
+    different functions and the aggregate would be meaningless. Seeding here makes the desktop a
+    genuine peer of the phone. Uses fork_rng so the caller's global RNG stream is untouched.
+    """
+    import torch
+    import torch.nn as nn
+
+    class TinyNet(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.fc1 = nn.Linear(4, 5)
+            self.fc2 = nn.Linear(5, 3)
+            for p in self.fc2.parameters():
+                p.requires_grad_(False)
+
+        def forward(self, x):
+            return self.fc2(torch.relu(self.fc1(x)))
+
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(0)
+        return TinyNet()
 
 
 # ---------------------------------------------------------------------------
@@ -620,10 +664,12 @@ class Recipe:
     @property
     def is_functional(self):
         """Whether this recipe's model/data live in recipes.py (vs legacy scripts)."""
-        return self.key in ("PNEUMONIA_CNN", "LLM_LORA", "BLOOD_CNN")
+        return self.key in ("PNEUMONIA_CNN", "LLM_LORA", "BLOOD_CNN", "TINYNET_GOLDEN")
 
     def build_model(self, device="cpu", model_name=None, aggregation="FFA_LORA",
                     task_type="SEQ_CLASSIFICATION"):
+        if self.key == "TINYNET_GOLDEN":
+            return build_tinynet_golden().to(device)
         if self.key == "PNEUMONIA_CNN":
             return build_pneumonia_cnn().to(device)
         if self.key == "BLOOD_CNN":

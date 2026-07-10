@@ -71,8 +71,37 @@ class DeComFLClient(Client):
         ``x_current`` so the zeroth-order trajectory starts from the *shared* global model,
         not this client's constructor-time random init. Called once at startup; this is the
         O(d) initial download the paper assumes — per-round communication stays O(1).
+
+        Trainable-only sync (FR-14): DeComFL only ever synchronises the ``requires_grad``-filtered
+        trainable layout (:func:`estimators.params.trainable_state`) — the exact d-vector the
+        shared-seed perturbation ``z`` indexes. FROZEN parameters (e.g. a frozen backbone / partial
+        fine-tune) and buffers are NOT sent; they keep this net's deterministic build-time init,
+        which every peer reproduces identically. A plain strict ``load_state_dict`` therefore
+        crashes on those legitimately-absent keys. So we load non-strict but enforce the invariant
+        that actually matters, model-agnostically: EVERY trainable param must be present (a missing
+        one would silently misalign ``z`` and diverge the model), and NO unexpected key may appear.
+        For a fully-trainable model this is exactly as strict as before — no per-model special case.
         """
-        self.model.load_state_dict(parameters)
+        incoming = set(parameters.keys())
+        known = set(self.model.state_dict().keys())
+
+        unexpected = incoming - known
+        if unexpected:
+            raise ValueError(
+                f"load_global_model received keys that are not in the model: {sorted(unexpected)}"
+            )
+
+        trainable_keys = {name for name, p in self.model.named_parameters() if p.requires_grad}
+        missing_trainable = trainable_keys - incoming
+        if missing_trainable:
+            raise ValueError(
+                f"load_global_model is missing trainable parameter keys the shared-seed "
+                f"perturbation requires: {sorted(missing_trainable)}. DeComFL syncs the full "
+                f"trainable layout (estimators.params.trainable_state); only frozen params and "
+                f"buffers may be omitted."
+            )
+
+        self.model.load_state_dict(parameters, strict=False)
         self.x_current = self.zo_estimator._get_flat_params(self.model).to(self.device)
         log.debug("Synced local model to server global (%d params)", len(self.x_current))
 

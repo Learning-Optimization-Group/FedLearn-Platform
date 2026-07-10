@@ -52,6 +52,11 @@ def get_model(model_type: str, model_name: str, device: str, aggregation: str = 
     if model_type == 'CNN':
         return CnnNet().to(device)
 
+    elif model_type == 'TINYNET_GOLDEN':
+        # DEMO: the golden DeComFL TinyNet the mobile ExecuTorch bundle expects (MO-15 live path).
+        import recipes
+        return recipes.get_recipe('TINYNET_GOLDEN').build_model(device)
+
     elif model_type == 'PNEUMONIA_CNN':
         import recipes
         print("Initializing PneumoniaCNN (1x224x224 grayscale -> 2 classes)")
@@ -196,6 +201,15 @@ def main():
     if args.model_type.upper() == "LLM_LORA":
         from peft import get_peft_model_state_dict
         state_dict = get_peft_model_state_dict(net, save_embedding_layers=False)
+    elif args.model_type.upper() == "TINYNET_GOLDEN":
+        # DeComFL federates the TRAINABLE params only; the frozen fc2 is deterministically rebuilt
+        # from the recipe on every peer (server + phone + desktop clients), so it must never go on
+        # the wire. Persist the requires_grad-filtered trainable layout (25 = fc1) so the server's
+        # DeComFL model_dim equals the 25-dim clients — a full state_dict() would make model_dim=43
+        # and reject every client (see framework decomfl_strategy.py:281-288 + trainable_state).
+        # Mirrors the LLM_LORA adapter-only branch above.
+        from fedlearn.estimators.params import trainable_state
+        state_dict = trainable_state(net)
     else:
         state_dict = net.state_dict()
 
