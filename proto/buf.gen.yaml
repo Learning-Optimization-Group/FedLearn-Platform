@@ -29,7 +29,11 @@ plugins:
     out: gen/ts
 
   # --- C++ (mobile core; stubs only — runtime cross-compiled separately) ---
-  - remote: buf.build/protocolbuffers/cpp:v28.3
+  # protobuf runtime version MUST match what gRPC (grpc/cpp below, v1.67.1) bundles: gRPC 1.67.1 ships
+  # protobuf 27.2 (PROTOBUF_VERSION 5027002). A newer cpp plugin (was v28.3) emits a #if guard demanding
+  # 5028003, which fails the mobile native compile with "Protobuf C++ gencode is built with an
+  # incompatible version" against the cross-compiled 27.2 runtime. Keep this pinned to gRPC's protobuf.
+  - remote: buf.build/protocolbuffers/cpp:v27.2
     out: gen/cpp
   - remote: buf.build/grpc/cpp:v1.67.1
     out: gen/cpp

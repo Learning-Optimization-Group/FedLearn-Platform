@@ -37,8 +37,14 @@ cmake -S . -B build \
   -DgRPC_BUILD_CODEGEN=OFF \
   -DgRPC_PROTOBUF_PROVIDER=module \
   -DgRPC_SSL_PROVIDER=module \
-  -DgRPC_ZLIB_PROVIDER=module
+  -DgRPC_ZLIB_PROVIDER=module \
+  -DCMAKE_SHARED_LINKER_FLAGS="-Wl,--undefined-version" \
+  -DCMAKE_EXE_LINKER_FLAGS="-Wl,--undefined-version"
 
+# --undefined-version: gRPC's bundled zlib links libz.so with a version script that references
+# gz_intmax, a symbol not defined for the Android build. NDK r27's lld is strict about undefined
+# version-script symbols (older ld silently allowed them), so the link fails with "version script
+# assignment of 'local' to symbol 'gz_intmax' failed". The flag restores the permissive behaviour.
 cmake --build build -j"$(nproc)"
 cmake --install build
 

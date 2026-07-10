@@ -45,11 +45,18 @@ else()
 endif()
 
 get_filename_component(ET_SRC_PARENT "${ET_SRC}" DIRECTORY)
+# WARNING (build-invocation contract): TORCH_INCLUDE must point at a dir that exposes ONLY the
+# torch/headeronly tree (it supplies the build-generated torch/headeronly/macros/cmake_macros.h that the
+# ET headers include). A FULL `torch/include` also carries torch's bundled `google/protobuf/*` headers,
+# which — added here as a normal include dir — SHADOW the gRPC-supplied protobuf (which reaches the grpc
+# target via find_package as an -isystem include, i.e. lower search priority). That mismatch breaks the
+# compile with "unknown type name 'uint8'" from torch's stale protobuf. Pass a headeronly-scoped shim
+# (cp the torch/headeronly subtree into an otherwise-empty dir) or a torch whose protobuf can't leak.
 target_include_directories(fedlearn_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   "${ET_SRC_PARENT}"
   "${ET_SRC}/runtime/core/portable_type/c10"
-  "${TORCH_INCLUDE}"            # ordered last: only the missing cmake_macros.h falls through to torch
+  "${TORCH_INCLUDE}"            # ordered last: only the missing cmake_macros.h should fall through
 )
 
 target_link_libraries(fedlearn_core PUBLIC
