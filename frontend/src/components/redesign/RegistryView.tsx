@@ -9,7 +9,7 @@
 // `withCredentials`. No token handling here.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Package, Download, Fingerprint, AlertCircle, Loader2, Clock, ScrollText } from 'lucide-react';
+import { Package, Download, Fingerprint, AlertCircle, Loader2, Clock, ScrollText, Store, Undo2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import * as api from '../../services/apiServices';
 import { errorMessage } from '../../services/apiServices';
@@ -61,6 +61,10 @@ export function RegistryView() {
     // Top-of-page banner: projects-load failure or a download failure.
     const [pageError, setPageError] = useState('');
 
+    // FE-12: marketplace publish/unpublish state for the selected LORA_ADAPTER.
+    const [publishingId, setPublishingId] = useState<string | null>(null);
+    const [publishError, setPublishError] = useState('');
+
     // Load the caller's projects once; default to the first one.
     useEffect(() => {
         (async () => {
@@ -108,6 +112,7 @@ export function RegistryView() {
 
     const selectArtifact = async (artifact: ArtifactDto) => {
         setSelectedArtifactId(artifact.id);
+        setPublishError('');
         setLineage([]);
         setLoadingLineage(true);
         try {
@@ -138,6 +143,29 @@ export function RegistryView() {
             setPageError(errorMessage(e, 'Download failed. Please try again.'));
         } finally {
             setDownloadingId(null);
+        }
+    };
+
+    // FE-12: publish/unpublish a LORA_ADAPTER on the marketplace. The server is
+    // the source of truth for authorization — a non-owner gets a 403 and a
+    // non-adapter/orphaned adapter a 409, both of which we surface READABLY via
+    // errorMessage rather than hiding the button by role. On success we swap the
+    // updated row into local state so `selected` (derived from it) reflects the
+    // new published/publishedAt without a refetch.
+    const handlePublishToggle = async (artifact: ArtifactDto) => {
+        setPublishingId(artifact.id);
+        setPublishError('');
+        try {
+            const updated = artifact.published
+                ? await registry.unpublishAdapter(artifact.id)
+                : await registry.publishAdapter(artifact.id);
+            setArtifacts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+        } catch (e: unknown) {
+            setPublishError(
+                errorMessage(e, 'Could not update the marketplace status. Please try again.'),
+            );
+        } finally {
+            setPublishingId(null);
         }
     };
 
@@ -348,6 +376,54 @@ export function RegistryView() {
                                                     ))}
                                                 </dl>
                                             </div>
+
+                                            {/* Marketplace publish toggle — LORA_ADAPTER only. */}
+                                            {selected.kind === 'LORA_ADAPTER' && (
+                                                <div className="flex flex-col gap-2">
+                                                    <span className="text-caption uppercase tracking-wide font-semibold text-fg-muted flex items-center gap-1.5">
+                                                        <Store className="w-3.5 h-3.5" strokeWidth={1.5} /> Marketplace
+                                                    </span>
+                                                    <div className="rounded-card border border-hairline bg-surface-1 px-4 py-3 flex items-center justify-between gap-4">
+                                                        <div className="min-w-0">
+                                                            <p className="text-label text-fg">
+                                                                {selected.published ? 'Listed on the marketplace' : 'Not published'}
+                                                            </p>
+                                                            {selected.published && (
+                                                                <p className="text-caption text-fg-muted mt-0.5">
+                                                                    Since {formatDate(selected.publishedAt)}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        <Button
+                                                            variant={selected.published ? 'secondary' : 'primary'}
+                                                            size="sm"
+                                                            onClick={() => handlePublishToggle(selected)}
+                                                            disabled={publishingId === selected.id}
+                                                            className="flex-shrink-0"
+                                                        >
+                                                            {publishingId === selected.id ? (
+                                                                <>
+                                                                    <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} /> Working…
+                                                                </>
+                                                            ) : selected.published ? (
+                                                                <>
+                                                                    <Undo2 className="w-4 h-4" strokeWidth={1.5} /> Unpublish
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Store className="w-4 h-4" strokeWidth={1.5} /> Publish to marketplace
+                                                                </>
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                    {publishError && (
+                                                        <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-danger/30 bg-danger/10 text-danger text-label font-medium">
+                                                            <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+                                                            {publishError}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
 
                                             <RegistryEvalCard evalCardJson={selected.evalCardJson} />
                                             <RegistryLineage nodes={lineage} loading={loadingLineage} />

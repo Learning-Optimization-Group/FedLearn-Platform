@@ -6,7 +6,13 @@ import * as api from '../../services/apiServices';
 import * as registry from '../../services/artifactService';
 import type { ArtifactDto, LineageNode } from '../../services/artifactService';
 
-vi.mock('../../services/apiServices');
+// Keep the REAL error helpers (errorMessage/errorStatus) so the publish-failure
+// path renders the backend's message rather than a mocked stub; only the data
+// fetch (fetchProjects) is stubbed.
+vi.mock('../../services/apiServices', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../services/apiServices')>();
+  return { ...actual, fetchProjects: vi.fn() };
+});
 vi.mock('../../services/artifactService');
 
 /** Minimal AxiosResponse wrapper — the view only ever reads `.data`. */
@@ -38,6 +44,8 @@ function artifact(overrides: Partial<ArtifactDto> = {}): ArtifactDto {
     evalCardJson: null,
     createdBy: 7,
     createdAt: '2026-07-01T12:00:00Z',
+    published: false,
+    publishedAt: null,
     ...overrides,
   };
 }
@@ -134,5 +142,99 @@ describe('RegistryView — empty state (FE-11)', () => {
     render(<RegistryView />);
 
     expect(await screen.findByText('No artifacts yet')).toBeInTheDocument();
+  });
+});
+
+// FE-12: an owner can publish/unpublish a LORA_ADAPTER to the marketplace from
+// the artifact detail panel. The toggle only appears for LORA_ADAPTER kinds; the
+// server is the source of truth for authorization, so a 403 must surface a
+// readable message rather than a crash.
+describe('RegistryView — marketplace publish toggle (FE-12)', () => {
+  it('publishes a LORA_ADAPTER and reflects the published state', async () => {
+    const lora = artifact({
+      id: 'art-lora',
+      kind: 'LORA_ADAPTER',
+      recipeKey: 'LORA',
+      published: false,
+      publishedAt: null,
+    });
+    vi.mocked(registry.listArtifacts).mockResolvedValue([lora]);
+    vi.mocked(registry.publishAdapter).mockResolvedValue({
+      ...lora,
+      published: true,
+      publishedAt: '2026-07-10T00:00:00Z',
+    });
+
+    render(<RegistryView />);
+    fireEvent.click(await screen.findByRole('button', { name: /view artifact LORA_ADAPTER/i }));
+
+    fireEvent.click(await screen.findByRole('button', { name: /publish to marketplace/i }));
+
+    // The row's published state flips; the button becomes "Unpublish".
+    expect(await screen.findByRole('button', { name: /unpublish/i })).toBeInTheDocument();
+    expect(screen.getByText('Listed on the marketplace')).toBeInTheDocument();
+    expect(registry.publishAdapter).toHaveBeenCalledWith('art-lora');
+  });
+
+  it('unpublishes a listed LORA_ADAPTER and reflects the withdrawn state', async () => {
+    const listed = artifact({
+      id: 'art-lora',
+      kind: 'LORA_ADAPTER',
+      recipeKey: 'LORA',
+      published: true,
+      publishedAt: '2026-07-10T00:00:00Z',
+    });
+    vi.mocked(registry.listArtifacts).mockResolvedValue([listed]);
+    // The unpublish button must call the DISTINCT unpublishAdapter method, not publishAdapter.
+    vi.mocked(registry.unpublishAdapter).mockResolvedValue({
+      ...listed,
+      published: false,
+      publishedAt: null,
+    });
+
+    render(<RegistryView />);
+    fireEvent.click(await screen.findByRole('button', { name: /view artifact LORA_ADAPTER/i }));
+
+    // Starts listed → click Unpublish.
+    expect(await screen.findByText('Listed on the marketplace')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /unpublish/i }));
+
+    // State flips back; the button returns to "Publish to marketplace"; the right method was called.
+    expect(await screen.findByRole('button', { name: /publish to marketplace/i })).toBeInTheDocument();
+    expect(screen.getByText('Not published')).toBeInTheDocument();
+    expect(registry.unpublishAdapter).toHaveBeenCalledWith('art-lora');
+    expect(registry.publishAdapter).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a readable error when publishing is forbidden (403)', async () => {
+    const lora = artifact({ id: 'art-lora', kind: 'LORA_ADAPTER', recipeKey: 'LORA' });
+    vi.mocked(registry.listArtifacts).mockResolvedValue([lora]);
+    // A non-owner gets a 403 with a backend message; errorMessage must extract it.
+    vi.mocked(registry.publishAdapter).mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 403, data: { message: 'You are not the owner of this adapter.' } },
+    });
+
+    render(<RegistryView />);
+    fireEvent.click(await screen.findByRole('button', { name: /view artifact LORA_ADAPTER/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /publish to marketplace/i }));
+
+    // The backend message renders — not "[object Object]" and not a crash.
+    expect(await screen.findByText('You are not the owner of this adapter.')).toBeInTheDocument();
+    // Still unpublished — the toggle stays on "Publish to marketplace".
+    expect(screen.getByRole('button', { name: /publish to marketplace/i })).toBeInTheDocument();
+  });
+
+  it('does not show the publish toggle for a non-adapter artifact', async () => {
+    vi.mocked(registry.listArtifacts).mockResolvedValue([
+      artifact({ id: 'art-ckpt', kind: 'FULL_CHECKPOINT' }),
+    ]);
+
+    render(<RegistryView />);
+    fireEvent.click(await screen.findByRole('button', { name: /view artifact FULL_CHECKPOINT/i }));
+
+    // Detail panel is up (Download is present) but no marketplace publish control.
+    expect(await screen.findByRole('button', { name: /download/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /publish to marketplace/i })).not.toBeInTheDocument();
   });
 });

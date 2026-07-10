@@ -26,6 +26,10 @@ export interface ArtifactDto {
     createdBy: number | null;
     /** ISO-8601 instant. */
     createdAt: string;
+    /** FE-12: true once the artifact is listed on the adapter marketplace. */
+    published: boolean;
+    /** FE-12: ISO-8601 instant of the most recent publish, or null if never published. */
+    publishedAt: string | null;
 }
 
 /** One ancestor in an artifact's lineage chain (GET /artifacts/{id}/lineage). */
@@ -59,5 +63,27 @@ export async function getLineage(id: string): Promise<LineageNode[]> {
 /** Downloads the immutable weights blob (octet-stream) as a Blob for a local object URL. */
 export async function downloadBlob(id: string): Promise<Blob> {
     const res = await api.get<Blob>(`/artifacts/${id}/blob`, { responseType: 'blob' });
+    return res.data;
+}
+
+// ── FE-12: adapter marketplace ──────────────────────────────────────────────
+// Published LORA_ADAPTER bundles are discoverable across the caller's org. The
+// backend scopes visibility server-side, so an empty list is a normal result.
+
+/** Lists PUBLISHED LORA_ADAPTERs the caller may see, newest-published first. Org-scoped server-side. */
+export async function listMarketplace(): Promise<ArtifactDto[]> {
+    const res = await api.get<ArtifactDto[]>('/marketplace/adapters');
+    return Array.isArray(res.data) ? res.data : [];
+}
+
+/** Publishes a LORA_ADAPTER to the marketplace. Owner-or-admin only; 403/404/409 surface as errors. */
+export async function publishAdapter(id: string): Promise<ArtifactDto> {
+    const res = await api.post<ArtifactDto>(`/marketplace/adapters/${id}/publish`);
+    return res.data;
+}
+
+/** Removes a LORA_ADAPTER from the marketplace. Owner-or-admin only; 403/404/409 surface as errors. */
+export async function unpublishAdapter(id: string): Promise<ArtifactDto> {
+    const res = await api.delete<ArtifactDto>(`/marketplace/adapters/${id}/publish`);
     return res.data;
 }

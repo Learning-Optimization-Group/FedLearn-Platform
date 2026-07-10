@@ -13,6 +13,7 @@ import { RoleDashboard } from './components/redesign/RoleDashboard';
 import { NodeNetwork } from './components/redesign/NodeNetwork';
 import { ModelsView } from './components/redesign/ModelsView';
 import { RegistryView } from './components/redesign/RegistryView';
+import { MarketplaceView } from './components/redesign/MarketplaceView';
 import { PlaygroundView } from './components/redesign/PlaygroundView';
 import { DatasetsView } from './components/redesign/DatasetsView';
 import { SettingsView } from './components/redesign/SettingsView';
@@ -78,6 +79,7 @@ function App() {
                         <Route path="/dashboard" element={<RoleDashboard />} />
                         <Route path="/models" element={<ModelsView />} />
                         <Route path="/registry" element={<RegistryView />} />
+                        <Route path="/marketplace" element={<MarketplaceView />} />
                         <Route path="/playground" element={<PlaygroundView />} />
                         <Route path="/settings" element={<SettingsView />} />
 

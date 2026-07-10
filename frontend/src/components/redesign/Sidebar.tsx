@@ -4,7 +4,7 @@
 // Wired to existing AuthContext for user profile and logout. Plain-language
 // nav labels grouped under quiet uppercase section headers.
 
-import { LayoutDashboard, Settings, Boxes, Users, Database, LogOut, FlaskConical, Gauge, Package } from 'lucide-react';
+import { LayoutDashboard, Settings, Boxes, Users, Database, LogOut, FlaskConical, Gauge, Package, Store } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
@@ -28,6 +28,7 @@ function navGroupsForRole(role: Role): NavGroup[] {
         { icon: LayoutDashboard, label: 'Overview', path: '/dashboard', end: true },
         { icon: Boxes, label: 'Models', path: '/models' },
         { icon: Package, label: 'Registry', path: '/registry' },
+        { icon: Store, label: 'Marketplace', path: '/marketplace' },
         { icon: FlaskConical, label: 'Use a model', path: '/playground' },
     ];
     if (role === 'PROJECT_OWNER' || role === 'PLATFORM_ADMIN') {
