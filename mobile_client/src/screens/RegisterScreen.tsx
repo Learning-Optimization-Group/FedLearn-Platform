@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { validateRegistration } from '../lib/registerValidation';
 
 /** Sign-up screen: registers a new account (POST /api/auth/register) and auto-signs-in on success.
  *  New accounts get the default USER platform role — they can join and train, and request owner
@@ -17,14 +18,11 @@ export default function RegisterScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async () => {
-    const u = username.trim();
-    const e = email.trim();
-    if (u.length < 3) { setError('Username must be at least 3 characters.'); return; }
-    if (!/^\S+@\S+\.\S+$/.test(e)) { setError('Enter a valid email address.'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    const check = validateRegistration({ username, email, password });
+    if (!check.ok) { setError(check.error); return; }
     setBusy(true); setError(null);
     try {
-      await register(u, e, password);
+      await register(check.username, check.email, check.password);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg ?? 'Sign-up failed. That username or email may already be taken.');

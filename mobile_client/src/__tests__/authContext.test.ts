@@ -1,6 +1,6 @@
 import { api } from '../lib/restClient';
 import * as authStore from '../lib/authStore';
-import { performLogin, probeSession } from '../context/AuthContext';
+import { performLogin, performRegister, probeSession } from '../context/AuthContext';
 
 jest.mock('../lib/restClient', () => ({ api: { post: jest.fn(), get: jest.fn() }, setAuthLostHandler: jest.fn() }));
 jest.mock('../lib/authStore');
@@ -38,5 +38,33 @@ describe('AuthContext logic', () => {
     store.getToken.mockResolvedValue(null);
     await expect(probeSession()).resolves.toBeNull();
     expect(mApi.get).not.toHaveBeenCalled();
+  });
+
+  // MO-6: performRegister posts the sign-up, then immediately logs in with the same credentials.
+  test('performRegister posts /register then logs in with the same credentials, storing the token', async () => {
+    mApi.post
+      .mockResolvedValueOnce({ data: {} }) // /api/auth/register
+      .mockResolvedValueOnce({ data: { accessToken: 'jwt-2', username: 'bob' } }); // /api/auth/login
+    const id = await performRegister('bob', 'bob@example.com', 'sekret1');
+    expect(mApi.post).toHaveBeenNthCalledWith(1, '/api/auth/register', {
+      username: 'bob',
+      email: 'bob@example.com',
+      password: 'sekret1',
+    });
+    expect(mApi.post).toHaveBeenNthCalledWith(2, '/api/auth/login', {
+      username: 'bob',
+      password: 'sekret1',
+    });
+    expect(store.setToken).toHaveBeenCalledWith('jwt-2');
+    expect(id.username).toBe('bob');
+  });
+
+  test('performRegister surfaces a register failure and never attempts login', async () => {
+    mApi.post.mockRejectedValueOnce({ response: { data: { message: 'username taken' } } });
+    await expect(performRegister('bob', 'bob@example.com', 'sekret1')).rejects.toMatchObject({
+      response: { data: { message: 'username taken' } },
+    });
+    expect(mApi.post).toHaveBeenCalledTimes(1); // register only; no login attempt
+    expect(store.setToken).not.toHaveBeenCalled();
   });
 });
