@@ -75,6 +75,9 @@ class ProjectServiceTest {
     private RunService runService;
 
     @Mock
+    private com.federated.fl_platform_api.service.ModelBundleStager modelBundleStager;
+
+    @Mock
     private com.federated.fl_platform_api.service.ProjectStatusService projectStatusService;
 
     @InjectMocks
@@ -250,6 +253,41 @@ class ProjectServiceTest {
         assertEquals(1, spawnCount.get(), "exactly one FL server spawned (no double-spawn)");
         assertEquals(1, successes.get(), "exactly one caller succeeds");
         assertEquals(n - 1, conflicts.get(), "losers get a deterministic 409 (ProjectStateException)");
+    }
+
+    // MO-15: a successful start auto-stages this run's on-device bundle with its recipe (the project's
+    // model type), so a mobile client that joins finds it at GET /api/runs/{runId}/model-bundle.
+    private Run arrangeSingleStart() {
+        UUID projectId = testProject.getId();
+        testProject.setStatus("CREATED");
+        lenient().when(projectRepository.findById(projectId)).thenReturn(Optional.of(testProject));
+        lenient().when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
+        Run run = mock(Run.class);
+        lenient().when(run.getId()).thenReturn(UUID.randomUUID());
+        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt())).thenReturn(run);
+        lenient().when(flowerServerManager.isServerRunning(projectId)).thenReturn(false);
+        lenient().when(flowerServerManager.startServerForProject(any(), any(), anyInt(), anyInt()))
+                .thenReturn(Optional.of(50000));
+        return run;
+    }
+
+    @Test
+    void startServerForProject_autoStagesBundleWithRunIdAndRecipe() throws Exception {
+        Run run = arrangeSingleStart();
+        projectService.startServerForProject(testProject.getId(), null);
+        // staged with THIS run's id and the project's model type (recipe key)
+        verify(modelBundleStager).stageForRun(run.getId(), modelType);
+    }
+
+    @Test
+    void startServerForProject_stagerFailureDoesNotFailTheStart() {
+        arrangeSingleStart();
+        // A misbehaving stager (contract says never-throw, but be defensive) must not fail the start:
+        // the bundle is phone-only, so staging failure degrades to a graceful 404, never a start failure.
+        doThrow(new RuntimeException("boom")).when(modelBundleStager).stageForRun(any(), any());
+        assertDoesNotThrow(() -> projectService.startServerForProject(testProject.getId(), null));
+        // the FL server still spawned despite the staging failure
+        verify(flowerServerManager).startServerForProject(any(), any(), anyInt(), anyInt());
     }
 
     // ─── SE-11: DP policy at project creation ────────────────────────────────────────────────────

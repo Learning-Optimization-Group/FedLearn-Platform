@@ -82,6 +82,8 @@ public class ProjectService {
     private ModelRecipeService modelRecipeService;
     @Autowired
     private RunService runService;
+    @Autowired
+    private ModelBundleStager modelBundleStager;   // MO-15: best-effort on-device bundle auto-stage at start
 
     // BA-2: serialize per-project /start so two concurrent calls can't both pass the isServerRunning
     // check and double-spawn a server. One lock per project id; the project set is bounded, so is the map.
@@ -304,6 +306,18 @@ public class ProjectService {
                 project.setStatus(ProjectStatus.RUNNING.name());
                 Project updatedProject = projectRepository.save(project);
                 runService.markRunning(run.getId(), port.orElse(null));
+
+                // MO-15: auto-stage this run's on-device model bundle so a mobile client that joins finds it
+                // at GET /api/runs/{runId}/model-bundle without an operator staging it by hand. Placed AFTER
+                // the spawn + markRunning: the stager schedules on a background worker and returns at once, so
+                // it never blocks the spawn or holds the BA-2 start lock. Phone-only + flag-gated (default off);
+                // its contract is never-throw, but wrap defensively so a scheduling failure can't fail a start.
+                try {
+                    modelBundleStager.stageForRun(run.getId(), project.getModelType());
+                } catch (RuntimeException stageEx) {
+                    log.warn("model-bundle auto-stage threw for run {} (ignored, start continues): {}",
+                            run.getId(), stageEx.toString());
+                }
 
                 ProjectStatusUpdateDto update = new ProjectStatusUpdateDto(
                         updatedProject.getId(),
