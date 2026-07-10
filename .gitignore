@@ -61,12 +61,18 @@ release/
 checkpoints/
 results/
 models/
+# FL-server registered model artifacts (FULL_CHECKPOINT / LORA_ADAPTER) written at runtime
+backend/fl-platform-api/artifact-store/
 
 # Source package dirs that collide with the ML-artifact "models/" rule above
 !backend/fl-platform-api/src/main/resources/scripts/models/
 !backend/fl-platform-api/src/main/resources/scripts/models/**
 !client-docker/scripts/models/
 !client-docker/scripts/models/**
+# ...but the "**" re-inclusions above also re-track Python bytecode caches inside those
+# source dirs (they override the global __pycache__/ rule). Re-ignore just the caches.
+backend/fl-platform-api/src/main/resources/scripts/models/**/__pycache__/
+client-docker/scripts/models/**/__pycache__/
 
 # ========================
 # Logs & Ephemeral Data
