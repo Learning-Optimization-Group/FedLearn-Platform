@@ -260,6 +260,23 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   },
 
   /**
+   * Register a callback fired when Main invalidates the current session
+   * (a 401 from the backend, or a locally-detected expired token) mid-use.
+   * The renderer reacts by clearing its own auth state and showing the login
+   * screen again — see App.tsx.
+   */
+  onSessionExpired: (callback: () => void): void => {
+    ipcRenderer.on('auth:session-expired', () => callback());
+  },
+
+  /**
+   * Remove all session-expired listeners (cleanup on unmount).
+   */
+  removeSessionExpiredListener: (): void => {
+    ipcRenderer.removeAllListeners('auth:session-expired');
+  },
+
+  /**
    * Register a callback for real-time training log events.
    * LogPanel renders these as plain text only — no HTML.
    */

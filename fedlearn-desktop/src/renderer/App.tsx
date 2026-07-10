@@ -38,6 +38,8 @@ declare global {
       login: (username: string, password: string) => Promise<{ success: boolean }>;
       logout: () => Promise<{ success: boolean }>;
       checkAuth: () => Promise<{ success: boolean; authenticated?: boolean }>;
+      onSessionExpired: (callback: () => void) => void;
+      removeSessionExpiredListener: () => void;
       onTrainingLog: (callback: (logLine: string) => void) => void;
       removeTrainingLogListener: () => void;
       listTrainableProjects: () => Promise<{ success: boolean; projects?: ClientProject[]; error?: string }>;
@@ -118,6 +120,23 @@ const App: React.FC = () => {
       }
     };
     checkAuth();
+  }, []);
+
+  // DE-8: Main pushes this when a 401 (or a locally-detected expired token)
+  // invalidates the session mid-use. Registered unconditionally on mount —
+  // unlike the log/status subscriptions below, this is exactly what detects
+  // the authenticated -> expired transition, so it can't be gated on
+  // isAuthenticated. React back to the login screen instead of leaving the
+  // dashboard up with opaque per-call "Not authenticated" errors.
+  useEffect(() => {
+    window.fedLearnAPI.onSessionExpired(() => {
+      setIsAuthenticated(false);
+      setLogs([]);
+      setContainerStatus('idle');
+    });
+    return () => {
+      window.fedLearnAPI.removeSessionExpiredListener();
+    };
   }, []);
 
   // Subscribe to container logs — batch rapid IPC events into single state updates

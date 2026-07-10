@@ -79,7 +79,7 @@ export function getDockerService(): DockerService | undefined {
 
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   dockerService = new DockerService(mainWindow);
-  authService = new AuthService();
+  authService = new AuthService(mainWindow);
   inferenceService = new InferenceService(authService);
   clientProjectService = new ClientProjectService(authService);
   const inferenceStreamService = new InferenceStreamService(authService, mainWindow);

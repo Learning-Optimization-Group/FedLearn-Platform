@@ -14,9 +14,13 @@
 
 import Store from 'electron-store';
 import { safeStorage } from 'electron';
+import type { BrowserWindow } from 'electron';
 import { AxiosError } from 'axios';
 import log from 'electron-log';
-import { http } from './http';
+import { http, installUnauthorizedHandler } from './http';
+
+/** Renderer channel Main pushes to when a session goes from valid to invalid. */
+export const SESSION_EXPIRED_CHANNEL = 'auth:session-expired';
 
 interface AuthStore {
   encryptedJwt: string;
@@ -60,7 +64,16 @@ export class AuthService {
    */
   private sessionMemory: SessionMemory | null = null;
 
-  constructor() {
+  /**
+   * The window to notify when a session goes from valid to invalid (DE-8).
+   * Optional so AuthService stays constructible in isolation (unit tests,
+   * or any future headless use) without a real BrowserWindow.
+   */
+  private readonly mainWindow: BrowserWindow | null;
+
+  constructor(mainWindow: BrowserWindow | null = null) {
+    this.mainWindow = mainWindow;
+
     // clearInvalidConfig recovers from unreadable state — e.g. a store file
     // written by an older build that used a different encryptionKey. Without
     // this, a SyntaxError here would propagate up through registerIpcHandlers
@@ -74,6 +87,12 @@ export class AuthService {
     const savedUrl = this.store.get(SERVER_URL_KEY) as string | undefined;
     this.apiBaseUrl = savedUrl || process.env.FEDLEARN_API_URL || DEFAULT_API_BASE_URL;
     log.info(`[AuthService] Initialized with API base URL: ${this.apiBaseUrl}`);
+
+    // DE-8: a 401 from any authenticated backend call (inference, client
+    // projects, generation, ...) means the session is no longer valid server
+    // side — the shared `http` instance carries the single active handler for
+    // the whole app, so every service gets this for free.
+    installUnauthorizedHandler(() => this.handleSessionExpired());
   }
 
   /**
@@ -233,8 +252,12 @@ export class AuthService {
     try {
       // In-memory session takes priority — if present, on-disk is empty by design.
       if (this.sessionMemory) {
+        // DE-8: proactive expiry — a request is never armed with a token whose
+        // expiresAt has already passed. Treat it as an expired session (clear +
+        // signal the renderer to re-auth) instead of sending a doomed request
+        // that would just 401 downstream.
         if (Date.now() > this.sessionMemory.expiresAt) {
-          this.logout();
+          this.handleSessionExpired();
           return null;
         }
         return `Bearer ${this.sessionMemory.jwt}`;
@@ -247,7 +270,7 @@ export class AuthService {
       }
 
       if (Date.now() > authData.expiresAt) {
-        this.logout();
+        this.handleSessionExpired();
         return null;
       }
 
@@ -256,6 +279,43 @@ export class AuthService {
     } catch {
       log.warn('[AuthService] Failed to retrieve auth header');
       return null;
+    }
+  }
+
+  /**
+   * Single entry point for "the session just went from valid to invalid" —
+   * reached either from the shared `http` 401 interceptor (server said no) or
+   * from {@link getAuthHeader}'s proactive expiry check (we already know it's
+   * stale before asking). Clears the session like an explicit logout, then
+   * pushes a one-shot event so the renderer swaps the dashboard for the login
+   * screen instead of leaving the user looking at an opaque per-call error.
+   *
+   * Guarded on {@link hasStoredSession} so a burst of 401s / expiry checks in
+   * flight at once (several in-flight requests failing together) still clears
+   * once and signals exactly once, not once per caller.
+   */
+  private handleSessionExpired(): void {
+    const hadSession = this.hasStoredSession();
+    this.logout();
+    if (hadSession) {
+      log.info('[AuthService] Session expired — clearing JWT and signalling renderer to re-auth');
+      this.emitSessionExpired();
+    }
+  }
+
+  /** True when either storage backend currently holds a session to clear. */
+  private hasStoredSession(): boolean {
+    if (this.sessionMemory) {
+      return true;
+    }
+    const authData = this.store.get(AUTH_STORE_KEY) as AuthStore | undefined;
+    return !!(authData && authData.encryptedJwt);
+  }
+
+  /** Pushes the re-auth signal to the renderer, if a window is attached. */
+  private emitSessionExpired(): void {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send(SESSION_EXPIRED_CHANNEL);
     }
   }
 
