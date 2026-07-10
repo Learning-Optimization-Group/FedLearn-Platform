@@ -206,3 +206,94 @@ describe('DockerService native respawn drain (DE-9)', () => {
     expect(children[1]).not.toBe(children[0]);
   });
 });
+
+// DE-2: the user-selected "Local Dataset Path" is bound to /data on the Jetson
+// Docker path but was silently DROPPED on the native path — the field looked
+// wired but the native client never received it. It must be forwarded as
+// `--dataset-path` when non-empty (parity with the Docker /data bind), and
+// omitted entirely when blank so the client falls back to its recipe-default
+// data source. This pins the spawn argv on both branches.
+describe('DockerService native dataset-path forwarding (DE-2)', () => {
+  const fakeWindow = {
+    isDestroyed: () => false,
+    webContents: { send: jest.fn(), isDestroyed: () => false, isLoading: () => false },
+  } as never;
+
+  const baseConfig = {
+    hardwareProfile: 'cpu' as const,
+    projectId: 'p1',
+    serverAddress: 'localhost:50000',
+    partitionId: '0',
+    modelType: 'MLP',
+    datasetPath: '',
+  };
+
+  type PrivateDockerService = {
+    resolveNativeInvocation: () => {
+      command: string;
+      baseArgs: string[];
+      cwd: string;
+      env: NodeJS.ProcessEnv;
+    } | null;
+  };
+
+  function makeService(): { service: DockerService; spawnMock: jest.Mock } {
+    const spawnMock = spawn as unknown as jest.Mock;
+    spawnMock.mockReset();
+    spawnMock.mockImplementation(() => {
+      const emitter = new EventEmitter() as EventEmitter & {
+        stdout: { on: jest.Mock };
+        stderr: { on: jest.Mock };
+        exitCode: number | null;
+        pid: number;
+        kill: jest.Mock;
+      };
+      emitter.stdout = { on: jest.fn() };
+      emitter.stderr = { on: jest.fn() };
+      emitter.exitCode = null;
+      emitter.pid = 4242;
+      emitter.kill = jest.fn(() => true);
+      return emitter;
+    });
+
+    (Docker as unknown as jest.Mock).mockImplementation(() => ({
+      ping: jest.fn().mockResolvedValue(undefined),
+      getContainer: jest.fn(),
+    }));
+
+    const service = new DockerService(fakeWindow);
+    jest
+      .spyOn(service as unknown as PrivateDockerService, 'resolveNativeInvocation')
+      .mockReturnValue({ command: 'python3', baseArgs: [], cwd: '/tmp', env: {} });
+    return { service, spawnMock };
+  }
+
+  it('forwards --dataset-path <path> when a dataset path is provided', async () => {
+    const { service, spawnMock } = makeService();
+
+    await service.startTraining({ ...baseConfig, datasetPath: '/home/me/ecg.csv' } as never);
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    const idx = args.indexOf('--dataset-path');
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(args[idx + 1]).toBe('/home/me/ecg.csv');
+  });
+
+  it('omits --dataset-path entirely when the dataset path is blank', async () => {
+    const { service, spawnMock } = makeService();
+
+    await service.startTraining({ ...baseConfig, datasetPath: '' } as never);
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).not.toContain('--dataset-path');
+  });
+
+  it('omits --dataset-path when the path is whitespace-only', async () => {
+    const { service, spawnMock } = makeService();
+
+    await service.startTraining({ ...baseConfig, datasetPath: '   ' } as never);
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).not.toContain('--dataset-path');
+  });
+});

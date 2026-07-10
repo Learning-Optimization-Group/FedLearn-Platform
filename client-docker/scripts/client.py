@@ -630,6 +630,11 @@ def main():
     parser.add_argument("--strategy", type=str, default="FedAvg", help="FL strategy (FedAvg or DeComFL)")
     parser.add_argument("--use-llm", action="store_true",
                         help="Use LLM (deprecated, use --model-type TRANSFORMER)")
+    parser.add_argument("--dataset-path", type=str, default=None,
+                        help="Local dataset directory/file. When set, overrides the "
+                             "model's default data source (e.g. the built-in ECG CSV "
+                             "path for MLP). Forwarded by the desktop client from the "
+                             "user-selected folder; blank means 'use the recipe default'.")
 
     args = parser.parse_args()
 
@@ -651,15 +656,19 @@ def main():
         USE_MLP = False
 
     # === HARDCODED ECG/MLP OVERRIDE ===
+    # A user-supplied --dataset-path (DE-2: forwarded by the desktop client from
+    # the selected folder) takes precedence over the built-in default so the
+    # native path honors the same "Local Dataset Path" field the Jetson Docker
+    # path binds to /data. Blank/absent falls back to the recipe default.
     if USE_MLP:
         args.dataset = "ecg"
-        dataset_path = ECG_DATASET_PATH
+        dataset_path = args.dataset_path or ECG_DATASET_PATH
         num_clients = ECG_NUM_CLIENTS
         args.strategy = ECG_STRATEGY
         logger.info(f"MLP detected - dataset={args.dataset} path={dataset_path} "
                     f"num_clients={num_clients} strategy={args.strategy}")
     else:
-        dataset_path = None
+        dataset_path = args.dataset_path
         num_clients = 2
 
     DATASET_NAME = args.dataset

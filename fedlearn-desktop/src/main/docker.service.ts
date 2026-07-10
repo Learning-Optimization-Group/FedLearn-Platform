@@ -308,6 +308,17 @@ export class DockerService {
       args.push('--model-type', config.modelType);
     }
 
+    // DE-2: forward the user-selected local dataset directory to the native
+    // client, mirroring the Jetson Docker path's `${datasetPath}:/data` bind.
+    // Only when non-empty — a blank field means "use the recipe's default data
+    // source", which the client already does when --dataset-path is absent.
+    // The renderer already trims this (HardwareSelector), but guard here too so
+    // a whitespace-only value never becomes a bogus path argument.
+    const datasetPath = config.datasetPath?.trim();
+    if (datasetPath) {
+      args.push('--dataset-path', datasetPath);
+    }
+
     log.info(`[Native] Profile=${config.hardwareProfile} command=${invocation.command} args=${args.join(' ')}`);
     log.info(`[Native] cwd=${invocation.cwd}`);
 
