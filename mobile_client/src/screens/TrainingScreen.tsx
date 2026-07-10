@@ -4,10 +4,11 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { Play, Square } from 'lucide-react-native';
 
 import { joinRun, type JoinedRun } from '../lib/runJoin';
-import nativeCore, { isNativeCoreAvailable, type RoundResult } from '../lib/nativeCore';
+import nativeCore, { isNativeCoreAvailable, type RoundResult, type ServerStatus } from '../lib/nativeCore';
 import { connectStomp, type StompHandle } from '../lib/stompClient';
 import { foregroundService } from '../lib/foregroundService';
 import { runTrainingLoop } from '../lib/training';
+import { startServerStatusHeartbeat, formatRoundDeadline } from '../lib/statusHeartbeat';
 import { ModelDeliveryUnavailableError } from '../lib/modelProvisioning';
 import { StatusBadge, type StatusVariant } from '../components/StatusBadge';
 import { DeviceBanner } from '../components/DeviceBanner';
@@ -29,6 +30,10 @@ export function TrainingScreen() {
   const [stopping, setStopping] = useState(false);
   const [training, setTraining] = useState(false);
   const [latestRound, setLatestRound] = useState<RoundResult | null>(null);
+  // MO-3: the server's LIVE round + deadline, polled on a heartbeat independent of the local round
+  // cadence. `now` is a 1s ticker so the deadline renders as a live countdown between heartbeats.
+  const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null);
+  const [now, setNow] = useState<number>(() => Date.now());
   const logScrollRef = useRef<ScrollView | null>(null);
   const stompRef = useRef<StompHandle | null>(null);
   const stopRef = useRef(false); // cooperative stop flag polled by the training loop
@@ -90,6 +95,30 @@ export function TrainingScreen() {
     };
   }, [joined]);
 
+  // MO-3: once joined, run a server-status heartbeat + a 1s countdown ticker, both independent of the
+  // training round loop. This keeps the live round number and round-deadline countdown honest even
+  // while a DeComFL round is occupying the loop (or between rounds). Best-effort: a failed poll is
+  // swallowed here (the heartbeat itself keeps retrying) so a blip never freezes the view for good.
+  useEffect(() => {
+    if (!joined) {
+      setServerStatus(null);
+      return;
+    }
+    const hb = startServerStatusHeartbeat({
+      runId: joined.runId,
+      onStatus: setServerStatus,
+      onError: () => {
+        /* best-effort telemetry — the card just holds its last value until a poll succeeds */
+      },
+    });
+    setNow(Date.now());
+    const ticker = setInterval(() => setNow(Date.now()), 1000);
+    return () => {
+      hb.stop();
+      clearInterval(ticker);
+    };
+  }, [joined]);
+
   // Stop = abort the native gRPC/training path (sets the abort flag + joins threads), stop the Android
   // foreground service, and reset the UI to idle.
   const onStop = useCallback(async () => {
@@ -107,6 +136,7 @@ export function TrainingScreen() {
     setLogs([]);
     setTraining(false);
     setLatestRound(null);
+    setServerStatus(null);
     setPhase('idle');
     setStopping(false);
   }, []);
@@ -224,6 +254,37 @@ export function TrainingScreen() {
             scalars) are shared, never your data.
           </Text>
         </View>
+
+        {/* MO-3: live server progress — the run's current round + deadline countdown + how many clients
+            have reported this round, refreshed on a heartbeat independent of this device's round pace. */}
+        {serverStatus ? (
+          <View className="mx-4 mt-2 p-4 rounded-card bg-surface-1 border border-hairline">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-label font-sans text-fg-muted">Server progress</Text>
+              <Text className="text-caption font-mono text-fg-subtle">{serverStatus.serverState}</Text>
+            </View>
+            <View className="mt-2 flex-row justify-between">
+              <Text className="text-caption font-sans text-fg-muted">Current round</Text>
+              <Text className="text-caption font-mono text-fg">{serverStatus.currentRound}</Text>
+            </View>
+            <View className="mt-1 flex-row justify-between">
+              <Text className="text-caption font-sans text-fg-muted">Round deadline</Text>
+              <Text className="text-caption font-mono text-fg">
+                {formatRoundDeadline(serverStatus.roundDeadlineUnixMs, now)}
+              </Text>
+            </View>
+            <View className="mt-1 flex-row justify-between">
+              <Text className="text-caption font-sans text-fg-muted">Clients reported</Text>
+              <Text className="text-caption font-mono text-fg">
+                {serverStatus.receivedUpdatesThisRound}/{serverStatus.requiredClientsForRound}
+              </Text>
+            </View>
+            <View className="mt-1 flex-row justify-between">
+              <Text className="text-caption font-sans text-fg-muted">Active clients</Text>
+              <Text className="text-caption font-mono text-fg">{serverStatus.activeClients}</Text>
+            </View>
+          </View>
+        ) : null}
 
         {/* Start on-device training, or show live round progress while it runs. */}
         {training ? (
