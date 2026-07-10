@@ -126,4 +126,49 @@ class ArtifactControllerTest {
         mvc(scopeOf(UUID.randomUUID())).perform(get("/api/artifacts/latest").param("projectId", pid.toString()))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void list_returns_the_projects_visible_artifacts_newest_first_with_provenance() throws Exception {
+        UUID pid = UUID.randomUUID(), org = UUID.randomUUID();
+        ModelArtifact older = artifact(UUID.randomUUID(), org);
+        older.setProjectId(pid);
+        older.setCreatedAt(Instant.parse("2026-01-01T00:00:00Z"));
+        ModelArtifact newer = artifact(UUID.randomUUID(), org);
+        newer.setProjectId(pid);
+        newer.setCreatedAt(Instant.parse("2026-06-01T00:00:00Z"));
+        newer.setBaseModelRef("bert-base");
+        newer.setLicenseTag("apache-2.0");
+        newer.setEvalCardJson("{\"accuracy\":0.91}");
+        // repo returns them oldest-first; the endpoint must sort newest-first regardless.
+        when(artifacts.findByProjectId(pid)).thenReturn(java.util.List.of(older, newer));
+
+        mvc(scopeOf(org)).perform(get("/api/artifacts").param("projectId", pid.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(newer.getId().toString()))   // newest first
+                .andExpect(jsonPath("$[0].baseModelRef").value("bert-base"))
+                .andExpect(jsonPath("$[0].licenseTag").value("apache-2.0"))
+                .andExpect(jsonPath("$[0].evalCardJson").value("{\"accuracy\":0.91}"))
+                .andExpect(jsonPath("$[1].id").value(older.getId().toString()));
+    }
+
+    @Test
+    void list_filters_out_cross_org_rows_and_never_leaks() throws Exception {
+        UUID pid = UUID.randomUUID(), myOrg = UUID.randomUUID(), foreignOrg = UUID.randomUUID();
+        ModelArtifact mine = artifact(UUID.randomUUID(), myOrg);
+        mine.setProjectId(pid);
+        ModelArtifact foreign = artifact(UUID.randomUUID(), foreignOrg);
+        foreign.setProjectId(pid);
+        when(artifacts.findByProjectId(pid)).thenReturn(java.util.List.of(mine, foreign));
+
+        mvc(scopeOf(myOrg)).perform(get("/api/artifacts").param("projectId", pid.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(mine.getId().toString()));
+
+        // a caller in NEITHER org sees nothing — an empty list, not the foreign row.
+        mvc(scopeOf(UUID.randomUUID())).perform(get("/api/artifacts").param("projectId", pid.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
 }

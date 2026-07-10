@@ -48,6 +48,21 @@ public class ArtifactController {
         this.orgScope = orgScope;
     }
 
+    /**
+     * The project's artifacts the caller may see, newest first — the catalog the registry surface (FE-11)
+     * lists. Cross-org rows are filtered out (an empty list, never a 403/leak); a projectId in no visible
+     * org simply yields {@code []}. Org-scoped exactly like {@link #get}, just widened to the whole project.
+     */
+    @GetMapping
+    public java.util.List<ArtifactDto> list(@RequestParam UUID projectId) {
+        return artifacts.findByProjectId(projectId).stream()
+                .filter(a -> orgScope.allows(a.getOrgId()))
+                .sorted(java.util.Comparator.comparing(ModelArtifact::getCreatedAt,
+                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())).reversed())
+                .map(ArtifactDto::from)
+                .toList();
+    }
+
     /** Artifact metadata, or 404 if it does not exist OR is outside the caller's orgs (no existence leak). */
     @GetMapping("/{id}")
     public ResponseEntity<ArtifactDto> get(@PathVariable UUID id) {
