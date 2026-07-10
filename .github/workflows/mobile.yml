@@ -146,11 +146,23 @@ jobs:
       - name: Generate C++ gRPC stubs
         working-directory: proto
         run: buf generate
-      - name: Install CPU torch (for the cmake_macros.h header only)
+      # TORCH_INCLUDE for the APK build must be a HEADERONLY-scoped shim, NOT the full torch/include:
+      # per shared/CMakeLists.txt the full dir also carries torch's stale bundled google/protobuf/*,
+      # which — on the include path of the gRPC-linked app target — shadows the gRPC protobuf and fails
+      # the FedLearnCoreModule.cpp compile with "unknown type name 'uint8'". Copy just torch/headeronly
+      # (which supplies the cmake_macros.h the ET headers need) into an otherwise-empty dir so protobuf
+      # can't leak. (The host cpp-parity gate above is gRPC-free, so it can use the full dir safely.)
+      - name: Install CPU torch + build a headeronly TORCH_INCLUDE shim (cmake_macros.h only)
         run: |
           python -m pip install --upgrade pip
           pip install --index-url https://download.pytorch.org/whl/cpu "torch==${TORCH_VERSION}"
-          echo "TORCH_INCLUDE=$(python -c 'import torch, os; print(os.path.join(os.path.dirname(torch.__file__), "include"))')" >> "$GITHUB_ENV"
+          FULL_INC="$(python -c 'import torch, os; print(os.path.join(os.path.dirname(torch.__file__), "include"))')"
+          SHIM="${RUNNER_TEMP}/torch-headeronly-shim"
+          rm -rf "$SHIM" && mkdir -p "$SHIM/torch"
+          cp -r "$FULL_INC/torch/headeronly" "$SHIM/torch/headeronly"
+          test -f "$SHIM/torch/headeronly/macros/cmake_macros.h"  # fail loudly if the layout ever changes
+          test ! -e "$SHIM/google"                                # the polluter must NOT be in the shim
+          echo "TORCH_INCLUDE=${SHIM}" >> "$GITHUB_ENV"
       - name: Restore cross-compiled arm64 ExecuTorch + gRPC
         uses: actions/cache@v4
         with:
