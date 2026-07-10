@@ -1,6 +1,7 @@
 package com.federated.fl_platform_api.dto;
 
-import jakarta.validation.constraints.Pattern;
+import com.federated.fl_platform_api.model.ProjectVisibility;
+import com.federated.fl_platform_api.validation.ValueOfEnum;
 import jakarta.validation.constraints.Size;
 
 public class UpdateProjectRequest {
@@ -10,7 +11,9 @@ public class UpdateProjectRequest {
     @Size(max = 4000)
     private String description;
 
-    @Pattern(regexp = "PUBLIC|PRIVATE")
+    // Validated against the ProjectVisibility enum so the accepted set can never
+    // drift from the source of truth (BA-15). null = "leave visibility unchanged".
+    @ValueOfEnum(enumClass = ProjectVisibility.class)
     private String visibility;
 
     public String getName() { return name; }
