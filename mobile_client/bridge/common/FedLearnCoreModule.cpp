@@ -14,6 +14,7 @@
 
 #include "DeviceState.h"
 #include "fedlearn/DataLoader.h"
+#include "fedlearn/EvalMetrics.h"
 #include "fedlearn/Sha256.h"
 
 namespace fedlearn::bridge {
@@ -309,24 +310,25 @@ void FedLearnCoreModule::evalBatch(double& outLoss, double& outAccuracy) {
   // ExecuTorch weights-as-inputs: loss graph -> cross-entropy; infer graph -> logits for argmax.
   const std::vector<float>& flat = mm_.getFlatParams();
   const fedlearn::DataBatch& b = trainingBatch_;
-  outLoss = static_cast<double>(
-      model_->loss(flat, b.inputs, b.inputShape, b.targets, b.numSamples));
-
-  // REAL accuracy: argmax of the infer logits vs targets (no NaN, no exp(-loss) fake).
-  const std::vector<float> logits = inferModel_->infer(flat, b.inputs, b.inputShape);
   const int64_t n = b.numSamples;
-  const int64_t classes = n > 0 ? static_cast<int64_t>(logits.size()) / n : 0;
-  int64_t correct = 0;
-  for (int64_t row = 0; row < n; ++row) {
-    int64_t best = 0;
-    float bestVal = logits[static_cast<size_t>(row) * classes];
-    for (int64_t col = 1; col < classes; ++col) {
-      const float v = logits[static_cast<size_t>(row) * classes + col];
-      if (v > bestVal) { bestVal = v; best = col; }
-    }
-    if (best == b.targets[row]) ++correct;
+
+  // MO-6 bounds guard: an unstaged / 0-sample batch must not reach the model (cross-entropy mean over 0
+  // samples is NaN) nor the accuracy path. Report a neutral (0,0) — "not evaluable" — rather than crash.
+  if (n <= 0 || b.inputs == nullptr || b.targets == nullptr) {
+    outLoss = 0.0;
+    outAccuracy = 0.0;
+    return;
   }
-  outAccuracy = n > 0 ? static_cast<double>(correct) / static_cast<double>(n) : 0.0;
+
+  outLoss = static_cast<double>(model_->loss(flat, b.inputs, b.inputShape, b.targets, n));
+
+  // REAL accuracy: argmax of the infer logits vs targets (no NaN, no exp(-loss) fake). argmaxCorrect is
+  // bounds-safe — it guards the empty/short/ragged infer output that a naive logits[row*classes] loop
+  // would OOB-read (n>0 but empty logits -> classes 0 -> logits[0] on an empty buffer). See EvalMetrics.h.
+  const std::vector<float> logits = inferModel_->infer(flat, b.inputs, b.inputShape);
+  const fedlearn::AccuracyCount acc = fedlearn::argmaxCorrect(logits, b.targets, n);
+  outAccuracy =
+      acc.scored > 0 ? static_cast<double>(acc.correct) / static_cast<double>(acc.scored) : 0.0;
 }
 
 RoundResult FedLearnCoreModule::doRunDeComFLRound(const std::string& runId, const RoundConfig& cfg) {

@@ -32,6 +32,7 @@ add_executable(fedlearn_core_tests
   et_infer_test.cpp
   federated_loop_test.cpp
   auth_metadata_test.cpp
+  eval_metrics_test.cpp
 )
 target_link_libraries(fedlearn_core_tests PRIVATE
   fedlearn_core
