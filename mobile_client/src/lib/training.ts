@@ -16,6 +16,22 @@ export interface TrainingHooks {
   shouldStop: () => boolean;
 }
 
+/**
+ * MO-4: raised when a phone tries to join a run whose strategy is FedAvg. The on-device round path
+ * (FederatedLoop::fedAvgRound) does local ZO-SGD and uploads per-step seeds + gradient SCALARS via
+ * SubmitGradientScalars — the DeComFL wire, NOT a weight blob via SubmitModelUpdateStream. A server
+ * running the FedAvg *strategy* aggregates weight updates and cannot consume those scalars, so the
+ * phone's "training" would submit into a void. Until SubmitModelUpdateStream is wired end-to-end (and
+ * the server can aggregate a mobile weight blob), we refuse FedAvg fail-closed rather than silently
+ * no-op. Caught by the training UI to show a clear "not supported on this device yet" message.
+ */
+export class MobileFedAvgUnsupportedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MobileFedAvgUnsupportedError';
+  }
+}
+
 // The client proposes a config; the server is authoritative on K/P (applied inside the native round).
 function roundConfigFor(joined: JoinedRun): RoundConfig {
   const m = joined.manifest;
@@ -183,6 +199,17 @@ export async function runTrainingLoop(
   overrides?: { policy?: ResiliencePolicy; ops?: Partial<RoundOps> },
 ): Promise<void> {
   const isFedAvg = joined.manifest.strategy === 'FedAvg';
+
+  // MO-4: fail-closed on FedAvg BEFORE any provisioning/native work. The on-device fedAvgRound uploads
+  // ZO-SGD gradient scalars (SubmitGradientScalars), which a FedAvg-strategy server cannot aggregate —
+  // it expects weight updates (SubmitModelUpdateStream). Refuse rather than silently submit into a void.
+  if (isFedAvg) {
+    throw new MobileFedAvgUnsupportedError(
+      'This project uses the FedAvg strategy, which is not supported on this device yet: the on-device ' +
+        'path uploads zeroth-order gradient scalars that a FedAvg server cannot aggregate. Join a ' +
+        'DeComFL project to train on this device.',
+    );
+  }
 
   hooks.onLog('Provisioning model + on-device data…');
   const bundle = await provisionTrainingBundle(joined.runId);

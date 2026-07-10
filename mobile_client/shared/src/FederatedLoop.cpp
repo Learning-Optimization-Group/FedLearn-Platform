@@ -79,6 +79,13 @@ RoundOutcome FederatedLoop::deComFLRound(ExecutorchModel& model, const std::stri
   return out;
 }
 
+// MO-4: this round body is GATED OFF at the JS layer (runTrainingLoop throws MobileFedAvgUnsupportedError
+// for a FedAvg-strategy run) and is therefore currently unreachable in production. The reason is the
+// submit at the bottom: we upload ZO-SGD seeds + gradient SCALARS via submitGradientScalars (the DeComFL
+// wire), but a server running the FedAvg *strategy* aggregates weight updates (SubmitModelUpdateStream)
+// and cannot consume scalars — so this path would submit into a void. Kept intact so that wiring
+// SubmitModelUpdateStream (+ server-side aggregation of a mobile weight blob) re-enables it by lifting
+// the JS guard, not by rewriting the round.
 RoundOutcome FederatedLoop::fedAvgRound(ExecutorchModel& model, const std::string& runId,
                                         const std::string& clientId, const DataBatch& batch,
                                         int numLocalSteps, double learningRate, double mu,

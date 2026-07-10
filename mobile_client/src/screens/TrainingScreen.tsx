@@ -7,7 +7,7 @@ import { joinRun, type JoinedRun } from '../lib/runJoin';
 import nativeCore, { isNativeCoreAvailable, type RoundResult, type ServerStatus } from '../lib/nativeCore';
 import { connectStomp, type StompHandle } from '../lib/stompClient';
 import { foregroundService } from '../lib/foregroundService';
-import { runTrainingLoop } from '../lib/training';
+import { runTrainingLoop, MobileFedAvgUnsupportedError } from '../lib/training';
 import { startServerStatusHeartbeat, formatRoundDeadline } from '../lib/statusHeartbeat';
 import { ModelDeliveryUnavailableError } from '../lib/modelProvisioning';
 import { StatusBadge, type StatusVariant } from '../components/StatusBadge';
@@ -157,7 +157,8 @@ export function TrainingScreen() {
         shouldStop: () => stopRef.current,
       });
     } catch (e) {
-      if (e instanceof ModelDeliveryUnavailableError) {
+      if (e instanceof ModelDeliveryUnavailableError || e instanceof MobileFedAvgUnsupportedError) {
+        // Known "can't train here (yet)" refusals — informational, not a failure. MO-4 / model-delivery.
         appendLog(setLogs, `ℹ ${e.message}`);
       } else {
         setError(String(e));
