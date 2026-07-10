@@ -80,7 +80,7 @@ export function LogViewerV2({ projectId, onClose }: LogViewerProps) {
       .then((response) => {
         if (Array.isArray(response.data) && response.data.length > 0) {
           // ids are assigned by the store at merge time.
-          const formatted = response.data.map((entry: any) => ({
+          const formatted = response.data.map((entry) => ({
             level: entry.level,
             message: entry.message,
             timestamp: entry.timestamp,

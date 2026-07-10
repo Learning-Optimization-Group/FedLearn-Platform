@@ -9,7 +9,8 @@ import { AuthProvider } from './context/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 if (typeof window !== 'undefined') {
-    (window as any).global = window;
+    // Some deps expect a Node-style `global`; alias it to `window` in the browser.
+    (window as unknown as { global: Window }).global = window;
 }
 
 const rootElement = document.getElementById('root');

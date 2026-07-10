@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { isAxiosError } from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { registerUser } from '../services/apiServices';
@@ -88,19 +89,23 @@ const RegisterPage: React.FC = () => {
             redirectTimerRef.current = setTimeout(() => {
                 navigate('/login');
             }, 2000);
-        } catch (err: any) {
+        } catch (err: unknown) {
             log.error('register failed', err);
-            const data = err?.response?.data;
             // GlobalExceptionHandler returns either {message, fieldErrors:{...}}
             // (validation), {message} (generic), or — for legacy paths —
             // {error}. Try them in order without losing the field-level detail.
             let displayError = 'An error occurred during registration. Please try again later.';
-            if (data?.fieldErrors && typeof data.fieldErrors === 'object') {
-                displayError = `Validation failed: ${Object.values(data.fieldErrors).join(', ')}`;
-            } else if (data?.message) {
-                displayError = data.message;
-            } else if (data?.error) {
-                displayError = data.error;
+            if (isAxiosError(err)) {
+                const data = err.response?.data as
+                    | { message?: string; error?: string; fieldErrors?: Record<string, string> }
+                    | undefined;
+                if (data?.fieldErrors && typeof data.fieldErrors === 'object') {
+                    displayError = `Validation failed: ${Object.values(data.fieldErrors).join(', ')}`;
+                } else if (data?.message) {
+                    displayError = data.message;
+                } else if (data?.error) {
+                    displayError = data.error;
+                }
             }
             setError(displayError);
         } finally {

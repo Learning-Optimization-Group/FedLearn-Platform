@@ -38,7 +38,7 @@ function summarize(projects: Project[]): DatasetSummary[] {
     }
   }
   return Array.from(byType.values())
-    .map(({ models, ...rest }) => rest)
+    .map(({ models: _models, ...rest }) => rest) // strip the internal Set; keep the rest
     .sort((a, b) => b.projectCount - a.projectCount);
 }
 

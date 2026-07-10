@@ -22,11 +22,13 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
-      // Keep stylistic/strictness rules non-blocking so the lint gate fails only on real
-      // correctness problems; surface the rest as warnings.
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      // FE-6: promoted from 'warn' to 'error'. These are correctness/hygiene rules, not
+      // stylistic ones — `any` erases type safety, unused vars hide typos/half-done refactors,
+      // and a non-component export silently breaks fast-refresh. The one legitimate exception
+      // (the co-located useAuth hook in AuthContext) carries a scoped, documented eslint-disable.
+      'react-refresh/only-export-components': ['error', { allowConstantExport: true }],
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
 );

@@ -54,7 +54,7 @@ describe('NodeNetwork — user removal is honest about what it does (FE-1)', () 
   });
 
   it('deletes the named account, and only after confirmation', async () => {
-    vi.mocked(api.deleteUser).mockResolvedValue(resp({}));
+    vi.mocked(api.deleteUser).mockResolvedValue(resp(undefined));
     render(<NodeNetwork />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Remove user bob' }));

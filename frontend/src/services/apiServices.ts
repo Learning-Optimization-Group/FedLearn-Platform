@@ -179,8 +179,16 @@ export const fetchProjectResults = (projectId: string): Promise<AxiosResponse<Pr
     return api.get<ProjectResult[]>(`/projects/${projectId}/results`);
 };
 
-export const fetchProjectLogs = (projectId: string): Promise<AxiosResponse<any[]>> => {
-    return api.get<any[]>(`/projects/${projectId}/logs`);
+/** A historical log line from GET /projects/{id}/logs. Shape matches the log store's input. */
+export interface LogEntryDto {
+    level?: string;
+    message: string;
+    timestamp?: string;
+    stackTrace?: string;
+}
+
+export const fetchProjectLogs = (projectId: string): Promise<AxiosResponse<LogEntryDto[]>> => {
+    return api.get<LogEntryDto[]>(`/projects/${projectId}/logs`);
 };
 
 export const deleteProject = (projectId: string): Promise<AxiosResponse<{ projectId: string; message: string }>> => {
@@ -295,7 +303,7 @@ export const createUser = (userData: RegisterData): Promise<AxiosResponse<User>>
     return api.post<User>('/users', userData);
 };
 
-export const deleteUser = (userId: number): Promise<AxiosResponse<any>> => {
+export const deleteUser = (userId: number): Promise<AxiosResponse<void>> => {
     return api.delete(`/users/${userId}`);
 };
 

@@ -152,6 +152,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     );
 };
 
+// FE-6: the useAuth hook is intentionally co-located with its provider (the canonical
+// context pattern). Splitting it into a separate module purely to satisfy fast-refresh
+// would churn every import site for no runtime benefit, so scope the rule off here only.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextType => {
     const context = useContext(AuthContext);
     if (!context) {

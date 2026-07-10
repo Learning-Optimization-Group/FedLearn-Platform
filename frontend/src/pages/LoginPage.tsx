@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ShieldCheck, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { loginUser } from '../services/apiServices';
+import { loginUser, errorMessage } from '../services/apiServices';
 import { Button, Card, Input } from '../components/ui';
 import { Wordmark } from '../components/brand';
 
@@ -34,15 +34,12 @@ const LoginPage: React.FC = () => {
             const { username, email, role } = response.data;
             auth.setSession({ username, email, role });
 
-            const from = (location.state as any)?.from?.pathname || '/dashboard';
+            const from =
+                (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ||
+                '/dashboard';
             navigate(from, { replace: true });
-        } catch (err: any) {
-            const responseData = err?.response?.data;
-            setError(
-                responseData?.message ||
-                    responseData?.error ||
-                    'An error occurred during login. Please try again later.'
-            );
+        } catch (err: unknown) {
+            setError(errorMessage(err, 'An error occurred during login. Please try again later.'));
         } finally {
             setIsLoading(false);
         }

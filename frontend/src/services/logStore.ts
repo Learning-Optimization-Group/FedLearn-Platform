@@ -62,7 +62,6 @@ function emit(projectId: string): void {
             cb(snapshot);
         } catch (err) {
             // A misbehaving listener must not break the store.
-            // eslint-disable-next-line no-console
             console.error('[logStore] listener error:', err);
         }
     });
