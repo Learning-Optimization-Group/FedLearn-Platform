@@ -81,4 +81,37 @@ describe('joinRun (slice 1b connect/enroll/register)', () => {
     await joinRun({ projectId: 'p1', useTls: true });
     expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', true);
   });
+
+  // MO-16: each join must RE-RESOLVE the project's current active run — never reuse a stale runId. The
+  // live phone test failed to join a fresh run because a stale (completed) runId lingered; pin that a
+  // second join, after the owner starts a new run, targets the NEW runId end-to-end.
+  test('re-resolves the active run on every call — a second join uses the NEW runId, not the stale one', async () => {
+    mClientId.mockResolvedValue('device-uuid');
+    const grpcById: Record<string, string> = { r1: 'host:1', r2: 'host:2' };
+    let active = 'r1';
+    mApi.get.mockImplementation((url: string) => {
+      if (url === '/api/client/projects/p1') {
+        return Promise.resolve({ data: { activeRun: { runId: active, status: 'RUNNING' } } });
+      }
+      const m = url.match(/^\/api\/runs\/(.+)\/status$/);
+      if (m) return Promise.resolve({ data: { status: 'RUNNING', grpcEndpoint: grpcById[m[1] as string], caFingerprint: null } });
+      return Promise.reject(new Error('unexpected GET ' + url));
+    });
+    mApi.post.mockImplementation((url: string) => {
+      const rid = (url.match(/^\/api\/runs\/(.+)\/enroll$/) || [])[1] as string;
+      return Promise.resolve({ data: {
+        runId: rid, projectId: 'p1', grpcEndpoint: grpcById[rid], partitionId: 0, clientKind: 'SHARD',
+        caFingerprint: null, connectionToken: 't-' + rid, expiresAt: '', manifest: { ...MANIFEST, runId: rid },
+      }});
+    });
+    mCore.registerClient.mockResolvedValue({ accepted: true, message: 'ok', assignedRound: 0, serverProtocolVersion: 2 });
+
+    const first = await joinRun({ projectId: 'p1' });
+    expect(first.runId).toBe('r1');
+
+    active = 'r2'; // owner ends r1 and starts a new run
+    const second = await joinRun({ projectId: 'p1' });
+    expect(second.runId).toBe('r2'); // re-resolved to the CURRENT run, not the stale r1
+    expect(mApi.post).toHaveBeenCalledWith('/api/runs/r2/enroll'); // the second join enrolled the NEW run
+  });
 });

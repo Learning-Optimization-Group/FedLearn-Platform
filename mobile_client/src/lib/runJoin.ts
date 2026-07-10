@@ -59,7 +59,9 @@ async function pollUntilRunning(runId: string): Promise<void> {
     const { status, grpcEndpoint } = res.data;
     if (status === 'RUNNING' && grpcEndpoint) return;
     if (status === 'FAILED' || status === 'COMPLETED' || status === 'STOPPED') {
-      throw new Error(`Run is ${status}; cannot join.`);
+      // MO-16: actionable, not just a status code — the run the owner had running has ended; a new one
+      // is a fresh /start away. (resolveRunId gives the analogous message when there is no active run.)
+      throw new Error(`The active run has ended (${status}). Ask the owner to start a new one.`);
     }
     if (Date.now() > deadline) throw new Error('Timed out waiting for the run to become ready.');
     await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL_MS));

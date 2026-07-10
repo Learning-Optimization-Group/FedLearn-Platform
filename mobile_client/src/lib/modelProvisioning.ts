@@ -7,6 +7,7 @@
 // never leave the device.
 import { api } from './restClient';
 import nativeCore, { type ModelManifest, type ParamSpec } from './nativeCore';
+import { readError } from './errors';
 
 export interface ModelBundle {
   manifest: ModelManifest; // paramLayout + totalParamCount + inferPtePath/inferSha256
@@ -127,9 +128,4 @@ function arrayBufferToBase64(buf: ArrayBuffer): string {
     out += B64[(n >> 18) & 63]! + B64[(n >> 12) & 63]! + B64[(n >> 6) & 63]! + '=';
   }
   return out;
-}
-
-function readError(e: unknown): string {
-  const err = e as { response?: { data?: { message?: string } }; message?: string };
-  return err?.response?.data?.message ?? err?.message ?? String(e);
 }

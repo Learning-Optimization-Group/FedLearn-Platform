@@ -10,6 +10,7 @@ import { foregroundService } from '../lib/foregroundService';
 import { runTrainingLoop, MobileFedAvgUnsupportedError } from '../lib/training';
 import { startServerStatusHeartbeat, formatRoundDeadline } from '../lib/statusHeartbeat';
 import { ModelDeliveryUnavailableError } from '../lib/modelProvisioning';
+import { readError } from '../lib/errors';
 import { StatusBadge, type StatusVariant } from '../components/StatusBadge';
 import { DeviceBanner } from '../components/DeviceBanner';
 import { useThemeTokens } from '../theme/useThemeTokens';
@@ -62,7 +63,9 @@ export function TrainingScreen() {
       setJoined(result);
       setPhase('ready');
     } catch (e) {
-      setError(String(e));
+      // MO-16: readError, not String(e) — an axios join failure (e.g. a 409 "Run is not currently
+      // running", or "No active run yet") otherwise renders as the meaningless "[object Object]".
+      setError(readError(e));
       setPhase('error');
     }
   }, [projectId]);
@@ -85,7 +88,7 @@ export function TrainingScreen() {
           appendLog(setLogs, body),
         );
       } catch (e) {
-        if (alive) appendLog(setLogs, `⚠ ${String(e)}`);
+        if (alive) appendLog(setLogs, `⚠ ${readError(e)}`);
       }
     })();
     return () => {
@@ -161,8 +164,9 @@ export function TrainingScreen() {
         // Known "can't train here (yet)" refusals — informational, not a failure. MO-4 / model-delivery.
         appendLog(setLogs, `ℹ ${e.message}`);
       } else {
-        setError(String(e));
-        appendLog(setLogs, `⚠ ${String(e)}`);
+        const msg = readError(e);
+        setError(msg);
+        appendLog(setLogs, `⚠ ${msg}`);
       }
     } finally {
       foregroundService.stop();
