@@ -394,7 +394,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     pinned against the backend spawner (FlowerServerManager builds exactly these flags) — is
     unit-testable without booting a server."""
     parser = argparse.ArgumentParser(description="FedLearn gRPC Server with Heartbeat for a Project")
-    parser.add_argument("--model-path", type=str, required=True, help="Path to initial model weights (.npz)")
+    parser.add_argument("--model-path", type=str, required=True,
+                        help="Path to the run's .npz — the WRITE target for the aggregated result, and the "
+                             "init-weights source unless --init-model-path is given")
+    parser.add_argument("--init-model-path", type=str, default=None,
+                        help="BA-11: read INITIAL global weights from here (the content-addressed registry "
+                             "head, resolved by the backend) instead of --model-path. --model-path stays "
+                             "the write target, so the immutable registry blob is never overwritten.")
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
     parser.add_argument("--num-rounds", type=int, default=5, help="Number of FL rounds")
     parser.add_argument("--min-clients", type=int, default=1, help="Minimum clients per round")
@@ -520,14 +526,18 @@ def main():
     # a full base model that is immediately discarded (and would default to FFA freezing).
     net = None if args.model_type.upper() == "LLM_LORA" else get_model(args.model_type, args.model_name, DEVICE)
 
-    # Load initial parameters
+    # Load initial parameters.
+    # BA-11: read INITIAL global weights from the registry head when the backend resolved one
+    # (--init-model-path, a continued run); otherwise from --model-path (a first run / LoRA). --model-path
+    # stays the WRITE target either way, so the immutable content-addressed registry blob is never clobbered.
+    init_path = args.init_model_path if args.init_model_path else args.model_path
     initial_parameters = OrderedDict()
     try:
-        if not os.path.exists(args.model_path):
-            logging.error(f"Model path not found: {args.model_path}")
+        if not os.path.exists(init_path):
+            logging.error(f"Init model path not found: {init_path}")
             exit(1)
 
-        with np.load(args.model_path, allow_pickle=False) as npzfile:
+        with np.load(init_path, allow_pickle=False) as npzfile:
             for key in npzfile.files:
                 value = npzfile[key]
                 if isinstance(value, np.ndarray):
@@ -537,10 +547,10 @@ def main():
                     logging.warning(f"Skipping invalid key {key} of type {type(value)}")
 
         if not initial_parameters:
-            logging.error(f"No valid model parameters found in {args.model_path}")
+            logging.error(f"No valid model parameters found in {init_path}")
             exit(1)
 
-        logging.info("Model parameters loaded successfully with correct layer names.")
+        logging.info(f"Initial model parameters loaded from {init_path}.")
 
         logging.info(f"\n{'='*60}")
         logging.info(f"LOADED PARAMETERS FROM .NPZ FILE")

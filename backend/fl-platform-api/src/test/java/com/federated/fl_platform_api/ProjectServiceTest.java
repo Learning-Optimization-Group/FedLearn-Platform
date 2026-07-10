@@ -81,10 +81,7 @@ class ProjectServiceTest {
     private com.federated.fl_platform_api.service.ProjectStatusService projectStatusService;
 
     @Mock
-    private com.federated.fl_platform_api.repository.ModelArtifactRepository modelArtifactRepository;
-
-    @Mock
-    private com.federated.fl_platform_api.service.ArtifactBlobStore artifactBlobStore;
+    private com.federated.fl_platform_api.service.RegistryModelResolver registryModelResolver;
 
     @InjectMocks
     private ProjectService projectService;
@@ -404,7 +401,7 @@ class ProjectServiceTest {
         assertNull(persisted.getDpClipNorm());
     }
 
-    // ---- BA-11 Chunk A: inference resolves the model from the content-addressed registry ----
+    // ---- BA-11: inference resolves the model from the registry (via RegistryModelResolver) ----
 
     private Project inferableProject(UUID orgId, String modelType) {
         Project p = new Project();
@@ -416,41 +413,25 @@ class ProjectServiceTest {
         return p;
     }
 
-    private com.federated.fl_platform_api.model.ModelArtifact fullCheckpointHead(UUID projectId, UUID orgId, String sha) {
-        var a = new com.federated.fl_platform_api.model.ModelArtifact();
-        a.setId(UUID.randomUUID());
-        a.setOrgId(orgId);
-        a.setProjectId(projectId);
-        a.setKind(com.federated.fl_platform_api.model.ArtifactKind.FULL_CHECKPOINT);
-        a.setBlobSha256(sha);
-        a.setCreatedAt(java.time.Instant.now());
-        return a;
-    }
-
     @Test
-    void resolveInferenceTarget_servesTheRegistryHeadBlob_forFullCheckpoint(
-            @org.junit.jupiter.api.io.TempDir java.nio.file.Path cacheDir) throws Exception {
-        org.springframework.test.util.ReflectionTestUtils.setField(projectService, "modelBlobCacheDir", cacheDir.toString());
+    void resolveInferenceTarget_servesTheRegistryPath_whenTheResolverResolvesOne(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
         UUID orgId = UUID.randomUUID();
         Project p = inferableProject(orgId, "CNN");
-        String sha = "b".repeat(64);
-        byte[] blob = "model-weights-npz-bytes".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        p.setModelPath(dir.resolve("stale.npz").toString()); // present, but the registry must win
+        java.nio.file.Path registryFile = dir.resolve("deadbeef.npz");
+        java.nio.file.Files.write(registryFile, new byte[]{4, 2});
         when(projectRepository.findById(p.getId())).thenReturn(Optional.of(p));
         when(orgScope.allows(orgId)).thenReturn(true);
-        when(modelArtifactRepository.findFirstByProjectIdAndKindOrderByCreatedAtDesc(
-                p.getId(), com.federated.fl_platform_api.model.ArtifactKind.FULL_CHECKPOINT))
-                .thenReturn(Optional.of(fullCheckpointHead(p.getId(), orgId, sha)));
-        when(artifactBlobStore.get(sha)).thenReturn(blob);
+        when(registryModelResolver.resolveModelPath(p)).thenReturn(Optional.of(registryFile.toString()));
 
         var target = projectService.resolveInferenceTarget(p.getId());
 
-        // served from the sha256-keyed cache, byte-identical to the stored blob (never the .npz)
-        assertTrue(target.modelPath().endsWith(sha + ".npz"), target.modelPath());
-        assertArrayEquals(blob, java.nio.file.Files.readAllBytes(java.nio.file.Path.of(target.modelPath())));
+        assertEquals(registryFile.toString(), target.modelPath()); // the registry path, not the .npz
     }
 
     @Test
-    void resolveInferenceTarget_fallsBackToNpz_whenNoRegistryArtifact(
+    void resolveInferenceTarget_fallsBackToNpz_whenTheResolverIsEmpty(
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
         UUID orgId = UUID.randomUUID();
         Project p = inferableProject(orgId, "CNN");
@@ -459,42 +440,20 @@ class ProjectServiceTest {
         p.setModelPath(npz.toString());
         when(projectRepository.findById(p.getId())).thenReturn(Optional.of(p));
         when(orgScope.allows(orgId)).thenReturn(true);
-        when(modelArtifactRepository.findFirstByProjectIdAndKindOrderByCreatedAtDesc(
-                p.getId(), com.federated.fl_platform_api.model.ArtifactKind.FULL_CHECKPOINT))
-                .thenReturn(Optional.empty());
-
-        var target = projectService.resolveInferenceTarget(p.getId());
-
-        assertEquals(npz.toString(), target.modelPath()); // the .npz, not a registry cache path
-    }
-
-    @Test
-    void resolveInferenceTarget_loraUsesNpz_withoutTouchingTheRegistry(
-            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
-        UUID orgId = UUID.randomUUID();
-        Project p = inferableProject(orgId, "LLM_LORA");
-        java.nio.file.Path npz = dir.resolve("adapter.npz");
-        java.nio.file.Files.write(npz, new byte[]{9});
-        p.setModelPath(npz.toString());
-        when(projectRepository.findById(p.getId())).thenReturn(Optional.of(p));
-        when(orgScope.allows(orgId)).thenReturn(true);
+        when(registryModelResolver.resolveModelPath(p)).thenReturn(Optional.empty());
 
         var target = projectService.resolveInferenceTarget(p.getId());
 
         assertEquals(npz.toString(), target.modelPath());
-        // LoRA short-circuits: its registry head is safetensors, unreadable by the .npz infer path.
-        verify(modelArtifactRepository, never()).findFirstByProjectIdAndKindOrderByCreatedAtDesc(any(), any());
     }
 
     @Test
-    void resolveInferenceTarget_409_whenNeitherRegistryArtifactNorNpz() {
+    void resolveInferenceTarget_409_whenNeitherRegistryNorNpz() {
         UUID orgId = UUID.randomUUID();
         Project p = inferableProject(orgId, "CNN"); // no modelPath set
         when(projectRepository.findById(p.getId())).thenReturn(Optional.of(p));
         when(orgScope.allows(orgId)).thenReturn(true);
-        when(modelArtifactRepository.findFirstByProjectIdAndKindOrderByCreatedAtDesc(
-                p.getId(), com.federated.fl_platform_api.model.ArtifactKind.FULL_CHECKPOINT))
-                .thenReturn(Optional.empty());
+        when(registryModelResolver.resolveModelPath(p)).thenReturn(Optional.empty());
 
         assertThrows(
                 com.federated.fl_platform_api.exception.ProjectStateException.class,

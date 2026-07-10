@@ -64,6 +64,11 @@ class FlowerServerManagerCatalogGateTest {
         ReflectionTestUtils.setField(manager, "runRepository",
                 mock(com.federated.fl_platform_api.repository.RunRepository.class));
         ReflectionTestUtils.setField(manager, "modelRecipeService", modelRecipeService);
+        // BA-11: a bare-mock resolver returns Optional.empty() (no registry head) → no --init-model-path.
+        ReflectionTestUtils.setField(manager, "registryModelResolver",
+                new com.federated.fl_platform_api.service.RegistryModelResolver(
+                        mock(com.federated.fl_platform_api.repository.ModelArtifactRepository.class),
+                        mock(com.federated.fl_platform_api.service.ArtifactBlobStore.class), "unused"));
         ReflectionTestUtils.setField(manager, "portRangeStart", RANGE_START);
         ReflectionTestUtils.setField(manager, "portRangeEnd", RANGE_END);
         ReflectionTestUtils.setField(manager, "startupProbeSeconds", 2L);

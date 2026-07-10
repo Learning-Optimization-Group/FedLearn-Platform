@@ -5,9 +5,7 @@ import com.federated.fl_platform_api.dto.*;
 import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
-import com.federated.fl_platform_api.model.ArtifactKind;
 import com.federated.fl_platform_api.model.AuditAction;
-import com.federated.fl_platform_api.model.ModelArtifact;
 import com.federated.fl_platform_api.model.MembershipRole;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.ProjectStatus;
@@ -27,7 +25,6 @@ import com.federated.fl_platform_api.repository.RoundResultRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -39,8 +36,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -90,15 +85,7 @@ public class ProjectService {
     @Autowired
     private ModelBundleStager modelBundleStager;   // MO-15: best-effort on-device bundle auto-stage at start
     @Autowired
-    private com.federated.fl_platform_api.repository.ModelArtifactRepository modelArtifactRepository;
-    @Autowired
-    private ArtifactBlobStore artifactBlobStore;
-
-    // BA-11 Chunk A: inference reads a project's current model from the content-addressed registry (the
-    // source of truth) rather than the overwritable .npz. The registry blob is materialized here keyed by
-    // its sha256 — the content is immutable, so the file is reused across requests and can never go stale.
-    @Value("${app.model-blob-cache.dir:models/blob-cache}")
-    private String modelBlobCacheDir;
+    private RegistryModelResolver registryModelResolver;   // BA-11: inference reads the registry, not the .npz
 
     // BA-2: serialize per-project /start so two concurrent calls can't both pass the isServerRunning
     // check and double-spawn a server. One lock per project id; the project set is bounded, so is the map.
@@ -704,7 +691,7 @@ public class ProjectService {
             // BA-11 Chunk A: a project is inferable if the registry holds its head model OR (fallback) a
             // .npz exists on disk. Existence-only here — no blob is materialized just to render the list.
             String path = p.getModelPath();
-            boolean inferable = hasRegistryModel(p) || (path != null && new File(path).isFile());
+            boolean inferable = registryModelResolver.hasModel(p) || (path != null && new File(path).isFile());
             if (!inferable) {
                 continue; // no trained artifact yet → not usable
             }
@@ -743,77 +730,13 @@ public class ProjectService {
         // exists; fall back to the .npz for projects with no artifact yet (pre-registry / init-only / a
         // failed registration) and for LoRA (safetensors head the .npz inference path can't read). For a
         // FULL_CHECKPOINT the registry blob is byte-identical to the .npz, so this is behavior-preserving.
-        String registryPath = resolveRegistryModelPath(project);
-        String path = registryPath != null ? registryPath : project.getModelPath();
+        String path = registryModelResolver.resolveModelPath(project).orElseGet(project::getModelPath);
         if (path == null || !new File(path).isFile()) {
             throw new ProjectStateException(
                     "This project has no trained model yet. Run training to completion first.");
         }
         return new InferenceTarget(path, project.getModelType(), project.getModelName(),
                 project.getStatus(), project.getTaskType());
-    }
-
-    /** True if the registry holds a usable (FULL_CHECKPOINT, in-scope) head model for this project. */
-    private boolean hasRegistryModel(Project project) {
-        if ("LLM_LORA".equals(project.getModelType())) {
-            return false; // LoRA head is safetensors; the .npz check handles it (see resolveRegistryModelPath)
-        }
-        return modelArtifactRepository
-                .findFirstByProjectIdAndKindOrderByCreatedAtDesc(project.getId(), ArtifactKind.FULL_CHECKPOINT)
-                .filter(a -> orgScope.allows(a.getOrgId()))
-                .isPresent();
-    }
-
-    /**
-     * BA-11 Chunk A: resolve the project's current model from the registry to a local filesystem path for
-     * inference, or {@code null} to fall back to the {@code .npz}. Scoped to FULL_CHECKPOINT — a LoRA
-     * project's head is a safetensors blob the numpy-{@code .npz} inference path cannot parse, so LoRA
-     * keeps reading its {@code .npz}. A materialization failure also returns {@code null} (fall back), so
-     * a transient blob-store problem degrades to the old behavior rather than blocking inference.
-     */
-    private String resolveRegistryModelPath(Project project) {
-        if ("LLM_LORA".equals(project.getModelType())) {
-            return null;
-        }
-        ModelArtifact head = modelArtifactRepository
-                .findFirstByProjectIdAndKindOrderByCreatedAtDesc(project.getId(), ArtifactKind.FULL_CHECKPOINT)
-                .filter(a -> orgScope.allows(a.getOrgId()))
-                .orElse(null);
-        if (head == null) {
-            return null;
-        }
-        try {
-            return materializeBlob(head.getBlobSha256());
-        } catch (IOException e) {
-            log.warn("BA-11: could not materialize registry blob {} for project {}; falling back to .npz",
-                    head.getBlobSha256(), project.getId(), e);
-            return null;
-        }
-    }
-
-    /**
-     * Materialize a content-addressed blob to a stable, sha256-named cache file and return its absolute
-     * path. Idempotent: the content is immutable, so an existing cache file is reused and concurrent
-     * writers converge on identical bytes (a lost publish race just keeps the winner's file).
-     */
-    private String materializeBlob(String sha256) throws IOException {
-        File dir = new File(modelBlobCacheDir);
-        File cached = new File(dir, sha256 + ".npz");
-        if (cached.isFile()) {
-            return cached.getAbsolutePath();
-        }
-        Files.createDirectories(dir.toPath());
-        byte[] bytes = artifactBlobStore.get(sha256); // integrity-checked on read (BA-11 Chunk B)
-        File tmp = File.createTempFile(sha256 + "-", ".npz.part", dir);
-        try {
-            Files.write(tmp.toPath(), bytes);
-            Files.move(tmp.toPath(), cached.toPath(), StandardCopyOption.ATOMIC_MOVE);
-        } catch (java.nio.file.FileAlreadyExistsException race) {
-            // another request published the identical-content file first — fine.
-        } finally {
-            Files.deleteIfExists(tmp.toPath());
-        }
-        return cached.getAbsolutePath();
     }
 
     public List<DiscoverProjectDto> getDiscoverProjects() {

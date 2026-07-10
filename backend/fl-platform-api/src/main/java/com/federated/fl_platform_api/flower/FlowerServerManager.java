@@ -84,6 +84,12 @@ public class FlowerServerManager {
     @Autowired
     private com.federated.fl_platform_api.service.ModelRecipeService modelRecipeService;
 
+    // BA-11: resolve a continued run's initial global weights from the content-addressed registry (the
+    // source of truth) rather than the overwritable .npz. Shared with ProjectService's inference path; a
+    // separate bean because this class can't depend on ProjectService (circular reference).
+    @Autowired
+    private com.federated.fl_platform_api.service.RegistryModelResolver registryModelResolver;
+
     // DA-8: the FL-server orchestration seam. Raw ProcessBuilder mechanics live behind this runner
     // instead of inline in this JVM orchestration class, so the spawn path is unit-testable with a fake
     // runner and a future managed-task (ECS) runner can be swapped in without changing the orchestration.
@@ -154,8 +160,12 @@ public class FlowerServerManager {
             String absoluteScriptPath = new File(wrapperPath).getAbsolutePath();
 
             boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+            // BA-11: warm-start a continued run from the registry head (FULL_CHECKPOINT) when one exists;
+            // null on a first run / LoRA → fl_server.py reads the .npz (--model-path) as before.
+            String initModelPath = registryModelResolver.resolveModelPath(project).orElse(null);
             List<String> command = buildServerCommand(
-                    project, strategy, numRounds, minClients, freePort, absoluteScriptPath, isWindows);
+                    project, strategy, numRounds, minClients, freePort, absoluteScriptPath, isWindows,
+                    initModelPath);
 
             // SE-7: mint a random per-run internal token scoped to (projectId, runId) and hand ONLY
             // it to the child — never a secret it could use to forge another project's token. It is
@@ -370,10 +380,24 @@ public class FlowerServerManager {
         }
     }
 
-    /** Build the fl_server (or FoT) launch command. LLM_LORA carries --aggregation FFA_LORA. */
+    /** Pre-BA-11 arity: no registry-resolved init weights (fl_server.py reads init from --model-path). */
     static List<String> buildServerCommand(Project project, String strategy, Integer numRounds,
                                            Integer minClients, int freePort, String absoluteScriptPath,
                                            boolean isWindows) {
+        return buildServerCommand(project, strategy, numRounds, minClients, freePort, absoluteScriptPath,
+                isWindows, null);
+    }
+
+    /**
+     * Build the fl_server (or FoT) launch command. LLM_LORA carries --aggregation FFA_LORA. When
+     * {@code initModelPath} is non-null (BA-11: a continued run's registry-resolved initial weights) it is
+     * passed as {@code --init-model-path} so fl_server.py reads init from there while still WRITING the
+     * run's output to {@code --model-path} (the {@code .npz}); null keeps the pre-BA-11 behavior (init read
+     * from {@code --model-path}).
+     */
+    static List<String> buildServerCommand(Project project, String strategy, Integer numRounds,
+                                           Integer minClients, int freePort, String absoluteScriptPath,
+                                           boolean isWindows, String initModelPath) {
         boolean isFoT = "FoT".equalsIgnoreCase(strategy);
         // SE-11: the FoT text-federation server has no DP flag contract; spawning it for a
         // DP-enabled project would silently train without DP. Fail closed.
@@ -387,6 +411,9 @@ public class FlowerServerManager {
         requireSafeToken("strategy", strategy);
         if (!isFoT) {
             requireSafePath("model-path", project.getModelPath());
+            if (initModelPath != null) {
+                requireSafePath("init-model-path", initModelPath); // SE-10: allowlist the resolved path too
+            }
             requireSafeModelRef("model-name", project.getModelName());
             requireSafeToken("model-type", project.getModelType());
             String taskType = project.getTaskType();
@@ -411,6 +438,11 @@ public class FlowerServerManager {
             command.add(project.getId().toString());
             command.add("--model-path");
             command.add(project.getModelPath());
+            if (initModelPath != null) {
+                // BA-11: read initial global weights from the registry head; write still goes to --model-path.
+                command.add("--init-model-path");
+                command.add(initModelPath);
+            }
             command.add("--port");
             command.add(String.valueOf(freePort));
             command.add("--strategy");

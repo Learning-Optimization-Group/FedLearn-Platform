@@ -45,6 +45,28 @@ class FlowerServerManagerCommandTest {
     }
 
     @Test
+    void initModelPath_isPassedSeparately_whileModelPathStaysTheWriteTarget() {
+        // BA-11: a continued run reads init weights from the registry-resolved path, but WRITES its
+        // output to the project's .npz — the two must not be conflated.
+        List<String> cmd = FlowerServerManager.buildServerCommand(
+                project("CNN"), "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false,
+                "/var/models/blob-cache/deadbeef.npz");
+        assertTrue(cmd.contains("--init-model-path"), "registry-resolved init weights must be passed");
+        assertEquals("/var/models/blob-cache/deadbeef.npz", cmd.get(cmd.indexOf("--init-model-path") + 1));
+        assertEquals("/tmp/model.npz", cmd.get(cmd.indexOf("--model-path") + 1)); // write target unchanged
+    }
+
+    @Test
+    void noInitModelPath_whenNull_orViaTheDefaultArity() {
+        assertFalse(FlowerServerManager.buildServerCommand(
+                        project("CNN"), "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false, null)
+                .contains("--init-model-path"));
+        assertFalse(FlowerServerManager.buildServerCommand(
+                        project("CNN"), "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false)
+                .contains("--init-model-path"));
+    }
+
+    @Test
     void llmLoraServerCommandCarriesTaskType() {
         Project p = project("LLM_LORA");
         p.setTaskType("CAUSAL_LM");

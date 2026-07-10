@@ -68,6 +68,12 @@ class FlowerServerManagerRunnerSeamTest {
         ReflectionTestUtils.setField(manager, "runTokenRegistry", runTokenRegistry);
         ReflectionTestUtils.setField(manager, "runRepository", mock(RunRepository.class));
         ReflectionTestUtils.setField(manager, "modelRecipeService", recipes);
+        // BA-11: a bare-mock resolver returns Optional.empty() (no registry head) → no --init-model-path,
+        // i.e. the pre-BA-11 spawn behavior these tests assert.
+        ReflectionTestUtils.setField(manager, "registryModelResolver",
+                new com.federated.fl_platform_api.service.RegistryModelResolver(
+                        mock(com.federated.fl_platform_api.repository.ModelArtifactRepository.class),
+                        mock(com.federated.fl_platform_api.service.ArtifactBlobStore.class), "unused"));
         ReflectionTestUtils.setField(manager, "internalApiKey", "the-api-key");
         // The fake runner ignores the command's script path, but the manager still builds an absolute
         // File() from it — a null would NPE before the runner is reached (@Value default isn't applied
