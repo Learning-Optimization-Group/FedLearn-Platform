@@ -120,7 +120,14 @@ jobs:
           # treats them as satisfied and does not re-resolve torch off the default index.
           pip install --index-url https://download.pytorch.org/whl/cpu \
             "torch==2.5.1" "torchvision==0.20.1" "torchaudio==2.5.1"
-          pip install -r backend/fl-platform-api/requirements.txt pytest
+          # peft + scikit-learn are NOT in requirements.txt (that freeze predates the LoRA work),
+          # but the non-slow suite needs both: client.py has a module-level `import sklearn` (any
+          # test that imports it fails at COLLECTION otherwise) and the LLM-LoRA / eval-card /
+          # perplexity tests import peft at runtime. The framework declares them as `peft>=0.11`
+          # and `scikit-learn` (framework/requirements.txt) — mirror that here. Without these the
+          # suite errors out during collection (5 collection errors), a false red the moment the
+          # scripts change. They resolve against the already-installed torch, so torch is untouched.
+          pip install -r backend/fl-platform-api/requirements.txt pytest "peft>=0.11" scikit-learn
       # TE-10: the skip-integrity guard in tests/conftest.py fails this job if any test is
       # SKIPPED (this suite allowlists no skip reasons; `-m "not slow"` deselection is not a skip).
       - name: pytest (FL trainer scripts; pytest.ini deselects -m slow)
