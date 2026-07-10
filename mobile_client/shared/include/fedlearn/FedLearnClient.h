@@ -34,6 +34,11 @@ struct GrpcClientConfig {
   int maxMessageBytes = 33554432;  // 32 MB phone cap (E11 / M-M3), NOT 1 GB
   int heartbeatIntervalMs = 5000;
   int heartbeatFailureLimit = 3;   // N consecutive failures -> abortFlag_ (E4 / M-H3)
+  // MO-2: per-RPC deadline for the training-stub calls (register/status/config/submit/download). A
+  // bare ClientContext has NO deadline, so a stalled server hangs the call forever and the round loop's
+  // between-step shouldStop() poll never gets to run. This bounds every call; requestAbort() also
+  // TryCancel()s the in-flight one for a prompt stop. Generous by default (large model downloads).
+  int rpcDeadlineMs = 60000;
 };
 
 // The concrete gRPC implementation of the core-typed IFedLearnClient seam (proto<->core
@@ -80,9 +85,12 @@ class FedLearnClient : public IFedLearnClient {
   void startHeartbeat(const std::string& runId, const std::string& clientId, int currentRound);
   void stopHeartbeat();
 
-  // Lock-free abort: flips the shared abort flag so an in-progress round's shouldStop() poll breaks
-  // out promptly. Safe to call from any thread (e.g. the JS-thread stop()) WITHOUT the round mutex.
-  void requestAbort() { abortFlag_.store(true); }
+  // Abort: flips the shared abort flag so an in-progress round's shouldStop() poll breaks out at the
+  // next between-step check, AND TryCancel()s the in-flight training RPC (if any) so a call blocked on
+  // a slow/hung server returns immediately instead of waiting out the deadline. Safe to call from any
+  // thread (e.g. the JS-thread stop()) — it never takes the round mutex; only the brief trainCtx mutex
+  // (which the RPC thread never holds across the blocking call). MO-2.
+  void requestAbort();
 
   // --- pure proto<->core marshaling (exposed for unit tests; no network) ---
   static v2::GradientScalars toProtoScalars(const GradientScalars2D& g);
@@ -99,6 +107,9 @@ class FedLearnClient : public IFedLearnClient {
   // Attaches the FL connection token (if any) as x-connection-token metadata so a fail-closed
   // server's ConnectionTokenInterceptor admits the call. No-op when connectionToken_ is empty.
   void applyAuth(grpc::ClientContext& ctx) const;
+  // MO-2: applyAuth + a bounded per-RPC deadline (cfg_.rpcDeadlineMs). Every training-stub call runs
+  // through this so none can hang the round loop indefinitely.
+  void prepareRpc(grpc::ClientContext& ctx) const;
   // The raw GetDeComFLConfig RPC (proto response); getDeComFLConfig() marshals it to core types.
   v2::GetDeComFLConfigResponse fetchDeComFLConfig(const std::string& runId,
                                                   const std::string& clientId);
@@ -118,6 +129,10 @@ class FedLearnClient : public IFedLearnClient {
   std::thread heartbeatThread_;
   std::mutex hbCtxMutex_;                 // guards hbCtx_ (the heartbeat's in-flight ClientContext)
   grpc::ClientContext* hbCtx_ = nullptr;  // non-null while a Heartbeat RPC is in flight, for TryCancel
+  // MO-2: same pattern for the TRAINING stub — non-null while a training RPC is in flight, so
+  // requestAbort() can TryCancel() it for a prompt stop (mirrors hbCtx_).
+  std::mutex trainCtxMutex_;
+  grpc::ClientContext* trainCtx_ = nullptr;
 };
 
 }  // namespace fedlearn

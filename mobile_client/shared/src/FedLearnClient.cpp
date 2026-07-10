@@ -91,6 +91,42 @@ void FedLearnClient::applyAuth(grpc::ClientContext& ctx) const {
   }
 }
 
+namespace {
+// MO-2: RAII registrar — publishes the in-flight training ClientContext into a slot (trainCtx_) so a
+// concurrent requestAbort() can TryCancel() it, and clears the slot on scope exit (even if the RPC
+// throws). Mirrors the heartbeat's hbCtx_ register/unregister. The mutex is held only for the brief
+// pointer write/clear, never across the blocking RPC, so requestAbort() can never deadlock.
+struct ScopedTrainCtx {
+  std::mutex& m;
+  grpc::ClientContext*& slot;
+  ScopedTrainCtx(std::mutex& mm, grpc::ClientContext*& s, grpc::ClientContext* ctx) : m(mm), slot(s) {
+    std::lock_guard<std::mutex> lk(m);
+    slot = ctx;
+  }
+  ~ScopedTrainCtx() {
+    std::lock_guard<std::mutex> lk(m);
+    slot = nullptr;
+  }
+  ScopedTrainCtx(const ScopedTrainCtx&) = delete;
+  ScopedTrainCtx& operator=(const ScopedTrainCtx&) = delete;
+};
+}  // namespace
+
+// MO-2: applyAuth + a bounded per-RPC deadline so no training-stub call can hang the round forever.
+void FedLearnClient::prepareRpc(grpc::ClientContext& ctx) const {
+  applyAuth(ctx);
+  ctx.set_deadline(std::chrono::system_clock::now() +
+                   std::chrono::milliseconds(cfg_.rpcDeadlineMs));
+}
+
+// MO-2: trip the cooperative abort flag (broken out of the round loop at the next shouldStop() poll)
+// AND cancel the in-flight training RPC so a call blocked on a slow/hung server returns immediately.
+void FedLearnClient::requestAbort() {
+  abortFlag_.store(true);
+  std::lock_guard<std::mutex> lk(trainCtxMutex_);
+  if (trainCtx_) trainCtx_->TryCancel();
+}
+
 // ---------------------------------------------------------------------------
 // Unary control
 // ---------------------------------------------------------------------------
@@ -113,7 +149,8 @@ v2::RegisterClientResponse FedLearnClient::registerClient(const std::string& run
 
   v2::RegisterClientResponse resp;
   grpc::ClientContext ctx;
-  applyAuth(ctx);
+  prepareRpc(ctx);
+  ScopedTrainCtx guard(trainCtxMutex_, trainCtx_, &ctx);
   grpc::Status s = trainingStub_->RegisterClient(&ctx, req, &resp);
   if (!s.ok()) throw std::runtime_error("RegisterClient failed: " + statusStr(s));
   return resp;
@@ -124,7 +161,8 @@ v2::GetServerStatusResponse FedLearnClient::getServerStatus(const std::string& r
   req.set_run_id(runId);
   v2::GetServerStatusResponse resp;
   grpc::ClientContext ctx;
-  applyAuth(ctx);
+  prepareRpc(ctx);
+  ScopedTrainCtx guard(trainCtxMutex_, trainCtx_, &ctx);
   grpc::Status s = trainingStub_->GetServerStatus(&ctx, req, &resp);
   if (!s.ok()) throw std::runtime_error("GetServerStatus failed: " + statusStr(s));
   return resp;
@@ -137,7 +175,8 @@ v2::GetDeComFLConfigResponse FedLearnClient::fetchDeComFLConfig(const std::strin
   req.set_run_id(runId);
   v2::GetDeComFLConfigResponse resp;
   grpc::ClientContext ctx;
-  applyAuth(ctx);
+  prepareRpc(ctx);
+  ScopedTrainCtx guard(trainCtxMutex_, trainCtx_, &ctx);
   grpc::Status s = trainingStub_->GetDeComFLConfig(&ctx, req, &resp);
   if (!s.ok()) throw std::runtime_error("GetDeComFLConfig failed: " + statusStr(s));
   return resp;
@@ -184,7 +223,8 @@ void FedLearnClient::submitGradientScalars(const std::string& runId, const std::
 
   v2::SubmitGradientScalarsResponse resp;
   grpc::ClientContext ctx;
-  applyAuth(ctx);
+  prepareRpc(ctx);
+  ScopedTrainCtx guard(trainCtxMutex_, trainCtx_, &ctx);
   grpc::Status s = trainingStub_->SubmitGradientScalars(&ctx, req, &resp);
   if (!s.ok()) throw std::runtime_error("SubmitGradientScalars failed: " + statusStr(s));
   // resp.bytes_received() ~ K*P*8 — the comm-cost number (dropped: interface returns void)
@@ -200,7 +240,8 @@ std::string FedLearnClient::getGlobalModelStream(const std::string& runId,
   req.set_run_id(runId);
 
   grpc::ClientContext ctx;
-  applyAuth(ctx);
+  prepareRpc(ctx);
+  ScopedTrainCtx guard(trainCtxMutex_, trainCtx_, &ctx);
   std::unique_ptr<grpc::ClientReader<v2::ModelChunk>> reader(
       trainingStub_->GetGlobalModelStream(&ctx, req));
 
@@ -248,7 +289,8 @@ v2::SubmitModelUpdateResponse FedLearnClient::submitModelUpdateStream(
 
   v2::SubmitModelUpdateResponse resp;
   grpc::ClientContext ctx;
-  applyAuth(ctx);
+  prepareRpc(ctx);
+  ScopedTrainCtx guard(trainCtxMutex_, trainCtx_, &ctx);
   std::unique_ptr<grpc::ClientWriter<v2::ModelUpdateChunk>> writer(
       trainingStub_->SubmitModelUpdateStream(&ctx, &resp));
 
@@ -279,7 +321,8 @@ v2::SubmitModelUpdateResponse FedLearnClient::submitModelUpdateStream(
 void FedLearnClient::reportClientMetrics(const v2::ReportClientMetricsRequest& metrics) {
   v2::ReportClientMetricsResponse resp;
   grpc::ClientContext ctx;
-  applyAuth(ctx);
+  prepareRpc(ctx);  // MO-2: deadline only — no trainCtx_ registry (best-effort telemetry may run off the
+                    // training thread, so it must not clobber a loop RPC's cancellation registration).
   // Best-effort: telemetry must never break a training round, so the status is ignored.
   trainingStub_->ReportClientMetrics(&ctx, metrics, &resp);
 }
