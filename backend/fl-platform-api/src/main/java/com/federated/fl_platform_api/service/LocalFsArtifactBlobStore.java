@@ -60,11 +60,22 @@ public class LocalFsArtifactBlobStore implements ArtifactBlobStore {
 
     @Override
     public byte[] get(String sha256) {
+        String key = normalize(sha256);
+        byte[] content;
         try {
-            return Files.readAllBytes(pathFor(normalize(sha256)));
+            content = Files.readAllBytes(pathFor(key));
         } catch (IOException e) {
             throw new UncheckedIOException("blob get failed for " + sha256, e);
         }
+        // BA-11: content-addressing integrity on READ. The bytes on disk MUST hash to the key we looked
+        // up — a mismatch means the blob was corrupted or tampered (bit-rot, a bad write, a swapped
+        // file). Fail loud rather than serving wrong model weights under the right id.
+        String actual = sha256Hex(content);
+        if (!actual.equals(key)) {
+            throw new IllegalStateException(
+                    "blob integrity check failed for " + key + ": on-disk content hashes to " + actual);
+        }
+        return content;
     }
 
     @Override

@@ -59,4 +59,21 @@ class LocalFsArtifactBlobStoreTest {
         LocalFsArtifactBlobStore s = store(root);
         assertThatThrownBy(() -> s.exists("not-a-hash")).isInstanceOf(IllegalArgumentException.class);
     }
+
+    // BA-11: content-addressing integrity on READ — a corrupted/tampered blob must never be served as
+    // the right bytes under the right id.
+    @Test
+    void get_fails_loud_when_the_stored_blob_is_corrupted_on_disk(@TempDir Path root) throws Exception {
+        LocalFsArtifactBlobStore s = store(root);
+        byte[] content = "trusted model bytes".getBytes(StandardCharsets.UTF_8);
+        String key = s.put(content);
+
+        // Overwrite the on-disk blob at its content-addressed path (bit-rot / swapped file).
+        Path blobPath = root.resolve(key.substring(0, 2)).resolve(key.substring(2, 4)).resolve(key);
+        java.nio.file.Files.write(blobPath, "TAMPERED".getBytes(StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> s.get(key))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("integrity check failed");
+    }
 }
