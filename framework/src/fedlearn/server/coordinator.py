@@ -95,6 +95,9 @@ class FLCoordinator:
         self._registered_clients: set[str] = set()
         self.current_round = 1  # Start at round 1
         self.stop_requested = False
+        # True only after all configured rounds finished successfully (distinct
+        # from stop_requested, which also covers user-stop / error teardown).
+        self.training_complete = False
         self.latest_metrics: Optional[dict] = None
         # Client-reported training telemetry (loss/accuracy/compute), fed by ReportClientMetrics (v2).
         self.client_metrics_log: List[dict] = []
@@ -377,6 +380,22 @@ class FLCoordinator:
         self.stop_requested = True
         self._round_complete_event.set()  # Release any waiting threads
 
+    def mark_training_complete(self):
+        """Signal that all configured rounds finished successfully.
+
+        Sets stop_requested so clients polling for the next round receive the
+        GetDeComFLConfig -> -1 terminal sentinel, and sets training_complete so
+        GetServerStatus reports TRAINING_COMPLETE. Together these let a client
+        recognise a *normal* end-of-run and exit 0 instead of retry-looping on
+        the CANCELLED/UNAVAILABLE that a hard gRPC teardown would otherwise
+        surface. Distinct from signal_stop(), which marks a stop/error teardown
+        that is NOT a clean completion.
+        """
+        with self._lock:
+            self.training_complete = True
+            self.stop_requested = True
+        self._round_complete_event.set()  # Release any waiting threads
+
     def register_client(self, client_id: str) -> bool:
         with self._lock:
             self._registered_clients.add(client_id)
@@ -461,6 +480,7 @@ class FLCoordinator:
         """Get current server status."""
         with self._lock:
             return {
+                "training_complete": self.training_complete,
                 "current_round": self.current_round,
                 "required_clients_for_round": self.min_clients,
                 "received_updates_this_round": len(self._client_updates_received)

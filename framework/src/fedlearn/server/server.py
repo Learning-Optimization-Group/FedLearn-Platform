@@ -178,6 +178,17 @@ def start_server(
         # Get final parameters
         final_parameters = coordinator.get_global_model_params()
 
+        # Signal end-of-run to still-connected clients and give them a brief
+        # window to observe it (GetDeComFLConfig -> -1 / GetServerStatus ->
+        # TRAINING_COMPLETE) so they exit cleanly, instead of retry-looping on
+        # the CANCELLED/UNAVAILABLE that the hard grpc_server.stop() below would
+        # otherwise surface as their next poll.
+        coordinator.mark_training_complete()
+        drain_seconds = float(os.environ.get("FEDLEARN_COMPLETION_DRAIN_SECONDS", "3"))
+        if drain_seconds > 0:
+            logging.info("Training complete; draining for %.1fs so clients can exit cleanly", drain_seconds)
+            time.sleep(drain_seconds)
+
         logging.info("Federated learning complete. Stopping server...")
 
         return history, final_parameters

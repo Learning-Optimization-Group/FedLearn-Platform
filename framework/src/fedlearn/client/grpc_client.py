@@ -384,6 +384,38 @@ class GrpcClient:
         if hasattr(self, 'heartbeat_channel') and self.heartbeat_channel:
             self.heartbeat_channel.close()
 
+    def get_server_status(self) -> Optional[fedlearn_pb2.GetServerStatusResponse]:
+        """Best-effort fetch of the server's run/round state.
+
+        Uses the heartbeat channel (separate from the training stub, which may be
+        in a bad state after a cancelled call). Returns None if the server is
+        unreachable — the caller treats "can't confirm" as "not complete".
+        """
+        try:
+            req = fedlearn_pb2.GetServerStatusRequest()
+            return self.heartbeat_stub.GetServerStatus(req, timeout=10.0)
+        except grpc.RpcError as e:
+            log.debug("[%s] GetServerStatus probe failed: %s", self.client_id, e.details())
+            return None
+
+    def server_reports_complete(self) -> bool:
+        """True iff the server reports the run finished (rounds exhausted).
+
+        This is the durable end-of-run signal: a completed run tears the gRPC
+        RPCs down, so the client sees CANCELLED/UNAVAILABLE — but the server (if
+        it is draining) still reports TRAINING_COMPLETE here, letting the client
+        exit cleanly instead of retry-looping. A genuinely crashed/unreachable
+        server returns None from the probe, so this returns False and the caller
+        keeps its disconnect handling.
+        """
+        resp = self.get_server_status()
+        if resp is None:
+            return False
+        return (
+            resp.server_state
+            == fedlearn_pb2.GetServerStatusResponse.ServerState.TRAINING_COMPLETE
+        )
+
     def get_decomfl_config(self) -> Tuple[int, List[List[int]], List[Dict], dict]:
         """Fetch DeComFL configuration including seeds and rebuild history."""
         try:

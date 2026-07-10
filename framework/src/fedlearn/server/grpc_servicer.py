@@ -279,7 +279,10 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         status = self.coordinator.get_server_status()
         active = len(self.coordinator.get_active_clients())
         State = fedlearn_pb2.GetServerStatusResponse.ServerState
-        if self.coordinator.stop_requested:
+        # Report the terminal state so a client can distinguish a finished run (exit cleanly) from a
+        # transient failure (keep retrying). training_complete is the precise "all rounds done"
+        # signal; stop_requested also covers the abort path.
+        if status.get("training_complete") or self.coordinator.stop_requested:
             server_state = State.TRAINING_COMPLETE
         elif active < status["required_clients_for_round"]:
             server_state = State.WAITING_FOR_CLIENTS

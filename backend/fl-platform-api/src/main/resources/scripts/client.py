@@ -1080,12 +1080,19 @@ def main():
         print(f"Connecting to gRPC server at {args.server_address}...")
 
         try:
-            # Start DeComFL client
-            fl.client.start_decomfl_client(
+            # Start DeComFL client. Returns a terminal outcome:
+            #   "completed"    -> run finished normally (all rounds done)
+            #   "disconnected" -> server went away mid-run
+            #   "error"        -> registration/unexpected failure
+            outcome = fl.client.start_decomfl_client(
                 server_address=args.server_address,
                 client=client,
                 client_id=client_id
             )
+            if outcome == "completed":
+                print(f"[{client_id}] Run complete; client exiting cleanly.")
+            else:
+                print(f"[{client_id}] DeComFL session ended ({outcome}).")
         except KeyboardInterrupt:
             print(f"\n[{client_id}] Interrupted by user. Shutting down...")
         except Exception as e:
