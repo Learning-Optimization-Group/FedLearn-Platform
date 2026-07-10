@@ -406,3 +406,341 @@ describe('DockerService stop + status lifecycle (DE-11)', () => {
     }
   });
 });
+
+// =============================================================================
+// TE-13: DockerService container-orchestration top-up.
+//
+// DE-3 pins that a 'jetson' profile ROUTES to startDockerTraining, but it spies
+// that method out — so the whole Docker START body (daemon ping, leftover
+// cleanup, container create arg/env construction incl. the Jetson /dev/nvhost-*
+// device mounts and the deliberate ABSENCE of --runtime nvidia, container.start,
+// activeContainerId capture, and the unreachable-daemon / missing-image error
+// surfaces) was never exercised. DE-11 pins getStatus for running/exited-0/
+// vanished, but not the restarting/paused/dead/exited-non-zero branches or a
+// non-404 inspect failure. DE-2/DE-9 pin the native dataset-path + respawn drain
+// but not the base argv, the connection-token env injection, or the
+// unresolved-invocation error. These three describe blocks close exactly those
+// gaps — no overlap with DE-2/3/9/11.
+// =============================================================================
+
+// Jetson Docker START path — startDockerTraining real body.
+describe('DockerService Jetson Docker start path (TE-13)', () => {
+  type Privates = { activeContainerId: string | null };
+  type Win = ConstructorParameters<typeof DockerService>[0];
+
+  function makeWindow(): { window: Win; send: jest.Mock } {
+    const send = jest.fn();
+    const window = {
+      isDestroyed: () => false,
+      webContents: { send, isDestroyed: () => false, isLoading: () => false },
+    } as never;
+    return { window, send };
+  }
+
+  const baseConfig = {
+    hardwareProfile: 'jetson' as const,
+    projectId: 'proj-7',
+    serverAddress: 'jetson-host:50000',
+    partitionId: '2',
+    modelType: 'PNEUMONIA_CNN',
+    datasetPath: '/mnt/scans',
+  };
+
+  // dockerode double. createContainer -> a fake container whose start()/logs()
+  // resolve; getContainer is used only by cleanupExistingContainer here (default:
+  // no leftover, so inspect rejects and cleanup no-ops). ping resolves by default.
+  function makeDocker(overrides?: {
+    ping?: jest.Mock;
+    createContainer?: jest.Mock;
+    getContainer?: jest.Mock;
+  }): { ping: jest.Mock; createContainer: jest.Mock; getContainer: jest.Mock; start: jest.Mock } {
+    const start = jest.fn().mockResolvedValue(undefined);
+    const logs = jest.fn().mockResolvedValue(new EventEmitter());
+    const createContainer =
+      overrides?.createContainer ??
+      jest.fn().mockResolvedValue({ id: 'container-xyz', start, logs });
+    const getContainer =
+      overrides?.getContainer ??
+      jest.fn().mockReturnValue({
+        inspect: jest.fn().mockRejectedValue(new Error('No such container')),
+      });
+    const ping = overrides?.ping ?? jest.fn().mockResolvedValue(undefined);
+    (Docker as unknown as jest.Mock).mockImplementation(() => ({ ping, createContainer, getContainer }));
+    return { ping, createContainer, getContainer, start };
+  }
+
+  it('pings the daemon, then creates + starts the Jetson container with device mounts and no nvidia runtime', async () => {
+    const { ping, createContainer, start } = makeDocker();
+    const { window } = makeWindow();
+    const service = new DockerService(window);
+
+    await service.startTraining({ ...baseConfig, connectionToken: 'tok-abc' } as never);
+
+    expect(ping).toHaveBeenCalledTimes(1);
+    expect(createContainer).toHaveBeenCalledTimes(1);
+    const opts = createContainer.mock.calls[0][0] as Docker.ContainerCreateOptions;
+
+    expect(opts.Image).toBe(process.env.FEDLEARN_CLIENT_IMAGE || 'fedlearn-client:latest');
+    expect(opts.name).toBe('fedlearn-training-client');
+    expect(opts.Tty).toBe(false);
+    expect(opts.AttachStdout).toBe(true);
+    expect(opts.AttachStderr).toBe(true);
+
+    // Least privilege: dataset bind to /data, never AutoRemove, no host socket mount.
+    expect(opts.HostConfig?.Binds).toEqual(['/mnt/scans:/data']);
+    expect(opts.HostConfig?.AutoRemove).toBe(false);
+
+    // Jetson device mounts: the exact 6 /dev/nvhost-* + /dev/nvmap nodes, host==container, rwm.
+    const devices = (opts.HostConfig?.Devices ?? []) as Docker.DeviceMapping[];
+    expect(devices.map((d) => d.PathOnHost)).toEqual([
+      '/dev/nvhost-ctrl',
+      '/dev/nvhost-ctrl-gpu',
+      '/dev/nvhost-dbg-gpu',
+      '/dev/nvhost-prof-gpu',
+      '/dev/nvmap',
+      '/dev/nvhost-gpu',
+    ]);
+    expect(devices.every((d) => d.PathInContainer === d.PathOnHost)).toBe(true);
+    expect(devices.every((d) => d.CgroupPermissions === 'rwm')).toBe(true);
+
+    // The Jetson rule: NEVER --runtime nvidia (it hangs on Jetson) and never Privileged.
+    expect(opts.HostConfig?.Runtime).toBeUndefined();
+    expect(opts.HostConfig?.Privileged).toBeUndefined();
+
+    // Env carries the training vars, DATASET_PATH pinned to the /data bind, and the token.
+    expect(opts.Env).toEqual(
+      expect.arrayContaining([
+        'PROJECT_ID=proj-7',
+        'SERVER_ADDRESS=jetson-host:50000',
+        'PARTITION_ID=2',
+        'MODEL_TYPE=PNEUMONIA_CNN',
+        'DATASET_PATH=/data',
+        'FEDLEARN_CONNECTION_TOKEN=tok-abc',
+      ]),
+    );
+
+    expect(start).toHaveBeenCalledTimes(1);
+    expect((service as unknown as Privates).activeContainerId).toBe('container-xyz');
+  });
+
+  it('omits FEDLEARN_CONNECTION_TOKEN from the container Env when no token is set', async () => {
+    const { createContainer } = makeDocker();
+    const { window } = makeWindow();
+    const service = new DockerService(window);
+
+    await service.startTraining({ ...baseConfig } as never); // no connectionToken
+
+    const opts = createContainer.mock.calls[0][0] as Docker.ContainerCreateOptions;
+    expect((opts.Env ?? []).some((e) => e.startsWith('FEDLEARN_CONNECTION_TOKEN'))).toBe(false);
+    expect(opts.Env).toContain('DATASET_PATH=/data');
+  });
+
+  it('surfaces an actionable error and never calls createContainer when the daemon is unreachable', async () => {
+    const { createContainer } = makeDocker({
+      ping: jest.fn().mockRejectedValue(new Error('connect ENOENT /var/run/docker.sock')),
+    });
+    const { window, send } = makeWindow();
+    const service = new DockerService(window);
+
+    await expect(service.startTraining({ ...baseConfig } as never)).rejects.toThrow(
+      /Docker daemon unreachable/,
+    );
+    expect(createContainer).not.toHaveBeenCalled();
+    // The failure is echoed to the renderer log, not swallowed.
+    expect(send).toHaveBeenCalledWith(
+      'docker:training-log',
+      expect.stringContaining('Docker daemon unreachable'),
+    );
+  });
+
+  it('maps a missing Docker image to a build-it hint error', async () => {
+    const createContainer = jest
+      .fn()
+      .mockRejectedValue(new Error('No such image: fedlearn-client:latest'));
+    makeDocker({ createContainer });
+    const { window, send } = makeWindow();
+    const service = new DockerService(window);
+
+    await expect(service.startTraining({ ...baseConfig } as never)).rejects.toThrow(
+      /not found locally.*docker build/s,
+    );
+    expect(send).toHaveBeenCalledWith(
+      'docker:training-log',
+      expect.stringContaining('docker build'),
+    );
+  });
+
+  it('removes a leftover training container before creating the new one', async () => {
+    const stop = jest.fn().mockResolvedValue(undefined);
+    const remove = jest.fn().mockResolvedValue(undefined);
+    const inspect = jest.fn().mockResolvedValue({ Id: 'stale', State: { Running: true } });
+    const getContainer = jest.fn().mockReturnValue({ inspect, stop, remove });
+    const { createContainer } = makeDocker({ getContainer });
+    const { window } = makeWindow();
+    const service = new DockerService(window);
+
+    await service.startTraining({ ...baseConfig } as never);
+
+    expect(getContainer).toHaveBeenCalledWith('fedlearn-training-client');
+    expect(stop).toHaveBeenCalled();
+    expect(remove).toHaveBeenCalledWith({ force: true });
+    expect(createContainer).toHaveBeenCalledTimes(1);
+  });
+});
+
+// getStatus() Docker state matrix — the branches DE-11 left open.
+describe('DockerService getStatus Docker state matrix (TE-13)', () => {
+  const fakeWindow = {
+    isDestroyed: () => false,
+    webContents: { send: jest.fn(), isDestroyed: () => false, isLoading: () => false },
+  } as never;
+
+  type Privates = { activeContainerId: string | null };
+
+  function serviceWithInspect(inspect: jest.Mock): DockerService {
+    (Docker as unknown as jest.Mock).mockImplementation(() => ({
+      ping: jest.fn().mockResolvedValue(undefined),
+      getContainer: jest.fn().mockReturnValue({ inspect }),
+    }));
+    const s = new DockerService(fakeWindow);
+    (s as unknown as Privates).activeContainerId = 'c1';
+    return s;
+  }
+
+  it('maps container states: exited-non-zero + restarting + paused + dead', async () => {
+    const exited = serviceWithInspect(
+      jest.fn().mockResolvedValue({ State: { Running: false, ExitCode: 1 } }),
+    );
+    expect(await exited.getStatus()).toBe('error');
+
+    const restarting = serviceWithInspect(
+      jest.fn().mockResolvedValue({ State: { Running: false, Restarting: true } }),
+    );
+    expect(await restarting.getStatus()).toBe('restarting');
+
+    const paused = serviceWithInspect(
+      jest.fn().mockResolvedValue({ State: { Running: false, Paused: true } }),
+    );
+    expect(await paused.getStatus()).toBe('paused');
+
+    const dead = serviceWithInspect(
+      jest.fn().mockResolvedValue({ State: { Running: false, Dead: true } }),
+    );
+    expect(await dead.getStatus()).toBe('error');
+  });
+
+  it("a non-404 inspect failure -> 'error' and keeps the container id (does not clear it)", async () => {
+    const s = serviceWithInspect(jest.fn().mockRejectedValue(new Error('EPIPE: broken pipe')));
+    expect(await s.getStatus()).toBe('error');
+    expect((s as unknown as Privates).activeContainerId).toBe('c1');
+  });
+});
+
+// Native START argv + env construction — the pieces DE-2/DE-9 did not assert.
+describe('DockerService native start argv + env (TE-13)', () => {
+  const fakeWindow = {
+    isDestroyed: () => false,
+    webContents: { send: jest.fn(), isDestroyed: () => false, isLoading: () => false },
+  } as never;
+
+  type Win = ConstructorParameters<typeof DockerService>[0];
+
+  type PrivateDockerService = {
+    resolveNativeInvocation: () => {
+      command: string;
+      baseArgs: string[];
+      cwd: string;
+      env: NodeJS.ProcessEnv;
+    } | null;
+  };
+
+  const baseConfig = {
+    hardwareProfile: 'cpu' as const,
+    projectId: 'p1',
+    serverAddress: 'localhost:50000',
+    partitionId: '0',
+    modelType: 'CNN',
+    datasetPath: '',
+  };
+
+  function makeService(window: Win = fakeWindow): { service: DockerService; spawnMock: jest.Mock } {
+    const spawnMock = spawn as unknown as jest.Mock;
+    spawnMock.mockReset();
+    spawnMock.mockImplementation(() => {
+      const emitter = new EventEmitter() as EventEmitter & {
+        stdout: { on: jest.Mock };
+        stderr: { on: jest.Mock };
+        exitCode: number | null;
+        pid: number;
+        kill: jest.Mock;
+      };
+      emitter.stdout = { on: jest.fn() };
+      emitter.stderr = { on: jest.fn() };
+      emitter.exitCode = null;
+      emitter.pid = 4242;
+      emitter.kill = jest.fn(() => true);
+      return emitter;
+    });
+
+    (Docker as unknown as jest.Mock).mockImplementation(() => ({
+      ping: jest.fn().mockResolvedValue(undefined),
+      getContainer: jest.fn(),
+    }));
+
+    return { service: new DockerService(window), spawnMock };
+  }
+
+  it('builds the client argv: --project-id / --server-address / --partition-id / --model-type after baseArgs', async () => {
+    const { service, spawnMock } = makeService();
+    jest
+      .spyOn(service as unknown as PrivateDockerService, 'resolveNativeInvocation')
+      .mockReturnValue({ command: 'python3', baseArgs: ['-u', 'client.py'], cwd: '/tmp', env: {} });
+
+    await service.startTraining({ ...baseConfig } as never);
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args.slice(0, 2)).toEqual(['-u', 'client.py']); // baseArgs are prepended verbatim
+    // each flag immediately precedes its value
+    expect(args[args.indexOf('--project-id') + 1]).toBe('p1');
+    expect(args[args.indexOf('--server-address') + 1]).toBe('localhost:50000');
+    expect(args[args.indexOf('--partition-id') + 1]).toBe('0');
+    expect(args[args.indexOf('--model-type') + 1]).toBe('CNN');
+    // --use-llm was removed; the client derives USE_LLM from --model-type itself.
+    expect(args).not.toContain('--use-llm');
+  });
+
+  it('injects FEDLEARN_CONNECTION_TOKEN into the spawn env when a token is set, and omits it otherwise', async () => {
+    const withTok = makeService();
+    jest
+      .spyOn(withTok.service as unknown as PrivateDockerService, 'resolveNativeInvocation')
+      .mockReturnValue({ command: 'python3', baseArgs: [], cwd: '/tmp', env: { EXISTING: '1' } });
+    await withTok.service.startTraining({ ...baseConfig, connectionToken: 'tok-native' } as never);
+    const optsWith = withTok.spawnMock.mock.calls[0][2] as { env: NodeJS.ProcessEnv };
+    expect(optsWith.env.FEDLEARN_CONNECTION_TOKEN).toBe('tok-native');
+    expect(optsWith.env.EXISTING).toBe('1'); // base env is preserved, not replaced
+
+    const noTok = makeService();
+    jest
+      .spyOn(noTok.service as unknown as PrivateDockerService, 'resolveNativeInvocation')
+      .mockReturnValue({ command: 'python3', baseArgs: [], cwd: '/tmp', env: { EXISTING: '1' } });
+    await noTok.service.startTraining({ ...baseConfig } as never);
+    const optsWithout = noTok.spawnMock.mock.calls[0][2] as { env: NodeJS.ProcessEnv };
+    expect(optsWithout.env.FEDLEARN_CONNECTION_TOKEN).toBeUndefined();
+  });
+
+  it('throws and logs to the renderer when the native invocation cannot be resolved (no spawn)', async () => {
+    const send = jest.fn();
+    const window = {
+      isDestroyed: () => false,
+      webContents: { send, isDestroyed: () => false, isLoading: () => false },
+    } as never;
+    const { service, spawnMock } = makeService(window);
+    jest
+      .spyOn(service as unknown as PrivateDockerService, 'resolveNativeInvocation')
+      .mockReturnValue(null);
+
+    await expect(service.startTraining({ ...baseConfig } as never)).rejects.toThrow();
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledWith('docker:training-log', expect.stringContaining('[System]'));
+  });
+});
