@@ -18,6 +18,7 @@ from typing import Tuple, List, Union, Dict
 from collections import OrderedDict
 
 from fedlearn.estimators.perturbation import canonical_perturbation
+from fedlearn.estimators import params
 
 
 class ZerothOrderEstimator:
@@ -115,26 +116,21 @@ class ZerothOrderEstimator:
 
         return g.item()
 
+    # FR-14: the flat-param layout is owned by the canonical manifest (estimators/params.py) so the
+    # client, the estimator, and the mobile export share ONE requires_grad-filtered named_parameters()
+    # order. These stay as thin, back-compatible delegators (call sites + the golden generator keep
+    # calling ZerothOrderEstimator._get_flat_params / _set_flat_params / get_num_params).
     @staticmethod
     def _get_flat_params(model: nn.Module) -> torch.Tensor:
-        """Get model parameters as a flat vector."""
-        params = []
-        for p in model.parameters():
-            if p.requires_grad:
-                params.append(p.data.view(-1))
-        return torch.cat(params)
+        """Get the model's trainable parameters as a flat vector (canonical layout)."""
+        return params.flat_params(model)
 
     @staticmethod
     def _set_flat_params(model: nn.Module, flat_params: torch.Tensor):
-        """Set model parameters from a flat vector."""
-        offset = 0
-        for p in model.parameters():
-            if p.requires_grad:
-                numel = p.numel()
-                p.data.copy_(flat_params[offset:offset + numel].view_as(p.data))
-                offset += numel
+        """Set the model's trainable parameters from a flat vector (canonical layout)."""
+        params.set_flat_params(model, flat_params)
 
     @staticmethod
     def get_num_params(model: nn.Module) -> int:
-        """Get total number of trainable parameters."""
-        return sum(p.numel() for p in model.parameters() if p.requires_grad)
+        """Number of trainable parameters (canonical count)."""
+        return params.num_trainable(model)
