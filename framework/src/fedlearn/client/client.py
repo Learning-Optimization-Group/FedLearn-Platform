@@ -1,8 +1,6 @@
 # src/fedlearn/client/client.py
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-# import pika
-import pickle
 import grpc
 import torch
 import time
@@ -10,7 +8,6 @@ from typing import Tuple
 from .grpc_client import GrpcClient
 import logging
 import os
-# import pika
 import traceback
 
 log = logging.getLogger(__name__)

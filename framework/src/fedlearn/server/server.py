@@ -5,10 +5,6 @@ from dataclasses import dataclass
 
 from .strategy import Strategy
 from .coordinator import FLCoordinator
-# import pika
-# import pickle
-# from .async_coordinator import FLCoordinator, ResultConsumer
-from .strategy import FedAvgAggregator
 from .grpc_servicer import FederatedLearningServiceServicer
 from ..communication.generated import fedlearn_pb2_grpc
 from ..security.interceptor import interceptor_from_env
