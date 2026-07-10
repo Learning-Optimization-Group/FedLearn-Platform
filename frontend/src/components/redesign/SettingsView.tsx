@@ -9,9 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
 import { Button, Card } from '../ui';
 import { PageHeader } from './PageHeader';
-
-const SERVER_ROOT_URL =
-  import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
+import { SERVER_ROOT_URL } from '../../lib/serverConfig';
 
 function Row({
   label,

@@ -77,3 +77,59 @@ describe('PlaygroundView — generation falls back to the REST body (FE-3)', () 
     expect(screen.queryByText('Generating…')).not.toBeInTheDocument();
   });
 });
+
+// FE-8: the chat stream must surface an honest connecting/live/reconnecting/
+// error indicator instead of a silent stall — this exercises the "error"
+// phase (broker unreachable, never connected) and confirms it clears once
+// the reply commits.
+describe('PlaygroundView — honest stream indicator (FE-8)', () => {
+  beforeEach(() => {
+    vi.mocked(StompClient).mockImplementation(() => {
+      const client = {
+        onConnect: null,
+        onStompError: null,
+        onWebSocketError: null as ((e: unknown) => void) | null,
+        active: false,
+        subscribe: vi.fn(),
+        deactivate: vi.fn(),
+        activate: vi.fn(() => {
+          client.onWebSocketError?.(new Error('connection refused'));
+        }),
+      };
+      return client as unknown as InstanceType<typeof StompClient>;
+    });
+    vi.mocked(api.fetchInferableModels).mockResolvedValue(resp([MODEL]));
+  });
+
+  it('shows the dropped-socket indicator while streaming, then clears once the reply commits', async () => {
+    let resolveGeneration!: (value: AxiosResponse<api.GenerationResult>) => void;
+    vi.mocked(api.runGeneration).mockReturnValue(
+      new Promise((resolve) => { resolveGeneration = resolve; }),
+    );
+
+    render(<PlaygroundView />);
+    const promptBox = await screen.findByPlaceholderText(/message the model/i);
+    fireEvent.change(promptBox, { target: { value: 'Tell me a story' } });
+    fireEvent.click(screen.getByRole('button', { name: /send/i }));
+
+    // The socket never connects (broker unreachable) — honest state must
+    // read "error", never a silent stall or a fake "Live".
+    expect(await screen.findByText('Stream unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('Live')).not.toBeInTheDocument();
+
+    resolveGeneration(
+      resp({
+        modelType: 'LLM_LORA',
+        prompt: 'Tell me a story',
+        generatedText: 'Once upon a time the models federated.',
+        tokenCount: 8,
+        finishReason: 'completed',
+      }),
+    );
+
+    expect(await screen.findByText('Once upon a time the models federated.')).toBeInTheDocument();
+    // The indicator only applies to an in-flight stream — it disappears once
+    // the send completes and `streaming` flips back off.
+    expect(screen.queryByText('Stream unavailable')).not.toBeInTheDocument();
+  });
+});

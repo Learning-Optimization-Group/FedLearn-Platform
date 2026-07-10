@@ -4,10 +4,9 @@
 // The project owner's home: their projects + create, plus the owner-only
 // controls layered on via ProjectOwnerPanel (visibility, join-request
 // approvals, membership management, request-deletion). Reuses ProjectCard and
-// the DashboardV2 lifecycle (WebSocket status, start/stop, edit, results, logs).
+// the shared project lifecycle (WebSocket status, start/stop, edit, results, logs).
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Client as StompClient, StompSubscription } from '@stomp/stompjs';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, AlertCircle } from 'lucide-react';
 import * as api from '../../services/apiServices';
 import type { OwnedProject, ProjectResult, Project } from '../../services/apiServices';
@@ -18,21 +17,13 @@ import { CreateProjectModalV2 } from './CreateProjectModal';
 import { EditProjectModal } from './EditProjectModal';
 import { StartProjectModal } from './StartProjectModal';
 import { ProjectOwnerPanel } from './ProjectOwnerPanel';
-import { Button, Card, Skeleton } from '../ui';
+import { Button, Card, Skeleton, StatusPill } from '../ui';
 import { BrandMark } from '../brand';
 import { createLogger } from '../../lib/logger';
+import { useProjectStatus } from '../../hooks/useProjectStatus';
+import { describeStompConnection } from '../../lib/connectionStatus';
 
 const log = createLogger('OwnerDashboard');
-
-const SERVER_ROOT_URL =
-    import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
-const WEBSOCKET_URL_BASE = SERVER_ROOT_URL.replace(/^http/, 'ws');
-
-interface StatusUpdate {
-    projectId: string;
-    newStatus: string;
-    serverPort?: number;
-}
 
 /** ProjectCard only reads the base Project fields; OwnedProject is a superset. */
 const asProject = (p: OwnedProject): Project => p;
@@ -62,10 +53,6 @@ export function OwnerDashboard() {
 
     // Project ids with a deletion request awaiting platform-admin approval.
     const [pendingDeletions, setPendingDeletions] = useState<Record<string, boolean>>({});
-
-    const stompClientRef = useRef<StompClient | null>(null);
-    const subStatusRef = useRef<StompSubscription | null>(null);
-    const subResultsRef = useRef<StompSubscription | null>(null);
 
     const loadProjects = useCallback(async () => {
         try {
@@ -116,53 +103,27 @@ export function OwnerDashboard() {
         loadProjects();
     }, [loadProjects]);
 
-    // WebSocket status + telemetry — same contract as DashboardV2.
-    useEffect(() => {
-        const client = new StompClient({
-            brokerURL: `${WEBSOCKET_URL_BASE}/ws-logs`,
-            reconnectDelay: 5000,
-        });
-
-        client.onConnect = () => {
-            subStatusRef.current = client.subscribe('/topic/status/*', (message) => {
-                try {
-                    const update: StatusUpdate = JSON.parse(message.body);
-                    setProjects((prev) =>
-                        prev.map((p) =>
-                            p.id === update.projectId
-                                ? { ...p, status: update.newStatus as OwnedProject['status'], serverPort: update.serverPort }
-                                : p,
-                        ),
-                    );
-                } catch {
-                    /* ignore parse errors */
-                }
-            });
-            subResultsRef.current = client.subscribe('/topic/results/*', (message) => {
-                try {
-                    const result: ProjectResult = JSON.parse(message.body);
-                    const parts = message.headers.destination.split('/');
-                    const projectId = parts[parts.length - 1];
-                    if (projectId && result) {
-                        setResultsMap((prev) => ({
-                            ...prev,
-                            [projectId]: [...(prev[projectId] || []), result],
-                        }));
-                    }
-                } catch {
-                    /* ignore parse errors */
-                }
-            });
-        };
-
-        client.activate();
-        stompClientRef.current = client;
-        return () => {
-            subStatusRef.current?.unsubscribe();
-            subResultsRef.current?.unsubscribe();
-            if (stompClientRef.current?.active) stompClientRef.current.deactivate();
-        };
-    }, []);
+    // WebSocket status + telemetry for every owned project at once — the '*'
+    // segment maps to the backend's wildcard destinations `/topic/status/*` +
+    // `/topic/results/*`; lifecycle owned by useStompClient (via useProjectStatus).
+    const connection = useProjectStatus<ProjectResult>({
+        projectId: '*',
+        onStatusUpdate: (update) => {
+            setProjects((prev) =>
+                prev.map((p) =>
+                    p.id === update.projectId
+                        ? { ...p, status: update.newStatus as OwnedProject['status'], serverPort: update.serverPort }
+                        : p,
+                ),
+            );
+        },
+        onResult: (projectId, result) => {
+            setResultsMap((prev) => ({
+                ...prev,
+                [projectId]: [...(prev[projectId] || []), result],
+            }));
+        },
+    });
 
     const handleCreateProject = async (projectData: api.ProjectData): Promise<api.Project> => {
         try {
@@ -250,11 +211,21 @@ export function OwnerDashboard() {
 
     const filtered = projects.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
+    const connectionDisplay = describeStompConnection(connection, {
+        live: 'Live',
+        connecting: 'Connecting…',
+        reconnecting: 'Reconnecting…',
+        error: 'Connection error',
+    });
+
     return (
         <div className="flex-1 flex flex-col h-screen overflow-hidden bg-canvas text-fg font-sans">
             <header className="flex items-center justify-between gap-4 px-6 md:px-10 h-20 border-b border-hairline bg-canvas/80 backdrop-blur-xl sticky top-0 z-20">
                 <div>
-                    <h1 className="text-h3 font-display font-semibold tracking-tight text-fg">My projects</h1>
+                    <div className="flex items-center gap-2.5">
+                        <h1 className="text-h3 font-display font-semibold tracking-tight text-fg">My projects</h1>
+                        <StatusPill status={connectionDisplay.kind}>{connectionDisplay.label}</StatusPill>
+                    </div>
                     <p className="text-label text-fg-muted mt-0.5">Create, run, and manage who can join.</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -386,7 +357,6 @@ export function OwnerDashboard() {
             {logViewProjectId && (
                 <LogViewerV2
                     projectId={logViewProjectId}
-                    serverUrl={SERVER_ROOT_URL}
                     onClose={() => setLogViewProjectId(null)}
                 />
             )}

@@ -79,7 +79,7 @@ Notice how we seamlessly support both Legacy and V2 UIs by nesting them under di
 
         {/* Redesigned UI (v2) */}
         <Route element={<LayoutV2 />}>
-            <Route path="/v2" element={<DashboardV2 />} />
+            <Route path="/dashboard" element={<RoleDashboard />} />   {/* role-aware: Admin/Owner/Client */}
             <Route path="/v2/nodes" element={<NodeNetwork />} />
             {/* ... */}
         </Route>

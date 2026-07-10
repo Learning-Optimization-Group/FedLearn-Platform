@@ -8,10 +8,12 @@ import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Filter, TerminalSquare, Trash2, Activity } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line } from 'recharts';
 import { cn } from '../../lib/utils';
-import { Client as StompClient } from '@stomp/stompjs';
 import * as api from '../../services/apiServices';
 import { logStore, StoredLogEntry } from '../../services/logStore';
-import { Button, LogConsole, StatusPill, type StatusKind } from '../ui';
+import { Button, LogConsole, StatusPill } from '../ui';
+import { WS_BROKER_URL } from '../../lib/serverConfig';
+import { useStompClient, type StompSubscriptionSpec } from '../../hooks/useStompClient';
+import { describeStompConnection, type StompConnectionSnapshot } from '../../lib/connectionStatus';
 
 interface TelemetryEntry {
   timestamp: string;
@@ -22,7 +24,6 @@ interface TelemetryEntry {
 
 interface LogViewerProps {
   projectId: string;
-  serverUrl: string;
   onClose: () => void;
 }
 
@@ -36,25 +37,30 @@ function normalizeLevel(level?: string): 'INFO' | 'ERROR' | 'WARN' | 'DEBUG' {
   return 'INFO';
 }
 
-// Map the connection state to the one status-semantics scale: streaming ->
-// running (accent), paused -> pending (warning), connecting -> idle.
-function connectionStatus(isPaused: boolean, isConnected: boolean): {
-  kind: StatusKind;
+// Map the connection state to the one status-semantics scale: paused wins
+// (explicit user action), then the honest STOMP phase — streaming -> running
+// (accent), dropped-and-retrying -> pending (warning), never-yet-connected ->
+// idle or error depending on whether a failure was actually observed.
+function connectionStatus(isPaused: boolean, conn: StompConnectionSnapshot): {
+  kind: ReturnType<typeof describeStompConnection>['kind'];
   label: string;
 } {
   if (isPaused) return { kind: 'pending', label: 'Paused' };
-  if (isConnected) return { kind: 'running', label: 'Live Streaming' };
-  return { kind: 'idle', label: 'Connecting…' };
+  return describeStompConnection(conn, {
+    live: 'Live Streaming',
+    connecting: 'Connecting…',
+    reconnecting: 'Reconnecting…',
+    error: 'Connection lost',
+  });
 }
 
-export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
+export function LogViewerV2({ projectId, onClose }: LogViewerProps) {
   const [logs, setLogs] = useState<StoredLogEntry[]>(() => logStore.get(projectId));
   const [telemetry, setTelemetry] = useState<TelemetryEntry[]>(
     () => telemetryCache.get(projectId) ?? []
   );
   const [isPaused, setIsPaused] = useState(false);
   const [filterError, setFilterError] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
   // No pausedRef anymore — we always append to the store regardless of
   // pause state. "Pause" only affects auto-scroll (see effect below) so
@@ -88,17 +94,12 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
       .catch((err) => console.error('Failed to fetch historical logs:', err));
   }, [projectId]);
 
-  // Live WebSocket stream.
-  useEffect(() => {
-    const wsUrl = serverUrl.replace(/^http/, 'ws');
-    const client = new StompClient({
-      brokerURL: `${wsUrl}/ws-logs`,
-      reconnectDelay: 5000,
-    });
-
-    client.onConnect = () => {
-      setIsConnected(true);
-      client.subscribe(`/topic/logs/${projectId}`, (message) => {
+  // Live WebSocket stream — lifecycle owned by useStompClient; this surface
+  // only supplies the log-line + telemetry parsing.
+  const logSubscriptions: StompSubscriptionSpec[] = [
+    {
+      topic: `/topic/logs/${projectId}`,
+      onMessage: (message) => {
         // Always append — even while paused. "Pause" only freezes the
         // auto-scroll viewport (see effect below); messages received in
         // the paused window remain in the store and become visible again
@@ -132,15 +133,14 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
             timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
           });
         }
-      });
-    };
-    client.onDisconnect = () => setIsConnected(false);
+      },
+    },
+  ];
 
-    client.activate();
-    return () => {
-      if (client.active) client.deactivate();
-    };
-  }, [projectId, serverUrl]);
+  const connection = useStompClient({
+    brokerURL: WS_BROKER_URL,
+    subscriptions: logSubscriptions,
+  });
 
   // Auto-scroll to newest entry (unless user paused).
   useEffect(() => {
@@ -155,7 +155,7 @@ export function LogViewerV2({ projectId, serverUrl, onClose }: LogViewerProps) {
 
   const handleClear = () => logStore.clear(projectId);
 
-  const status = connectionStatus(isPaused, isConnected);
+  const status = connectionStatus(isPaused, connection);
   const latest = telemetry.length > 0 ? telemetry[telemetry.length - 1] : null;
 
   return (

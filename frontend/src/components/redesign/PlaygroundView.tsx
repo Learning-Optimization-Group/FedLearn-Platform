@@ -7,15 +7,14 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlaskConical, AlertCircle, Upload, Sparkles, ImageIcon, Hash, Loader2 } from 'lucide-react';
-import { Client as StompClient } from '@stomp/stompjs';
 import * as api from '../../services/apiServices';
 import type { InferableModel, InferenceResult } from '../../services/apiServices';
-import { Card, Button, Select, Skeleton } from '../ui';
+import { Card, Button, Select, Skeleton, StatusPill } from '../ui';
 import { BrandMark } from '../brand';
 import { PageHeader } from './PageHeader';
-
-const SERVER_ROOT_URL = import.meta.env.VITE_SERVER_ROOT_URL || `http://${window.location.hostname}:8081`;
-const WS_BROKER_URL = `${SERVER_ROOT_URL.replace(/^http/, 'ws')}/ws-logs`;
+import { WS_BROKER_URL } from '../../lib/serverConfig';
+import { useStompClient, type StompSubscriptionSpec } from '../../hooks/useStompClient';
+import { describeStompConnection } from '../../lib/connectionStatus';
 
 // Reject oversized files before FileReader pulls them fully into browser memory.
 // The backend also bounds the encoded body, but this gives immediate feedback and
@@ -48,6 +47,10 @@ export function PlaygroundView() {
     const [streamingText, setStreamingText] = useState('');
     const [stopped, setStopped] = useState(false);
     const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+    // Enables the inference-stream socket for the duration of one handleSend
+    // call (see useStompClient below) — mirrors the previous per-call
+    // StompClient instance without needing a live socket outside a send.
+    const [streaming, setStreaming] = useState(false);
     const streamingRef = useRef('');
     // True once the STOMP subscription actually went live (onConnect fired), as
     // opposed to the promise resolving via onStompError / onWebSocketError / timeout.
@@ -78,6 +81,76 @@ export function PlaygroundView() {
     const selected = useMemo(
         () => models.find((m) => m.projectId === selectedId) ?? null,
         [models, selectedId],
+    );
+
+    // Ephemeral inference-token stream: a socket only exists while `streaming`
+    // is true (toggled around one handleSend call, exactly like the previous
+    // per-call `new StompClient(...)`) and only subscribes once a model is
+    // selected. useStompClient tears the socket down as soon as `streaming`
+    // flips back to false.
+    const streamingProjectId = streaming ? selected?.projectId ?? null : null;
+    const inferenceSubscriptions: StompSubscriptionSpec[] = streamingProjectId
+        ? [
+              {
+                  topic: `/topic/inference/${streamingProjectId}`,
+                  onMessage: (msg) => {
+                      try {
+                          const { token } = JSON.parse(msg.body);
+                          if (typeof token === 'string') {
+                              streamingRef.current += token;
+                              setStreamingText((p) => p + token);
+                          }
+                      } catch {
+                          /* ignore non-token frames */
+                      }
+                  },
+              },
+          ]
+        : [];
+    const { isConnected: streamConnected, isReconnecting: streamReconnecting, lastError: streamError } =
+        useStompClient({
+            brokerURL: WS_BROKER_URL,
+            enabled: streamingProjectId !== null,
+            subscriptions: inferenceSubscriptions,
+        });
+
+    // Resolves the "wait for the stream to settle" promise inside handleSend —
+    // either the subscription actually went live, or an error was observed.
+    // Mirrors the previous inline `onStompError`/`onWebSocketError` resolving
+    // the same promise the moment either fired.
+    const streamSettleResolveRef = useRef<(() => void) | null>(null);
+    useEffect(() => {
+        if (!streaming || !streamSettleResolveRef.current) return;
+        if (streamConnected || streamError) {
+            streamSettleResolveRef.current();
+            streamSettleResolveRef.current = null;
+        }
+    }, [streaming, streamConnected, streamError]);
+
+    // Tracks "the subscription actually went live" independent of the settle
+    // race above, so a late connect (after the 8s cap elapses) still marks
+    // the stream live for the REST-vs-stream reconciliation in handleSend.
+    useEffect(() => {
+        if (streaming && streamConnected) streamLiveRef.current = true;
+    }, [streaming, streamConnected]);
+
+    /** Waits for the stream to connect (and subscribe) or error, capped at 8s — matches the previous inline Promise. */
+    function waitForStreamSettle(): Promise<void> {
+        return new Promise<void>((resolve) => {
+            const timeoutId = setTimeout(() => {
+                streamSettleResolveRef.current = null;
+                resolve();
+            }, 8000);
+            streamSettleResolveRef.current = () => {
+                clearTimeout(timeoutId);
+                resolve();
+            };
+        });
+    }
+
+    const streamStatus = describeStompConnection(
+        { isConnected: streamConnected, isReconnecting: streamReconnecting, lastError: streamError },
+        { live: 'Live', connecting: 'Connecting…', reconnecting: 'Reconnecting…', error: 'Stream unavailable' },
     );
 
     // Clear input + result whenever the chosen model changes.
@@ -165,25 +238,10 @@ export function PlaygroundView() {
         setStreamingText(''); streamingRef.current = '';
         streamLiveRef.current = false;
         setStopped(false);
-        const client = new StompClient({ brokerURL: WS_BROKER_URL, reconnectDelay: 5000 });
-        const cleanup = () => { if (client.active) client.deactivate(); };
-        await new Promise<void>((resolve) => {
-            const t = setTimeout(resolve, 8000);
-            client.onConnect = () => {
-                clearTimeout(t);
-                streamLiveRef.current = true;
-                client.subscribe(`/topic/inference/${selected.projectId}`, (msg) => {
-                    try {
-                        const { token } = JSON.parse(msg.body);
-                        if (typeof token === 'string') { streamingRef.current += token; setStreamingText((p) => p + token); }
-                    } catch { /* ignore non-token frames */ }
-                });
-                resolve(); // only POST once the subscription is live (avoids the first-token race)
-            };
-            client.onStompError = () => resolve();
-            client.onWebSocketError = () => resolve();
-            client.activate();
-        });
+        setStreaming(true);
+        // Only POST once the subscription is live, errored, or the 8s cap
+        // elapses (avoids the first-token race) — see useStompClient above.
+        await waitForStreamSettle();
         try {
             const res = await api.runGeneration(selected.projectId, {
                 prompt: userMsg, history, maxNewTokens, temperature,
@@ -206,7 +264,7 @@ export function PlaygroundView() {
                 || 'Generation failed. Please try again.';
             setError(msg);
         } finally {
-            cleanup();
+            setStreaming(false);
             setRunning(false);
         }
     };
@@ -260,7 +318,12 @@ export function PlaygroundView() {
                                     <Sparkles strokeWidth={1.5} className="w-5 h-5" />
                                 </span>
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="text-h4 font-display text-fg">Chat</h3>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-h4 font-display text-fg">Chat</h3>
+                                        {streaming && (
+                                            <StatusPill status={streamStatus.kind}>{streamStatus.label}</StatusPill>
+                                        )}
+                                    </div>
                                     <p className="text-label text-fg-muted truncate">
                                         {selected.name} — {selected.modelType}/{selected.modelName}
                                     </p>

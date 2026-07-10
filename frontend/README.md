@@ -20,7 +20,7 @@ React 19 + Vite + TypeScript SPA for the FedLearn Platform. The dashboard talks 
 frontend/
 ├── src/
 │   ├── api/axiosConfig.ts       # Axios singleton, interceptors, env-driven baseURL
-│   ├── components/              # Reusable + redesign/* (Apple-inspired DashboardV2, LogViewer, ...)
+│   ├── components/              # Reusable + redesign/* (role dashboards, LogViewer, PlaygroundView, ...)
 │   ├── pages/                   # Top-level routes (Login, Register, Dashboard, ...)
 │   ├── services/
 │   │   ├── apiServices.ts       # Typed wrappers around every backend endpoint
