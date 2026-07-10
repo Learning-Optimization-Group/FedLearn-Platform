@@ -30,6 +30,8 @@ class ScriptModelBundleStagerTest {
         ReflectionTestUtils.setField(s, "enabled", enabled);
         ReflectionTestUtils.setField(s, "modelBundleDir", dir);
         ReflectionTestUtils.setField(s, "exportScript", "scripts/export_model.py");
+        ReflectionTestUtils.setField(s, "stageScript", "scripts/stage_model_bundle.py");
+        ReflectionTestUtils.setField(s, "fixtureRecipesCsv", "TINYNET_GOLDEN");
         ReflectionTestUtils.setField(s, "pythonExecutable", "python3");
         ReflectionTestUtils.setField(s, "timeoutSeconds", 5L);
         s.setExecutor(Runnable::run);  // run staging synchronously so assertions don't race the worker
@@ -77,6 +79,34 @@ class ScriptModelBundleStagerTest {
         assertEquals(1, calls.get());
         assertEquals(List.of("python3", "scripts/export_model.py", runId.toString(),
                 "--recipe", "PNEUMONIA_CNN", "--out", dir.toString()), cmd.get());
+    }
+
+    @Test
+    void enabled_fixtureRecipe_buildsStageCommandFromRunId_withNoRecipeFlag(@TempDir Path dir) {
+        AtomicReference<List<String>> cmd = new AtomicReference<>();
+        AtomicInteger calls = new AtomicInteger();
+        ScriptModelBundleStager s = stager(dir.toString(), true, cmd, calls, 0);
+        UUID runId = UUID.randomUUID();
+
+        s.stageForRun(runId, "TINYNET_GOLDEN");
+
+        assertEquals(1, calls.get());
+        // Fixture-backed recipe -> the stdlib-only stage_model_bundle.py path, WITHOUT --recipe (that
+        // script copies the committed golden fixture and takes no recipe key).
+        assertEquals(List.of("python3", "scripts/stage_model_bundle.py", runId.toString(),
+                "--out", dir.toString()), cmd.get());
+    }
+
+    @Test
+    void enabled_fixtureRecipe_isCaseInsensitive_stillUsesFixturePath(@TempDir Path dir) {
+        AtomicReference<List<String>> cmd = new AtomicReference<>();
+        ScriptModelBundleStager s = stager(dir.toString(), true, cmd, new AtomicInteger(), 0);
+        UUID runId = UUID.randomUUID();
+
+        s.stageForRun(runId, "tinynet_golden");   // lower-case must match the fixture-recipe set
+
+        assertEquals(List.of("python3", "scripts/stage_model_bundle.py", runId.toString(),
+                "--out", dir.toString()), cmd.get());
     }
 
     @Test
