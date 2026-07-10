@@ -297,3 +297,112 @@ describe('DockerService native dataset-path forwarding (DE-2)', () => {
     expect(args).not.toContain('--dataset-path');
   });
 });
+
+// DE-11: stop + status LIFECYCLE across the native and Docker execution paths. The routing/drain/
+// dataset tests above pin START; these pin STOP (idempotent no-op, the native-already-exited fast path,
+// Docker stop+remove+clear, and the SIGKILL escalation) and the getStatus() state matrix.
+describe('DockerService stop + status lifecycle (DE-11)', () => {
+  const fakeWindow = {
+    isDestroyed: () => false,
+    webContents: { send: jest.fn(), isDestroyed: () => false, isLoading: () => false },
+  } as never;
+
+  type Privates = {
+    nativeProcess: unknown;
+    activeContainerId: string | null;
+  };
+
+  function makeService(getContainer?: jest.Mock): DockerService {
+    (Docker as unknown as jest.Mock).mockImplementation(() => ({
+      ping: jest.fn().mockResolvedValue(undefined),
+      getContainer: getContainer ?? jest.fn(),
+    }));
+    return new DockerService(fakeWindow);
+  }
+
+  function fakeNative(exitCode: number | null, signalCode: string | null = null) {
+    const emitter = new EventEmitter();
+    return Object.assign(emitter, { exitCode, signalCode, kill: jest.fn() });
+  }
+
+  // ---- getStatus() state matrix ----
+  it("getStatus: native running -> 'running', clean exit -> 'completed', non-zero exit -> 'error'", async () => {
+    const s = makeService();
+    (s as unknown as Privates).nativeProcess = fakeNative(null);
+    expect(await s.getStatus()).toBe('running');
+    (s as unknown as Privates).nativeProcess = fakeNative(0);
+    expect(await s.getStatus()).toBe('completed');
+    (s as unknown as Privates).nativeProcess = fakeNative(1);
+    expect(await s.getStatus()).toBe('error');
+  });
+
+  it("getStatus: nothing active -> 'idle'", async () => {
+    expect(await makeService().getStatus()).toBe('idle');
+  });
+
+  it("getStatus: Docker container running -> 'running' (inspected by id)", async () => {
+    const inspect = jest.fn().mockResolvedValue({ State: { Running: true } });
+    const getContainer = jest.fn().mockReturnValue({ inspect });
+    const s = makeService(getContainer);
+    (s as unknown as Privates).activeContainerId = 'c1';
+    expect(await s.getStatus()).toBe('running');
+    expect(getContainer).toHaveBeenCalledWith('c1');
+  });
+
+  it("getStatus: Docker container exited 0 -> 'completed'", async () => {
+    const inspect = jest.fn().mockResolvedValue({ State: { Running: false, ExitCode: 0 } });
+    const s = makeService(jest.fn().mockReturnValue({ inspect }));
+    (s as unknown as Privates).activeContainerId = 'c1';
+    expect(await s.getStatus()).toBe('completed');
+  });
+
+  it("getStatus: a vanished Docker container ('No such container') -> 'idle' and clears the id", async () => {
+    const inspect = jest.fn().mockRejectedValue(new Error('No such container: c1 (404)'));
+    const s = makeService(jest.fn().mockReturnValue({ inspect }));
+    (s as unknown as Privates).activeContainerId = 'c1';
+    expect(await s.getStatus()).toBe('idle');
+    expect((s as unknown as Privates).activeContainerId).toBeNull();
+  });
+
+  // ---- stopTraining() ----
+  it('stopTraining: no active process -> resolves without throwing (idempotent)', async () => {
+    await expect(makeService().stopTraining()).resolves.toBeUndefined();
+  });
+
+  it('stopTraining: an already-exited native process is cleared immediately (no kill, no 5s grace)', async () => {
+    const s = makeService();
+    const proc = fakeNative(0);
+    (s as unknown as Privates).nativeProcess = proc;
+    await s.stopTraining();
+    expect(proc.kill).not.toHaveBeenCalled();
+    expect((s as unknown as Privates).nativeProcess).toBeNull();
+  });
+
+  it('stopTraining: Docker path stops + force-removes the container and clears the id', async () => {
+    const stop = jest.fn().mockResolvedValue(undefined);
+    const remove = jest.fn().mockResolvedValue(undefined);
+    const s = makeService(jest.fn().mockReturnValue({ stop, remove }));
+    (s as unknown as Privates).activeContainerId = 'c1';
+    await s.stopTraining();
+    expect(stop).toHaveBeenCalled();
+    expect(remove).toHaveBeenCalledWith({ force: true });
+    expect((s as unknown as Privates).activeContainerId).toBeNull();
+  });
+
+  it('stopTraining: a live native process gets SIGTERM, then SIGKILL after the 5s grace if it ignores it', async () => {
+    jest.useFakeTimers();
+    try {
+      const s = makeService();
+      const proc = fakeNative(null, null); // never exits
+      (s as unknown as Privates).nativeProcess = proc;
+      const pending = s.stopTraining();
+      expect(proc.kill).toHaveBeenCalledWith('SIGTERM');
+      jest.advanceTimersByTime(5000); // grace elapses with no 'exit' event
+      await pending;
+      expect(proc.kill).toHaveBeenCalledWith('SIGKILL');
+      expect((s as unknown as Privates).nativeProcess).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});

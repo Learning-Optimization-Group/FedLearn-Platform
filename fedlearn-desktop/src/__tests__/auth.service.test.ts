@@ -170,3 +170,90 @@ describe('AuthService.getAuthHeader — proactive expiry (DE-8)', () => {
     expect(send).not.toHaveBeenCalled();
   });
 });
+
+// DE-11: login/logout LIFECYCLE. The DE-8 tests above pin the 401/expiry edges; these pin the core
+// state transitions — login stores the JWT (or fails cleanly), logout clears it, and the in-memory
+// (no-keyring) backend round-trips the same way as the encrypted on-disk one.
+describe('AuthService login/logout lifecycle (DE-11)', () => {
+  beforeEach(() => {
+    (safeStorage.isEncryptionAvailable as jest.Mock).mockReturnValue(true);
+  });
+
+  it('login: a 200 with an accessToken stores the JWT and authenticates', async () => {
+    const { win } = fakeWindow();
+    const auth = new AuthService(win);
+    const post = jest.spyOn(http, 'post').mockResolvedValue({
+      status: 200, data: { accessToken: 'jwt-xyz', username: 'alice' }, headers: {},
+    } as never);
+    const ok = await auth.login('alice', 'pw');
+    expect(ok).toBe(true);
+    expect(post).toHaveBeenCalledWith(
+      expect.stringContaining('/auth/login'), { username: 'alice', password: 'pw' }, expect.any(Object),
+    );
+    expect(auth.isAuthenticated()).toBe(true);
+    expect(auth.getAuthHeader()).toBe('Bearer jwt-xyz');
+    post.mockRestore();
+  });
+
+  it('login: a non-200 response returns false and stores no session', async () => {
+    const { win } = fakeWindow();
+    const auth = new AuthService(win);
+    const post = jest.spyOn(http, 'post').mockResolvedValue({ status: 401, data: {}, headers: {} } as never);
+    expect(await auth.login('alice', 'wrong')).toBe(false);
+    expect(auth.isAuthenticated()).toBe(false);
+    expect(auth.getAuthHeader()).toBeNull();
+    post.mockRestore();
+  });
+
+  it('login: a 200 with no accessToken and no jwt cookie returns false', async () => {
+    const { win } = fakeWindow();
+    const auth = new AuthService(win);
+    const post = jest.spyOn(http, 'post').mockResolvedValue({ status: 200, data: {}, headers: {} } as never);
+    expect(await auth.login('alice', 'pw')).toBe(false);
+    expect(auth.isAuthenticated()).toBe(false);
+    post.mockRestore();
+  });
+
+  it('login: a thrown request error is caught and returns false (no crash)', async () => {
+    const { win } = fakeWindow();
+    const auth = new AuthService(win);
+    const post = jest.spyOn(http, 'post').mockRejectedValue(new Error('ECONNREFUSED'));
+    expect(await auth.login('alice', 'pw')).toBe(false);
+    expect(auth.isAuthenticated()).toBe(false);
+    post.mockRestore();
+  });
+
+  it('logout: clears the session so isAuthenticated() is false and getAuthHeader() is null', () => {
+    const { win } = fakeWindow();
+    const auth = new AuthService(win);
+    asInternals(auth).storeJwt('jwt-abc', 'alice');
+    expect(auth.isAuthenticated()).toBe(true);
+    auth.logout();
+    expect(auth.isAuthenticated()).toBe(false);
+    expect(auth.getAuthHeader()).toBeNull();
+  });
+
+  it('logout is idempotent — a second logout does not throw', () => {
+    const { win } = fakeWindow();
+    const auth = new AuthService(win);
+    asInternals(auth).storeJwt('jwt-abc', 'alice');
+    auth.logout();
+    expect(() => auth.logout()).not.toThrow();
+    expect(auth.isAuthenticated()).toBe(false);
+  });
+
+  it('in-memory fallback (safeStorage unavailable): login round-trips through memory, logout clears it', async () => {
+    (safeStorage.isEncryptionAvailable as jest.Mock).mockReturnValue(false);
+    const { win } = fakeWindow();
+    const auth = new AuthService(win);
+    const post = jest.spyOn(http, 'post').mockResolvedValue({
+      status: 200, data: { accessToken: 'mem-jwt', username: 'bob' }, headers: {},
+    } as never);
+    expect(await auth.login('bob', 'pw')).toBe(true);
+    expect(auth.isAuthenticated()).toBe(true);
+    expect(auth.getAuthHeader()).toBe('Bearer mem-jwt');
+    auth.logout();
+    expect(auth.isAuthenticated()).toBe(false);
+    post.mockRestore();
+  });
+});
