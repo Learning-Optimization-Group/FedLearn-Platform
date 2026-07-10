@@ -5,6 +5,7 @@ import jakarta.validation.ConstraintValidatorContext;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Validator backing {@link ValueOfEnum}. Accepts {@code null} and any string
@@ -20,7 +21,13 @@ public class ValueOfEnumValidator implements ConstraintValidator<ValueOfEnum, Ch
     @Override
     public void initialize(ValueOfEnum annotation) {
         Enum<?>[] constants = annotation.enumClass().getEnumConstants();
-        this.acceptedValues = Arrays.stream(constants).map(Enum::name).toList();
+        Set<String> excluded = Set.of(annotation.exclude());
+        // Accepted set = every enum name() minus the excluded constants, preserving
+        // declaration order so the rejection message reads naturally.
+        this.acceptedValues = Arrays.stream(constants)
+                .map(Enum::name)
+                .filter(name -> !excluded.contains(name))
+                .toList();
         this.hasCustomMessage = annotation.message() != null && !annotation.message().isBlank();
     }
 

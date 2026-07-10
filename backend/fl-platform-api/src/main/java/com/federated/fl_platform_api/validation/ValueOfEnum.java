@@ -27,6 +27,14 @@ import java.lang.annotation.Target;
  *
  * <p>Unless a custom {@link #message()} is supplied, the rejection message lists
  * the accepted values, e.g. {@code must be one of [PUBLIC, RESTRICTED, PRIVATE]}.
+ *
+ * <p>{@link #exclude()} narrows the accepted set to a proper subset of the enum by
+ * removing named constants — for fields that mirror an enum but must reject a
+ * reserved constant (e.g. a membership may be granted as {@code MEMBER}/{@code CLIENT}
+ * but never {@code OWNER}; an access decision is {@code APPROVED}/{@code DENIED} but
+ * never the initial {@code PENDING}). The field stays enum-derived — a newly added
+ * constant is still auto-accepted — while the excluded constants stay off the set and
+ * out of the rejection message.
  */
 @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)
@@ -36,6 +44,13 @@ public @interface ValueOfEnum {
 
     /** The enum whose {@code name()} values define the accepted set. */
     Class<? extends Enum<?>> enumClass();
+
+    /**
+     * Enum constant {@code name()}s to remove from the accepted set, yielding a proper
+     * subset of the enum. Empty (the default) accepts every constant. Names that are not
+     * constants of {@link #enumClass()} are simply ignored.
+     */
+    String[] exclude() default {};
 
     /**
      * Optional message override. When left blank (the default), the validator

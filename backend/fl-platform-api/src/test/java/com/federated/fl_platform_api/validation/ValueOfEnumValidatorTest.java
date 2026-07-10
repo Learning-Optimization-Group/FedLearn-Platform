@@ -1,5 +1,6 @@
 package com.federated.fl_platform_api.validation;
 
+import com.federated.fl_platform_api.model.MembershipRole;
 import com.federated.fl_platform_api.model.ProjectVisibility;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
@@ -14,6 +15,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -94,5 +96,47 @@ class ValueOfEnumValidatorTest {
                 validator.validate(new CustomMessageHolder("BOGUS"));
         assertEquals(1, violations.size());
         assertEquals("pick a real tier", violations.iterator().next().getMessage());
+    }
+
+    // --- Subset support: accept only a proper subset of an enum's constants. -------------
+    // Some DTO fields mirror an enum but must reject a reserved constant (e.g. a project
+    // membership can be granted as MEMBER or CLIENT but never OWNER; an access-request
+    // decision is APPROVED or DENIED but never the initial PENDING). {@code exclude} lets
+    // the constraint stay enum-derived — a new constant is auto-accepted — while keeping a
+    // named constant off the accepted set.
+
+    /** Field under test: MembershipRole minus the reserved OWNER constant. */
+    private static final class SubsetHolder {
+        @ValueOfEnum(enumClass = MembershipRole.class, exclude = {"OWNER"})
+        private final String role;
+
+        SubsetHolder(String role) {
+            this.role = role;
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = MembershipRole.class, names = {"MEMBER", "CLIENT"})
+    void subsetAcceptsEveryAllowedConstant(MembershipRole role) {
+        assertTrue(validator.validate(new SubsetHolder(role.name())).isEmpty(),
+                () -> role.name() + " is in the allowed subset and must be accepted");
+    }
+
+    @Test
+    void subsetRejectsExcludedConstant_withMessageThatOmitsIt() {
+        Set<ConstraintViolation<SubsetHolder>> violations =
+                validator.validate(new SubsetHolder("OWNER"));
+        assertEquals(1, violations.size(), "OWNER is excluded and must be rejected");
+        String message = violations.iterator().next().getMessage();
+        assertTrue(message.contains("MEMBER") && message.contains("CLIENT"),
+                () -> "message should list the allowed subset but was: " + message);
+        assertFalse(message.contains("OWNER"),
+                () -> "message must NOT list the excluded constant but was: " + message);
+    }
+
+    @Test
+    void subsetStillAcceptsNull() {
+        assertTrue(validator.validate(new SubsetHolder(null)).isEmpty(),
+                "null must remain valid even with an exclude list (optional-field semantics)");
     }
 }
