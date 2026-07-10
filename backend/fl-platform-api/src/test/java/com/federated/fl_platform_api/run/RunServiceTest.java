@@ -5,6 +5,7 @@ import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.model.*;
 import com.federated.fl_platform_api.repository.*;
 import com.federated.fl_platform_api.security.ConnectionTokenService;
+import com.federated.fl_platform_api.security.FlClientCertificateAuthority;
 import com.federated.fl_platform_api.service.AuthorizationService;
 import com.federated.fl_platform_api.security.OrgScope;
 import com.federated.fl_platform_api.service.RunService;
@@ -32,6 +33,7 @@ class RunServiceTest {
     @Mock AuthorizationService authz;
     @Mock OrgScope orgScope;
     @Mock ConnectionTokenService tokenService;
+    @Mock FlClientCertificateAuthority clientCa;
 
     @InjectMocks RunService runService;
 
@@ -266,6 +268,38 @@ class RunServiceTest {
         assertEquals("tok", dto.getConnectionToken());
         assertEquals("SHARD", dto.getClientKind());
         assertNotNull(dto.getManifest());
+        // SE-12: cert issuance is OFF by default -> the enrollment carries no client cert/key.
+        assertNull(dto.getClientCertPem());
+        assertNull(dto.getClientKeyPem());
+    }
+
+    @Test
+    void enroll_issuesAClientCertBoundToTheUser_whenCertIssuanceEnabled() {
+        UUID rid = UUID.randomUUID(); UUID pid = UUID.randomUUID();
+        Project p = project(pid); User u = new User(); u.setId(7L);
+        Run r = runningRun(rid, pid, 4, PartitioningMode.SHARDED);
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+        when(enrollmentRepository.findByIdRunIdAndIdUserId(rid, 7L)).thenReturn(java.util.Optional.empty());
+        when(enrollmentRepository.maxPartitionIdForRun(rid)).thenReturn(-1);
+        when(enrollmentRepository.save(any(RunEnrollment.class))).thenAnswer(i -> i.getArgument(0));
+        when(tokenService.mint(any())).thenReturn(
+                new ConnectionTokenService.Minted("tok", java.time.Instant.now().plusSeconds(120)));
+        when(clientCa.isEnabled()).thenReturn(true);
+        when(clientCa.issueClientCert("7", rid)).thenReturn(new FlClientCertificateAuthority.IssuedClientCert(
+                "CERT-PEM", "KEY-PEM", "CA-PEM", "ca-fp-sha256"));
+
+        var dto = runService.enroll(rid);
+
+        // the bundle is delivered, and the advertised fingerprint is the issuing CA's (not the run's null).
+        assertEquals("CERT-PEM", dto.getClientCertPem());
+        assertEquals("KEY-PEM", dto.getClientKeyPem());
+        assertEquals("ca-fp-sha256", dto.getCaFingerprint());
+        // the cert is bound to THIS caller's id, not an attacker-supplied one.
+        verify(clientCa).issueClientCert("7", rid);
     }
 
     @Test

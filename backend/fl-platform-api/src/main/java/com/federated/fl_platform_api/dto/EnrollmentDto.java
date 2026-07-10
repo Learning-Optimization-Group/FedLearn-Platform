@@ -11,6 +11,10 @@ public class EnrollmentDto {
     private String clientKind;
     private String caFingerprint;   // null in Phase 1
     private String connectionToken;
+    // SE-12: per-client mTLS cert issued at enrollment (null unless feature.fl-client-cert.enabled). The
+    // client presents these to the FL gRPC server when require_client_auth is on; the key never leaves it.
+    private String clientCertPem;
+    private String clientKeyPem;
     private Instant expiresAt;
     private RunManifestDto manifest;
 
@@ -28,6 +32,10 @@ public class EnrollmentDto {
     public void setCaFingerprint(String caFingerprint) { this.caFingerprint = caFingerprint; }
     public String getConnectionToken() { return connectionToken; }
     public void setConnectionToken(String connectionToken) { this.connectionToken = connectionToken; }
+    public String getClientCertPem() { return clientCertPem; }
+    public void setClientCertPem(String clientCertPem) { this.clientCertPem = clientCertPem; }
+    public String getClientKeyPem() { return clientKeyPem; }
+    public void setClientKeyPem(String clientKeyPem) { this.clientKeyPem = clientKeyPem; }
     public Instant getExpiresAt() { return expiresAt; }
     public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
     public RunManifestDto getManifest() { return manifest; }
