@@ -17,25 +17,21 @@ import static org.mockito.Mockito.*;
 
 /**
  * BA-3: at spawn the manager records the child's OS identity (PID + start instant) and reserved port
- * on the active Run so a startup reconciler can later reap orphans. Unit-level (no spawn, no Spring):
- * the Process is mocked, so this covers the write logic and its guards in isolation.
+ * on the active Run so a startup reconciler can later reap orphans. Unit-level (no spawn, no Spring).
+ *
+ * <p>DA-8: recordProcessIdentity now takes the identity values directly (pid + start instant) rather
+ * than a {@link Process} — it is decoupled from the process seam, so these tests pass primitives
+ * instead of mocking a Process/ProcessHandle.Info.</p>
  */
 @ExtendWith(MockitoExtension.class)
 class FlowerServerManagerProcessIdentityTest {
+
+    private static final Instant STARTED = Instant.parse("2026-07-03T12:00:00Z");
 
     private FlowerServerManager managerWith(RunRepository repo) {
         FlowerServerManager m = new FlowerServerManager();
         ReflectionTestUtils.setField(m, "runRepository", repo);
         return m;
-    }
-
-    private Process processWith(long pid, Instant startInstant) {
-        Process p = mock(Process.class);
-        when(p.pid()).thenReturn(pid);
-        ProcessHandle.Info info = mock(ProcessHandle.Info.class);
-        when(p.info()).thenReturn(info);
-        when(info.startInstant()).thenReturn(Optional.of(startInstant));
-        return p;
     }
 
     @Test
@@ -45,11 +41,10 @@ class FlowerServerManagerProcessIdentityTest {
         Run run = new Run();
         when(repo.findById(runId)).thenReturn(Optional.of(run));
 
-        Instant started = Instant.parse("2026-07-03T12:00:00Z");
-        managerWith(repo).recordProcessIdentity(runId, processWith(4242L, started), 50005, "deadbeefhash");
+        managerWith(repo).recordProcessIdentity(runId, 4242L, STARTED, 50005, "deadbeefhash");
 
         assertEquals(4242L, run.getServerPid());
-        assertEquals(started, run.getProcessStartedAt());
+        assertEquals(STARTED, run.getProcessStartedAt());
         assertEquals(50005, run.getServerPort());
         assertEquals("deadbeefhash", run.getInternalTokenHash());   // BA-3: persisted for token rehydration
         verify(repo).save(run);
@@ -58,7 +53,7 @@ class FlowerServerManagerProcessIdentityTest {
     @Test
     void nullRunId_isANoOp() {
         RunRepository repo = mock(RunRepository.class);
-        managerWith(repo).recordProcessIdentity(null, mock(Process.class), 50005, "hash");
+        managerWith(repo).recordProcessIdentity(null, 1L, STARTED, 50005, "hash");
         verifyNoInteractions(repo);
     }
 
@@ -68,8 +63,7 @@ class FlowerServerManagerProcessIdentityTest {
         UUID runId = UUID.randomUUID();
         when(repo.findById(runId)).thenReturn(Optional.empty());
 
-        // Process is never touched when the run is gone — so leave it unstubbed.
-        managerWith(repo).recordProcessIdentity(runId, mock(Process.class), 50005, "hash");
+        managerWith(repo).recordProcessIdentity(runId, 1L, STARTED, 50005, "hash");
 
         verify(repo, never()).save(any());
     }
@@ -85,6 +79,6 @@ class FlowerServerManagerProcessIdentityTest {
         doThrow(new RuntimeException("db down")).when(repo).save(run);
 
         assertThrows(RuntimeException.class, () -> managerWith(repo)
-                .recordProcessIdentity(runId, processWith(7L, Instant.parse("2026-07-03T12:00:00Z")), 50007, "hash"));
+                .recordProcessIdentity(runId, 7L, STARTED, 50007, "hash"));
     }
 }

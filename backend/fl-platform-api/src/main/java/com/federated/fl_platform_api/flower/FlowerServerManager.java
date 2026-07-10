@@ -84,6 +84,20 @@ public class FlowerServerManager {
     @Autowired
     private com.federated.fl_platform_api.service.ModelRecipeService modelRecipeService;
 
+    // DA-8: the FL-server orchestration seam. Raw ProcessBuilder mechanics live behind this runner
+    // instead of inline in this JVM orchestration class, so the spawn path is unit-testable with a fake
+    // runner and a future managed-task (ECS) runner can be swapped in without changing the orchestration.
+    // Defaults to the local-process runner; a Spring bean of type FlServerProcessRunner, if one is
+    // defined, overrides it (setProcessRunner). Tests inject a fake via ReflectionTestUtils.
+    private FlServerProcessRunner processRunner = new LocalProcessFlServerRunner();
+
+    @Autowired(required = false)
+    public void setProcessRunner(FlServerProcessRunner runner) {
+        if (runner != null) {
+            this.processRunner = runner;
+        }
+    }
+
     // BA-3: ProcessHandle (not Process) so a StartupReconciler can re-adopt a child that outlived a
     // backend crash — a restarted JVM can only recover a handle to an orphan, never the original
     // Process object. Freshly-spawned servers are stored via process.toHandle(); the stdout reader
@@ -125,7 +139,7 @@ public class FlowerServerManager {
 
     private Optional<Integer> startLocalServer(Project project, String strategy,
                                                Integer numRounds, Integer minClients) {
-        Process process = null;
+        SpawnedFlProcess process = null;
         int freePort = -1;
         try {
             stopServerForProject(project.getId());
@@ -143,8 +157,6 @@ public class FlowerServerManager {
             List<String> command = buildServerCommand(
                     project, strategy, numRounds, minClients, freePort, absoluteScriptPath, isWindows);
 
-            ProcessBuilder pb = new ProcessBuilder(command);
-
             // SE-7: mint a random per-run internal token scoped to (projectId, runId) and hand ONLY
             // it to the child — never a secret it could use to forge another project's token. It is
             // evicted when the server stops (stopServerForProject).
@@ -152,20 +164,22 @@ public class FlowerServerManager {
             // BA-3: persist the token's hash on the run so a re-adopted server's token can be
             // rehydrated after a restart (the plaintext goes only to the child, below).
             String internalTokenHash = runTokenRegistry.hash(internalRunToken);
-            configureChildEnv(pb.environment(), internalApiKey, backendInternalUrl,
-                    flTokenSecret, requireClientAuth,
-                    project.getActiveRunId() != null ? project.getActiveRunId().toString() : null,
-                    requireTls, internalRunToken);
+            String runIdArg = project.getActiveRunId() != null
+                    ? project.getActiveRunId().toString() : null;
 
             log.debug("Starting FL server for project {} via script {}", project.getId(), absoluteScriptPath);
 
-            pb.redirectErrorStream(true);
-            pb.directory(new File("."));
-
-            process = pb.start();
+            // DA-8: delegate the raw process launch to the runner seam. The env customization (SE-1/SE-7
+            // secret scrub + per-run token) runs inside the runner as it configures the child env, so
+            // the security contract is unchanged — only the ProcessBuilder mechanics moved.
+            process = processRunner.start(command,
+                    env -> configureChildEnv(env, internalApiKey, backendInternalUrl,
+                            flTokenSecret, requireClientAuth, runIdArg, requireTls, internalRunToken),
+                    new File("."));
             runningServers.put(project.getId(), process.toHandle());
             try {
-                recordProcessIdentity(project.getActiveRunId(), process, freePort, internalTokenHash);
+                recordProcessIdentity(project.getActiveRunId(), process.pid(),
+                        process.startInstant().orElse(null), freePort, internalTokenHash);
             } catch (RuntimeException e) {
                 // BA-3: we spawned a child but could not persist its identity — after a crash it would
                 // be an unreconcilable orphan holding its port with no PID on record to reap it. Fail
@@ -181,7 +195,7 @@ public class FlowerServerManager {
 
             final StringBuilder startupOutput = new StringBuilder();
             final boolean[] errorOccurred = {false};
-            final Process readerProcess = process;
+            final SpawnedFlProcess readerProcess = process;
 
             Thread outputReaderThread = new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(readerProcess.getInputStream()))) {
@@ -239,9 +253,9 @@ public class FlowerServerManager {
             throw new ServerProcessException(
                     "Interrupted while starting FL server for project " + project.getId(), e);
         } catch (IOException e) {
-            // pb.start() is the only IOException source in this try; it
-            // throws before `process` is assigned, so there is nothing to
-            // tear down here.
+            // processRunner.start() is the only IOException source in this try; the local runner throws
+            // it from ProcessBuilder.start() before returning a handle, so `process` is still null and
+            // there is nothing to tear down here (the finally still releases the reserved port).
             throw new ServerProcessException(
                     "Failed to spawn FL server process for project " + project.getId(), e);
         } finally {
@@ -493,14 +507,19 @@ public class FlowerServerManager {
      * no-op. A persistence failure, however, PROPAGATES: the caller must fail the spawn closed (kill
      * the child), because a live server whose identity was never recorded is an orphan that can never
      * be reconciled or reaped — exactly the leak this feature exists to prevent.
+     *
+     * <p>DA-8: takes the identity values ({@code pid}, {@code startInstant}) directly rather than a
+     * {@link Process}, so it is decoupled from the process seam — the manager reads them off the
+     * {@link SpawnedFlProcess} at the call site.</p>
      */
-    void recordProcessIdentity(UUID runId, Process process, int port, String internalTokenHash) {
+    void recordProcessIdentity(UUID runId, long pid, java.time.Instant startInstant, int port,
+                               String internalTokenHash) {
         if (runId == null) {
             return;
         }
         runRepository.findById(runId).ifPresent(run -> {
-            run.setServerPid(process.pid());
-            run.setProcessStartedAt(process.info().startInstant().orElse(null));
+            run.setServerPid(pid);
+            run.setProcessStartedAt(startInstant);
             run.setServerPort(port);
             run.setInternalTokenHash(internalTokenHash);
             runRepository.save(run);
