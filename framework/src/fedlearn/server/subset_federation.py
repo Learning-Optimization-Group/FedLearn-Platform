@@ -33,3 +33,12 @@ def validate_subset_update(update_keys: list[str], expected_keys: list[str]) -> 
             f"{list(expected_keys)} (requires_grad params in named_parameters order). Send "
             f"estimators.params.trainable_state(model), NOT a full state_dict()."
         )
+
+
+def apply_trainable_subset(model: nn.Module, subset: "OrderedDict[str, torch.Tensor]") -> None:
+    """Write an aggregated trainable subset back onto model (non-strict, so the frozen backbone is
+    preserved). Validates keys against the model's expected trainable layout first (fail-loud)."""
+    validate_subset_update(list(subset.keys()), expected_trainable_keys(model))
+    missing, unexpected = model.load_state_dict(subset, strict=False)
+    if unexpected:  # keys not in the model at all — a real error, not just frozen-omitted
+        raise SubsetDimMismatch(f"aggregated subset had unexpected keys: {list(unexpected)}")

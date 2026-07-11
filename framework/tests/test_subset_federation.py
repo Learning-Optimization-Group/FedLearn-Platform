@@ -30,3 +30,24 @@ def test_guard_accepts_matching_keys_and_rejects_mismatch():
         validate_subset_update(["head.weight"], expected)            # missing key
     with pytest.raises(SubsetDimMismatch):
         validate_subset_update(["backbone.0.weight", "head.weight", "head.bias"], expected)  # extra/frozen key
+
+
+from collections import OrderedDict
+from fedlearn.server.subset_federation import apply_trainable_subset
+
+
+def test_apply_subset_updates_head_keeps_backbone_and_rejects_mismatch():
+    net = build_tiny_frozen_net(seed=0)
+    backbone_before = {n: p.clone() for n, p in net.named_parameters() if not p.requires_grad}
+    new_head = OrderedDict([
+        ("head.weight", torch.ones_like(net.head.weight)),
+        ("head.bias", torch.full_like(net.head.bias, 2.0)),
+    ])
+    apply_trainable_subset(net, new_head)
+    assert torch.equal(net.head.weight, torch.ones_like(net.head.weight))
+    assert torch.equal(net.head.bias, torch.full_like(net.head.bias, 2.0))
+    for n, p in net.named_parameters():
+        if not p.requires_grad:
+            assert torch.equal(p, backbone_before[n]), f"frozen {n} changed"
+    with pytest.raises(SubsetDimMismatch):
+        apply_trainable_subset(net, OrderedDict([("head.weight", net.head.weight.clone())]))
