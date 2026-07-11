@@ -25,6 +25,13 @@ This service method is annotated with `@Transactional`. If any step fails, the e
 4. **Model Initialization:** `ModelInitializer.initializeModelFile()` is invoked. It executes a local Python script (`run_init_model.sh`) that constructs the initial model architecture (PyTorch) based on the `modelType` and saves it to the `.npz` file.
 5. **Finalize DB Entry:** The `Project` entity is updated with the absolute path to the `.npz` file and its status is set to `CREATED`.
 
+> Steps 3–5 describe the project's *initial* model file only, written once at creation. They predate,
+> and are unrelated to, the content-addressed model artifact registry that now also records every run's
+> *trained* output as a versioned, provenance-tracked row (`model_artifacts`) rather than treating this
+> `.npz` as the sole, overwritable record. See [07 - Content-Addressed Model Artifact Registry](07_artifact_registry.md)
+> for the write path (registration on run completion) and the read path (inference/warm-start now prefer
+> the registry over this file when an artifact exists).
+
 `createProject` is also annotated `@Auditable(action = PROJECT_CREATED)`, so a successful creation writes an `audit_events` row in the same transaction (see [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md)).
 
 ## 2. Project Ownership, Membership, and Org Isolation
