@@ -180,3 +180,57 @@ def test_reconstruct_rejects_missing_key():
     incomplete = save_safetensors([("backbone.0.weight", np.zeros((2, 1, 3, 3), dtype="<f4"))])  # missing bias
     with pytest.raises(BackboneKeyMismatch):
         reconstruct_frozen_backbone(target, incomplete)
+
+
+from fedlearn.server.subset_federation import (
+    expected_trainable_keys,
+    guard_client_updates,
+    apply_trainable_subset,
+)
+
+
+def _average_subset(payloads):
+    keys = list(payloads[0].keys())
+    out = OrderedDict()
+    for k in keys:
+        out[k] = torch.stack([p[k] for p in payloads], dim=0).mean(dim=0)
+    return out
+
+
+def test_fetched_backbone_model_federates_head_only_and_backbone_survives(tmp_path):
+    # 1. "Server" registers a frozen backbone as content-addressed bytes.
+    server_net = build_tiny_frozen_net(seed=7)
+    blob = serialize_backbone(server_net)
+    sha = backbone_sha256(blob)
+    store = {sha: blob}  # stand-in for the Java BASE_REF blob store (Phase 2B wires the real fetch)
+
+    # 2. Each client fetches (verify + cache) and reconstructs a frozen-backbone model.
+    def make_client(seed):
+        cache = BackboneCache(tmp_path / f"c{seed}")
+        path = cache.get_or_fetch(sha, lambda: store[sha])
+        net = build_tiny_frozen_net(seed=seed)  # fresh head, wrong backbone until reconstruct
+        reconstruct_frozen_backbone(net, path.read_bytes())
+        return net
+
+    clients = [make_client(11), make_client(22)]
+
+    # 3. The federated wire payload is the HEAD ONLY (backbone excluded).
+    payloads = []
+    for net in clients:
+        keys = expected_trainable_keys(net)
+        assert keys == ["head.weight", "head.bias"]           # no backbone.* on the wire
+        payloads.append(trainable_state(net))
+    guard_client_updates(payloads, clients[0])                # Phase-1 fail-loud guard, per client
+
+    # 4. Aggregate the head and load it back non-strict onto a fresh reconstructed model.
+    aggregated = _average_subset(payloads)
+    global_net = make_client(33)
+    backbone_before = serialize_backbone(global_net)
+    apply_trainable_subset(global_net, aggregated)
+
+    # The head was averaged; the frozen backbone is byte-identical before and after (unchanged),
+    # and still hashes to the originally-registered content address.
+    for k, v in aggregated.items():
+        assert torch.equal(dict(global_net.named_parameters())[k].detach(), v)
+    assert serialize_backbone(global_net) == backbone_before
+    assert backbone_sha256(serialize_backbone(global_net)) == sha
