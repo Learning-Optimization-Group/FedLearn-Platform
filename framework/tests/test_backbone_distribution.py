@@ -55,3 +55,32 @@ def test_frozen_state_preserves_named_order():
     # Params emitted in named_parameters() order (weight before bias for the conv).
     assert list(frozen.keys()) == ["backbone.0.weight", "backbone.0.bias"]
     assert isinstance(frozen, OrderedDict)
+
+
+import hashlib
+
+from fedlearn.backbone.distribution import serialize_backbone, backbone_sha256
+from fedlearn.communication.safetensors_codec import load_safetensors
+
+
+def test_serialize_backbone_is_byte_deterministic_and_content_addressed():
+    net_a = build_tiny_frozen_net(seed=0)
+    net_b = build_tiny_frozen_net(seed=0)  # same seed -> identical frozen backbone
+    blob_a = serialize_backbone(net_a)
+    blob_b = serialize_backbone(net_b)
+    assert blob_a == blob_b                      # byte-identical
+    assert backbone_sha256(blob_a) == backbone_sha256(blob_b)
+    assert backbone_sha256(blob_a) == hashlib.sha256(blob_a).hexdigest()
+
+
+def test_serialize_backbone_differs_when_frozen_weights_differ():
+    net0 = build_tiny_frozen_net(seed=0)
+    net1 = build_tiny_frozen_net(seed=1)  # different frozen backbone
+    assert backbone_sha256(serialize_backbone(net0)) != backbone_sha256(serialize_backbone(net1))
+
+
+def test_serialize_backbone_roundtrips_to_frozen_tensors():
+    net = build_tiny_frozen_net(seed=0)
+    tensors, meta = load_safetensors(serialize_backbone(net))
+    names = [n for n, _ in tensors]
+    assert names == ["backbone.0.weight", "backbone.0.bias"]  # frozen only, in order
