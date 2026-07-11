@@ -12,12 +12,14 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+from collections import OrderedDict
 from pathlib import Path
 from typing import Callable
 
+import torch
 import torch.nn as nn
 
-from fedlearn.communication.safetensors_codec import save_safetensors
+from fedlearn.communication.safetensors_codec import load_safetensors, save_safetensors
 from fedlearn.estimators.params import frozen_state
 
 
@@ -78,3 +80,33 @@ class BackboneCache:
             except FileNotFoundError:
                 pass
             raise
+
+
+class BackboneKeyMismatch(ValueError):
+    """A fetched backbone blob's key set does not match the model's declared frozen layout."""
+
+
+def reconstruct_frozen_backbone(model: nn.Module, backbone_bytes: bytes) -> nn.Module:
+    """Load a fetched frozen-backbone blob onto ``model`` (non-strict), re-freeze the loaded
+    parameters, and return the same model. The head is never touched — after this call the model's
+    only trainable (federated) subset is its head.
+
+    Fail-loud: the blob's key set MUST equal ``frozen_state(model)``'s keys. An unexpected key (a blob
+    that carries something the model does not declare frozen) or a missing key (a truncated blob)
+    raises :class:`BackboneKeyMismatch` rather than silently loading a partial/misaligned backbone.
+    """
+    tensors, _meta = load_safetensors(backbone_bytes)
+    blob_keys = [name for name, _ in tensors]
+    expected_keys = list(frozen_state(model).keys())
+    if set(blob_keys) != set(expected_keys):
+        raise BackboneKeyMismatch(
+            f"backbone key mismatch: blob has {sorted(blob_keys)} but the model declares frozen "
+            f"layout {sorted(expected_keys)}. Send serialize_backbone(model) for the same recipe."
+        )
+    state = OrderedDict((name, torch.from_numpy(arr)) for name, arr in tensors)
+    model.load_state_dict(state, strict=False)  # head keys are 'missing' (trained locally) — expected
+    param_names = {name for name, _ in model.named_parameters()}
+    for name in blob_keys:
+        if name in param_names:
+            model.get_parameter(name).requires_grad_(False)
+    return model

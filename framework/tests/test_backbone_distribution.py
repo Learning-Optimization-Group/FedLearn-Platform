@@ -136,3 +136,47 @@ def test_cache_self_heals_a_corrupted_cache_file(tmp_path):
     p = cache.get_or_fetch(sha, fetch)   # detects bad on-disk bytes, re-fetches, overwrites
     assert p.read_bytes() == blob
     assert calls["n"] == 1
+
+
+from fedlearn.backbone.distribution import reconstruct_frozen_backbone, BackboneKeyMismatch
+
+
+def test_reconstruct_loads_backbone_freezes_it_and_leaves_head_trainable():
+    source = build_tiny_frozen_net(seed=7)          # the registered backbone
+    blob = serialize_backbone(source)
+    target = build_tiny_frozen_net(seed=99)         # a fresh client net, different backbone weights
+    # Precondition: the two nets' backbones differ before reconstruction.
+    assert not torch.equal(
+        dict(target.named_parameters())["backbone.0.weight"].detach(),
+        dict(source.named_parameters())["backbone.0.weight"].detach(),
+    )
+    reconstruct_frozen_backbone(target, blob)
+    # Backbone now byte-identical to the source; frozen.
+    for name, p in target.named_parameters():
+        if name.startswith("backbone."):
+            assert torch.equal(p.detach(), dict(source.named_parameters())[name].detach())
+            assert p.requires_grad is False
+    # Head untouched + still trainable; only the head is the federated (trainable) subset.
+    assert dict(target.named_parameters())["head.weight"].requires_grad is True
+    assert set(trainable_state(target).keys()) == {"head.weight", "head.bias"}
+
+
+def test_reconstruct_rejects_unexpected_key():
+    target = build_tiny_frozen_net(seed=0)
+    # A blob carrying a key the model's frozen layout does not declare.
+    from fedlearn.communication.safetensors_codec import save_safetensors
+    import numpy as np
+    bad = save_safetensors([("backbone.0.weight", np.zeros((2, 1, 3, 3), dtype="<f4")),
+                            ("backbone.0.bias", np.zeros((2,), dtype="<f4")),
+                            ("backbone.ghost", np.zeros((1,), dtype="<f4"))])
+    with pytest.raises(BackboneKeyMismatch):
+        reconstruct_frozen_backbone(target, bad)
+
+
+def test_reconstruct_rejects_missing_key():
+    target = build_tiny_frozen_net(seed=0)
+    from fedlearn.communication.safetensors_codec import save_safetensors
+    import numpy as np
+    incomplete = save_safetensors([("backbone.0.weight", np.zeros((2, 1, 3, 3), dtype="<f4"))])  # missing bias
+    with pytest.raises(BackboneKeyMismatch):
+        reconstruct_frozen_backbone(target, incomplete)
