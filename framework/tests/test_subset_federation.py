@@ -51,3 +51,34 @@ def test_apply_subset_updates_head_keeps_backbone_and_rejects_mismatch():
             assert torch.equal(p, backbone_before[n]), f"frozen {n} changed"
     with pytest.raises(SubsetDimMismatch):
         apply_trainable_subset(net, OrderedDict([("head.weight", net.head.weight.clone())]))
+
+
+from fedlearn.estimators.params import trainable_state, num_trainable
+from fedlearn.server.strategy import FedAvgAggregator
+
+
+def test_vertical_slice_payload_is_head_only_and_round_averages():
+    server = build_tiny_frozen_net(seed=0)
+    expected = expected_trainable_keys(server)
+
+    # Two clients start from the server's frozen backbone; each has a different head.
+    def client_update(head_fill, num_examples):
+        net = build_tiny_frozen_net(seed=0)
+        with torch.no_grad():
+            net.head.weight.fill_(head_fill); net.head.bias.fill_(head_fill)
+        payload = trainable_state(net)                       # the wire payload
+        # (a) payload is HEAD-ONLY — the frozen backbone is NOT on the wire
+        assert list(payload.keys()) == expected
+        assert all(not k.startswith("backbone.") for k in payload)
+        assert sum(t.numel() for t in payload.values()) == num_trainable(net)  # << full model
+        return ("cid", payload, num_examples)
+
+    updates = [client_update(1.0, 10), client_update(3.0, 10)]
+    aggregated = FedAvgAggregator().aggregate(updates)       # averages the subset only
+    validate_subset_update(list(aggregated.keys()), expected)
+    apply_trainable_subset(server, aggregated)               # reconstruct on the frozen backbone
+
+    # equal weights -> head averages to 2.0; backbone untouched (still frozen, non-trainable)
+    assert torch.allclose(server.head.weight, torch.full_like(server.head.weight, 2.0))
+    assert torch.allclose(server.head.bias, torch.full_like(server.head.bias, 2.0))
+    assert not any(p.requires_grad for n, p in server.named_parameters() if n.startswith("backbone."))
