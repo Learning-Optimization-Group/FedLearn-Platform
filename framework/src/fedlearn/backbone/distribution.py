@@ -10,6 +10,10 @@ silently loaded (the TINYNET_GOLDEN ``model_dim`` class of bug).
 from __future__ import annotations
 
 import hashlib
+import os
+import tempfile
+from pathlib import Path
+from typing import Callable
 
 import torch.nn as nn
 
@@ -26,3 +30,51 @@ def serialize_backbone(model: nn.Module) -> bytes:
 def backbone_sha256(blob: bytes) -> str:
     """The content address of a backbone blob: lowercase-hex sha256."""
     return hashlib.sha256(blob).hexdigest()
+
+
+class BackboneIntegrityError(ValueError):
+    """Fetched backbone bytes' sha256 does not match the requested content address."""
+
+
+class BackboneCache:
+    """Content-addressed on-disk cache for frozen-backbone blobs. A blob is fetched once (via an
+    injected ``fetch`` callable), sha256-verified against the requested key, and stored at
+    ``cache_dir/<sha256>``. Subsequent requests for the same key are served from disk without
+    fetching. A cache file whose bytes no longer hash to its name is treated as a miss and re-fetched
+    (self-healing). Writes are atomic (temp file + ``os.replace``) so a crash mid-write never leaves a
+    half-written blob under its final content-addressed name.
+    """
+
+    def __init__(self, cache_dir: "os.PathLike[str] | str") -> None:
+        self._dir = Path(cache_dir)
+        self._dir.mkdir(parents=True, exist_ok=True)
+
+    def path_for(self, sha256: str) -> Path:
+        return self._dir / sha256
+
+    def get_or_fetch(self, sha256: str, fetch: Callable[[], bytes]) -> Path:
+        target = self.path_for(sha256)
+        if target.exists() and backbone_sha256(target.read_bytes()) == sha256:
+            return target  # cache hit
+        blob = fetch()
+        actual = backbone_sha256(blob)
+        if actual != sha256:
+            raise BackboneIntegrityError(
+                f"backbone integrity check failed: requested {sha256} but fetched bytes hash to "
+                f"{actual} — refusing to cache (possible corruption or wrong artifact)."
+            )
+        self._atomic_write(target, blob)
+        return target
+
+    def _atomic_write(self, target: Path, blob: bytes) -> None:
+        fd, tmp = tempfile.mkstemp(dir=str(self._dir), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(blob)
+            os.replace(tmp, target)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except FileNotFoundError:
+                pass
+            raise

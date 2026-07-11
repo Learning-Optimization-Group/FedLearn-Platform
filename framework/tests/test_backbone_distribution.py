@@ -84,3 +84,55 @@ def test_serialize_backbone_roundtrips_to_frozen_tensors():
     tensors, meta = load_safetensors(serialize_backbone(net))
     names = [n for n, _ in tensors]
     assert names == ["backbone.0.weight", "backbone.0.bias"]  # frozen only, in order
+
+
+import pytest
+
+from fedlearn.backbone.distribution import BackboneCache, BackboneIntegrityError
+
+
+def test_cache_fetches_once_then_serves_from_disk(tmp_path):
+    net = build_tiny_frozen_net(seed=0)
+    blob = serialize_backbone(net)
+    sha = backbone_sha256(blob)
+    cache = BackboneCache(tmp_path)
+    calls = {"n": 0}
+
+    def fetch():
+        calls["n"] += 1
+        return blob
+
+    p1 = cache.get_or_fetch(sha, fetch)
+    assert p1.exists() and p1.read_bytes() == blob
+    assert calls["n"] == 1
+    p2 = cache.get_or_fetch(sha, fetch)   # hit -> fetch NOT called again
+    assert p2 == p1
+    assert calls["n"] == 1
+
+
+def test_cache_rejects_hash_mismatch_and_writes_nothing(tmp_path):
+    net = build_tiny_frozen_net(seed=0)
+    blob = serialize_backbone(net)
+    wrong_sha = backbone_sha256(serialize_backbone(build_tiny_frozen_net(seed=1)))
+    cache = BackboneCache(tmp_path)
+    with pytest.raises(BackboneIntegrityError):
+        cache.get_or_fetch(wrong_sha, lambda: blob)  # bytes hash != requested key
+    assert not (tmp_path / wrong_sha).exists()        # nothing partial left behind
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_cache_self_heals_a_corrupted_cache_file(tmp_path):
+    net = build_tiny_frozen_net(seed=0)
+    blob = serialize_backbone(net)
+    sha = backbone_sha256(blob)
+    cache = BackboneCache(tmp_path)
+    (tmp_path / sha).write_bytes(b"corrupted-not-the-backbone")  # wrong bytes on disk
+    calls = {"n": 0}
+
+    def fetch():
+        calls["n"] += 1
+        return blob
+
+    p = cache.get_or_fetch(sha, fetch)   # detects bad on-disk bytes, re-fetches, overwrites
+    assert p.read_bytes() == blob
+    assert calls["n"] == 1
