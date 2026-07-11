@@ -25,7 +25,9 @@ from fedlearn.estimators.params import frozen_state
 
 def serialize_backbone(model: nn.Module) -> bytes:
     """Deterministic safetensors blob of the model's :func:`frozen_state` (F32, named order)."""
-    tensors = [(name, t.numpy()) for name, t in frozen_state(model).items()]
+    # .cpu() so a backbone trained/held on MPS/CUDA serializes without a device-transfer crash
+    # (no-op for a CPU tensor); the wire is CPU float32 (safetensors_codec).
+    tensors = [(name, t.cpu().numpy()) for name, t in frozen_state(model).items()]
     return save_safetensors(tensors)
 
 
