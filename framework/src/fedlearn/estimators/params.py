@@ -60,3 +60,23 @@ def trainable_state(model: nn.Module) -> "OrderedDict[str, torch.Tensor]":
     return OrderedDict(
         (name, p.detach().clone()) for name, p in model.named_parameters() if p.requires_grad
     )
+
+
+def frozen_state(model: nn.Module) -> "OrderedDict[str, torch.Tensor]":
+    """The FROZEN, F32-only complement of :func:`trainable_state` — the bytes a DA-11 ``BASE_REF``
+    backbone blob carries. Frozen (``requires_grad is False``) parameters in ``named_parameters()``
+    order, then all *float* buffers in ``named_buffers()`` order, as detached clones.
+
+    Integer buffers (e.g. ``BatchNorm.num_batches_tracked``) are excluded on purpose: they are not
+    used in eval-mode forward and are not part of the platform's float32-only wire
+    (``safetensors_codec``). Excluding them keeps this manifest F32-consistent and byte-deterministic
+    for content addressing while remaining forward-correct for a real BatchNorm backbone (Phase 2C).
+    """
+    out: "OrderedDict[str, torch.Tensor]" = OrderedDict()
+    for name, p in model.named_parameters():
+        if not p.requires_grad:
+            out[name] = p.detach().clone()
+    for name, b in model.named_buffers():
+        if b is not None and b.is_floating_point():
+            out[name] = b.detach().clone()
+    return out
