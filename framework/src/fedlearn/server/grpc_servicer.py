@@ -6,6 +6,7 @@ from typing import List, Dict
 import grpc
 from concurrent import futures
 import io
+import itertools
 import torch
 # Import the generated stubs
 from fedlearn.communication.generated import fedlearn_pb2
@@ -28,11 +29,35 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
     The gRPC servicer class. Acts as a dispatcher, forwarding calls to the FLCoordinator.
     """
 
-    def __init__(self, coordinator: FLCoordinator):
+    def __init__(self, coordinator: FLCoordinator, partition_extractor=None):
         self.coordinator = coordinator
+        # SE-15: (context) -> Optional[int] returning the verified connection-token partition; None
+        # disables identity binding (client-auth off / dev fail-open), preserving existing behavior.
+        self._partition_extractor = partition_extractor
+
+    def _enforce_client_identity(self, client_id, context):
+        """SE-15: pin one connection-token partition to one wire client_id. No-op when identity
+        binding is disabled (auth off) or the call carries no verifiable token; otherwise aborts
+        PERMISSION_DENIED when this client_id doesn't match the identity already bound to the token —
+        stopping one valid token from being replayed under many client_ids to Sybil the cohort.
+
+        MUST be called BEFORE any broad ``try/except`` in the RPC: ``context.abort`` raises, and that
+        must reach gRPC rather than be swallowed as an INVALID_ARGUMENT/INTERNAL response.
+        """
+        if self._partition_extractor is None:
+            return
+        partition = self._partition_extractor(context)
+        if partition is None:
+            return
+        if not self.coordinator.bind_or_check_identity(partition, client_id):
+            context.abort(
+                grpc.StatusCode.PERMISSION_DENIED,
+                "client_id does not match the identity bound to this connection token",
+            )
 
     def RegisterClient(self, request: fedlearn_pb2.RegisterClientRequest, context):
         client_id = request.client_id
+        self._enforce_client_identity(client_id, context)  # SE-15: bind partition <-> client_id
         run_id = request.run_id
         client_pv = request.protocol_version
         # enrollment_token: minted by the Spring backend at enroll (P2). MVP validates permissively
@@ -166,11 +191,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
     def SubmitModelUpdate(self, request: fedlearn_pb2.SubmitModelUpdateRequest, context):
         """Handle standard unary model update (for small models)."""
-        client_id = "UNKNOWN"
+        client_id = request.client_id
+        self._enforce_client_identity(client_id, context)  # SE-15 (before the try: abort must reach gRPC)
         trained_on_round = -1
 
         try:
-            client_id = request.client_id
             trained_on_round = request.trained_on_round
 
             logging.info(f"=" * 60)
@@ -217,6 +242,16 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         Returns:
             SubmitModelUpdateResponse
         """
+        # SE-15: the client_id lives in the chunk stream, so resolve + enforce the identity BEFORE the
+        # broad try/except below (whose `except Exception` would otherwise swallow the identity abort
+        # as INTERNAL). Pull the first chunk, bind partition<->client_id, then feed it back into the
+        # loop unchanged via itertools.chain.
+        stream = iter(request_iterator)
+        try:
+            first_chunk = next(stream)
+        except StopIteration:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "empty model update stream")
+        self._enforce_client_identity(first_chunk.client_id, context)
         try:
             buffer = io.BytesIO()
             client_id = None
@@ -227,8 +262,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
             logging.info(f"[Server] Receiving streamed model update...")
 
-            # Stream chunks directly into buffer
-            for chunk in request_iterator:
+            # Stream chunks directly into buffer (the already-pulled first chunk is chained back in so
+            # the header extraction below is unchanged).
+            for chunk in itertools.chain([first_chunk], stream):
                 if client_id is None:
                     client_id = chunk.client_id
                     round_num = chunk.trained_on_round
@@ -305,8 +341,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         Handle heartbeat from client.
         This is a FAST call that doesn't block.
         """
+        client_id = request.client_id
+        self._enforce_client_identity(client_id, context)  # SE-15 (before the try: abort must reach gRPC)
         try:
-            client_id = request.client_id
             run_id = request.run_id  # v2 field 2 — the run this heartbeat belongs to
             status = request.status
             current_step = request.current_step
@@ -402,8 +439,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         """
         Handle submission of gradient scalars from DeComFL client.
         """
+        client_id = request.client_id
+        self._enforce_client_identity(client_id, context)  # SE-15 (before the try: abort must reach gRPC)
         try:
-            client_id = request.client_id
             trained_on_round = request.trained_on_round
             num_examples = request.num_examples
 
