@@ -25,3 +25,6 @@ This section of the wiki covers the Spring Boot 3 API, the database interactions
 
 6. **[Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md)** — ⚠️ **designed on a separate identity-foundations branch; not present on this branch.**
    Documents the identity subsystem: the three-layer role model (platform / organization / project), organization-scoped multi-tenant isolation (`OrgScope`), the `@Auditable` audit trail, the email + first-run bootstrap plumbing, the V4–V6 migrations, and the membership/admin/access-request REST endpoints. None of this is committed on the current branch — it is included for reference.
+
+7. **[Content-Addressed Model Artifact Registry](07_artifact_registry.md)**
+   Documents the registry that replaced the single overwritable `.npz` at `projects.model_path`: the `artifact_blobs` / `model_artifacts` / `artifact_lineage` data model, the `ArtifactBlobStore` write-once content store, `RegistryModelResolver`'s registry-first read path for inference and FL-server warm-start, the artifact/lineage/marketplace REST surface, and the `V12`/`V18` migrations.

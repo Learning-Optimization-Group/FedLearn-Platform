@@ -128,6 +128,7 @@ The backend is the central control plane. It owns the REST API, user authenticat
 | [Federated Orchestration](./backend/04_federated_orchestration.md) | `FlowerServerManager` — local `ProcessBuilder` vs. AWS ECS Fargate provisioning |
 | [WebSocket Log Streaming](./backend/05_websocket_logs_streaming.md) | Stdout capture → STOMP topics → frontend real-time observability |
 | [Identity, Multi-Tenancy & Audit](./backend/06_identity_multitenancy_and_audit.md) | ⚠️ **Designed on a separate identity-foundations branch — not present here.** Organizations + org/project memberships, platform/org/project role model (`PlatformRole` enum), org-scoped data isolation, `@Auditable` audit trail. This branch ships only the coarse `users.role IN (USER, ADMIN)` model. |
+| [Content-Addressed Model Artifact Registry](./backend/07_artifact_registry.md) | The versioned, content-addressed registry (`artifact_blobs` / `model_artifacts` / `artifact_lineage`) that superseded the single overwritable `.npz`; write path, registry-first inference/warm-start read path, HTTP surface, `V12`/`V18` migrations |
 
 **Key cross-component interfaces:**
 - Exposes `POST /api/projects/{id}/start` → triggers Framework server spawn.
@@ -301,7 +302,8 @@ wikis/                              ← repo-root docs (promoted out of docs/)
 │   ├── 03_project_management.md
 │   ├── 04_federated_orchestration.md
 │   ├── 05_websocket_logs_streaming.md
-│   └── 06_identity_multitenancy_and_audit.md   ← designed; not on this branch
+│   ├── 06_identity_multitenancy_and_audit.md   ← designed; not on this branch
+│   └── 07_artifact_registry.md
 │
 ├── frontend/                       ← React 19 SPA
 │   ├── README.md
