@@ -135,6 +135,60 @@ class FlowerServerManagerCommandTest {
     }
 
     @Test
+    void configureChildEnv_dropsInheritedBackendSecrets_keepsAllowlistedRuntimeVars() {
+        // SE-17: the FL server is network-facing (and, SE-19, can load datasets). Building its env by
+        // inheriting the backend's ENTIRE environment and subtracting one key leaks the DB password,
+        // internal API key, cloud creds, and CORS/JWT secrets into the child. The env must instead be
+        // rebuilt from an allowlist: OS/runtime essentials + the FEDLEARN_* namespace + the few
+        // non-FEDLEARN vars the server actually reads survive; every backend secret is dropped.
+        java.util.Map<String, String> env = new java.util.HashMap<>();
+        // --- secrets inherited from the backend process that must NOT reach the child ---
+        env.put("SPRING_DATASOURCE_PASSWORD", "db-pw");
+        env.put("SPRING_DATASOURCE_USERNAME", "db-user");
+        env.put("SPRING_DATASOURCE_URL", "jdbc:postgresql://db/app");
+        env.put("APP_INTERNAL_API_KEY", "the-real-internal-key");
+        env.put("APP_JWT_SECRET", "web-auth-secret");
+        env.put("AWS_SECRET_ACCESS_KEY", "aws-secret");
+        env.put("AWS_ACCESS_KEY_ID", "aws-key-id");
+        env.put("CORS_ALLOWED_ORIGINS", "https://app.example");
+        // --- vars the child legitimately needs -> must survive the allowlist ---
+        env.put("PATH", "/usr/bin:/bin");                     // bash wrapper + python3 resolution
+        env.put("HOME", "/home/svc");
+        env.put("LD_LIBRARY_PATH", "/opt/cuda/lib64");        // torch/CUDA native libs
+        env.put("FEDLEARN_GRPC_SERVER_KEY", "/certs/server.key");  // SE-2: cert paths INHERITED, not set here
+        env.put("FEDLEARN_GRPC_SERVER_CERT", "/certs/server.crt");
+        env.put("MAX_CLIENTS", "80");        // server.py worker-pool sizing
+        env.put("SERVER_HOST", "10.0.0.5");  // fl_server.py advertised host
+        env.put("AWS_HOST", "1.2.3.4");      // fl_server.py legacy advertised host
+
+        FlowerServerManager.configureChildEnv(env, "internal-key", "http://backend", "fl-secret", true,
+                "run-abc", true, "scoped-run-token");
+
+        // secrets dropped
+        assertNull(env.get("SPRING_DATASOURCE_PASSWORD"), "DB password must not reach the FL child");
+        assertNull(env.get("SPRING_DATASOURCE_USERNAME"));
+        assertNull(env.get("SPRING_DATASOURCE_URL"));
+        assertNull(env.get("APP_INTERNAL_API_KEY"), "the web-tier internal key must not reach the child");
+        assertNull(env.get("APP_JWT_SECRET"));
+        assertNull(env.get("AWS_SECRET_ACCESS_KEY"), "cloud creds must not reach the child");
+        assertNull(env.get("AWS_ACCESS_KEY_ID"));
+        assertNull(env.get("CORS_ALLOWED_ORIGINS"));
+        // allowlisted runtime + FEDLEARN_* + known child vars survive with their inherited values
+        assertEquals("/usr/bin:/bin", env.get("PATH"));
+        assertEquals("/home/svc", env.get("HOME"));
+        assertEquals("/opt/cuda/lib64", env.get("LD_LIBRARY_PATH"));
+        assertEquals("/certs/server.key", env.get("FEDLEARN_GRPC_SERVER_KEY"), "SE-2 cert path must survive");
+        assertEquals("/certs/server.crt", env.get("FEDLEARN_GRPC_SERVER_CERT"));
+        assertEquals("80", env.get("MAX_CLIENTS"));
+        assertEquals("10.0.0.5", env.get("SERVER_HOST"));
+        assertEquals("1.2.3.4", env.get("AWS_HOST"));
+        // explicit run vars are still set (the FL child's OWN api key/secret, not the backend's)
+        assertEquals("internal-key", env.get("FEDLEARN_INTERNAL_API_KEY"));
+        assertEquals("fl-secret", env.get("FEDLEARN_FL_TOKEN_SECRET"));
+        assertEquals("1", env.get("FEDLEARN_REQUIRE_CLIENT_AUTH"));
+    }
+
+    @Test
     void configureChildEnv_authAndTlsDisabledByDefaultNoBackendUrlNoRun() {
         java.util.Map<String, String> env = new java.util.HashMap<>();
         FlowerServerManager.configureChildEnv(env, "k", null, "fl-secret", false, null, false, null);
