@@ -179,7 +179,7 @@ def generate_perturbation(self, seed: int, num_params: int) -> torch.Tensor:
     return torch.randn(num_params, generator=generator, device=self.device)
 ```
 
-The canonical, device-independent source of truth for this `z` is `canonical_perturbation(seed, num_params)` in `framework/src/fedlearn/estimators/perturbation.py` — it generates on the **CPU** with a *local* `torch.Generator` (never the process-global RNG), so the result is bit-stable across CPU/CUDA/MPS for a given seed; callers move the result to their compute device afterwards. Both the server (`decomfl_strategy.py`) and client (`estimators/zeroth_order.py`) delegate here, and the native C++ (libtorch) mobile core reproduces it in `mobile_client/shared/src/Perturbation.cpp`.
+The canonical, device-independent source of truth for this `z` is `canonical_perturbation(seed, num_params)` in `framework/src/fedlearn/estimators/perturbation.py` — it generates on the **CPU** with a *local* `torch.Generator` (never the process-global RNG), so the result is bit-stable across CPU/CUDA/MPS for a given seed; callers move the result to their compute device afterwards. Both the server (`decomfl_strategy.py`) and client (`estimators/zeroth_order.py`) delegate here, and the native C++ (ExecuTorch) mobile core reproduces it in `mobile_client/shared/src/Perturbation.cpp`.
 
 #### Cross-Architecture Determinism (golden-vector parity)
 

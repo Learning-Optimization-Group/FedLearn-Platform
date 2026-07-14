@@ -308,7 +308,7 @@ FedLearn-Platform/
 │   ├── src/                   # main / preload / renderer
 │   └── README.md              # Desktop documentation
 │
-├── mobile_client/              # React Native client + native C++ (libtorch) core
+├── mobile_client/              # React Native client + native C++ (ExecuTorch) core
 │   ├── proto/                 # Byte-mirror of /proto (checked in CI)
 │   └── README.md              # Mobile documentation
 │

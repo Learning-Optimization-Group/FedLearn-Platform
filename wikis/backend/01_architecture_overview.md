@@ -8,11 +8,7 @@ The FedLearn backend is designed as an **Orchestration API**. It does not perfor
 
 The backend acts as the central control plane connecting the React web interface to the distributed Python FL ecosystem.
 
-> ⚠️ **Branch reality.** Two parts of this overview describe designed-but-not-yet-committed work:
-> 1. **Database** — the backend runs on **PostgreSQL** for every profile (H2 has been retired): `dev`/`ec2demo` against a local Postgres (`backend/fl-platform-api/docker-compose.yml` → `docker compose up -d`), `test` against Testcontainers Postgres (`jdbc:tc:postgresql:16.6-alpine`), and deployed envs override `SPRING_DATASOURCE_*`. The highest committed Flyway migration is **`V19`**.
-> 2. **Identity / multi-tenancy / audit** — the `audit/`, `bootstrap/`, and `email/` packages, the `Organization` / `OrganizationMembership` / `ProjectMembership` / `ProjectAccessRequest` / `AuditEvent` entities, `PlatformRole` / `OrgScope` / `AuthorizationService`, and the `V4`–`V6` migrations live on a **separate identity-foundations branch and are _not present_ on this branch.** This branch ships only `users.role IN (USER, ADMIN)` (migration `V2`). See [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md).
->
-> The orchestration (`flower/`), project, results, logging, security-filter, config, controller, and DTO machinery described below is current.
+> ✅ **Branch reality.** The backend runs on **PostgreSQL** for every profile (H2 has been retired): `dev`/`ec2demo` against a local Postgres (`backend/fl-platform-api/docker-compose.yml` → `docker compose up -d`), `test` against Testcontainers Postgres (`jdbc:tc:postgresql:16.6-alpine`), and deployed envs override `SPRING_DATASOURCE_*`. The highest committed Flyway migration is **`V19`**. The full **identity / multi-tenancy / audit subsystem IS present**: the `audit/`, `bootstrap/`, and `email/` packages, the `Organization` / `OrganizationMembership` / `ProjectMembership` / `ProjectAccessRequest` / `AuditEvent` entities, `PlatformRole` / `OrgScopeFilter` / `AuthorizationService`, and the `V4`–`V7` identity migrations (the original `users.role IN (USER, ADMIN)` from `V2` has been superseded by the layered `PlatformRole`). See [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md). The orchestration (`flower/`), project, results, logging, security-filter, config, controller, and DTO machinery described below is current.
 
 ### Tech Stack
 * **Language:** Java 21

@@ -2,7 +2,7 @@
 
 This document explains how a Federated Learning Project is created, initialized, and managed within the Spring Boot backend.
 
-> ⚠️ **Branch reality.** The project CRUD, model initialization, and FL-server start/stop flows on this page are **current**. The **org-scoping and audit layers** described here — `projects.org_id` (the V5 migration), `authz.requireOrgScope(...)`, `OrgScope`, `isPlatformAdmin()`, and the `@Auditable` annotations — are **designed on a separate identity-foundations branch and are _not present_ here.** On this branch a project is owned by a `User` with no org pinning, and authorization is the coarse `users.role IN (USER, ADMIN)` model. See [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md).
+> ✅ **Branch reality.** The project CRUD, model initialization, and FL-server start/stop flows on this page are **current**. The **org-scoping and audit layers** described here — `projects.org_id` (the `V5` migration), `AuthorizationService`, `OrgScopeFilter`, `isPlatformAdmin()`, and the `@Auditable` annotations — **are also present on this branch** (the `V4`–`V7` identity migrations). A project is owned by a `User` and pinned to an org via `projects.org_id`. See [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md).
 
 ## 1. Project Creation Flow
 

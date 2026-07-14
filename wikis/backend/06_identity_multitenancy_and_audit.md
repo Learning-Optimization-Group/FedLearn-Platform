@@ -7,18 +7,19 @@ plumbing that seeds the first administrator. It is the deepest part of the
 backend's authorization story; the JWT/cookie/WebSocket mechanics that establish
 *who* the caller is live in [02 - Security and Authentication](02_security_and_auth.md).
 
-> ⚠️ **Branch reality (read this first).** This entire subsystem is **designed on a
-> separate identity-foundations branch and is _not present_ on the current branch
-> (`feat/ember-rebrand`).** On this branch, authorization is a single coarse column —
-> `users.role IN (USER, ADMIN)` (added by migration `V2`); `users.id` is `BIGINT`,
-> `projects.id` is `UUID`, and the **highest committed Flyway migration is `V3`**.
-> There are **no `V4`/`V5`/`V6` migrations and no corresponding Java** here: the
-> three-layer platform/org/project role model, `organization_memberships` /
-> `project_memberships`, `users.platform_role` / `PLATFORM_ADMIN`, `projects.org_id`,
-> the `audit_events` table + `@Auditable` / `AuditAction` aspect, the `EmailService`
-> stack, and the `APP_BOOTSTRAP_ADMIN_*` bootstrap **do not exist on this branch**.
-> Everything below documents that **designed** system for reference — it is not what
-> is currently committed here.
+> ✅ **Branch reality (read this first).** This entire subsystem **IS present and
+> committed on this branch.** Authorization layers the original single-user model:
+> `users.id` is `BIGINT`, `projects.id` is `UUID`, and the **highest committed Flyway
+> migration is `V19`**. The identity foundations landed in **`V4`–`V7`**
+> (`V5__identity_foundations.sql`, `V6__identity_hardening.sql`,
+> `V7__owner_role_and_approval_workflows.sql`): the three-layer platform/org/project
+> role model, `organization_memberships` / `project_memberships`,
+> `users.platform_role` / `PLATFORM_ADMIN`, `projects.org_id`, the `audit_events`
+> table + `@Auditable` / `AuditAction` aspect, the `EmailService` stack, and the
+> `APP_BOOTSTRAP_ADMIN_*` bootstrap **all exist here** (`PlatformRole`, `OrgRole`,
+> `OrgScopeFilter`, `AuthorizationService`, and the membership/audit repositories are
+> all under `com.federated.fl_platform_api`). The single coarse `users.role IN (USER,
+> ADMIN)` column from `V2` was the original model and has since been superseded.
 >
 > On the identity-foundations branch the subsystem is **backend-first**: the
 > membership/admin/access-request/user-search/client endpoints are enforced on the
