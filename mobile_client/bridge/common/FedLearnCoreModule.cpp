@@ -466,28 +466,37 @@ std::string FedLearnCoreModule::doStageBundleFile(const std::string& filename,
 // resolve/reject the JS Promise via the CallInvoker. createPromiseAsJSIValue + Promise are RN
 // helpers; reconcile signatures against the generated CxxSpec.
 // ============================================================================
-// Run `work` (blocking, on a worker) then `build` the jsi result on the JS thread. The worker thread is
-// TRACKED (not detached) so ~FedLearnCoreModule / doStop can join it before members are destroyed — a
-// detached worker capturing `this` would otherwise resume against a freed module (use-after-free). The
-// deferred invokeAsync callback captures only value/Runtime state (never `this`), so it is safe to run
-// after the module is gone. rt2 is the app-lifetime jsi::Runtime, which outlives every worker.
+// Run `work` (blocking, on a worker) then `build` the jsi result — the jsi::Runtime is touched ONLY on
+// the JS thread, never on the worker and never through a reference captured across the async boundary.
+// The worker thread is TRACKED (not detached) so ~FedLearnCoreModule / doStop can join it before members
+// are destroyed — a detached worker (which still reaches module state through `work`) would otherwise
+// resume against a freed module (use-after-free). The worker captures ONLY value-copyable, runtime-
+// independent state (no jsi::Runtime, no `this`). It hands the plain-C++ result back to the JS thread via
+// the CallInvoker; the runtime used to build/resolve is the one the invoker passes to the callback AT
+// EXECUTION TIME (RN 0.80: react::CallFunc == std::function<void(jsi::Runtime&)>), which the invoker runs
+// on the JS thread while that runtime is live. So no captured Runtime& is ever dereferenced off-thread or
+// after teardown. (The previous shape captured the executor's rt2 across the worker; by reference-collapse
+// that bound to the real runtime, but left it exposed to a use-after-free if the JS runtime was torn down
+// mid-round — e.g. an RN instance reload while a long round is in flight; MO-9.)
 template <typename Work, typename Build>
 jsi::Value FedLearnCoreModule::runOnWorker(jsi::Runtime& rt, Work work, Build build) {
   auto invoker = jsInvoker_;
   return react::createPromiseAsJSIValue(
-      rt, [this, invoker, work, build](jsi::Runtime& rt2, std::shared_ptr<react::Promise> promise) {
+      rt, [this, invoker, work, build](jsi::Runtime& /*rt2*/, std::shared_ptr<react::Promise> promise) {
         auto done = std::make_shared<std::atomic<bool>>(false);
-        // The worker thread body touches no module members directly (work/build are self-contained
-        // callables; workers_/workersMutex_ are handled in the outer lambda below), so it must NOT
-        // capture `this` — RN's -Werror=unused-lambda-capture would reject it, and an unused `this`
-        // on a worker only invites accidental use-after-free later.
-        std::thread t([&rt2, invoker, promise, work, build, done]() {
+        // The worker captures no jsi::Runtime and no `this`: work/build are self-contained callables and
+        // the result crosses back as a plain C++ value. (An unused `this`/Runtime& on a worker would trip
+        // RN's -Werror=unused-lambda-capture and only invites accidental use-after-free later.)
+        std::thread t([invoker, promise, work, build, done]() {
           try {
-            auto result = work();  // blocking C++ (touches module state; joined before teardown)
-            invoker->invokeAsync([&rt2, promise, build, result]() { promise->resolve(build(rt2, result)); });
+            auto result = work();  // blocking C++ (touches module state via `work`; joined before teardown)
+            // Marshal back onto the JS thread. `jsRt` is supplied by the CallInvoker at execution time on
+            // the JS thread — the runtime is NOT captured across the async boundary.
+            invoker->invokeAsync(
+                [promise, build, result](jsi::Runtime& jsRt) { promise->resolve(build(jsRt, result)); });
           } catch (const std::exception& e) {
             std::string msg = e.what();
-            invoker->invokeAsync([promise, msg]() { promise->reject(msg); });
+            invoker->invokeAsync([promise, msg](jsi::Runtime&) { promise->reject(msg); });
           }
           done->store(true);
         });
