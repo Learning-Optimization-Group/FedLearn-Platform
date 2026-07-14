@@ -15,6 +15,10 @@ import torch.nn as nn
 
 from fedlearn.estimators import params
 from fedlearn.server.decomfl_strategy import DeComFL
+from fedlearn.client.decomfl_client import DeComFLClient
+from fedlearn.server.coordinator import FLCoordinator
+from fedlearn.server.grpc_servicer import FederatedLearningServiceServicer
+from fedlearn.communication.generated import fedlearn_pb2
 
 
 class FrozenNet(nn.Module):
@@ -63,3 +67,36 @@ def test_server_built_from_full_state_dict_is_detected_not_silent():
     assert server.model_dim > params.num_trainable(m)                  # would silently misalign z
     with pytest.raises(ValueError, match="dimension mismatch"):        # now FAIL-LOUD
         server.validate_participant_dim(params.num_trainable(m), client_id="phone-1")
+
+
+# ---- MO-19: the CLIENT-side half of the same guard (server advertises model_dim; client checks) ----
+
+class _CfgCtx:
+    """Minimal unary context for GetDeComFLConfig (no identity gate on this read RPC)."""
+
+    def invocation_metadata(self):
+        return []
+
+    def set_code(self, code):
+        pass
+
+    def set_details(self, details):
+        pass
+
+
+def test_client_asserts_its_trainable_dim_matches_the_server_model_dim():
+    m = FrozenNet()  # 25 trainable (fc1); fc2 frozen
+    client = DeComFLClient(model=m, train_loader=None, device="cpu")
+    client.assert_dim_matches(25)  # d_server == d_client -> no raise
+    with pytest.raises(ValueError, match="dimension mismatch"):
+        client.assert_dim_matches(43)  # the full-state_dict d_server=43 vs d_client=25 bug -> fail loud
+
+
+def test_server_advertises_its_model_dim_in_the_decomfl_config():
+    # The server publishes model_dim so ANY client (python or mobile) can self-check at the handshake.
+    m = FrozenNet()
+    strategy = _decomfl(params.trainable_state(m))  # model_dim == 25
+    coordinator = FLCoordinator(strategy, 1, 1)
+    servicer = FederatedLearningServiceServicer(coordinator)
+    resp = servicer.GetDeComFLConfig(fedlearn_pb2.GetDeComFLConfigRequest(client_id="c0"), _CfgCtx())
+    assert resp.config["model_dim"] == "25"

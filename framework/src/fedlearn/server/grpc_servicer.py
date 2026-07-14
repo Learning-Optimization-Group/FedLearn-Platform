@@ -473,7 +473,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                 'learning_rate': str(strategy.eta),
                 'smoothing_param': str(strategy.mu),
                 'num_local_steps': str(strategy.K),
-                'num_perturbations': str(strategy.P)
+                'num_perturbations': str(strategy.P),
+                # MO-19/FR-14: advertise the server's trainable flat dimension so every client (python
+                # or mobile) can fail loud at the handshake if its own trainable dim differs — instead
+                # of training on a misaligned shared-seed perturbation and diverging silently.
+                'model_dim': str(strategy.model_dim),
             }
 
             logging.info(f"[Server] Sending {len(seeds)} local steps, {len(rebuild_history)} missed rounds")

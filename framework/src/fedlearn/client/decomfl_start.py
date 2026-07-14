@@ -96,6 +96,19 @@ def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: 
                 # A successful poll clears the transient-failure counter.
                 consecutive_failures = 0
 
+                # MO-19/FR-14: the server advertises its trainable flat dimension in the config. If
+                # ours differs, the shared-seed perturbation would misalign and the model would
+                # diverge silently — a FATAL setup error (not transient), so fail loud and exit
+                # rather than train garbage or retry a condition that can never clear.
+                server_dim = config.get('model_dim')
+                if server_dim:
+                    try:
+                        client.assert_dim_matches(int(server_dim))
+                    except ValueError as dim_err:
+                        log.error("[%s] %s", client_id, dim_err)
+                        outcome = OUTCOME_ERROR
+                        break
+
                 if server_round == -1:
                     log.info("[%s] Server signalled run complete; shutting down cleanly", client_id)
                     outcome = OUTCOME_COMPLETED
