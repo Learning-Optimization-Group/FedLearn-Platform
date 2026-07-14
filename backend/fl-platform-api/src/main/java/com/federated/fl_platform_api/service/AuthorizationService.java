@@ -111,15 +111,25 @@ public class AuthorizationService {
     }
 
     /**
+     * Non-throwing participant check: {@code true} if the caller is an owner, member, or client of
+     * the project (or a platform admin). This is the read-side gate for endpoints that must not leak
+     * a project's existence — a non-participant is turned into a 404, not a 403 (SE-16).
+     */
+    public boolean isParticipant(Project project) {
+        if (isPlatformAdmin() || isOwner(project)) return true;
+        Optional<ProjectMembership> m = myMembership(project);
+        return m.isPresent() && (m.get().getRole() == MembershipRole.MEMBER
+                              || m.get().getRole() == MembershipRole.CLIENT);
+    }
+
+    /**
      * Pass if caller is an owner, member, or client of the project (or admin).
      * Used for read endpoints that any project participant may see.
      */
     public void requireParticipant(Project project) {
-        if (isPlatformAdmin() || isOwner(project)) return;
-        Optional<ProjectMembership> m = myMembership(project);
-        if (m.isPresent() && (m.get().getRole() == MembershipRole.MEMBER
-                           || m.get().getRole() == MembershipRole.CLIENT)) return;
-        throw new AccessDeniedException("You do not have access to this project");
+        if (!isParticipant(project)) {
+            throw new AccessDeniedException("You do not have access to this project");
+        }
     }
 
     /**

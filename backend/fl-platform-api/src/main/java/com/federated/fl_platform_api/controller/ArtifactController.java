@@ -3,9 +3,12 @@ package com.federated.fl_platform_api.controller;
 import com.federated.fl_platform_api.dto.ArtifactDto;
 import com.federated.fl_platform_api.model.ArtifactKind;
 import com.federated.fl_platform_api.model.ModelArtifact;
+import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.repository.ModelArtifactRepository;
+import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.security.OrgScope;
 import com.federated.fl_platform_api.service.ArtifactBlobStore;
+import com.federated.fl_platform_api.service.AuthorizationService;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -41,11 +44,16 @@ public class ArtifactController {
     private final ModelArtifactRepository artifacts;
     private final ArtifactBlobStore blobStore;
     private final OrgScope orgScope;
+    private final AuthorizationService authz;
+    private final ProjectRepository projects;
 
-    public ArtifactController(ModelArtifactRepository artifacts, ArtifactBlobStore blobStore, OrgScope orgScope) {
+    public ArtifactController(ModelArtifactRepository artifacts, ArtifactBlobStore blobStore, OrgScope orgScope,
+                              AuthorizationService authz, ProjectRepository projects) {
         this.artifacts = artifacts;
         this.blobStore = blobStore;
         this.orgScope = orgScope;
+        this.authz = authz;
+        this.projects = projects;
     }
 
     /**
@@ -56,7 +64,9 @@ public class ArtifactController {
     @GetMapping
     public java.util.List<ArtifactDto> list(@RequestParam UUID projectId) {
         return artifacts.findByProjectId(projectId).stream()
-                .filter(a -> orgScope.allows(a.getOrgId()))
+                // SE-16: org-visible AND (published OR participant). A non-participant sees only the
+                // project's PUBLISHED rows (the marketplace items), never its private weights.
+                .filter(this::mayRead)
                 .sorted(java.util.Comparator.comparing(ModelArtifact::getCreatedAt,
                         java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())).reversed())
                 .map(ArtifactDto::from)
@@ -93,7 +103,7 @@ public class ArtifactController {
             @RequestParam UUID projectId,
             @RequestParam(defaultValue = "FULL_CHECKPOINT") ArtifactKind kind) {
         ModelArtifact a = artifacts.findFirstByProjectIdAndKindOrderByCreatedAtDesc(projectId, kind).orElse(null);
-        if (a == null || !orgScope.allows(a.getOrgId())) {
+        if (a == null || !mayRead(a)) {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(ArtifactDto.from(a));
@@ -101,6 +111,26 @@ public class ArtifactController {
 
     private ModelArtifact visibleOr404(UUID id) {
         ModelArtifact a = artifacts.findById(id).orElse(null);
-        return (a != null && orgScope.allows(a.getOrgId())) ? a : null;
+        return (a != null && mayRead(a)) ? a : null;
+    }
+
+    /**
+     * SE-16 read gate. An artifact is readable iff it is in the caller's org scope AND one of:
+     * it is org-shared with no owning project ({@code projectId == null}, e.g. a {@code BASE_REF});
+     * it has been explicitly PUBLISHED to the org marketplace (FE-12); or the caller is a participant
+     * (owner/member/client/admin) of its project. Otherwise a non-participant reads it as absent, so a
+     * project's private model weights — and the mere existence of the project — never leak, while the
+     * intentional publish-to-share flow keeps working. Mirrors the gate the rest of the project read
+     * surface applies (results, logs, STOMP).
+     */
+    private boolean mayRead(ModelArtifact a) {
+        if (!orgScope.allows(a.getOrgId())) {
+            return false; // tenant isolation
+        }
+        if (a.getProjectId() == null || a.isPublished()) {
+            return true; // org-shared base, or explicitly published to the marketplace
+        }
+        Project p = projects.findById(a.getProjectId()).orElse(null);
+        return p != null && authz.isParticipant(p);
     }
 }
