@@ -21,11 +21,12 @@ backend's authorization story; the JWT/cookie/WebSocket mechanics that establish
 > all under `com.federated.fl_platform_api`). The single coarse `users.role IN (USER,
 > ADMIN)` column from `V2` was the original model and has since been superseded.
 >
-> On the identity-foundations branch the subsystem is **backend-first**: the
-> membership/admin/access-request/user-search/client endpoints are enforced on the
-> server, but the web/desktop RBAC UI is deferred (those clients ship the **Ember**
-> design system unchanged and do not yet surface organizations, memberships, or the
-> admin console).
+> The subsystem is enforced on the **backend** (the membership / admin /
+> access-request / user-search / client endpoints) AND surfaced in the **frontend**:
+> role-gated routes (`RoleRoute allow={['PLATFORM_ADMIN']}` / `['PROJECT_OWNER', …]`),
+> the `AdminDashboard` / `OwnerDashboard` / `ClientDashboard`, and the
+> owner-promotion / deletion-request approval flows. The clients ship the **Ember**
+> design system.
 
 ---
 

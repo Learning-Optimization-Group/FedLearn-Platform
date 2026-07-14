@@ -1,6 +1,6 @@
 package com.federated.fl_platform_api.bootstrap;
 
-import com.federated.fl_platform_api.flower.FlowerServerManager;
+import com.federated.fl_platform_api.orchestration.FlServerManager;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.model.RunStatus;
@@ -36,7 +36,7 @@ class StartupReconcilerTest {
     private final RunRepository runRepo = mock(RunRepository.class);
     private final ProjectRepository projectRepo = mock(ProjectRepository.class);
     private final RunService runService = mock(RunService.class);
-    private final FlowerServerManager manager = mock(FlowerServerManager.class);
+    private final FlServerManager manager = mock(FlServerManager.class);
     private final ProcessProbe probe = mock(ProcessProbe.class);
     private final RunTokenRegistry tokenRegistry = mock(RunTokenRegistry.class);
 

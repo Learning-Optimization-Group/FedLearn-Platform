@@ -1,6 +1,6 @@
 package com.federated.fl_platform_api.bootstrap;
 
-import com.federated.fl_platform_api.flower.FlowerServerManager;
+import com.federated.fl_platform_api.orchestration.FlServerManager;
 import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.model.RunStatus;
 import com.federated.fl_platform_api.repository.ProjectRepository;
@@ -23,11 +23,11 @@ import java.util.Optional;
 /**
  * BA-3: reconciles FL-server processes against persisted run state on backend startup.
  *
- * <p>FL servers are spawned as child OS processes and tracked only in {@link FlowerServerManager}'s
+ * <p>FL servers are spawned as child OS processes and tracked only in {@link FlServerManager}'s
  * in-memory map, so a backend crash orphans them: children keep running (holding gRPC ports) while
  * their runs sit forever in a non-terminal state with no handle to stop them. On boot this loads every
  * still-in-flight run and, using the PID + OS start-instant recorded at spawn (see
- * {@link FlowerServerManager#recordProcessIdentity}):
+ * {@link FlServerManager#recordProcessIdentity}):
  * <ul>
  *   <li><b>re-adopts</b> a run whose recorded PID is still live and whose start-instant matches — the
  *       server survived the restart, so it is tracked again and a later stop can terminate it;</li>
@@ -61,7 +61,7 @@ public class StartupReconciler implements HealthIndicator {
     private final RunRepository runRepository;
     private final ProjectRepository projectRepository;
     private final RunService runService;
-    private final FlowerServerManager serverManager;
+    private final FlServerManager serverManager;
     private final ProcessProbe processProbe;
     private final RunTokenRegistry runTokenRegistry;
 
@@ -73,7 +73,7 @@ public class StartupReconciler implements HealthIndicator {
     private volatile ReconciliationResult lastResult;
 
     public StartupReconciler(RunRepository runRepository, ProjectRepository projectRepository,
-                             RunService runService, FlowerServerManager serverManager,
+                             RunService runService, FlServerManager serverManager,
                              ProcessProbe processProbe, RunTokenRegistry runTokenRegistry) {
         this.runRepository = runRepository;
         this.projectRepository = projectRepository;

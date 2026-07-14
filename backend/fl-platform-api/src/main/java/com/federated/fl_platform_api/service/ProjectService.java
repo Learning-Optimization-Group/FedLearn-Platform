@@ -20,7 +20,7 @@ import com.federated.fl_platform_api.repository.OrganizationMembershipRepository
 import com.federated.fl_platform_api.repository.ProjectAccessRequestRepository;
 import com.federated.fl_platform_api.repository.ProjectMembershipRepository;
 import com.federated.fl_platform_api.repository.ProjectRepository;
-import com.federated.fl_platform_api.flower.FlowerServerManager;
+import com.federated.fl_platform_api.orchestration.FlServerManager;
 import com.federated.fl_platform_api.repository.RoundResultRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +55,7 @@ public class ProjectService {
     @Autowired
     private ProjectRepository projectRepository;
     @Autowired
-    private FlowerServerManager flowerServerManager;
+    private FlServerManager flServerManager;
     @Autowired
     private ModelInitializationWorker modelInitWorker;
     @Autowired
@@ -285,7 +285,7 @@ public class ProjectService {
         ReentrantLock startLock = startLocks.computeIfAbsent(projectId, k -> new ReentrantLock());
         startLock.lock();
         try {
-            if (flowerServerManager.isServerRunning(projectId)) {
+            if (flServerManager.isServerRunning(projectId)) {
                 // Was previously a silent fall-through that double-spawned the server.
                 throw new ProjectStateException(
                         "FL server is already running for project " + projectId
@@ -302,7 +302,7 @@ public class ProjectService {
                 project.setActiveRunId(run.getId());
                 projectRepository.save(project);
 
-                Optional<Integer> port = flowerServerManager.startServerForProject(
+                Optional<Integer> port = flServerManager.startServerForProject(
                         project, strategyToUse, numRoundsToUse, minClients);
                 project.setServerPort(port.orElse(null));
                 project.setStatus(ProjectStatus.RUNNING.name());
@@ -346,7 +346,7 @@ public class ProjectService {
         authz.requireOrgScope(project.getOrgId());
         authz.requireOwnerOrAdmin(project);
 
-        boolean stopped = flowerServerManager.stopServerForProject(projectId);
+        boolean stopped = flServerManager.stopServerForProject(projectId);
         Project finalProjectState = project;
         if (stopped || ProjectStatus.RUNNING.name().equals(project.getStatus())) {
             project.setServerPort(null);
@@ -478,7 +478,7 @@ public class ProjectService {
         // Best-effort: stop any running FL server before removing the row so
         // we don't leak processes/ECS tasks.
         try {
-            flowerServerManager.stopServerForProject(projectId);
+            flServerManager.stopServerForProject(projectId);
         } catch (RuntimeException e) {
             log.warn("Failed to stop FL server for project {} before delete; continuing",
                     projectId, e);

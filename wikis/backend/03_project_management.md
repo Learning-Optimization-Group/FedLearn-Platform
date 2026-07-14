@@ -93,7 +93,7 @@ The `POST /api/projects/{projectId}/start` endpoint kicks off the machine learni
 
 1. The user specifies the training `strategy` (e.g., `FedAvg`), the `minClients` required, and the `numRounds`.
 2. The `ProjectService` enforces org-scope then ownership (`requireOrgScope` → `requireOwnerOrAdmin`) and ensures the server isn't already running. `startServerForProject` is `@Auditable(action = RUN_STARTED)`; `stopServerForProject` is `@Auditable(action = RUN_STOPPED)`.
-3. It calls `FlowerServerManager.startServerForProject(...)`. (See [04 - Federated Orchestration](04_federated_orchestration.md) for full details on this component).
+3. It calls `FlServerManager.startServerForProject(...)`. (See [04 - Federated Orchestration](04_federated_orchestration.md) for full details on this component).
 4. The backend updates the project's status to `RUNNING` and saves the network `serverPort` where the FL Server is listening.
 5. A real-time `ProjectStatusUpdateDto` is fired over WebSockets to instantly update the React dashboard UI.
 
@@ -106,5 +106,5 @@ When the FL Server successfully finishes all its federated rounds, it sends a fi
 ### Deletion
 When a user deletes a project (`DELETE /api/projects/{projectId}`):
 1. The service enforces org-scope (`requireOrgScope`) then ownership (`requireOwnerOrAdmin`). `deleteProject` is `@Auditable(action = PROJECT_DELETED)`.
-2. It makes a best-effort attempt to terminate any actively running FL Server processes via `FlowerServerManager.stopServerForProject()`. This prevents ghost processes or orphaned AWS Fargate tasks from lingering and consuming resources.
+2. It makes a best-effort attempt to terminate any actively running FL Server processes via `FlServerManager.stopServerForProject()`. This prevents ghost processes or orphaned AWS Fargate tasks from lingering and consuming resources.
 3. The database row is deleted. Cascade rules automatically delete the associated `ServerLog`, `RoundResult`, `ProjectMembership`, and `ProjectAccessRequest` entries.

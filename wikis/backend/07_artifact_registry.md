@@ -146,11 +146,11 @@ the card's `dp.accounted_epsilon`/`dp.delta` to be present and numeric before th
 
 `RegistryModelResolver` (`backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/RegistryModelResolver.java:32`)
 is the shared bean two otherwise-unrelated callers both depend on — it exists as a separate bean
-specifically because `FlowerServerManager` cannot depend on `ProjectService` (Spring rejects the
+specifically because `FlServerManager` cannot depend on `ProjectService` (Spring rejects the
 resulting circular reference; `RegistryModelResolver.java:20-24`):
 
 ```
-ProjectService.resolveInferenceTarget(projectId)          FlowerServerManager.startLocalServer(project, ...)
+ProjectService.resolveInferenceTarget(projectId)          FlServerManager.startLocalServer(project, ...)
         │                                                          │
         └───────────────────────┬──────────────────────────────────┘
                                  ▼
@@ -172,14 +172,14 @@ ProjectService.resolveInferenceTarget(projectId)          FlowerServerManager.st
 
 (`RegistryModelResolver.java:47-105`; call sites at
 `backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/ProjectService.java:733`
-and `backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/flower/FlowerServerManager.java:165`.)
+and `backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/orchestration/FlServerManager.java:165`.)
 
 Both callers fall back to the legacy `.npz` path (`project.getModelPath()`) when the resolver returns
 `Optional.empty()` — a project with no registry artifact yet (pre-registry data, or a project that
 never finished a run) or a LoRA project. Critically, **a fallback only fires on "no artifact"**, never
 on "artifact unreadable": if a registry blob exists but fails to read or fails its integrity check,
 `ArtifactBlobStore.get` throws unchecked and that exception is allowed to propagate out of
-`resolveModelPath`'s caller in `ProjectService` (inference), while `FlowerServerManager`'s warm-start
+`resolveModelPath`'s caller in `ProjectService` (inference), while `FlServerManager`'s warm-start
 call site catches only the narrower `IOException` from the local cache write and logs+falls back for
 that specific failure (`RegistryModelResolver.java:65-71`). The intent, stated directly in the code, is
 fail-loud: a corrupt or unreadable registry head must never be silently masked by the `.npz` fallback,

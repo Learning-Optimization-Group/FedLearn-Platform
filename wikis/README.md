@@ -98,7 +98,7 @@ Backend  →  validates credentials  →  issues JWT (HttpOnly cookie or JSON)
 ### FL Server Provisioning — Local vs. Cloud
 
 ```
-Backend (FlowerServerManager)
+Backend (FlServerManager)
    │
    ├── LOCAL MODE
    │     ProcessBuilder.start()  →  python run_server.py --port <N>
@@ -125,7 +125,7 @@ The backend is the central control plane. It owns the REST API, user authenticat
 | [Architecture & Core Concepts](./backend/01_architecture_overview.md) | Directory structure, domain models (Projects, Results, Logs), technology stack |
 | [Security & Authentication](./backend/02_security_and_auth.md) | Stateless JWT filter chain, WebSocket handshake security, internal API key mechanism |
 | [Project Management Lifecycle](./backend/03_project_management.md) | `ProjectService`, `ProjectController`, round configuration, model initialization |
-| [Federated Orchestration](./backend/04_federated_orchestration.md) | `FlowerServerManager` — local `ProcessBuilder` vs. AWS ECS Fargate provisioning |
+| [Federated Orchestration](./backend/04_federated_orchestration.md) | `FlServerManager` — local `ProcessBuilder` vs. AWS ECS Fargate provisioning |
 | [WebSocket Log Streaming](./backend/05_websocket_logs_streaming.md) | Stdout capture → STOMP topics → frontend real-time observability |
 | [Identity, Multi-Tenancy & Audit](./backend/06_identity_multitenancy_and_audit.md) | **Present on this branch** (`V4`–`V7` migrations): organizations + org/project memberships, platform/org/project role model (`PlatformRole` enum), org-scoped data isolation (`OrgScopeFilter`), `@Auditable` audit trail. Supersedes the original coarse `users.role IN (USER, ADMIN)` model. |
 | [Content-Addressed Model Artifact Registry](./backend/07_artifact_registry.md) | The versioned, content-addressed registry (`artifact_blobs` / `model_artifacts` / `artifact_lineage`) that superseded the single overwritable `.npz`; write path, registry-first inference/warm-start read path, HTTP surface, `V12`/`V18` migrations |
@@ -164,7 +164,7 @@ The frontend is a single-page application providing the primary web-based contro
 > **Path:** [`wikis/framework/`](./framework/README.md)  
 > **Stack:** Python 3.10+, PyTorch, gRPC / Protocol Buffers — **custom FL engine (no Flower / `flwr`)**
 
-The framework is the heart of the platform — a standalone Python library (`fedlearn`) that implements the full federated learning lifecycle using gRPC for communication and PyTorch for model training. The `flower` package name on the Java side (`FlowerServerManager`) is historical — there is no Flower/`flwr` dependency anywhere.
+The framework is the heart of the platform — a standalone Python library (`fedlearn`) that implements the full federated learning lifecycle using gRPC for communication and PyTorch for model training. The Java-side orchestration package (`orchestration/`, class `FlServerManager`) was renamed from the legacy `flower` / `FlowerServerManager` name (DA-12) — there is no Flower/`flwr` dependency anywhere.
 
 | Document | Description |
 |---|---|

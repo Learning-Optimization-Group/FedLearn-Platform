@@ -17,7 +17,7 @@ This section of the wiki covers the Spring Boot 3 API, the database interactions
 3. **[Project Management Lifecycle](03_project_management.md)**
    Details the `ProjectService` and `ProjectController` logic. Explains how training rounds are configured, how projects are persisted to the database, and how models are initialized.
 
-4. **[Federated Orchestration (FlowerServerManager)](04_federated_orchestration.md)**
+4. **[Federated Orchestration (FlServerManager)](04_federated_orchestration.md)**
    The most complex component. Documents how the Java API dynamically provisions the Python FL aggregation servers, differentiating between local machine `ProcessBuilder` execution and cloud-native AWS ECS Fargate orchestration.
 
 5. **[WebSocket Log Streaming](05_websocket_logs_streaming.md)**

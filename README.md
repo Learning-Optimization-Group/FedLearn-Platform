@@ -299,7 +299,7 @@ FedLearn-Platform/
 │       │   ├── repository/    # JPA repositories
 │       │   ├── model/         # Entities
 │       │   ├── security/      # JWT provider
-│       │   └── flower/        # FlowerServerManager
+│       │   └── orchestration/ # FlServerManager (renamed from flower/, DA-12)
 │       ├── src/main/resources/
 │       │   └── scripts/       # Python FL server scripts
 │       └── README.md          # Backend documentation
@@ -516,7 +516,7 @@ Live at **https://fedlearn.duckdns.org**. Deploy procedure: [`docs/guides/aws_de
 - Let's Encrypt certbot for auto-renewing TLS
 - PostgreSQL 16 (local Docker Compose or host package) on the EC2 host, data dir EBS-backed across reboots
 - Spring Boot as a systemd service (`fedlearn.service`)
-- Python FL servers spawned by `FlowerServerManager`
+- Python FL servers spawned by `FlServerManager`
 
 Required env vars (set in `/etc/systemd/system/fedlearn.service`):
 

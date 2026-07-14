@@ -1,4 +1,4 @@
-package com.federated.fl_platform_api.flower;
+package com.federated.fl_platform_api.orchestration;
 
 import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
@@ -25,9 +25,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 @Component
-public class FlowerServerManager {
+public class FlServerManager {
 
-    private static final Logger log = LoggerFactory.getLogger(FlowerServerManager.class);
+    private static final Logger log = LoggerFactory.getLogger(FlServerManager.class);
 
     @Value("${ecs.cluster-name:}")
     private String ecsClusterName;

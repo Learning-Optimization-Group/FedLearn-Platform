@@ -63,7 +63,7 @@ public class InferenceService {
     private final Semaphore inferenceSlots;
     private final long generationTimeoutSeconds;
 
-    /** Live generation subprocesses, keyed by projectId — enables Stop. Mirrors FlowerServerManager.runningServers. */
+    /** Live generation subprocesses, keyed by projectId — enables Stop. Mirrors FlServerManager.runningServers. */
     final Map<UUID, Process> runningGenerations = new ConcurrentHashMap<>();
     /** Projects whose in-flight generation was user-stopped (so runGenerationScript returns a "stopped" result, not a 502). */
     final Set<UUID> stoppedGenerations = ConcurrentHashMap.newKeySet();

@@ -3,7 +3,7 @@
 spawn (SE-10 follow-up).
 
 `recipes.py --describe` feeds both the project-creation picker AND the backend's
-`requireModelTypeInCatalog` gate (`FlowerServerManager.java`) — that gate exists specifically so a
+`requireModelTypeInCatalog` gate (`FlServerManager.java`) — that gate exists specifically so a
 project can never be created with a modelType the FL scripts don't support. The guarantee only
 holds if the catalog and the scripts' `--model-type` argparse `choices` are the *same set*: if the
 catalog ever advertises a key fl_server.py/client.py don't accept, a project sails through the

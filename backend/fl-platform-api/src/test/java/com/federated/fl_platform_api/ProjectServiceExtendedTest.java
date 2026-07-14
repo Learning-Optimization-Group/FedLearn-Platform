@@ -2,7 +2,7 @@ package com.federated.fl_platform_api;
 
 import com.federated.fl_platform_api.dto.ProjectResponseDto;
 import com.federated.fl_platform_api.exception.ProjectStateException;
-import com.federated.fl_platform_api.flower.FlowerServerManager;
+import com.federated.fl_platform_api.orchestration.FlServerManager;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.model.User;
@@ -39,7 +39,7 @@ import static org.mockito.Mockito.*;
 class ProjectServiceExtendedTest {
 
     @Mock private ProjectRepository projectRepository;
-    @Mock private FlowerServerManager flowerServerManager;
+    @Mock private FlServerManager flServerManager;
     @Mock private ModelInitializer modelInitializer;
     @Mock private RoundResultRepository roundResultRepository;
     @Mock private WebSocketService webSocketService;
@@ -112,7 +112,7 @@ class ProjectServiceExtendedTest {
         testProject.setStatus("RUNNING");
         when(projectRepository.findById(testProject.getId())).thenReturn(Optional.of(testProject));
         asRegularUser();
-        when(flowerServerManager.stopServerForProject(testProject.getId())).thenReturn(true);
+        when(flServerManager.stopServerForProject(testProject.getId())).thenReturn(true);
         when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ProjectResponseDto dto = projectService.stopServerForProject(testProject.getId());
@@ -129,11 +129,11 @@ class ProjectServiceExtendedTest {
     void deleteProject_shouldStopServerThenDelete() {
         when(projectRepository.findById(testProject.getId())).thenReturn(Optional.of(testProject));
         asRegularUser();
-        when(flowerServerManager.stopServerForProject(testProject.getId())).thenReturn(true);
+        when(flServerManager.stopServerForProject(testProject.getId())).thenReturn(true);
 
         projectService.deleteProject(testProject.getId());
 
-        verify(flowerServerManager).stopServerForProject(testProject.getId());
+        verify(flServerManager).stopServerForProject(testProject.getId());
         verify(projectRepository).deleteById(testProject.getId());
     }
 
@@ -142,7 +142,7 @@ class ProjectServiceExtendedTest {
         testProject.setStatus("RUNNING");
         when(projectRepository.findById(testProject.getId())).thenReturn(Optional.of(testProject));
         asRegularUser();
-        when(flowerServerManager.isServerRunning(testProject.getId())).thenReturn(true);
+        when(flServerManager.isServerRunning(testProject.getId())).thenReturn(true);
 
         assertThrows(ProjectStateException.class,
                 () -> projectService.startServerForProject(testProject.getId(), null));
@@ -183,14 +183,14 @@ class ProjectServiceExtendedTest {
         testProject.setModelType("LLM_LORA");
         testProject.setStatus("STOPPED");
         when(projectRepository.findById(testProject.getId())).thenReturn(Optional.of(testProject));
-        when(flowerServerManager.isServerRunning(testProject.getId())).thenReturn(false);
+        when(flServerManager.isServerRunning(testProject.getId())).thenReturn(false);
 
         Run stubRun = new Run();
         stubRun.setId(UUID.randomUUID());
         when(runService.createForStart(eq(testProject), eq("FedLoRA"), anyInt(), anyInt(), anyInt()))
                 .thenReturn(stubRun);
         when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(flowerServerManager.startServerForProject(eq(testProject), eq("FedLoRA"), anyInt(), anyInt()))
+        when(flServerManager.startServerForProject(eq(testProject), eq("FedLoRA"), anyInt(), anyInt()))
                 .thenReturn(Optional.of(50000));
 
         StartProject request = new StartProject();
@@ -203,6 +203,6 @@ class ProjectServiceExtendedTest {
 
         // Assert: both collaborators received the forced "FedLoRA" strategy, not "DeComFL".
         verify(runService).createForStart(eq(testProject), eq("FedLoRA"), anyInt(), anyInt(), anyInt());
-        verify(flowerServerManager).startServerForProject(eq(testProject), eq("FedLoRA"), anyInt(), anyInt());
+        verify(flServerManager).startServerForProject(eq(testProject), eq("FedLoRA"), anyInt(), anyInt());
     }
 }

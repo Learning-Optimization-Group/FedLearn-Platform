@@ -57,7 +57,7 @@ bind_address = "[::]"
 BACKEND_URL = os.environ.get('FEDLEARN_BACKEND_URL', f"http://{base_url}:8081").rstrip('/')
 
 # Shared secret that gates /api/internal/** on the backend. Set by the orchestrator
-# (FlowerServerManager propagates it into the Fargate task env, or the dev runner
+# (FlServerManager propagates it into the Fargate task env, or the dev runner
 # exports it). We deliberately do NOT default this — missing key means no callback
 # will succeed, and the task should surface that loudly.
 INTERNAL_API_KEY = os.environ.get('FEDLEARN_INTERNAL_API_KEY', '').strip()
@@ -391,7 +391,7 @@ def select_strategy(args, initial_parameters, evaluate_fn):
 # ==============================================================================
 def build_arg_parser() -> argparse.ArgumentParser:
     """CLI contract of the FL server entrypoint. Extracted from main() so the flag surface —
-    pinned against the backend spawner (FlowerServerManager builds exactly these flags) — is
+    pinned against the backend spawner (FlServerManager builds exactly these flags) — is
     unit-testable without booting a server."""
     parser = argparse.ArgumentParser(description="FedLearn gRPC Server with Heartbeat for a Project")
     parser.add_argument("--model-path", type=str, required=True,

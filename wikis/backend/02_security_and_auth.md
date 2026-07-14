@@ -103,7 +103,7 @@ protected void doFilterInternal(HttpServletRequest request, HttpServletResponse 
 }
 ```
 
-The Spring Boot backend securely passes this `FEDLEARN_INTERNAL_API_KEY` to the Python server via environment variables during the orchestration phase (see `FlowerServerManager`), ensuring that only backend-spawned ML processes can hit the internal endpoints.
+The Spring Boot backend securely passes this `FEDLEARN_INTERNAL_API_KEY` to the Python server via environment variables during the orchestration phase (see `FlServerManager`), ensuring that only backend-spawned ML processes can hit the internal endpoints.
 
 ---
 
