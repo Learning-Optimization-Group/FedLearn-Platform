@@ -79,6 +79,41 @@ def test_aborts_early_on_declared_oversize_before_buffering():
     assert ctx.aborted[0] == grpc.StatusCode.RESOURCE_EXHAUSTED
 
 
+class _Clock:
+    """Deterministic monotonic-clock stand-in: yields each time, then sticks on the last."""
+
+    def __init__(self, times):
+        self._times = list(times)
+
+    def __call__(self):
+        return self._times.pop(0) if len(self._times) > 1 else self._times[0]
+
+
+def test_aborts_deadline_exceeded_when_upload_runs_past_the_time_cap(monkeypatch):
+    # A slow-but-under-cap upload must be bounded in wall-clock time, distinct from the size caps.
+    s = _servicer(max_bytes=10 ** 9, max_chunks=10_000)
+    s._max_upload_seconds = 5.0
+    # deadline computed at t=0 (-> 5.0); the loop's first check reads t=100 -> past the deadline.
+    monkeypatch.setattr("fedlearn.server.grpc_servicer.time.monotonic", _Clock([0.0, 100.0]))
+    ctx = _Ctx()
+    with pytest.raises(_Abort):
+        s.SubmitModelUpdateStream(iter([_chunk(b"a"), _chunk(b"b", is_final=True)]), ctx)
+    assert ctx.aborted[0] == grpc.StatusCode.DEADLINE_EXCEEDED
+
+
+def test_zero_deadline_disables_the_time_cap(monkeypatch):
+    # max_seconds <= 0 disables the wall-clock guard (byte/chunk caps still apply).
+    s = _servicer(max_bytes=10 ** 9, max_chunks=10_000)
+    s._max_upload_seconds = 0
+    monkeypatch.setattr("fedlearn.server.grpc_servicer.time.monotonic", _Clock([0.0, 10_000.0]))
+    monkeypatch.setattr("fedlearn.server.grpc_servicer.chunks_to_parameters",
+                        lambda data, compressed=False: ({"w": object()}, 1))
+    ctx = _Ctx()
+    resp = s.SubmitModelUpdateStream(iter([_chunk(b"a", is_final=True)]), ctx)
+    assert resp.received is True
+    assert ctx.aborted is None
+
+
 def test_within_limits_upload_is_not_rejected(monkeypatch):
     # A legitimately-sized upload must pass the guard and reach decode+submit unharmed.
     s = _servicer(max_bytes=10**9, max_chunks=10_000)

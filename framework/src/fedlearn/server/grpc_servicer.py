@@ -25,17 +25,25 @@ from fedlearn.communication.serializer import (
 from fedlearn.server.decomfl_strategy import DeComFL
 
 # SE-18: default caps on a single streamed model upload. Generous enough for LLM-scale adapters, but
-# bounded so one client cannot grow the reassembly buffer without limit. Override via env.
+# bounded so one client cannot grow the reassembly buffer without limit (bytes/chunks) or hold a
+# server thread indefinitely (seconds). Override via env; a non-positive seconds value disables the
+# wall-clock cap.
 _DEFAULT_MAX_UPLOAD_BYTES = 2 * 1024 ** 3   # 2 GiB
 _DEFAULT_MAX_UPLOAD_CHUNKS = 100_000
+_DEFAULT_MAX_UPLOAD_SECONDS = 600.0         # 10 min of active streaming
 
 
 class _StreamLimitExceeded(Exception):
-    """SE-18: a streamed upload exceeded its byte/chunk cap. Mapped to RESOURCE_EXHAUSTED.
+    """SE-18: a streamed upload exceeded a resource cap (bytes/chunks -> RESOURCE_EXHAUSTED, or the
+    wall-clock deadline -> DEADLINE_EXCEEDED). Carries the gRPC status code to abort with.
 
     A dedicated type (not ValueError/Exception) so the servicer's broad handlers below do not remap
     the abort to INVALID_ARGUMENT/INTERNAL — it is caught by its own clause first.
     """
+
+    def __init__(self, message, code=grpc.StatusCode.RESOURCE_EXHAUSTED):
+        super().__init__(message)
+        self.code = code
 
 
 class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServiceServicer):
@@ -48,9 +56,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         # SE-15: (context) -> Optional[int] returning the verified connection-token partition; None
         # disables identity binding (client-auth off / dev fail-open), preserving existing behavior.
         self._partition_extractor = partition_extractor
-        # SE-18: bound the streamed-upload reassembly buffer (memory-exhaustion DoS defense).
+        # SE-18: bound the streamed-upload reassembly buffer (memory-exhaustion DoS defense) and the
+        # wall-clock time a single upload may spend actively streaming (slow-drip DoS defense).
         self._max_upload_bytes = int(os.environ.get("FEDLEARN_MAX_UPLOAD_BYTES", _DEFAULT_MAX_UPLOAD_BYTES))
         self._max_upload_chunks = int(os.environ.get("FEDLEARN_MAX_UPLOAD_CHUNKS", _DEFAULT_MAX_UPLOAD_CHUNKS))
+        self._max_upload_seconds = float(os.environ.get("FEDLEARN_MAX_UPLOAD_SECONDS", _DEFAULT_MAX_UPLOAD_SECONDS))
 
     def _enforce_client_identity(self, client_id, context):
         """SE-15: pin one connection-token partition to one wire client_id. No-op when identity
@@ -277,6 +287,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             total_chunks = 0
             chunks_received = 0
             total_bytes = 0  # SE-18: cumulative payload size, bounds-checked against the cap below
+            # SE-18: wall-clock deadline for the active streaming loop. Checked on each chunk arrival,
+            # so it bounds a slow-drip upload; a client that connects then goes fully silent blocks on
+            # the next read and is bounded instead by gRPC's max_connection_age_ms / keepalive (set in
+            # server.py). A non-positive cap disables this guard.
+            deadline = time.monotonic() + self._max_upload_seconds
 
             logging.info(f"[Server] Receiving streamed model update...")
 
@@ -293,6 +308,12 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                         raise _StreamLimitExceeded(
                             f"declared upload size {chunk.total_bytes} bytes exceeds the "
                             f"{self._max_upload_bytes}-byte cap (FEDLEARN_MAX_UPLOAD_BYTES)")
+
+                # SE-18: bound the wall-clock time spent streaming this upload.
+                if self._max_upload_seconds > 0 and time.monotonic() > deadline:
+                    raise _StreamLimitExceeded(
+                        f"streamed upload exceeded the {self._max_upload_seconds:.0f}s deadline "
+                        f"(FEDLEARN_MAX_UPLOAD_SECONDS)", code=grpc.StatusCode.DEADLINE_EXCEEDED)
 
                 # SE-18: enforce the caps BEFORE writing, so the buffer never exceeds the limit even if
                 # the client lies about (or omits) total_bytes / total_chunks or never sends is_final.
@@ -340,10 +361,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             return fedlearn_pb2.SubmitModelUpdateResponse(received=True)
 
         except _StreamLimitExceeded as e:
-            # SE-18: oversized streamed upload -> resource-exhaustion guard -> RESOURCE_EXHAUSTED.
-            # Caught BEFORE the broad handlers so the abort isn't remapped to INVALID_ARGUMENT/INTERNAL.
-            logging.warning(f"[Server] Rejecting oversized streamed upload from {client_id}: {e}")
-            context.abort(grpc.StatusCode.RESOURCE_EXHAUSTED, str(e))
+            # SE-18: a size cap (RESOURCE_EXHAUSTED) or the wall-clock deadline (DEADLINE_EXCEEDED)
+            # was hit. Caught BEFORE the broad handlers so the abort isn't remapped to
+            # INVALID_ARGUMENT/INTERNAL; the exact code rides on the exception.
+            logging.warning(f"[Server] Rejecting streamed upload from {client_id}: {e}")
+            context.abort(e.code, str(e))
         except ValueError as e:
             # Malformed / non-finite streamed payload -> client error -> INVALID_ARGUMENT.
             logging.info(f"[Server] Rejecting invalid streamed model update from {client_id}: {e}")
