@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import torch
 from tests.fixtures.tiny_frozen_model import build_tiny_frozen_net
 
@@ -64,7 +66,6 @@ def test_guard_rejects_same_keys_wrong_shape_with_typed_error():
         validate_subset_update(wrong_shape, net)
 
 
-from collections import OrderedDict
 from fedlearn.server.subset_federation import apply_trainable_subset
 
 

@@ -215,7 +215,7 @@ The desktop application is the local training orchestrator for FL participants. 
 > **Path:** [`wikis/mobile/`](./mobile/README.md)  
 > **Stack:** React Native 0.80, TypeScript, native C++ (ExecuTorch) via a TurboModule bridge, Android + iOS
 
-The mobile client is an on-device FL participant for phones and tablets. The JS/TS layer handles UI, auth, and orchestration; the heavy lifting — the **DeComFL zeroth-order training path** — runs natively in C++ on libtorch through a TurboModule (JSI) bridge, keeping training data on-device. It adopted the **Ember** design system and brand fonts in `2.1.0`.
+The mobile client is an on-device FL participant for phones and tablets. The JS/TS layer handles UI, auth, and orchestration; the heavy lifting — the **DeComFL zeroth-order training path** — runs natively in C++ on ExecuTorch through a TurboModule (JSI) bridge, keeping training data on-device. It adopted the **Ember** design system and brand fonts in `2.1.0`.
 
 | Document | Description |
 |---|---|
@@ -302,7 +302,7 @@ wikis/                              ← repo-root docs (promoted out of docs/)
 │   ├── 03_project_management.md
 │   ├── 04_federated_orchestration.md
 │   ├── 05_websocket_logs_streaming.md
-│   ├── 06_identity_multitenancy_and_audit.md   ← designed; not on this branch
+│   ├── 06_identity_multitenancy_and_audit.md   ← present on this branch (V4–V7 migrations)
 │   └── 07_artifact_registry.md
 │
 ├── frontend/                       ← React 19 SPA
