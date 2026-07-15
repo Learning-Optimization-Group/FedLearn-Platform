@@ -1,5 +1,10 @@
 # Core ML packages (PyTorch installed separately with CUDA support)
-torch
+# torch is PINNED to the golden-fixture / executorch-toolchain version (2.12.0). Unpinned, an
+# unpinned torchvision pulls its latest wheel, which requires torch 2.13.x and silently upgrades
+# torch past 2.12.0 — breaking test_torch_version_matches_manifest AND executorch==1.3.1's native
+# extension (built for 2.12.0). The framework itself does not import torchvision/torchaudio; they are
+# kept for consumers and backtrack to the torch-2.12.0-compatible line once torch is pinned.
+torch==2.12.0
 torchvision
 torchaudio
 
