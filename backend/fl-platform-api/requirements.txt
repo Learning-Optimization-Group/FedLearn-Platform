@@ -13,7 +13,7 @@ click==8.1.8
 colorama==0.4.6
 colorful==0.5.7
 contourpy==1.3.3
-cryptography>=46.0.6,<47.0  # SE-22: patched line (was 44.0.3, below the framework floor)
+cryptography==44.0.3  # SE-22: the framework floor is >=46.0.6, but this lockfile uses flwr-datasets (FederatedDataset in fl_server.py/client.py) -> flwr 1.20.0, which pins cryptography<45.0.0. The 46.x floor is therefore UNREACHABLE here until flwr-datasets is dropped/updated; 44.0.3 is the newest flwr-compatible pin. Tracked as the SE-22 residual.
 cycler==0.12.1
 datasets==3.1.0
 dill==0.3.8

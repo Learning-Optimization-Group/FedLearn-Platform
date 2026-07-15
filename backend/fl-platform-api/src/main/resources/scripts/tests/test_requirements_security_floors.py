@@ -2,15 +2,21 @@
 """SE-22: the backend requirements.txt must not pin packages below the repo's own security floors.
 
 `backend/fl-platform-api/requirements.txt` is NOT dead — `.github/workflows/ci.yml` installs it for
-the backend-scripts pytest job. It was pinning aiohttp/cryptography/pillow/requests BELOW the
-patched floors that `framework/requirements.txt` documents (incl. an aiohttp RCE). This guard reads
-the floors straight from `framework/requirements.txt` (single source of truth) and fails if the
-backend lockfile allows an install below any of them, so the two can't drift back apart.
+the backend-scripts pytest job. It was pinning aiohttp/pillow/requests BELOW the patched floors that
+`framework/requirements.txt` documents (incl. an aiohttp RCE). This guard reads the floors straight
+from `framework/requirements.txt` (single source of truth) and fails if the backend lockfile allows
+an install below any of them, so the two can't drift back apart.
+
+`cryptography` is the ONE exception and is deliberately excluded from the floor check: this lockfile
+uses `flwr-datasets` (`FederatedDataset` in `fl_server.py`/`client.py`) -> `flwr` 1.20.0, which pins
+`cryptography<45.0.0`. The framework's `>=46.0.6` floor is therefore unreachable here without dropping
+flwr-datasets; a separate check pins it to the newest flwr-compatible version instead (SE-22 residual).
 """
 import os
 import re
 
-_FLAGGED = ("aiohttp", "cryptography", "pillow", "requests")
+# Floor-checked packages. cryptography is intentionally NOT here — see the module docstring (flwr cap).
+_FLAGGED = ("aiohttp", "pillow", "requests")
 
 
 def _repo_root():
@@ -57,3 +63,19 @@ def test_backend_requirements_meet_framework_security_floors():
         if got < floor:
             violations.append(f"{pkg}: backend allows {got} < floor {floor}")
     assert violations == [], "SE-22: backend pins below the security floor: " + "; ".join(violations)
+
+
+def test_cryptography_stays_flwr_compatible_below_45():
+    """cryptography can't reach the framework's >=46.0.6 floor here: flwr-datasets -> flwr 1.20.0 pins
+    cryptography<45.0.0, so a >=45 bump makes `pip install -r requirements.txt` unresolvable (the
+    backend-scripts CI job fails with ResolutionImpossible). Pin it to the newest flwr-compatible
+    patched version instead, and pin THAT invariant here so a future security bump doesn't silently
+    re-break the install."""
+    root = _repo_root()
+    backend = os.path.join(root, "backend", "fl-platform-api", "requirements.txt")
+    got = _min_version(backend, "cryptography")
+    assert got is not None, "cryptography not pinned in backend/fl-platform-api/requirements.txt"
+    assert (44, 0, 1) <= got < (45, 0, 0), (
+        f"SE-22: cryptography must stay in flwr's >=44.0.1,<45.0.0 range (flwr-datasets caps it); "
+        f"got {got}. A bump to >=45 breaks pip resolution in the backend-scripts CI job."
+    )
