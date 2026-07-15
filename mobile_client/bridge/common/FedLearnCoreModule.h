@@ -123,7 +123,7 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   void requireReady() const;                             // model + net + data loaded, else throw
 
   // Async worker tracking: JSI calls run their do* on a worker thread. The threads are KEPT (not
-  // detached) so the destructor / doStop can quiesce them before member teardown — a detached worker
+  // detached) so the destructor can quiesce them before member teardown — a detached worker
   // capturing `this` would otherwise resume against a freed module on RN bridge reload (use-after-free).
   template <typename Work, typename Build>
   jsi::Value runOnWorker(jsi::Runtime& rt, Work work, Build build);

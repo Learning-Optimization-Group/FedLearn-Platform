@@ -468,7 +468,7 @@ std::string FedLearnCoreModule::doStageBundleFile(const std::string& filename,
 // ============================================================================
 // Run `work` (blocking, on a worker) then `build` the jsi result — the jsi::Runtime is touched ONLY on
 // the JS thread, never on the worker and never through a reference captured across the async boundary.
-// The worker thread is TRACKED (not detached) so ~FedLearnCoreModule / doStop can join it before members
+// The worker thread is TRACKED (not detached) so ~FedLearnCoreModule can join it before members
 // are destroyed — a detached worker (which still reaches module state through `work`) would otherwise
 // resume against a freed module (use-after-free). The worker captures ONLY value-copyable, runtime-
 // independent state (no jsi::Runtime, no `this`). It hands the plain-C++ result back to the JS thread via
@@ -482,21 +482,53 @@ template <typename Work, typename Build>
 jsi::Value FedLearnCoreModule::runOnWorker(jsi::Runtime& rt, Work work, Build build) {
   auto invoker = jsInvoker_;
   return react::createPromiseAsJSIValue(
-      rt, [this, invoker, work, build](jsi::Runtime& /*rt2*/, std::shared_ptr<react::Promise> promise) {
+      rt, [this, invoker, work, build](jsi::Runtime& rt2, std::shared_ptr<react::Promise> promise) {
+        // MO-18: react::Promise is a LongLivedObject holding a jsi::Runtime& + resolve_/reject_
+        // jsi::Functions, but createPromiseAsJSIValue does NOT register it in the collection — so nothing
+        // force-releases its JS handles on the JS thread when the runtime is torn down (RN reload / Fast
+        // Refresh mid-round), and the last shared_ptr could run ~jsi::Function against a dead/off-thread
+        // runtime (Pointer::invalidate UAF). Adopt RN's own AsyncPromise/AsyncCallback contract
+        // (LongLivedObject.h:24-29): the per-runtime collection owns the SOLE strong ref; off the JS
+        // thread we hold only a weak_ptr. At teardown ~TurboModuleBinding clear()s the collection on the
+        // JS thread while the runtime is still valid, destroying resolve_/reject_ safely; a late
+        // worker/callback lock()s weak -> null -> no-op. No jsi::Function is ever destroyed off the JS
+        // thread or against a dead runtime. (add() runs here, synchronously on the JS thread.)
+        react::LongLivedObjectCollection::get(rt2).add(promise);
+        std::weak_ptr<react::Promise> weak = promise;
         auto done = std::make_shared<std::atomic<bool>>(false);
-        // The worker captures no jsi::Runtime and no `this`: work/build are self-contained callables and
-        // the result crosses back as a plain C++ value. (An unused `this`/Runtime& on a worker would trip
-        // RN's -Werror=unused-lambda-capture and only invites accidental use-after-free later.)
-        std::thread t([invoker, promise, work, build, done]() {
+        // The worker captures no jsi::Runtime, no `this`, and only a WEAK ref to the promise: work/build
+        // are self-contained callables and the result crosses back as a plain C++ value. (The tracked-not-
+        // detached worker + destructor joinAllWorkers separately guard the `this` that `work` captures — a
+        // different UAF; MO-9.)
+        std::thread t([invoker, weak, work, build, done]() {
           try {
             auto result = work();  // blocking C++ (touches module state via `work`; joined before teardown)
             // Marshal back onto the JS thread. `jsRt` is supplied by the CallInvoker at execution time on
-            // the JS thread — the runtime is NOT captured across the async boundary.
-            invoker->invokeAsync(
-                [promise, build, result](jsi::Runtime& jsRt) { promise->resolve(build(jsRt, result)); });
+            // the JS thread; lock the weak promise (null after teardown) before touching any jsi value, and
+            // allowRelease() so the collection drops its strong ref on the JS thread post-resolve.
+            invoker->invokeAsync([weak, build, result](jsi::Runtime& jsRt) {
+              if (auto p = weak.lock()) {
+                p->resolve(build(jsRt, result));
+                p->allowRelease();
+              }
+            });
           } catch (const std::exception& e) {
             std::string msg = e.what();
-            invoker->invokeAsync([promise, msg](jsi::Runtime&) { promise->reject(msg); });
+            invoker->invokeAsync([weak, msg](jsi::Runtime&) {
+              if (auto p = weak.lock()) {
+                p->reject(msg);
+                p->allowRelease();
+              }
+            });
+          } catch (...) {
+            // A non-std::exception escaping the worker would std::terminate the whole app; reject
+            // instead so the promise is always settled (and its collection ref always released).
+            invoker->invokeAsync([weak](jsi::Runtime&) {
+              if (auto p = weak.lock()) {
+                p->reject("unknown native error");
+                p->allowRelease();
+              }
+            });
           }
           done->store(true);
         });
