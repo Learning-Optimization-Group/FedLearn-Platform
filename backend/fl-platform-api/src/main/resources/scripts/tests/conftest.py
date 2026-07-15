@@ -14,6 +14,12 @@ for _ in range(12):
     if os.path.isdir(_candidate):
         if _candidate not in sys.path:
             sys.path.insert(0, _candidate)
+        # Also expose framework/src to SUBPROCESSES: several tests spawn `python init_model.py`
+        # (etc.) in a fresh interpreter that re-imports `fedlearn` but does NOT inherit this
+        # process's sys.path — only PYTHONPATH crosses the process boundary.
+        _pp = os.environ.get("PYTHONPATH", "")
+        if _candidate not in _pp.split(os.pathsep):
+            os.environ["PYTHONPATH"] = _candidate + (os.pathsep + _pp if _pp else "")
         break
     _parent = os.path.dirname(_dir)
     if _parent == _dir:
