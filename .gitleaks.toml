@@ -15,4 +15,8 @@ description = "Public test/dev-only fixture credentials (never used outside test
 paths = [
   '''.*/src/test/.*''',
   '''.*/application-(test|dev)\.properties$''',
+  # Framework test fixtures — e.g. framework/tests/fixtures/golden_connection_token.json, a
+  # golden token signed with the dummy secret base64("fedlearn-golden-token-secret-32b") used
+  # by the cross-language connection-token parity tests. Test-only, never a real credential.
+  '''.*/tests/fixtures/.*''',
 ]
