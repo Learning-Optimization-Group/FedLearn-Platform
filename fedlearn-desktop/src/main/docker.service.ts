@@ -220,7 +220,7 @@ export class DockerService {
    * bundle's entry-point binary directly — no python, no PYTHONPATH, no
    * external deps.
    *
-   * Dev mode: fall back to the system python3 + scripts/client.py so the
+   * Dev mode: fall back to the system python3 + fl-runtime/client.py so the
    * developer workflow keeps working without rebuilding the bundle after
    * every Python edit.
    *
@@ -250,7 +250,7 @@ export class DockerService {
 
     // Dev fallback: spawn python3 against the source tree.
     const repoRoot = path.resolve(__dirname, '..', '..', '..');
-    const clientScript = path.join(repoRoot, 'client-docker', 'scripts', 'client.py');
+    const clientScript = path.join(repoRoot, 'fl-runtime', 'client.py');
     const frameworkSrc = path.join(repoRoot, 'framework', 'src');
 
     if (!fs.existsSync(clientScript)) {

@@ -86,9 +86,9 @@
 <p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a><br />
 <strong>Stack:</strong> Docker, multi-arch base images, thin wrapper around <code>framework/</code></p>
 </blockquote>
-<p><code>client-docker/</code> is the <strong>containerised FL client</strong>. It bundles the <code>framework/</code> library plus a thin <code>scripts/client.py</code> entry point so a client can join training <strong>without a Python toolchain on the host</strong>. End users don't usually run it directly — the <strong>Electron desktop orchestrator</strong> (<code>fedlearn-desktop/</code>) launches it via <code>dockerode</code>. Developers and Jetson operators run it manually.</p>
+<p><code>client-docker/</code> is the <strong>containerised FL client</strong>. It bundles the <code>framework/</code> library plus the canonical <code>fl-runtime/client.py</code> entry point so a client can join training <strong>without a Python toolchain on the host</strong>. End users don't usually run it directly — the <strong>Electron desktop orchestrator</strong> (<code>fedlearn-desktop/</code>) launches it via <code>dockerode</code>. Developers and Jetson operators run it manually.</p>
 <blockquote>
-<p><strong>Thin wrapper, by design.</strong> <code>framework/</code> is <code>pip install</code>-ed inside the image. The container carries <strong>no FL logic of its own</strong> — don't duplicate framework code into <code>client-docker/scripts/</code>.</p>
+<p><strong>Thin wrapper, by design.</strong> <code>framework/</code> is <code>pip install</code>-ed inside the image. The container carries <strong>no FL logic of its own</strong> — DA-5 removed the old <code>client-docker/scripts/</code> client fork; don't reintroduce one.</p>
 </blockquote>
 <hr />
 <h2 id="layout">Layout<a class="headerlink" href="#layout" title="Permanent link">&para;</a></h2>

@@ -67,12 +67,9 @@ backend/fl-platform-api/artifact-store/
 # Source package dirs that collide with the ML-artifact "models/" rule above
 !fl-runtime/models/
 !fl-runtime/models/**
-!client-docker/scripts/models/
-!client-docker/scripts/models/**
-# ...but the "**" re-inclusions above also re-track Python bytecode caches inside those
-# source dirs (they override the global __pycache__/ rule). Re-ignore just the caches.
+# ...but the "**" re-inclusion above also re-tracks Python bytecode caches inside that
+# source dir (it overrides the global __pycache__/ rule). Re-ignore just the caches.
 fl-runtime/models/**/__pycache__/
-client-docker/scripts/models/**/__pycache__/
 
 # ========================
 # Logs & Ephemeral Data

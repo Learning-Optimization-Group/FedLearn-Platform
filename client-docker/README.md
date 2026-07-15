@@ -1,6 +1,6 @@
 # FedLearn Client — Docker Package
 
-Containerized FL client. Bundles the `framework/` library + `scripts/client.py` so distributed clients can join training without a Python toolchain on the host. End users typically don't run this directly — the **Electron desktop orchestrator** (`fedlearn-desktop/`) launches it via `dockerode`. Devs and Jetson operators run it manually.
+Containerized FL client. Bundles the `framework/` library + the canonical `fl-runtime/client.py` so distributed clients can join training without a Python toolchain on the host. End users typically don't run this directly — the **Electron desktop orchestrator** (`fedlearn-desktop/`) launches it via `dockerode`. Devs and Jetson operators run it manually.
 
 For the full operational procedure (Jetson, native Mac/Linux, troubleshooting, multi-arch builds), see **[`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md)**.
 

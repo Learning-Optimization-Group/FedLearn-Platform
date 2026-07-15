@@ -204,7 +204,7 @@ cd ~/codebase/personalProjects/FedLearn-Platform/client-docker
 source venv/bin/activate
 export PYTHONPATH="../framework/src"
 
-python3 scripts/client.py \
+python3 ../fl-runtime/client.py \
   --project-id "<your-project-uuid>" \
   --server-address "127.0.0.1:<grpc-port>" \
   --partition-id 1
@@ -259,7 +259,7 @@ cd ~/codebase/personalProjects/FedLearn-Platform/client-docker
 source venv/bin/activate
 export PYTHONPATH="../framework/src"
 
-python3 scripts/client.py \
+python3 ../fl-runtime/client.py \
   --project-id "<your-project-uuid>" \
   --server-address "127.0.0.1:<grpc-port>" \
   --partition-id 1
@@ -513,7 +513,7 @@ sudo docker run --rm -it \
 ```bash
 source venv/bin/activate
 export PYTHONPATH="../framework/src"
-python3 scripts/client.py \
+python3 ../fl-runtime/client.py \
   --project-id "<uuid>" \
   --server-address "127.0.0.1:<port>" \
   --partition-id 1

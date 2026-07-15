@@ -62,7 +62,7 @@ DockerService.startTraining() → startNativeProcess()
     ▼
 resolveNativeInvocation():
     ├── app.isPackaged = true  → binary: <resourcesPath>/fedlearn-client/fedlearn-client
-    └── app.isPackaged = false → python3 client-docker/scripts/client.py
+    └── app.isPackaged = false → python3 fl-runtime/client.py
     │
     ▼
 spawn(binary, ['--project-id', ..., '--server-address', ..., '--partition-id', ...])

@@ -32,7 +32,7 @@
 
 ### Dev mode (system Python + repo checkout)
 
-The `DockerService` falls back to spawning `python3 client-docker/scripts/client.py`
+The `DockerService` falls back to spawning `python3 fl-runtime/client.py`
 when `app.isPackaged === false`, so you don't need to rebuild the PyInstaller
 bundle after every Python edit. Make sure you have the framework installed:
 

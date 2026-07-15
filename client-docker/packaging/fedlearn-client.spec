@@ -17,8 +17,8 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 # SPECPATH is the directory containing this spec file, not a file path.
 SPEC_DIR = os.path.abspath(SPECPATH)
-SCRIPTS_DIR = os.path.abspath(os.path.join(SPEC_DIR, '..', 'scripts'))
-CLIENT_ENTRY = os.path.join(SCRIPTS_DIR, 'client.py')
+RUNTIME_DIR = os.path.abspath(os.path.join(SPEC_DIR, '..', '..', 'fl-runtime'))
+CLIENT_ENTRY = os.path.join(RUNTIME_DIR, 'client.py')
 
 if not os.path.isfile(CLIENT_ENTRY):
     raise SystemExit(f'Expected client entry at {CLIENT_ENTRY}')
@@ -68,11 +68,14 @@ hiddenimports.extend([
     'sklearn.tree._utils',
 ])
 
-# Bundle the sibling modules that client.py imports by name
-# (config.py, models/, data_loaders/). These live in scripts/ next to client.py.
-LOCAL_SIBLINGS = ['config.py', 'models', 'data_loaders']
+# Bundle the sibling modules that client.py imports by name (directly or
+# transitively). These live in fl-runtime/ next to client.py. Kept in sync with
+# the transitive-import audit in the DA-5 plan — a missing entry surfaces only as
+# a runtime ModuleNotFoundError in the frozen binary, not at build time.
+LOCAL_SIBLINGS = ['config.py', 'data.py', 'recipes.py', 'model_utils.py',
+                  'device.py', 'models', 'data_loaders', 'architecture']
 for name in LOCAL_SIBLINGS:
-    src = os.path.join(SCRIPTS_DIR, name)
+    src = os.path.join(RUNTIME_DIR, name)
     if os.path.isdir(src):
         datas.append((src, name))
     elif os.path.isfile(src):
@@ -80,7 +83,7 @@ for name in LOCAL_SIBLINGS:
 
 a = Analysis(
     [CLIENT_ENTRY],
-    pathex=[SCRIPTS_DIR],
+    pathex=[RUNTIME_DIR],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,

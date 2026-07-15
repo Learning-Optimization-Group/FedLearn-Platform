@@ -1,0 +1,22 @@
+# Build-context ignore for `docker build -f client-docker/Dockerfile .` (context = repo root).
+# The client image COPYs framework/ and fl-runtime/ only; keep it lean by dropping dev-only
+# data/tests/cache. Datasets are volume-mounted (docker run -v ...) or downloaded at runtime,
+# never baked into the image (parity with the pre-DA-5 client-docker/scripts/ fork).
+
+# fl-runtime: exclude the heavy dev-only DATA trees from the client image.
+# NB: data/ and ecg_data/ are data files (no __init__.py) — `import data` resolves to data.py,
+# so excluding the dirs is safe. Do NOT exclude fl-runtime/models/ — it is a tracked CODE package
+# (models/__init__.py exports CnnNet; `from models import CnnNet` resolves to it, not models.py).
+fl-runtime/data/
+fl-runtime/ecg_data/
+fl-runtime/tests/
+fl-runtime/benchmarks.py
+fl-runtime/fl_server_deep_debug.log
+
+# Python / VCS / OS cruft (context-wide, safe)
+**/__pycache__/
+**/*.py[cod]
+**/*.so
+.git/
+**/*.log
+**/.DS_Store

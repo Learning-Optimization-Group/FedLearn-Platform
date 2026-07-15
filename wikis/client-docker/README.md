@@ -3,9 +3,9 @@
 > **Part of:** [FedLearn Platform Docs](../README.md)  
 > **Stack:** Docker, multi-arch base images, thin wrapper around `framework/`
 
-`client-docker/` is the **containerised FL client**. It bundles the `framework/` library plus a thin `scripts/client.py` entry point so a client can join training **without a Python toolchain on the host**. End users don't usually run it directly — the **Electron desktop orchestrator** (`fedlearn-desktop/`) launches it via `dockerode`. Developers and Jetson operators run it manually.
+`client-docker/` is the **containerised FL client**. It bundles the `framework/` library plus the canonical `fl-runtime/client.py` entry point (shared with the desktop native bundle and dev/local runs) so a client can join training **without a Python toolchain on the host**. End users don't usually run it directly — the **Electron desktop orchestrator** (`fedlearn-desktop/`) launches it via `dockerode`. Developers and Jetson operators run it manually.
 
-> **Thin wrapper, by design.** `framework/` is `pip install`-ed inside the image. The container carries **no FL logic of its own** — don't duplicate framework code into `client-docker/scripts/`.
+> **Thin wrapper, by design.** `framework/` is `pip install`-ed and the canonical `fl-runtime/client.py` is copied into the image. The container carries **no forked FL logic of its own** — DA-5 removed the old `client-docker/scripts/` client fork; don't reintroduce one.
 
 ---
 
