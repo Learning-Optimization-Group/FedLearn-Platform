@@ -35,7 +35,7 @@ RESTART_SERVICE=false
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_DIR="$REPO_ROOT/backend/fl-platform-api"
-SCRIPTS_SRC="$BACKEND_DIR/src/main/resources/scripts"
+SCRIPTS_SRC="$REPO_ROOT/fl-runtime"
 FRAMEWORK_SRC="$REPO_ROOT/framework"
 REQUIREMENTS_SRC="$REPO_ROOT/framework/requirements.txt"
 BOOTSTRAP_SCRIPT="$REPO_ROOT/scripts/ec2-bootstrap.sh"

@@ -40,7 +40,7 @@ jobs:
             backend:
               - 'backend/**'
             backend_scripts:
-              - 'backend/fl-platform-api/src/main/resources/scripts/**'
+              - 'fl-runtime/**'
               - 'backend/fl-platform-api/requirements.txt'
             frontend:
               - 'frontend/**'
@@ -137,7 +137,7 @@ jobs:
       # TE-10: the skip-integrity guard in tests/conftest.py fails this job if any test is
       # SKIPPED (this suite allowlists no skip reasons; `-m "not slow"` deselection is not a skip).
       - name: pytest (FL trainer scripts; pytest.ini deselects -m slow)
-        working-directory: backend/fl-platform-api/src/main/resources/scripts
+        working-directory: fl-runtime
         env:
           FEDLEARN_FAIL_ON_UNEXPECTED_SKIP: '1'
         run: python -m pytest -q

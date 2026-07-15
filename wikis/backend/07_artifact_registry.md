@@ -118,7 +118,7 @@ ArtifactRegistryService.registerForProject  (resolves project -> orgId, activeRu
 (`ArtifactRegistryService.java:65-105`; the internal endpoint itself is
 `backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/controller/InternalArtifactController.java:34-50`.)
 
-Two Python-side call sites feed this endpoint (`backend/fl-platform-api/src/main/resources/scripts/fl_server.py`):
+Two Python-side call sites feed this endpoint (`fl-runtime/fl_server.py`):
 
 - **Non-LoRA recipes** (`FULL_CHECKPOINT`): `_register_model_artifact` posts the run's `--model-path`
   `.npz` bytes directly (`fl_server.py:85-119`, called from the final-save block at `fl_server.py:1007-1012`)

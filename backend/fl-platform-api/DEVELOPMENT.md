@@ -307,7 +307,7 @@ runningServers.put(project.getId(), process);
 In `application.properties`:
 ```properties
 # Path to the FL server wrapper script
-python.script.fl-server.path=src/main/resources/scripts/run_fl_server.sh
+python.script.fl-server.path=../../fl-runtime/run_fl_server.sh
 ```
 
 #### Script Parameters

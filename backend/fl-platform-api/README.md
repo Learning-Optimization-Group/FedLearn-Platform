@@ -139,7 +139,7 @@ client.activate();
 `FlowerServerManager` is the entry point. On `POST /api/projects/{id}/start` it:
 
 1. Reserves a port from `fl.server.port-range.start..end` (default `50000-50010`).
-2. Spawns `python src/main/resources/scripts/run_fl_server.sh ...` with project config.
+2. Spawns `python ../../fl-runtime/run_fl_server.sh ...` with project config.
 3. Captures stdout/stderr line-by-line and broadcasts via `WebSocketService` to `/topic/logs/{projectId}`.
 4. Tracks PID + process handle so `/stop` can terminate cleanly.
 

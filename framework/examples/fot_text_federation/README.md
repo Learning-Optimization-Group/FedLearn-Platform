@@ -31,7 +31,7 @@ surface it (so one client's hallucination is not baked into the shared library).
 The control plane spawns the server like the gradient FL server:
 
 ```bash
-backend/fl-platform-api/src/main/resources/scripts/run_fot_server.sh \
+fl-runtime/run_fot_server.sh \
   --port 50050 --num-rounds 5 --round-seconds 5 --quorum 2 --backend stub
 ```
 
