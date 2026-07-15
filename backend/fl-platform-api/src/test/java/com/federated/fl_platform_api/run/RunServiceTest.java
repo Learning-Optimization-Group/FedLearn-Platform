@@ -259,7 +259,7 @@ class RunServiceTest {
         when(enrollmentRepository.findByIdRunIdAndIdUserId(rid, 7L)).thenReturn(java.util.Optional.empty());
         when(enrollmentRepository.maxPartitionIdForRun(rid)).thenReturn(-1);
         when(enrollmentRepository.save(any(RunEnrollment.class))).thenAnswer(i -> i.getArgument(0));
-        when(tokenService.mint(any())).thenReturn(
+        when(tokenService.mint(any(), anyLong())).thenReturn(
                 new ConnectionTokenService.Minted("tok", java.time.Instant.now().plusSeconds(120)));
 
         var dto = runService.enroll(rid);
@@ -286,7 +286,7 @@ class RunServiceTest {
         when(enrollmentRepository.findByIdRunIdAndIdUserId(rid, 7L)).thenReturn(java.util.Optional.empty());
         when(enrollmentRepository.maxPartitionIdForRun(rid)).thenReturn(-1);
         when(enrollmentRepository.save(any(RunEnrollment.class))).thenAnswer(i -> i.getArgument(0));
-        when(tokenService.mint(any())).thenReturn(
+        when(tokenService.mint(any(), anyLong())).thenReturn(
                 new ConnectionTokenService.Minted("tok", java.time.Instant.now().plusSeconds(120)));
         when(clientCa.isEnabled()).thenReturn(true);
         when(clientCa.issueClientCert("7", rid)).thenReturn(new FlClientCertificateAuthority.IssuedClientCert(
@@ -315,7 +315,7 @@ class RunServiceTest {
         RunEnrollment existing = new RunEnrollment(new RunEnrollmentId(rid, 7L), 2, ClientKind.SHARD, java.time.Instant.now());
         when(enrollmentRepository.findByIdRunIdAndIdUserId(rid, 7L)).thenReturn(java.util.Optional.of(existing));
         when(enrollmentRepository.save(any(RunEnrollment.class))).thenAnswer(i -> i.getArgument(0));
-        when(tokenService.mint(any())).thenReturn(
+        when(tokenService.mint(any(), anyLong())).thenReturn(
                 new ConnectionTokenService.Minted("tok2", java.time.Instant.now().plusSeconds(120)));
 
         var dto = runService.enroll(rid);
@@ -352,7 +352,7 @@ class RunServiceTest {
         when(enrollmentRepository.findByIdRunIdAndIdUserId(rid, 9L)).thenReturn(java.util.Optional.empty());
         when(enrollmentRepository.maxPartitionIdForRun(rid)).thenReturn(5);
         when(enrollmentRepository.save(any(RunEnrollment.class))).thenAnswer(i -> i.getArgument(0));
-        when(tokenService.mint(any())).thenReturn(
+        when(tokenService.mint(any(), anyLong())).thenReturn(
                 new ConnectionTokenService.Minted("tok", java.time.Instant.now().plusSeconds(120)));
 
         var dto = runService.enroll(rid);

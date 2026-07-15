@@ -228,9 +228,12 @@ public class RunService {
         enrollment = enrollmentRepository.save(enrollment);
 
         String grpcEndpoint = endpoint(run);
+        // SE-14: size the token to the whole run (numRounds), not a fixed TTL — otherwise a long run
+        // outlives its token and the client is rejected mid-training once require-client-auth is on.
         ConnectionTokenService.Minted minted = tokenService.mint(new ConnectionTokenService.Claims(
                 self.getId(), runId, project.getId(), enrollment.getPartitionId(),
-                grpcEndpoint, run.getGrpcCaFingerprint(), enrollment.getClientKind().name()));
+                grpcEndpoint, run.getGrpcCaFingerprint(), enrollment.getClientKind().name()),
+                tokenService.ttlForRun(run.getNumRounds()));
 
         EnrollmentDto dto = new EnrollmentDto();
         dto.setRunId(runId);
