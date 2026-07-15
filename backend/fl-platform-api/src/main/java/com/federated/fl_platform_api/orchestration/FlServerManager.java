@@ -129,9 +129,12 @@ public class FlServerManager {
         requireDpPolicySatisfied(project);   // SE-11: gate every start path, before any spawn
         requireModelTypeInCatalog(project, strategy);   // SE-10: unknown modelType -> 400 before spawn
         if (!isBlank(ecsClusterName)) {
-            // The ECS/Fargate production path is not implemented: runTask returned no reachable
-            // host:port (it handed back 0), the task was never tracked in runningServers, and
-            // stop/delete could not terminate it — so it would leak a running, billing task while
+            // The ECS/Fargate production path is not implemented (OP-14 decision: hardened single-VM
+            // is the supported deployed architecture; the managed-task path is OP-12). This is a
+            // BACKSTOP — FlOrchestrationModeValidator already fails the boot when ecs.cluster-name is
+            // set, so a correctly-booted app never reaches here. If it somehow does: runTask returned
+            // no reachable host:port (it handed back 0), the task was never tracked in runningServers,
+            // and stop/delete could not terminate it — so it would leak a running, billing task while
             // the project was marked RUNNING on an unreachable port. Fail closed rather than record
             // that bogus state. Unset ecs.cluster-name to use the local-process path.
             // See docs/guides/AWS_AUDIT.md before implementing the managed-task path.
