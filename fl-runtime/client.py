@@ -24,6 +24,7 @@ import torchvision.transforms as transforms
 from datasets import load_dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
 from models import CnnNet
+from device import resolve_device
 
 
 try:
@@ -850,7 +851,7 @@ def create_decomfl_compatible_loader(original_loader, is_llm=False):
 # --- Main Execution Block ---
 # ==============================================================================
 def main():
-    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, LLM_LORA_TASK_TYPE, DATASET_NAME, BATCH_SIZE
+    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, LLM_LORA_TASK_TYPE, DATASET_NAME, BATCH_SIZE, DEVICE
 
     print(f"\n{'='*60}")
     print(f"DEVICE DETECTION")
@@ -872,8 +873,14 @@ def main():
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="FL strategy (FedAvg or DeComFL)")
     parser.add_argument("--use-llm", action="store_true", help="Use LLM (deprecated, use --model-type TRANSFORMER)")
+    parser.add_argument("--device", default=os.environ.get("FEDLEARN_DEVICE", "auto"),
+                        choices=["auto", "cpu", "cuda", "mps"],
+                        help="Compute device (default: auto — cuda>mps>cpu; FEDLEARN_DEVICE env fallback)")
 
     args = parser.parse_args()
+
+    DEVICE = resolve_device(args.device)
+    print(f"[device] resolved --device={args.device!r} -> {DEVICE}")
 
     # Determine model type
     if args.model_type:
