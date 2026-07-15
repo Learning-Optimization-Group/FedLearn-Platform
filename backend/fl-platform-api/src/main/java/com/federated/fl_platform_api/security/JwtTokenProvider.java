@@ -18,6 +18,15 @@ import org.springframework.security.core.userdetails.UserDetails;
 @Component
 public class JwtTokenProvider {
 
+    /**
+     * SE-20: the web session JWT's audience — deliberately distinct from the FL connection token's
+     * {@code fedlearn-fl-server} ({@link ConnectionTokenService#AUDIENCE}). Verification requires it,
+     * so an FL connection token (or a legacy audience-less token) signed with the same HMAC key cannot
+     * be replayed as a web session even if {@code app.fl.token-secret} ever coincides with
+     * {@code app.jwt.secret}.
+     */
+    public static final String WEB_AUDIENCE = "fedlearn-web";
+
     @Value("${app.jwt.secret}")
     private String jwtSecretString;
 
@@ -40,6 +49,7 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .subject(userPrincipal.getUsername())
+                .audience().add(WEB_AUDIENCE).and()   // SE-20: scope to the web boundary, distinct from FL tokens
                 .id(java.util.UUID.randomUUID().toString())   // SE-8: jti, so the token can be revoked on logout
                 .issuedAt(now)
                 .expiration(expiryDate)
@@ -85,6 +95,7 @@ public class JwtTokenProvider {
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
                 .verifyWith(jwtSecretKey)
+                .requireAudience(WEB_AUDIENCE)   // SE-20: reject FL / legacy audience-less tokens on the web path
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
