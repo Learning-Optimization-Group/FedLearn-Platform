@@ -68,7 +68,7 @@ public class InferenceService {
     /** Projects whose in-flight generation was user-stopped (so runGenerationScript returns a "stopped" result, not a 502). */
     final Set<UUID> stoppedGenerations = ConcurrentHashMap.newKeySet();
 
-    @Value("${python.script.infer.path:src/main/resources/scripts/run_infer.sh}")
+    @Value("${python.script.infer.path:../../fl-runtime/run_infer.sh}")
     private String inferWrapperPath;
 
     public InferenceService(ProjectService projectService,

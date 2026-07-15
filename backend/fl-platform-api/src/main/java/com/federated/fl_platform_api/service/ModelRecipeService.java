@@ -43,7 +43,7 @@ public class ModelRecipeService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${python.script.recipes.path:src/main/resources/scripts/run_recipes.sh}")
+    @Value("${python.script.recipes.path:../../fl-runtime/run_recipes.sh}")
     private String recipesWrapperPath;
 
     /** Lazily-populated cache; once set it is never re-read. Volatile for safe publication. */

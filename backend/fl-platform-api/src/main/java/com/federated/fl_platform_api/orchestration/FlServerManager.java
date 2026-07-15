@@ -52,10 +52,10 @@ public class FlServerManager {
     @Value("${app.fl.require-tls:false}")
     private boolean requireTls;
 
-    @Value("${python.script.fl-server.path:src/main/resources/scripts/run_fl_server.sh}")
+    @Value("${python.script.fl-server.path:../../fl-runtime/run_fl_server.sh}")
     private String flServerWrapperPath;
 
-    @Value("${python.script.fot-server.path:src/main/resources/scripts/run_fot_server.sh}")
+    @Value("${python.script.fot-server.path:../../fl-runtime/run_fot_server.sh}")
     private String fotServerWrapperPath;
 
     @Value("${fl.server.port-range.start:50000}")
