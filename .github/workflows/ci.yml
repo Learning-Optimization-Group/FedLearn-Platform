@@ -129,7 +129,11 @@ jobs:
           # and `scikit-learn` (framework/requirements.txt) — mirror that here. Without these the
           # suite errors out during collection (5 collection errors), a false red the moment the
           # scripts change. They resolve against the already-installed torch, so torch is untouched.
-          pip install -r backend/fl-platform-api/requirements.txt pytest "peft>=0.11" scikit-learn
+          # PyJWT: the FL-server import chain (security/token_verify.py -> `import jwt`, pulled in by
+          # the connection-token interceptor) needs it; framework/requirements.txt declares it, but
+          # this job installs the backend lockfile + uses the framework via sys.path, so add it here
+          # (mirrors framework/requirements.txt's `PyJWT>=2.8,<3`), like peft/scikit-learn above.
+          pip install -r backend/fl-platform-api/requirements.txt pytest "peft>=0.11" scikit-learn "PyJWT>=2.8,<3"
       # TE-10: the skip-integrity guard in tests/conftest.py fails this job if any test is
       # SKIPPED (this suite allowlists no skip reasons; `-m "not slow"` deselection is not a skip).
       - name: pytest (FL trainer scripts; pytest.ini deselects -m slow)
