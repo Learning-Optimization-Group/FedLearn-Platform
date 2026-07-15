@@ -68,10 +68,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install --index-url https://download.pytorch.org/whl/cpu "torch==${TORCH_VERSION}"
-          pip install numpy pytest
+          # pytest-cov: framework/pytest.ini addopts include --cov=fedlearn (TE-11), so pytest errors
+          # with "unrecognized arguments: --cov" unless it is installed — even for this subset run.
+          pip install numpy pytest pytest-cov
       - name: Run perturbation parity tests
         working-directory: framework
-        run: PYTHONPATH=src pytest tests/test_perturbation.py -v
+        # --no-cov: this runs a single test file, not the full suite, so coverage would trip the
+        # --cov-fail-under floor by design (see the pytest.ini note). Disable it for the subset.
+        run: PYTHONPATH=src pytest tests/test_perturbation.py -v --no-cov
 
   # ---- C++ parity gate: the gtests compare the C++ core to the Python golden fixture ----
   # The core links the ExecuTorch runtime (no libtorch/ATen). The ET pip package ships headers but
