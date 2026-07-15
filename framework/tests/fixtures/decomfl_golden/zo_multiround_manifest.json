@@ -1,0 +1,76 @@
+{
+  "description": "Multi-round DeComFL trajectory golden (Python<->C++ endpoint parity). N rounds of x -= (eta/P)*sum_p g_p*z_p, one-sided forward-diff g, float32.",
+  "torch_version": "2.12.0",
+  "platform_machine": "arm64",
+  "num_rounds": 3,
+  "K": 1,
+  "P": 4,
+  "eta": 0.02,
+  "mu": 0.001,
+  "seed_base": 42,
+  "flat_dim": 25,
+  "initial_flat_file": "zo_flat.f32",
+  "inputs_file": "zo_inputs.f32",
+  "targets_file": "zo_targets.i64",
+  "seeds_file": "zo_multiround_seeds.i64",
+  "g_file": "zo_multiround_g.f64",
+  "seeds": [
+    [
+      [
+        191664963,
+        1662057957,
+        1405681631,
+        942484272
+      ]
+    ],
+    [
+      [
+        929893137,
+        1843824992,
+        184566854,
+        1497586438
+      ]
+    ],
+    [
+      [
+        432652533,
+        202244314,
+        1130604997,
+        2095133045
+      ]
+    ]
+  ],
+  "per_round_g": [
+    [
+      [
+        0.2970695495605469,
+        0.22792814671993256,
+        -0.15437602996826172,
+        0.5173683166503906
+      ]
+    ],
+    [
+      [
+        0.06473064422607422,
+        -0.009059906005859375,
+        0.43475624918937683,
+        -0.4603862464427948
+      ]
+    ],
+    [
+      [
+        0.5276203155517578,
+        0.21290777623653412,
+        0.9511708617210388,
+        -0.027060506865382195
+      ]
+    ]
+  ],
+  "final_flat_file": "zo_multiround_final.f32",
+  "final_flat_sha256": "650943142f859d29e2a9737828516064ab77177f534e5b9c9548d6647c2d93a3",
+  "state_file": "zo_multiround_state.safetensors",
+  "state_sha256": "2616dfc49649ad2b664c6a223a28564e9edc1917585ab6908e3cc6a78f038744",
+  "final_loss": 1.0870566368103027,
+  "endpoint_atol": 0.002,
+  "g_atol": 0.002
+}

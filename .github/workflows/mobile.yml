@@ -22,14 +22,18 @@ on:
       - 'mobile_client/**'
       - 'proto/**'
       - 'framework/tests/fixtures/decomfl_golden/**'
-      - 'framework/src/fedlearn/estimators/perturbation.py'
+      - 'framework/src/fedlearn/estimators/**'
+      - 'framework/tests/test_perturbation.py'
+      - 'framework/tests/test_decomfl_multiround.py'
       - '.github/workflows/mobile.yml'
   pull_request:
     paths:
       - 'mobile_client/**'
       - 'proto/**'
       - 'framework/tests/fixtures/decomfl_golden/**'
-      - 'framework/src/fedlearn/estimators/perturbation.py'
+      - 'framework/src/fedlearn/estimators/**'
+      - 'framework/tests/test_perturbation.py'
+      - 'framework/tests/test_decomfl_multiround.py'
       - '.github/workflows/mobile.yml'
   # TE-8: nightly native .so build. The arm64 ExecuTorch/gRPC APK build is far too heavy to gate every
   # PR on, but must not bit-rot silently — run it once a night for regression signal + an APK artifact.
@@ -75,11 +79,13 @@ jobs:
           # pytest-cov: framework/pytest.ini addopts include --cov=fedlearn (TE-11), so pytest errors
           # with "unrecognized arguments: --cov" unless it is installed — even for this subset run.
           pip install -r framework/requirements.txt pytest pytest-cov
-      - name: Run perturbation parity tests
+      - name: Run perturbation + multi-round trajectory parity tests
         working-directory: framework
-        # --no-cov: this runs a single test file, not the full suite, so coverage would trip the
+        # --no-cov: this runs a subset of test files, not the full suite, so coverage would trip the
         # --cov-fail-under floor by design (see the pytest.ini note). Disable it for the subset.
-        run: PYTHONPATH=src pytest tests/test_perturbation.py -v --no-cov
+        # test_decomfl_multiround.py freezes/reproduces the N-round DeComFL endpoint the C++
+        # et_multiround_test.cpp replays (DA-5 / D2b).
+        run: PYTHONPATH=src pytest tests/test_perturbation.py tests/test_decomfl_multiround.py -v --no-cov
 
   # ---- C++ parity gate: the gtests compare the C++ core to the Python golden fixture ----
   # The core links the ExecuTorch runtime (no libtorch/ATen). The ET pip package ships headers but

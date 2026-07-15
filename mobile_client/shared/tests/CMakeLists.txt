@@ -27,6 +27,7 @@ add_executable(fedlearn_core_tests
   decomfl_equivalence_test.cpp
   executorch_forward_test.cpp
   et_g_scalar_test.cpp
+  et_multiround_test.cpp
   safetensors_test.cpp
   data_loader_test.cpp
   et_infer_test.cpp
