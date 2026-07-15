@@ -54,10 +54,24 @@ Always tag both `:latest` and a version (`:0.1.0`) — the Electron orchestrator
 ```bash
 docker run --rm -it \
   -v /path/to/data:/data \
+  -e FEDLEARN_CONNECTION_TOKEN=<token> \
   fedlearn-client:latest \
   --server-address <server-host>:<grpc-port> \
   --client-id 0
 ```
+
+**`FEDLEARN_CONNECTION_TOKEN` (SE-14).** When the FL server enforces client auth
+(`app.fl.require-client-auth=true`, the default in deployed profiles once rolled
+out), every client must present a backend-minted connection token on its gRPC
+calls or the server rejects it `UNAUTHENTICATED`. This container reads that token
+from the `FEDLEARN_CONNECTION_TOKEN` env var (the framework client attaches it as
+`x-connection-token` on every call). Obtain the token from the backend, over your
+authenticated web session, at `GET /api/client/projects/{projectId}/connection`
+(field `connectionToken`) — the same DTO that carries the gRPC endpoint. The token
+is sized to the run's length and expires after it, so fetch a fresh one per run.
+The **desktop launcher sets this automatically** when it starts the container; a
+**standalone `docker run` must pass it explicitly** (omit it only against a dev
+server with auth off).
 
 For Jetson with CUDA, add `--runtime nvidia` (NVIDIA Container Runtime is pre-installed with JetPack).
 

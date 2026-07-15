@@ -63,10 +63,19 @@ Always tag both `:latest` and a version — the desktop orchestrator (`fedlearn-
 ```bash
 docker run --rm -it \
   -v /path/to/data:/data \
+  -e FEDLEARN_CONNECTION_TOKEN=<token> \
   fedlearn-client:latest \
   --server-address <server-host>:<grpc-port> \
   --client-id 0
 ```
+
+> **`FEDLEARN_CONNECTION_TOKEN` (SE-14).** When the FL server enforces client auth
+> (`app.fl.require-client-auth=true`), every client must present a backend-minted
+> connection token or the server rejects it `UNAUTHENTICATED`. Fetch it from
+> `GET /api/client/projects/{projectId}/connection` (`connectionToken`) over your
+> authenticated web session; the framework client attaches it as `x-connection-token`
+> on every gRPC call. The desktop launcher injects it automatically — a **standalone
+> `docker run` must pass it explicitly** (omit only against a dev server with auth off).
 
 For multi-platform image distribution (`buildx`, registry pushes, offline export) see the in-repo `DEPLOYMENT_GUIDE.md`.
 
