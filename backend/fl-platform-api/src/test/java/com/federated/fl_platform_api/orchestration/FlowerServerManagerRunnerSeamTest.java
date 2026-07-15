@@ -1,4 +1,4 @@
-package com.federated.fl_platform_api.flower;
+package com.federated.fl_platform_api.orchestration;
 
 import com.federated.fl_platform_api.dto.ModelRecipeDto;
 import com.federated.fl_platform_api.exception.ServerProcessException;
@@ -42,12 +42,12 @@ import static org.mockito.Mockito.when;
  * DA-8: the FL-server orchestration seam ({@link FlServerProcessRunner}) makes the spawn path
  * unit-testable WITHOUT launching a real process — the whole orchestration (build command → apply the
  * SE-1/SE-7 env contract → track handle → broadcast stdout → startup probe → surface an early exit)
- * runs against a fake runner. This complements {@link FlowerServerManagerIntegrationTest} (which still
+ * runs against a fake runner. This complements {@link FlServerManagerIntegrationTest} (which still
  * exercises the real {@link LocalProcessFlServerRunner} end to end for behaviour preservation).
  */
-class FlowerServerManagerRunnerSeamTest {
+class FlServerManagerRunnerSeamTest {
 
-    private FlowerServerManager manager;
+    private FlServerManager manager;
     private WebSocketService ws;
 
     @BeforeEach
@@ -63,7 +63,7 @@ class FlowerServerManagerRunnerSeamTest {
                 new ModelRecipeDto("CNN", "CNN", "image",
                         List.of(), List.of(), List.of(), null)));
 
-        manager = new FlowerServerManager();
+        manager = new FlServerManager();
         ReflectionTestUtils.setField(manager, "logBroadcaster", ws);
         ReflectionTestUtils.setField(manager, "runTokenRegistry", runTokenRegistry);
         ReflectionTestUtils.setField(manager, "runRepository", mock(RunRepository.class));
@@ -77,7 +77,7 @@ class FlowerServerManagerRunnerSeamTest {
         ReflectionTestUtils.setField(manager, "internalApiKey", "the-api-key");
         // The fake runner ignores the command's script path, but the manager still builds an absolute
         // File() from it — a null would NPE before the runner is reached (@Value default isn't applied
-        // under `new FlowerServerManager()`).
+        // under `new FlServerManager()`).
         ReflectionTestUtils.setField(manager, "flServerWrapperPath", "run_fl_server.sh");
         ReflectionTestUtils.setField(manager, "portRangeStart", 50000);
         ReflectionTestUtils.setField(manager, "portRangeEnd", 50010);

@@ -1,12 +1,12 @@
-# 04 - Federated Orchestration (FlowerServerManager)
+# 04 - Federated Orchestration (FlServerManager)
 
-The `FlowerServerManager` is the most operationally complex class in the Spring Boot backend. It is responsible for bridging the gap between the stateless Java REST API and the stateful, heavily computational Python Federated Learning servers.
+The `FlServerManager` is the most operationally complex class in the Spring Boot backend. It is responsible for bridging the gap between the stateless Java REST API and the stateful, heavily computational Python Federated Learning servers.
 
 The application supports two distinct execution paths, determined entirely by the presence of AWS configuration properties (`ecs.cluster-name`, `ecs.task-definition`, etc.) in the `application.properties`.
 
 ## Path A: Local Execution (ProcessBuilder)
 
-When AWS configurations are not present, the `FlowerServerManager` falls back to local execution. This is primarily used for development, testing on a Macbook, or bare-metal deployments (like the RIT lab environment).
+When AWS configurations are not present, the `FlServerManager` falls back to local execution. This is primarily used for development, testing on a Macbook, or bare-metal deployments (like the RIT lab environment).
 
 ### Process Lifecycle
 1. **Port Allocation:** The manager asks the host OS kernel for an ephemeral port via `new ServerSocket(0)`.
@@ -28,7 +28,7 @@ Every line read is passed to the `WebSocketService` to be broadcast to the UI. I
 
 When the backend is deployed to a production environment (like AWS), local process spawning is disabled. A Spring Boot container running behind an Application Load Balancer cannot spawn heavily computational Python tasks inside itself—it would cause OOM kills, and the dynamically allocated ports would be inaccessible from the public internet.
 
-Instead, the `FlowerServerManager` utilizes the AWS SDK (`EcsClient`) to orchestrate infrastructure-level task provisioning.
+Instead, the `FlServerManager` utilizes the AWS SDK (`EcsClient`) to orchestrate infrastructure-level task provisioning.
 
 ### ECS `RunTaskRequest`
 The manager dynamically builds a `RunTaskRequest`. It targets a serverless AWS Fargate cluster.

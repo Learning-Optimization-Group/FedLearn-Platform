@@ -1,4 +1,4 @@
-package com.federated.fl_platform_api.flower;
+package com.federated.fl_platform_api.orchestration;
 
 import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.model.Project;
@@ -37,8 +37,8 @@ import static org.mockito.Mockito.when;
 /**
  * TE-7: end-to-end integration test for the FL-server orchestration path — the cross-component seam
  * that the rest of the suite only covers with static string assertions (see
- * {@link FlowerServerManagerCommandTest}). Here we actually drive
- * {@link FlowerServerManager#startServerForProject} against a hermetic stub script and assert the
+ * {@link FlServerManagerCommandTest}). Here we actually drive
+ * {@link FlServerManager#startServerForProject} against a hermetic stub script and assert the
  * real behaviour: a port in {@code 50000-50010} is reserved, a child process is spawned, its stdout
  * is streamed to {@link WebSocketService#sendLogs} (i.e. broadcast to {@code /topic/logs/{projectId}}),
  * {@code stop} force-terminates the child and releases the port for reuse, and an early child exit is
@@ -54,12 +54,12 @@ import static org.mockito.Mockito.when;
  * Unix-only; CI runs on Linux.</p>
  */
 @DisabledOnOs(OS.WINDOWS)
-class FlowerServerManagerIntegrationTest {
+class FlServerManagerIntegrationTest {
 
     private static final int RANGE_START = 50000;
     private static final int RANGE_END = 50010;
 
-    private FlowerServerManager manager;
+    private FlServerManager manager;
     private WebSocketService ws;
     private RunTokenRegistry runTokenRegistry;
 
@@ -73,7 +73,7 @@ class FlowerServerManagerIntegrationTest {
         runTokenRegistry = mock(RunTokenRegistry.class);
         when(runTokenRegistry.mint(any(), any())).thenReturn("test-run-token");
 
-        manager = new FlowerServerManager();
+        manager = new FlServerManager();
         ReflectionTestUtils.setField(manager, "logBroadcaster", ws);
         ReflectionTestUtils.setField(manager, "runTokenRegistry", runTokenRegistry);
         // BA-3: the stub project carries no active run, so recordProcessIdentity short-circuits — but

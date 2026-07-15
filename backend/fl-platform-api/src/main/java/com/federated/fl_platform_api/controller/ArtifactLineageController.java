@@ -1,9 +1,12 @@
 package com.federated.fl_platform_api.controller;
 
 import com.federated.fl_platform_api.model.ModelArtifact;
+import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.repository.ModelArtifactRepository;
+import com.federated.fl_platform_api.repository.ProjectRepository;
 import com.federated.fl_platform_api.security.OrgScope;
 import com.federated.fl_platform_api.service.ArtifactRegistryService;
+import com.federated.fl_platform_api.service.AuthorizationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,25 +30,48 @@ public class ArtifactLineageController {
     private final ArtifactRegistryService registry;
     private final ModelArtifactRepository artifacts;
     private final OrgScope orgScope;
+    private final AuthorizationService authz;
+    private final ProjectRepository projects;
 
     public ArtifactLineageController(ArtifactRegistryService registry,
                                      ModelArtifactRepository artifacts,
-                                     OrgScope orgScope) {
+                                     OrgScope orgScope,
+                                     AuthorizationService authz,
+                                     ProjectRepository projects) {
         this.registry = registry;
         this.artifacts = artifacts;
         this.orgScope = orgScope;
+        this.authz = authz;
+        this.projects = projects;
     }
 
     @GetMapping("/{id}/lineage")
     public ResponseEntity<List<Map<String, Object>>> lineage(@PathVariable UUID id) {
         ModelArtifact target = artifacts.findById(id).orElse(null);
-        if (target == null || !orgScope.allows(target.getOrgId())) {
-            return ResponseEntity.notFound().build(); // 404 for both — no cross-org existence leak
+        if (target == null || !mayRead(target)) {
+            return ResponseEntity.notFound().build(); // 404 for all — no cross-org/cross-project leak (SE-16)
         }
         List<Map<String, Object>> chain = registry.getLineageChain(id).stream()
                 .map(ArtifactLineageController::toDto)
                 .toList();
         return ResponseEntity.ok(chain);
+    }
+
+    /**
+     * SE-16 read gate (same rule as {@code ArtifactController}): readable iff org-visible AND
+     * (no owning project — a {@code BASE_REF}; OR explicitly published to the marketplace, FE-12; OR
+     * the caller is a participant of its project). A non-participant reads a private artifact's
+     * lineage — and the base/license provenance it exposes — as absent, so nothing leaks.
+     */
+    private boolean mayRead(ModelArtifact a) {
+        if (!orgScope.allows(a.getOrgId())) {
+            return false;
+        }
+        if (a.getProjectId() == null || a.isPublished()) {
+            return true;
+        }
+        Project p = projects.findById(a.getProjectId()).orElse(null);
+        return p != null && authz.isParticipant(p);
     }
 
     private static Map<String, Object> toDto(ModelArtifact a) {

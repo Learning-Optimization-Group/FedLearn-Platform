@@ -69,6 +69,9 @@ class _FakeClient:
     def load_global_model(self, params):  # FR-1 initial sync; no-op for the lifecycle doubles
         pass
 
+    def assert_dim_matches(self, server_model_dim):  # MO-19: no-op unless a test overrides to reject
+        pass
+
 
 class _FakeComm:
     """
@@ -137,12 +140,34 @@ def _fast_and_isolated(monkeypatch):
 
 
 def _run(comm):
+    return _run_with(comm, _FakeClient())
+
+
+def _run_with(comm, client):
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(ds, "GrpcClient", lambda client_id, server_address: comm)
     try:
-        return start_decomfl_client("addr:1", _FakeClient(), "c0")
+        return start_decomfl_client("addr:1", client, "c0")
     finally:
         monkeypatch.undo()
+
+
+class TestDimGuard:
+    """MO-19: a server/client trainable-dimension mismatch (advertised via config['model_dim']) is a
+    FATAL setup error — the client must fail loud and exit, not train on a misaligned perturbation or
+    retry-loop on a condition that can never clear."""
+
+    def test_dim_mismatch_exits_error_without_retry(self):
+        class _RejectingDimClient(_FakeClient):
+            def assert_dim_matches(self, server_model_dim):
+                raise ValueError(
+                    f"DeComFL trainable-dimension mismatch: 25 vs {server_model_dim}")
+
+        # A config that advertises a model_dim the client rejects.
+        comm = _FakeComm(config_action=lambda: (0, [], [], {"learning_rate": "0.01", "model_dim": "99"}))
+        outcome = _run_with(comm, _RejectingDimClient())
+        assert outcome == ERROR
+        assert comm.config_calls == 1  # fatal -> did NOT retry-loop
 
 
 # ---------------------------------------------------------------------------

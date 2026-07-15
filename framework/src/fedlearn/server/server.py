@@ -8,6 +8,7 @@ from .coordinator import FLCoordinator
 from .grpc_servicer import FederatedLearningServiceServicer
 from ..communication.generated import fedlearn_pb2_grpc
 from ..security.interceptor import interceptor_from_env
+from ..security.identity import partition_extractor_from_env
 from ..security.tls import check_server_tls_policy
 import logging
 import sys
@@ -109,7 +110,13 @@ def start_server(
 
     # Add servicer
     fedlearn_pb2_grpc.add_FederatedLearningServiceServicer_to_server(
-        FederatedLearningServiceServicer(coordinator),
+        FederatedLearningServiceServicer(
+            coordinator,
+            # SE-15: bind each connection token's server-assigned partition to a single client_id.
+            # Wired to the same FEDLEARN_REQUIRE_CLIENT_AUTH gate as the auth interceptor; returns
+            # None (binding disabled) in local/dev fail-open.
+            partition_extractor=partition_extractor_from_env(),
+        ),
         grpc_server
     )
 

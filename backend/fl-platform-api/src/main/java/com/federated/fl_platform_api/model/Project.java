@@ -197,7 +197,7 @@ public class Project {
     public void setRequirementsOverride(com.federated.fl_platform_api.dto.DeviceRequirements requirementsOverride) { this.requirementsOverride = requirementsOverride; }
 
     // SE-11: run-level DP policy (V17). A regulated project may not start a run unless DP is
-    // enabled with a complete config (enforced at the FlowerServerManager start gate); when
+    // enabled with a complete config (enforced at the FlServerManager start gate); when
     // dp_enabled, the three knobs flow to the FL server as --dp-* flags. Knobs are nullable by
     // design: a non-DP project carries no config.
 

@@ -39,14 +39,25 @@ are the same value by construction.
 
 ## Fixture-MVP boundary (what is NOT yet wired)
 
-The **format is defined and tested here**, but the mobile bundle-provisioning path
-(`scripts/stage_model_bundle.py`) still stages a hardcoded 43-parameter TinyNet golden fixture
-rather than a project's real recipe, and `fl_server.py` currently registers the legacy `.npz` bytes.
-Two follow-ons complete DA-9 end-to-end:
+The **format is defined and tested here**. Of the two follow-ons that originally completed DA-9
+end-to-end, one has since landed and one has not:
 
-1. Wire the export path (`init_model.py` / `stage_model_bundle.py`) to emit **this** manifest for
-   real recipes, serializing adapters as safetensors.
-2. Register the safetensors artifact bytes (so `artifact_sha256` matches the served bundle exactly).
+1. **Still open.** The mobile bundle-*provisioning* path (`scripts/stage_model_bundle.py`) still
+   stages a hardcoded 43-parameter TinyNet golden fixture rather than a project's real recipe. Wiring
+   the export path (`init_model.py` / `stage_model_bundle.py`) to emit this manifest for real recipes
+   remains outstanding.
+2. **Done (DA-9 bullet 3).** For `LLM_LORA` runs, `fl_server.py`'s `_emit_and_register_lora_bundle`
+   now serializes the adapter to safetensors and registers *those* bytes — not the `.npz` — so
+   `artifact_sha256` matches the served bundle exactly (see `fl_server.py`'s `_emit_and_register_lora_bundle`
+   and `_register_model_artifact`). It falls back to registering the legacy `.npz` bytes only if
+   building the real bundle fails. `FULL_CHECKPOINT` runs (non-LoRA recipes) still register `.npz`
+   bytes directly — that is correct by design, not a gap: a full checkpoint's wire format *is* the
+   imaging air-gap `.npz` (see "Serialization" above), not a placeholder awaiting a safetensors
+   conversion.
 
 Until (1) lands, a fixture bundle **must** set `"provenance": {"source": "golden-fixture-mvp"}` so
 telemetry never mistakes a fixture run for real project progress.
+
+See also: `wikis/backend/07_artifact_registry.md` for the registry side of this (the
+`model_artifacts`/`artifact_blobs`/`artifact_lineage` tables a registered bundle's `artifact_sha256`
+resolves to).

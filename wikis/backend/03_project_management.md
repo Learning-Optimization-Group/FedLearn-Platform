@@ -2,7 +2,7 @@
 
 This document explains how a Federated Learning Project is created, initialized, and managed within the Spring Boot backend.
 
-> ⚠️ **Branch reality.** The project CRUD, model initialization, and FL-server start/stop flows on this page are **current**. The **org-scoping and audit layers** described here — `projects.org_id` (the V5 migration), `authz.requireOrgScope(...)`, `OrgScope`, `isPlatformAdmin()`, and the `@Auditable` annotations — are **designed on a separate identity-foundations branch and are _not present_ here.** On this branch a project is owned by a `User` with no org pinning, and authorization is the coarse `users.role IN (USER, ADMIN)` model. See [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md).
+> ✅ **Branch reality.** The project CRUD, model initialization, and FL-server start/stop flows on this page are **current**. The **org-scoping and audit layers** described here — `projects.org_id` (the `V5` migration), `AuthorizationService`, `OrgScopeFilter`, `isPlatformAdmin()`, and the `@Auditable` annotations — **are also present on this branch** (the `V4`–`V7` identity migrations). A project is owned by a `User` and pinned to an org via `projects.org_id`. See [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md).
 
 ## 1. Project Creation Flow
 
@@ -24,6 +24,13 @@ This service method is annotated with `@Transactional`. If any step fails, the e
 3. **Determine File Path:** A target file path is generated (e.g., `models/<uuid>.npz`).
 4. **Model Initialization:** `ModelInitializer.initializeModelFile()` is invoked. It executes a local Python script (`run_init_model.sh`) that constructs the initial model architecture (PyTorch) based on the `modelType` and saves it to the `.npz` file.
 5. **Finalize DB Entry:** The `Project` entity is updated with the absolute path to the `.npz` file and its status is set to `CREATED`.
+
+> Steps 3–5 describe the project's *initial* model file only, written once at creation. They predate,
+> and are unrelated to, the content-addressed model artifact registry that now also records every run's
+> *trained* output as a versioned, provenance-tracked row (`model_artifacts`) rather than treating this
+> `.npz` as the sole, overwritable record. See [07 - Content-Addressed Model Artifact Registry](07_artifact_registry.md)
+> for the write path (registration on run completion) and the read path (inference/warm-start now prefer
+> the registry over this file when an artifact exists).
 
 `createProject` is also annotated `@Auditable(action = PROJECT_CREATED)`, so a successful creation writes an `audit_events` row in the same transaction (see [06 - Identity, Multi-Tenancy & Audit](06_identity_multitenancy_and_audit.md)).
 
@@ -86,7 +93,7 @@ The `POST /api/projects/{projectId}/start` endpoint kicks off the machine learni
 
 1. The user specifies the training `strategy` (e.g., `FedAvg`), the `minClients` required, and the `numRounds`.
 2. The `ProjectService` enforces org-scope then ownership (`requireOrgScope` → `requireOwnerOrAdmin`) and ensures the server isn't already running. `startServerForProject` is `@Auditable(action = RUN_STARTED)`; `stopServerForProject` is `@Auditable(action = RUN_STOPPED)`.
-3. It calls `FlowerServerManager.startServerForProject(...)`. (See [04 - Federated Orchestration](04_federated_orchestration.md) for full details on this component).
+3. It calls `FlServerManager.startServerForProject(...)`. (See [04 - Federated Orchestration](04_federated_orchestration.md) for full details on this component).
 4. The backend updates the project's status to `RUNNING` and saves the network `serverPort` where the FL Server is listening.
 5. A real-time `ProjectStatusUpdateDto` is fired over WebSockets to instantly update the React dashboard UI.
 
@@ -99,5 +106,5 @@ When the FL Server successfully finishes all its federated rounds, it sends a fi
 ### Deletion
 When a user deletes a project (`DELETE /api/projects/{projectId}`):
 1. The service enforces org-scope (`requireOrgScope`) then ownership (`requireOwnerOrAdmin`). `deleteProject` is `@Auditable(action = PROJECT_DELETED)`.
-2. It makes a best-effort attempt to terminate any actively running FL Server processes via `FlowerServerManager.stopServerForProject()`. This prevents ghost processes or orphaned AWS Fargate tasks from lingering and consuming resources.
+2. It makes a best-effort attempt to terminate any actively running FL Server processes via `FlServerManager.stopServerForProject()`. This prevents ghost processes or orphaned AWS Fargate tasks from lingering and consuming resources.
 3. The database row is deleted. Cascade rules automatically delete the associated `ServerLog`, `RoundResult`, `ProjectMembership`, and `ProjectAccessRequest` entries.

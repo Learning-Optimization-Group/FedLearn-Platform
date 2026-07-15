@@ -1,4 +1,4 @@
-package com.federated.fl_platform_api.flower;
+package com.federated.fl_platform_api.orchestration;
 
 import java.io.File;
 import java.io.IOException;
@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 /**
- * DA-8: the FL-server orchestration seam. {@link FlowerServerManager} builds the command + policy and
+ * DA-8: the FL-server orchestration seam. {@link FlServerManager} builds the command + policy and
  * delegates the actual process launch to a runner, so the raw {@code ProcessBuilder} mechanics live
  * behind an injectable interface rather than inline in the JVM orchestration class.
  *

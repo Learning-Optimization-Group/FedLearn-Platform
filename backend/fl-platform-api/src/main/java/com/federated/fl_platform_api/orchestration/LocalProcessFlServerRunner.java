@@ -1,4 +1,4 @@
-package com.federated.fl_platform_api.flower;
+package com.federated.fl_platform_api.orchestration;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 
 /**
  * DA-8: the default {@link FlServerProcessRunner} — spawns the FL server as a local child process via
- * {@link ProcessBuilder}, exactly as {@link FlowerServerManager} did inline before the seam was
+ * {@link ProcessBuilder}, exactly as {@link FlServerManager} did inline before the seam was
  * extracted. This is a pure move: the byte-for-byte spawn behaviour (env customization → redirect
  * stderr → working dir → start) is unchanged, which is what keeps the real-spawn integration test green.
  */
@@ -29,7 +29,7 @@ public final class LocalProcessFlServerRunner implements FlServerProcessRunner {
         return new LocalSpawnedFlProcess(pb.start());
     }
 
-    /** Thin adapter over {@link Process} exposing only the operations {@link FlowerServerManager} needs. */
+    /** Thin adapter over {@link Process} exposing only the operations {@link FlServerManager} needs. */
     static final class LocalSpawnedFlProcess implements SpawnedFlProcess {
         private final Process process;
 

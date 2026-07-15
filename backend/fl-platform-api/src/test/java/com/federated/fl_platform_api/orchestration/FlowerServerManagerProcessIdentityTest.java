@@ -1,4 +1,4 @@
-package com.federated.fl_platform_api.flower;
+package com.federated.fl_platform_api.orchestration;
 
 import com.federated.fl_platform_api.model.Run;
 import com.federated.fl_platform_api.repository.RunRepository;
@@ -24,12 +24,12 @@ import static org.mockito.Mockito.*;
  * instead of mocking a Process/ProcessHandle.Info.</p>
  */
 @ExtendWith(MockitoExtension.class)
-class FlowerServerManagerProcessIdentityTest {
+class FlServerManagerProcessIdentityTest {
 
     private static final Instant STARTED = Instant.parse("2026-07-03T12:00:00Z");
 
-    private FlowerServerManager managerWith(RunRepository repo) {
-        FlowerServerManager m = new FlowerServerManager();
+    private FlServerManager managerWith(RunRepository repo) {
+        FlServerManager m = new FlServerManager();
         ReflectionTestUtils.setField(m, "runRepository", repo);
         return m;
     }

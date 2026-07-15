@@ -1,7 +1,7 @@
 package com.federated.fl_platform_api.service;
 
 import com.federated.fl_platform_api.dto.ModelBundleDto;
-import com.federated.fl_platform_api.flower.FlowerServerManager;
+import com.federated.fl_platform_api.orchestration.FlServerManager;
 import com.federated.fl_platform_api.model.PlatformRole;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.ProjectVisibility;
@@ -50,7 +50,7 @@ import static org.mockito.Mockito.when;
  * {@code POST /api/projects/{id}/start} → {@code GET /api/runs/{runId}/model-bundle}) and asserts a 200
  * with the staged manifest, plus all five bundle files on disk.
  *
- * <p>The FL-server spawn is the only thing stubbed ({@link FlowerServerManager} is a {@code @MockBean}, so
+ * <p>The FL-server spawn is the only thing stubbed ({@link FlServerManager} is a {@code @MockBean}, so
  * no real {@code python fl_server.py} runs); the auto-stage itself uses the real
  * {@link ScriptModelBundleStager} bean and the real, stdlib-only {@code scripts/stage_model_bundle.py} —
  * exactly the code path a live host takes. Staging is made synchronous via the package-private executor
@@ -71,7 +71,7 @@ class ModelBundleAutostageIntegrationTest {
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired ScriptModelBundleStager stager;
 
-    @MockitoBean FlowerServerManager flowerServerManager;   // never spawn a real python FL server under test
+    @MockitoBean FlServerManager flServerManager;   // never spawn a real python FL server under test
 
     private static Path bundleDir;
 
@@ -92,8 +92,8 @@ class ModelBundleAutostageIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        when(flowerServerManager.isServerRunning(any())).thenReturn(false);
-        when(flowerServerManager.startServerForProject(any(), any(), anyInt(), anyInt()))
+        when(flServerManager.isServerRunning(any())).thenReturn(false);
+        when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt()))
                 .thenReturn(Optional.of(50000));
         // Stage on the calling thread so the served bundle is ready the moment /start returns (the same
         // executor seam the ScriptModelBundleStager unit test uses).

@@ -51,9 +51,9 @@ useEffect(() => {
 
 ### Roles & Backend RBAC
 
-Authentication is **cookie-only** — the frontend never reads or sends a token; the single role carried on the session is `users.role` (`USER` / `ADMIN`).
+Authentication is **cookie-only** — the frontend never reads or sends a token; the role carried on the session is the layered `platform_role` (`USER` / `PROJECT_OWNER` / `PLATFORM_ADMIN`).
 
-> ⚠️ **Branch reality.** The identity/RBAC endpoints (membership, admin, access-request, discover) and the three-layer `platform_role` model are part of the identity-foundations work that is **designed on a separate branch and is _not present_ here** (see the backend [Identity, Multi-Tenancy & Audit](../backend/06_identity_multitenancy_and_audit.md) banner). On the current branch there is only the coarse `USER` / `ADMIN` role and no membership/admin/access-request/discover screens. The web client ships the **Ember** design system.
+> ✅ **Branch reality.** The identity/RBAC endpoints (membership, admin, access-request, discover) and the three-layer `platform_role` model **are present on this branch** (backend `V4`–`V7` migrations; see the backend [Identity, Multi-Tenancy & Audit](../backend/06_identity_multitenancy_and_audit.md) page). The web client renders them through role-gated routes (`RoleRoute allow={['PLATFORM_ADMIN']}` / `['PROJECT_OWNER', …]`) and dashboards (`AdminDashboard`, `OwnerDashboard`, `ClientDashboard`) plus the owner-promotion / deletion-request approval flows — superseding the original coarse `USER` / `ADMIN` role. The web client ships the **Ember** design system.
 
 ## Routing Configuration
 

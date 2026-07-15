@@ -1,4 +1,4 @@
-package com.federated.fl_platform_api.flower;
+package com.federated.fl_platform_api.orchestration;
 
 import java.io.InputStream;
 import java.time.Instant;
@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * DA-8: a handle to a spawned FL-server process, abstracting away {@code java.lang.Process} so the
- * orchestration in {@link FlowerServerManager} no longer touches raw process mechanics directly.
+ * orchestration in {@link FlServerManager} no longer touches raw process mechanics directly.
  *
  * <p>Exposes exactly the operations the manager needs during the startup window — identity (for BA-3
  * reconciliation), merged stdout for log broadcasting, the startup-probe wait, and forced teardown —

@@ -19,8 +19,8 @@ import java.util.Optional;
 /**
  * BA-11: resolves a project's current model from the content-addressed registry (the source of truth)
  * to a local filesystem path, so both the inference path ({@code ProjectService.resolveInferenceTarget})
- * and the FL-server warm-start ({@code FlowerServerManager}) read the registry instead of the
- * overwritable {@code .npz}. Extracted as a shared bean because {@code FlowerServerManager} cannot depend
+ * and the FL-server warm-start ({@code FlServerManager}) read the registry instead of the
+ * overwritable {@code .npz}. Extracted as a shared bean because {@code FlServerManager} cannot depend
  * on {@code ProjectService} (that would be a circular reference, which Spring Boot rejects by default).
  *
  * <p>Scoped to {@link ArtifactKind#FULL_CHECKPOINT}: a LoRA project's head is a safetensors bundle that

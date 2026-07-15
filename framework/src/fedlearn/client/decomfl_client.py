@@ -64,6 +64,28 @@ class DeComFLClient(Client):
         """Set gRPC client for heartbeat updates."""
         self.grpc_client = grpc_client
 
+    def assert_dim_matches(self, server_model_dim: int) -> None:
+        """MO-19/FR-14: fail loud if the server's trainable flat dimension differs from this client's.
+
+        The server advertises ``model_dim`` in the DeComFL config; the shared-seed perturbation ``z``
+        it generates has that length. If this client's trainable parameter vector is a different
+        length, ``z`` misaligns and the model diverges silently — so we reject the run up front rather
+        than train garbage. Almost always the server was built from a full ``state_dict()`` (buffers +
+        frozen params) instead of the ``requires_grad``-filtered trainable layout
+        (:func:`estimators.params.trainable_state`). The server-side complement is
+        :meth:`fedlearn.server.decomfl_strategy.DeComFL.validate_participant_dim`.
+        """
+        client_dim = self.zo_estimator.get_num_params(self.model)
+        if client_dim != server_model_dim:
+            raise ValueError(
+                f"DeComFL trainable-dimension mismatch: this client has {client_dim} trainable "
+                f"params but the server's model_dim is {server_model_dim}. The shared-seed "
+                f"perturbation would misalign and the model would diverge. Ensure the server's "
+                f"initial_parameters are the requires_grad-filtered trainable layout "
+                f"(estimators.params.trainable_state), NOT a full state_dict() (buffers + frozen "
+                f"params inflate the server's flat vector)."
+            )
+
     def load_global_model(self, parameters: OrderedDict[str, torch.Tensor]) -> None:
         """Adopt the server's global model (DeComFL requires every party to share x_0).
 

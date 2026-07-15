@@ -38,7 +38,7 @@ FedLearn is built around four core components — backend, frontend, framework, 
 | [**Frontend**](#frontend) | TypeScript (React 19 + Vite) | Web dashboard, real-time monitoring, project management, auth flows |
 | [**Framework**](#framework) | Python (PyTorch + gRPC) | Core FL engine — FedAvg, DeComFL, data partitioning, gRPC client/server |
 | [**Desktop**](#desktop) | TypeScript (Electron 42) | Local training orchestrator, hardware detection, Docker/PyInstaller execution |
-| [**Mobile**](#mobile) | React Native 0.80 + native C++ (libtorch) | On-device FL client; runs the DeComFL zeroth-order path natively in C++ via a TurboModule bridge (iOS + Android) |
+| [**Mobile**](#mobile) | React Native 0.80 + native C++ (ExecuTorch) | On-device FL client; runs the DeComFL zeroth-order path natively in C++ via a TurboModule bridge (iOS + Android) |
 | [**Client (Docker)**](#client-docker) | Docker (multi-arch) | Containerised FL client; thin wrapper around the framework for Jetson / CUDA / CPU deployments |
 
 ---
@@ -98,7 +98,7 @@ Backend  →  validates credentials  →  issues JWT (HttpOnly cookie or JSON)
 ### FL Server Provisioning — Local vs. Cloud
 
 ```
-Backend (FlowerServerManager)
+Backend (FlServerManager)
    │
    ├── LOCAL MODE
    │     ProcessBuilder.start()  →  python run_server.py --port <N>
@@ -125,15 +125,16 @@ The backend is the central control plane. It owns the REST API, user authenticat
 | [Architecture & Core Concepts](./backend/01_architecture_overview.md) | Directory structure, domain models (Projects, Results, Logs), technology stack |
 | [Security & Authentication](./backend/02_security_and_auth.md) | Stateless JWT filter chain, WebSocket handshake security, internal API key mechanism |
 | [Project Management Lifecycle](./backend/03_project_management.md) | `ProjectService`, `ProjectController`, round configuration, model initialization |
-| [Federated Orchestration](./backend/04_federated_orchestration.md) | `FlowerServerManager` — local `ProcessBuilder` vs. AWS ECS Fargate provisioning |
+| [Federated Orchestration](./backend/04_federated_orchestration.md) | `FlServerManager` — local `ProcessBuilder` vs. AWS ECS Fargate provisioning |
 | [WebSocket Log Streaming](./backend/05_websocket_logs_streaming.md) | Stdout capture → STOMP topics → frontend real-time observability |
-| [Identity, Multi-Tenancy & Audit](./backend/06_identity_multitenancy_and_audit.md) | ⚠️ **Designed on a separate identity-foundations branch — not present here.** Organizations + org/project memberships, platform/org/project role model (`PlatformRole` enum), org-scoped data isolation, `@Auditable` audit trail. This branch ships only the coarse `users.role IN (USER, ADMIN)` model. |
+| [Identity, Multi-Tenancy & Audit](./backend/06_identity_multitenancy_and_audit.md) | **Present on this branch** (`V4`–`V7` migrations): organizations + org/project memberships, platform/org/project role model (`PlatformRole` enum), org-scoped data isolation (`OrgScopeFilter`), `@Auditable` audit trail. Supersedes the original coarse `users.role IN (USER, ADMIN)` model. |
+| [Content-Addressed Model Artifact Registry](./backend/07_artifact_registry.md) | The versioned, content-addressed registry (`artifact_blobs` / `model_artifacts` / `artifact_lineage`) that superseded the single overwritable `.npz`; write path, registry-first inference/warm-start read path, HTTP surface, `V12`/`V18` migrations |
 
 **Key cross-component interfaces:**
 - Exposes `POST /api/projects/{id}/start` → triggers Framework server spawn.
 - Streams logs to Frontend via STOMP topic `/topic/logs/{projectId}`.
 - Desktop authenticates against `POST /api/auth/login` before initiating training.
-- Authorization on this branch is a single coarse column — `users.role IN (USER, ADMIN)` (highest committed migration is `V3`). The multi-tenant identity model (organizations, org/project memberships, platform/org/project roles, the `@Auditable` audit trail) is **designed on a separate identity-foundations branch and is not present here** — see the banner on [Identity, Multi-Tenancy & Audit](./backend/06_identity_multitenancy_and_audit.md).
+- Authorization is the layered identity model — `PlatformRole` (platform), `OrgRole` (organization), `MembershipRole` (project) — committed in the `V4`–`V7` migrations (highest committed migration is `V19`). Organizations, org/project memberships, org-scoped isolation, and the `@Auditable` audit trail are all present; see [Identity, Multi-Tenancy & Audit](./backend/06_identity_multitenancy_and_audit.md). The original coarse `users.role IN (USER, ADMIN)` column (`V2`) has been superseded.
 
 ---
 
@@ -163,7 +164,7 @@ The frontend is a single-page application providing the primary web-based contro
 > **Path:** [`wikis/framework/`](./framework/README.md)  
 > **Stack:** Python 3.10+, PyTorch, gRPC / Protocol Buffers — **custom FL engine (no Flower / `flwr`)**
 
-The framework is the heart of the platform — a standalone Python library (`fedlearn`) that implements the full federated learning lifecycle using gRPC for communication and PyTorch for model training. The `flower` package name on the Java side (`FlowerServerManager`) is historical — there is no Flower/`flwr` dependency anywhere.
+The framework is the heart of the platform — a standalone Python library (`fedlearn`) that implements the full federated learning lifecycle using gRPC for communication and PyTorch for model training. The Java-side orchestration package (`orchestration/`, class `FlServerManager`) was renamed from the legacy `flower` / `FlowerServerManager` name (DA-12) — there is no Flower/`flwr` dependency anywhere.
 
 | Document | Description |
 |---|---|
@@ -212,9 +213,9 @@ The desktop application is the local training orchestrator for FL participants. 
 ### Mobile
 
 > **Path:** [`wikis/mobile/`](./mobile/README.md)  
-> **Stack:** React Native 0.80, TypeScript, native C++ (libtorch) via a TurboModule bridge, Android + iOS
+> **Stack:** React Native 0.80, TypeScript, native C++ (ExecuTorch) via a TurboModule bridge, Android + iOS
 
-The mobile client is an on-device FL participant for phones and tablets. The JS/TS layer handles UI, auth, and orchestration; the heavy lifting — the **DeComFL zeroth-order training path** — runs natively in C++ on libtorch through a TurboModule (JSI) bridge, keeping training data on-device. It adopted the **Ember** design system and brand fonts in `2.1.0`.
+The mobile client is an on-device FL participant for phones and tablets. The JS/TS layer handles UI, auth, and orchestration; the heavy lifting — the **DeComFL zeroth-order training path** — runs natively in C++ on ExecuTorch through a TurboModule (JSI) bridge, keeping training data on-device. It adopted the **Ember** design system and brand fonts in `2.1.0`.
 
 | Document | Description |
 |---|---|
@@ -301,7 +302,8 @@ wikis/                              ← repo-root docs (promoted out of docs/)
 │   ├── 03_project_management.md
 │   ├── 04_federated_orchestration.md
 │   ├── 05_websocket_logs_streaming.md
-│   └── 06_identity_multitenancy_and_audit.md   ← designed; not on this branch
+│   ├── 06_identity_multitenancy_and_audit.md   ← present on this branch (V4–V7 migrations)
+│   └── 07_artifact_registry.md
 │
 ├── frontend/                       ← React 19 SPA
 │   ├── README.md

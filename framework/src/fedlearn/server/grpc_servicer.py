@@ -1,11 +1,13 @@
 import hashlib
 import logging
+import os
 import time
 from typing import List, Dict
 
 import grpc
 from concurrent import futures
 import io
+import itertools
 import torch
 # Import the generated stubs
 from fedlearn.communication.generated import fedlearn_pb2
@@ -22,17 +24,67 @@ from fedlearn.communication.serializer import (
 )
 from fedlearn.server.decomfl_strategy import DeComFL
 
+# SE-18: default caps on a single streamed model upload. Generous enough for LLM-scale adapters, but
+# bounded so one client cannot grow the reassembly buffer without limit (bytes/chunks) or hold a
+# server thread indefinitely (seconds). Override via env; a non-positive seconds value disables the
+# wall-clock cap.
+_DEFAULT_MAX_UPLOAD_BYTES = 2 * 1024 ** 3   # 2 GiB
+_DEFAULT_MAX_UPLOAD_CHUNKS = 100_000
+_DEFAULT_MAX_UPLOAD_SECONDS = 600.0         # 10 min of active streaming
+
+
+class _StreamLimitExceeded(Exception):
+    """SE-18: a streamed upload exceeded a resource cap (bytes/chunks -> RESOURCE_EXHAUSTED, or the
+    wall-clock deadline -> DEADLINE_EXCEEDED). Carries the gRPC status code to abort with.
+
+    A dedicated type (not ValueError/Exception) so the servicer's broad handlers below do not remap
+    the abort to INVALID_ARGUMENT/INTERNAL — it is caught by its own clause first.
+    """
+
+    def __init__(self, message, code=grpc.StatusCode.RESOURCE_EXHAUSTED):
+        super().__init__(message)
+        self.code = code
+
 
 class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServiceServicer):
     """
     The gRPC servicer class. Acts as a dispatcher, forwarding calls to the FLCoordinator.
     """
 
-    def __init__(self, coordinator: FLCoordinator):
+    def __init__(self, coordinator: FLCoordinator, partition_extractor=None):
         self.coordinator = coordinator
+        # SE-15: (context) -> Optional[int] returning the verified connection-token partition; None
+        # disables identity binding (client-auth off / dev fail-open), preserving existing behavior.
+        self._partition_extractor = partition_extractor
+        # SE-18: bound the streamed-upload reassembly buffer (memory-exhaustion DoS defense) and the
+        # wall-clock time a single upload may spend actively streaming (slow-drip DoS defense).
+        self._max_upload_bytes = int(os.environ.get("FEDLEARN_MAX_UPLOAD_BYTES", _DEFAULT_MAX_UPLOAD_BYTES))
+        self._max_upload_chunks = int(os.environ.get("FEDLEARN_MAX_UPLOAD_CHUNKS", _DEFAULT_MAX_UPLOAD_CHUNKS))
+        self._max_upload_seconds = float(os.environ.get("FEDLEARN_MAX_UPLOAD_SECONDS", _DEFAULT_MAX_UPLOAD_SECONDS))
+
+    def _enforce_client_identity(self, client_id, context):
+        """SE-15: pin one connection-token partition to one wire client_id. No-op when identity
+        binding is disabled (auth off) or the call carries no verifiable token; otherwise aborts
+        PERMISSION_DENIED when this client_id doesn't match the identity already bound to the token —
+        stopping one valid token from being replayed under many client_ids to Sybil the cohort.
+
+        MUST be called BEFORE any broad ``try/except`` in the RPC: ``context.abort`` raises, and that
+        must reach gRPC rather than be swallowed as an INVALID_ARGUMENT/INTERNAL response.
+        """
+        if self._partition_extractor is None:
+            return
+        partition = self._partition_extractor(context)
+        if partition is None:
+            return
+        if not self.coordinator.bind_or_check_identity(partition, client_id):
+            context.abort(
+                grpc.StatusCode.PERMISSION_DENIED,
+                "client_id does not match the identity bound to this connection token",
+            )
 
     def RegisterClient(self, request: fedlearn_pb2.RegisterClientRequest, context):
         client_id = request.client_id
+        self._enforce_client_identity(client_id, context)  # SE-15: bind partition <-> client_id
         run_id = request.run_id
         client_pv = request.protocol_version
         # enrollment_token: minted by the Spring backend at enroll (P2). MVP validates permissively
@@ -166,11 +218,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
     def SubmitModelUpdate(self, request: fedlearn_pb2.SubmitModelUpdateRequest, context):
         """Handle standard unary model update (for small models)."""
-        client_id = "UNKNOWN"
+        client_id = request.client_id
+        self._enforce_client_identity(client_id, context)  # SE-15 (before the try: abort must reach gRPC)
         trained_on_round = -1
 
         try:
-            client_id = request.client_id
             trained_on_round = request.trained_on_round
 
             logging.info(f"=" * 60)
@@ -217,6 +269,16 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         Returns:
             SubmitModelUpdateResponse
         """
+        # SE-15: the client_id lives in the chunk stream, so resolve + enforce the identity BEFORE the
+        # broad try/except below (whose `except Exception` would otherwise swallow the identity abort
+        # as INTERNAL). Pull the first chunk, bind partition<->client_id, then feed it back into the
+        # loop unchanged via itertools.chain.
+        stream = iter(request_iterator)
+        try:
+            first_chunk = next(stream)
+        except StopIteration:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "empty model update stream")
+        self._enforce_client_identity(first_chunk.client_id, context)
         try:
             buffer = io.BytesIO()
             client_id = None
@@ -224,18 +286,49 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             num_examples = 0
             total_chunks = 0
             chunks_received = 0
+            total_bytes = 0  # SE-18: cumulative payload size, bounds-checked against the cap below
+            # SE-18: wall-clock deadline for the active streaming loop. Checked on each chunk arrival,
+            # so it bounds a slow-drip upload; a client that connects then goes fully silent blocks on
+            # the next read and is bounded instead by gRPC's max_connection_age_ms / keepalive (set in
+            # server.py). A non-positive cap disables this guard.
+            deadline = time.monotonic() + self._max_upload_seconds
 
             logging.info(f"[Server] Receiving streamed model update...")
 
-            # Stream chunks directly into buffer
-            for chunk in request_iterator:
+            # Stream chunks directly into buffer (the already-pulled first chunk is chained back in so
+            # the header extraction below is unchanged).
+            for chunk in itertools.chain([first_chunk], stream):
                 if client_id is None:
                     client_id = chunk.client_id
                     round_num = chunk.trained_on_round
                     total_chunks = chunk.total_chunks
                     logging.info(f"[Server] Receiving {total_chunks} chunk(s) from {client_id} for round {round_num}")
+                    # SE-18: reject an honestly-declared oversize upload up front, before buffering.
+                    if chunk.total_bytes > self._max_upload_bytes:
+                        raise _StreamLimitExceeded(
+                            f"declared upload size {chunk.total_bytes} bytes exceeds the "
+                            f"{self._max_upload_bytes}-byte cap (FEDLEARN_MAX_UPLOAD_BYTES)")
+
+                # SE-18: bound the wall-clock time spent streaming this upload.
+                if self._max_upload_seconds > 0 and time.monotonic() > deadline:
+                    raise _StreamLimitExceeded(
+                        f"streamed upload exceeded the {self._max_upload_seconds:.0f}s deadline "
+                        f"(FEDLEARN_MAX_UPLOAD_SECONDS)", code=grpc.StatusCode.DEADLINE_EXCEEDED)
+
+                # SE-18: enforce the caps BEFORE writing, so the buffer never exceeds the limit even if
+                # the client lies about (or omits) total_bytes / total_chunks or never sends is_final.
+                chunk_len = len(chunk.chunk_data)
+                if total_bytes + chunk_len > self._max_upload_bytes:
+                    raise _StreamLimitExceeded(
+                        f"streamed upload exceeded the {self._max_upload_bytes}-byte cap "
+                        f"(FEDLEARN_MAX_UPLOAD_BYTES)")
+                if chunks_received + 1 > self._max_upload_chunks:
+                    raise _StreamLimitExceeded(
+                        f"streamed upload exceeded the {self._max_upload_chunks}-chunk cap "
+                        f"(FEDLEARN_MAX_UPLOAD_CHUNKS)")
 
                 buffer.write(chunk.chunk_data)
+                total_bytes += chunk_len
                 chunks_received += 1
 
                 # Progress update
@@ -267,6 +360,12 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
 
             return fedlearn_pb2.SubmitModelUpdateResponse(received=True)
 
+        except _StreamLimitExceeded as e:
+            # SE-18: a size cap (RESOURCE_EXHAUSTED) or the wall-clock deadline (DEADLINE_EXCEEDED)
+            # was hit. Caught BEFORE the broad handlers so the abort isn't remapped to
+            # INVALID_ARGUMENT/INTERNAL; the exact code rides on the exception.
+            logging.warning(f"[Server] Rejecting streamed upload from {client_id}: {e}")
+            context.abort(e.code, str(e))
         except ValueError as e:
             # Malformed / non-finite streamed payload -> client error -> INVALID_ARGUMENT.
             logging.info(f"[Server] Rejecting invalid streamed model update from {client_id}: {e}")
@@ -305,8 +404,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         Handle heartbeat from client.
         This is a FAST call that doesn't block.
         """
+        client_id = request.client_id
+        self._enforce_client_identity(client_id, context)  # SE-15 (before the try: abort must reach gRPC)
         try:
-            client_id = request.client_id
             run_id = request.run_id  # v2 field 2 — the run this heartbeat belongs to
             status = request.status
             current_step = request.current_step
@@ -373,7 +473,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                 'learning_rate': str(strategy.eta),
                 'smoothing_param': str(strategy.mu),
                 'num_local_steps': str(strategy.K),
-                'num_perturbations': str(strategy.P)
+                'num_perturbations': str(strategy.P),
+                # MO-19/FR-14: advertise the server's trainable flat dimension so every client (python
+                # or mobile) can fail loud at the handshake if its own trainable dim differs — instead
+                # of training on a misaligned shared-seed perturbation and diverging silently.
+                'model_dim': str(strategy.model_dim),
             }
 
             logging.info(f"[Server] Sending {len(seeds)} local steps, {len(rebuild_history)} missed rounds")
@@ -402,8 +506,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         """
         Handle submission of gradient scalars from DeComFL client.
         """
+        client_id = request.client_id
+        self._enforce_client_identity(client_id, context)  # SE-15 (before the try: abort must reach gRPC)
         try:
-            client_id = request.client_id
             trained_on_round = request.trained_on_round
             num_examples = request.num_examples
 

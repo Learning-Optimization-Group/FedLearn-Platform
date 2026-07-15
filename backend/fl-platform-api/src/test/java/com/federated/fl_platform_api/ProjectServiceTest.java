@@ -2,7 +2,7 @@ package com.federated.fl_platform_api;
 
 import com.federated.fl_platform_api.dto.CreateProjectRequest;
 import com.federated.fl_platform_api.dto.ProjectResponseDto;
-import com.federated.fl_platform_api.flower.FlowerServerManager;
+import com.federated.fl_platform_api.orchestration.FlServerManager;
 import com.federated.fl_platform_api.service.ModelInitializationWorker;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.User;
@@ -48,7 +48,7 @@ class ProjectServiceTest {
     private ProjectRepository projectRepository;
 
     @Mock
-    private FlowerServerManager flowerServerManager;
+    private FlServerManager flServerManager;
 
     @Mock
     private ModelInitializationWorker modelInitWorker;
@@ -214,12 +214,12 @@ class ProjectServiceTest {
         lenient().when(run.getId()).thenReturn(UUID.randomUUID());
         lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt())).thenReturn(run);
 
-        // Model the FlowerServerManager runningServers map: a spawn flips it "running" and briefly
+        // Model the FlServerManager runningServers map: a spawn flips it "running" and briefly
         // holds — widening the check-then-act window the race would otherwise exploit.
         AtomicBoolean running = new AtomicBoolean(false);
         AtomicInteger spawnCount = new AtomicInteger(0);
-        lenient().when(flowerServerManager.isServerRunning(projectId)).thenAnswer(inv -> running.get());
-        lenient().when(flowerServerManager.startServerForProject(any(), any(), anyInt(), anyInt()))
+        lenient().when(flServerManager.isServerRunning(projectId)).thenAnswer(inv -> running.get());
+        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt()))
             .thenAnswer(inv -> {
                 spawnCount.incrementAndGet();
                 Thread.sleep(60);
@@ -268,8 +268,8 @@ class ProjectServiceTest {
         Run run = mock(Run.class);
         lenient().when(run.getId()).thenReturn(UUID.randomUUID());
         lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt())).thenReturn(run);
-        lenient().when(flowerServerManager.isServerRunning(projectId)).thenReturn(false);
-        lenient().when(flowerServerManager.startServerForProject(any(), any(), anyInt(), anyInt()))
+        lenient().when(flServerManager.isServerRunning(projectId)).thenReturn(false);
+        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt()))
                 .thenReturn(Optional.of(50000));
         return run;
     }
@@ -290,7 +290,7 @@ class ProjectServiceTest {
         doThrow(new RuntimeException("boom")).when(modelBundleStager).stageForRun(any(), any());
         assertDoesNotThrow(() -> projectService.startServerForProject(testProject.getId(), null));
         // the FL server still spawned despite the staging failure
-        verify(flowerServerManager).startServerForProject(any(), any(), anyInt(), anyInt());
+        verify(flServerManager).startServerForProject(any(), any(), anyInt(), anyInt());
     }
 
     // ─── SE-11: DP policy at project creation ────────────────────────────────────────────────────

@@ -324,7 +324,7 @@ hostname:port       → fedlearn-server.local:8080
 domain:port         → api.fedlearn.company.com:8080
 ```
 
-Note: This is **not** the same as the backend HTTP URL configured in the auth settings. That URL is for the Spring Boot REST API. This address is for the federated learning training coordinator (Flower/gRPC).
+Note: This is **not** the same as the backend HTTP URL configured in the auth settings. That URL is for the Spring Boot REST API. This address is for the federated learning training coordinator (gRPC).
 
 ### `partitionId` and Data Partitioning
 

@@ -1,4 +1,4 @@
-package com.federated.fl_platform_api.flower;
+package com.federated.fl_platform_api.orchestration;
 
 import com.federated.fl_platform_api.model.Project;
 import org.junit.jupiter.api.Test;
@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
-class FlowerServerManagerCommandTest {
+class FlServerManagerCommandTest {
 
     private Project project(String modelType) {
         Project p = new Project();
@@ -19,7 +19,7 @@ class FlowerServerManagerCommandTest {
 
     @Test
     void llmLoraCommandCarriesFedLoRAStrategyAndFfaAggregation() {
-        List<String> cmd = FlowerServerManager.buildServerCommand(
+        List<String> cmd = FlServerManager.buildServerCommand(
                 project("LLM_LORA"), "FedLoRA", 5, 1, 50000, "/x/run_fl_server.sh", false);
         assertTrue(cmd.contains("--strategy"));
         assertEquals("FedLoRA", cmd.get(cmd.indexOf("--strategy") + 1));
@@ -30,7 +30,7 @@ class FlowerServerManagerCommandTest {
 
     @Test
     void nonLlmLoraCommandHasNoAggregationFlag() {
-        List<String> cmd = FlowerServerManager.buildServerCommand(
+        List<String> cmd = FlServerManager.buildServerCommand(
                 project("CNN"), "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false);
         assertFalse(cmd.contains("--aggregation"), "non-LLM_LORA must NOT pass --aggregation");
         assertEquals("FedAvg", cmd.get(cmd.indexOf("--strategy") + 1));
@@ -38,7 +38,7 @@ class FlowerServerManagerCommandTest {
 
     @Test
     void fotCommandIsUnaffected() {
-        List<String> cmd = FlowerServerManager.buildServerCommand(
+        List<String> cmd = FlServerManager.buildServerCommand(
                 project("TRANSFORMER"), "FoT", 5, 1, 50000, "/x/run_fot.sh", false);
         assertFalse(cmd.contains("--strategy"), "FoT branch has no --strategy");
         assertFalse(cmd.contains("--aggregation"));
@@ -48,7 +48,7 @@ class FlowerServerManagerCommandTest {
     void initModelPath_isPassedSeparately_whileModelPathStaysTheWriteTarget() {
         // BA-11: a continued run reads init weights from the registry-resolved path, but WRITES its
         // output to the project's .npz — the two must not be conflated.
-        List<String> cmd = FlowerServerManager.buildServerCommand(
+        List<String> cmd = FlServerManager.buildServerCommand(
                 project("CNN"), "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false,
                 "/var/models/blob-cache/deadbeef.npz");
         assertTrue(cmd.contains("--init-model-path"), "registry-resolved init weights must be passed");
@@ -58,10 +58,10 @@ class FlowerServerManagerCommandTest {
 
     @Test
     void noInitModelPath_whenNull_orViaTheDefaultArity() {
-        assertFalse(FlowerServerManager.buildServerCommand(
+        assertFalse(FlServerManager.buildServerCommand(
                         project("CNN"), "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false, null)
                 .contains("--init-model-path"));
-        assertFalse(FlowerServerManager.buildServerCommand(
+        assertFalse(FlServerManager.buildServerCommand(
                         project("CNN"), "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false)
                 .contains("--init-model-path"));
     }
@@ -70,7 +70,7 @@ class FlowerServerManagerCommandTest {
     void llmLoraServerCommandCarriesTaskType() {
         Project p = project("LLM_LORA");
         p.setTaskType("CAUSAL_LM");
-        List<String> cmd = FlowerServerManager.buildServerCommand(
+        List<String> cmd = FlServerManager.buildServerCommand(
                 p, "FedLoRA", 5, 1, 50000, "/x/run_fl_server.sh", false);
         assertTrue(cmd.contains("--task-type"));
         assertEquals("CAUSAL_LM", cmd.get(cmd.indexOf("--task-type") + 1));
@@ -87,7 +87,7 @@ class FlowerServerManagerCommandTest {
         Project p = project("LLM_LORA");
         p.setModelName("--num-rounds");   // option-injection attempt
         assertThrows(IllegalArgumentException.class, () ->
-                FlowerServerManager.buildServerCommand(p, "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false));
+                FlServerManager.buildServerCommand(p, "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false));
     }
 
     @Test
@@ -95,14 +95,14 @@ class FlowerServerManagerCommandTest {
         Project p = project("CNN");
         p.setModelPath("/tmp/../../etc/passwd");
         assertThrows(IllegalArgumentException.class, () ->
-                FlowerServerManager.buildServerCommand(p, "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false));
+                FlServerManager.buildServerCommand(p, "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false));
     }
 
     @Test
     void strategyWithMetacharacter_isRejected() {
         Project p = project("CNN");
         assertThrows(IllegalArgumentException.class, () ->
-                FlowerServerManager.buildServerCommand(p, "FedAvg;whoami", 5, 1, 50000, "/x/run_fl_server.sh", false));
+                FlServerManager.buildServerCommand(p, "FedAvg;whoami", 5, 1, 50000, "/x/run_fl_server.sh", false));
     }
 
     @Test
@@ -110,7 +110,7 @@ class FlowerServerManagerCommandTest {
         Project p = project("LLM_LORA");
         p.setModelName("qwen$(whoami)");
         assertThrows(IllegalArgumentException.class, () ->
-                FlowerServerManager.buildServerCommand(p, "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false));
+                FlServerManager.buildServerCommand(p, "FedAvg", 5, 1, 50000, "/x/run_fl_server.sh", false));
     }
 
     // --- SE-1/SE-7: the spawned FL server's child environment ---
@@ -119,7 +119,7 @@ class FlowerServerManagerCommandTest {
         java.util.Map<String, String> env = new java.util.HashMap<>();
         env.put("APP_JWT_SECRET", "web-auth-secret");   // inherited from the backend process
         env.put("PATH", "/usr/bin");                     // unrelated inherited var must survive
-        FlowerServerManager.configureChildEnv(env, "internal-key", "http://backend", "fl-secret", true,
+        FlServerManager.configureChildEnv(env, "internal-key", "http://backend", "fl-secret", true,
                 "run-abc", true, "scoped-run-token-xyz");
         assertEquals("internal-key", env.get("FEDLEARN_INTERNAL_API_KEY"));
         assertEquals("scoped-run-token-xyz", env.get("FEDLEARN_INTERNAL_RUN_TOKEN"));  // SE-7: scoped per-run token
@@ -135,9 +135,63 @@ class FlowerServerManagerCommandTest {
     }
 
     @Test
+    void configureChildEnv_dropsInheritedBackendSecrets_keepsAllowlistedRuntimeVars() {
+        // SE-17: the FL server is network-facing (and, SE-19, can load datasets). Building its env by
+        // inheriting the backend's ENTIRE environment and subtracting one key leaks the DB password,
+        // internal API key, cloud creds, and CORS/JWT secrets into the child. The env must instead be
+        // rebuilt from an allowlist: OS/runtime essentials + the FEDLEARN_* namespace + the few
+        // non-FEDLEARN vars the server actually reads survive; every backend secret is dropped.
+        java.util.Map<String, String> env = new java.util.HashMap<>();
+        // --- secrets inherited from the backend process that must NOT reach the child ---
+        env.put("SPRING_DATASOURCE_PASSWORD", "db-pw");
+        env.put("SPRING_DATASOURCE_USERNAME", "db-user");
+        env.put("SPRING_DATASOURCE_URL", "jdbc:postgresql://db/app");
+        env.put("APP_INTERNAL_API_KEY", "the-real-internal-key");
+        env.put("APP_JWT_SECRET", "web-auth-secret");
+        env.put("AWS_SECRET_ACCESS_KEY", "aws-secret");
+        env.put("AWS_ACCESS_KEY_ID", "aws-key-id");
+        env.put("CORS_ALLOWED_ORIGINS", "https://app.example");
+        // --- vars the child legitimately needs -> must survive the allowlist ---
+        env.put("PATH", "/usr/bin:/bin");                     // bash wrapper + python3 resolution
+        env.put("HOME", "/home/svc");
+        env.put("LD_LIBRARY_PATH", "/opt/cuda/lib64");        // torch/CUDA native libs
+        env.put("FEDLEARN_GRPC_SERVER_KEY", "/certs/server.key");  // SE-2: cert paths INHERITED, not set here
+        env.put("FEDLEARN_GRPC_SERVER_CERT", "/certs/server.crt");
+        env.put("MAX_CLIENTS", "80");        // server.py worker-pool sizing
+        env.put("SERVER_HOST", "10.0.0.5");  // fl_server.py advertised host
+        env.put("AWS_HOST", "1.2.3.4");      // fl_server.py legacy advertised host
+
+        FlServerManager.configureChildEnv(env, "internal-key", "http://backend", "fl-secret", true,
+                "run-abc", true, "scoped-run-token");
+
+        // secrets dropped
+        assertNull(env.get("SPRING_DATASOURCE_PASSWORD"), "DB password must not reach the FL child");
+        assertNull(env.get("SPRING_DATASOURCE_USERNAME"));
+        assertNull(env.get("SPRING_DATASOURCE_URL"));
+        assertNull(env.get("APP_INTERNAL_API_KEY"), "the web-tier internal key must not reach the child");
+        assertNull(env.get("APP_JWT_SECRET"));
+        assertNull(env.get("AWS_SECRET_ACCESS_KEY"), "cloud creds must not reach the child");
+        assertNull(env.get("AWS_ACCESS_KEY_ID"));
+        assertNull(env.get("CORS_ALLOWED_ORIGINS"));
+        // allowlisted runtime + FEDLEARN_* + known child vars survive with their inherited values
+        assertEquals("/usr/bin:/bin", env.get("PATH"));
+        assertEquals("/home/svc", env.get("HOME"));
+        assertEquals("/opt/cuda/lib64", env.get("LD_LIBRARY_PATH"));
+        assertEquals("/certs/server.key", env.get("FEDLEARN_GRPC_SERVER_KEY"), "SE-2 cert path must survive");
+        assertEquals("/certs/server.crt", env.get("FEDLEARN_GRPC_SERVER_CERT"));
+        assertEquals("80", env.get("MAX_CLIENTS"));
+        assertEquals("10.0.0.5", env.get("SERVER_HOST"));
+        assertEquals("1.2.3.4", env.get("AWS_HOST"));
+        // explicit run vars are still set (the FL child's OWN api key/secret, not the backend's)
+        assertEquals("internal-key", env.get("FEDLEARN_INTERNAL_API_KEY"));
+        assertEquals("fl-secret", env.get("FEDLEARN_FL_TOKEN_SECRET"));
+        assertEquals("1", env.get("FEDLEARN_REQUIRE_CLIENT_AUTH"));
+    }
+
+    @Test
     void configureChildEnv_authAndTlsDisabledByDefaultNoBackendUrlNoRun() {
         java.util.Map<String, String> env = new java.util.HashMap<>();
-        FlowerServerManager.configureChildEnv(env, "k", null, "fl-secret", false, null, false, null);
+        FlServerManager.configureChildEnv(env, "k", null, "fl-secret", false, null, false, null);
         assertEquals("0", env.get("FEDLEARN_REQUIRE_CLIENT_AUTH"));  // off unless explicitly required
         assertNull(env.get("FEDLEARN_BACKEND_URL"));                 // blank backend url -> unset
         assertNull(env.get("FEDLEARN_RUN_ID"));                      // null run -> unset
@@ -151,7 +205,7 @@ class FlowerServerManagerCommandTest {
         // Guard against over-blocking: a real HF repo id carries '/', '.' and '-'.
         Project p = project("LLM_LORA");
         p.setModelName("Qwen/Qwen2.5-0.5B");
-        List<String> cmd = FlowerServerManager.buildServerCommand(
+        List<String> cmd = FlServerManager.buildServerCommand(
                 p, "FedLoRA", 5, 1, 50000, "/x/run_fl_server.sh", false);
         assertEquals("Qwen/Qwen2.5-0.5B", cmd.get(cmd.indexOf("--model-name") + 1));
     }
@@ -172,7 +226,7 @@ class FlowerServerManagerCommandTest {
     @Test
     void dpEnabledProject_carriesTheExactPinnedDpArgv() {
         Project p = dpProject();
-        List<String> cmd = FlowerServerManager.buildServerCommand(
+        List<String> cmd = FlServerManager.buildServerCommand(
                 p, "FedAvg", 5, 2, 50000, "/x/run_fl_server.sh", false);
         assertEquals(List.of(
                 "bash", "/x/run_fl_server.sh",
@@ -195,7 +249,7 @@ class FlowerServerManagerCommandTest {
     @Test
     void nonDpProject_argvIsByteForByteUnchanged() {
         Project p = project("CNN");
-        List<String> cmd = FlowerServerManager.buildServerCommand(
+        List<String> cmd = FlServerManager.buildServerCommand(
                 p, "FedAvg", 5, 2, 50000, "/x/run_fl_server.sh", false);
         assertEquals(List.of(
                 "bash", "/x/run_fl_server.sh",
@@ -218,7 +272,7 @@ class FlowerServerManagerCommandTest {
         Project p = dpProject();
         p.setDpClipNorm(null);
         assertThrows(IllegalArgumentException.class, () ->
-                FlowerServerManager.buildServerCommand(p, "FedAvg", 5, 2, 50000, "/x/run_fl_server.sh", false));
+                FlServerManager.buildServerCommand(p, "FedAvg", 5, 2, 50000, "/x/run_fl_server.sh", false));
     }
 
     @Test
@@ -227,6 +281,6 @@ class FlowerServerManagerCommandTest {
         // would silently train without DP. Fail closed instead.
         Project p = dpProject();
         assertThrows(IllegalArgumentException.class, () ->
-                FlowerServerManager.buildServerCommand(p, "FoT", 5, 2, 50000, "/x/run_fot.sh", false));
+                FlServerManager.buildServerCommand(p, "FoT", 5, 2, 50000, "/x/run_fot.sh", false));
     }
 }

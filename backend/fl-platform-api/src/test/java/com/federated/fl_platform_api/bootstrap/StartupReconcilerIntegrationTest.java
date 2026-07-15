@@ -1,6 +1,6 @@
 package com.federated.fl_platform_api.bootstrap;
 
-import com.federated.fl_platform_api.flower.FlowerServerManager;
+import com.federated.fl_platform_api.orchestration.FlServerManager;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.model.ProjectVisibility;
 import com.federated.fl_platform_api.model.Run;
@@ -45,7 +45,7 @@ class StartupReconcilerIntegrationTest {
     @Autowired RunRepository runRepository;
     @Autowired ProjectRepository projectRepository;
     @Autowired RunService runService;
-    @Autowired FlowerServerManager serverManager;
+    @Autowired FlServerManager serverManager;
     @Autowired UserRepository userRepository;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired RunTokenRegistry runTokenRegistry;

@@ -13,9 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * SE-2: gRPC TLS must be the fail-closed DEFAULT on the deployment profiles. When
- * {@code app.fl.require-tls=true}, {@code FlowerServerManager.configureChildEnv} sets
+ * {@code app.fl.require-tls=true}, {@code FlServerManager.configureChildEnv} sets
  * {@code FEDLEARN_REQUIRE_TLS=1} on the spawned FL server and the framework then refuses to bind
- * plaintext (the env mechanism is proven in {@code FlowerServerManagerCommandTest}). This guard
+ * plaintext (the env mechanism is proven in {@code FlServerManagerCommandTest}). This guard
  * pins the profile DEFAULTS so a deployment cannot silently regress to plaintext: ec2demo and
  * production require TLS; dev/test/base stay plaintext so local runs and the FL integration tests
  * can still bind an insecure port.

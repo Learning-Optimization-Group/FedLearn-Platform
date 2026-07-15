@@ -1,4 +1,4 @@
-package com.federated.fl_platform_api.flower;
+package com.federated.fl_platform_api.orchestration;
 
 import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
@@ -25,9 +25,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 @Component
-public class FlowerServerManager {
+public class FlServerManager {
 
-    private static final Logger log = LoggerFactory.getLogger(FlowerServerManager.class);
+    private static final Logger log = LoggerFactory.getLogger(FlServerManager.class);
 
     @Value("${ecs.cluster-name:}")
     private String ecsClusterName;
@@ -492,15 +492,62 @@ public class FlowerServerManager {
     }
 
     /**
-     * Populate the spawned FL server's child environment (SE-1/SE-7). Sets the internal-API key and
-     * backend URL (as before), hands the FL server the connection-token VERIFY secret and the
-     * enforcement toggle, and — crucially — SCRUBS the web-auth JWT secret from the child so a
-     * compromise of the network-facing FL server cannot forge web/admin sessions (trust-domain
-     * isolation). Package-private + static so it is unit-testable without spawning a process.
+     * SE-17: OS/runtime env keys (exact match) kept when the spawned FL server's environment is
+     * rebuilt from an allowlist. These are the interpreter/loader essentials the {@code bash}
+     * wrapper + {@code python3} + torch/CUDA need, on POSIX and Windows, plus the three non-{@code
+     * FEDLEARN_} vars the server itself reads ({@code MAX_CLIENTS} in server.py; {@code
+     * SERVER_HOST}/{@code AWS_HOST} in fl_server.py). None of these is a secret.
+     */
+    static final java.util.Set<String> CHILD_ENV_ALLOWLIST = java.util.Set.of(
+            // POSIX runtime essentials
+            "PATH", "HOME", "USER", "LOGNAME", "SHELL", "TERM", "TZ", "PWD", "TMPDIR", "LANG",
+            // native-library + virtualenv resolution for torch/CUDA
+            "LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH", "VIRTUAL_ENV", "CONDA_PREFIX", "CONDA_DEFAULT_ENV",
+            // Windows runtime essentials (run_fl_server.bat + python)
+            "SystemRoot", "SystemDrive", "windir", "TEMP", "TMP", "PATHEXT", "ComSpec",
+            "USERPROFILE", "APPDATA", "LOCALAPPDATA", "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE",
+            // non-FEDLEARN_ vars the FL server legitimately reads
+            "MAX_CLIENTS", "SERVER_HOST", "AWS_HOST");
+
+    /**
+     * SE-17: env-key prefixes kept for the child — its own {@code FEDLEARN_} config namespace (incl.
+     * the SE-2 TLS cert paths the backend inherits and passes through) plus locale/python/cuda
+     * tuning. Anything outside the allowlist + these prefixes (the DB password, {@code APP_*}
+     * secrets, {@code AWS_ACCESS_KEY_ID}/{@code AWS_SECRET_ACCESS_KEY}, CORS origins) is dropped.
+     */
+    static final java.util.List<String> CHILD_ENV_ALLOWED_PREFIXES = java.util.List.of(
+            "FEDLEARN_", "LC_", "PYTHON", "CUDA", "NVIDIA_");
+
+    private static boolean isAllowedChildEnvKey(String key) {
+        if (CHILD_ENV_ALLOWLIST.contains(key)) {
+            return true;
+        }
+        for (String prefix : CHILD_ENV_ALLOWED_PREFIXES) {
+            if (key.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Populate the spawned FL server's child environment (SE-1/SE-7/SE-17). The FL server is
+     * network-facing (untrusted gRPC clients connect to it) and can load datasets (SE-19), so it
+     * must NOT inherit the backend's secrets. Rather than inherit the whole backend environment and
+     * subtract one key ("inherit-then-subtract", which leaked the DB password, internal API key,
+     * cloud creds, and CORS/JWT secrets), we rebuild the child env from an allowlist (SE-17): keep
+     * only OS/runtime essentials + the {@code FEDLEARN_*}/locale/python/cuda namespaces + the few
+     * non-{@code FEDLEARN_} vars the server reads, then set the explicit per-run vars below (the
+     * child's OWN internal-API key + the connection-token VERIFY secret + enforcement/TLS toggles).
+     * The web-auth JWT secret is dropped by the allowlist along with every other backend secret, so
+     * a compromise of the FL server cannot forge web/admin sessions (trust-domain isolation).
+     * Package-private + static so it is unit-testable without spawning a process.
      */
     static void configureChildEnv(Map<String, String> env, String internalApiKey, String backendUrl,
                                   String flTokenSecret, boolean requireClientAuth, String runId,
                                   boolean requireTls, String internalRunToken) {
+        // SE-17: drop every inherited key that is not on the allowlist BEFORE setting the run vars.
+        env.keySet().removeIf(key -> !isAllowedChildEnvKey(key));
         env.put("FEDLEARN_INTERNAL_API_KEY", internalApiKey == null ? "" : internalApiKey);
         // SE-7: scoped per-run token the child presents on /api/internal/** callbacks, so the backend
         // can bind each call to this run's project (a leaked run token can mutate only its project).
@@ -524,8 +571,8 @@ public class FlowerServerManager {
             env.put("FEDLEARN_GRPC_USE_TLS", "1");
             env.put("FEDLEARN_REQUIRE_TLS", "1");
         }
-        // The FL server verifies with FEDLEARN_FL_TOKEN_SECRET and never needs the web-auth secret.
-        env.remove("APP_JWT_SECRET");
+        // The web-auth JWT secret (and every other backend secret) is already gone — the allowlist
+        // above dropped it; the FL server verifies tokens with FEDLEARN_FL_TOKEN_SECRET only.
     }
 
     /**

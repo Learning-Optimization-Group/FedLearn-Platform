@@ -1,9 +1,8 @@
-package com.federated.fl_platform_api.flower;
+package com.federated.fl_platform_api.orchestration;
 
-import com.federated.fl_platform_api.dto.ModelRecipeDto;
+import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.model.Project;
 import com.federated.fl_platform_api.security.RunTokenRegistry;
-import com.federated.fl_platform_api.service.ModelRecipeService;
 import com.federated.fl_platform_api.service.WebSocketService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,28 +24,25 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * SE-10: the model-type catalog gate at the {@link FlowerServerManager#startServerForProject} spawn
- * seam — a gradient-strategy project whose {@code modelType} is not a key in the recipe catalog
- * ({@link ModelRecipeService}) must be refused before any process is spawned. Same hermetic-stub
- * pattern as {@link FlowerServerManagerDpPolicyTest}: the manager is constructed with {@code new}, its
- * {@code @Value} knobs are overridden via {@link ReflectionTestUtils}, and the "spawn" is a tiny
- * bash/python stub — so the refusal is asserted at the real seam, not against a mock of it.
+ * SE-11: the run-start DP policy gate — a {@code regulated} project must not reach the spawn path
+ * unless DP is enabled with a complete (epsilon, delta, clip-norm) config. Same hermetic-stub
+ * pattern as {@link FlServerManagerIntegrationTest}: the manager is constructed with {@code new},
+ * its {@code @Value} knobs are overridden via {@link ReflectionTestUtils}, and the "spawn" is a tiny
+ * bash/python stub — so the refusal is asserted at the real
+ * {@link FlServerManager#startServerForProject} seam, not against a mock of it.
  */
 @DisabledOnOs(OS.WINDOWS)
-class FlowerServerManagerCatalogGateTest {
+class FlServerManagerDpPolicyTest {
 
     private static final int RANGE_START = 50000;
     private static final int RANGE_END = 50010;
 
-    private FlowerServerManager manager;
+    private FlServerManager manager;
     private WebSocketService ws;
-    private ModelRecipeService modelRecipeService;
 
     private Path aliveStub;
     private final List<UUID> startedProjects = new ArrayList<>();
@@ -56,28 +52,34 @@ class FlowerServerManagerCatalogGateTest {
         ws = mock(WebSocketService.class);
         RunTokenRegistry runTokenRegistry = mock(RunTokenRegistry.class);
         when(runTokenRegistry.mint(any(), any())).thenReturn("test-run-token");
-        modelRecipeService = mock(ModelRecipeService.class);
 
-        manager = new FlowerServerManager();
+        manager = new FlServerManager();
         ReflectionTestUtils.setField(manager, "logBroadcaster", ws);
         ReflectionTestUtils.setField(manager, "runTokenRegistry", runTokenRegistry);
         ReflectionTestUtils.setField(manager, "runRepository",
                 mock(com.federated.fl_platform_api.repository.RunRepository.class));
+
+        com.federated.fl_platform_api.service.ModelRecipeService modelRecipeService =
+                mock(com.federated.fl_platform_api.service.ModelRecipeService.class);
+        when(modelRecipeService.findByKey(any())).thenReturn(Optional.of(
+                new com.federated.fl_platform_api.dto.ModelRecipeDto(
+                        "CNN", "CNN", "image",
+                        java.util.List.of(), java.util.List.of(), java.util.List.of(), null)));
         ReflectionTestUtils.setField(manager, "modelRecipeService", modelRecipeService);
         // BA-11: a bare-mock resolver returns Optional.empty() (no registry head) → no --init-model-path.
         ReflectionTestUtils.setField(manager, "registryModelResolver",
                 new com.federated.fl_platform_api.service.RegistryModelResolver(
                         mock(com.federated.fl_platform_api.repository.ModelArtifactRepository.class),
                         mock(com.federated.fl_platform_api.service.ArtifactBlobStore.class), "unused"));
+
         ReflectionTestUtils.setField(manager, "portRangeStart", RANGE_START);
         ReflectionTestUtils.setField(manager, "portRangeEnd", RANGE_END);
         ReflectionTestUtils.setField(manager, "startupProbeSeconds", 2L);
         ReflectionTestUtils.setField(manager, "stdoutDrainMillis", 2000L);
 
-        // Same alive stub as FlowerServerManagerDpPolicyTest: unknown flags are shifted away, then
-        // the stub binds its --port and blocks. Wired as BOTH the gradient and FoT wrapper so a
-        // successful spawn is available on either path if the gate lets it through.
-        aliveStub = Files.createTempFile("stub-fl-catalog", ".sh");
+        // Same alive stub as FlServerManagerIntegrationTest: unknown flags (including the
+        // --dp-* passthrough) are shifted away, then the stub binds its --port and blocks.
+        aliveStub = Files.createTempFile("stub-fl-dp", ".sh");
         Files.writeString(aliveStub,
                 "#!/bin/bash\n"
                         + "PORT=\"\"\n"
@@ -97,7 +99,6 @@ class FlowerServerManagerCatalogGateTest {
                         + "s6.bind(('::', p)); s6.listen(1)\n"
                         + "time.sleep(300)\"\n");
         ReflectionTestUtils.setField(manager, "flServerWrapperPath", aliveStub.toString());
-        ReflectionTestUtils.setField(manager, "fotServerWrapperPath", aliveStub.toString());
     }
 
     @AfterEach
@@ -113,76 +114,63 @@ class FlowerServerManagerCatalogGateTest {
     }
 
     @Test
-    void unknownModelType_isRefusedWith400BoundIllegalArgumentException() {
-        Project p = project("FOOBAR");
-        when(modelRecipeService.findByKey("FOOBAR")).thenReturn(Optional.empty());
+    void regulatedProjectWithDpDisabled_isRefusedBeforeAnySpawn() {
+        Project p = regulatedProject();
+        p.setDpEnabled(false);
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> manager.startServerForProject(p, "FedAvg", 5, 1));
+        ProjectStateException ex = assertThrows(ProjectStateException.class,
+                () -> manager.startServerForProject(p, "FedAvg", 5, 2));
 
-        assertTrue(ex.getMessage().contains("model type"), ex.getMessage());
-        assertTrue(ex.getMessage().contains(p.getId().toString()), ex.getMessage());
-        assertFalse(ex.getMessage().contains("FOOBAR"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("regulated"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("differential privacy"), ex.getMessage());
         assertFalse(manager.isServerRunning(p.getId()), "no child may be spawned for a refused start");
+        verifyNoInteractions(ws);   // refused before the spawn — nothing was streamed
+    }
+
+    @Test
+    void regulatedProjectWithIncompleteDpConfig_isRefusedWithAnActionableError() {
+        Project p = regulatedProject();
+        p.setDpEnabled(true);
+        p.setDpTargetEpsilon(6.0);
+        p.setDpDelta(null);          // incomplete: no delta
+        p.setDpClipNorm(1.5);
+
+        ProjectStateException ex = assertThrows(ProjectStateException.class,
+                () -> manager.startServerForProject(p, "FedAvg", 5, 2));
+
+        assertTrue(ex.getMessage().contains("incomplete DP config"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("4-8"),
+                "the refusal should carry the epsilon guidance range: " + ex.getMessage());
+        assertFalse(manager.isServerRunning(p.getId()));
         verifyNoInteractions(ws);
     }
 
     @Test
-    void knownCatalogModelType_proceedsPastTheGate() {
-        Project p = project("CNN");
-        ModelRecipeDto cnnDto = new ModelRecipeDto(
-                "CNN", "CNN", "image", List.of(), List.of(), List.of(), null);
-        when(modelRecipeService.findByKey("CNN")).thenReturn(Optional.of(cnnDto));
+    void regulatedProjectWithCompleteDpConfig_proceedsPastThePolicyGate() {
+        Project p = regulatedProject();
+        p.setDpEnabled(true);
+        p.setDpTargetEpsilon(6.0);
+        p.setDpDelta(1e-5);
+        p.setDpClipNorm(1.5);
 
-        Optional<Integer> port = manager.startServerForProject(p, "FedAvg", 5, 1);
+        // The gate lets a fully-configured regulated project through to the (stubbed) spawn: a port
+        // is reserved and the child comes up. Anything after the gate is the generic spawn path
+        // already covered by FlServerManagerIntegrationTest.
+        Optional<Integer> port = manager.startServerForProject(p, "FedAvg", 5, 2);
         startedProjects.add(p.getId());
 
-        assertTrue(port.isPresent(), "a known catalog model type must be allowed to start");
+        assertTrue(port.isPresent(), "a compliant regulated project must start");
         assertTrue(port.get() >= RANGE_START && port.get() <= RANGE_END);
         assertTrue(manager.isServerRunning(p.getId()));
     }
 
-    @Test
-    void fotStart_isExemptFromTheCatalogGate() {
-        Project p = project("ANYTHING_NOT_IN_CATALOG");
-
-        try {
-            manager.startServerForProject(p, "FoT", 5, 1);
-            startedProjects.add(p.getId());
-        } catch (RuntimeException ignored) {
-            // this test asserts only that the catalog gate is skipped for FoT -- a successful stub
-            // spawn is a bonus, not the assertion under test.
-        }
-
-        verify(modelRecipeService, never()).findByKey(any());
-    }
-
-    @Test
-    void caseVariantModelType_isRejected_becauseFlServerComparesCaseSensitively() {
-        // "mlp" is a case-INSENSITIVE hit on the catalog key "MLP", but fl_server.py compares
-        // model_type case-SENSITIVELY (== 'MLP' / == 'LLM_LORA' / ...), so a lowercase value would
-        // clear a lenient gate and then silently mis-train (wrong dataset / artifact kind). The gate
-        // must require the exact canonical key.
-        Project p = project("mlp");
-        ModelRecipeDto canonical = new ModelRecipeDto(
-                "MLP", "MLP", "tabular", List.of(), List.of(), List.of(), null);
-        when(modelRecipeService.findByKey("mlp")).thenReturn(Optional.of(canonical));
-
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> manager.startServerForProject(p, "FedAvg", 5, 1));
-
-        assertTrue(ex.getMessage().contains("model type"), ex.getMessage());
-        assertFalse(ex.getMessage().contains("mlp"), ex.getMessage());   // no-reflect
-        assertFalse(manager.isServerRunning(p.getId()), "a case-variant modelType must not spawn");
-        verifyNoInteractions(ws);
-    }
-
-    private Project project(String modelType) {
+    private Project regulatedProject() {
         Project p = new Project();
         p.setId(UUID.randomUUID());
-        p.setModelType(modelType);
+        p.setModelType("CNN");
         p.setModelName("qwen2.5-0.5b");
         p.setModelPath("/tmp/model.npz");
+        p.setRegulated(true);
         return p;
     }
 }

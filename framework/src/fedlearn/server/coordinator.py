@@ -93,6 +93,11 @@ class FLCoordinator:
         self._global_model_params: Optional[OrderedDict[str, torch.Tensor]] = None
         self._client_updates_received: List[Tuple[OrderedDict[str, torch.Tensor], int]] = []
         self._registered_clients: set[str] = set()
+        # SE-15: pin one connection-token partition to one wire client_id (a 1:1 bijection), so a
+        # single valid token cannot be replayed under many client_ids to Sybil the cohort / dominate
+        # aggregation. Populated lazily on first use per identity (trust-on-first-use).
+        self._partition_to_client: dict[int, str] = {}
+        self._client_to_partition: dict[str, int] = {}
         self.current_round = 1  # Start at round 1
         self.stop_requested = False
         # True only after all configured rounds finished successfully (distinct
@@ -399,6 +404,25 @@ class FLCoordinator:
     def register_client(self, client_id: str) -> bool:
         with self._lock:
             self._registered_clients.add(client_id)
+            return True
+
+    def bind_or_check_identity(self, partition_id: int, client_id: str) -> bool:
+        """SE-15: enforce a 1:1 binding between a connection token's server-assigned ``partition_id``
+        and the wire ``client_id``. The first ``(partition, client_id)`` pair pins the binding
+        (trust-on-first-use); thereafter this partition MUST always present that same client_id, and
+        that client_id MUST NOT be claimed by any other partition. Returns ``False`` on any conflict —
+        a token replayed under a second client_id (the Sybil), or a client_id already owned by a
+        different token. The whole check-then-bind runs under the coordinator lock, so two concurrent
+        first-use calls for the same partition cannot both win.
+        """
+        with self._lock:
+            bound_client = self._partition_to_client.get(partition_id)
+            if bound_client is not None:
+                return bound_client == client_id
+            if self._client_to_partition.get(client_id, partition_id) != partition_id:
+                return False  # this client_id already belongs to a different partition (token)
+            self._partition_to_client[partition_id] = client_id
+            self._client_to_partition[client_id] = partition_id
             return True
 
     def get_global_model_params(self) -> Optional[OrderedDict[str, torch.Tensor]]:
