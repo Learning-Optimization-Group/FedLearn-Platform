@@ -73,6 +73,21 @@ export class ClientProjectService {
       return { success: false, error: 'Not authenticated' };
     }
     try {
+      // Join first (idempotent). The backend's /connection endpoint enrolls only owner-or-CLIENT
+      // members, so a project the user only *discovered* (a PUBLIC one they haven't joined) 403s
+      // "Access denied". POST /join is a no-op when the user is already a CLIENT and auto-joins a
+      // PUBLIC project — mirroring the mobile client, which joins before it connects. Without this
+      // the desktop client can never reach a project it only discovered.
+      const joinRes = await http.post(
+        `${this.auth.getApiUrl()}/client/projects/${projectId}/join`,
+        {},
+        { headers: { Authorization: header }, validateStatus: (s) => s < 600 },
+      );
+      if (joinRes.status !== 200) {
+        const jmsg = (joinRes.data && (joinRes.data.message as string))
+          || `Could not join the project (HTTP ${joinRes.status})`;
+        return { success: false, error: jmsg };
+      }
       const res = await http.get(
         `${this.auth.getApiUrl()}/client/projects/${projectId}/connection`,
         {
