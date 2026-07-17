@@ -711,6 +711,17 @@ class Recipe:
 
     def build_model(self, device="cpu", model_name=None, aggregation="FFA_LORA",
                     task_type="SEQ_CLASSIFICATION"):
+        if self.key == "CNN":
+            # DA-14 Phase 1: CNN construction moved off the init_model.py if/elif onto the registry,
+            # using the canonical CnnNet (models.CnnNet — the one client.py trains); byte-identical
+            # state-dict keys to the legacy inline CnnNet (pinned by the state-key golden test).
+            from models import CnnNet
+            return CnnNet().to(device)
+        if self.key == "MLP":
+            # ECG MLP (140-dim heartbeat -> num_classes). Dims are intrinsic to this recipe; a later
+            # phase moves them into the derivation record.
+            from models.ecg_mlp import ECGModel
+            return ECGModel(input_dim=140, hidden_dim=64, num_classes=len(self.classes)).to(device)
         if self.key == "TINYNET_GOLDEN":
             return build_tinynet_golden().to(device)
         if self.key == "PNEUMONIA_CNN":

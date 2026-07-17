@@ -50,7 +50,10 @@ def get_model(model_type: str, model_name: str, device: str, aggregation: str = 
     model_name = model_name.lower()
 
     if model_type == 'CNN':
-        return CnnNet().to(device)
+        # DA-14 Phase 1: delegate to the recipe registry (single dispatch authority) instead of
+        # constructing inline. The registry uses the canonical CnnNet — byte-identical keys.
+        import recipes
+        return recipes.get_recipe('CNN').build_model(device)
 
     elif model_type == 'TINYNET_GOLDEN':
         # DEMO: the golden DeComFL TinyNet the mobile ExecuTorch bundle expects (MO-15 live path).
@@ -77,15 +80,10 @@ def get_model(model_type: str, model_name: str, device: str, aggregation: str = 
             raise ValueError(f"Unsupported Transformer model: {model_name}")
 
     elif model_type == 'MLP':
-        # Import ECG model
-        from models.ecg_mlp import ECGModel
-
-        if model_name in ['ecg_mlp', 'foundational']:
-            print(f"Initializing ECG MLP model (input_dim={ECG_INPUT_DIM}, hidden_dim={ECG_HIDDEN_DIM}, num_classes={ECG_NUM_CLASSES})")
-            print(f"[HARDCODED] ECG dataset path: {ECG_DATASET_PATH}")
-            return ECGModel(input_dim=ECG_INPUT_DIM, hidden_dim=ECG_HIDDEN_DIM, num_classes=ECG_NUM_CLASSES).to(device)
-        else:
-            raise ValueError(f"Unsupported MLP model: {model_name}")
+        # DA-14 Phase 1: delegate to the recipe registry (ECG MLP, byte-identical keys).
+        import recipes
+        print(f"Initializing ECG MLP model via registry (input_dim={ECG_INPUT_DIM}, num_classes={ECG_NUM_CLASSES})")
+        return recipes.get_recipe('MLP').build_model(device)
 
     elif model_type == 'LLM_LORA':
         import recipes

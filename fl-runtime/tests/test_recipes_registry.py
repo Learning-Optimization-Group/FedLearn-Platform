@@ -66,3 +66,32 @@ def test_tinynet_golden_builds_a_model_on_cpu_via_the_registry():
     import torch
     model = recipes.get_recipe("TINYNET_GOLDEN").build_model(device="cpu")
     assert isinstance(model, torch.nn.Module)
+
+
+# --- DA-14 Phase 1: collapse the CNN/MLP model construction onto the registry ------------------
+# State-key goldens captured from the legacy init_model.get_model() build. The registry build must
+# produce byte-identical state-dict keys, so init_model can delegate without changing any model.
+CNN_GOLDEN_KEYS = ["conv1.weight", "conv1.bias", "conv2.weight", "conv2.bias",
+                   "fc1.weight", "fc1.bias", "fc2.weight", "fc2.bias", "fc3.weight", "fc3.bias"]
+MLP_GOLDEN_KEYS = ["fc1.weight", "fc1.bias", "fc2.weight", "fc2.bias", "fc3.weight", "fc3.bias"]
+
+
+def test_registry_builds_cnn_with_golden_state_keys():
+    """CNN must build via recipe.build_model (was inline in init_model.py + NotImplementedError in
+    the registry), with keys byte-identical to the legacy CnnNet."""
+    model = recipes.get_recipe("CNN").build_model(device="cpu")
+    assert list(model.state_dict().keys()) == CNN_GOLDEN_KEYS
+
+
+def test_registry_builds_mlp_with_golden_state_keys():
+    model = recipes.get_recipe("MLP").build_model(device="cpu")
+    assert list(model.state_dict().keys()) == MLP_GOLDEN_KEYS
+
+
+def test_init_model_delegates_cnn_and_mlp_to_the_registry():
+    """The collapse is behavior-preserving: init_model.get_model and the registry build the same
+    architecture (same state-dict keys) for CNN and MLP."""
+    import init_model
+    for mtype, name, golden in (("CNN", "net", CNN_GOLDEN_KEYS), ("MLP", "ecg_mlp", MLP_GOLDEN_KEYS)):
+        legacy = init_model.get_model(mtype, name, "cpu")
+        assert list(legacy.state_dict().keys()) == golden
