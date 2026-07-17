@@ -184,3 +184,14 @@ is shared across peers; only the head is federated). Communication + byte number
   (`full/head=816x`, `full/decomfl=34,077x`); DeComFL upload is O(K·P), **constant across model size**
   (its one-shot O(d) initial download is reported separately). Unifies TE-15 + the C8 head-only win.
   Run: `PYTHONPATH=src python benchmarks/comms_regimes.py`.
+- **`dp_subsampling_amplification.py`** — the second DP privacy lever on the head: Poisson client
+  subsampling q<1 via the accountant's subsampled RDP. Fixed z, sweep q → certified ε tightens
+  **6.9×**; fixed ε, sweep q → solved z drops **3.7×** (less noise → more utility). Stacks with the
+  small-d head. Run: `PYTHONPATH=src python benchmarks/dp_subsampling_amplification.py`.
+- **`dp_head_cohort_sweep.py`** — the cohort-size complement of `dp_on_head`: fix ε/d, sweep N. On the
+  d=99 head the SNR=N/(z·√d)=1 crossing is at **N≈36.5** (laptop-reachable) vs **N≈592** for FedLoRA
+  d=26112. Run: `PYTHONPATH=src python benchmarks/dp_head_cohort_sweep.py`.
+
+Together with `dp_epsilon_accuracy.py` (FR-13 collapse) and `dp_on_head.py`, these map the full DP-FL
+privacy–utility space around `SNR = N/(z·√d)` and its three knobs (shrink d / grow N / subsample) —
+synthesized in `research/notes/2026-07-17-dp-fl-privacy-utility-story.md`.
