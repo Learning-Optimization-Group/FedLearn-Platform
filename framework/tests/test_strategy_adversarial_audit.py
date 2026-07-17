@@ -125,3 +125,18 @@ def test_fedlora_allowlist_rejects_json_encoded_smuggled_key():
     })
     with pytest.raises(ValueError, match="allowlist|surface|outside|adapter"):
         strat.aggregate_fit(1, [("c1", smuggled, 10)])
+
+
+def test_fedlora_assert_homogeneous_handles_json_string_params_like_its_siblings():
+    """_assert_homogeneous must decode JSON-string params via normalize_update (audit fix) — like
+    _client_keys / _assert_client_keys_allowed — instead of crashing with a raw str.items()
+    AttributeError. Homogeneous JSON updates pass; a genuine shape mismatch raises the clean,
+    attributable ValueError, not AttributeError."""
+    from fedlearn.server.strategy import FedLoRA
+    same = json.dumps({"score.weight": [[1.0, 2.0]]})
+    # Homogeneous JSON-encoded params: no crash, no false rejection.
+    FedLoRA._assert_homogeneous([("c1", same, 10), ("c2", same, 10)])
+    # A genuine heterogeneous rank across JSON updates raises the clean ValueError (not AttributeError).
+    other = json.dumps({"score.weight": [[1.0, 2.0, 3.0]]})
+    with pytest.raises(ValueError):
+        FedLoRA._assert_homogeneous([("c1", same, 10), ("c2", other, 10)])

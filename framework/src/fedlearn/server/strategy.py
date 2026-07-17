@@ -321,13 +321,17 @@ class FedLoRA(Strategy):
 
     @staticmethod
     def _assert_homogeneous(results):
-        """Raise ValueError if clients disagree on adapter key set or per-key shape (homogeneous rank)."""
-        def params_of(entry):
-            return entry[1] if len(entry) == 3 else entry[0]
-        ref = params_of(results[0])
+        """Raise ValueError if clients disagree on adapter key set or per-key shape (homogeneous rank).
+
+        Routes every entry through ``normalize_update`` (like ``_client_keys`` /
+        ``_assert_client_keys_allowed``) so an accepted wire shape — including JSON-encoded params —
+        is decoded consistently, rather than crashing with a raw AttributeError on ``str.items()``.
+        """
+        _cid, ref, _n = normalize_update(results[0])
         ref_shapes = {k: tuple(v.shape) for k, v in ref.items()}
         for entry in results[1:]:
-            shapes = {k: tuple(v.shape) for k, v in params_of(entry).items()}
+            _cid, params, _n = normalize_update(entry)
+            shapes = {k: tuple(v.shape) for k, v in params.items()}
             if shapes != ref_shapes:
                 raise ValueError(
                     "Heterogeneous LoRA adapters across clients (key/shape mismatch). "
