@@ -139,24 +139,30 @@ public class ArtifactRegistryService {
         artifacts.findById(id).ifPresent(a -> out.put(id, a)); // post-order => parents before children
     }
 
-    /** The org's shared BASE_REF for {@code baseModelRef}, created (with a reference-manifest blob) if absent. */
+    /**
+     * The org's shared BASE_REF for {@code baseModelRef}, created (with a reference-manifest blob) if
+     * absent. Race-safe (DA-3): the create path is an atomic {@code INSERT ... ON CONFLICT DO NOTHING}
+     * ({@link ModelArtifactRepository#insertBaseRefIfAbsent}) backed by the partial unique index
+     * {@code uq_base_ref_org_model} (V21), then a re-read of the single surviving row — so two concurrent
+     * adapter registrations over the same base can no longer each insert a duplicate BASE_REF (the old
+     * check-then-{@code save} did). The read-first fast path avoids the blob write on the common hit.
+     */
     private ModelArtifact findOrCreateBaseRef(UUID orgId, String baseModelRef, String licenseTag) {
+        var existing = artifacts.findFirstByOrgIdAndBaseModelRefAndKind(orgId, baseModelRef, ArtifactKind.BASE_REF);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        // A BASE_REF's "content" is a small reference manifest (not the base weights, which live
+        // upstream) — content-addressed, so the same base dedups across orgs at the blob.
+        byte[] manifest = ("{\"base_model_ref\":" + jsonString(baseModelRef)
+                + ",\"license\":" + jsonString(licenseTag) + "}").getBytes(StandardCharsets.UTF_8);
+        String sha256 = putBlob(manifest);
+        // Atomic insert-if-absent: whoever wins the (org, base_model_ref) race inserts the one BASE_REF;
+        // a loser is a silent no-op. Both then re-read the same surviving row below.
+        artifacts.insertBaseRefIfAbsent(UUID.randomUUID(), orgId, sha256, baseModelRef, licenseTag, Instant.now());
         return artifacts.findFirstByOrgIdAndBaseModelRefAndKind(orgId, baseModelRef, ArtifactKind.BASE_REF)
-                .orElseGet(() -> {
-                    // A BASE_REF's "content" is a small reference manifest (not the base weights, which
-                    // live upstream) — content-addressed, so the same base dedups across orgs at the blob.
-                    byte[] manifest = ("{\"base_model_ref\":" + jsonString(baseModelRef)
-                            + ",\"license\":" + jsonString(licenseTag) + "}").getBytes(StandardCharsets.UTF_8);
-                    String sha256 = putBlob(manifest);
-                    ModelArtifact base = new ModelArtifact();
-                    base.setOrgId(orgId);
-                    base.setBlobSha256(sha256);
-                    base.setKind(ArtifactKind.BASE_REF);
-                    base.setBaseModelRef(baseModelRef);
-                    base.setLicenseTag(licenseTag);
-                    base.setCreatedAt(Instant.now());
-                    return artifacts.save(base);
-                });
+                .orElseThrow(() -> new IllegalStateException(
+                        "BASE_REF for '" + baseModelRef + "' missing immediately after insert-if-absent"));
     }
 
     /**
