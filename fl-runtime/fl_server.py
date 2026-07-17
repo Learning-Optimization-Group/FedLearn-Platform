@@ -33,12 +33,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 import fedlearn as fl
 from fedlearn.server import DeComFL, FedLoRA, FedProx, FedOpt, RobustAggregator  # Import strategies from framework
-from models import CnnNet
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from init_model import get_model
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
-from flwr_datasets import FederatedDataset
 from datasets import load_dataset
 import torchvision.transforms as transforms
 import os

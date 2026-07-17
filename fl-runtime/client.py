@@ -21,7 +21,6 @@ from fedlearn.client import DeComFLClient  # Import DeComFL client from framewor
 
 from datasets import load_dataset
 from transformers import AutoTokenizer, get_linear_schedule_with_warmup
-from models import CnnNet
 from device import resolve_device
 
 
@@ -538,17 +537,11 @@ class ZOSLClient(fl.Client):
         self.grpc_client = None  # Will be set by start_client
 
         if USE_MLP:
-            # MLP: ECG model
-            from models.ecg_mlp import ECGModel
-            from config import get_dataset_config
-
-            config = get_dataset_config("ecg")
-            self.net = ECGModel(
-                input_dim=config.input_dim,
-                hidden_dim=config.hidden_dim,
-                num_classes=config.num_classes
-            ).to(DEVICE)
-            print(f"Loaded ECG MLP model ({config.num_classes} classes)")
+            # DA-14 Phase 2: build via the recipe registry (single authority). Byte-identical to the
+            # former inline ECGModel(input_dim, hidden_dim, num_classes) sourced from the ecg config.
+            import recipes
+            self.net = recipes.get_recipe("MLP").build_model(DEVICE)
+            print("Loaded ECG MLP model via registry")
         elif USE_LLM:
             # DA-14 Phase 1 / FR-29: build via the recipe registry so the client head width matches
             # the wire (len(classes)=3). The old dataset-derived num_labels built a 2-class head for
@@ -569,8 +562,10 @@ class ZOSLClient(fl.Client):
             self._adapter_keys = recipe.adapter_keys(self.net, LLM_LORA_AGGREGATION)
             print(f"Loaded LLM_LORA adapter (agg={LLM_LORA_AGGREGATION}, {len(self._adapter_keys)} keys)")
         else:
-            self.net = CnnNet().to(DEVICE)
-            print("Loaded CNN for CIFAR-10")
+            # DA-14 Phase 2: build via the recipe registry (single authority; same models.CnnNet).
+            import recipes
+            self.net = recipes.get_recipe("CNN").build_model(DEVICE)
+            print("Loaded CNN for CIFAR-10 via registry")
 
         log_processing_usage("after model init")
 
@@ -1042,9 +1037,10 @@ def main():
             trainloader = build_tinynet_golden_decomfl_loader(partition_id=args.partition_id)
 
         else:
-            # CNN with DeComFL (if needed)
+            # CNN with DeComFL — DA-14 Phase 2: build via the recipe registry (single authority).
             decomfl_config = get_decomfl_config("default")
-            net = CnnNet().to(DEVICE)
+            import recipes
+            net = recipes.get_recipe("CNN").build_model(DEVICE)
 
             trainloader, _ = load_data(
                 partition_id=args.partition_id,
