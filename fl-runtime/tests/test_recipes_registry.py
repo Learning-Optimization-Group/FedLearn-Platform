@@ -104,6 +104,23 @@ def test_init_model_delegates_cnn_and_mlp_to_the_registry():
 # sst2->2 can NEVER strict-load the 3-class global model init_model produces — a latent crash).
 # Collapsing every site onto build_model('TRANSFORMER') unifies on 3: byte-identical on the cb path,
 # corrective on the already-broken sst2 path.
+def test_catalog_keys_are_the_advertised_recipes_in_order():
+    """catalog_keys() == the --describe keys (selectable model types); excludes non-catalog keys."""
+    assert recipes.catalog_keys() == [r["key"] for r in recipes.describe()]
+    assert "BLOOD_CNN" not in recipes.catalog_keys()  # dispatchable but not selectable (SE-10)
+
+
+def test_fl_server_model_type_choices_follow_the_catalog(monkeypatch):
+    """DA-14 Ph3.1: the --model-type argparse choices are the recipe catalog keys, so a new catalog
+    recipe is an accepted model type with no argparse enum edit. Before, choices were a hardcoded
+    list that would reject a new key."""
+    monkeypatch.setattr(recipes, "catalog_keys", lambda: ["CNN", "ZZZ_NEW_RECIPE"])
+    import fl_server
+    parser = fl_server.build_arg_parser()
+    action = next(a for a in parser._actions if a.dest == "model_type")
+    assert "ZZZ_NEW_RECIPE" in action.choices
+
+
 def test_get_model_dispatch_is_registry_driven(monkeypatch):
     """DA-14 Ph3.1: init_model.get_model routes ANY recipe key through recipes.get_recipe(key).
     build_model() with no dedicated if/elif branch — so adding a model type needs no init_model

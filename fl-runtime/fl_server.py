@@ -413,7 +413,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
     parser.add_argument("--num-rounds", type=int, default=5, help="Number of FL rounds")
     parser.add_argument("--min-clients", type=int, default=1, help="Minimum clients per round")
-    parser.add_argument("--model-type", type=str.upper, required=True, choices=['CNN', 'TRANSFORMER', 'MLP', 'PNEUMONIA_CNN', 'LLM_LORA', 'TINYNET_GOLDEN'], help="Model type")
+    parser.add_argument("--model-type", type=str.upper, required=True, choices=recipes.catalog_keys(), help="Model type (recipe catalog key; data-driven — DA-14 Ph3.1)")
     parser.add_argument("--model-name", type=str, required=True, help="Model name")
     parser.add_argument("--port", type=int, default=50051, help="gRPC server port")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="Aggregation strategy")

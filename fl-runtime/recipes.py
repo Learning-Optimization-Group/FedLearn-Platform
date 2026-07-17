@@ -113,6 +113,14 @@ def describe():
     return RECIPE_METADATA
 
 
+def catalog_keys():
+    """The advertised (selectable) recipe keys, in catalog order — the valid ``--model-type``
+    values. Data-driven so a new catalog recipe is automatically an accepted model type (no
+    argparse enum edit in fl_server.py / client.py). Excludes non-catalog keys (e.g. BLOOD_CNN),
+    which stay dispatchable-but-not-selectable, exactly like the old hardcoded lists."""
+    return [r["key"] for r in RECIPE_METADATA]
+
+
 def build_tinynet_golden():
     """DEMO: the golden DeComFL TinyNet — Linear(4,5)->ReLU->Linear(5,3), fc2 FROZEN.
     Byte-matches framework/tests/fixtures/decomfl_golden/generate_zo.py so fl_server can build +

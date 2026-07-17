@@ -43,8 +43,13 @@ def _fl_server_model_type_choices():
 def _client_model_type_choices():
     with open(os.path.join(_SCRIPTS_DIR, "client.py")) as f:
         src = f.read()
+    # DA-14 Ph3.1: client.py derives its --model-type choices from the catalog (data-driven), so the
+    # catalog==choices guarantee is structural — no hardcoded list to drift. Resolve to the catalog.
+    if re.search(r"--model-type.*?choices=recipes\.catalog_keys\(\)", src):
+        return _catalog_keys()
+    # Legacy: a literal list (kept so a regression back to a drift-prone hardcoded list still fails).
     m = re.search(r"--model-type.*?choices=(\[[^\]]+\])", src)
-    assert m, "client.py --model-type argument (with choices=[...]) not found"
+    assert m, "client.py --model-type argument (with choices=[...] or recipes.catalog_keys()) not found"
     return set(ast.literal_eval(m.group(1)))
 
 
