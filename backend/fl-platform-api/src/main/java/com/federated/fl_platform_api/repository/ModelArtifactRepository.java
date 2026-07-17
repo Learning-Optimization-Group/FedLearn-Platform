@@ -22,6 +22,10 @@ public interface ModelArtifactRepository extends JpaRepository<ModelArtifact, UU
     /** The org's shared BASE_REF row for a given base model, if it already exists (find-or-create). */
     Optional<ModelArtifact> findFirstByOrgIdAndBaseModelRefAndKind(UUID orgId, String baseModelRef, ArtifactKind kind);
 
+    /** The artifact a run already produced for a kind, if any — the idempotency probe for a retried
+     *  completion callback (a run produces at most one artifact per kind; UNIQUE(run_id, kind), V12). */
+    Optional<ModelArtifact> findByRunIdAndKind(UUID runId, ArtifactKind kind);
+
     /**
      * DA-3: atomically insert the org's BASE_REF for {@code baseModelRef} ONLY if absent, backed by the
      * partial unique index {@code uq_base_ref_org_model} (V21). {@code ON CONFLICT DO NOTHING} makes the

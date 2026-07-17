@@ -35,6 +35,23 @@ class ArtifactRegistryServiceTest {
     @Autowired LocalFsArtifactBlobStore blobStore;
 
     @Test
+    void a_retried_completion_callback_is_idempotent_and_does_not_duplicate_the_artifact() {
+        // A run POSTs its final model; a network-timeout RETRY re-invokes register with the SAME
+        // (org, project, run, kind). It must return the artifact already recorded, not create a second
+        // (which UNIQUE(run_id, kind) would 500 in the Flyway schema, or duplicate where absent).
+        UUID org = UUID.randomUUID(), project = UUID.randomUUID(), run = UUID.randomUUID();
+        byte[] content = "checkpoint-bytes".getBytes(StandardCharsets.UTF_8);
+
+        ModelArtifact first = registry.register(org, project, run, content,
+                ArtifactKind.FULL_CHECKPOINT, "CNN", null, null, null);
+        ModelArtifact retry = registry.register(org, project, run, content,
+                ArtifactKind.FULL_CHECKPOINT, "CNN", null, null, null);
+
+        assertThat(retry.getId()).isEqualTo(first.getId());                 // same artifact, not a new one
+        assertThat(artifacts.findByRunId(run)).hasSize(1);                  // exactly one row for the run
+    }
+
+    @Test
     void register_writes_a_content_addressed_artifact_and_blob() {
         UUID org = UUID.randomUUID(), project = UUID.randomUUID(), run = UUID.randomUUID();
         byte[] content = "adapter-weights-v1".getBytes(StandardCharsets.UTF_8);

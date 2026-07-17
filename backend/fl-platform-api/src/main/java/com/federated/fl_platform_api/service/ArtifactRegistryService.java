@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -73,6 +74,17 @@ public class ArtifactRegistryService {
             throw new IllegalArgumentException("a LORA_ADAPTER must reference exactly one base model (baseModelRef)");
         }
         requireAccountantTraceForDpClaim(evalCardJson);   // SE-11: no DP label without a committed trace
+
+        // Idempotency: a retried completion callback (a network timeout AFTER the first POST committed)
+        // must not register a second artifact for the same (run, kind) — return the one already recorded.
+        // A run produces at most one artifact per kind (UNIQUE(run_id, kind), V12), so without this a
+        // retry 500s on that constraint in the Flyway schema (or silently duplicates where it is absent).
+        if (runId != null) {
+            Optional<ModelArtifact> already = artifacts.findByRunIdAndKind(runId, kind);
+            if (already.isPresent()) {
+                return already.get();
+            }
+        }
 
         // Find the project's current head BEFORE inserting the new row, so CONTINUED_FROM points at
         // the prior artifact rather than the one we are about to create.
