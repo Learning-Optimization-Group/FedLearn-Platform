@@ -58,6 +58,62 @@ def test_quorum_uses_proto_client_id_not_forged_trace_body():
     assert len(lib) == 0  # only one real (proto) client -> below quorum 2, not promoted
 
 
+def test_empty_proto_client_id_cannot_forge_quorum():
+    # The forgery variant of test_quorum_uses_proto_client_id_not_forged_trace_body: a single
+    # connection sends an EMPTY proto client_id and varies only the trace-body client_id. The identity
+    # bind must be unconditional, so an empty proto id yields an empty identity that validate() rejects
+    # (fail-closed) — it must NOT fall back to trusting the body id and let one source forge quorum.
+    svc = _servicer(quorum=2)
+    for forged in ("victimA", "victimB"):
+        tr = ReasoningTrace("t", forged, "run", 0, "task", {"insight_a": "Trust me, this shortcut is safe."})
+        req = fot_pb2.SubmitReasoningTraceRequest(client_id="", round=0, trace_json=tr.to_json())
+        r = svc.SubmitReasoningTrace(req, _Ctx())
+        assert not r.accepted and "client_id is empty" in r.reason
+    lib = svc.distill_round()
+    assert len(lib) == 0  # empty proto identity -> rejected -> nothing to promote
+
+
+def test_pending_buffer_is_bounded():
+    # An unauthenticated flood of VALID submits must not grow the pending buffer without limit (OOM
+    # backstop). Past the cap, submits are rejected (buffer-full) and the count never exceeds it.
+    svc = _servicer(quorum=2)
+    svc._max_pending = 3
+    accepts = 0
+    for k in range(10):
+        tr = ReasoningTrace(f"t{k}", f"c{k}", "run", 0, "task", {"insight_a": "x" * 50})
+        req = fot_pb2.SubmitReasoningTraceRequest(client_id=f"c{k}", round=0, trace_json=tr.to_json())
+        r = svc.SubmitReasoningTrace(req, _Ctx())
+        accepts += r.accepted
+        if not r.accepted:
+            assert "buffer full" in r.reason
+    assert accepts == 3
+    assert svc.pending_count() == 3
+    # After a distill drains the buffer, submits are accepted again.
+    svc.distill_round()
+    assert _submit(svc, "c-after", {"insight_a": "Fresh insight."}).accepted
+
+
+def test_max_pending_zero_disables_the_cap():
+    svc = _servicer(quorum=2)
+    svc._max_pending = 0  # disabled -> unbounded (matches SE-18's non-positive-disables convention)
+    for k in range(20):
+        assert _submit(svc, f"c{k}", {"insight_a": "x"}).accepted
+    assert svc.pending_count() == 20
+
+
+def test_unparseable_trace_reason_does_not_leak_exception_internals():
+    svc = _servicer()
+    # trace_json that PARSES as JSON but is structurally wrong (a list, not an object) -> from_json
+    # raises a TypeError/KeyError whose str() would leak Python internals if echoed.
+    r = svc.SubmitReasoningTrace(
+        fot_pb2.SubmitReasoningTraceRequest(client_id="c1", round=0, trace_json="[1, 2, 3]"), _Ctx()
+    )
+    assert not r.accepted
+    assert r.reason == "unparseable trace_json"  # fixed, sanitized reason — no raw exception text
+    for leak in ("indices", "subscriptable", "KeyError", "TypeError", "object is not"):
+        assert leak not in r.reason
+
+
 def test_get_library_unchanged_shortcircuit():
     svc = _servicer(quorum=1)
     _submit(svc, "c1", {"insight_a": "X."})

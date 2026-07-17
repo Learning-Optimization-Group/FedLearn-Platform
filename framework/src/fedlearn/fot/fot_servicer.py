@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import os
 import threading
 from typing import List, Optional
 
@@ -34,26 +35,47 @@ class FotServicer(fot_pb2_grpc.FoTServiceServicer):
         self.library = library if library is not None else InsightLibrary(version=0)
         self._pending: List[ReasoningTrace] = []
         self._lock = threading.Lock()
+        # Bound the pending buffer so an unauthenticated flood of valid submits between rounds can't
+        # grow it (and the distiller prompt it feeds) without limit -> OOM DoS. The FoT analog of the
+        # gradient path's SE-18 upload caps. Generous, env-tunable default so real traffic is never
+        # rejected; a non-positive value disables the cap. Overridable on the instance for tests.
+        self._max_pending: int = int(os.environ.get("FEDLEARN_FOT_MAX_PENDING_TRACES", "10000"))
 
     # ----- RPCs -----
     def SubmitReasoningTrace(self, request, context):  # noqa: N802 (gRPC naming)
         try:
             trace = ReasoningTrace.from_json(request.trace_json)
         except Exception as exc:  # malformed upload
+            # Log the detail server-side; do NOT echo the raw exception text to the client (it leaks
+            # Python/impl internals — "list indices must be integers", "'int' object is not
+            # subscriptable", etc. — with no value to a legitimate caller).
+            log.info("rejecting unparseable FoT trace from %r: %s", request.client_id, exc)
             return fot_pb2.SubmitReasoningTraceResponse(
-                accepted=False, reason=f"unparseable trace_json: {exc}"
+                accepted=False, reason="unparseable trace_json"
             )
         # Bind the quorum/provenance identity to the connection-reported proto client_id, NOT the
         # client-controlled trace body — otherwise one connection could vary the body's client_id to
         # forge multi-client quorum from a single source and defeat the hallucination-propagation
-        # guard. (NB: gRPC here is unauthenticated plaintext — audit item #37 — so this identity is
-        # still self-reported; quorum is only as trustworthy as client auth, a platform-wide gap.)
-        if request.client_id:
-            trace = dataclasses.replace(trace, client_id=request.client_id)
+        # guard. Bind UNCONDITIONALLY: an empty proto client_id must NOT fall back to trusting the
+        # body's client_id (the exact forgery vector) — it yields an empty identity that
+        # trace.validate() rejects below (fail-closed). (NB: gRPC here is unauthenticated plaintext —
+        # audit item #37 — so this identity is still self-reported; quorum is only as trustworthy as
+        # client auth, a platform-wide gap. This guard makes the proto field the sole identity so a
+        # future SE-15-style identity extractor that populates it is actually enforced.)
+        trace = dataclasses.replace(trace, client_id=request.client_id)
         problems = self.validator.problems(trace)
         if problems:
             return fot_pb2.SubmitReasoningTraceResponse(accepted=False, reason="; ".join(problems))
         with self._lock:
+            # Reject once the buffer is full rather than growing it unboundedly (OOM backstop). The
+            # cap is checked and the append happens under the same lock so a burst of concurrent RPCs
+            # can't race past it.
+            if 0 < self._max_pending <= len(self._pending):
+                return fot_pb2.SubmitReasoningTraceResponse(
+                    accepted=False,
+                    reason=f"server pending-trace buffer full ({self._max_pending}); "
+                    "retry after the next distill round",
+                )
             self._pending.append(trace)
         return fot_pb2.SubmitReasoningTraceResponse(accepted=True, reason="")
 
