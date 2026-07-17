@@ -17,11 +17,22 @@ Usage:
 import argparse
 import hashlib
 import json
+import os
 import shutil
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 DEFAULT_FIXTURE = REPO / "framework" / "tests" / "fixtures" / "decomfl_golden"
+
+
+def atomic_write_text(path: Path, text: str) -> None:
+    """Write ``text`` to ``path`` atomically (temp file in the same dir + os.replace). manifest.json is
+    the bundle's COMMIT MARKER — the backend gates a served bundle on it existing and parsing (RunService
+    .getModelBundle). A truncate-in-place write leaves a torn manifest visible to a concurrent reader or
+    after a crash mid-write (-> a 500 on read); an atomic rename makes it appear whole-or-not-at-all."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
 
 
 def sha256(path: Path) -> str:
@@ -78,7 +89,7 @@ def stage_bundle(run_id: str, out_root: Path, fixture: Path = DEFAULT_FIXTURE) -
             "goldenAccuracy": src["golden_accuracy"],
         },
     }
-    (dest / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    atomic_write_text(dest / "manifest.json", json.dumps(manifest, indent=2) + "\n")
     return dest
 
 

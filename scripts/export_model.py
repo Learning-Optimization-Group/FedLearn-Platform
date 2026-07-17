@@ -173,10 +173,11 @@ def export_recipe_bundle(
         (fx / "zo_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
         dest = stage_model_bundle.stage_bundle(run_id, out_root, fixture=fx)
 
-    # stamp the real recipe key into the staged manifest meta (stage_bundle hardcodes "tinynet-golden")
+    # stamp the real recipe key into the staged manifest meta (stage_bundle hardcodes "tinynet-golden").
+    # Re-write atomically so this second write of the commit-marker manifest can't leave a torn file.
     staged = json.loads((dest / "manifest.json").read_text())
     staged["meta"]["recipe"] = key.lower()
-    (dest / "manifest.json").write_text(json.dumps(staged, indent=2) + "\n")
+    stage_model_bundle.atomic_write_text(dest / "manifest.json", json.dumps(staged, indent=2) + "\n")
     return dest
 
 
