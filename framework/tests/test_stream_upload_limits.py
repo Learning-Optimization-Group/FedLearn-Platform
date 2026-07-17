@@ -125,3 +125,20 @@ def test_within_limits_upload_is_not_rejected(monkeypatch):
     assert resp.received is True
     assert ctx.aborted is None
     s.coordinator.submit_client_update.assert_called_once()
+
+
+def test_malformed_zero_total_chunks_does_not_crash_the_upload(monkeypatch):
+    """total_chunks is UNTRUSTED/advisory: SE-18 rides correctness on is_final_chunk + the caps, never
+    on total_chunks (the loop breaks on is_final; the buffer is bounded by the byte/chunk caps). A
+    malformed total_chunks=0 must therefore NOT ZeroDivisionError in the advisory progress log and get
+    remapped by the broad handler to INTERNAL — reporting a CLIENT malformation as a SERVER fault
+    (FR-6 status-hygiene). The upload (valid data, is_final set, within caps) is accepted."""
+    s = _servicer(max_bytes=10**9, max_chunks=10_000)
+    monkeypatch.setattr("fedlearn.server.grpc_servicer.chunks_to_parameters",
+                        lambda data, compressed=False: ({"w": object()}, 7))
+    ctx = _Ctx()
+    resp = s.SubmitModelUpdateStream(
+        iter([_chunk(b"AAAAA", is_final=True, total_chunks=0, num_examples=7)]), ctx)
+    assert resp.received is True
+    assert ctx.aborted is None
+    s.coordinator.submit_client_update.assert_called_once()

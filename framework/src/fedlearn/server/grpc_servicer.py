@@ -331,9 +331,15 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                 total_bytes += chunk_len
                 chunks_received += 1
 
-                # Progress update
-                progress = chunks_received / total_chunks * 100
-                logging.info(f"[Server] Received chunk {chunks_received}/{total_chunks} ({progress:.1f}%)")
+                # Progress update. total_chunks is UNTRUSTED (SE-18: correctness rides on
+                # is_final_chunk + the caps, never on this client-declared count), so a malformed
+                # total_chunks <= 0 must not ZeroDivisionError here and get remapped to INTERNAL — the
+                # percentage is advisory logging only.
+                if total_chunks > 0:
+                    progress = chunks_received / total_chunks * 100
+                    logging.info(f"[Server] Received chunk {chunks_received}/{total_chunks} ({progress:.1f}%)")
+                else:
+                    logging.info(f"[Server] Received chunk {chunks_received} (total_chunks unset)")
 
                 if chunk.is_final_chunk:
                     num_examples = chunk.num_examples
