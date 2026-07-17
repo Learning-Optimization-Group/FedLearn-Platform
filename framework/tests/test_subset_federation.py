@@ -41,16 +41,35 @@ def test_guard_accepts_matching_keys_and_rejects_mismatch():
         ]), net)  # extra/frozen key
 
 
-def test_guard_rejects_same_keys_different_order():
-    """Minor: cardinality alone isn't enough -- a REORDERED same-key-set update must also be
-    rejected, since the wire layout is order-sensitive (estimators.params.trainable_state order)."""
+def test_guard_accepts_same_keys_different_order():
+    """A REORDERED same-key-set/same-shape update must be ACCEPTED. The FedAvg subset path is
+    entirely by-name (FedAvgAggregator averages per key; apply_trainable_subset uses
+    load_state_dict(strict=False)), so key order carries no correctness signal — and it can't be
+    relied on anyway: a small head takes the UNARY proto upload, whose map<string,Tensor> field has
+    UNSPECIFIED iteration order, so trainable_state()'s named_parameters order does not survive the
+    wire. An order-sensitive guard false-rejected every legitimate head update on that path. (This
+    replaces the earlier order-sensitive assertion, whose 'the wire is order-sensitive' premise is
+    empirically false for the unary path — see test_guard_accepts_unary_proto_scrambled_order.)"""
     net = build_tiny_frozen_net(seed=0)
     reordered = OrderedDict([
         ("head.bias", torch.zeros_like(net.head.bias)),
         ("head.weight", torch.zeros_like(net.head.weight)),
     ])
-    with pytest.raises(SubsetDimMismatch):
-        validate_subset_update(reordered, net)
+    validate_subset_update(reordered, net)  # no raise: same key set + shapes, only order differs
+
+
+def test_guard_accepts_unary_proto_scrambled_order():
+    """End-to-end regression: a head update that round-trips through the REAL unary proto path
+    (parameters_to_proto -> proto_to_parameters) arrives with its keys in protobuf-map order, NOT
+    named_parameters order. The guard must accept it. Before the set-based fix, this raised
+    SubsetDimMismatch and would have wedged every round of the DA-14 head-only path."""
+    from fedlearn.communication.serializer import parameters_to_proto, proto_to_parameters
+    net = build_tiny_frozen_net(seed=0)
+    sent = trainable_state(net)  # named_parameters order
+    received, _ = proto_to_parameters(parameters_to_proto(sent, num_examples=10))
+    # The transport reordered the keys (or at least is free to); the guard must not care.
+    validate_subset_update(received, net)  # no raise
+    guard_client_updates([received], net)  # and the pre-aggregation sweep accepts it too
 
 
 def test_guard_rejects_same_keys_wrong_shape_with_typed_error():

@@ -36,18 +36,29 @@ def expected_trainable_keys(model: nn.Module) -> list[str]:
 
 def validate_subset_update(update: "OrderedDict[str, torch.Tensor]", model: nn.Module) -> None:
     """Raise SubsetDimMismatch unless `update` matches model's expected trainable layout on BOTH
-    axes: the key list (order-sensitive) AND each tensor's shape. A same-key/wrong-shape update
-    (e.g. a misconfigured client's head) is exactly as much a contract violation as a wrong key
-    set, so it raises this same typed error instead of falling through to load_state_dict's raw,
-    untyped RuntimeError.
+    axes: the key SET AND each tensor's shape. A same-key/wrong-shape update (e.g. a misconfigured
+    client's head) is exactly as much a contract violation as a wrong key set, so it raises this
+    same typed error instead of falling through to load_state_dict's raw, untyped RuntimeError.
+
+    Key comparison is order-INSENSITIVE (set-based), and deliberately so. The FedAvg subset path is
+    entirely by-NAME — FedAvgAggregator averages per key and apply_trainable_subset writes back via
+    load_state_dict(strict=False), neither of which indexes positionally — so key ORDER carries no
+    safety signal here. It also can't be relied on: a small (non-transformer) head takes the UNARY
+    upload path (grpc_client._submit_update_unary → serializer.parameters_to_proto), and a protobuf
+    ``map<string, Tensor>`` field iterates in an UNSPECIFIED order, so trainable_state()'s
+    named_parameters order does NOT survive that transport. An order-sensitive check therefore
+    false-rejected every legitimate head update that traveled the unary path — the exact DA-14
+    frozen-backbone use case. This mirrors distribution.reconstruct_frozen_backbone, which already
+    compares frozen-backbone keys as a set. (The order-CRITICAL DeComFL flat-vector layout is a
+    different path — estimators.params.param_layout/flat_params — and is untouched by this.)
     """
     expected = trainable_state(model)
-    update_keys = list(update.keys())
-    expected_keys = list(expected.keys())
+    update_keys = set(update.keys())
+    expected_keys = set(expected.keys())
     if update_keys != expected_keys:
         raise SubsetDimMismatch(
-            f"trainable-subset mismatch: client sent {update_keys} but the server expects "
-            f"{expected_keys} (requires_grad params in named_parameters order). Send "
+            f"trainable-subset mismatch: client sent {sorted(update_keys)} but the server expects "
+            f"{sorted(expected_keys)} (requires_grad params). Send "
             f"estimators.params.trainable_state(model), NOT a full state_dict()."
         )
     for name, expected_tensor in expected.items():
