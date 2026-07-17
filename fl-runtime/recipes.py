@@ -462,10 +462,18 @@ def build_frozen_backbone_model(num_classes, backbone_bytes=None, d_in=256, d_hi
         def forward(self, x):
             return self.head(torch.relu(self.backbone(x)))
 
-    model = _FrozenBackboneNet()
     if backbone_bytes is not None:
+        model = _FrozenBackboneNet()
         from fedlearn.backbone.distribution import reconstruct_frozen_backbone
         reconstruct_frozen_backbone(model, backbone_bytes)  # validate blob==frozen layout, load, re-freeze
+    else:
+        # Deterministic frozen backbone (seed 0, like build_tinynet_golden): EVERY federation peer
+        # (server + all clients) must rebuild the IDENTICAL frozen backbone from the recipe alone —
+        # the head is broadcast/aggregated over the wire, the backbone is not. A random backbone per
+        # peer would make the aggregated head meaningless. fork_rng leaves the caller's RNG untouched.
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(0)
+            model = _FrozenBackboneNet()
     return model.to(device)
 
 

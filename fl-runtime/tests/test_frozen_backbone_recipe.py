@@ -56,6 +56,17 @@ def test_frozen_demo_backbone_roundtrips_via_serialize_reconstruct():
     assert other.head.weight.requires_grad is True
 
 
+def test_frozen_demo_backbone_is_deterministic_across_peers():
+    """Ph3.3c correctness: build_model('FROZEN_DEMO') with no blob must produce the SAME frozen
+    backbone every time — so the server and every client rebuild an identical backbone from the
+    recipe alone (the head is federated, the backbone is not). A per-peer-random backbone would make
+    the aggregated head meaningless."""
+    a = recipes.get_recipe("FROZEN_DEMO").build_model("cpu")
+    b = recipes.get_recipe("FROZEN_DEMO").build_model("cpu")
+    assert torch.equal(a.backbone.weight.detach(), b.backbone.weight.detach())
+    assert torch.equal(a.backbone.bias.detach(), b.backbone.bias.detach())
+
+
 def test_frozen_demo_has_self_contained_vector_data_loaders():
     """Ph3.3c: FROZEN_DEMO is a functional recipe — its client shard and server test set are
     self-contained synthetic (features, labels) vector batches (no external data), shaped for the
