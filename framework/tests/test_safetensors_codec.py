@@ -55,3 +55,53 @@ def test_negative_shape_dim_is_rejected():
     blob = _blob({"w": {"dtype": "F32", "shape": [-1], "data_offsets": [0, 8]}}, b"\x00" * 8)
     with pytest.raises(ValueError):
         load_safetensors(blob)
+
+
+def test_shape_product_int64_overflow_is_rejected():
+    """A shape whose element product overflows int64 must still be rejected, not mis-read. The
+    byte-count guard computes expected = 4*int(np.prod(shape, dtype=int64)); shape [2**32, 2**32]
+    overflows that product to 0, so a matching data_offsets [0,0] slips PAST the explicit byte-count
+    check — numpy's reshape (which uses the true Python-int product) is the backstop that rejects it.
+    Pin that the overflow blob is rejected so this untrusted-input parser can't be regressed into a
+    silent mis-read if the reshape backstop is ever weakened."""
+    blob = _blob({"w": {"dtype": "F32", "shape": [2 ** 32, 2 ** 32], "data_offsets": [0, 0]}}, b"")
+    with pytest.raises(ValueError):
+        load_safetensors(blob)
+
+
+@pytest.mark.parametrize("bad", [
+    b"\x00\x03",                                             # truncated: fewer than 8 header-length bytes
+    struct.pack("<Q", 10 ** 9) + b"{}",                     # header length far exceeds the blob (legacy-pickle guard)
+    struct.pack("<Q", 0),                                   # zero-length header -> empty JSON -> JSONDecodeError (a ValueError)
+])
+def test_malformed_framing_is_rejected(bad):
+    with pytest.raises(ValueError):
+        load_safetensors(bad)
+
+
+@pytest.mark.parametrize("header", [
+    [1, 2, 3],                                                       # header is a JSON list, not an object
+    5,                                                               # header is a JSON int
+    {"__metadata__": "not-a-dict"},                                 # metadata block is not an object
+    {"w": {"dtype": "F32", "shape": [2]}},                          # entry missing data_offsets
+    {"w": {"dtype": "F32", "shape": [1], "data_offsets": [8, 0]}},  # inverted offsets (s > e)
+])
+def test_malformed_header_entries_are_rejected(header):
+    # Every structurally-invalid header must raise ValueError (the correct client-error status), never
+    # crash with a non-ValueError or silently mis-read.
+    data = b"\x00" * 8
+    with pytest.raises(ValueError):
+        load_safetensors(_blob(header, data))
+
+
+def test_overlapping_offsets_are_accepted_and_safe():
+    # Non-overlapping/contiguous layout is NOT required on decode: two tensors that share the same
+    # data range decode to independent copies (safe — bounds are still enforced). Documents the
+    # lenient-but-safe contract so a future "tighten" doesn't mistake it for a bug.
+    blob = _blob({
+        "a": {"dtype": "F32", "shape": [1], "data_offsets": [0, 4]},
+        "b": {"dtype": "F32", "shape": [1], "data_offsets": [0, 4]},
+    }, struct.pack("<f", 2.5))
+    out, _ = load_safetensors(blob)
+    assert {n for n, _ in out} == {"a", "b"}
+    assert all(float(arr[0]) == 2.5 for _, arr in out)
