@@ -179,6 +179,11 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
             partition_id=partition_id, num_clients=num_clients, batch_size=BATCH_SIZE,
             model_name=LLM_LORA_MODEL_NAME, task_type=LLM_LORA_TASK_TYPE)
         return train, train   # reuse the shard as the (unused) eval loader, matching the CNN return shape
+    if USE_DERIVED:
+        # DA-14 Ph3.3c: self-contained synthetic vector shard for the frozen-backbone derived recipe.
+        import recipes
+        return recipes.get_recipe("FROZEN_DEMO").load_client_data(
+            partition_id=partition_id, num_clients=num_clients, batch_size=BATCH_SIZE)
     if USE_LLM:
         from pathlib import Path
         import pickle
@@ -410,6 +415,14 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                 labels = labels.to(DEVICE)
                 outputs = net(features)
                 loss = criterion(outputs, labels)
+            elif USE_DERIVED:
+                # DA-14 Ph3.3c: derived frozen-backbone recipe — (features, labels) vector tuple; the
+                # frozen backbone gets no grad, so this trains ONLY the head (mirrors the MLP path).
+                features, labels = batch
+                features = features.to(DEVICE)
+                labels = labels.to(DEVICE)
+                outputs = net(features)
+                loss = criterion(outputs, labels)
             elif USE_PNEUMONIA:
                 # PneumoniaCNN: batch is (image, label) tuple
                 images, labels = batch[0].to(DEVICE), batch[1].to(DEVICE)
@@ -562,6 +575,11 @@ class ZOSLClient(fl.Client):
             self._lora_recipe = recipe
             self._adapter_keys = recipe.adapter_keys(self.net, LLM_LORA_AGGREGATION)
             print(f"Loaded LLM_LORA adapter (agg={LLM_LORA_AGGREGATION}, {len(self._adapter_keys)} keys)")
+        elif USE_DERIVED:
+            # DA-14 Ph3.3c: frozen-backbone derived recipe — head-only FedAvg federation.
+            import recipes
+            self.net = recipes.get_recipe("FROZEN_DEMO").build_model(DEVICE)
+            print("Loaded FROZEN_DEMO (frozen backbone + trainable head; head-only federation)")
         else:
             # DA-14 Phase 2: build via the recipe registry (single authority; same models.CnnNet).
             import recipes

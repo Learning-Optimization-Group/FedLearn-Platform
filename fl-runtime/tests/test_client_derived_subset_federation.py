@@ -28,3 +28,30 @@ def test_derived_client_uploads_head_only(monkeypatch):
     # Head-only wire — only the trainable head, never the frozen backbone (mirrors adapter-only).
     assert set(params.keys()) == {"head.weight", "head.bias"}
     assert not any("backbone" in k for k in params)
+
+
+def test_derived_client_runs_fit_end_to_end_head_only(monkeypatch):
+    """DA-14 Ph3.3c: a derived ZOSLClient builds the frozen-backbone model, loads its self-contained
+    shard, runs a real fit() round, and returns HEAD-ONLY — the head trains, the frozen backbone
+    never moves. Mirrors test_client_llm_lora's fit round-trip for the derived path."""
+    from collections import OrderedDict
+    import torch
+    import client  # noqa: E402
+    monkeypatch.setattr(client, "USE_LLM", False, raising=False)
+    monkeypatch.setattr(client, "USE_MLP", False, raising=False)
+    monkeypatch.setattr(client, "USE_PNEUMONIA", False, raising=False)
+    monkeypatch.setattr(client, "USE_LLM_LORA", False, raising=False)
+    monkeypatch.setattr(client, "USE_DERIVED", True, raising=False)
+
+    c = client.ZOSLClient(partition_id=0, dataset_name="frozen_demo", num_clients=2)
+    backbone_before = c.net.backbone.weight.detach().clone()
+
+    initial = c.get_parameters()
+    assert set(initial.keys()) == {"head.weight", "head.bias"}
+
+    new_params, n = c.fit(OrderedDict(initial), {"server_round": 1, "local_epochs": 1})
+
+    assert n > 0
+    assert set(new_params.keys()) == {"head.weight", "head.bias"}                  # head-only wire
+    assert not torch.equal(new_params["head.weight"], initial["head.weight"])      # the head trained
+    assert torch.equal(c.net.backbone.weight.detach(), backbone_before)            # backbone unmoved
