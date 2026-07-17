@@ -807,8 +807,11 @@ class Recipe:
 
     @property
     def is_functional(self):
-        """Whether this recipe's model/data live in recipes.py (vs legacy scripts)."""
-        return self.key in ("PNEUMONIA_CNN", "LLM_LORA", "BLOOD_CNN", "TINYNET_GOLDEN")
+        """Whether this recipe's model AND data both live in recipes.py (vs legacy scripts).
+        CNN/MLP joined after the DA-14 Phase-1 collapse (model + client/server data now in the
+        registry). TRANSFORMER is NOT here yet — its model + tokenizer are collapsed but its data
+        loading still lives in client.py/data.py."""
+        return self.key in ("PNEUMONIA_CNN", "LLM_LORA", "BLOOD_CNN", "TINYNET_GOLDEN", "CNN", "MLP")
 
     def build_model(self, device="cpu", model_name=None, aggregation="FFA_LORA",
                     task_type="SEQ_CLASSIFICATION"):

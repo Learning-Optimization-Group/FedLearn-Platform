@@ -104,6 +104,15 @@ def test_init_model_delegates_cnn_and_mlp_to_the_registry():
 # sst2->2 can NEVER strict-load the 3-class global model init_model produces — a latent crash).
 # Collapsing every site onto build_model('TRANSFORMER') unifies on 3: byte-identical on the cb path,
 # corrective on the already-broken sst2 path.
+def test_cnn_and_mlp_are_fully_functional_after_the_phase1_collapse():
+    """CNN and MLP now build their model AND load their client/server data through the registry,
+    so is_functional (model+data live in recipes.py) must report True. TRANSFORMER stays False —
+    its data loading still lives in client.py/data.py, only the model + tokenizer are collapsed."""
+    assert recipes.get_recipe("CNN").is_functional is True
+    assert recipes.get_recipe("MLP").is_functional is True
+    assert recipes.get_recipe("TRANSFORMER").is_functional is False
+
+
 def test_transformer_recipe_classes_is_the_num_labels_authority():
     """The recipe's class list is the single source for the opt-125m SEQ_CLS head width (FR-29)."""
     r = recipes.get_recipe("TRANSFORMER")
