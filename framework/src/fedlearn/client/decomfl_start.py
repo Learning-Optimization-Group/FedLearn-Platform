@@ -57,7 +57,7 @@ def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: 
     # global model, so the aggregate is meaningless and the model cannot converge. This is the
     # one-shot O(d) initial download the paper assumes; per-round communication stays O(1).
     try:
-        global_params, _, _ = comm_client.get_global_model()
+        global_params, server_round_at_download, _ = comm_client.get_global_model()
     except grpc.RpcError as e:
         log.error(
             "[%s] Could not download the global model (%s); exiting rather than training from "
@@ -76,7 +76,14 @@ def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: 
         comm_client.close()
         return
 
-    client.load_global_model(global_params)
+    # FR-16: the downloaded global reflects rounds below the server's current round, so this client
+    # is synced through current_round - 1. Recording that baseline makes a restarted client (which
+    # re-downloads the current global but keeps its server-side pre-crash baseline) skip the rounds
+    # it already holds instead of replaying them on top of the fresh download. If the server did not
+    # report a round, leave the watermark unset (safe default — the client-side idempotency guard
+    # still prevents in-session double-apply).
+    synced_through = None if server_round_at_download is None else server_round_at_download - 1
+    client.load_global_model(global_params, synced_through_round=synced_through)
     log.info("[%s] Synced local model to the server's global model before training", client_id)
 
     try:

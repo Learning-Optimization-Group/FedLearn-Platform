@@ -66,7 +66,7 @@ class _FakeClient:
     def fit(self, parameters, config):  # not reached in terminal/error scenarios
         return [[0.0]], 1
 
-    def load_global_model(self, params):  # FR-1 initial sync; no-op for the lifecycle doubles
+    def load_global_model(self, params, synced_through_round=None):  # FR-1 sync; FR-16 baseline
         pass
 
     def assert_dim_matches(self, server_model_dim):  # MO-19: no-op unless a test overrides to reject

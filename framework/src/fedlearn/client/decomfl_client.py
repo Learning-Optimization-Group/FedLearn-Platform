@@ -52,6 +52,13 @@ class DeComFLClient(Client):
         # Current model parameters (flattened)
         self.x_current = self.zo_estimator._get_flat_params(self.model)
 
+        # FR-15: highest round whose averaged update has already been applied to x_current.
+        # The server advances its per-client baseline only on aggregation, but the client mutates
+        # x_current at config-fetch time — so a dropped submission makes the server re-hand an
+        # already-applied round. Tracking it here makes rebuild_model idempotent: replaying a round
+        # <= this watermark is a no-op, so an overlapping rebuild history cannot double-apply.
+        self._synced_through: int = -1
+
         # For heartbeat integration
         self.grpc_client = None
 
@@ -86,13 +93,25 @@ class DeComFLClient(Client):
                 f"params inflate the server's flat vector)."
             )
 
-    def load_global_model(self, parameters: OrderedDict[str, torch.Tensor]) -> None:
+    def load_global_model(
+            self,
+            parameters: OrderedDict[str, torch.Tensor],
+            synced_through_round: "int | None" = None,
+    ) -> None:
         """Adopt the server's global model (DeComFL requires every party to share x_0).
 
         Loads ``parameters`` into the local model and resets the flattened working copy
         ``x_current`` so the zeroth-order trajectory starts from the *shared* global model,
         not this client's constructor-time random init. Called once at startup; this is the
         O(d) initial download the paper assumes — per-round communication stays O(1).
+
+        FR-16 (restart / late join): the downloaded global already reflects every aggregated round
+        below the server's current round, so ``synced_through_round`` records how far this client is
+        synced (``current_round - 1`` at download time). Without it, a restarted client — which
+        reuses its deterministic client_id and re-downloads x_{r-1} — would reset its watermark to
+        -1 while the server still remembers its pre-crash baseline and re-hands rounds it already
+        holds, double-applying them. Setting the watermark here makes those re-handed rounds a
+        no-op. A from-scratch client passes round 0 (or None), leaving the watermark at -1.
 
         Trainable-only sync (FR-14): DeComFL only ever synchronises the ``requires_grad``-filtered
         trainable layout (:func:`estimators.params.trainable_state`) — the exact d-vector the
@@ -125,7 +144,13 @@ class DeComFLClient(Client):
 
         self.model.load_state_dict(parameters, strict=False)
         self.x_current = self.zo_estimator._get_flat_params(self.model).to(self.device)
-        log.debug("Synced local model to server global (%d params)", len(self.x_current))
+
+        # FR-16: the downloaded global already folds in every round below the server's current round.
+        if synced_through_round is not None:
+            self._synced_through = synced_through_round
+
+        log.debug("Synced local model to server global (%d params, synced through round %s)",
+                  len(self.x_current), self._synced_through)
 
     def get_parameters(self) -> OrderedDict[str, torch.Tensor]:
         """Return current model parameters."""
@@ -151,6 +176,16 @@ class DeComFLClient(Client):
 
         for round_data in rebuild_history:
             round_num = round_data['round_number']
+
+            # FR-15: skip any round already folded into x_current. The server advances a client's
+            # baseline only when its submission is aggregated, so a dropped/straggler client is
+            # re-handed a round it already applied; replaying it here would double-apply and
+            # silently diverge the local model from the global trajectory. Idempotent by watermark.
+            if round_num <= self._synced_through:
+                log.debug("Skipping already-applied rebuild round %d (synced through %d)",
+                          round_num, self._synced_through)
+                continue
+
             seeds = round_data['seeds']
             avg_gradients = round_data['gradients']
 
@@ -176,6 +211,10 @@ class DeComFLClient(Client):
 
                 # Update model
                 self.x_current = self.x_current - (learning_rate / P) * delta
+
+            # FR-15: record that this round is now folded in, so a later overlapping rebuild
+            # history (from a dropped submission) will skip it instead of re-applying.
+            self._synced_through = round_num
 
         # Apply rebuilt parameters to model
         self.zo_estimator._set_flat_params(self.model, self.x_current)
