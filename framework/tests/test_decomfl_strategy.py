@@ -45,6 +45,19 @@ class TestDeComFLStrategy:
                 assert isinstance(s, int)
                 assert s >= 0
 
+    def test_generate_seeds_stay_in_the_golden_validated_parity_range(self):
+        """Every generated seed must lie in [0, 2**31) — the range the Python<->C++ perturbation
+        parity is actually PROVEN over. The golden fixture (tests/fixtures/decomfl_golden) tops out at
+        seed 2**31-2, and RandnEngine.h's flat_randn is validated against it only there; the C++ core
+        carries the seed as int64_t. A seed >= 2**31 would be handed to canonical_perturbation /
+        flat_randn in an UNVALIDATED range where the two RNG implementations could silently diverge
+        (peers drift, model corrupts, no error). Pins the existing generate_seeds upper bound so
+        widening it later can't quietly move seeds outside the validated parity envelope."""
+        for round_idx in range(8):  # several rounds -> many independent draws from the seed RNG
+            for k_seeds in self.strategy.generate_seeds(round_idx=round_idx):
+                for s in k_seeds:
+                    assert 0 <= s < 2 ** 31, f"seed {s} outside the golden-validated parity range [0, 2**31)"
+
     def test_flatten_unflatten_roundtrip(self):
         original = make_params(3.14)
         flat = self.strategy._flatten_params(original)
