@@ -13,12 +13,17 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * BA-3: reconciles FL-server processes against persisted run state on backend startup.
@@ -69,6 +74,16 @@ public class StartupReconciler implements HealthIndicator {
     // reap runs across the shared Testcontainers DB (the reconcile() logic is exercised directly).
     @Value("${app.fl.reconcile-on-startup:true}")
     private boolean reconcileOnStartup;
+
+    // Finding-4 follow-up: enable the periodic stuck-run sweep. On (default) in real deploys; OFF under
+    // test so the scheduler doesn't reap runs across the shared Testcontainers DB (sweepStuckRuns() is
+    // exercised directly by the unit test instead).
+    @Value("${app.fl.stuck-run-sweep.enabled:true}")
+    private boolean stuckRunSweepEnabled;
+
+    // Runs seen RUNNING-but-untracked on the PREVIOUS sweep. A run is only reaped once it appears here
+    // AND is still stuck this pass (two-consecutive-pass debounce) — see sweepStuckRuns().
+    private final Set<UUID> suspectedStuck = ConcurrentHashMap.newKeySet();
 
     private volatile ReconciliationResult lastResult;
 
@@ -199,6 +214,70 @@ public class StartupReconciler implements HealthIndicator {
                 projectRepository.save(project);
             }
         });
+    }
+
+    /**
+     * Finding 4: a mid-run crash while the backend stays UP leaves the run stuck in RUNNING forever —
+     * the boot {@link #reconcile()} runs once, and normal completion relies on the FL server's terminal
+     * callback, which a crash skips. This periodic sweep reaps such runs. Gated + fail-soft; the sweep
+     * logic lives in {@link #sweepStuckRuns()} so tests drive it without the scheduler.
+     */
+    @Scheduled(fixedDelayString = "${app.fl.stuck-run-sweep.interval-ms:60000}",
+            initialDelayString = "${app.fl.stuck-run-sweep.interval-ms:60000}")
+    void scheduledStuckRunSweep() {
+        if (!stuckRunSweepEnabled) {
+            return;
+        }
+        try {
+            sweepStuckRuns();
+        } catch (RuntimeException e) {
+            log.warn("Stuck-run sweep failed; will retry next interval: {}", e.toString());
+        }
+    }
+
+    /**
+     * Reap runs stuck in RUNNING because their FL server died without a terminal callback. Returns the
+     * number reaped (for tests). Two-pass debounce: a RUNNING run whose FL server is no longer tracked
+     * (post-BA-13, {@code onChildExit} evicts a crashed child) is reaped only if it was ALSO untracked
+     * on the previous pass — so a run that is merely mid-completion or mid-stop (server gone, status not
+     * yet COMPLETED/STOPPED) settles to a terminal status (and drops out of the RUNNING query) before
+     * pass 2, which avoids a FAILED-clobbers-COMPLETED race (endRun does not guard terminal
+     * transitions). Only RUNNING is swept: PENDING/STARTING runs are legitimately mid-launch (a slow LLM
+     * start can be STARTING for minutes) and must not be reaped.
+     */
+    int sweepStuckRuns() {
+        List<Run> running;
+        try {
+            running = runRepository.findByStatusIn(List.of(RunStatus.RUNNING));
+        } catch (RuntimeException e) {
+            log.warn("Stuck-run sweep could not load RUNNING runs; skipping: {}", e.toString());
+            return 0;
+        }
+        Set<UUID> deadThisPass = new HashSet<>();
+        int reaped = 0;
+        for (Run run : running) {
+            try {
+                if (serverManager.isServerRunning(run.getProjectId())) {
+                    continue;   // a live tracked FL server holds this run -> not stuck
+                }
+                if (suspectedStuck.contains(run.getId())) {
+                    log.warn("Run {} (project {}) is RUNNING but its FL server has been untracked across "
+                            + "two sweeps; reaping it as a crashed run", run.getId(), run.getProjectId());
+                    reap(run);
+                    reaped++;
+                } else {
+                    deadThisPass.add(run.getId());   // first sighting -> confirm (or clear) on the next pass
+                }
+            } catch (RuntimeException e) {
+                log.warn("Stuck-run sweep failed for run {} (project {}); leaving it: {}",
+                        run.getId(), run.getProjectId(), e.toString());
+            }
+        }
+        // A run that recovered, completed, stopped, or was just reaped is absent from deadThisPass, so
+        // replacing the set (not merging) clears stale suspicions.
+        suspectedStuck.clear();
+        suspectedStuck.addAll(deadThisPass);
+        return reaped;
     }
 
     @Override

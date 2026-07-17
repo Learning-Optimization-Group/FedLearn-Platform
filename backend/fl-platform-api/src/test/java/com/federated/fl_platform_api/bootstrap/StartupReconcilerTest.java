@@ -177,4 +177,69 @@ class StartupReconcilerTest {
         assertEquals(1, health.getDetails().get("adopted"));
         assertEquals(1, health.getDetails().get("reaped"));
     }
+
+    // ---- Finding 4: periodic stuck-run sweep (two-consecutive-pass debounce) --------------------
+
+    @Test
+    void stuckRunningRun_isReapedOnlyAfterTwoConsecutivePasses() {
+        UUID projectId = UUID.randomUUID();
+        Run run = runWith(projectId, 300L, STARTED);   // status RUNNING
+        when(runRepo.findByStatusIn(anyCollection())).thenReturn(List.of(run));
+        when(manager.isServerRunning(projectId)).thenReturn(false);   // FL server not tracked (crashed)
+        when(projectRepo.findById(projectId)).thenReturn(Optional.of(new Project()));
+
+        // Pass 1: first time seen stuck -> suspected, NOT yet reaped (a mid-completion/stop run gets to settle).
+        int reapedPass1 = reconciler.sweepStuckRuns();
+        assertEquals(0, reapedPass1);
+        verify(runService, never()).markFailed(any());
+
+        // Pass 2: still RUNNING + still untracked -> genuinely stuck -> reaped exactly once.
+        int reapedPass2 = reconciler.sweepStuckRuns();
+        assertEquals(1, reapedPass2);
+        verify(runService, times(1)).markFailed(run.getId());
+    }
+
+    @Test
+    void trackedRunningRun_isNeverReaped() {
+        UUID projectId = UUID.randomUUID();
+        Run run = runWith(projectId, 301L, STARTED);
+        when(runRepo.findByStatusIn(anyCollection())).thenReturn(List.of(run));
+        when(manager.isServerRunning(projectId)).thenReturn(true);   // a live tracked FL server
+
+        reconciler.sweepStuckRuns();
+        reconciler.sweepStuckRuns();
+
+        verify(runService, never()).markFailed(any());
+    }
+
+    @Test
+    void runThatRecoversBetweenPasses_isNotReaped() {
+        UUID projectId = UUID.randomUUID();
+        Run run = runWith(projectId, 302L, STARTED);
+        when(runRepo.findByStatusIn(anyCollection())).thenReturn(List.of(run));
+        // Pass 1 sees it untracked (suspected); pass 2 sees it tracked again (transient blip).
+        when(manager.isServerRunning(projectId)).thenReturn(false).thenReturn(true);
+
+        reconciler.sweepStuckRuns();
+        reconciler.sweepStuckRuns();
+
+        verify(runService, never()).markFailed(any());   // recovery clears the suspicion
+    }
+
+    @Test
+    void runThatLeavesRunningBetweenPasses_isNotReaped() {
+        UUID projectId = UUID.randomUUID();
+        Run run = runWith(projectId, 303L, STARTED);
+        // Pass 1: run is RUNNING (in the query) but untracked -> suspected. Pass 2: it has completed/stopped,
+        // so it is no longer RUNNING and drops out of the query -> never reaped (no FAILED-clobbers-COMPLETED).
+        when(runRepo.findByStatusIn(anyCollection()))
+                .thenReturn(List.of(run))
+                .thenReturn(List.of());
+        when(manager.isServerRunning(projectId)).thenReturn(false);
+
+        reconciler.sweepStuckRuns();
+        reconciler.sweepStuckRuns();
+
+        verify(runService, never()).markFailed(any());
+    }
 }
