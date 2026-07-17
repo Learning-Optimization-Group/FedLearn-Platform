@@ -528,6 +528,44 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
         print(f"   [Training] Total batches processed: {epoch_steps}")
 
 # ==============================================================================
+# --- FR-20: server-config guards for the first-order (FedAvg-family) client ---
+# ==============================================================================
+def _coerce_local_epochs(config: dict, default) -> int:
+    """Return ``local_epochs`` as an int.
+
+    FR-20: the gRPC config is ``map<string,string>``, so ``config["local_epochs"]`` arrives as a
+    string (e.g. ``'1'``). ``train()`` does ``range(epochs)`` and ``len(loader) * epochs``, which
+    raise ``TypeError`` on a string — crashing round 1 of any strategy that ships client config
+    (FedProx/FedOpt). Coerce here; a non-numeric value fails loud rather than mid-training.
+    """
+    raw = config.get("local_epochs", default)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        raise ValueError(f"invalid local_epochs in server config: {raw!r} (expected an integer)")
+
+
+def _assert_strategy_honored(config: dict) -> None:
+    """Refuse a server config this first-order client cannot faithfully honor.
+
+    FR-20: FedProx's *entire* difference from FedAvg is the client-side proximal term
+    ``mu * (w - w_global)``. This client trains with plain local Adam and applies no proximal term,
+    so silently running a FedProx round would produce a 'FedProx' result that is bit-identical
+    FedAvg — a fabricated comparison. Fail loud instead. The faithful FedProx client lives in the
+    framework: ``fedlearn.client.local_trainer.LocalTrainer`` (used by the benchmark harness).
+    FedOpt ships ``learning_rate``/``local_epochs`` but no proximal term and does its adaptive work
+    server-side, so a local run here is a valid (if non-paper-default) configuration and is allowed.
+    """
+    if config.get("proximal_mu") is not None:
+        raise NotImplementedError(
+            "This first-order client does not implement the FedProx proximal term "
+            f"(proximal_mu={config.get('proximal_mu')}); running it would train plain local steps "
+            "mislabeled as FedProx. Use the framework LocalTrainer client "
+            "(fedlearn.client.local_trainer.LocalTrainer) for FedProx runs."
+        )
+
+
+# ==============================================================================
 # --- Custom Client Class for FedLearn with Heartbeat Support ---
 # ==============================================================================
 class ZOSLClient(fl.Client):
@@ -604,6 +642,10 @@ class ZOSLClient(fl.Client):
 
         server_round = config.get("server_round", 0)
 
+        # FR-20: refuse a server config this first-order client cannot faithfully honor (FedProx's
+        # proximal term) before doing any work, rather than silently training a mislabeled FedAvg.
+        _assert_strategy_honored(config)
+
         if server_round == 1:
             print(f"\n{'='*60}")
             print(f"CLIENT RECEIVED PARAMETERS - ROUND 1")
@@ -671,7 +713,7 @@ class ZOSLClient(fl.Client):
 
         # Get local epochs from config or use dataset default
         if USE_LLM:
-            local_epochs = config.get("local_epochs", DATASET_CONFIGS[self.dataset_name]["local_epochs"])
+            local_epochs = _coerce_local_epochs(config, DATASET_CONFIGS[self.dataset_name]["local_epochs"])
             print(f'Dataset: {self.dataset_name}')
             print(f'Local epochs: {local_epochs}')
             print(f'Batch size: {self.trainloader.batch_size}')
@@ -679,9 +721,9 @@ class ZOSLClient(fl.Client):
         elif USE_MLP:
             from config import get_dataset_config
             ecg_config = get_dataset_config("ecg")
-            local_epochs = config.get("local_epochs", ecg_config.local_epochs)
+            local_epochs = _coerce_local_epochs(config, ecg_config.local_epochs)
         else:
-            local_epochs = config.get("local_epochs", 1)
+            local_epochs = _coerce_local_epochs(config, 1)
 
         # Define progress callback to update heartbeat status
         def progress_callback(current_step, total_steps):

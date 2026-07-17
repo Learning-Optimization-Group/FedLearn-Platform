@@ -303,6 +303,35 @@ def select_strategy(args, initial_parameters, evaluate_fn):
         else:
             logging.info(f"Using FedLoRA strategy (aggregation={args.aggregation})")
         try:
+            if dp_enabled:
+                # FR-24: this orchestrator aggregates whichever clients submit (deterministic
+                # participation) — it performs NO Poisson client subsampling. So a subsampling rate
+                # q<1 (dp_num_clients > the cohort) would let the accountant claim a privacy
+                # amplification the live run never realizes, stamping a falsely-low ε on the eval
+                # card. Refuse it on the live path: dp_num_clients must equal the cohort (q=1) or be
+                # omitted. (The framework accountant/FedLoRA can still be driven at q<1 directly for
+                # offline analysis — this guards only live runs spawned through fl_server.)
+                cohort = args.min_clients
+                if dp_num_clients is not None and dp_num_clients != cohort:
+                    raise ValueError(
+                        f"--dp-num-clients={dp_num_clients} implies a subsampling rate "
+                        f"q={cohort}/{dp_num_clients} != 1, but the orchestrator performs no Poisson "
+                        f"client subsampling — the accounted ε would not reflect this live run's true "
+                        f"privacy loss. Omit --dp-num-clients (q=1) or set it equal to the cohort "
+                        f"(--min-clients={cohort})."
+                    )
+                # FR-25: the accounted ε is composed over dp_rounds, but the server executes
+                # num_rounds (one noised release each). If the budget covers FEWER rounds than run,
+                # the eval card understates the true privacy loss. Refuse dp_rounds < num_rounds
+                # (dp_rounds >= num_rounds is conservative and allowed).
+                num_rounds = getattr(args, "num_rounds", None)
+                if dp_rounds is not None and num_rounds is not None and dp_rounds < num_rounds:
+                    raise ValueError(
+                        f"--dp-rounds={dp_rounds} is fewer than --num-rounds={num_rounds}: the "
+                        f"accounted ε is composed over {dp_rounds} releases but the server will emit "
+                        f"{num_rounds}, so the eval card would understate the true privacy loss. Set "
+                        f"--dp-rounds >= --num-rounds."
+                    )
             strategy = FedLoRA(
                 initial_parameters=initial_parameters,
                 evaluate_fn=evaluate_fn,
@@ -372,8 +401,15 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             byzantine_fraction=robust_byzantine_fraction,
         )
     else:
+        # FR-28: an unrecognized strategy must FAIL LOUD, not silently train FedAvg while every
+        # strategy-specific flag is ignored (a typo — or a factory-style name like 'fed_lora' —
+        # would otherwise run a DIFFERENT algorithm than requested). Mirrors the framework factory's
+        # fail-fast contract (fedlearn.create_strategy raises on unknown names).
         if args.strategy.lower() != 'fedavg':
-            logging.warning(f"Strategy '{args.strategy}' not recognized. Defaulting to FedAvg.")
+            raise ValueError(
+                f"Unrecognized --strategy '{args.strategy}'. Supported: fedavg, decomfl, fedlora, "
+                f"fedprox, fedopt, robust (FoT runs via a separate server)."
+            )
 
         strategy = fl.FedAvg(
             initial_parameters=initial_parameters,

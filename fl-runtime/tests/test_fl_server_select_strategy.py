@@ -51,7 +51,8 @@ def _initial_parameters() -> "OrderedDict[str, torch.Tensor]":
         ("robust", RobustAggregator),
         ("fedavg", fl.FedAvg),
         ("FedAvg", fl.FedAvg),          # case-insensitive
-        ("does-not-exist", fl.FedAvg),  # unrecognized => FedAvg fallback (unchanged behavior)
+        # FR-28: an unrecognized name no longer falls back to FedAvg — it fails loud. See
+        # test_select_strategy_rejects_an_unknown_strategy_name.
     ],
 )
 def test_select_strategy_maps_name_to_class(strategy_name, expected_cls):
@@ -78,28 +79,33 @@ def test_select_strategy_wires_evaluate_fn():
 
 
 def test_select_strategy_passes_dp_epsilon_budget_to_fedlora():
-    """The four ε-budget fields reach FedLoRA, which solves z and commits the accounted trace."""
+    """The four ε-budget fields reach FedLoRA, which solves z and commits the accounted trace.
+
+    FR-24: on a live run the accounting must use q=1 (the orchestrator does not subsample), so
+    dp_num_clients equals the cohort (min_clients). dp_rounds >= num_rounds is required (FR-25);
+    here num_rounds is unset in the minimal args, so that cross-check is inert.
+    """
     args = _args("fedlora")
     args.dp_enabled = True
     args.dp_clip_norm = 1.0
     args.dp_target_epsilon = 8.0
     args.dp_delta = 1e-5
-    args.dp_num_clients = 10
+    args.dp_num_clients = 1   # == cohort (min_clients=1) => q=1, the only honest live-run value
     args.dp_rounds = 5
     strategy = fl_server.select_strategy(args, _initial_parameters(), None)
     assert isinstance(strategy, FedLoRA)
     assert strategy.dp_enabled is True
     assert strategy.dp_target_epsilon == 8.0
     assert strategy.dp_delta == 1e-5
-    assert strategy.dp_num_clients == 10
+    assert strategy.dp_num_clients == 1
     assert strategy.dp_rounds == 5
     # FedLoRA owns the ε→z solve: z materialises even though --dp-noise-multiplier was not given,
     # and the accountant's committed ε trace is exposed for the eval card.
     assert strategy.dp_noise_multiplier is not None
     assert strategy.dp_noise_multiplier > 0
     assert strategy.dp_accounted_epsilon is not None
-    # q = clients_per_round / N (min_clients=1, N=10)
-    assert strategy.dp_q == pytest.approx(0.1)
+    # q = clients_per_round / N = 1 / 1 = 1 (no subsampling amplification on a live run).
+    assert strategy.dp_q == pytest.approx(1.0)
 
 
 def test_select_strategy_passes_raw_noise_multiplier_unchanged():
@@ -146,3 +152,56 @@ def test_select_strategy_bad_dp_config_is_fatal_startup_error(bad_fields):
     with pytest.raises(SystemExit) as excinfo:
         fl_server.select_strategy(args, _initial_parameters(), None)
     assert excinfo.value.code == 1
+
+
+def test_select_strategy_rejects_subsampling_q_below_1_on_a_live_run():
+    """FR-24: the orchestrator performs no Poisson client subsampling (it aggregates whichever
+    clients submit), so a live run configured with dp_num_clients > the cohort (q<1) would claim a
+    subsampling amplification it never realizes — stamping a falsely-low ε on the eval card. The
+    live path must refuse it. (Offline analysis can still drive the framework accountant at q<1.)"""
+    args = _args("fedlora")
+    args.dp_enabled = True
+    args.dp_clip_norm = 1.0
+    args.dp_target_epsilon = 8.0
+    args.dp_delta = 1e-5
+    args.dp_num_clients = 100   # >> min_clients (1) => q = 1/100 << 1
+    args.dp_rounds = 50
+    with pytest.raises(SystemExit) as ei:
+        fl_server.select_strategy(args, _initial_parameters(), None)
+    assert ei.value.code == 1
+
+
+def test_select_strategy_rejects_dp_rounds_below_num_rounds():
+    """FR-25: the accounted ε is composed over dp_rounds, but the server executes num_rounds (one
+    noised release each). If the budget covers FEWER rounds than run, the eval card understates the
+    true privacy loss. The live path must refuse dp_rounds < num_rounds."""
+    args = _args("fedlora")
+    args.dp_enabled = True
+    args.dp_clip_norm = 1.0
+    args.dp_target_epsilon = 8.0
+    args.dp_delta = 1e-5
+    args.dp_rounds = 10
+    args.num_rounds = 100   # server will run 100 releases but the budget covers only 10
+    with pytest.raises(SystemExit) as ei:
+        fl_server.select_strategy(args, _initial_parameters(), None)
+    assert ei.value.code == 1
+
+
+def test_select_strategy_rejects_an_unknown_strategy_name():
+    """FR-28: an unrecognized --strategy must fail loud, not silently train a DIFFERENT algorithm.
+
+    The old else-branch logged one warning and constructed FedAvg, so a typo (or a factory-style
+    name like 'fed_lora') trained plain FedAvg while every strategy-specific flag was silently
+    ignored — the opposite of the framework factory's fail-fast contract.
+    """
+    with pytest.raises(ValueError, match="[Uu]nrecognized|[Uu]nknown|[Ss]upported"):
+        fl_server.select_strategy(_args("fed_lora"), _initial_parameters(), None)
+    with pytest.raises(ValueError):
+        fl_server.select_strategy(_args("does-not-exist"), _initial_parameters(), None)
+
+
+def test_select_strategy_still_accepts_plain_fedavg():
+    """Regression guard: the explicit FedAvg default path must keep working after FR-28."""
+    for name in ("fedavg", "FedAvg"):
+        strat = fl_server.select_strategy(_args(name), _initial_parameters(), None)
+        assert isinstance(strat, fl.FedAvg)
