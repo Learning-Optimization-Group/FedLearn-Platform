@@ -421,6 +421,27 @@ BLOOD_CLASSES = ["Basophil", "Eosinophil", "Erythroblast",
                  "Neutrophil", "Platelet"]
 BLOOD_IMG_SIZE = 28
 
+# DA-14 Phase 0: register BLOOD_CNN as a NON-CATALOG recipe. init_model.py dispatches BLOOD_CNN
+# (recipes.get_recipe('BLOOD_CNN')), but it was absent from the registry so that call raised a
+# ValueError — a latent crash. Registering it here makes get_recipe/is_recipe resolve it, while
+# describe() still serves only RECIPE_METADATA, so it stays OUT of --describe / the project-creation
+# picker (SE-10: its `medmnist` dep is in no requirements file; advertising it would pass the catalog
+# gate and then crash the spawn on ModuleNotFoundError). Re-promote to RECIPE_METADATA once medmnist
+# (+ scikit-image/fire, aarch64 wheels verified) ships everywhere fl_server.py/client.py run.
+_NONCATALOG_METADATA = [
+    {
+        "key": "BLOOD_CNN",
+        "display_name": "Blood cell classifier (BloodMNIST)",
+        "input_kind": "image",
+        "classes": BLOOD_CLASSES,
+        "base_models": ["blood_cnn"],
+        "optimizers": ["Adam", "SGD", "AdamW"],
+        "requirements": {"min_ram_gb": 2, "min_storage_gb": 0.1, "mobile_safe": True,
+                         "max_trainable_params": 1000000},
+    },
+]
+_METADATA_BY_KEY.update({r["key"]: r for r in _NONCATALOG_METADATA})
+
 
 def build_blood_cnn():
     """BloodCNN — 3x28x28 RGB -> 8 logits (peripheral blood cell types)."""
