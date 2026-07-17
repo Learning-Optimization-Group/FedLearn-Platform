@@ -161,3 +161,26 @@ python benchmarks/algo_comparison.py --task mnist --algos fedavg,fedprox,fedopt 
 by the existing gRPC harness (`run_full_test_suite.py` Test 3); its per-round byte cost is projected
 analytically here. ZO plateauing below first-order at fixed rounds is **expected** (variance ∝ d/P):
 shrink d, raise P on a schedule, run thousands of rounds — see `docs/artifacts` benchmark brief.
+
+# DA-14 — frozen-backbone derivation benchmarks (head-only federation)
+
+Three seeded, deterministic benchmarks for the DA-11 trainable-subset contract (a frozen backbone
+is shared across peers; only the head is federated). Communication + byte numbers are REAL
+(production `wire_bytes` codecs); the utility tasks are seeded-synthetic separable targets
+(disclosed — the mechanism/trade-off is real, the accuracy is by construction).
+
+- **`frozen_backbone_fl.py`** — communication + utility of head-only FedAvg. Head-vs-full-model wire
+  bytes (`15.8x → 77x → 102x`, then **down to 41.9x** once the head itself is large — an honest
+  non-monotonicity: the win is backbone-size vs head-size) + a converging head-only run
+  (`0.17 → 0.72`, frozen backbone byte-identical throughout).
+  Run: `PYTHONPATH=src python benchmarks/frozen_backbone_fl.py --rounds 15 --clients 3`.
+- **`dp_on_head.py`** — central-DP on a small head vs the FR-13 high-dimension collapse. Same real
+  DP mechanism + RDP accountant as FR-13, on the head (`d=99` vs FedLoRA's `d=26112` → **16.24× SNR**).
+  The small head **escapes** the collapse: ε=1/4/8 retain 98–100% where FedLoRA went to chance;
+  breaks only at ε=0.1. The positive privacy–utility curve complementing FR-13's negative result.
+  Run: `PYTHONPATH=src python benchmarks/dp_on_head.py`.
+- **`comms_regimes.py`** — the three wire regimes in one table: full-model FedAvg vs head-only FedAvg
+  vs DeComFL, real codecs. At an 8192→1024→10 model: full 33.6 MB, head 41 KB, DeComFL 986 B
+  (`full/head=816x`, `full/decomfl=34,077x`); DeComFL upload is O(K·P), **constant across model size**
+  (its one-shot O(d) initial download is reported separately). Unifies TE-15 + the C8 head-only win.
+  Run: `PYTHONPATH=src python benchmarks/comms_regimes.py`.
