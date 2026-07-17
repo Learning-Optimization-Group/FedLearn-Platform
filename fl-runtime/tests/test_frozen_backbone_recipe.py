@@ -56,6 +56,21 @@ def test_frozen_demo_backbone_roundtrips_via_serialize_reconstruct():
     assert other.head.weight.requires_grad is True
 
 
+def test_frozen_demo_has_self_contained_vector_data_loaders():
+    """Ph3.3c: FROZEN_DEMO is a functional recipe — its client shard and server test set are
+    self-contained synthetic (features, labels) vector batches (no external data), shaped for the
+    derived model (256-dim input). This is what makes it spawnable end to end."""
+    r = recipes.get_recipe("FROZEN_DEMO")
+    train_loader, val_loader = r.load_client_data(partition_id=0, num_clients=2)
+    xb, yb = next(iter(train_loader))
+    assert xb.shape[1] == 256 and xb.ndim == 2            # (batch, 256) vector features
+    assert yb.ndim == 1 and int(yb.max()) < len(r.classes)  # class labels within range
+    test_loader = r.load_server_test_data()
+    xt, yt = next(iter(test_loader))
+    assert xt.shape[1] == 256
+    assert r.is_functional is True                        # model + data both in the registry
+
+
 def test_recipe_derived_model_is_a_valid_subset_federation_participant():
     """The bridge: a model built by the fl-runtime recipe (build_frozen_backbone_model over a shared
     BASE_REF blob) is a valid participant in the framework's trainable-subset contract end to end —

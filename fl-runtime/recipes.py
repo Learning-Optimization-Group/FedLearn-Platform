@@ -469,6 +469,38 @@ def build_frozen_backbone_model(num_classes, backbone_bytes=None, d_in=256, d_hi
     return model.to(device)
 
 
+FROZEN_DEMO_INPUT_DIM = 256
+FROZEN_DEMO_NUM_CLASSES = 3
+
+
+def _frozen_demo_dataset(seed, n):
+    """A deterministic, self-contained synthetic (features, labels) vector dataset for FROZEN_DEMO —
+    no external data. Labels follow a fixed linear rule so the head has a real (learnable) target."""
+    import torch
+    from torch.utils.data import TensorDataset
+    g = torch.Generator().manual_seed(seed)
+    X = torch.randn(n, FROZEN_DEMO_INPUT_DIM, generator=g)
+    rule = torch.randn(FROZEN_DEMO_INPUT_DIM, FROZEN_DEMO_NUM_CLASSES,
+                       generator=torch.Generator().manual_seed(0))  # fixed across peers/splits
+    y = (X @ rule).argmax(dim=1)
+    return TensorDataset(X, y)
+
+
+def load_frozen_demo_client_data(partition_id, num_clients, batch_size=16, **kw):
+    """(train_loader, val_loader) of self-contained synthetic vector batches for one FROZEN_DEMO
+    client shard. Deterministic per partition; the derived recipe is spawnable without any dataset."""
+    from torch.utils.data import DataLoader
+    ds = _frozen_demo_dataset(seed=1000 + partition_id, n=128)
+    return (DataLoader(ds, batch_size=batch_size, shuffle=True, num_workers=0),
+            DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=0))
+
+
+def load_frozen_demo_server_test_data(batch_size=64, **kw):
+    """Server-side synthetic test loader for FROZEN_DEMO (held-out seed)."""
+    from torch.utils.data import DataLoader
+    return DataLoader(_frozen_demo_dataset(seed=999, n=64), batch_size=batch_size, shuffle=False)
+
+
 _NONCATALOG_METADATA = [
     {
         "key": "BLOOD_CNN",
@@ -862,7 +894,8 @@ class Recipe:
         CNN/MLP joined after the DA-14 Phase-1 collapse (model + client/server data now in the
         registry). TRANSFORMER is NOT here yet — its model + tokenizer are collapsed but its data
         loading still lives in client.py/data.py."""
-        return self.key in ("PNEUMONIA_CNN", "LLM_LORA", "BLOOD_CNN", "TINYNET_GOLDEN", "CNN", "MLP")
+        return self.key in ("PNEUMONIA_CNN", "LLM_LORA", "BLOOD_CNN", "TINYNET_GOLDEN", "CNN", "MLP",
+                            "FROZEN_DEMO")
 
     def build_model(self, device="cpu", model_name=None, aggregation="FFA_LORA",
                     task_type="SEQ_CLASSIFICATION"):
@@ -944,6 +977,8 @@ class Recipe:
             return load_cnn_client_data(partition_id, num_clients, **kw)
         if self.key == "MLP":
             return load_ecg_client_data(partition_id, num_clients, **kw)
+        if self.key == "FROZEN_DEMO":
+            return load_frozen_demo_client_data(partition_id, num_clients, **kw)
         if self.key == "LLM_LORA":
             if task_type == "CAUSAL_LM":
                 return load_dolly_client_data(partition_id, num_clients, **kw)
@@ -959,6 +994,8 @@ class Recipe:
             return load_cnn_server_test_data(**kw)
         if self.key == "MLP":
             return load_ecg_server_test_data(**kw)
+        if self.key == "FROZEN_DEMO":
+            return load_frozen_demo_server_test_data(**kw)
         if self.key == "LLM_LORA":
             if task_type == "CAUSAL_LM":
                 return load_dolly_server_test_data(**kw)
