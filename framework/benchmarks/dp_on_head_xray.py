@@ -199,16 +199,30 @@ def _binary_auc(pos_scores, labels):
     return (rank_pos - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg)
 
 
-def run_config(*, features, epsilon, rounds, clients, clip, delta, lr, local_epochs, seed, dp_seed):
+def run_config(*, features, epsilon, rounds, clients, clip, delta, lr, local_epochs, seed, dp_seed,
+               per_client=None):
     """One privacy setting of the head-only FedAvg task over the real features; returns its record.
     `epsilon=None` is the no-DP control. Mirrors `dp_on_head.run_config` — same DP path — but the model
-    is a linear probe over precomputed frozen features and accuracy/AUC are on the real held-out split."""
+    is a linear probe over precomputed frozen features and accuracy/AUC are on the real held-out split.
+
+    Partition: default is a DISJOINT round-robin (per-client size = n_train/clients, SHRINKS with N). Set
+    ``per_client`` to hold each client's shard at a FIXED size (seeded bootstrap from the real feature
+    pool) — used by the cohort-N sweep so growing N isolates the SNR = N/(z·√d) noise-averaging effect
+    from a "less data per client" confound (clients' shards then overlap; disclosed in that benchmark)."""
     train_x, train_y = features["train_x"], features["train_y"]
     test_x, test_y = features["test_x"], features["test_y"]
     feat_dim, n_classes = features["feat_dim"], features["n_classes"]
 
     torch.manual_seed(seed)
-    parts = [(train_x[i::clients], train_y[i::clients]) for i in range(clients)]
+    if per_client:
+        g = torch.Generator().manual_seed(seed + 20240717)   # data seed independent of the DP noise seed
+        n_train = train_x.shape[0]
+        parts = []
+        for _ in range(clients):
+            idx = torch.randint(0, n_train, (per_client,), generator=g)   # fixed-size shard, w/ replacement
+            parts.append((train_x[idx], train_y[idx]))
+    else:
+        parts = [(train_x[i::clients], train_y[i::clients]) for i in range(clients)]
 
     def head():
         m = _Head(feat_dim, n_classes)
