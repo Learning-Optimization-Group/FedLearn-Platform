@@ -51,6 +51,21 @@ AGGREGATORS = ("fedavg", "trimmed_mean", "median")
 BROKEN_RETENTION = 0.5
 
 
+def _load_digits(seed: int):
+    """Real 8x8 handwritten digits (sklearn, no download): 1797 samples, 64 features, 10 classes — a
+    genuine, non-separable, moderately-noisy dataset to test whether the breakdown structure holds off
+    the synthetic separable task. Deterministic 80/20 split; pixel intensities (0-16) scaled to [0,1]."""
+    from sklearn.datasets import load_digits
+    d = load_digits()
+    X = torch.tensor(d.data, dtype=torch.float32) / 16.0
+    y = torch.tensor(d.target, dtype=torch.long)
+    g = torch.Generator().manual_seed(seed)
+    perm = torch.randperm(len(X), generator=g)
+    n_test = len(X) // 5
+    test_idx, train_idx = perm[:n_test], perm[n_test:]
+    return X[train_idx], y[train_idx], X[test_idx], y[test_idx]
+
+
 def _theoretical_breakdown(strategy: str, trim_beta: float) -> str:
     if strategy == "fedavg":
         return "0+ (any Byzantine fraction)"
@@ -180,6 +195,8 @@ def main() -> None:
                     help="the fixed attack whose fraction is swept (default ipm — the strongest here)")
     ap.add_argument("--fractions", type=str, default="0.0,0.1,0.2,0.3,0.4,0.5",
                     help="attacker fractions f to sweep (client-count fractions of N)")
+    ap.add_argument("--dataset", type=str, default="synthetic", choices=("synthetic", "digits"),
+                    help="synthetic Gaussian clusters (default) or real sklearn 8x8 handwritten digits")
     ap.add_argument("--classes", type=int, default=4)
     ap.add_argument("--dim", type=int, default=20)
     ap.add_argument("--train-per-class", type=int, default=750)
@@ -202,12 +219,18 @@ def main() -> None:
     torch.set_num_threads(max(1, os.cpu_count() or 1))
     fractions = [float(x) for x in args.fractions.split(",") if x.strip()]
 
-    # ---- identical setup to robust_aggregation_attack.main() (same data, partition, init) ----
+    # ---- dataset (synthetic reuses raa.make_dataset; digits is real, no download) ----
     torch.manual_seed(args.seed)
-    train_x, train_y, test_x, test_y = raa.make_dataset(
-        num_classes=args.classes, dim=args.dim, train_per_class=args.train_per_class,
-        test_per_class=args.test_per_class, sep=args.sep, sigma=args.sigma, seed=args.seed,
-    )
+    if args.dataset == "digits":
+        train_x, train_y, test_x, test_y = _load_digits(args.seed)
+        args.dim, args.classes = train_x.shape[1], int(train_y.max().item()) + 1
+        task_desc = f"REAL sklearn 8x8 handwritten digits ({train_x.shape[0]} train / {test_x.shape[0]} test)"
+    else:
+        train_x, train_y, test_x, test_y = raa.make_dataset(
+            num_classes=args.classes, dim=args.dim, train_per_class=args.train_per_class,
+            test_per_class=args.test_per_class, sep=args.sep, sigma=args.sigma, seed=args.seed,
+        )
+        task_desc = f"{args.classes}-class Gaussian clusters in R^{args.dim} (sep={args.sep}, sigma={args.sigma})"
     client_indices = recipes._dirichlet_indices(train_y.numpy(), args.clients, args.alpha, args.dirichlet_seed)
     client_sizes = [len(idx) for idx in client_indices]
     if any(n == 0 for n in client_sizes):
@@ -265,8 +288,9 @@ def main() -> None:
     total_s = round(time.time() - t0, 1)
 
     meta = dict(
-        task=f"{args.classes}-class Gaussian clusters in R^{args.dim} (sep={args.sep}, sigma={args.sigma})",
+        task=task_desc,
         model=f"MLP: Linear({args.dim},{args.hidden})->ReLU->Linear({args.hidden},{args.classes})",
+        dataset=args.dataset,
         clients=args.clients, client_sizes=client_sizes, alpha=args.alpha, dirichlet_seed=args.dirichlet_seed,
         rounds=args.rounds, local_epochs=args.local_epochs, lr=args.lr, trim_beta=args.trim_beta,
         attack=args.attack, fractions=fractions, seed=args.seed, broken_retention_threshold=BROKEN_RETENTION,
@@ -274,13 +298,14 @@ def main() -> None:
     )
 
     os.makedirs(args.out_dir, exist_ok=True)
-    with open(os.path.join(args.out_dir, "robust_breakdown_point.json"), "w") as fh:
+    stem = "robust_breakdown_point" + ("_digits" if args.dataset == "digits" else "")
+    with open(os.path.join(args.out_dir, stem + ".json"), "w") as fh:
         json.dump({"meta": meta, "clean_baseline": clean, "breakdown": breakdown, "records": records}, fh, indent=2)
-    _write_markdown(args, meta, clean_acc, sweep, breakdown)
-    print(f"[*] wrote {os.path.join(args.out_dir, 'robust_breakdown_point.{json,md}')} in {total_s}s", flush=True)
+    _write_markdown(args, meta, clean_acc, sweep, breakdown, stem)
+    print(f"[*] wrote {os.path.join(args.out_dir, stem + '.{json,md}')} in {total_s}s", flush=True)
 
 
-def _write_markdown(args, meta, clean_acc, sweep, breakdown) -> None:
+def _write_markdown(args, meta, clean_acc, sweep, breakdown, stem="robust_breakdown_point") -> None:
     fr = meta["fractions"]
     lines = [
         "# FR-12 measured breakdown point (median / trimmed-mean / FedAvg vs a swept Byzantine fraction)",
@@ -340,43 +365,56 @@ def _write_markdown(args, meta, clean_acc, sweep, breakdown) -> None:
         lines.append(f"| {agg_labels[s]} | " + " | ".join(cells) + " |")
 
     fed_bp = breakdown["fedavg"]["empirical_first_broken_fraction"]
+    tm_bp = breakdown["trimmed_mean"]["empirical_first_broken_fraction"]
+    med_bp = breakdown["median"]["empirical_first_broken_fraction"]
     beta = meta["trim_beta"]
     dev = {s: dict(breakdown[s]["estimate_deviation_ratio_by_fraction"]) for s in AGGREGATORS}
     f1 = fr[1] if len(fr) > 1 else beta            # first non-zero swept fraction
-    # nearest grid points at/below beta and just above beta (for the trimmed-mean onset claim)
     at_beta = max((f for f in fr if f <= beta + 1e-9), default=f1)
     past_beta = min((f for f in fr if f > beta + 1e-9), default=fr[-1])
+    # Do accuracy and estimator AGREE for trimmed-mean (accuracy breaks near beta) or DISAGREE (accuracy
+    # holds past beta, only the estimator shows the onset)? Data-driven — the two differ by task fragility.
+    tm_agree = tm_bp is not None and tm_bp <= past_beta + 1e-9
+    tm_bp_s = "~0.5 (accuracy never < threshold below majority)" if tm_bp is None else f"{tm_bp:g}"
+    if tm_agree:
+        tm_bullet = (f"- **trimmed-mean (beta={beta:g})** — the two metrics AGREE here: ACCURACY collapses at "
+                     f"f={tm_bp:g} (just past beta) AND the estimator deviation jumps there "
+                     f"({dev['trimmed_mean'].get(at_beta)} at f={at_beta:g} -> {dev['trimmed_mean'].get(past_beta)} "
+                     f"at f={past_beta:g}). On this task the accuracy breakdown lands right at the classical beta "
+                     "bound — a non-separable decision boundary is fragile enough that the residual post-trim "
+                     "corruption past beta DOES collapse accuracy, so accuracy tracks the estimator.")
+    else:
+        tm_bullet = (f"- **trimmed-mean (beta={beta:g})** — the two metrics DISAGREE here, and that is the "
+                     f"interesting part. ACCURACY holds past beta (accuracy breakdown {tm_bp_s}), so an "
+                     "accuracy-only reading over-states its robustness. But the ESTIMATOR deviation — the quantity "
+                     f"the classical beta bound is about — stays small for f<=beta ({dev['trimmed_mean'].get(at_beta)} "
+                     f"at f={at_beta:g}) and jumps just past beta ({dev['trimmed_mean'].get(past_beta)} at "
+                     f"f={past_beta:g}): the beta onset the theory predicts IS visible in the estimator, exactly "
+                     "what the forgiving accuracy metric hides on this well-separated task.")
     lines += [
         "",
         "## Reading the result (both metrics, honestly)",
         "",
         f"- **FedAvg** — accuracy collapses at the first non-zero fraction (f={fed_bp:g}); the estimator "
-        f"deviation jumps from 0 to {dev['fedavg'].get(f1)} at f={f1:g} and stays ~1.4 throughout. Both "
-        "metrics agree: breakdown at 0+, exactly the classical result — a mean has no robustness.",
-        f"- **median** — accuracy holds 100% to f=0.3, then falls to ~81% (f=0.4) and collapses at f=0.5; the "
-        f"deviation grows gradually ({dev['median'].get(0.3)} at f=0.3 -> {dev['median'].get(0.5)} at f=0.5), "
-        "accelerating toward the majority threshold. Its breakdown sits at ~0.5, matching the 0.5 bound.",
-        f"- **trimmed-mean (beta={beta:g})** — the two metrics DISAGREE, and that is the interesting part. "
-        f"ACCURACY holds 100% through f=0.3 (well past beta), so an accuracy-only reading would put its "
-        f"breakdown near 0.5. But the ESTIMATOR deviation — the quantity the classical beta bound is about — "
-        f"stays small for f<=beta ({dev['trimmed_mean'].get(at_beta)} at f={at_beta:g}) and roughly doubles "
-        f"just past beta ({dev['trimmed_mean'].get(past_beta)} at f={past_beta:g}): the beta onset the theory "
-        "predicts IS visible in the estimator, and is exactly what the forgiving accuracy metric hides.",
+        f"deviation jumps 0 -> {dev['fedavg'].get(f1)} at f={f1:g} and stays high. Both metrics agree: "
+        "breakdown 0+, the classical result — a mean has no robustness.",
+        f"- **median** — the most robust: accuracy holds until it collapses at f={med_bp if med_bp else '~0.5'} "
+        f"(a Byzantine MAJORITY), the deviation growing gradually to {dev['median'].get(fr[-1])} at f={fr[-1]:g}. "
+        "Matches the 0.5 bound.",
+        tm_bullet,
         "",
         "### The honest headline",
         "",
-        "Measuring the ESTIMATOR (not just accuracy) is what makes this a real breakdown-point result: it "
-        "reproduces the classical ordering FedAvg (0+, immediate full corruption) < trimmed-mean (small until "
-        f"beta={beta:g}, then rising) < median (bounded, gradual to 0.5), and surfaces trimmed-mean's beta "
-        "onset that accuracy alone smooths over. The gap between the estimator breakdown (near beta) and the "
-        "ACCURACY breakdown (near 0.5) for trimmed-mean is a genuine finding: below-breakdown corruption is "
-        "bounded (as theory guarantees) and small enough to not move the decision boundary until the attacker "
-        "share nears a majority — reported, not hidden. Sharpness is attack-dependent: under this run's "
-        "attack the beta onset may be a gradual acceleration, but under strong model poisoning "
-        "(`--attack sign_flip_scale` / `alie`) it is near-VERTICAL (trimmed-mean ~0.3 at beta jumping to "
-        "~2.4-3.0 just past it); a weak `label_flip` is too mild to reach any estimator's breakdown. The "
-        "ordering and the beta/0.5/0+ structure reproduce across the strong-attack families — the robust "
-        "takeaways.",
+        f"The ESTIMATOR-level breakdown reproduces the classical ordering FedAvg (0+) < trimmed-mean (onset at "
+        f"beta={beta:g}) < median (0.5) — the theory-relevant metric, invariant across tasks. Whether ACCURACY "
+        "reflects trimmed-mean's beta onset depends on the task: on a fragile, non-separable task accuracy "
+        "collapses right at beta (tracks the estimator); on a well-separated task accuracy tolerates the bounded "
+        "sub-majority corruption and only falls near 0.5, so there the estimator metric is what surfaces beta. "
+        "Both are reported; below-breakdown corruption is bounded exactly as theory guarantees. Sharpness is "
+        "attack-dependent: under strong model poisoning (`--attack sign_flip_scale` / `alie`) the estimator beta "
+        "onset is near-VERTICAL (trimmed-mean ~0.3 at beta jumping to ~2.4-3.0 just past it) while a weak "
+        "`label_flip` reaches no breakdown — the beta/0.5/0+ structure reproduces across the strong-attack "
+        "families, the robust takeaway.",
         "",
         "## Honesty caveats",
         "",
@@ -391,7 +429,7 @@ def _write_markdown(args, meta, clean_acc, sweep, breakdown) -> None:
         "- Non-IID split means a client-count fraction f is not the same as a weighted-mass fraction for "
         "FedAvg; RobustAggregator is unweighted by design, so its columns depend only on the count.",
     ]
-    with open(os.path.join(args.out_dir, "robust_breakdown_point.md"), "w") as fh:
+    with open(os.path.join(args.out_dir, stem + ".md"), "w") as fh:
         fh.write("\n".join(lines) + "\n")
 
 

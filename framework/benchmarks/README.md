@@ -151,9 +151,10 @@ retention at each f, to LOCATE where each aggregator fails and compare against t
 the ablation; only f moves; attacker ids nested across fractions; `clip_norm` OFF.
 
 ```
-PYTHONPATH=src python benchmarks/robust_breakdown_point.py           # default: ipm, f in {0,.1,.2,.3,.4,.5}
+PYTHONPATH=src python benchmarks/robust_breakdown_point.py                    # synthetic, ipm, f in {0..0.5}
+PYTHONPATH=src python benchmarks/robust_breakdown_point.py --dataset digits   # REAL sklearn 8x8 digits, no download
 ```
-Artifacts: `benchmarks/results/robust_breakdown_point.{json,md}` (~33s CPU).
+Artifacts: `results/robust_breakdown_point.{json,md}` (synthetic) / `..._digits.{json,md}` (~20–33s CPU).
 
 Reports TWO metrics per f: **accuracy retention** (practical) and **estimator deviation**
 `‖agg(all) − agg(honest-only)‖ / ‖agg(honest-only) − global‖` (the quantity the classical breakdown is
@@ -172,6 +173,13 @@ make trimmed-mean's β onset near-vertical (~0.3 at β → ~2.4–3.0 just past 
 sharp — the β/0.5/0⁺ structure reproduces across the strong-attack families (a weak `label_flip` is too
 mild to reach any breakdown). Reproduced ordering FedAvg(0⁺) < trimmed-mean(β) < median(0.5). See
 `results/robust_breakdown_point.md`.
+
+**On REAL data (`--dataset digits`, ~94.5% clean) the accuracy-vs-estimate gap CLOSES:** trimmed-mean's
+*accuracy* collapses sharply at f=0.3 (97.9% → 7.4%, just past β) — tracking the estimator, unlike the
+synthetic task where accuracy held to 0.5. A non-separable decision boundary is fragile enough that the
+residual post-trim corruption past β collapses accuracy directly. So the accuracy-vs-estimate gap is a
+property of the *separable* synthetic task; the estimator breakdown (β/0.5/0⁺) is the task-invariant
+signal. FedAvg 0⁺ and median 0.5 hold on real data too. See `results/robust_breakdown_point_digits.md`.
 
 ## TE-15 — fair algorithm comparison (`algo_comparison.py`)
 
