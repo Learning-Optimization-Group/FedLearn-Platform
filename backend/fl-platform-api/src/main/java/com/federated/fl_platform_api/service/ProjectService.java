@@ -491,15 +491,26 @@ public class ProjectService {
         // security context.
         authz.requirePlatformAdmin();
 
-        // Best-effort: stop any running FL server before removing the row so
-        // we don't leak processes/ECS tasks.
+        // BA-13: stop the FL server and remove the row under the SAME per-project start lock, so a
+        // concurrent start cannot spawn+track a child in between and leave it orphaned once the project
+        // row is gone. (Residual, separately tracked: startServerForProject loads the project BEFORE
+        // acquiring this lock, so a start already past its load could still race a delete — closing
+        // that needs an in-lock existence re-check on the start path.)
+        ReentrantLock startLock = startLocks.computeIfAbsent(projectId, k -> new ReentrantLock());
+        startLock.lock();
         try {
-            flServerManager.stopServerForProject(projectId);
-        } catch (RuntimeException e) {
-            log.warn("Failed to stop FL server for project {} before delete; continuing",
-                    projectId, e);
+            // Best-effort: stop any running FL server before removing the row so
+            // we don't leak processes/ECS tasks.
+            try {
+                flServerManager.stopServerForProject(projectId);
+            } catch (RuntimeException e) {
+                log.warn("Failed to stop FL server for project {} before delete; continuing",
+                        projectId, e);
+            }
+            projectRepository.deleteById(projectId);
+        } finally {
+            startLock.unlock();
         }
-        projectRepository.deleteById(projectId);
         log.info("Project {} deleted", projectId);
     }
 

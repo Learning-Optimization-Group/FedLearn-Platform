@@ -217,6 +217,13 @@ public class FlServerManager {
             final StringBuilder startupOutput = new StringBuilder();
             final boolean[] errorOccurred = {false};
             final SpawnedFlProcess readerProcess = process;
+            // startupOutput is only ever READ during the startup probe (to surface a crash). The reader
+            // thread, however, lives for the child's WHOLE run, so appending unconditionally grows this
+            // buffer with every stdout line for the entire federation — a per-run heap leak. Stop
+            // capturing into it once the probe resolves (set false on the success path below); live log
+            // streaming via sendLogs continues regardless.
+            final java.util.concurrent.atomic.AtomicBoolean captureStartup =
+                    new java.util.concurrent.atomic.AtomicBoolean(true);
 
             Thread outputReaderThread = new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(readerProcess.getInputStream()))) {
@@ -226,7 +233,9 @@ public class FlServerManager {
                         if (logBroadcaster != null) {
                             logBroadcaster.sendLogs(project.getId(), line);
                         }
-                        startupOutput.append(line).append('\n');
+                        if (captureStartup.get()) {
+                            startupOutput.append(line).append('\n');
+                        }
                     }
                 } catch (IOException e) {
                     errorOccurred[0] = true;
@@ -272,6 +281,7 @@ public class FlServerManager {
             final int heldPort = freePort;
             final UUID heldProject = project.getId();
             trackedHandle.onExit().thenRun(() -> onChildExit(heldProject, trackedHandle, heldPort));
+            captureStartup.set(false);   // startup done — stop growing startupOutput for the child's run
             started = true;   // the finally must NOT release the port now; the watcher/stop owns it
             log.info("Started FL server for project {} on port {}", project.getId(), freePort);
             return Optional.of(freePort);
