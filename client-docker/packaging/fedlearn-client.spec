@@ -72,7 +72,7 @@ hiddenimports.extend([
 # transitively). These live in fl-runtime/ next to client.py. Kept in sync with
 # the transitive-import audit in the DA-5 plan — a missing entry surfaces only as
 # a runtime ModuleNotFoundError in the frozen binary, not at build time.
-LOCAL_SIBLINGS = ['config.py', 'data.py', 'recipes.py', 'model_utils.py',
+LOCAL_SIBLINGS = ['config.py', 'data.py', 'recipes.py',
                   'device.py', 'models', 'data_loaders', 'architecture']
 for name in LOCAL_SIBLINGS:
     src = os.path.join(RUNTIME_DIR, name)
