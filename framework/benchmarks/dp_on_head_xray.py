@@ -157,6 +157,85 @@ def extract_features(data_dir, *, backbone="resnet18", pretrained=True, img_size
         "feat_dim": feat_dim, "backbone": backbone, "pretrained": pretrained, "img_size": img_size,
         "classes": classes, "n_train": int(train_x.shape[0]), "n_test": int(test_x.shape[0]),
         "n_classes": int(train_y.max().item()) + 1,
+        "variant": "ImageNet" if pretrained else "random",
+    }
+    torch.save(out, cache_path)
+    return out
+
+
+def _finetune_backbone(name, train_dir, *, img_size, device, epochs, lr, seed, pretrained, subset,
+                       batch_size=32):
+    """ImageNet-init (or random-init, for the test) backbone fine-tuned END-TO-END on the X-ray train
+    split for `epochs`, then classifier stripped, frozen -> a DOMAIN-adapted feature extractor. Seeded,
+    fixed data order, so on CPU the fine-tune is reproducible. Returns (module, feat_dim). NOTE: fine-tunes
+    on the TRAIN split the linear probe later federates over — an in-distribution UPPER BOUND on the
+    domain-fit benefit (a separate-corpus NIH backbone would not have seen this train set)."""
+    import torchvision
+    from torchvision import transforms
+
+    if name not in _FEAT_DIMS:
+        raise ValueError(f"unsupported backbone {name!r}")
+    torch.manual_seed(seed)
+    model = getattr(torchvision.models, name)(weights="DEFAULT" if pretrained else None)
+    tf = transforms.Compose([
+        transforms.Resize((img_size, img_size)),
+        transforms.ToTensor(),
+        transforms.Normalize(_IMAGENET_MEAN, _IMAGENET_STD),
+    ])
+    ds = torchvision.datasets.ImageFolder(train_dir, transform=tf)
+    idx_all = list(range(len(ds)))[:subset] if subset else list(range(len(ds)))
+    in_features = model.fc.in_features
+    model.fc = nn.Linear(in_features, len(ds.classes))
+    model.to(device).train()
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    loss_fn = nn.CrossEntropyLoss()
+    g = torch.Generator().manual_seed(seed)
+    for _ in range(epochs):
+        order = [idx_all[i] for i in torch.randperm(len(idx_all), generator=g).tolist()]
+        for start in range(0, len(order), batch_size):
+            batch = order[start:start + batch_size]
+            x = torch.stack([ds[i][0] for i in batch]).to(device)
+            y = torch.tensor([ds[i][1] for i in batch], dtype=torch.long).to(device)
+            opt.zero_grad()
+            loss_fn(model(x), y).backward()
+            opt.step()
+    model.fc = nn.Identity()
+    model.eval()
+    for p in model.parameters():
+        p.requires_grad_(False)
+    return model, in_features
+
+
+def extract_domain_features(data_dir, *, backbone="resnet18", epochs=5, lr=1e-3, img_size=224,
+                            device="cpu", seed=1234, pretrained=True, cache_dir=None, subset=None,
+                            batch_size=64):
+    """Like `extract_features`, but the frozen backbone is DOMAIN-ADAPTED — ImageNet-init fine-tuned on
+    the X-ray train split (`_finetune_backbone`) then frozen. Same return shape (so `run_sweep` is
+    unchanged) with `variant='domain-adapted-<epochs>ep'`. Cached keyed by the fine-tune config."""
+    train_dir = os.path.join(data_dir, "train")
+    test_dir = os.path.join(data_dir, "test")
+    if not (os.path.isdir(train_dir) and os.path.isdir(test_dir)):
+        raise FileNotFoundError(f"expected ImageFolder splits under {data_dir}/train and /test")
+
+    cache_dir = cache_dir or os.path.join(RESULTS_DIR, "feature_cache")
+    os.makedirs(cache_dir, exist_ok=True)
+    base_key = _cache_key(data_dir, backbone, pretrained, img_size, subset, seed)
+    key = hashlib.sha256(f"{base_key}|domain|ep{epochs}|lr{lr}".encode()).hexdigest()[:16]
+    cache_path = os.path.join(cache_dir, f"{backbone}_domain{epochs}ep_{key}.pt")
+    if os.path.exists(cache_path):
+        return torch.load(cache_path, weights_only=True)
+
+    model, feat_dim = _finetune_backbone(backbone, train_dir, img_size=img_size, device=device,
+                                         epochs=epochs, lr=lr, seed=seed, pretrained=pretrained,
+                                         subset=subset, batch_size=batch_size)
+    train_x, train_y, classes = _extract_split(model, train_dir, img_size, device, batch_size, subset)
+    test_x, test_y, _ = _extract_split(model, test_dir, img_size, device, batch_size, subset)
+    out = {
+        "train_x": train_x, "train_y": train_y, "test_x": test_x, "test_y": test_y,
+        "feat_dim": feat_dim, "backbone": backbone, "pretrained": pretrained, "img_size": img_size,
+        "classes": classes, "n_train": int(train_x.shape[0]), "n_test": int(test_x.shape[0]),
+        "n_classes": int(train_y.max().item()) + 1,
+        "variant": f"domain-adapted-{epochs}ep", "domain_epochs": epochs, "domain_lr": lr,
     }
     torch.save(out, cache_path)
     return out
@@ -379,7 +458,9 @@ def run_sweep(*, features, epsilons, rounds, clients, clip=0.4, delta=1e-5, lr=0
         classes=features.get("classes"), fedlora_reference_d=FEDLORA_REFERENCE_D,
         snr_gain_vs_fedlora=round((FEDLORA_REFERENCE_D / d) ** 0.5, 2),
         no_dp_accuracy=control["final_accuracy"], no_dp_auc=control["final_auc"],
-        model=f"frozen {features['backbone']} ({'ImageNet' if features['pretrained'] else 'random'}) "
+        variant=features.get("variant", "ImageNet" if features["pretrained"] else "random"),
+        model=f"frozen {features['backbone']} "
+              f"({features.get('variant', 'ImageNet' if features['pretrained'] else 'random')}) "
               f"backbone + trainable Linear head (DA-11 derived-model shape)",
         task="REAL chest X-ray (Kermany/Kaggle balanced NORMAL/PNEUMONIA) frozen-backbone features "
              "(real DP + accountant; real held-out accuracy/AUC)",
