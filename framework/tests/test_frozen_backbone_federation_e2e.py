@@ -176,3 +176,53 @@ def test_reconstruct_rejects_truncated_backbone_blob():
     )
     with pytest.raises(BackboneKeyMismatch):
         reconstruct_frozen_backbone(model, truncated)
+
+
+# ---------------------------------------------------------------------------------------------------
+# 5. Wire-through: the SAME round survives the REAL unary proto transport (the one that scrambles key
+#    order). The other round test averages in-memory dicts still in named_parameters order, so it
+#    cannot catch a transport that reorders keys; a small head takes the unary path
+#    (_submit_update_unary -> parameters_to_proto), whose map<string,Tensor> iterates unordered.
+# ---------------------------------------------------------------------------------------------------
+def test_one_round_head_federation_survives_unary_proto_wire():
+    from fedlearn.communication.serializer import parameters_to_proto, proto_to_parameters
+
+    ref = _build(seed=7)
+    blob = serialize_backbone(ref)
+
+    def participant(seed: int) -> TinyDerived:
+        net = _build(seed=seed)
+        reconstruct_frozen_backbone(net, blob)
+        return net
+
+    c0, c1, server_model = participant(11), participant(22), participant(33)
+    with torch.no_grad():
+        c0.head.weight.fill_(0.25); c0.head.bias.fill_(0.1)
+        c1.head.weight.fill_(0.75); c1.head.bias.fill_(0.3)
+
+    # Each client's head-only update round-trips through the ACTUAL unary proto wire before the server
+    # ever sees it — exactly what _submit_update_unary does. The received dicts come back in protobuf
+    # map order, NOT named_parameters order.
+    def over_the_wire(state):
+        recv, _ = proto_to_parameters(parameters_to_proto(state, num_examples=10))
+        return recv
+
+    u0 = over_the_wire(trainable_state(c0))
+    u1 = over_the_wire(trainable_state(c1))
+
+    expected_head_w = (u0["head.weight"].clone() + u1["head.weight"].clone()) / 2
+    expected_head_b = (u0["head.bias"].clone() + u1["head.bias"].clone()) / 2
+    backbone_w_before = server_model.backbone.weight.detach().clone()
+
+    # The guard must accept the reordered updates (pre-fix it raised SubsetDimMismatch here, wedging
+    # the round); aggregation is by-name so the scrambled order is harmless.
+    guard_client_updates([u0, u1], server_model)
+    agg = FedAvgAggregator().aggregate([("c0", u0, 10), ("c1", u1, 10)])
+    assert set(agg.keys()) == {"head.weight", "head.bias"}
+    apply_trainable_subset(server_model, agg)
+
+    assert torch.allclose(server_model.head.weight.detach(), expected_head_w)
+    assert torch.allclose(server_model.head.bias.detach(), expected_head_b)
+    # Frozen backbone untouched — it never rode the wire.
+    assert torch.equal(server_model.backbone.weight.detach(), backbone_w_before)
+    assert server_model.backbone.weight.requires_grad is False
