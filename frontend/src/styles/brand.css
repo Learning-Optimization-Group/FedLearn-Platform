@@ -1,7 +1,7 @@
 /* =============================================================================
- * Ember brand utilities — reusable classes & motion for the "Ember on Black"
- * system. Tokens come from tokens.css; this file adds the expressive layer:
- * eyebrows, gradient/glow text, ambient backgrounds, and page-load motion.
+ * Ledger brand utilities — the small expressive layer on top of the tokens.
+ * Quiet by design: no gradients, no glows, no ambient textures. Class names
+ * that older components reference are kept but resolve to calm equivalents.
  * ========================================================================== */
 
 @layer components {
@@ -10,163 +10,113 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.18em;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+    color: var(--fg-muted);
+  }
+
+  /* Legacy hero gradient-text class — now a plain accent ink. */
+  .text-ember {
     color: var(--accent);
   }
-  .eyebrow::before {
-    content: "";
-    width: 18px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--accent));
-  }
-  .eyebrow.is-centered::before {
-    display: none;
-  }
 
-  /* Ember gradient text fill — for hero accents. */
-  .text-ember {
-    background: linear-gradient(180deg, #FFD3A6 0%, var(--accent) 55%, #E07B33 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
-  }
-
-  /* Pill chip — translucent, hairline border, used for badges/tags. */
+  /* Pill chip — quiet surface, hairline border, used for badges/tags. */
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     padding: 6px 14px;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     border: 1px solid var(--hairline);
-    background: color-mix(in oklab, var(--surface-1) 60%, transparent);
+    background: var(--surface-1);
     color: var(--fg-muted);
     font-size: 12px;
     font-weight: 500;
-    backdrop-filter: blur(8px);
   }
 
-  /* Soft ember halo behind a focal element. */
+  /* Legacy halo class — now the standard card shadow. */
   .glow-ember {
-    box-shadow:
-      0 0 0 1px color-mix(in oklab, var(--accent) 22%, transparent),
-      0 8px 40px -8px color-mix(in oklab, var(--accent) 45%, transparent),
-      0 2px 8px -2px rgba(0, 0, 0, 0.6);
+    box-shadow: var(--shadow-card);
   }
 
-  /* Warm icon tile (matches the inspiration's feature tiles). */
+  /* Icon tile for feature rows — flat fill, accent ink. */
   .icon-tile {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 44px;
     height: 44px;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     color: var(--accent);
-    background:
-      radial-gradient(120% 120% at 30% 0%, color-mix(in oklab, var(--accent) 16%, transparent), transparent 70%),
-      var(--surface-2);
+    background: var(--surface-2);
     border: 1px solid var(--hairline);
   }
 
-  /* Bricolage Grotesque is a variable display face with an optical-size axis.
-     Default display text (wordmark, modal titles, footer): a refined title
-     weight, not the brutish shipped default. */
+  /* Display text — same family as body; hierarchy comes from size/weight. */
   .font-display {
-    font-variation-settings: 'opsz' 40, 'wght' 600;
+    font-weight: 600;
   }
 
-  /* The big hero headline: open the optical size all the way for large glyphs
-     and dial the weight DOWN — this is what keeps a huge headline premium and
-     editorial instead of heavy. Declared after .font-display so it wins. */
+  /* The big hero headline. */
   .display-hero {
     font-family: var(--font-display);
-    font-variation-settings: 'opsz' 96, 'wght' 560;
-    letter-spacing: -0.028em;
-    font-weight: 400; /* let the variation axis drive weight, not the keyword */
+    font-weight: 650;
+    letter-spacing: -0.025em;
   }
 }
 
 @layer utilities {
-  /* Ambient radial ember glow — drop into any positioned container. */
+  /* Legacy ambient backgrounds — now the plain canvas. */
   .bg-ambient {
-    background:
-      radial-gradient(60% 50% at 50% -8%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 70%),
-      var(--canvas);
+    background: var(--canvas);
   }
   .bg-ambient-soft {
-    background:
-      radial-gradient(50% 40% at 80% 10%, color-mix(in oklab, var(--accent) 8%, transparent), transparent 70%),
-      var(--canvas);
+    background: var(--canvas);
   }
 
-  /* Faint dotted constellation grid — texture on the void. */
+  /* Legacy texture — retired. */
   .bg-grid {
-    background-image: radial-gradient(circle at center, var(--surface-3) 1px, transparent 1px);
-    background-size: 28px 28px;
-    background-position: center;
-    -webkit-mask-image: radial-gradient(70% 60% at 50% 30%, #000 30%, transparent 100%);
-    mask-image: radial-gradient(70% 60% at 50% 30%, #000 30%, transparent 100%);
+    background: transparent;
   }
 
-  /* Hairline divider that fades at both ends. */
+  /* Hairline divider. */
   .rule-fade {
     height: 1px;
     border: 0;
-    background: linear-gradient(90deg, transparent, var(--line), transparent);
+    background: var(--hairline);
   }
 }
 
 /* --------------------------------- motion --------------------------------- */
-@keyframes ember-rise {
-  from { opacity: 0; transform: translateY(14px); }
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-@keyframes ember-pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent); }
-  50%      { opacity: 0.85; box-shadow: 0 0 0 5px color-mix(in oklab, var(--accent) 0%, transparent); }
-}
-@keyframes ember-float {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-6px); }
-}
-@keyframes ember-shimmer {
-  from { background-position: -160% 0; }
-  to   { background-position: 260% 0; }
-}
-@keyframes ember-drift {
-  0%   { opacity: 0.25; transform: translate(0, 0); }
-  50%  { opacity: 0.8; }
-  100% { opacity: 0.25; transform: translate(0, 0); }
-}
-@keyframes ember-flow {
-  to { stroke-dashoffset: -40; }
-}
-
-/* Animated dashed connector — suggests learning updates flowing to the model. */
-.flow-line {
-  stroke-dasharray: 2 9;
-  animation: ember-flow 1.6s linear infinite;
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
 }
 
 .reveal {
   opacity: 0;
-  animation: ember-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: rise-in 0.5s var(--ease-out) forwards;
 }
 .dot-pulse {
-  animation: ember-pulse 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: status-pulse 1.8s var(--ease-in-out) infinite;
 }
+/* Legacy decorative motion — retired. */
 .float-slow {
-  animation: ember-float 6s ease-in-out infinite;
+  animation: none;
+}
+.flow-line {
+  stroke-dasharray: 2 9;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .reveal, .dot-pulse, .float-slow, .flow-line {
+  .reveal, .dot-pulse {
     animation: none !important;
     opacity: 1 !important;
   }

@@ -5,16 +5,14 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const VARIANTS: Record<ButtonVariant, string> = {
-    // The ember CTA: the flat ember accent (the same warm tone as "Learn" in the
-    // wordmark) with a faint sheen + soft glow. Brightens on hover.
-    primary: cn(
-        'text-accent-fg bg-accent',
-        'shadow-[0_1px_0_0_rgba(255,255,255,0.16)_inset,0_8px_24px_-10px_rgba(247,163,92,0.55)]',
-        'hover:bg-accent hover:brightness-[1.07] hover:shadow-[0_1px_0_0_rgba(255,255,255,0.22)_inset,0_12px_32px_-10px_rgba(247,163,92,0.75)]',
-    ),
-    secondary: 'bg-surface-2 border border-hairline text-fg hover:bg-surface-3 hover:border-line',
+    // Navy structural ink — the one primary action per view.
+    primary: 'text-accent-fg bg-accent hover:bg-accent-hover',
+    secondary: 'bg-surface-1 border border-hairline text-fg hover:bg-surface-2 hover:border-line',
     ghost: 'text-fg-muted hover:text-fg hover:bg-surface-2',
-    danger: 'text-danger hover:bg-danger/10',
+    // Solid destructive fill — a destructive confirm must never read weaker
+    // than Cancel. Low-emphasis destructive entry points should use ghost +
+    // a danger text class instead of this variant.
+    danger: 'text-accent-fg bg-danger hover:brightness-95',
 };
 
 const SIZES: Record<ButtonSize, string> = {
@@ -29,9 +27,9 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /**
- * Action button. `primary` is the ember gradient CTA (warm glow); `secondary` is
- * a raised surface; `ghost` is borderless; `danger` is text-danger.
- * Sizes sm/md/lg. Presses with a subtle scale; 160ms transition.
+ * Action button. `primary` is the navy CTA; `secondary` is a bordered surface;
+ * `ghost` is borderless; `danger` is a solid destructive fill.
+ * Sizes sm/md/lg. Flat fills, no glow, no press-scale.
  */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ({ className, variant = 'primary', size = 'md', type = 'button', ...props }, ref) => (
@@ -40,8 +38,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             type={type}
             className={cn(
                 'inline-flex items-center justify-center gap-2 font-medium select-none',
-                'transition-[transform,box-shadow,background-color,filter,color,border-color] duration-[160ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
-                'active:scale-[0.98]',
+                'transition-[background-color,color,border-color,filter] duration-[120ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
                 'disabled:opacity-50 disabled:pointer-events-none',
                 VARIANTS[variant],

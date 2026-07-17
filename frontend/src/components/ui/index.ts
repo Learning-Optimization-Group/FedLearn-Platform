@@ -8,3 +8,6 @@ export { StatusPill, type StatusPillProps, type StatusKind } from './StatusPill'
 export { MetricTile, type MetricTileProps } from './MetricTile';
 export { LogConsole, type LogConsoleProps } from './LogConsole';
 export { Skeleton, type SkeletonProps } from './Skeleton';
+export { FormField, type FormFieldProps } from './FormField';
+export { SectionLabel, type SectionLabelProps } from './SectionLabel';
+export { StatGroup, type StatGroupProps, type StatGroupItem } from './StatGroup';
