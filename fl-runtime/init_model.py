@@ -9,14 +9,8 @@ import torchvision.transforms as transforms
 import os
 from collections import OrderedDict
 
-# ==============================================================================
-# --- HARDCODED ECG/MLP CONFIGURATION ---
-# ==============================================================================
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-ECG_DATASET_PATH = os.path.join(SCRIPT_DIR, "ecg_data", "ecg.csv")  # Hardcoded ECG dataset path
-ECG_INPUT_DIM = 140
-ECG_HIDDEN_DIM = 64
-ECG_NUM_CLASSES = 2
+# ECG/MLP dims now live in the recipe registry (recipes.get_recipe('MLP').build_model); the ECG
+# CSV path lives in recipes._ecg_default_csv_path — this script no longer hardcodes them.
 
 # ==============================================================================
 # --- Model Definitions ---
@@ -43,55 +37,21 @@ class CnnNet(nn.Module):
 
 def get_model(model_type: str, model_name: str, device: str, aggregation: str = "FFA_LORA",
               task_type: str = "SEQ_CLASSIFICATION"):
-    """Returns a model instance based on the user's selection."""
+    """Returns a model instance based on the user's selection.
+
+    DA-14 Ph3.1: data-driven dispatch — every model type builds through the recipe registry, so
+    adding a model type is a recipes.py entry with NO init_model branch (nor a client/infer/server
+    branch). get_recipe raises on an unknown key; per-type guards (e.g. TRANSFORMER's opt-125m-only
+    rule) live in the recipe's build_model. The unused model_name/aggregation/task_type kwargs are
+    accepted-and-ignored by every non-LLM recipe, so one call serves all keys.
+    """
     print(f"Loading model: {model_type} / {model_name}")
     model_type = model_type.upper()
     model_name = model_name.lower()
 
-    if model_type == 'CNN':
-        # DA-14 Phase 1: delegate to the recipe registry (single dispatch authority) instead of
-        # constructing inline. The registry uses the canonical CnnNet — byte-identical keys.
-        import recipes
-        return recipes.get_recipe('CNN').build_model(device)
-
-    elif model_type == 'TINYNET_GOLDEN':
-        # DEMO: the golden DeComFL TinyNet the mobile ExecuTorch bundle expects (MO-15 live path).
-        import recipes
-        return recipes.get_recipe('TINYNET_GOLDEN').build_model(device)
-
-    elif model_type == 'PNEUMONIA_CNN':
-        import recipes
-        print("Initializing PneumoniaCNN (1x224x224 grayscale -> 2 classes)")
-        return recipes.get_recipe('PNEUMONIA_CNN').build_model(device)
-
-    elif model_type == 'BLOOD_CNN':
-        import recipes
-        print("Initializing BloodCNN (3x28x28 RGB -> 8 classes)")
-        return recipes.get_recipe('BLOOD_CNN').build_model(device)
-
-    elif model_type == 'TRANSFORMER':
-        # DA-14 Phase 1 / FR-29: delegate to the recipe registry (single num_labels authority —
-        # len(classes)=3). Byte-identical to the former inline num_labels=3 build.
-        if model_name != 'opt-125m':
-            raise ValueError(f"Unsupported Transformer model: {model_name}")
-        import recipes
-        print("Loading pre-trained 'facebook/opt-125m' for sequence classification via registry.")
-        return recipes.get_recipe('TRANSFORMER').build_model(device)
-
-    elif model_type == 'MLP':
-        # DA-14 Phase 1: delegate to the recipe registry (ECG MLP, byte-identical keys).
-        import recipes
-        print(f"Initializing ECG MLP model via registry (input_dim={ECG_INPUT_DIM}, num_classes={ECG_NUM_CLASSES})")
-        return recipes.get_recipe('MLP').build_model(device)
-
-    elif model_type == 'LLM_LORA':
-        import recipes
-        print("Initializing LLM_LORA (LoRA SEQ_CLS adapter)")
-        return recipes.get_recipe('LLM_LORA').build_model(device, model_name=model_name,
-                                                          aggregation=aggregation, task_type=task_type)
-
-    else:
-        raise ValueError(f"Unsupported model architecture: {model_type}")
+    import recipes
+    return recipes.get_recipe(model_type).build_model(
+        device, model_name=model_name, aggregation=aggregation, task_type=task_type)
 
 # ==============================================================================
 # --- Training Function ---

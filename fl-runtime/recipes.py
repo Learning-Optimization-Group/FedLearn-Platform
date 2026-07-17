@@ -834,6 +834,10 @@ class Recipe:
             # Byte-identical to the legacy from_pretrained(num_labels=3) build; the score head is
             # randomly initialised (no seed) in every legacy path, so only key order + head shape are
             # load-bearing on the wire.
+            # DA-14 Ph3.1: the opt-125m-only guard lives here (was in init_model) so every caller
+            # enforces it uniformly. A None model_name (client/infer, which don't pass one) is allowed.
+            if model_name is not None and str(model_name).lower() != "opt-125m":
+                raise ValueError(f"Unsupported Transformer model: {model_name}")
             from transformers import AutoModelForSequenceClassification
             return AutoModelForSequenceClassification.from_pretrained(
                 "facebook/opt-125m", num_labels=len(self.classes), use_safetensors=True

@@ -104,6 +104,44 @@ def test_init_model_delegates_cnn_and_mlp_to_the_registry():
 # sst2->2 can NEVER strict-load the 3-class global model init_model produces — a latent crash).
 # Collapsing every site onto build_model('TRANSFORMER') unifies on 3: byte-identical on the cb path,
 # corrective on the already-broken sst2 path.
+def test_get_model_dispatch_is_registry_driven(monkeypatch):
+    """DA-14 Ph3.1: init_model.get_model routes ANY recipe key through recipes.get_recipe(key).
+    build_model() with no dedicated if/elif branch — so adding a model type needs no init_model
+    edit. Before the collapse an unbranched key hit the terminal 'Unsupported architecture' raise;
+    now a freshly-registered recipe builds through the registry."""
+    import torch.nn as nn
+    import recipes
+    import init_model
+    real_get_recipe = recipes.get_recipe
+
+    class _FakeRecipe:
+        def build_model(self, device="cpu", model_name=None, aggregation="FFA_LORA",
+                        task_type="SEQ_CLASSIFICATION"):
+            return nn.Linear(3, 3)
+
+    monkeypatch.setattr(recipes, "get_recipe",
+                        lambda k: _FakeRecipe() if str(k).upper() == "FAKE_NET" else real_get_recipe(k))
+    model = init_model.get_model("FAKE_NET", "whatever", "cpu")
+    assert isinstance(model, nn.Linear)
+
+
+def test_get_model_preserves_transformer_model_name_guard():
+    """The refactor must not drop the guard that TRANSFORMER only accepts opt-125m (moved into the
+    recipe so every caller enforces it, not just init_model)."""
+    import pytest as _pytest
+    import init_model
+    with _pytest.raises(ValueError):
+        init_model.get_model("TRANSFORMER", "some-other-llm", "cpu")
+
+
+def test_get_model_raises_on_unknown_model_type():
+    """An unknown type still fails loudly (now via the registry's Unknown-recipe-key error)."""
+    import pytest as _pytest
+    import init_model
+    with _pytest.raises(ValueError):
+        init_model.get_model("NOPE_NOT_A_RECIPE", "x", "cpu")
+
+
 def test_cnn_and_mlp_are_fully_functional_after_the_phase1_collapse():
     """CNN and MLP now build their model AND load their client/server data through the registry,
     so is_functional (model+data live in recipes.py) must report True. TRANSFORMER stays False —
