@@ -19,8 +19,6 @@ import psutil
 import fedlearn as fl
 from fedlearn.client import DeComFLClient  # Import DeComFL client from framework
 
-from flwr_datasets import FederatedDataset
-import torchvision.transforms as transforms
 from datasets import load_dataset
 from transformers import AutoTokenizer, get_linear_schedule_with_warmup
 from models import CnnNet
@@ -277,24 +275,11 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
 
         return train_loader, test_loader
     else:
-        # CNN: CIFAR-10 (unchanged)
-        fds = FederatedDataset(dataset="cifar10", partitioners={"train": NUM_PARTITIONS})
-        partition = fds.load_partition(partition_id)
-        partition_train_test = partition.train_test_split(test_size=0.2, seed=42)
-        pytorch_transforms = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ])
-
-        def apply_transforms(batch):
-            batch["img"] = [pytorch_transforms(img) for img in batch["img"]]
-            return batch
-
-        partition_train_test = partition_train_test.with_transform(apply_transforms)
-        return (
-            DataLoader(partition_train_test["train"], batch_size=BATCH_SIZE, shuffle=True, num_workers=0),
-            DataLoader(partition_train_test["test"], batch_size=BATCH_SIZE, num_workers=0)
-        )
+        # CNN: CIFAR-10 — DA-14 Phase 1: partitioning via the recipe registry (single authority).
+        # Byte-identical to the former inline flwr shard; num_clients is passed through but the
+        # partitioner stays a fixed 10 shards inside the recipe (see load_cnn_client_data).
+        import recipes
+        return recipes.get_recipe("CNN").load_client_data(partition_id, num_clients, batch_size=BATCH_SIZE)
 
 
 def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=None):

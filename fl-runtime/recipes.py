@@ -590,6 +590,58 @@ def load_ecg_server_test_data(num_clients, dataset_path=None, **kw):
 
 
 # ---------------------------------------------------------------------------
+# CNN — CIFAR-10 image classification. Source asymmetry is INTENTIONAL and preserved:
+# the client shard comes from HuggingFace 'cifar10' via flwr_datasets (IID shard of the
+# seed-42-shuffled train split); the server test set comes from torchvision CIFAR10.
+# num_clients is IGNORED for the partitioner — the legacy path shards into a FIXED
+# CNN_NUM_PARTITIONS(=10) regardless of client count (flwr IidPartitioner). Do NOT route
+# through the Dirichlet partitioner (_dirichlet_indices) — that would change every shard.
+# ---------------------------------------------------------------------------
+CNN_NUM_PARTITIONS = 10       # == client.py NUM_PARTITIONS; fixed, NOT num_clients
+CNN_BATCH_SIZE = 32           # == client.py BATCH_SIZE
+CNN_SERVER_TEST_BATCH = 128   # == data.py CNN server test batch
+
+
+def _cnn_transform():
+    """CIFAR-10 tensor transform: ToTensor -> Normalize to [-1,1] per channel.
+    == client.py CNN branch and data.py CNN branch (kept identical on both sides)."""
+    import torchvision.transforms as T
+    return T.Compose([T.ToTensor(), T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+
+def load_cnn_client_data(partition_id, num_clients, batch_size=CNN_BATCH_SIZE, **kw):
+    """(train_loader, val_loader) for one CIFAR-10 client shard — byte-identical to the legacy
+    client.py CNN branch. num_clients is accepted but IGNORED: the shard is a fixed
+    CNN_NUM_PARTITIONS(=10) via flwr's IidPartitioner, independent of client count."""
+    from flwr_datasets import FederatedDataset
+    from torch.utils.data import DataLoader
+    fds = FederatedDataset(dataset="cifar10", partitioners={"train": CNN_NUM_PARTITIONS})
+    partition = fds.load_partition(partition_id)
+    parts = partition.train_test_split(test_size=0.2, seed=42)
+    tf = _cnn_transform()
+
+    def _apply(batch):
+        batch["img"] = [tf(img) for img in batch["img"]]
+        return batch
+
+    parts = parts.with_transform(_apply)
+    return (
+        DataLoader(parts["train"], batch_size=batch_size, shuffle=True, num_workers=0),
+        DataLoader(parts["test"], batch_size=batch_size, num_workers=0),
+    )
+
+
+def load_cnn_server_test_data(batch_size=CNN_SERVER_TEST_BATCH, **kw):
+    """Server-side CIFAR-10 test DataLoader — byte-identical to the legacy data.py CNN branch.
+    Uses TORCHVISION CIFAR10 (not the flwr/HF source the client uses) — asymmetry preserved."""
+    from torchvision import datasets as tv_datasets
+    from torch.utils.data import DataLoader
+    test_dataset = tv_datasets.CIFAR10(root="./data", train=False, download=True,
+                                       transform=_cnn_transform())
+    return DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+
+# ---------------------------------------------------------------------------
 # LLM_LORA — federated LoRA sequence classification (Qwen2.5-0.5B / TinyLlama).
 # ---------------------------------------------------------------------------
 LLM_LORA_BASE_MODELS = {
@@ -826,6 +878,8 @@ class Recipe:
             return load_pneumonia_client_data(partition_id, num_clients, **kw)
         if self.key == "BLOOD_CNN":
             return load_blood_client_data(partition_id, num_clients, **kw)
+        if self.key == "CNN":
+            return load_cnn_client_data(partition_id, num_clients, **kw)
         if self.key == "MLP":
             return load_ecg_client_data(partition_id, num_clients, **kw)
         if self.key == "LLM_LORA":
@@ -839,6 +893,8 @@ class Recipe:
             return load_pneumonia_server_test_data(**kw)
         if self.key == "BLOOD_CNN":
             return load_blood_server_test_data(**kw)
+        if self.key == "CNN":
+            return load_cnn_server_test_data(**kw)
         if self.key == "MLP":
             return load_ecg_server_test_data(**kw)
         if self.key == "LLM_LORA":

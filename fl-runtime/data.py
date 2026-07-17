@@ -2,7 +2,6 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, DataCollatorWithPadding
 from datasets import load_dataset
-from torchvision import datasets, transforms
 from config import DATASET_CONFIGS, get_dataset_config
 
 def load_server_test_data(is_llm: bool, dataset_name: str = None):
@@ -62,21 +61,7 @@ def load_server_test_data(is_llm: bool, dataset_name: str = None):
         )
 
     else:
-        # CNN: Load CIFAR-10 test data
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ])
-
-        test_dataset = datasets.CIFAR10(
-            root='./data',
-            train=False,
-            download=True,
-            transform=transform
-        )
-
-        return DataLoader(
-            test_dataset,
-            batch_size=128,
-            shuffle=False
-        )
+        # CNN: CIFAR-10 test data — DA-14 Phase 1: via the recipe registry (single authority).
+        # Byte-identical to the former inline torchvision load (batch 128, unshuffled).
+        import recipes
+        return recipes.get_recipe("CNN").load_server_test_data(batch_size=128)
