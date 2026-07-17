@@ -436,6 +436,39 @@ BLOOD_IMG_SIZE = 28
 # picker (SE-10: its `medmnist` dep is in no requirements file; advertising it would pass the catalog
 # gate and then crash the spawn on ModuleNotFoundError). Re-promote to RECIPE_METADATA once medmnist
 # (+ scikit-image/fire, aarch64 wheels verified) ships everywhere fl_server.py/client.py run.
+# DA-14 Ph3.0 (recipe side): a frozen-backbone + trainable-head derived model. Activates the DA-11
+# partial-load path (reconstruct_frozen_backbone) at the recipe layer — a fresh model loads a
+# content-addressed frozen backbone and federates ONLY its head (the trainable subset). Registered
+# NON-CATALOG (a demo, superseded by the real derivation-record recipe in Ph3.3).
+def build_frozen_backbone_model(num_classes, backbone_bytes=None, d_in=256, d_hidden=128, device="cpu"):
+    """A small derived model: a frozen ``Linear`` backbone + a trainable ``Linear`` head. If
+    ``backbone_bytes`` is given, the backbone is loaded (non-strict) from that content-addressed blob
+    and re-frozen via the DA-11 ``reconstruct_frozen_backbone``; otherwise the backbone is frozen in
+    place. The head is the only trainable (federated) subset."""
+    import torch
+    import torch.nn as nn
+
+    class _FrozenBackboneNet(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.backbone = nn.Linear(d_in, d_hidden)
+            self.head = nn.Linear(d_hidden, num_classes)
+            # Declare the frozen layout at construction — reconstruct_frozen_backbone validates the
+            # blob against frozen_state(model).keys() BEFORE loading, so the backbone must already be
+            # frozen (this is also the no-blob steady state: frozen backbone + trainable head).
+            for p in self.backbone.parameters():
+                p.requires_grad_(False)
+
+        def forward(self, x):
+            return self.head(torch.relu(self.backbone(x)))
+
+    model = _FrozenBackboneNet()
+    if backbone_bytes is not None:
+        from fedlearn.backbone.distribution import reconstruct_frozen_backbone
+        reconstruct_frozen_backbone(model, backbone_bytes)  # validate blob==frozen layout, load, re-freeze
+    return model.to(device)
+
+
 _NONCATALOG_METADATA = [
     {
         "key": "BLOOD_CNN",
@@ -446,6 +479,16 @@ _NONCATALOG_METADATA = [
         "optimizers": ["Adam", "SGD", "AdamW"],
         "requirements": {"min_ram_gb": 2, "min_storage_gb": 0.1, "mobile_safe": True,
                          "max_trainable_params": 1000000},
+    },
+    {
+        "key": "FROZEN_DEMO",
+        "display_name": "Frozen-backbone demo (head-only federation)",
+        "input_kind": "vector",
+        "classes": ["c0", "c1", "c2"],
+        "base_models": ["frozen_demo"],
+        "optimizers": ["SGD"],
+        "requirements": {"min_ram_gb": 1, "min_storage_gb": 0.01, "mobile_safe": True,
+                         "max_trainable_params": 100000},
     },
 ]
 _METADATA_BY_KEY.update({r["key"]: r for r in _NONCATALOG_METADATA})
@@ -850,6 +893,10 @@ class Recipe:
             return AutoModelForSequenceClassification.from_pretrained(
                 "facebook/opt-125m", num_labels=len(self.classes), use_safetensors=True
             ).to(device)
+        if self.key == "FROZEN_DEMO":
+            # DA-14 Ph3.0: frozen backbone + trainable head (head-only federation). No blob here —
+            # the backbone is frozen in place; the round-trip/BASE_REF path passes backbone_bytes.
+            return build_frozen_backbone_model(num_classes=len(self.classes), device=device)
         if self.key == "TINYNET_GOLDEN":
             return build_tinynet_golden().to(device)
         if self.key == "PNEUMONIA_CNN":
