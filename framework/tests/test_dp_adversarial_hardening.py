@@ -224,3 +224,18 @@ def test_noise_std_is_exactly_z_S_over_N_and_scales_as_one_over_N():
     assert std_n5 == pytest.approx(z * S / 5, rel=0.06)
     # The 1/N law: std(N=2) / std(N=5) == 5/2, NOT 1/sqrt(N) or a constant.
     assert std_n2 / std_n5 == pytest.approx(2.5, rel=0.08)
+
+
+# C4. Non-finite client update must be REJECTED (audit fix) — a NaN/Inf coordinate defeats the L2
+# clip (scale = min(1.0, S/(NaN)) = 1.0; Inf*scale(0) = NaN), silently corrupting the aggregated
+# coordinate for EVERY client and voiding the sensitivity bound the (eps,delta) claim rests on.
+@pytest.mark.parametrize("bad_val", [float("nan"), float("inf"), float("-inf")])
+def test_dp_aggregate_rejects_a_non_finite_client_update(bad_val):
+    B, H = "m.lora_B.weight", "score.weight"
+    gp = OrderedDict([("m.lora_A.weight", torch.tensor([[1.0, 2.0]])),
+                      (B, torch.zeros(2, 1)), (H, torch.zeros(1))])
+    good = OrderedDict([(B, torch.tensor([[1.0], [1.0]])), (H, torch.tensor([1.0]))])
+    bad = OrderedDict([(B, torch.tensor([[bad_val], [1.0]])), (H, torch.tensor([1.0]))])
+    with pytest.raises(ValueError):
+        dp_aggregate([("bad", bad, 1), ("good", good, 1)], gp, [B, H],
+                     clip_norm=5.0, noise_multiplier=0.0)

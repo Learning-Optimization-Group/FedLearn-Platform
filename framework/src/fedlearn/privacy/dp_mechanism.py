@@ -107,6 +107,16 @@ def dp_aggregate(
             if k not in params:
                 raise KeyError(f"client update missing aggregatable key {k!r}.")
             delta[k] = params[k].detach().float().cpu() - ref[k]
+            # A non-finite (NaN/Inf) coordinate makes the L2 norm non-finite, so the clip becomes a
+            # no-op (scale = min(1.0, S/NaN) = 1.0) or produces NaN (Inf*0), silently defeating the
+            # sensitivity bound the (eps, delta) guarantee rests on and corrupting the whole
+            # aggregated coordinate for every client. Reject it loudly, like the other contract checks.
+            if not torch.isfinite(delta[k]).all():
+                raise ValueError(
+                    f"client {_client_id!r} sent a non-finite value in aggregatable key {k!r} "
+                    "(NaN/Inf); a non-finite update defeats the DP L2 clip and would corrupt the "
+                    "aggregate — rejecting the round."
+                )
         # Joint L2 clip of the whole delta to S (sensitivity of one client to the sum is then S).
         clipped, _orig_norm = clip_l2_norm(delta, clip_norm)
         for k in keys:
