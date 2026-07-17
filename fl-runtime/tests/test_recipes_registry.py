@@ -134,3 +134,13 @@ def test_init_model_delegates_transformer_to_the_registry():
     viareg = recipes.get_recipe("TRANSFORMER").build_model(device="cpu")
     assert list(legacy.state_dict().keys()) == list(viareg.state_dict().keys())
     assert legacy.score.weight.shape == viareg.score.weight.shape
+
+
+@pytest.mark.slow  # loads the facebook/opt-125m tokenizer from the HF cache; deselected in CI
+def test_transformer_recipe_provides_a_tokenizer_input_transform():
+    """input_transform('TRANSFORMER') returns the opt-125m tokenizer with a pad token guaranteed
+    (falls back to eos) — the same tokenizer infer.py builds inline. Lets infer delegate fully."""
+    r = recipes.get_recipe("TRANSFORMER")
+    tok = r.input_transform()
+    assert tok.pad_token is not None
+    assert tok.pad_token_id is not None

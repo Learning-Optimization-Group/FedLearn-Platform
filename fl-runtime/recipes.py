@@ -760,6 +760,14 @@ class Recipe:
             return pneumonia_transform()
         if self.key == "BLOOD_CNN":
             return blood_transform()
+        if self.key == "TRANSFORMER":
+            # opt-125m tokenizer with a guaranteed pad token (opt has none by default -> eos).
+            # The single tokenizer authority so infer.py can delegate instead of rebuilding it.
+            from transformers import AutoTokenizer
+            tok = AutoTokenizer.from_pretrained("facebook/opt-125m")
+            if tok.pad_token is None:
+                tok.pad_token = tok.eos_token
+            return tok
         if self.key == "LLM_LORA":
             return _load_llm_tokenizer(model_name)
         raise NotImplementedError(f"input_transform not implemented in recipes.py for {self.key}")

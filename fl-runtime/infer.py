@@ -49,17 +49,10 @@ class InputError(ValueError):
 MAX_IMAGE_PIXELS = 50_000_000
 
 
-# CIFAR-10 class order (torchvision's canonical ordering).
-CIFAR10_CLASSES = [
-    "airplane", "automobile", "bird", "cat", "deer",
-    "dog", "frog", "horse", "ship", "truck",
-]
-ECG_CLASSES = ["Normal", "Abnormal"]
-TRANSFORMER_CLASSES = ["entailment", "contradiction", "neutral"]
-
+# Class labels + head dims now live in the recipe registry (build_model sources them there).
+# ECG_INPUT_DIM is the one value still needed here — it validates the /predict vector length
+# for MLP requests, independent of model construction.
 ECG_INPUT_DIM = 140
-ECG_HIDDEN_DIM = 64
-ECG_NUM_CLASSES = 2
 
 
 def log(msg: str) -> None:
@@ -74,34 +67,33 @@ def build_model(model_type: str, model_name: str, task_type: str = "SEQ_CLASSIFI
     don't drag in the heavy `transformers` import for CNN/MLP inference.
     """
     mt = model_type.upper()
+    # DA-14 Phase 1: every arch comes from the recipe registry (single build authority). CNN/MLP
+    # source their labels + input kind from the recipe and carry no transform; recipes.py imports
+    # torch/transformers lazily inside build_model, so CNN/MLP inference still never pulls in
+    # transformers (the reason build_model dispatch, not init_model.get_model, is used here).
     if mt == "CNN":
-        from architecture.cnn.net import Net  # 3x32x32 -> 10
-        return Net(), CIFAR10_CLASSES, "image", None
+        import recipes
+        recipe = recipes.get_recipe("CNN")  # 3x32x32 -> 10
+        return recipe.build_model("cpu"), recipe.classes, recipe.input_kind, None
     if mt == "PNEUMONIA_CNN":
         import recipes
         recipe = recipes.get_recipe("PNEUMONIA_CNN")  # 1x224x224 grayscale -> [NORMAL, PNEUMONIA]
-        return recipe.build_model("cpu"), recipe.classes, "image", recipe.input_transform()
+        return recipe.build_model("cpu"), recipe.classes, recipe.input_kind, recipe.input_transform()
     if mt == "BLOOD_CNN":
         import recipes
         recipe = recipes.get_recipe("BLOOD_CNN")  # 3x28x28 RGB -> 8 blood cell types
-        return recipe.build_model("cpu"), recipe.classes, "image", recipe.input_transform()
+        return recipe.build_model("cpu"), recipe.classes, recipe.input_kind, recipe.input_transform()
     if mt == "MLP":
-        from models.ecg_mlp import ECGModel
-        return (
-            ECGModel(input_dim=ECG_INPUT_DIM, hidden_dim=ECG_HIDDEN_DIM, num_classes=ECG_NUM_CLASSES),
-            ECG_CLASSES,
-            "vector",
-            None,
-        )
+        import recipes
+        recipe = recipes.get_recipe("MLP")  # 140-float ECG vector -> [Normal, Abnormal]
+        return recipe.build_model("cpu"), recipe.classes, recipe.input_kind, None
     if mt == "TRANSFORMER":
-        from transformers import AutoModelForSequenceClassification, AutoTokenizer
-        net = AutoModelForSequenceClassification.from_pretrained(
-            "facebook/opt-125m", num_labels=len(TRANSFORMER_CLASSES), use_safetensors=True)
-        tok = AutoTokenizer.from_pretrained("facebook/opt-125m")
-        if tok.pad_token is None:
-            tok.pad_token = tok.eos_token
-        net.config.pad_token_id = tok.pad_token_id
-        return net, TRANSFORMER_CLASSES, "text", tok
+        import recipes
+        recipe = recipes.get_recipe("TRANSFORMER")  # opt-125m SEQ_CLS -> 3 classes
+        net = recipe.build_model("cpu")
+        tok = recipe.input_transform()
+        net.config.pad_token_id = tok.pad_token_id  # wire the model to the (padded) tokenizer
+        return net, recipe.classes, recipe.input_kind, tok
     if mt == "LLM_LORA":
         import recipes
         recipe = recipes.get_recipe("LLM_LORA")
