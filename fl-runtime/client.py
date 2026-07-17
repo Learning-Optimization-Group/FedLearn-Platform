@@ -41,6 +41,7 @@ USE_LLM = True
 USE_MLP = False  # NEW: Flag for MLP/ECG
 USE_PNEUMONIA = False  # Flag for PneumoniaCNN (chest X-ray) recipe
 USE_LLM_LORA = False          # federated LoRA SEQ_CLS recipe
+USE_DERIVED = False           # DA-14 Ph3.3b: frozen-backbone derived recipe (head-only FedAvg subset)
 LLM_LORA_AGGREGATION = "FFA_LORA"
 LLM_LORA_MODEL_NAME = "qwen2.5-0.5b"
 LLM_LORA_TASK_TYPE = "SEQ_CLASSIFICATION"
@@ -587,6 +588,11 @@ class ZOSLClient(fl.Client):
             from peft import get_peft_model_state_dict
             full = get_peft_model_state_dict(self.net, save_embedding_layers=False)
             return OrderedDict((k, v) for k, v in full.items() if k in self._adapter_keys)
+        if USE_DERIVED:
+            # DA-14 Ph3.3b: federate ONLY the trainable subset (the head); the frozen backbone
+            # never rides the wire. Mirrors the LLM_LORA adapter-only upload above.
+            from fedlearn.estimators.params import trainable_state
+            return trainable_state(self.net)
         return self.net.state_dict()
 
     def fit(
@@ -639,6 +645,10 @@ class ZOSLClient(fl.Client):
             # peft's set_peft_model_state_dict mutates its input dict in-place (deletes/remaps
             # modules_to_save keys) — copy so the caller's parameters dict is not corrupted.
             set_peft_model_state_dict(self.net, OrderedDict(parameters))
+        elif USE_DERIVED:
+            # DA-14 Ph3.3b: load the aggregated head non-strict — the frozen backbone stays local
+            # (the wire carried only the head). Mirrors the LLM_LORA non-full-state load above.
+            self.net.load_state_dict(parameters, strict=False)
         else:
             self.net.load_state_dict(parameters)
 
@@ -748,7 +758,8 @@ class ZOSLClient(fl.Client):
             self.net.train()
         # === END ADD ===
 
-        if USE_LLM_LORA:
+        if USE_LLM_LORA or USE_DERIVED:
+            # Both federate a subset only — return via get_parameters (adapter / head), not full state.
             return self.get_parameters(), len(self.trainloader.dataset)
         return self.net.state_dict(), len(self.trainloader.dataset)
 
@@ -849,7 +860,7 @@ def create_decomfl_compatible_loader(original_loader, is_llm=False):
 # --- Main Execution Block ---
 # ==============================================================================
 def main():
-    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, LLM_LORA_TASK_TYPE, DATASET_NAME, BATCH_SIZE, DEVICE
+    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, USE_DERIVED, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, LLM_LORA_TASK_TYPE, DATASET_NAME, BATCH_SIZE, DEVICE
 
     print(f"\n{'='*60}")
     print(f"DEVICE DETECTION")
@@ -888,6 +899,7 @@ def main():
         USE_MLP = (mt == "MLP")
         USE_PNEUMONIA = (mt == "PNEUMONIA_CNN")
         USE_LLM_LORA = (mt == "LLM_LORA")
+        USE_DERIVED = (mt == "FROZEN_DEMO")   # DA-14 Ph3.3b: frozen-backbone derived recipe (head-only FedAvg)
     elif args.use_llm:
         USE_LLM = True
         USE_MLP = False
