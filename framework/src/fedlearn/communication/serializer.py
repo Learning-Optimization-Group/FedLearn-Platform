@@ -156,6 +156,20 @@ def parameters_to_chunks(
         raise
 
 
+def _looks_like_safetensors(data: bytes) -> bool:
+    """FR-27: positively identify a safetensors blob to avoid false-rejecting it as legacy pickle/zip.
+
+    The safetensors format is: an 8-byte little-endian u64 header length N, then N bytes of a JSON
+    header object (always starting with ``{``), then the tensor data. Requiring a sane N (fits in the
+    blob, non-empty) plus a ``{`` at the header start distinguishes real safetensors from a pickle
+    (``0x80``) or zip (``PK``) blob whose bytes only coincidentally collide with the magic sniff.
+    """
+    if len(data) < 9:
+        return False
+    header_len = int.from_bytes(data[:8], "little")
+    return 0 < header_len <= len(data) - 8 and data[8:9] == b"{"
+
+
 def chunks_to_parameters(
         chunks_data: bytes,
         compressed: Optional[bool] = None,
@@ -174,7 +188,12 @@ def chunks_to_parameters(
 
         # Sniff for legacy pickle/zip blobs and fail loudly rather than silently mis-reading.
         # torch.save produces a zip archive starting with PK\x03\x04; raw pickle starts with 0x80.
-        if len(data) >= 2 and (data[:2] == b"PK" or data[0] == 0x80):
+        # FR-27: gate the sniff behind a POSITIVE safetensors check first. A valid safetensors blob
+        # begins with a little-endian u64 header length whose low byte is legitimately 0x80 (header
+        # 128/384/... bytes) or spells b"PK" (header_len ≡ 19280 mod 65536) — the bare magic-byte
+        # sniff false-rejected those well-formed payloads. When the blob positively parses as
+        # safetensors (sane header length followed by a JSON object), skip the legacy guard.
+        if not _looks_like_safetensors(data) and len(data) >= 2 and (data[:2] == b"PK" or data[0] == 0x80):
             raise ValueError(
                 "Received a legacy pickle/zip blob (torch.save format). "
                 "Only safetensors wire format is accepted. Re-upload with an updated client."

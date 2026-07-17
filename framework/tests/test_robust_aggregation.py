@@ -278,3 +278,39 @@ def test_robust_aggregator_rejects_unknown_method():
 def test_robust_aggregator_rejects_out_of_range_trim_ratio():
     with pytest.raises(ValueError, match="trim"):
         RobustAggregator(initial_parameters=_init(2), method="trimmed_mean", trim_ratio=0.5)
+
+
+# --------------------------------------------------------------------------------------------------
+# FR-19 — key/shape homogeneity: a malformed client must be dropped, never crash or wipe the global
+# --------------------------------------------------------------------------------------------------
+def test_robust_drops_shape_mismatched_client_instead_of_crashing():
+    """A client whose tensor shape differs from the global must be dropped, not crash aggregate_fit.
+
+    _robust_reduce does torch.stack([c[key] for c in clients]); a wrong-shape client raises a
+    RuntimeError deep inside aggregation — an uncaught crash of the aggregation thread after the
+    client was already accepted. Two honest dim-2 clients + one dim-3 attacker must aggregate to
+    the median over the honest two.
+    """
+    agg = RobustAggregator(initial_parameters=_init(2), method="median", byzantine_fraction=0.0)
+    honest = [(None, _params([1.0, 1.0]), 100), (None, _params([3.0, 3.0]), 100)]
+    malformed = (None, OrderedDict({"w": torch.tensor([9.0, 9.0, 9.0])}), 100)  # dim-3
+    result = agg.aggregate_fit(1, honest + [malformed])
+    assert result is not None
+    assert set(result.keys()) == {"w"}
+    assert torch.allclose(result["w"], torch.tensor([2.0, 2.0]))  # median of [1, 3] per coord
+
+
+def test_robust_empty_client_does_not_wipe_the_global():
+    """An empty state_dict as the FIRST client must not silently reduce the aggregate to {}.
+
+    _robust_reduce templates on clients[0].keys(); an empty clients[0] yields an empty output,
+    which is then persisted as the new global — silently wiping the model. The malformed client
+    must be dropped and the honest survivors aggregated instead.
+    """
+    agg = RobustAggregator(initial_parameters=_init(2), method="median", byzantine_fraction=0.0)
+    empty = (None, OrderedDict(), 100)  # malformed empty state_dict, positioned first
+    honest = [(None, _params([1.0, 1.0]), 100), (None, _params([3.0, 3.0]), 100)]
+    result = agg.aggregate_fit(1, [empty] + honest)
+    assert result is not None
+    assert set(result.keys()) == {"w"}
+    assert torch.allclose(result["w"], torch.tensor([2.0, 2.0]))

@@ -47,6 +47,30 @@ class TestFLCoordinator:
         self.coordinator.submit_client_update("c1", make_params(1.0), 0, trained_on_round=1)
         assert len(self.coordinator._client_updates_received) == 0
 
+    def test_submit_client_update_rejects_shape_mismatch_at_ingress(self):
+        """FR-17: a shape-mismatched update must be rejected at ingress, not crash aggregation.
+
+        FedAvg aggregation does an in-place torch.add(global[key], client[key]); a client tensor
+        whose shape differs from the global raises deep inside aggregate_fit — AFTER the round's
+        updates were cleared and the client ACKed — wedging the round, discarding every honest
+        update, misattributing the error to the last (often honest) submitter, and then tripping
+        the timeout path that stops the whole server. Reject it loudly and attributably at ingress
+        (ValueError -> servicer INVALID_ARGUMENT), exactly as the DeComFL path validates its grid.
+        """
+        # An honest, correctly-shaped update is stored (global 'w' is shape [1]).
+        self.coordinator.submit_client_update("c1", make_params(1.0), 100, trained_on_round=1)
+        assert len(self.coordinator._client_updates_received) == 1
+
+        # A wrong-shape update ('w' as shape [2]) is rejected at ingress rather than stored.
+        bad = OrderedDict([("w", torch.tensor([1.0, 2.0]))])
+        with pytest.raises(ValueError, match="shape mismatch"):
+            self.coordinator.submit_client_update("c2", bad, 100, trained_on_round=1)
+
+        # The honest update survives; the malformed one is not stored; aggregation never fired on
+        # it, so the round is not wedged and a valid c2 could still complete it.
+        assert len(self.coordinator._client_updates_received) == 1
+        self.strategy.aggregate_fit.assert_not_called()
+
     def test_submit_client_update_dedups_a_retried_submission(self):
         """FR-5: a retried FedAvg submit (ABORTED/UNAVAILABLE are client-retryable, so the
         server can see the same client's update twice in a round) must be counted ONCE. A
@@ -133,3 +157,24 @@ class TestFLCoordinator:
         active = self.coordinator.get_active_clients()
         assert "fresh" in active
         assert "stale" not in active
+
+
+def test_round_completes_when_strategy_has_no_evaluate_fn():
+    """FR-22: Strategy.evaluate() returns None when no evaluate_fn is configured (the constructor
+    default for FedAvg/FedProx/FedOpt/FedLoRA/Robust). The FedAvg round trigger unpacked it as a
+    2-tuple — `loss, metrics = None` — raising a TypeError inside the lock after updates were
+    cleared, wedging the round (the DeComFL trigger already guards this). The round must instead
+    complete evaluation-less.
+    """
+    from fedlearn.server.strategy import FedAvg
+    strat = FedAvg(initial_parameters=make_params(0.0))  # no evaluate_fn => evaluate() returns None
+    coord = FLCoordinator(strategy=strat, min_clients_for_aggregation=2, clients_per_round=2)
+    coord.set_initial_parameters(make_params(0.0))
+    assert coord.current_round == 1
+
+    coord.submit_client_update("c1", make_params(1.0), 100, trained_on_round=1)
+    coord.submit_client_update("c2", make_params(3.0), 100, trained_on_round=1)  # triggers aggregation
+
+    assert coord.current_round == 2                    # round advanced, no crash
+    assert coord.get_latest_metrics() is None          # evaluation-less completion
+    assert coord._round_complete_event.is_set()

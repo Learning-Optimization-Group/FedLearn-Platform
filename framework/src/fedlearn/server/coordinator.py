@@ -259,6 +259,26 @@ class FLCoordinator:
                 raise ValueError(
                     f"non-finite tensor value in model update from {client_id} (poisoning defense)")
 
+            # FR-17: reject a shape-mismatched update at ingress. FedAvg aggregation does an in-place
+            # torch.add(global[key], client[key]) — a client tensor whose shape differs from the
+            # global would raise deep inside aggregate_fit, AFTER this round's updates were cleared
+            # and the client was ACKed, wedging the round, discarding every honest update,
+            # misattributing the error to the last (often honest) submitter, and then tripping the
+            # timeout path that stops the whole server. Reject it here loudly and attributably (the
+            # servicer maps ValueError -> INVALID_ARGUMENT), exactly as the DeComFL path validates its
+            # K x P grid at ingress. Only keys shared with the global are checked — missing/extra keys
+            # are a separate homogeneity concern (FR-18); the reference is absent only before the
+            # first global model is set, in which case there is nothing to validate against yet.
+            if self._global_model_params is not None:
+                for key, tensor in params.items():
+                    ref = self._global_model_params.get(key)
+                    if ref is not None and tuple(tensor.shape) != tuple(ref.shape):
+                        raise ValueError(
+                            f"shape mismatch in model update from {client_id}: key '{key}' has "
+                            f"shape {tuple(tensor.shape)} but the global model expects "
+                            f"{tuple(ref.shape)} (poisoning/version-skew defense)"
+                        )
+
             # SE-3: optionally clip the client's update delta to a configured L2 budget.
             if self.client_update_l2_clip is not None and self._global_model_params is not None:
                 params = self._clip_update_delta(client_id, params)
@@ -360,8 +380,16 @@ class FLCoordinator:
 
         if aggregated_parameters is not None:
             self._global_model_params = aggregated_parameters
-            loss, metrics = self.strategy.evaluate(self.current_round, self._global_model_params)
-            self.latest_metrics = {"loss": loss, **metrics}
+            # FR-22: Strategy.evaluate is Optional[Tuple[float, dict]] — it returns None when no
+            # evaluate_fn is configured (the constructor default for FedAvg/FedProx/FedOpt/FedLoRA/
+            # Robust). Unpacking None as a 2-tuple raised a TypeError inside the lock, after updates
+            # were cleared, wedging the round. Guard it exactly as the DeComFL trigger already does.
+            eval_result = self.strategy.evaluate(self.current_round, self._global_model_params)
+            if eval_result is not None:
+                loss, metrics = eval_result
+                self.latest_metrics = {"loss": loss, **metrics}
+            else:
+                self.latest_metrics = None
         else:
             # Aggregation returning None is a hard failure for the round, but
             # the server can continue — log at WARNING so operators see it

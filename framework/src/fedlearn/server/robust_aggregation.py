@@ -223,6 +223,14 @@ class RobustAggregator(Strategy):
                 dropped += 1
                 log.warning("RobustAggregator dropped non-finite update from client %s", client_id)
                 continue
+            # FR-19: drop a key/shape-mismatched update instead of crashing or wiping the global.
+            if not self._conforms_to_global(params):
+                dropped += 1
+                log.warning(
+                    "RobustAggregator dropped key/shape-mismatched update from client %s "
+                    "(keys/shapes differ from the global model)", client_id,
+                )
+                continue
             survivors.append(self._clip_update(params))
 
         if not survivors:
@@ -258,6 +266,21 @@ class RobustAggregator(Strategy):
         return loss, metrics
 
     # ---- internals -------------------------------------------------------------------------------
+    def _conforms_to_global(self, params: "OrderedDict[str, torch.Tensor]") -> bool:
+        """FR-19: a client update must carry exactly the global model's keys and per-key shapes.
+
+        A missing/extra key or a wrong shape is a malformed (or Byzantine) update. Without this
+        gate, ``torch.stack`` in :meth:`_robust_reduce` raises on a shape mismatch (crashing the
+        aggregation thread after the client was already accepted), and an empty or mis-keyed
+        ``clients[0]`` templates the reduction to a smaller key set — silently dropping those
+        parameters from the aggregate and, once persisted, wiping them from the global model. Such
+        clients are dropped exactly like non-finite ones rather than allowed to crash or corrupt the
+        round.
+        """
+        if set(params.keys()) != set(self._global.keys()):
+            return False
+        return all(tuple(params[k].shape) == tuple(self._global[k].shape) for k in self._global)
+
     def _clip_update(
             self, params: "OrderedDict[str, torch.Tensor]"
     ) -> "OrderedDict[str, torch.Tensor]":
@@ -286,7 +309,10 @@ class RobustAggregator(Strategy):
     ) -> "OrderedDict[str, torch.Tensor]":
         """Apply the coordinate-wise estimator per parameter key over the stacked client tensors."""
         out: "OrderedDict[str, torch.Tensor]" = OrderedDict()
-        for key in clients[0].keys():
+        # FR-19: template on the global model's keys, not clients[0] — every survivor has passed
+        # _conforms_to_global, so all keys are present with matching shapes, and an empty/mis-keyed
+        # first client can no longer silently shrink the aggregated key set.
+        for key in self._global.keys():
             stacked = torch.stack([c[key].float() for c in clients], dim=0)
             if self.method == "median":
                 out[key] = coordinate_wise_median(stacked)

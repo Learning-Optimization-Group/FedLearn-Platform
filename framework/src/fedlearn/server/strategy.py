@@ -91,12 +91,6 @@ class FedAvgAggregator:
         # (client_id, state_dict, num_examples) via the shared normalizer.
         updates = normalize_updates(updates)
 
-        _, template_params, _ = updates[0]
-        template_params = {k: v.to(device) for k, v in template_params.items()}
-
-        aggregated_params = OrderedDict(
-            [(key, torch.zeros_like(tensor, dtype=torch.float32)) for key, tensor in template_params.items()])
-
         # Sanitize num_examples: cap and reject invalid values
         sanitized_updates = [
             (cid, p, min(n, self.MAX_SAMPLES))
@@ -105,19 +99,33 @@ class FedAvgAggregator:
         if not sanitized_updates:
             raise ValueError("No valid updates after sanitization.")
 
-        total_examples = sum(num_examples for _, _, num_examples in sanitized_updates)
+        # FR-18 / fedavg-4: template the aggregate on the UNION of client keys, and total examples
+        # PER KEY. Templating on updates[0] alone silently drops any key only later clients carry;
+        # weighting every key by num_examples/total_examples-over-ALL-clients but summing only the
+        # clients that HAVE the key scaled a subset-held key by a weight share < 1, decaying it
+        # toward zero each round (and letting an inflated-num_examples client bypass the per-client
+        # L2 clip on the keys it omitted). Renormalizing each key over the clients that actually
+        # provided it fixes both: a client missing a key now contributes nothing to it (correct),
+        # and when every client holds every key this reduces exactly to the previous weighted mean.
+        aggregated_params: OrderedDict[str, torch.Tensor] = OrderedDict()
+        key_totals: dict[str, int] = {}
+        for _cid, params, num_examples in sanitized_updates:
+            for key, tensor in params.items():
+                if key not in aggregated_params:
+                    aggregated_params[key] = torch.zeros_like(tensor.to(device), dtype=torch.float32)
+                key_totals[key] = key_totals.get(key, 0) + num_examples
 
         for client_id, params, num_examples in sanitized_updates:
-            weight = num_examples / total_examples
-            for key in aggregated_params:
-                if key in params:
+            for key in params:
+                if key in aggregated_params:
+                    weight = num_examples / key_totals[key]
                     torch.add(
-                        aggregated_params[key], 
-                        params[key].to(device).float(), 
-                        alpha=weight, 
-                        out=aggregated_params[key]
+                        aggregated_params[key],
+                        params[key].to(device).float(),
+                        alpha=weight,
+                        out=aggregated_params[key],
                     )
-            
+
             # Aggressively free client memory buffer
             params.clear()
 
@@ -235,6 +243,7 @@ class FedLoRA(Strategy):
     def aggregate_fit(self, server_round, results):
         if not results:
             return None
+        self._assert_client_keys_allowed(results)
         self._assert_homogeneous(results)
         if self.dp_enabled:
             aggregated = self._aggregate_fit_dp(results)
@@ -287,6 +296,28 @@ class FedLoRA(Strategy):
         loss, metrics = self.evaluate_fn(server_round, parameters)
         log.info("FedLoRA eval round=%d loss=%.4f metrics=%s", server_round, loss, metrics)
         return loss, metrics
+
+    def _assert_client_keys_allowed(self, results):
+        """FR-23: enforce a server-side allowlist — every client key must be in the server's known
+        adapter surface (``initial_parameters``).
+
+        ``_assert_homogeneous`` only checks clients against EACH OTHER, so a min-clients=1 client (or
+        a colluding full cohort) could append keys outside the adapter — e.g. poisoned base-model
+        weights under their peft state-dict names — which would then be averaged into the global,
+        broadcast to every peer, and packaged into the LORA_ADAPTER registry bundle. Reject any key
+        the server did not initialise. Clients may still send a subset (FFA re-attaches the frozen
+        A), but never a superset: smuggled tensors have no home in the server's adapter surface.
+        """
+        expected = set(self.initial_parameters.keys())
+        for entry in results:
+            _cid, params, _n = normalize_update(entry)
+            extra = set(params.keys()) - expected
+            if extra:
+                raise ValueError(
+                    f"FedLoRA client sent keys outside the server's adapter surface: "
+                    f"{sorted(extra)} — refusing to aggregate smuggled tensors "
+                    f"(server-side adapter allowlist, FR-23)."
+                )
 
     @staticmethod
     def _assert_homogeneous(results):
