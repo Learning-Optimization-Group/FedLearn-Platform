@@ -181,6 +181,27 @@ residual post-trim corruption past β collapses accuracy directly. So the accura
 property of the *separable* synthetic task; the estimator breakdown (β/0.5/0⁺) is the task-invariant
 signal. FedAvg 0⁺ and median 0.5 hold on real data too. See `results/robust_breakdown_point_digits.md`.
 
+## C7 — zeroth-order vs first-order trade-off (`zeroth_vs_first_order.py`)
+
+`comms_regimes` measured DeComFL's per-round WIRE cost; `algo_comparison` measured first-order
+CONVERGENCE. This runs BOTH families' convergence AND real cumulative bytes side by side (same task/
+partition/seed, LogReg on real digits so DeComFL's ZO-SGD converges CPU-tractably), then sweeps padded
+dims to answer: does DeComFL's TOTAL-communication advantage grow with d?
+
+```
+PYTHONPATH=src python benchmarks/zeroth_vs_first_order.py    # FedAvg vs DeComFL convergence+bytes + d-sweep
+```
+
+**The honest two-axis result** (real digits, seed 0): **per-round, DeComFL wins unconditionally** —
+~470 vs ~22K B/round (47×) and dimension-FREE. **Total-to-85%-accuracy** at d=650: FedAvg wins 1.46×
+(DeComFL needs 868 rounds vs 13, its 47× cheaper payload nearly but not quite makes it up). The measured
+d-sweep: the DeComFL/FedAvg total-byte ratio **SHRINKS 1.46× → 0.28× → 0.20×** across d=650→2570→5130 —
+crossing to a DeComFL total win. **Critical caveat (stated, not hidden):** the sweep pads with
+UNINFORMATIVE dims, so DeComFL's ZO convergence barely pays for them (rounds 868→581) while FedAvg pays
+the full O(d) wire — so the crossover reflects WIRE-COST scaling, genuine for over-parameterized/LoRA
+regimes but overstated for a fully-informative model (ZO variance would grow its rounds). See
+`results/zeroth_vs_first_order.md`.
+
 ## TE-15 — fair algorithm comparison (`algo_comparison.py`)
 
 Same task · same fixed non-IID partition · same seed through each algorithm's real `aggregate_fit`,
