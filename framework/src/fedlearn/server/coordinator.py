@@ -248,6 +248,17 @@ class FLCoordinator:
                 return
             num_examples = min(num_examples, self.MAX_NUM_EXAMPLES)
 
+            # An empty update carries no parameters — never a legitimate training result. In a
+            # clients_per_round==1 (or all-empty) cohort it makes FedAvg produce a ZERO-key aggregate
+            # that silently WIPES the global model to {} while the round advances as a false success:
+            # the finiteness check below is all([]) == True and the FR-17 shape loop is a no-op on
+            # zero keys, so nothing else catches it. Reject it here, attributably (servicer ->
+            # INVALID_ARGUMENT), exactly like a shape mismatch.
+            if not params:
+                raise ValueError(
+                    f"empty model update from {client_id} (no parameters); a client update must "
+                    "carry its trained parameters")
+
             # SE-3: reject non-finite params before they reach aggregation — one NaN/Inf would corrupt
             # the averaged global for every honest client in the round. The serializer already rejects
             # these on the gRPC path; this makes the coordinator self-defending against any direct

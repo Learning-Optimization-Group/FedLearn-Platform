@@ -23,11 +23,12 @@ The existing coordinator suite covers evaluate()->None (FR-22) and malformed-inp
 from collections import OrderedDict
 from unittest.mock import MagicMock
 
+import pytest
 import torch
 
 from fedlearn.server.coordinator import FLCoordinator
 from fedlearn.server.decomfl_strategy import DeComFL
-from fedlearn.server.strategy import Strategy
+from fedlearn.server.strategy import FedAvg, Strategy
 
 
 def make_params(val: float) -> OrderedDict:
@@ -87,3 +88,19 @@ def test_decomfl_failed_round_untouched_global_and_no_gradient_history():
     assert coord.current_round == 2                             # round advanced
     assert coord._round_complete_event.is_set()
     assert coord._client_updates_received == []                 # pending buffer cleared
+
+
+def test_empty_client_update_is_rejected_and_does_not_wipe_the_global():
+    """An empty (zero-parameter) update must be rejected at ingress. Otherwise, in a
+    clients_per_round==1 / all-empty cohort, FedAvg produces a zero-key aggregate that silently
+    WIPES the global model to {} while the round advances as a false success (audit defect) — the
+    finiteness guard is all([])==True and the FR-17 shape loop is a no-op on zero keys."""
+    g0 = make_params(5.0)
+    coord = FLCoordinator(strategy=FedAvg(initial_parameters=g0),
+                          min_clients_for_aggregation=1, clients_per_round=1)
+    coord.set_initial_parameters(g0)
+    with pytest.raises(ValueError):
+        coord.submit_client_update("c1", OrderedDict(), 100, trained_on_round=1)
+    # The global is preserved and the round did NOT advance as a false success.
+    assert "w" in coord.get_global_model_params()
+    assert coord.current_round == 1
