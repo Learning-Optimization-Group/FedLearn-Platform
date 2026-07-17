@@ -346,35 +346,46 @@ public class ProjectService {
     @Transactional
     @Auditable(action = AuditAction.RUN_STOPPED, targetIdParam = "projectId", targetType = "PROJECT")
     public ProjectResponseDto stopServerForProject(@NonNull UUID projectId) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> ResourceNotFoundException.project(projectId));
-        authz.requireOrgScope(project.getOrgId());
-        authz.requireOwnerOrAdmin(project);
+        // BA-13: take the SAME per-project lock the start path holds (startLocks), so a stop cannot
+        // interleave INSIDE a start's spawn->markRunning critical section. Without it, a stop could kill
+        // + untrack the child while the start is between the spawn and markRunning, then the start would
+        // resume and set the project/run RUNNING with a dead, untracked child ("phantom RUNNING"). The
+        // project is loaded INSIDE the lock so we never act on a status a concurrent start just changed.
+        ReentrantLock startLock = startLocks.computeIfAbsent(projectId, k -> new ReentrantLock());
+        startLock.lock();
+        try {
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> ResourceNotFoundException.project(projectId));
+            authz.requireOrgScope(project.getOrgId());
+            authz.requireOwnerOrAdmin(project);
 
-        boolean stopped = flServerManager.stopServerForProject(projectId);
-        Project finalProjectState = project;
-        if (stopped || ProjectStatus.RUNNING.name().equals(project.getStatus())) {
-            project.setServerPort(null);
-            project.setStatus(ProjectStatus.STOPPED.name());
-            finalProjectState = projectRepository.save(project);
-            log.info("Stopped FL server for project {}", projectId);
-        } else {
-            log.debug("No running server found for project {}; nothing to stop", projectId);
+            boolean stopped = flServerManager.stopServerForProject(projectId);
+            Project finalProjectState = project;
+            if (stopped || ProjectStatus.RUNNING.name().equals(project.getStatus())) {
+                project.setServerPort(null);
+                project.setStatus(ProjectStatus.STOPPED.name());
+                finalProjectState = projectRepository.save(project);
+                log.info("Stopped FL server for project {}", projectId);
+            } else {
+                log.debug("No running server found for project {}; nothing to stop", projectId);
+            }
+
+            if (finalProjectState.getActiveRunId() != null) {
+                runService.markStopped(finalProjectState.getActiveRunId());
+            }
+
+            // BA-4 follow-up: notify live watchers of the stop over STOMP. The stop path previously pushed
+            // nothing, so the dashboard stayed on RUNNING until a manual refresh. Push the DERIVED status
+            // (computed after markStopped) so the real-time value matches what the REST DTOs now return.
+            webSocketService.sendStatusUpdate(new ProjectStatusUpdateDto(
+                    finalProjectState.getId(),
+                    projectStatusService.currentStatus(finalProjectState).name(),
+                    null));
+
+            return convertToDto(finalProjectState);
+        } finally {
+            startLock.unlock();
         }
-
-        if (finalProjectState.getActiveRunId() != null) {
-            runService.markStopped(finalProjectState.getActiveRunId());
-        }
-
-        // BA-4 follow-up: notify live watchers of the stop over STOMP. The stop path previously pushed
-        // nothing, so the dashboard stayed on RUNNING until a manual refresh. Push the DERIVED status
-        // (computed after markStopped) so the real-time value matches what the REST DTOs now return.
-        webSocketService.sendStatusUpdate(new ProjectStatusUpdateDto(
-                finalProjectState.getId(),
-                projectStatusService.currentStatus(finalProjectState).name(),
-                null));
-
-        return convertToDto(finalProjectState);
     }
 
     public List<ProjectResponseDto> getProjectsForCurrentUser() {

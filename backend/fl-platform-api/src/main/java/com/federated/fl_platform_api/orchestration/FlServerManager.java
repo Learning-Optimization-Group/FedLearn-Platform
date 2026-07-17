@@ -117,6 +117,13 @@ public class FlServerManager {
     private final java.util.Set<Integer> reservedPorts = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Object portReservationLock = new Object();
 
+    // BA-13: the port each running project holds. A reserved port stays reserved for the CHILD'S LIFE,
+    // not just the startup probe: releasing on a fixed timer (the old behavior) freed the port while a
+    // slow child (torch import + model build routinely > the probe window) had not yet bound, so a
+    // concurrent cross-project start could grab the same port and silently cross-wire the two servers.
+    // The reservation is released when the child exits (onExit watcher) or is stopped.
+    private final Map<UUID, Integer> reservedPortByProject = new ConcurrentHashMap<>();
+
     /**
      * Start the FL server for a project and return the reserved local port.
      *
@@ -150,6 +157,7 @@ public class FlServerManager {
                                                Integer numRounds, Integer minClients) {
         SpawnedFlProcess process = null;
         int freePort = -1;
+        boolean started = false;   // BA-13: true once the child is tracked + holds its port for its life
         try {
             stopServerForProject(project.getId());
 
@@ -255,6 +263,16 @@ public class FlServerManager {
                                 + "\nOutput:\n" + startupOutput);
             }
 
+            // BA-13: startup succeeded and the child is tracked. Hold its port for the child's LIFE
+            // (not the probe window) so a concurrent cross-project start cannot grab a port whose child
+            // is still binding. Release it when the child exits — this same watcher also evicts the
+            // tracking entry, so a mid-run crash frees the port and clears runningServers.
+            final ProcessHandle trackedHandle = process.toHandle();
+            reservedPortByProject.put(project.getId(), freePort);
+            final int heldPort = freePort;
+            final UUID heldProject = project.getId();
+            trackedHandle.onExit().thenRun(() -> onChildExit(heldProject, trackedHandle, heldPort));
+            started = true;   // the finally must NOT release the port now; the watcher/stop owns it
             log.info("Started FL server for project {} on port {}", project.getId(), freePort);
             return Optional.of(freePort);
         } catch (InterruptedException e) {
@@ -272,13 +290,32 @@ public class FlServerManager {
             throw new ServerProcessException(
                     "Failed to spawn FL server process for project " + project.getId(), e);
         } finally {
-            // Release the reservation regardless of outcome. On success the
-            // Python child is now bound, so the next findFreePort() probe
-            // will naturally skip this port via the ServerSocket check; on
-            // failure no one holds the port and it's free for reuse.
-            if (freePort != -1) {
+            // BA-13: release the reservation only when the start FAILED (started==false) — the child is
+            // dead or was never spawned, so no one holds the port. On SUCCESS the port stays reserved
+            // for the child's life (released by the onExit watcher or stopServerForProject); freeing it
+            // here on a fixed timer, before a slow child bound, was the cross-project port-collision bug.
+            if (freePort != -1 && !started) {
                 releasePort(freePort);
             }
+        }
+    }
+
+    /**
+     * BA-13: a tracked FL-server child exited (natural end, crash, or {@code destroyForcibly}). Release
+     * its port and evict its tracking entry — but only if THIS handle/port is still the tracked one, so a
+     * restart that already replaced them is not disturbed. Idempotent and safe to run concurrently with
+     * {@link #stopServerForProject} (both release/evict the same port/entry).
+     */
+    private void onChildExit(UUID projectId, ProcessHandle handle, int port) {
+        runningServers.remove(projectId, handle);
+        // Release the port ONLY if THIS project still holds THIS port. A prior stop (which already
+        // released it) or a RESTART that re-reserved the same port under a new child must not have its
+        // reservation freed by this old child's late-firing exit callback — releasePort is an
+        // unconditional set removal, so gating it on the conditional map remove is what makes the whole
+        // release path race-safe.
+        if (reservedPortByProject.remove(projectId, Integer.valueOf(port))) {
+            releasePort(port);
+            log.debug("FL server child for project {} exited; released port {}", projectId, port);
         }
     }
 
@@ -610,6 +647,12 @@ public class FlServerManager {
 
     public boolean stopServerForProject(UUID projectId) {
         runTokenRegistry.evictForProject(projectId);   // SE-7: invalidate this run's internal token
+        // BA-13: free the port this project's child held (it is reserved for the child's life now, not
+        // just the startup probe). Idempotent with the onExit watcher that also fires on destroyForcibly.
+        Integer heldPort = reservedPortByProject.remove(projectId);
+        if (heldPort != null) {
+            releasePort(heldPort);
+        }
         ProcessHandle handle = runningServers.get(projectId);
         if (handle != null && handle.isAlive()) {
             log.info("Stopping FL server for project {}", projectId);
