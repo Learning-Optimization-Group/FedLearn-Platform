@@ -27,9 +27,10 @@
 <li><a href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a class="active" href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -86,11 +87,11 @@
 <p>This is achieved via a pipeline consisting of process standard output capture, STOMP WebSockets, and asynchronous database persistence.</p>
 <h2 id="1-the-pipeline-architecture">1. The Pipeline Architecture<a class="headerlink" href="#1-the-pipeline-architecture" title="Permanent link">&para;</a></h2>
 <ol>
-<li><strong>Log Generation:</strong> The Python FL Server (whether running locally or on AWS) writes structured JSON logs to its standard output.</li>
-<li><strong>Capture:</strong> The Spring Boot backend reads these logs. For local execution, this is handled by a daemon thread attached to the <code>Process</code> output stream. For AWS, logs are shipped via CloudWatch or internal REST callbacks.</li>
+<li><strong>Log Generation:</strong> The Python FL Server — always a <strong>local OS process</strong> on the API host (the only supported orchestration mode; see <a href="04_federated_orchestration.html">04 - Federated Orchestration</a>) — writes structured JSON logs to its standard output.</li>
+<li><strong>Capture:</strong> The Spring Boot backend reads these logs via a daemon thread attached to the process's merged stdout/stderr stream.</li>
 <li><strong>Distribution (<code>WebSocketService</code>):</strong> The <code>WebSocketService.sendLogs()</code> method routes the raw string.</li>
 <li><strong>WebSocket Push:</strong> Spring's <code>SimpMessagingTemplate</code> pushes the string over an open STOMP WebSocket channel.</li>
-<li><strong>Persistence:</strong> The backend parses the JSON string and saves the structured data to the <code>server_logs</code> table (H2 on this branch) for permanent storage.</li>
+<li><strong>Persistence:</strong> The backend parses the JSON string and saves the structured data to the <code>server_logs</code> table (PostgreSQL — H2 has been retired) for permanent storage. Persistence is gated by <code>feature.log-persistence.enabled</code> (default <code>true</code>); broadcasting always happens.</li>
 </ol>
 <hr />
 <h2 id="2-spring-websocket-configuration">2. Spring WebSocket Configuration<a class="headerlink" href="#2-spring-websocket-configuration" title="Permanent link">&para;</a></h2>
@@ -100,38 +101,59 @@
 <span class="kd">public</span><span class="w"> </span><span class="kd">class</span> <span class="nc">WebSocketConfig</span><span class="w"> </span><span class="kd">implements</span><span class="w"> </span><span class="n">WebSocketMessageBrokerConfigurer</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nd">@Override</span>
 <span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">registerStompEndpoints</span><span class="p">(</span><span class="n">StompEndpointRegistry</span><span class="w"> </span><span class="n">registry</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="c1">// Exposes the initial HTTP endpoint for the protocol upgrade</span>
+<span class="w">        </span><span class="c1">// Origins are driven from the same allowlist as the REST CORS config</span>
+<span class="w">        </span><span class="c1">// (app.cors.allowed-origins, CSV) so there is exactly one place to update</span>
+<span class="w">        </span><span class="c1">// when adding a frontend host. Patterns — not literal origins — so</span>
+<span class="w">        </span><span class="c1">// wildcards like &quot;http://localhost:*&quot; work. Boot fails if the list is empty.</span>
 <span class="w">        </span><span class="n">registry</span><span class="p">.</span><span class="na">addEndpoint</span><span class="p">(</span><span class="s">&quot;/ws-logs&quot;</span><span class="p">)</span>
-<span class="w">                </span><span class="p">.</span><span class="na">setAllowedOrigins</span><span class="p">(</span><span class="s">&quot;http://localhost:5173&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;https://fedlearn.production.com&quot;</span><span class="p">)</span>
-<span class="w">                </span><span class="p">.</span><span class="na">withSockJS</span><span class="p">();</span><span class="w"> </span><span class="c1">// Fallback for browsers that don&#39;t support raw WebSockets</span>
+<span class="w">                </span><span class="p">.</span><span class="na">setAllowedOriginPatterns</span><span class="p">(</span><span class="n">origins</span><span class="p">.</span><span class="na">toArray</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="n">String</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span><span class="p">))</span>
+<span class="w">                </span><span class="p">.</span><span class="na">addInterceptors</span><span class="p">(</span><span class="n">jwtHandshakeInterceptor</span><span class="p">);</span>
 <span class="w">    </span><span class="p">}</span>
 
 <span class="w">    </span><span class="nd">@Override</span>
 <span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">configureMessageBroker</span><span class="p">(</span><span class="n">MessageBrokerRegistry</span><span class="w"> </span><span class="n">config</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="c1">// STOMP clients subscribe to topics starting with /topic</span>
-<span class="w">        </span><span class="n">config</span><span class="p">.</span><span class="na">enableSimpleBroker</span><span class="p">(</span><span class="s">&quot;/topic&quot;</span><span class="p">);</span>
-<span class="w">        </span><span class="c1">// STOMP clients send messages to endpoints starting with /app</span>
+<span class="w">        </span><span class="c1">// /topic — public broadcast (logs, status).</span>
+<span class="w">        </span><span class="c1">// /queue — user-targeted via /user/{username}/queue/...</span>
+<span class="w">        </span><span class="n">config</span><span class="p">.</span><span class="na">enableSimpleBroker</span><span class="p">(</span><span class="s">&quot;/topic&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;/queue&quot;</span><span class="p">);</span>
 <span class="w">        </span><span class="n">config</span><span class="p">.</span><span class="na">setApplicationDestinationPrefixes</span><span class="p">(</span><span class="s">&quot;/app&quot;</span><span class="p">);</span>
+<span class="w">        </span><span class="n">config</span><span class="p">.</span><span class="na">setUserDestinationPrefix</span><span class="p">(</span><span class="s">&quot;/user&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="nd">@Override</span>
+<span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">configureClientInboundChannel</span><span class="p">(</span><span class="n">ChannelRegistration</span><span class="w"> </span><span class="n">registration</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Order matters: jwtChannelInterceptor promotes the handshake-cached</span>
+<span class="w">        </span><span class="c1">// principal onto the STOMP session at CONNECT (rejecting unauthenticated</span>
+<span class="w">        </span><span class="c1">// CONNECTs); stompSubscriptionInterceptor then authorizes each SUBSCRIBE</span>
+<span class="w">        </span><span class="c1">// against project membership (BA-5).</span>
+<span class="w">        </span><span class="n">registration</span><span class="p">.</span><span class="na">interceptors</span><span class="p">(</span><span class="n">jwtChannelInterceptor</span><span class="p">,</span><span class="w"> </span><span class="n">stompSubscriptionInterceptor</span><span class="p">);</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 
-<p>The React frontend establishes a connection to <code>/ws-logs</code>. Security interceptors (documented in <a href="02_security_and_auth.html">02 - Security and Auth</a>) ensure that the token is validated before the connection upgrades from HTTP to TCP.</p>
+<p>The React frontend establishes a connection to <code>/ws-logs</code> using <code>@stomp/stompjs</code> over a raw WebSocket — there is <strong>no SockJS fallback</strong> on either side. Security interceptors (documented in <a href="02_security_and_auth.html">02 - Security and Auth</a>) validate the token during the handshake, before the connection upgrades from HTTP, and again at CONNECT and SUBSCRIBE time.</p>
 <hr />
 <h2 id="3-the-websocketservice">3. The <code>WebSocketService</code><a class="headerlink" href="#3-the-websocketservice" title="Permanent link">&para;</a></h2>
 <p>The <code>WebSocketService</code> handles both distribution and persistence.</p>
 <h3 id="broadcasting-via-stomp">Broadcasting via STOMP<a class="headerlink" href="#broadcasting-via-stomp" title="Permanent link">&para;</a></h3>
 <p>Every project has a unique, dynamically generated topic endpoint.</p>
 <div class="codehilite"><pre><span></span><code><span class="kd">public</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">sendLogs</span><span class="p">(</span><span class="n">UUID</span><span class="w"> </span><span class="n">projectId</span><span class="p">,</span><span class="w"> </span><span class="n">String</span><span class="w"> </span><span class="n">logMessage</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">projectId</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">logMessage</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="w">    </span><span class="c1">// The destination topic is unique for each project.</span>
 <span class="w">    </span><span class="n">String</span><span class="w"> </span><span class="n">destination</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;/topic/logs/&quot;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">projectId</span><span class="p">.</span><span class="na">toString</span><span class="p">();</span>
 <span class="w">    </span><span class="n">messagingTemplate</span><span class="p">.</span><span class="na">convertAndSend</span><span class="p">(</span><span class="n">destination</span><span class="p">,</span><span class="w"> </span><span class="n">logMessage</span><span class="p">);</span>
 
-<span class="w">    </span><span class="c1">// Concurrently persist to DB</span>
-<span class="w">    </span><span class="n">persistLog</span><span class="p">(</span><span class="n">projectId</span><span class="p">,</span><span class="w"> </span><span class="n">logMessage</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">// Then persist to the DB — feature-gated by feature.log-persistence.enabled.</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">logPersistenceEnabled</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">persistLog</span><span class="p">(</span><span class="n">projectId</span><span class="p">,</span><span class="w"> </span><span class="n">logMessage</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 
+<p><code>WebSocketService</code> carries sibling broadcasters on the same pattern: <code>sendStatusUpdate(...)</code>
+→ <code>/topic/status/{projectId}</code>, <code>sendResultUpdate(...)</code> → <code>/topic/results/{projectId}</code>, and
+<code>sendInferenceToken(...)</code> → <code>/topic/inference/{projectId}</code>.</p>
 <p>When the React frontend opens the dashboard for project <code>1234</code>, it sends a STOMP <code>SUBSCRIBE</code> frame to <code>/topic/logs/1234</code>. It then passively receives all strings sent to that destination.</p>
 <h3 id="json-parsing-and-persistence">JSON Parsing and Persistence<a class="headerlink" href="#json-parsing-and-persistence" title="Permanent link">&para;</a></h3>
 <p>The backend attempts to parse the incoming log line. If the Python server successfully emitted valid JSON, the backend extracts the <code>level</code>, <code>message</code>, and optional <code>stackTrace</code>. If the line isn't JSON (e.g., raw error output from a crash), it falls back to saving the entire line as a plain <code>INFO</code> string.</p>
@@ -157,7 +179,7 @@
 
 <h2 id="4-log-export">4. Log Export<a class="headerlink" href="#4-log-export" title="Permanent link">&para;</a></h2>
 <p>Once a project has finished, the user can download a complete text file of all logs generated during the training session. </p>
-<p>Because ML processes can generate enormous amounts of logging data, the <code>ProjectController</code> enforces a hard limit <code>MAX_LOGS_EXPORT_SIZE = 10_000</code> to prevent memory exhaustion on the JVM.</p>
+<p>Because ML processes can generate enormous amounts of logging data, the export is capped server-side at <code>ProjectService.MAX_LOGS_EXPORT_SIZE = 10_000</code> — applied as a <code>PageRequest</code> bound on the query — to prevent memory exhaustion on the JVM.</p>
 <p>The export builds a downloadable <code>.txt</code> file constructed from the persisted <code>server_logs</code> table rows, mapping the <code>ServerLog</code> entities to formatted strings.</p></article>
     <nav class="toc"></nav>
   </div>

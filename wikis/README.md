@@ -5,7 +5,7 @@
 
 This is the top-level technical wiki for the **FedLearn Platform** — a privacy-preserving, distributed machine learning system that enables federated learning across heterogeneous hardware. Use this page as your starting point and navigate into any subsection for in-depth documentation.
 
-> **Recent hardening (2026-06):** dependency/security pass — npm and pip audits cleared, Electron upgraded 34 → 42, gitleaks secret scanning added via the free CLI, and the unused `flwr` dependency removed.
+> **Recent hardening (2026-06):** dependency/security pass — npm and pip audits cleared, Electron upgraded 34 → 42, gitleaks secret scanning added via the free CLI, and the unused `flwr` dependency dropped from the **framework** (`framework/pyproject.toml`). Note that `flwr` / `flwr-datasets` are still pinned in `backend/fl-platform-api/requirements.txt` and `client-docker/requirements.txt` — they are used for **dataset partitioning only** (`FederatedDataset`), never for FL semantics.
 >
 > **Ember design-system rebrand (2026-06-10):** the frontend, the desktop renderer, and the mobile client adopted the **Ember** design system — warm canvas (`#FBF9F6`), burnt-orange accent (`#C56A1E`), and the Bricolage Grotesque / Hanken Grotesk / JetBrains Mono type family — along with rebranded icons. "Ember" is the name of the **design system / theme**; the platform itself is still **FedLearn** (a product-domain rename is a separate, in-progress effort). This wiki ships an Ember-themed HTML rendering under [`html/`](./html/index.html).
 
@@ -21,10 +21,10 @@ FedLearn is built around four core components — backend, frontend, framework, 
 │                                                                         │
 │  ┌──────────────┐    REST / WebSocket    ┌──────────────────────────┐   │
 │  │   Frontend   │◄──────────────────────►│      Backend (API)       │   │
-│  │  React SPA   │                        │  Spring Boot 3 / H2      │   │
+│  │  React SPA   │                        │  Spring Boot 3 / Postgres│   │
 │  └──────────────┘                        └──────────┬───────────────┘   │
-│                                                     │ ProcessBuilder /  │
-│  ┌──────────────┐    gRPC (Python)                  │ AWS ECS Fargate   │
+│                                                     │ spawns FL server  │
+│  ┌──────────────┐    gRPC (Python)                  │ as local process  │
 │  │   Desktop    │◄──────────────────────►┌──────────▼───────────────┐   │
 │  │  Electron 42 │   PyInstaller / Docker │  Framework (Python FL)   │   │
 │  └──────────────┘                        │  fedlearn + PyTorch gRPC │   │
@@ -54,8 +54,8 @@ User (Browser / Desktop)
    ▼
 Backend (Spring Boot API)
    │
-   │  2. Persist project config to the database (H2)
-   │  3. Spawn Python FL Server via ProcessBuilder or AWS ECS Fargate
+   │  2. Persist project config to the database (PostgreSQL)
+   │  3. Spawn the Python FL server as a local process (`fl-runtime/run_fl_server.sh`)
    ▼
 Framework — FL Server (Python / gRPC)
    │
@@ -80,7 +80,7 @@ Frontend / Desktop (real-time log panel)
    │  10. Render live training metrics to the user
    ▼
 Backend
-      11. Persist final model checkpoint & round results to the database (H2)
+      11. Persist final model checkpoint & round results to the database (PostgreSQL)
 ```
 
 ### Authentication Flow
@@ -95,19 +95,25 @@ Backend  →  validates credentials  →  issues JWT (HttpOnly cookie or JSON)
    └── Desktop: stores JWT via Electron safeStorage (OS keychain); never exposed to renderer
 ```
 
-### FL Server Provisioning — Local vs. Cloud
+### FL Server Provisioning — Local Process
 
 ```
 Backend (FlServerManager)
    │
-   ├── LOCAL MODE
-   │     ProcessBuilder.start()  →  python run_server.py --port <N>
-   │     stdout piped  →  WebSocket log streaming
-   │
-   └── CLOUD MODE (AWS ECS Fargate)
-         RunTask API  →  framework Docker image on Fargate
-         CloudWatch Logs  →  polled and re-streamed to WebSocket clients
+   └── LOCAL PROCESS  (the only supported path)
+         reserves a free port from the 50000-50010 range
+         FlServerProcessRunner  →  bash fl-runtime/run_fl_server.sh --port <N>
+         stdout + stderr piped  →  WebSocket log streaming
+         ProcessHandle tracked per project id  →  /stop terminates it
 ```
+
+> **Managed cloud tasks are not available.** An AWS ECS/Fargate orchestration mode existed
+> historically, but the AWS SDK — and with it the implementation — was removed; the backend
+> carries no AWS dependency and no task-orchestration code. The single remaining setting,
+> `ecs.cluster-name` (blank by default), exists only to be **rejected**: `FlOrchestrationModeValidator`
+> throws at boot, in **every** profile, if it is set to a non-blank value. Managed-task orchestration
+> is deferred to **OP-12**. The only supported deployed architecture — including under the
+> `production` profile — is the hardened single VM running FL servers as local processes.
 
 ---
 
@@ -116,7 +122,7 @@ Backend (FlServerManager)
 ### Backend
 
 > **Path:** [`wikis/backend/`](./backend/README.md)  
-> **Stack:** Java 21, Spring Boot 3, Spring Security 6, H2 (file-mode), STOMP WebSocket
+> **Stack:** Java 21, Spring Boot 3, Spring Security 6, PostgreSQL 16 (every profile), STOMP WebSocket
 
 The backend is the central control plane. It owns the REST API, user authentication, project management, and acts as the bridge between the web clients and the Python FL processes.
 
@@ -125,7 +131,7 @@ The backend is the central control plane. It owns the REST API, user authenticat
 | [Architecture & Core Concepts](./backend/01_architecture_overview.md) | Directory structure, domain models (Projects, Results, Logs), technology stack |
 | [Security & Authentication](./backend/02_security_and_auth.md) | Stateless JWT filter chain, WebSocket handshake security, internal API key mechanism |
 | [Project Management Lifecycle](./backend/03_project_management.md) | `ProjectService`, `ProjectController`, round configuration, model initialization |
-| [Federated Orchestration](./backend/04_federated_orchestration.md) | `FlServerManager` — local `ProcessBuilder` vs. AWS ECS Fargate provisioning |
+| [Federated Orchestration](./backend/04_federated_orchestration.md) | `FlServerManager` — port reservation, local FL-server process spawn via the `FlServerProcessRunner` seam, `ProcessHandle` tracking, and the fail-closed `ecs.cluster-name` boot guard |
 | [WebSocket Log Streaming](./backend/05_websocket_logs_streaming.md) | Stdout capture → STOMP topics → frontend real-time observability |
 | [Identity, Multi-Tenancy & Audit](./backend/06_identity_multitenancy_and_audit.md) | **Present on this branch** (`V4`–`V7` migrations): organizations + org/project memberships, platform/org/project role model (`PlatformRole` enum), org-scoped data isolation (`OrgScopeFilter`), `@Auditable` audit trail. Supersedes the original coarse `users.role IN (USER, ADMIN)` model. |
 | [Content-Addressed Model Artifact Registry](./backend/07_artifact_registry.md) | The versioned, content-addressed registry (`artifact_blobs` / `model_artifacts` / `artifact_lineage`) that superseded the single overwritable `.npz`; write path, registry-first inference/warm-start read path, HTTP surface, `V12`/`V18` migrations |
@@ -141,7 +147,7 @@ The backend is the central control plane. It owns the REST API, user authenticat
 ### Frontend
 
 > **Path:** [`wikis/frontend/`](./frontend/README.md)  
-> **Stack:** React 19, TypeScript, Vite, Tailwind CSS, Axios, SockJS / STOMP
+> **Stack:** React 19, TypeScript, Vite, Tailwind CSS, Axios, STOMP over WebSocket (`@stomp/stompjs`)
 
 The frontend is a single-page application providing the primary web-based control plane. It handles project management, live training monitoring, and user authentication entirely in the browser.
 
@@ -162,9 +168,9 @@ The frontend is a single-page application providing the primary web-based contro
 ### Framework
 
 > **Path:** [`wikis/framework/`](./framework/README.md)  
-> **Stack:** Python 3.10+, PyTorch, gRPC / Protocol Buffers — **custom FL engine (no Flower / `flwr`)**
+> **Stack:** Python 3.10+, PyTorch, gRPC / Protocol Buffers — **custom FL engine (no Flower runtime)**
 
-The framework is the heart of the platform — a standalone Python library (`fedlearn`) that implements the full federated learning lifecycle using gRPC for communication and PyTorch for model training. The Java-side orchestration package (`orchestration/`, class `FlServerManager`) was renamed from the legacy `flower` / `FlowerServerManager` name (DA-12) — there is no Flower/`flwr` dependency anywhere.
+The framework is the heart of the platform — a standalone Python library (`fedlearn`) that implements the full federated learning lifecycle using gRPC for communication and PyTorch for model training. The Java-side orchestration package (`orchestration/`, class `FlServerManager`) was renamed from the legacy `flower` / `FlowerServerManager` name (DA-12). No Flower server, client, or strategy semantics are used anywhere, and `framework/pyproject.toml` declares no `flwr` dependency — the protobuf contract is entirely custom. The one remaining touchpoint is `flwr-datasets`, pinned in `backend/fl-platform-api/requirements.txt` and `client-docker/requirements.txt` purely to partition datasets (`from flwr_datasets import FederatedDataset` in `fl-runtime/client.py`).
 
 | Document | Description |
 |---|---|
@@ -179,8 +185,8 @@ The framework is the heart of the platform — a standalone Python library (`fed
 | [Developer Guide](./framework/09_developer_guide.md) | Custom strategies, custom clients, testing, contributing |
 
 **Key cross-component interfaces:**
-- Consumed by **Backend** via `ProcessBuilder` (`run_server.py`) or AWS ECS Fargate Docker image.
-- Consumed by **Desktop** via PyInstaller-bundled binaries (`run_server.py`, `run_client.py`).
+- Consumed by **Backend** as a local process — `FlServerManager` shells out to `fl-runtime/run_fl_server.sh` through the `FlServerProcessRunner` seam.
+- Consumed by **Desktop** as a PyInstaller-bundled native client (entry binary `fedlearn-client` / `fedlearn-client.exe`, per `fedlearn-desktop/src/shared/bundleVariants.ts`); in dev mode the desktop falls back to system `python3` running `fl-runtime/client.py`.
 - Consumed by **`client-docker`** image for containerised Jetson / CUDA deployments.
 
 ---
@@ -205,7 +211,7 @@ The desktop application is the local training orchestrator for FL participants. 
 
 **Key cross-component interfaces:**
 - Authenticates against **Backend** `POST /api/auth/login`; JWT stored via Electron `safeStorage`.
-- Spawns **Framework** `run_server.py` and `run_client.py` as child processes (PyInstaller binaries) or Docker containers.
+- Spawns the **Framework** FL client as a child process — the PyInstaller `fedlearn-client` binary, `fl-runtime/client.py` under dev mode, or a Docker container. It orchestrates *clients* only; FL servers are spawned by the Backend.
 - Does not connect to the **Frontend** — both are independent clients of the Backend API.
 
 ---
@@ -233,7 +239,7 @@ The mobile client is an on-device FL participant for phones and tablets. The JS/
 > **Path:** [`wikis/client-docker/`](./client-docker/README.md)  
 > **Stack:** Docker, multi-arch base images, thin wrapper around `framework/`
 
-`client-docker` is the containerised FL client — a thin wrapper that `pip install -e`'s the framework and runs `run_client.py`. It exists so a client can be deployed without a local Python toolchain, and it is the execution path the desktop app uses for the **Jetson** profile.
+`client-docker` is the containerised FL client — a thin wrapper that `pip install -e`'s the framework and, via `entrypoint.sh`, execs `python3 -u client.py` (the canonical `fl-runtime/client.py`). It exists so a client can be deployed without a local Python toolchain, and it is the execution path the desktop app uses for the **Jetson** profile.
 
 | Document | Description |
 |---|---|
@@ -253,19 +259,22 @@ The mobile client is an on-device FL participant for phones and tablets. The JS/
 > macOS shortcut: `./launch_all.sh` opens four Terminal windows (backend, frontend, server, clients). On Linux, start each component manually as below.
 
 ```bash
-# 1. Start the Backend (Spring Boot, Gradle wrapper, Java 21)
+# 1. Start PostgreSQL (required — H2 is retired; dev runs against a local Postgres)
 cd backend/fl-platform-api
-SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun        # :8081, H2 file-mode
+docker compose up -d                                # postgres:16.6-alpine on :5432
 
-# 2. Start the Frontend (Vite dev server)
+# 2. Start the Backend (Spring Boot, Gradle wrapper, Java 21)
+SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun        # :8081
+
+# 3. Start the Frontend (Vite dev server)
 cd frontend
 npm install && npm run dev                          # :5173 → backend on :8081
 
-# 3. Start the Desktop app (Electron dev mode)
+# 4. Start the Desktop app (Electron dev mode)
 cd fedlearn-desktop
 npm install && npm run dev
 
-# 4. (Optional) Run a standalone FL training round manually
+# 5. (Optional) Run a standalone FL training round manually
 cd framework
 pip install -e .
 python run_local_test.py

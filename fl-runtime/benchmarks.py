@@ -7,7 +7,7 @@ and the standalone `run_benchmark.py` CLI imports it to score a saved model on a
 held-out test set. Keeping the math in one place means the online (per-round) and
 offline (deliberate) benchmarks report identical, directly-comparable numbers.
 
-Design constraints (see CLAUDE.md):
+Design constraints:
   * ARM64 / Jetson safe — only numpy + scikit-learn (both already in the scripts
     env; client.py pre-imports sklearn to dodge the ARM64 static-TLS libgomp
     issue). Every sklearn use is guarded so a missing install degrades to a

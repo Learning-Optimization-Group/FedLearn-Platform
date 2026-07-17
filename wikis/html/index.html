@@ -27,9 +27,10 @@
 <li><a href="backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="backend/02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="backend/03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -88,7 +89,7 @@
 </blockquote>
 <p>This is the top-level technical wiki for the <strong>FedLearn Platform</strong> — a privacy-preserving, distributed machine learning system that enables federated learning across heterogeneous hardware. Use this page as your starting point and navigate into any subsection for in-depth documentation.</p>
 <blockquote>
-<p><strong>Recent hardening (2026-06):</strong> dependency/security pass — npm and pip audits cleared, Electron upgraded 34 → 42, gitleaks secret scanning added via the free CLI, and the unused <code>flwr</code> dependency removed.</p>
+<p><strong>Recent hardening (2026-06):</strong> dependency/security pass — npm and pip audits cleared, Electron upgraded 34 → 42, gitleaks secret scanning added via the free CLI, and the unused <code>flwr</code> dependency dropped from the <strong>framework</strong> (<code>framework/pyproject.toml</code>). Note that <code>flwr</code> / <code>flwr-datasets</code> are still pinned in <code>backend/fl-platform-api/requirements.txt</code> and <code>client-docker/requirements.txt</code> — they are used for <strong>dataset partitioning only</strong> (<code>FederatedDataset</code>), never for FL semantics.</p>
 <p><strong>Ember design-system rebrand (2026-06-10):</strong> the frontend, the desktop renderer, and the mobile client adopted the <strong>Ember</strong> design system — warm canvas (<code>#FBF9F6</code>), burnt-orange accent (<code>#C56A1E</code>), and the Bricolage Grotesque / Hanken Grotesk / JetBrains Mono type family — along with rebranded icons. "Ember" is the name of the <strong>design system / theme</strong>; the platform itself is still <strong>FedLearn</strong> (a product-domain rename is a separate, in-progress effort). This wiki ships an Ember-themed HTML rendering under <a href="index.html"><code>html/</code></a>.</p>
 </blockquote>
 <hr />
@@ -99,10 +100,10 @@
 │                                                                         │
 │  ┌──────────────┐    REST / WebSocket    ┌──────────────────────────┐   │
 │  │   Frontend   │◄──────────────────────►│      Backend (API)       │   │
-│  │  React SPA   │                        │  Spring Boot 3 / H2      │   │
+│  │  React SPA   │                        │  Spring Boot 3 / Postgres│   │
 │  └──────────────┘                        └──────────┬───────────────┘   │
-│                                                     │ ProcessBuilder /  │
-│  ┌──────────────┐    gRPC (Python)                  │ AWS ECS Fargate   │
+│                                                     │ spawns FL server  │
+│  ┌──────────────┐    gRPC (Python)                  │ as local process  │
 │  │   Desktop    │◄──────────────────────►┌──────────▼───────────────┐   │
 │  │  Electron 42 │   PyInstaller / Docker │  Framework (Python FL)   │   │
 │  └──────────────┘                        │  fedlearn + PyTorch gRPC │   │
@@ -141,7 +142,7 @@
 </tr>
 <tr>
 <td><a href="#mobile"><strong>Mobile</strong></a></td>
-<td>React Native 0.80 + native C++ (libtorch)</td>
+<td>React Native 0.80 + native C++ (ExecuTorch)</td>
 <td>On-device FL client; runs the DeComFL zeroth-order path natively in C++ via a TurboModule bridge (iOS + Android)</td>
 </tr>
 <tr>
@@ -160,8 +161,8 @@
    ▼
 Backend (Spring Boot API)
    │
-   │  2. Persist project config to the database (H2)
-   │  3. Spawn Python FL Server via ProcessBuilder or AWS ECS Fargate
+   │  2. Persist project config to the database (PostgreSQL)
+   │  3. Spawn the Python FL server as a local process (`fl-runtime/run_fl_server.sh`)
    ▼
 Framework — FL Server (Python / gRPC)
    │
@@ -186,7 +187,7 @@ Frontend / Desktop (real-time log panel)
    │  10. Render live training metrics to the user
    ▼
 Backend
-      11. Persist final model checkpoint &amp; round results to the database (H2)
+      11. Persist final model checkpoint &amp; round results to the database (PostgreSQL)
 </code></pre></div>
 
 <h3 id="authentication-flow">Authentication Flow<a class="headerlink" href="#authentication-flow" title="Permanent link">&para;</a></h3>
@@ -199,24 +200,31 @@ Backend  →  validates credentials  →  issues JWT (HttpOnly cookie or JSON)
    └── Desktop: stores JWT via Electron safeStorage (OS keychain); never exposed to renderer
 </code></pre></div>
 
-<h3 id="fl-server-provisioning-local-vs-cloud">FL Server Provisioning — Local vs. Cloud<a class="headerlink" href="#fl-server-provisioning-local-vs-cloud" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code>Backend (FlowerServerManager)
+<h3 id="fl-server-provisioning-local-process">FL Server Provisioning — Local Process<a class="headerlink" href="#fl-server-provisioning-local-process" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>Backend (FlServerManager)
    │
-   ├── LOCAL MODE
-   │     ProcessBuilder.start()  →  python run_server.py --port &lt;N&gt;
-   │     stdout piped  →  WebSocket log streaming
-   │
-   └── CLOUD MODE (AWS ECS Fargate)
-         RunTask API  →  framework Docker image on Fargate
-         CloudWatch Logs  →  polled and re-streamed to WebSocket clients
+   └── LOCAL PROCESS  (the only supported path)
+         reserves a free port from the 50000-50010 range
+         FlServerProcessRunner  →  bash fl-runtime/run_fl_server.sh --port &lt;N&gt;
+         stdout + stderr piped  →  WebSocket log streaming
+         ProcessHandle tracked per project id  →  /stop terminates it
 </code></pre></div>
 
+<blockquote>
+<p><strong>Managed cloud tasks are not available.</strong> An AWS ECS/Fargate orchestration mode existed
+historically, but the AWS SDK — and with it the implementation — was removed; the backend
+carries no AWS dependency and no task-orchestration code. The single remaining setting,
+<code>ecs.cluster-name</code> (blank by default), exists only to be <strong>rejected</strong>: <code>FlOrchestrationModeValidator</code>
+throws at boot, in <strong>every</strong> profile, if it is set to a non-blank value. Managed-task orchestration
+is deferred to <strong>OP-12</strong>. The only supported deployed architecture — including under the
+<code>production</code> profile — is the hardened single VM running FL servers as local processes.</p>
+</blockquote>
 <hr />
 <h2 id="component-wikis">Component Wikis<a class="headerlink" href="#component-wikis" title="Permanent link">&para;</a></h2>
 <h3 id="backend">Backend<a class="headerlink" href="#backend" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Path:</strong> <a href="backend/README.html"><code>wikis/backend/</code></a><br />
-<strong>Stack:</strong> Java 21, Spring Boot 3, Spring Security 6, H2 (file-mode), STOMP WebSocket</p>
+<strong>Stack:</strong> Java 21, Spring Boot 3, Spring Security 6, PostgreSQL 16 (every profile), STOMP WebSocket</p>
 </blockquote>
 <p>The backend is the central control plane. It owns the REST API, user authentication, project management, and acts as the bridge between the web clients and the Python FL processes.</p>
 <table>
@@ -241,7 +249,7 @@ Backend  →  validates credentials  →  issues JWT (HttpOnly cookie or JSON)
 </tr>
 <tr>
 <td><a href="backend/04_federated_orchestration.html">Federated Orchestration</a></td>
-<td><code>FlowerServerManager</code> — local <code>ProcessBuilder</code> vs. AWS ECS Fargate provisioning</td>
+<td><code>FlServerManager</code> — port reservation, local FL-server process spawn via the <code>FlServerProcessRunner</code> seam, <code>ProcessHandle</code> tracking, and the fail-closed <code>ecs.cluster-name</code> boot guard</td>
 </tr>
 <tr>
 <td><a href="backend/05_websocket_logs_streaming.html">WebSocket Log Streaming</a></td>
@@ -249,7 +257,11 @@ Backend  →  validates credentials  →  issues JWT (HttpOnly cookie or JSON)
 </tr>
 <tr>
 <td><a href="backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy &amp; Audit</a></td>
-<td>⚠️ <strong>Designed on a separate identity-foundations branch — not present here.</strong> Organizations + org/project memberships, platform/org/project role model (<code>PlatformRole</code> enum), org-scoped data isolation, <code>@Auditable</code> audit trail. This branch ships only the coarse <code>users.role IN (USER, ADMIN)</code> model.</td>
+<td><strong>Present on this branch</strong> (<code>V4</code>–<code>V7</code> migrations): organizations + org/project memberships, platform/org/project role model (<code>PlatformRole</code> enum), org-scoped data isolation (<code>OrgScopeFilter</code>), <code>@Auditable</code> audit trail. Supersedes the original coarse <code>users.role IN (USER, ADMIN)</code> model.</td>
+</tr>
+<tr>
+<td><a href="backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></td>
+<td>The versioned, content-addressed registry (<code>artifact_blobs</code> / <code>model_artifacts</code> / <code>artifact_lineage</code>) that superseded the single overwritable <code>.npz</code>; write path, registry-first inference/warm-start read path, HTTP surface, <code>V12</code>/<code>V18</code> migrations</td>
 </tr>
 </tbody>
 </table>
@@ -257,12 +269,12 @@ Backend  →  validates credentials  →  issues JWT (HttpOnly cookie or JSON)
 - Exposes <code>POST /api/projects/{id}/start</code> → triggers Framework server spawn.
 - Streams logs to Frontend via STOMP topic <code>/topic/logs/{projectId}</code>.
 - Desktop authenticates against <code>POST /api/auth/login</code> before initiating training.
-- Authorization on this branch is a single coarse column — <code>users.role IN (USER, ADMIN)</code> (highest committed migration is <code>V3</code>). The multi-tenant identity model (organizations, org/project memberships, platform/org/project roles, the <code>@Auditable</code> audit trail) is <strong>designed on a separate identity-foundations branch and is not present here</strong> — see the banner on <a href="backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy &amp; Audit</a>.</p>
+- Authorization is the layered identity model — <code>PlatformRole</code> (platform), <code>OrgRole</code> (organization), <code>MembershipRole</code> (project) — committed in the <code>V4</code>–<code>V7</code> migrations (highest committed migration is <code>V19</code>). Organizations, org/project memberships, org-scoped isolation, and the <code>@Auditable</code> audit trail are all present; see <a href="backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy &amp; Audit</a>. The original coarse <code>users.role IN (USER, ADMIN)</code> column (<code>V2</code>) has been superseded.</p>
 <hr />
 <h3 id="frontend">Frontend<a class="headerlink" href="#frontend" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Path:</strong> <a href="frontend/README.html"><code>wikis/frontend/</code></a><br />
-<strong>Stack:</strong> React 19, TypeScript, Vite, Tailwind CSS, Axios, SockJS / STOMP</p>
+<strong>Stack:</strong> React 19, TypeScript, Vite, Tailwind CSS, Axios, STOMP over WebSocket (<code>@stomp/stompjs</code>)</p>
 </blockquote>
 <p>The frontend is a single-page application providing the primary web-based control plane. It handles project management, live training monitoring, and user authentication entirely in the browser.</p>
 <table>
@@ -299,9 +311,9 @@ Backend  →  validates credentials  →  issues JWT (HttpOnly cookie or JSON)
 <h3 id="framework">Framework<a class="headerlink" href="#framework" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Path:</strong> <a href="framework/README.html"><code>wikis/framework/</code></a><br />
-<strong>Stack:</strong> Python 3.10+, PyTorch, gRPC / Protocol Buffers — <strong>custom FL engine (no Flower / <code>flwr</code>)</strong></p>
+<strong>Stack:</strong> Python 3.10+, PyTorch, gRPC / Protocol Buffers — <strong>custom FL engine (no Flower runtime)</strong></p>
 </blockquote>
-<p>The framework is the heart of the platform — a standalone Python library (<code>fedlearn</code>) that implements the full federated learning lifecycle using gRPC for communication and PyTorch for model training. The <code>flower</code> package name on the Java side (<code>FlowerServerManager</code>) is historical — there is no Flower/<code>flwr</code> dependency anywhere.</p>
+<p>The framework is the heart of the platform — a standalone Python library (<code>fedlearn</code>) that implements the full federated learning lifecycle using gRPC for communication and PyTorch for model training. The Java-side orchestration package (<code>orchestration/</code>, class <code>FlServerManager</code>) was renamed from the legacy <code>flower</code> / <code>FlowerServerManager</code> name (DA-12). No Flower server, client, or strategy semantics are used anywhere, and <code>framework/pyproject.toml</code> declares no <code>flwr</code> dependency — the protobuf contract is entirely custom. The one remaining touchpoint is <code>flwr-datasets</code>, pinned in <code>backend/fl-platform-api/requirements.txt</code> and <code>client-docker/requirements.txt</code> purely to partition datasets (<code>from flwr_datasets import FederatedDataset</code> in <code>fl-runtime/client.py</code>).</p>
 <table>
 <thead>
 <tr>
@@ -349,8 +361,8 @@ Backend  →  validates credentials  →  issues JWT (HttpOnly cookie or JSON)
 </tbody>
 </table>
 <p><strong>Key cross-component interfaces:</strong>
-- Consumed by <strong>Backend</strong> via <code>ProcessBuilder</code> (<code>run_server.py</code>) or AWS ECS Fargate Docker image.
-- Consumed by <strong>Desktop</strong> via PyInstaller-bundled binaries (<code>run_server.py</code>, <code>run_client.py</code>).
+- Consumed by <strong>Backend</strong> as a local process — <code>FlServerManager</code> shells out to <code>fl-runtime/run_fl_server.sh</code> through the <code>FlServerProcessRunner</code> seam.
+- Consumed by <strong>Desktop</strong> as a PyInstaller-bundled native client (entry binary <code>fedlearn-client</code> / <code>fedlearn-client.exe</code>, per <code>fedlearn-desktop/src/shared/bundleVariants.ts</code>); in dev mode the desktop falls back to system <code>python3</code> running <code>fl-runtime/client.py</code>.
 - Consumed by <strong><code>client-docker</code></strong> image for containerised Jetson / CUDA deployments.</p>
 <hr />
 <h3 id="desktop">Desktop<a class="headerlink" href="#desktop" title="Permanent link">&para;</a></h3>
@@ -403,15 +415,15 @@ Backend  →  validates credentials  →  issues JWT (HttpOnly cookie or JSON)
 </table>
 <p><strong>Key cross-component interfaces:</strong>
 - Authenticates against <strong>Backend</strong> <code>POST /api/auth/login</code>; JWT stored via Electron <code>safeStorage</code>.
-- Spawns <strong>Framework</strong> <code>run_server.py</code> and <code>run_client.py</code> as child processes (PyInstaller binaries) or Docker containers.
+- Spawns the <strong>Framework</strong> FL client as a child process — the PyInstaller <code>fedlearn-client</code> binary, <code>fl-runtime/client.py</code> under dev mode, or a Docker container. It orchestrates <em>clients</em> only; FL servers are spawned by the Backend.
 - Does not connect to the <strong>Frontend</strong> — both are independent clients of the Backend API.</p>
 <hr />
 <h3 id="mobile">Mobile<a class="headerlink" href="#mobile" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Path:</strong> <a href="mobile/README.html"><code>wikis/mobile/</code></a><br />
-<strong>Stack:</strong> React Native 0.80, TypeScript, native C++ (libtorch) via a TurboModule bridge, Android + iOS</p>
+<strong>Stack:</strong> React Native 0.80, TypeScript, native C++ (ExecuTorch) via a TurboModule bridge, Android + iOS</p>
 </blockquote>
-<p>The mobile client is an on-device FL participant for phones and tablets. The JS/TS layer handles UI, auth, and orchestration; the heavy lifting — the <strong>DeComFL zeroth-order training path</strong> — runs natively in C++ on libtorch through a TurboModule (JSI) bridge, keeping training data on-device. It adopted the <strong>Ember</strong> design system and brand fonts in <code>2.1.0</code>.</p>
+<p>The mobile client is an on-device FL participant for phones and tablets. The JS/TS layer handles UI, auth, and orchestration; the heavy lifting — the <strong>DeComFL zeroth-order training path</strong> — runs natively in C++ on ExecuTorch through a TurboModule (JSI) bridge, keeping training data on-device. It adopted the <strong>Ember</strong> design system and brand fonts in <code>2.1.0</code>.</p>
 <table>
 <thead>
 <tr>
@@ -436,7 +448,7 @@ Backend  →  validates credentials  →  issues JWT (HttpOnly cookie or JSON)
 <p><strong>Path:</strong> <a href="client-docker/README.html"><code>wikis/client-docker/</code></a><br />
 <strong>Stack:</strong> Docker, multi-arch base images, thin wrapper around <code>framework/</code></p>
 </blockquote>
-<p><code>client-docker</code> is the containerised FL client — a thin wrapper that <code>pip install -e</code>'s the framework and runs <code>run_client.py</code>. It exists so a client can be deployed without a local Python toolchain, and it is the execution path the desktop app uses for the <strong>Jetson</strong> profile.</p>
+<p><code>client-docker</code> is the containerised FL client — a thin wrapper that <code>pip install -e</code>'s the framework and, via <code>entrypoint.sh</code>, execs <code>python3 -u client.py</code> (the canonical <code>fl-runtime/client.py</code>). It exists so a client can be deployed without a local Python toolchain, and it is the execution path the desktop app uses for the <strong>Jetson</strong> profile.</p>
 <table>
 <thead>
 <tr>
@@ -461,19 +473,22 @@ Backend  →  validates credentials  →  issues JWT (HttpOnly cookie or JSON)
 <blockquote>
 <p>macOS shortcut: <code>./launch_all.sh</code> opens four Terminal windows (backend, frontend, server, clients). On Linux, start each component manually as below.</p>
 </blockquote>
-<div class="codehilite"><pre><span></span><code><span class="c1"># 1. Start the Backend (Spring Boot, Gradle wrapper, Java 21)</span>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 1. Start PostgreSQL (required — H2 is retired; dev runs against a local Postgres)</span>
 <span class="nb">cd</span><span class="w"> </span>backend/fl-platform-api
-<span class="nv">SPRING_PROFILES_ACTIVE</span><span class="o">=</span>dev<span class="w"> </span>./gradlew<span class="w"> </span>bootRun<span class="w">        </span><span class="c1"># :8081, H2 file-mode</span>
+docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w">                                </span><span class="c1"># postgres:16.6-alpine on :5432</span>
 
-<span class="c1"># 2. Start the Frontend (Vite dev server)</span>
+<span class="c1"># 2. Start the Backend (Spring Boot, Gradle wrapper, Java 21)</span>
+<span class="nv">SPRING_PROFILES_ACTIVE</span><span class="o">=</span>dev<span class="w"> </span>./gradlew<span class="w"> </span>bootRun<span class="w">        </span><span class="c1"># :8081</span>
+
+<span class="c1"># 3. Start the Frontend (Vite dev server)</span>
 <span class="nb">cd</span><span class="w"> </span>frontend
 npm<span class="w"> </span>install<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>dev<span class="w">                          </span><span class="c1"># :5173 → backend on :8081</span>
 
-<span class="c1"># 3. Start the Desktop app (Electron dev mode)</span>
+<span class="c1"># 4. Start the Desktop app (Electron dev mode)</span>
 <span class="nb">cd</span><span class="w"> </span>fedlearn-desktop
 npm<span class="w"> </span>install<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>dev
 
-<span class="c1"># 4. (Optional) Run a standalone FL training round manually</span>
+<span class="c1"># 5. (Optional) Run a standalone FL training round manually</span>
 <span class="nb">cd</span><span class="w"> </span>framework
 pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 python<span class="w"> </span>run_local_test.py
@@ -534,7 +549,8 @@ python<span class="w"> </span>run_local_test.py
 │   ├── 03_project_management.md
 │   ├── 04_federated_orchestration.md
 │   ├── 05_websocket_logs_streaming.md
-│   └── 06_identity_multitenancy_and_audit.md   ← designed; not on this branch
+│   ├── 06_identity_multitenancy_and_audit.md   ← present on this branch (V4–V7 migrations)
+│   └── 07_artifact_registry.md
 │
 ├── frontend/                       ← React 19 SPA
 │   ├── README.md

@@ -6,11 +6,11 @@ This is achieved via a pipeline consisting of process standard output capture, S
 
 ## 1. The Pipeline Architecture
 
-1. **Log Generation:** The Python FL Server (whether running locally or on AWS) writes structured JSON logs to its standard output.
-2. **Capture:** The Spring Boot backend reads these logs. For local execution, this is handled by a daemon thread attached to the `Process` output stream. For AWS, logs are shipped via CloudWatch or internal REST callbacks.
+1. **Log Generation:** The Python FL Server — always a **local OS process** on the API host (the only supported orchestration mode; see [04 - Federated Orchestration](04_federated_orchestration.md)) — writes structured JSON logs to its standard output.
+2. **Capture:** The Spring Boot backend reads these logs via a daemon thread attached to the process's merged stdout/stderr stream.
 3. **Distribution (`WebSocketService`):** The `WebSocketService.sendLogs()` method routes the raw string.
 4. **WebSocket Push:** Spring's `SimpMessagingTemplate` pushes the string over an open STOMP WebSocket channel.
-5. **Persistence:** The backend parses the JSON string and saves the structured data to the `server_logs` table (H2 on this branch) for permanent storage.
+5. **Persistence:** The backend parses the JSON string and saves the structured data to the `server_logs` table (PostgreSQL — H2 has been retired) for permanent storage. Persistence is gated by `feature.log-persistence.enabled` (default `true`); broadcasting always happens.
 
 ---
 
@@ -24,23 +24,36 @@ The WebSocket endpoints are registered in `WebSocketConfig.java`:
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // Exposes the initial HTTP endpoint for the protocol upgrade
+        // Origins are driven from the same allowlist as the REST CORS config
+        // (app.cors.allowed-origins, CSV) so there is exactly one place to update
+        // when adding a frontend host. Patterns — not literal origins — so
+        // wildcards like "http://localhost:*" work. Boot fails if the list is empty.
         registry.addEndpoint("/ws-logs")
-                .setAllowedOrigins("http://localhost:5173", "https://fedlearn.production.com")
-                .withSockJS(); // Fallback for browsers that don't support raw WebSockets
+                .setAllowedOriginPatterns(origins.toArray(new String[0]))
+                .addInterceptors(jwtHandshakeInterceptor);
     }
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        // STOMP clients subscribe to topics starting with /topic
-        config.enableSimpleBroker("/topic");
-        // STOMP clients send messages to endpoints starting with /app
+        // /topic — public broadcast (logs, status).
+        // /queue — user-targeted via /user/{username}/queue/...
+        config.enableSimpleBroker("/topic", "/queue");
         config.setApplicationDestinationPrefixes("/app");
+        config.setUserDestinationPrefix("/user");
+    }
+
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        // Order matters: jwtChannelInterceptor promotes the handshake-cached
+        // principal onto the STOMP session at CONNECT (rejecting unauthenticated
+        // CONNECTs); stompSubscriptionInterceptor then authorizes each SUBSCRIBE
+        // against project membership (BA-5).
+        registration.interceptors(jwtChannelInterceptor, stompSubscriptionInterceptor);
     }
 }
 ```
 
-The React frontend establishes a connection to `/ws-logs`. Security interceptors (documented in [02 - Security and Auth](02_security_and_auth.md)) ensure that the token is validated before the connection upgrades from HTTP to TCP.
+The React frontend establishes a connection to `/ws-logs` using `@stomp/stompjs` over a raw WebSocket — there is **no SockJS fallback** on either side. Security interceptors (documented in [02 - Security and Auth](02_security_and_auth.md)) validate the token during the handshake, before the connection upgrades from HTTP, and again at CONNECT and SUBSCRIBE time.
 
 ---
 
@@ -53,14 +66,23 @@ Every project has a unique, dynamically generated topic endpoint.
 
 ```java
 public void sendLogs(UUID projectId, String logMessage) {
+    if (projectId == null || logMessage == null) {
+        return;
+    }
     // The destination topic is unique for each project.
     String destination = "/topic/logs/" + projectId.toString();
     messagingTemplate.convertAndSend(destination, logMessage);
-    
-    // Concurrently persist to DB
-    persistLog(projectId, logMessage);
+
+    // Then persist to the DB — feature-gated by feature.log-persistence.enabled.
+    if (logPersistenceEnabled) {
+        persistLog(projectId, logMessage);
+    }
 }
 ```
+
+`WebSocketService` carries sibling broadcasters on the same pattern: `sendStatusUpdate(...)`
+→ `/topic/status/{projectId}`, `sendResultUpdate(...)` → `/topic/results/{projectId}`, and
+`sendInferenceToken(...)` → `/topic/inference/{projectId}`.
 
 When the React frontend opens the dashboard for project `1234`, it sends a STOMP `SUBSCRIBE` frame to `/topic/logs/1234`. It then passively receives all strings sent to that destination.
 
@@ -92,6 +114,6 @@ private void persistLog(UUID projectId, String rawLine) {
 
 Once a project has finished, the user can download a complete text file of all logs generated during the training session. 
 
-Because ML processes can generate enormous amounts of logging data, the `ProjectController` enforces a hard limit `MAX_LOGS_EXPORT_SIZE = 10_000` to prevent memory exhaustion on the JVM.
+Because ML processes can generate enormous amounts of logging data, the export is capped server-side at `ProjectService.MAX_LOGS_EXPORT_SIZE = 10_000` — applied as a `PageRequest` bound on the query — to prevent memory exhaustion on the JVM.
 
 The export builds a downloadable `.txt` file constructed from the persisted `server_logs` table rows, mapping the `ServerLog` entities to formatted strings.

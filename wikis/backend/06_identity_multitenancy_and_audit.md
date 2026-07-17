@@ -37,7 +37,7 @@ persisted in its own table; they do **not** form a single inherited hierarchy.
 
 | Layer | Column / Table | Enum | Values |
 |---|---|---|---|
-| **Platform** | `users.platform_role` | `PlatformRole` | `USER`, `PLATFORM_ADMIN` |
+| **Platform** | `users.platform_role` | `PlatformRole` | `USER`, `PROJECT_OWNER`, `PLATFORM_ADMIN` |
 | **Organization** | `organization_memberships.org_role` | `OrgRole` | `OWNER`, `ADMIN`, `MEMBER` |
 | **Project** | `project_memberships.role` | `MembershipRole` | `OWNER`, `MEMBER`, `CLIENT` |
 
@@ -53,7 +53,15 @@ The enum owns its own Spring Security authority mapping:
 ```java
 // PlatformRole.java
 public enum PlatformRole {
+    /** Default tier. May join/train projects (as a CLIENT) but may not create them. */
     USER,
+    /**
+     * May create and own projects (admin-granted via the owner-promotion workflow).
+     * Per-project ownership of a specific project is still tracked by
+     * projects.user_id; this role only gates the capability to create one.
+     */
+    PROJECT_OWNER,
+    /** Platform administrator. Unrestricted across orgs; approves owner/deletion requests. */
     PLATFORM_ADMIN;
 
     /** The Spring Security authority string (ROLE_USER / ROLE_PLATFORM_ADMIN). */
@@ -62,6 +70,11 @@ public enum PlatformRole {
     }
 }
 ```
+
+`PROJECT_OWNER` was added by the **V7** migration, which drops and re-adds
+`chk_users_platform_role` to widen the column's CHECK domain to all three values.
+`AuthorizationService.canCreateProjects()` gates project creation on
+`hasAuthority("ROLE_PROJECT_OWNER") || isPlatformAdmin()`.
 
 `CustomUserDetailsService` resolves the user's `PlatformRole` to a single
 `SimpleGrantedAuthority(role.authority())`, so admin-only routes gate on it with
@@ -93,9 +106,13 @@ Two additional concepts hang off project membership:
 
 - **`JoinedVia`** — provenance of the membership row:
   `OWNER_ADD`, `PUBLIC_JOIN`, `REQUEST_APPROVED`, `OWNER_SELF`.
-- **`ProjectVisibility`** — `PRIVATE` (default) or `PUBLIC`, on `projects.visibility`.
-- **`ProjectAccessRequest`** — the join-request workflow for PRIVATE projects
-  (`AccessRequestStatus` = `PENDING`/`APPROVED`/`DENIED`), see §5.
+- **`ProjectVisibility`** — three tiers on `projects.visibility`: `PUBLIC`
+  (discoverable, auto-join), `RESTRICTED` (discoverable, owner-approved request),
+  `PRIVATE` (hidden, invite-only; the column default). `RESTRICTED` needed no
+  schema change — `projects.visibility` is a plain `VARCHAR(32)` with no CHECK
+  constraint, so the value set is owned entirely by the enum (see V7).
+- **`ProjectAccessRequest`** — the join-request workflow (`AccessRequestStatus` =
+  `PENDING`/`APPROVED`/`DENIED`), see §5.
 
 A subtlety: a project's `OWNER` is decided by `projects.user_id`, **not** by a
 membership row. `role = OWNER` rows are created lazily (`JoinedVia.OWNER_SELF`)
@@ -371,10 +388,13 @@ org-scope-gated:
   `OWNER` memberships are not user-creatable. `add`/`remove` are `@Auditable`
   (`PROJECT_MEMBER_ADDED` / `PROJECT_MEMBER_REMOVED`).
 - **`AccessRequestService`** (`submit` / `listForProject` / `decide` / `listMine`) —
-  joining a **PUBLIC** project creates a `CLIENT` membership immediately
-  (`JoinedVia.PUBLIC_JOIN`); requesting a **PRIVATE** project upserts a `PENDING`
-  `ProjectAccessRequest` and notifies the owner/members. `decide` approves
-  (→ `CLIENT` membership, `JoinedVia.REQUEST_APPROVED`) or denies.
+  behaviour branches on the visibility tier: joining a **PUBLIC** project creates a
+  `CLIENT` membership immediately (`JoinedVia.PUBLIC_JOIN`); a **PRIVATE** project is
+  invite-only and self-requests are rejected with **403** ("Ask the owner to add
+  you") — the owner adds participants directly via `MembershipController`; a
+  **RESTRICTED** project upserts a `PENDING` `ProjectAccessRequest` and notifies the
+  owner/members. `decide` approves (→ `CLIENT` membership,
+  `JoinedVia.REQUEST_APPROVED`) or denies.
 - **`ClientApiService`** (`listForCurrentUser` / `getConnection`) — the FL-client
   view. `getConnection` takes a pessimistic write lock on the project row
   (`ProjectRepository.lockById`) and assigns a **sticky `partition_id`** to the
@@ -383,19 +403,22 @@ org-scope-gated:
 
 ---
 
-## 6. Flyway Migrations (V4–V6)
+## 6. Flyway Migrations (V4–V7)
 
-The schema for this subsystem lands across three migrations
-(`src/main/resources/db/migration/`). The base profile runs JPA in `validate`
-mode, so these migrations are the source of truth — except the `test` profile,
-which disables Flyway and builds from JPA `create-drop` on H2 (so V6's
-Postgres-only DDL never runs there).
+The schema for this subsystem lands across four migrations
+(`src/main/resources/db/migration/`). Every profile runs PostgreSQL and JPA in
+`validate` mode, so these migrations are the source of truth — except the `test`
+profile, which disables Flyway and builds from JPA `create-drop` against
+Testcontainers Postgres (`jdbc:tc:postgresql:16.6-alpine`) for the bulk suite, so
+these files don't run there. The dedicated `V*MigrationTest` classes flip Flyway
+back on to exercise the real migrations against real Postgres.
 
 | Migration | Adds |
 |---|---|
-| **V4** `__project_membership_and_model_hub.sql` | `projects.visibility` (default `PRIVATE`), Model-Hub columns; `project_memberships` and `project_access_requests` tables with their indexes. One `ALTER` per column (H2 rejects multi-clause `ALTER TABLE`). |
+| **V4** `__project_membership_and_model_hub.sql` | `projects.visibility` (default `PRIVATE`), Model-Hub columns; `project_memberships` and `project_access_requests` tables with their indexes. Written as one `ALTER` per column — a legacy constraint from when `dev` ran on H2, which rejects multi-clause `ALTER TABLE`. |
 | **V5** `__identity_foundations.sql` | `organizations`, `organization_memberships`; renames `users.role` → `platform_role` and adds the lifecycle/profile columns; `audit_events` (metadata initially `CLOB`); `projects.org_id`. Backfills a single **Default** org (`...0001`), enrolls every existing user, marks project owners as org `OWNER`, then sets `projects.org_id NOT NULL`. |
-| **V6** `__identity_hardening.sql` (Postgres-only) | Normalises legacy `platform_role = 'ADMIN'` → `'PLATFORM_ADMIN'`; adds a `CHECK (platform_role IN ('USER','PLATFORM_ADMIN'))`; promotes `audit_events.metadata` from `CLOB` to native **JSONB**. |
+| **V6** `__identity_hardening.sql` | Normalises legacy `platform_role = 'ADMIN'` → `'PLATFORM_ADMIN'`; adds `chk_users_platform_role` — `CHECK (platform_role IN ('USER','PLATFORM_ADMIN'))`; promotes `audit_events.metadata` from `CLOB` to native **JSONB**. |
+| **V7** `__owner_role_and_approval_workflows.sql` | Widens `chk_users_platform_role` to include **`PROJECT_OWNER`** (drops and re-adds the constraint); creates `owner_promotion_requests` (`USER` → `PROJECT_OWNER`, admin-approved) and `project_deletion_requests` (owner-requested, admin-approved) with their status indexes. The `RESTRICTED` visibility tier needs no DDL — `projects.visibility` carries no CHECK constraint. |
 
 ```sql
 -- V5: rename the single role column and pin projects to an org
@@ -409,6 +432,11 @@ UPDATE users SET platform_role = 'PLATFORM_ADMIN' WHERE platform_role = 'ADMIN';
 ALTER TABLE users ADD CONSTRAINT chk_users_platform_role
     CHECK (platform_role IN ('USER','PLATFORM_ADMIN'));
 ALTER TABLE audit_events ALTER COLUMN metadata TYPE JSONB USING (NULLIF(metadata,'')::jsonb);
+
+-- V7: widen the role domain to the third tier (IF EXISTS guards dev DBs baselined past V6)
+ALTER TABLE users DROP CONSTRAINT IF EXISTS chk_users_platform_role;
+ALTER TABLE users ADD CONSTRAINT chk_users_platform_role
+    CHECK (platform_role IN ('USER','PROJECT_OWNER','PLATFORM_ADMIN'));
 ```
 
 ---
@@ -457,8 +485,10 @@ profile; in any non-dev profile a missing password throws at startup.
 
 ## 8. New REST Endpoints (summary)
 
-All of these are live on the backend but **not yet surfaced in any client UI**
-(see the scope note at the top).
+These are live on the backend **and** surfaced in the frontend — see the branch-reality
+note at the top: `App.tsx` wraps the owner routes in
+`RoleRoute allow={['PROJECT_OWNER', 'PLATFORM_ADMIN']}` and the admin routes in
+`RoleRoute allow={['PLATFORM_ADMIN']}`.
 
 | Method & path | Controller | Purpose |
 |---|---|---|

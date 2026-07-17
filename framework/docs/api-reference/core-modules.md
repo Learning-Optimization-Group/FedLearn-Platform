@@ -6,26 +6,39 @@ This document provides detailed explanations of all core modules in the `src/fed
 
 ```
 src/fedlearn/
-├── client/              # Client-side implementations
+├── client/                   # Client-side implementations
 │   ├── __init__.py
-│   ├── client.py        # Base client class and main loop
-│   └── grpc_client.py   # gRPC communication wrapper
-├── server/              # Server-side coordination
+│   ├── client.py             # Base client class and main loop
+│   ├── decomfl_client.py     # DeComFL zeroth-order client
+│   ├── local_trainer.py      # Local training loop
+│   └── grpc_client.py        # gRPC communication wrapper
+├── server/                   # Server-side coordination
 │   ├── __init__.py
-│   ├── server.py        # Server entry point
-│   ├── coordinator.py   # Round management & synchronization
-│   ├── strategy.py      # Aggregation strategies (FedAvg)
-│   └── grpc_servicer.py # gRPC service handlers
-├── communication/       # gRPC and serialization
-│   ├── generated/       # Auto-generated Protocol Buffer code
+│   ├── server.py             # Server entry point
+│   ├── coordinator.py        # Round management & synchronization
+│   ├── strategy.py           # Aggregation strategies (FedAvg, FedLoRA, FedProx)
+│   ├── strategy_factory.py   # Strategy construction by name
+│   ├── decomfl_strategy.py   # DeComFL server strategy
+│   ├── robust_aggregation.py # Byzantine-robust aggregators
+│   ├── subset_federation.py  # Client subset selection
+│   └── grpc_servicer.py      # gRPC service handlers
+├── communication/            # gRPC and serialization
+│   ├── generated/            # Auto-generated Protocol Buffer code
 │   │   ├── fedlearn_pb2.py
-│   │   └── fedlearn_pb2_grpc.py
+│   │   ├── fedlearn_pb2_grpc.py
+│   │   ├── fot_pb2.py
+│   │   └── fot_pb2_grpc.py
 │   ├── protos/
-│   │   └── fedlearn.proto  # Protocol Buffer definitions
-│   └── serializer.py    # Tensor serialization/deserialization
-├── core/               # Core utilities
-├── data/               # Data handling utilities
-└── estimators/         # Custom gradient estimators
+│   │   └── fedlearn.proto      # Protocol Buffer definitions (package fedlearn.v2)
+│   ├── safetensors_codec.py  # safetensors encode/decode (the wire format)
+│   └── serializer.py         # Tensor serialization/deserialization
+├── backbone/                 # Frozen-backbone distribution
+├── bundle/                   # Adapter-bundle manifest + schema
+├── data/                     # Data handling utilities
+├── estimators/               # Custom gradient estimators
+├── fot/                      # Federation over Text (research mode)
+├── privacy/                  # DP mechanism + RDP accountant
+└── security/                 # TLS policy, interceptors, token verification
 ```
 
 ---
@@ -160,18 +173,37 @@ Handles all gRPC communication with the server, including model download/upload 
 ```python
 class GrpcClient:
     def __init__(self, client_id: str, server_address: str):
-        # Main channel for model transfer
-        self.channel = grpc.insecure_channel(server_address, options=grpc_options)
+        # Main channel for model transfer. _build_channel() picks TLS vs plaintext;
+        # maybe_wrap_channel() attaches the SE-1 connection token when one is present.
+        self.channel = maybe_wrap_channel(_build_channel(server_address, grpc_options))
         self.stub = FederatedLearningServiceStub(self.channel)
-        
+
         # Separate channel for heartbeats (non-blocking)
-        self.heartbeat_channel = grpc.insecure_channel(server_address, options=grpc_options)
+        self.heartbeat_channel = maybe_wrap_channel(_build_channel(server_address, grpc_options))
         self.heartbeat_stub = FederatedLearningServiceStub(self.heartbeat_channel)
 ```
 
 **Why Two Channels?**
 - Main channel: For model downloads/uploads (can take minutes for large models)
 - Heartbeat channel: For keep-alive signals (needs to be non-blocking)
+
+**Transport security (`_build_channel`)**:
+```python
+def _build_channel(server_address: str, grpc_options: list) -> grpc.Channel:
+    """Builds a gRPC channel. Uses TLS when FEDLEARN_GRPC_USE_TLS=1."""
+    use_tls = os.environ.get("FEDLEARN_GRPC_USE_TLS", "0") == "1"
+    if not use_tls:
+        return grpc.insecure_channel(server_address, options=grpc_options)
+    credentials = grpc.ssl_channel_credentials(...)   # FEDLEARN_GRPC_ROOT_CERT / _CLIENT_CERT / _CLIENT_KEY
+    return grpc.secure_channel(server_address, credentials, options=grpc_options)
+```
+
+> ⚠️ **The transport is plaintext by default.** TLS is implemented but **opt-in** via
+> `FEDLEARN_GRPC_USE_TLS=1` (add `FEDLEARN_GRPC_REQUIRE_CLIENT_AUTH=1` for mTLS). The server
+> side fails closed: with `FEDLEARN_REQUIRE_TLS=1` — which the backend sets on deployed
+> profiles — it refuses to serve without TLS. Client authentication is separate:
+> `FEDLEARN_CONNECTION_TOKEN` (SE-1/SE-14), fetched from
+> `GET /api/client/projects/{id}/connection`.
 
 **Key Methods**:
 
@@ -221,7 +253,7 @@ ALWAYS_STREAM_TRANSFORMERS = True
 is_transformer = any(
     keyword in name.lower()
     for name in params.keys()
-    for keyword in ['transformer', 'bert', 'gpt', 'attention']
+    for keyword in ['transformer', 'bert', 'gpt', 'opt', 'attention', 'encoder', 'decoder']
 )
 ```
 
@@ -248,15 +280,17 @@ grpc_options = [
     # Message size limits (1GB)
     ('grpc.max_send_message_length', 1024 * 1024 * 1024),
     ('grpc.max_receive_message_length', 1024 * 1024 * 1024),
-    
-    # Keepalive settings
-    ('grpc.keepalive_time_ms', 120000),  # Ping every 2 minutes
-    ('grpc.keepalive_timeout_ms', 60000),  # Wait 1 minute for pong
-    ('grpc.keepalive_permit_without_calls', True),
-    
+
+    # Keepalive tuned to survive AWS NLB / ALB idle-connection culling.
+    ('grpc.keepalive_time_ms', 60000),     # Ping every minute
+    ('grpc.keepalive_timeout_ms', 20000),  # Wait 20s for pong
+    ('grpc.keepalive_permit_without_calls', 1),
+    ('grpc.http2.max_pings_without_data', 0),
+
     # Connection timeouts
-    ('grpc.max_connection_idle_ms', 7200000),  # 2 hours
-    ('grpc.max_connection_age_ms', 14400000),  # 4 hours
+    ('grpc.max_connection_idle_ms', 7200000),      # 2 hours
+    ('grpc.max_connection_age_ms', 14400000),      # 4 hours
+    ('grpc.max_connection_age_grace_ms', 600000),  # 10 minutes
 ]
 ```
 
@@ -373,10 +407,15 @@ Manages the state and synchronization of federated learning.
 ```python
 class FLCoordinator:
     def __init__(
-        self, 
-        strategy: Strategy, 
+        self,
+        strategy: Strategy,
         min_clients_for_aggregation: int,
-        clients_per_round: int
+        clients_per_round: int,
+        round_timeout_s: Optional[float] = None,
+        # SE-3 poisoning defense: clamp each DeComFL gradient scalar at ingress. None disables.
+        grad_clip_threshold: Optional[float] = 1000.0,
+        # SE-3 (FedAvg path): optional server-side L2 clip of each client's update delta. Opt-in.
+        client_update_l2_clip: Optional[float] = None,
     ):
         self.strategy = strategy
         self.min_clients = min_clients_for_aggregation
@@ -555,14 +594,18 @@ class FedAvg(Strategy):
         initial_parameters: OrderedDict[str, torch.Tensor],
         evaluate_fn: Optional[Callable] = None,
         min_fit_clients: int = 1,
-        clients_per_round: int = 2
+        clients_per_round: int = None
     ):
         self.initial_parameters = initial_parameters
         self.evaluate_fn = evaluate_fn
         self.min_fit_clients = min_fit_clients
-        self.clients_per_round = clients_per_round
+        # Defaults to min_fit_clients when not given
+        self.clients_per_round = clients_per_round if clients_per_round is not None else min_fit_clients
         self.aggregator = FedAvgAggregator()
 ```
+
+`strategy.py` also ships `FedLoRA` (LoRA aggregation + central DP) and `FedProx`; `strategy_factory.py`
+constructs a strategy by name.
 
 **Methods**:
 
@@ -629,32 +672,50 @@ Implements the weighted averaging algorithm.
 
 ```python
 class FedAvgAggregator:
+    MAX_SAMPLES = 100_000  # Cap to prevent model poisoning via inflated num_examples
+
     def aggregate(self, updates):
         """
         Weighted average of client models.
-        
+
         Args:
-            updates: List of (parameters, num_examples) tuples
-        
+            updates: accepted wire shapes (2-/3-tuples, JSON-encoded params), coerced by
+                     normalize_updates() into (client_id, state_dict, num_examples)
+
         Returns:
             Aggregated parameters
         """
-        # Calculate total examples
-        total_examples = sum(num_examples for _, num_examples in updates)
-        
-        # Initialize aggregated parameters
-        aggregated_params = OrderedDict()
-        
-        # Weighted sum
-        for params, num_examples in updates:
+        if not updates:
+            raise ValueError("Cannot aggregate an empty list of updates.")
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        updates = normalize_updates(updates)
+
+        _, template_params, _ = updates[0]
+        template_params = {k: v.to(device) for k, v in template_params.items()}
+        aggregated_params = OrderedDict(
+            [(key, torch.zeros_like(tensor, dtype=torch.float32)) for key, tensor in template_params.items()])
+
+        # Sanitize num_examples: cap and reject invalid values
+        sanitized_updates = [(cid, p, min(n, self.MAX_SAMPLES)) for cid, p, n in updates if n > 0]
+        if not sanitized_updates:
+            raise ValueError("No valid updates after sanitization.")
+
+        total_examples = sum(num_examples for _, _, num_examples in sanitized_updates)
+
+        for client_id, params, num_examples in sanitized_updates:
             weight = num_examples / total_examples
-            for key in params:
-                if key not in aggregated_params:
-                    aggregated_params[key] = torch.zeros_like(params[key])
-                torch.add(aggregated_params[key], params[key], alpha=weight, out=aggregated_params[key])
-        
+            for key in aggregated_params:
+                if key in params:
+                    torch.add(aggregated_params[key], params[key].to(device).float(),
+                              alpha=weight, out=aggregated_params[key])
+            params.clear()  # Aggressively free client memory buffer
+
         return aggregated_params
 ```
+
+> `num_examples` is capped at `MAX_SAMPLES` (100,000) so a single client cannot seize the whole
+> average by inflating its reported sample count.
 
 **Mathematical Formula**:
 ```
@@ -717,31 +778,41 @@ def GetGlobalModelStream(self, request, context):
     """Stream global model to client in chunks"""
     # Get model from coordinator
     params, current_round, config = self.coordinator.get_global_model_for_client()
-    
-    # Serialize
-    buffer = io.BytesIO()
-    model_data = {'parameters': params, 'num_examples': 0}
-    torch.save(model_data, buffer)
-    data_to_send = buffer.getvalue()
-    
+
+    # FR-8: serialize as a deterministic SAFETENSORS blob — the same libtorch-free wire the
+    # upload path and the mobile C++ core use. Never a torch.save pickle blob.
+    data_to_send = state_dict_to_safetensors(params, num_examples=0)
+    download_codec = "safetensors"
+
+    # Declare the sha256 of the FULL payload so receivers verify the reassembled blob
+    # (format-agnostically, before any deserialization). Set on EVERY chunk.
+    payload_sha256 = hashlib.sha256(data_to_send).hexdigest()
+
     # Split into 50MB chunks
     chunk_size = 50 * 1024 * 1024
-    num_chunks = (len(data_to_send) + chunk_size - 1) // chunk_size
-    
+    total_size = len(data_to_send)
+    num_chunks = (total_size + chunk_size - 1) // chunk_size
+
     # Stream chunks
     for i in range(num_chunks):
         start = i * chunk_size
-        end = min(start + chunk_size, len(data_to_send))
-        
+        end = min(start + chunk_size, total_size)
+
         yield fedlearn_pb2.ModelChunk(
             chunk_index=i,
             total_chunks=num_chunks,
             chunk_data=data_to_send[start:end],
             is_final_chunk=(i == num_chunks - 1),
             current_round=current_round,
-            config=config if i == 0 else {}
+            config=config if i == 0 else {},
+            codec=download_codec,
+            total_bytes=total_size,
+            sha256=payload_sha256,
         )
 ```
+
+> **Download chunk size is 50 MB and fixed here** — distinct from the *upload* path, whose chunk
+> size comes from `serializer.CHUNK_SIZE` (`FEDLEARN_CHUNK_SIZE_MB`, default **4 MB**).
 
 ##### `SubmitModelUpdateStream()` (Client Streaming)
 ```python
@@ -811,60 +882,93 @@ def Heartbeat(self, request, context):
 
 **Purpose**: Defines the communication contract between clients and server.
 
+The contract is `package fedlearn.v2`. The canonical source is the top-level `proto/fedlearn/v2/fedlearn.proto`;
+this file is a byte-identical mirror of it, enforced in CI by `scripts/check_proto_mirror.sh`.
+
 **Service Definition**:
 ```protobuf
 service FederatedLearningService {
-  rpc RegisterClient(RegisterClientRequest) returns (RegisterClientResponse);
-  rpc GetGlobalModel(GetGlobalModelRequest) returns (GetGlobalModelResponse);
-  rpc GetGlobalModelStream(GetGlobalModelRequest) returns (stream ModelChunk);
-  rpc SubmitModelUpdate(SubmitModelUpdateRequest) returns (SubmitModelUpdateResponse);
-  rpc SubmitModelUpdateStream(stream ModelUpdateChunk) returns (SubmitModelUpdateResponse);
-  rpc GetServerStatus(GetServerStatusRequest) returns (GetServerStatusResponse);
-  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  // --- lifecycle / control ---
+  rpc RegisterClient        (RegisterClientRequest)        returns (RegisterClientResponse);
+  rpc GetServerStatus       (GetServerStatusRequest)       returns (GetServerStatusResponse);
+  rpc Heartbeat             (HeartbeatRequest)             returns (HeartbeatResponse);
+
+  // --- model transfer (FedAvg path) ---
+  rpc GetGlobalModel        (GetGlobalModelRequest)        returns (GetGlobalModelResponse);
+  rpc GetGlobalModelStream  (GetGlobalModelRequest)        returns (stream ModelChunk);
+  rpc SubmitModelUpdate     (SubmitModelUpdateRequest)     returns (SubmitModelUpdateResponse);
+  rpc SubmitModelUpdateStream(stream ModelUpdateChunk)     returns (SubmitModelUpdateResponse);
+
+  // --- DeComFL path (scalars + seeds only; no weights on the wire) ---
+  rpc GetDeComFLConfig      (GetDeComFLConfigRequest)      returns (GetDeComFLConfigResponse);
+  rpc SubmitGradientScalars (SubmitGradientScalarsRequest) returns (SubmitGradientScalarsResponse);
+
+  // --- telemetry ---
+  rpc ReportClientMetrics   (ReportClientMetricsRequest)   returns (ReportClientMetricsResponse);
 }
 ```
 
 **Core Messages**:
 ```protobuf
+// A single typed tensor. The ONLY weight-bearing wire type; no torch.save blobs.
 message Tensor {
-  bytes data = 1;           // Raw tensor bytes
-  repeated int64 dims = 2;  // Shape [batch, channels, height, width]
-  string dtype = 3;         // "float32", "int64", etc.
+  bytes          data  = 1;   // raw bytes, dtype+dims interpret them
+  repeated int64 dims  = 2;
+  string         dtype = 3;   // whitelist: "float32","float64","int32","int64","uint8","bool"
 }
 
 message ModelParameters {
-  map<string, Tensor> tensors = 1;  // layer_name -> Tensor
-  int64 num_examples_trained = 2;   // Number of training samples
+  map<string, Tensor> tensors              = 1;  // layer_name -> Tensor
+  int64               num_examples_trained = 2;  // Number of training samples
 }
 
 message ModelChunk {
-  int32 chunk_index = 1;
-  int32 total_chunks = 2;
-  bytes chunk_data = 3;      // 50MB of serialized model
-  bool is_final_chunk = 4;
-  int32 current_round = 5;
-  map<string, string> config = 6;
+  int32  chunk_index    = 1;
+  int32  total_chunks   = 2;
+  bytes  chunk_data     = 3;
+  bool   is_final_chunk = 4;
+  int32  current_round  = 5;
+  map<string,string> config = 6;
+  // --- v2 framing fields ---
+  string codec          = 7;   // "safetensors" (typed; NOT torch.save) — required, validated
+  bool   compressed     = 8;   // on the wire, not inferred from env; codec="lz4+safetensors" if true
+  int64  total_bytes    = 9;   // full reassembled size; receiver bounds-checks cumulative
+  string sha256         = 10;  // hash of the full reassembled blob; receiver verifies
 }
 
 message HeartbeatRequest {
-  string client_id = 1;
-  string status = 2;         // "training", "idle", etc.
-  int32 current_step = 3;
-  int32 total_steps = 4;
-  int32 current_round = 5;
+  string client_id     = 1;
+  string run_id        = 2;
+  string status        = 3;   // free-text client phase, e.g. "TRAINING","IDLE"
+  int32  current_step  = 4;
+  int32  total_steps   = 5;
+  int32  current_round = 6;
 }
 ```
 
+The DeComFL path carries **seeds and gradient scalars only** — no weights on the wire
+(`PerturbationSeeds`, `GradientScalars`, `RebuildHistory`). See the proto for the full set.
+
 **Regenerating Code**:
+
+Stubs are generated from the **canonical** `proto/fedlearn/v2/fedlearn.proto` via `buf`
+(`proto/buf.yaml`, `proto/buf.gen.yaml`), which emits Python, Java, TypeScript, and C++ targets
+from one config. The local generation is equivalent to:
+
 ```bash
 python -m grpc_tools.protoc \
-    -I communication/protos \
-    --python_out=communication/generated \
-    --grpc_python_out=communication/generated \
-    communication/protos/fedlearn.proto
+    -I src/fedlearn/communication/protos \
+    --python_out=src/fedlearn/communication/generated \
+    --grpc_python_out=src/fedlearn/communication/generated \
+    src/fedlearn/communication/protos/fedlearn.proto
 ```
 
 **When to Modify**:
+
+Edit the **canonical** `proto/fedlearn/v2/fedlearn.proto` — never this mirror. Then re-sync the
+mirrors and verify with `scripts/check_proto_mirror.sh`; CI (`proto.yml`) runs buf lint, a
+breaking-change check against `main`, a regenerate-no-op check, and the mirror check.
+
 - Add new RPC methods
 - Add new message fields
 - Change serialization format
@@ -896,73 +1000,112 @@ def parameters_to_proto(
     return ModelParameters(tensors=tensors, num_examples_trained=num_examples)
 
 def proto_to_parameters(proto: ModelParameters) -> tuple[OrderedDict, int]:
-    """Convert protobuf to PyTorch state_dict"""
+    """Convert protobuf to PyTorch state_dict. Validates before trusting the wire."""
     parameters = OrderedDict()
     for name, tensor_proto in proto.tensors.items():
-        np_array = np.frombuffer(tensor_proto.data, dtype=tensor_proto.dtype)
+        # 1. dtype whitelist — prevents arbitrary dtype injection
+        if tensor_proto.dtype not in _SAFE_DTYPES:
+            raise ValueError(f"Unsafe dtype '{tensor_proto.dtype}' for tensor '{name}'")
+
+        np_array = np.frombuffer(tensor_proto.data, dtype=np.dtype(tensor_proto.dtype))
+
+        # 2. dims must be positive and consistent with the payload length
+        expected_size = 1
+        for d in tensor_proto.dims:
+            if d <= 0:
+                raise ValueError(f"Invalid dimension {d} for tensor '{name}'")
+            expected_size *= d
+        if expected_size != len(np_array):
+            raise ValueError(f"Shape mismatch for tensor '{name}'")
+
         np_array = np_array.reshape(tensor_proto.dims).copy()
+
+        # 3. reject NaN/Inf (SE-3 poisoning defense)
+        _reject_non_finite(name, np_array)
         parameters[name] = torch.tensor(np_array)
     return parameters, proto.num_examples_trained
 ```
 
 #### For Large Models (Streaming Transfer)
+
+The wire format is **safetensors, not pickle** (`communication/safetensors_codec.py`). It is
+**float32-only** — any other dtype raises rather than being silently cast.
+
 ```python
+CHUNK_SIZE = int(os.environ.get("FEDLEARN_CHUNK_SIZE_MB", "4")) * 1024 * 1024
+
 def parameters_to_chunks(
     params: OrderedDict[str, torch.Tensor],
     num_examples: int,
-    chunk_size: int = 50 * 1024 * 1024,  # 50 MB
-    compress: bool = False
+    chunk_size: int = CHUNK_SIZE,          # default 4 MB; override with FEDLEARN_CHUNK_SIZE_MB
+    compress: Optional[bool] = None,       # None -> USE_COMPRESSION
 ) -> Generator[Dict, None, None]:
-    """
-    Memory-efficient serialization using torch.save.
-    Yields chunks of serialized model.
-    """
-    # 1. Serialize entire model
-    buffer = io.BytesIO()
-    model_data = {'parameters': params, 'num_examples': num_examples}
-    torch.save(model_data, buffer)
-    serialized = buffer.getvalue()
-    buffer.close()
-    
+    """Memory-efficient serialization using the safetensors wire format."""
+    if compress is None:
+        compress = USE_COMPRESSION
+
+    # 1. Serialize entire model (safetensors; num_examples rides in the metadata)
+    serialized = state_dict_to_safetensors(params, num_examples)
+
     # 2. Optional compression
     if compress and LZ4_AVAILABLE:
-        serialized = lz4.frame.compress(serialized)
-    
+        data_to_send = lz4.frame.compress(serialized, compression_level=lz4.frame.COMPRESSIONLEVEL_MIN)
+    else:
+        data_to_send = serialized
+
     # 3. Split into chunks and yield
-    total_size = len(serialized)
+    total_size = len(data_to_send)
     num_chunks = (total_size + chunk_size - 1) // chunk_size
-    
+
     for i in range(num_chunks):
         start = i * chunk_size
         end = min(start + chunk_size, total_size)
-        
+
         yield {
             'chunk_index': i,
             'total_chunks': num_chunks,
-            'chunk_data': serialized[start:end],
+            'chunk_data': data_to_send[start:end],
             'is_final_chunk': (i == num_chunks - 1),
-            'num_examples': num_examples
+            'num_examples': num_examples,
         }
 
 def chunks_to_parameters(
-    chunks_data: bytes, 
-    compressed: bool = False
+    chunks_data: bytes,
+    compressed: Optional[bool] = None,
 ) -> Tuple[OrderedDict, int]:
-    """Reconstruct model from concatenated chunks"""
+    """Reconstruct a state_dict from a safetensors blob (optionally lz4-compressed)."""
+    if compressed is None:
+        compressed = USE_COMPRESSION
+
     # 1. Decompress if needed
-    if compressed and LZ4_AVAILABLE:
-        chunks_data = lz4.frame.decompress(chunks_data)
-    
-    # 2. Load using torch
-    with io.BytesIO(chunks_data) as buffer:
-        model_data = torch.load(buffer, map_location='cpu', weights_only=True)
-    
-    return model_data['parameters'], model_data['num_examples']
+    data = lz4.frame.decompress(chunks_data) if (compressed and LZ4_AVAILABLE) else chunks_data
+
+    # 2. Reject legacy pickle/zip blobs loudly rather than silently mis-reading.
+    #    torch.save produces a zip starting with PK\x03\x04; raw pickle starts with 0x80.
+    if len(data) >= 2 and (data[:2] == b"PK" or data[0] == 0x80):
+        raise ValueError("Received a legacy pickle/zip blob (torch.save format). "
+                         "Only safetensors wire format is accepted.")
+
+    # 3. Decode; every tensor is screened for NaN/Inf (SE-3 poisoning defense)
+    named_arrays, meta = load_safetensors(data)
+    params = OrderedDict()
+    for name, arr in named_arrays:
+        _reject_non_finite(name, arr)
+        params[name] = torch.tensor(arr)
+
+    return params, int(meta["num_examples"])
 ```
+
+**Legacy-format policy (asymmetric, by design)**:
+- **Ingest** (`chunks_to_parameters`, used by the upload/receive path) **rejects** torch.save/pickle blobs outright.
+- The **client download** path (`grpc_client.get_global_model`) still *accepts* them via
+  `torch.load(..., weights_only=True)` so a new client keeps working against an old server
+  during a staged rollout. The `codec` field is the primary signal; a magic-byte sniff is the backstop.
 
 **Compression**:
 - Optional LZ4 compression (2-3x size reduction)
-- `USE_COMPRESSION = False` by default (set to True if lz4 installed)
+- **Opt-in via env var**: `USE_COMPRESSION = LZ4_AVAILABLE and os.environ.get("FEDLEARN_USE_COMPRESSION", "0") == "1"`
+  — off by default even when lz4 is installed, for parity with existing deployments.
 
 **When to Modify**:
 - Implement quantization (int8, int4)
@@ -1138,6 +1281,6 @@ def my_custom_serializer(parameters):
 
 For more detailed information, see:
 - **Architecture**: [architecture.md](architecture.md)
-- **API Reference**: [api_reference.md](api_reference.md)
+- **API Reference**: [server.md](server.md) · [client.md](client.md) · [strategies.md](strategies.md)
 - **Examples**: [examples/](../examples/)
 - **Advanced Topics**: [advanced/](../advanced/)

@@ -27,9 +27,10 @@
 <li><a href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="02_security_and_auth.html">Security and Authentication</a></li>
 <li><a class="active" href="03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -83,7 +84,8 @@
   <div class="content-wrap">
     <article class="article"><h1 id="03-project-management-lifecycle">03 - Project Management Lifecycle<a class="headerlink" href="#03-project-management-lifecycle" title="Permanent link">&para;</a></h1>
 <p>This document explains how a Federated Learning Project is created, initialized, and managed within the Spring Boot backend.</p>
-<blockquote class="callout warn"><p>⚠️ <strong>Branch reality.</strong> The project CRUD, model initialization, and FL-server start/stop flows on this page are <strong>current</strong>. The <strong>org-scoping and audit layers</strong> described here — <code>projects.org_id</code> (the V5 migration), <code>authz.requireOrgScope(...)</code>, <code>OrgScope</code>, <code>isPlatformAdmin()</code>, and the <code>@Auditable</code> annotations — are <strong>designed on a separate identity-foundations branch and are <em>not present</em> here.</strong> On this branch a project is owned by a <code>User</code> with no org pinning, and authorization is the coarse <code>users.role IN (USER, ADMIN)</code> model. See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</p>
+<blockquote>
+<p>✅ <strong>Branch reality.</strong> The project CRUD, model initialization, and FL-server start/stop flows on this page are <strong>current</strong>. The <strong>org-scoping and audit layers</strong> described here — <code>projects.org_id</code> (the <code>V5</code> migration), <code>AuthorizationService</code>, <code>OrgScopeFilter</code>, <code>isPlatformAdmin()</code>, and the <code>@Auditable</code> annotations — <strong>are also present on this branch</strong> (the <code>V4</code>–<code>V7</code> identity migrations). A project is owned by a <code>User</code> and pinned to an org via <code>projects.org_id</code>. See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</p>
 </blockquote>
 <h2 id="1-project-creation-flow">1. Project Creation Flow<a class="headerlink" href="#1-project-creation-flow" title="Permanent link">&para;</a></h2>
 <p>The lifecycle begins when a user submits a configuration via the React dashboard.</p>
@@ -103,6 +105,14 @@
 <li><strong>Model Initialization:</strong> <code>ModelInitializer.initializeModelFile()</code> is invoked. It executes a local Python script (<code>run_init_model.sh</code>) that constructs the initial model architecture (PyTorch) based on the <code>modelType</code> and saves it to the <code>.npz</code> file.</li>
 <li><strong>Finalize DB Entry:</strong> The <code>Project</code> entity is updated with the absolute path to the <code>.npz</code> file and its status is set to <code>CREATED</code>.</li>
 </ol>
+<blockquote>
+<p>Steps 3–5 describe the project's <em>initial</em> model file only, written once at creation. They predate,
+and are unrelated to, the content-addressed model artifact registry that now also records every run's
+<em>trained</em> output as a versioned, provenance-tracked row (<code>model_artifacts</code>) rather than treating this
+<code>.npz</code> as the sole, overwritable record. See <a href="07_artifact_registry.html">07 - Content-Addressed Model Artifact Registry</a>
+for the write path (registration on run completion) and the read path (inference/warm-start now prefer
+the registry over this file when an artifact exists).</p>
+</blockquote>
 <p><code>createProject</code> is also annotated <code>@Auditable(action = PROJECT_CREATED)</code>, so a successful creation writes an <code>audit_events</code> row in the same transaction (see <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>).</p>
 <h2 id="2-project-ownership-membership-and-org-isolation">2. Project Ownership, Membership, and Org Isolation<a class="headerlink" href="#2-project-ownership-membership-and-org-isolation" title="Permanent link">&para;</a></h2>
 <p>A project is no longer just "owned by one user." It belongs to an
@@ -152,7 +162,7 @@ orgs. The discover feed (<code>GET /api/projects/discover</code>) is likewise co
 <ol>
 <li>The user specifies the training <code>strategy</code> (e.g., <code>FedAvg</code>), the <code>minClients</code> required, and the <code>numRounds</code>.</li>
 <li>The <code>ProjectService</code> enforces org-scope then ownership (<code>requireOrgScope</code> → <code>requireOwnerOrAdmin</code>) and ensures the server isn't already running. <code>startServerForProject</code> is <code>@Auditable(action = RUN_STARTED)</code>; <code>stopServerForProject</code> is <code>@Auditable(action = RUN_STOPPED)</code>.</li>
-<li>It calls <code>FlowerServerManager.startServerForProject(...)</code>. (See <a href="04_federated_orchestration.html">04 - Federated Orchestration</a> for full details on this component).</li>
+<li>It calls <code>FlServerManager.startServerForProject(...)</code>. (See <a href="04_federated_orchestration.html">04 - Federated Orchestration</a> for full details on this component).</li>
 <li>The backend updates the project's status to <code>RUNNING</code> and saves the network <code>serverPort</code> where the FL Server is listening.</li>
 <li>A real-time <code>ProjectStatusUpdateDto</code> is fired over WebSockets to instantly update the React dashboard UI.</li>
 </ol>
@@ -163,7 +173,7 @@ orgs. The discover feed (<code>GET /api/projects/discover</code>) is likewise co
 <h3 id="deletion">Deletion<a class="headerlink" href="#deletion" title="Permanent link">&para;</a></h3>
 <p>When a user deletes a project (<code>DELETE /api/projects/{projectId}</code>):
 1. The service enforces org-scope (<code>requireOrgScope</code>) then ownership (<code>requireOwnerOrAdmin</code>). <code>deleteProject</code> is <code>@Auditable(action = PROJECT_DELETED)</code>.
-2. It makes a best-effort attempt to terminate any actively running FL Server processes via <code>FlowerServerManager.stopServerForProject()</code>. This prevents ghost processes or orphaned AWS Fargate tasks from lingering and consuming resources.
+2. It makes a best-effort attempt to terminate any actively running FL Server processes via <code>FlServerManager.stopServerForProject()</code>. FL servers are local Python processes, tracked in a <code>ConcurrentHashMap&lt;UUID, ProcessHandle&gt;</code> and torn down with <code>destroyForcibly()</code>; this prevents ghost processes from lingering and consuming resources.
 3. The database row is deleted. Cascade rules automatically delete the associated <code>ServerLog</code>, <code>RoundResult</code>, <code>ProjectMembership</code>, and <code>ProjectAccessRequest</code> entries.</p></article>
     <nav class="toc"></nav>
   </div>

@@ -72,7 +72,7 @@ Once the socket is open, STOMP clients send `CONNECT` frames. The `JwtChannelInt
 
 ## 3. Machine-to-Machine Security (Internal API Key)
 
-The Python Federated Learning server (spawned by AWS ECS or `ProcessBuilder`) needs to send training results and status updates back to the Spring Boot API.
+The Python Federated Learning server — spawned as a **local process** on the backend host via the `FlServerProcessRunner` seam, which shells out to the `fl-runtime/` scripts — needs to send training results and status updates back to the Spring Boot API. This local-process path is the only supported deployment architecture: managed-task (ECS/Fargate) orchestration was implemented once, removed along with the AWS SDK, and is deferred to `OP-12`; setting `ecs.cluster-name` today is rejected at boot by `FlOrchestrationModeValidator` in every profile.
 
 **Problem:** The Python script is not a "User". It doesn't have a username/password, and generating temporary JWTs for the script introduces unnecessary complexity.
 

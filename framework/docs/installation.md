@@ -85,7 +85,7 @@ if torch.cuda.is_available():
 Expected output:
 ```
 FedLearn imported successfully
-PyTorch version: 2.7.0+cu121
+PyTorch version: 2.12.0+cu121
 CUDA available: True
 CUDA version: 12.1
 GPU: NVIDIA GeForce RTX 3090
@@ -96,27 +96,36 @@ GPU: NVIDIA GeForce RTX 3090
 ### Core Dependencies
 
 #### 1. PyTorch (Required)
-```bash
-# GPU version (CUDA 12.1)
-pip install torch==2.7.0 torchvision==0.21.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu121
 
-# CPU version
-pip install torch==2.7.0 torchvision==0.21.0 torchaudio==2.7.0
+`torch` is **pinned to 2.12.0** in `requirements.txt` — the DeComFL golden fixtures and the
+ExecuTorch native extension were built against it, and `test_torch_version_matches_manifest`
+gates on it. Do not drift off this pin.
+
+```bash
+# CPU version (what CI installs)
+pip install --index-url https://download.pytorch.org/whl/cpu torch==2.12.0
+
+# GPU version — use the PyTorch index matching your CUDA toolkit
+pip install torch==2.12.0 --index-url https://download.pytorch.org/whl/cu121
 ```
 
-#### 2. Flower Framework (Required)
+> `torchvision` / `torchaudio` are **not** framework dependencies — the framework imports neither,
+> and `setup.py` filters `torch*`/`torchvision*` out of `install_requires`. Pulling `torchvision`
+> from PyPI against a pytorch-index `torch` build causes an ABI mismatch
+> (`operator torchvision::nms does not exist`). Install them from the *matched* PyTorch index
+> alongside `torch`, and only where a consumer actually needs them.
+
+#### 2. Transformers (For LLM training)
 ```bash
-pip install flwr==1.20.0 flwr-datasets==0.5.0
+pip install transformers==4.55.2 datasets==3.1.0 tokenizers==0.21.4
 ```
 
-#### 3. Transformers (For LLM training)
+#### 3. gRPC (Required for distributed training)
 ```bash
-pip install transformers>=4.57.0 datasets>=3.1.0 tokenizers>=0.21.4
-```
+pip install "grpcio>=1.75.1" "protobuf>=4.21.6,<5.0.0"
 
-#### 4. gRPC (Required for distributed training)
-```bash
-pip install grpcio>=1.75.1 grpcio-tools>=1.75.1 protobuf>=4.21.6
+# grpcio-tools is only needed to regenerate the protobuf stubs, not to run the framework
+pip install "grpcio-tools>=1.75.1"
 ```
 
 ## Troubleshooting
@@ -216,15 +225,22 @@ pip install -e .
 
 ## Docker Installation
 
-For containerized deployment:
+The containerized FL client lives in `client-docker/`. Its Dockerfile `COPY`s both `framework/`
+and `fl-runtime/`, so the build **must** run from the repository root:
 
 ```bash
-# Build Docker image (from repository root)
-docker build -t fedlearn:latest -f docker/Dockerfile .
+# Build the client image (from repository root)
+cd /path/to/FedLearn-Platform
+docker build -f client-docker/Dockerfile -t fedlearn-client:latest .
 
-# Run container
-docker run -it --gpus all fedlearn:latest bash
+# Jetson AGX Orin — must use the L4T base image
+docker build -f client-docker/Dockerfile \
+  --build-arg BASE_IMAGE=nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3 \
+  -t fedlearn-client:jetson .
 ```
+
+See [`client-docker/README.md`](../../client-docker/README.md) for the env-driven `docker run`
+contract (`PROJECT_ID`, `SERVER_ADDRESS`, `PARTITION_ID`, `FEDLEARN_CONNECTION_TOKEN`).
 
 ## Platform-Specific Notes
 

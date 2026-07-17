@@ -27,9 +27,10 @@
 <li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -96,7 +97,7 @@
 <hr />
 <h2 id="what-is-the-framework">What Is the Framework?<a class="headerlink" href="#what-is-the-framework" title="Permanent link">&para;</a></h2>
 <p>The <code>framework/</code> directory contains <code>fedlearn</code> — a self-contained Python library that implements the core federated learning logic. It is the component that actually performs model training, parameter aggregation, and client-server communication. Everything else in the platform (the Spring Boot backend, the React frontend, the Electron desktop app) ultimately delegates to this library.</p>
-<p>The library is intentionally decoupled from the platform orchestration layer. You can run it standalone on a laptop with three terminals, inside Docker containers, or as processes spawned by the Java backend on AWS Fargate — the library itself doesn't know or care.</p>
+<p>The library is intentionally decoupled from the platform orchestration layer. You can run it standalone on a laptop with three terminals, inside Docker containers, or as processes spawned by the Java backend on a deployed VM — the library itself doesn't know or care.</p>
 <hr />
 <h2 id="technology-stack">Technology Stack<a class="headerlink" href="#technology-stack" title="Permanent link">&para;</a></h2>
 <table>
@@ -116,12 +117,17 @@
 <tr>
 <td>Deep Learning</td>
 <td>PyTorch</td>
-<td>2.0+ (used for parameter tensors, autograd)</td>
+<td>Pinned to <code>torch==2.12.0</code> (used for parameter tensors, autograd) — see the pin rationale at the top of <code>requirements.txt</code></td>
 </tr>
 <tr>
 <td>Communication</td>
 <td>gRPC + Protobuf</td>
-<td><code>grpcio 1.x</code>, <code>protobuf 4.x</code></td>
+<td><code>grpcio&gt;=1.75.1</code>, <code>protobuf&gt;=4.21.6,&lt;5.0.0</code></td>
+</tr>
+<tr>
+<td>Wire format</td>
+<td>safetensors (own codec)</td>
+<td><code>communication/safetensors_codec.py</code> — deterministic, float32-only, no pickle</td>
 </tr>
 <tr>
 <td>Data Science</td>
@@ -147,7 +153,9 @@
 </table>
 <p>The library has <strong>zero dependency on the Spring Boot backend</strong>. Its only external communication is gRPC between the Python server and Python clients.</p>
 <blockquote>
-<p><strong>No Flower / <code>flwr</code> dependency.</strong> Despite the historical <code>flower</code> package name on the Java side (<code>FlowerServerManager</code>), the FL framework is entirely custom — its own protobuf contract (<code>fedlearn.v1</code>) and its own FedAvg / DeComFL strategies. <code>framework/requirements.txt</code> has <strong>no <code>flwr</code> / <code>flwr-datasets</code></strong> entry (they carried zero imports and were removed). <code>transformers</code> <em>is</em> still pinned — it backs the FoT (federated optimisation / LLM) path and the HuggingFace model loaders.</p>
+<p><strong>No Flower FL semantics.</strong> Despite the legacy <code>flower</code> package name on the Java side (renamed to <code>orchestration</code> / <code>FlServerManager</code> — DA-12), the FL framework is entirely custom — its own protobuf contract (<code>fedlearn.v2</code>) and its own FedAvg / DeComFL strategies. <code>framework/requirements.txt</code> has <strong>no <code>flwr</code> / <code>flwr-datasets</code></strong> entry (they carried zero imports and were removed).</p>
+<p>Be precise about the scope of that claim, though: <code>flwr-datasets</code> <em>is</em> still a dependency <strong>elsewhere in the platform</strong> — <code>backend/fl-platform-api/requirements.txt</code> pins <code>flwr==1.20.0</code> + <code>flwr-datasets==0.5.0</code> and <code>client-docker/requirements.txt</code> pins <code>flwr-datasets&gt;=0.3.0</code>, because <code>fl-runtime/client.py</code> and <code>fl-runtime/fl_server.py</code> use <code>flwr_datasets.FederatedDataset</code> <strong>for dataset partitioning only</strong> — never for FL server/client/strategy semantics. Known wart: that pin drags in <code>cryptography&lt;45.0.0</code>, which sits below the framework's own <code>&gt;=46.0.6</code> floor (the SE-22 residual, documented at <code>backend/fl-platform-api/requirements.txt:16</code>).</p>
+<p><code>transformers</code> <em>is</em> pinned in the framework — it backs the FoT (Federation over Text) path and the HuggingFace model loaders.</p>
 </blockquote>
 <hr />
 <h2 id="package-layout">Package Layout<a class="headerlink" href="#package-layout" title="Permanent link">&para;</a></h2>
@@ -160,30 +168,52 @@
 │       │   ├── __init__.py
 │       │   ├── server.py           ← start_server() entry point
 │       │   ├── coordinator.py      ← FLCoordinator (round management)
-│       │   ├── strategy.py         ← Strategy ABC + FedAvg + FedAvgAggregator
+│       │   ├── strategy.py         ← Strategy ABC + FedAvg / FedProx / FedOpt
+│       │   ├── strategy_factory.py ← create_strategy() dispatch
 │       │   ├── decomfl_strategy.py ← DeComFL strategy (Algorithm 3)
-│       │   ├── grpc_servicer.py    ← FederatedLearningServiceServicer (RPC handlers)
-│       │   └── async_coordinator.py← (experimental, RabbitMQ-based, not currently used)
+│       │   ├── robust_aggregation.py ← Byzantine-robust aggregators (FR-12)
+│       │   ├── subset_federation.py← Subset / cohort selection
+│       │   ├── _update_normalize.py← Update normalisation helpers
+│       │   └── grpc_servicer.py    ← FederatedLearningServiceServicer (RPC handlers)
 │       │
 │       ├── client/                 ← Client-side logic
 │       │   ├── __init__.py
 │       │   ├── client.py           ← Client ABC + start_client() entry point
 │       │   ├── grpc_client.py      ← GrpcClient (transport layer)
+│       │   ├── local_trainer.py    ← LocalTrainer (first-order FedAvg/FedProx/FedOpt client)
 │       │   ├── decomfl_client.py   ← DeComFLClient (Algorithm 4)
 │       │   └── decomfl_start.py    ← start_decomfl_client() entry point
 │       │
 │       ├── communication/          ← Protocol layer
 │       │   ├── __init__.py
 │       │   ├── serializer.py       ← Proto ↔ PyTorch tensor conversion + chunking
+│       │   ├── safetensors_codec.py← Deterministic float32 safetensors wire codec
 │       │   ├── protos/
-│       │   │   └── fedlearn.proto  ← Source of truth for all RPC messages
+│       │   │   ├── fedlearn.proto  ← Source of truth for all RPC messages (fedlearn.v2)
+│       │   │   └── fot.proto       ← FoT service contract (fedlearn.fot.v1)
 │       │   └── generated/          ← Code generated by protoc (committed)
-│       │       ├── fedlearn_pb2.py
-│       │       └── fedlearn_pb2_grpc.py
+│       │       ├── fedlearn_pb2.py / fedlearn_pb2.pyi / fedlearn_pb2_grpc.py
+│       │       └── fot_pb2.py / fot_pb2_grpc.py
 │       │
 │       ├── estimators/             ← Gradient estimation algorithms
 │       │   ├── __init__.py
+│       │   ├── params.py           ← Parameter flatten/unflatten helpers
+│       │   ├── perturbation.py     ← Seeded perturbation generation
 │       │   └── zeroth_order.py     ← ZerothOrderEstimator (DeComFL forward-diff)
+│       │
+│       ├── privacy/                ← Central DP (FR-13)
+│       │   ├── dp_mechanism.py     ← Clipping + Gaussian noise
+│       │   └── dp_accountant.py    ← From-scratch RDP accountant
+│       │
+│       ├── security/               ← FL-boundary security
+│       │   ├── tls.py              ← SE-2 fail-closed TLS policy
+│       │   ├── token_verify.py     ← SE-1 connection-token verification
+│       │   ├── identity.py         ← SE-15 partition binding
+│       │   └── interceptor.py / client_interceptor.py
+│       │
+│       ├── backbone/               ← Shared backbone/distribution helpers
+│       ├── bundle/                 ← Adapter-bundle manifest + JSON schema
+│       ├── fot/                    ← Federation over Text (separate research mode)
 │       │
 │       └── data/                   ← Dataset utilities
 │           └── MNIST/              ← MNIST download + Dirichlet partition helpers
@@ -194,7 +224,10 @@
 │   ├── ecg_federation/             ← ECG Transformer (FedAvg)
 │   ├── ecg_decomfl_central/        ← ECG + DeComFL (centralised baseline)
 │   ├── ecg_decomfl_multiclient/    ← ECG + DeComFL (multi-client)
-│   └── ecg_decomfl_framework_integration/
+│   ├── ecg_decomfl_framework_integration/
+│   └── fot_text_federation/        ← FoT offline demo (run_fot.py)
+│
+├── benchmarks/                     ← DP / robust-aggregation experiment harnesses
 │
 ├── requirements.txt                ← Python dependencies
 ├── setup.py                        ← Package metadata + install configuration
@@ -308,22 +341,33 @@ Server stops gRPC server, returns (history, final_parameters)
 
 <hr />
 <h2 id="integration-with-the-rest-of-the-platform">Integration with the Rest of the Platform<a class="headerlink" href="#integration-with-the-rest-of-the-platform" title="Permanent link">&para;</a></h2>
-<p>The Python framework is invoked as a <strong>child process</strong> by two parts of the platform:</p>
+<p>The Python framework is invoked as a <strong>child process</strong> by several parts of the platform:</p>
 <h3 id="1-spring-boot-backend">1. Spring Boot Backend<a class="headerlink" href="#1-spring-boot-backend" title="Permanent link">&para;</a></h3>
-<p>The <code>FlowerServerManager</code> Java service calls <code>ProcessBuilder</code> to launch a Python <code>run_server.py</code> script. The process's stdout is streamed as JSON log lines to the frontend via STOMP WebSocket. On AWS Fargate, it instead launches an ECS task running a Docker image that packages the framework.</p>
-<div class="codehilite"><pre><span></span><code>Spring Boot
-  └── ProcessBuilder(&quot;python&quot;, &quot;run_server.py&quot;, &quot;--project_id&quot;, &quot;xyz&quot;, ...)
-         └── framework/src/run_server.py
+<p>The <code>FlServerManager</code> Java service launches the FL server as a <strong>local process</strong> on the backend host, via the <code>FlServerProcessRunner</code> seam (DA-8) — it no longer calls <code>ProcessBuilder</code> directly. It shells out to <code>fl-runtime/run_fl_server.sh</code> (the path is resolved from the <code>python.script.fl-server.path</code> property; there is a <code>.bat</code> sibling for Windows), binds it to a free port in the <code>50000-50010</code> range, and tracks the resulting <code>ProcessHandle</code> in a <code>ConcurrentHashMap&lt;UUID, ProcessHandle&gt;</code> so the project can be stopped later. The process's merged stdout+stderr is streamed as log lines to the frontend via STOMP WebSocket.</p>
+<div class="codehilite"><pre><span></span><code>Spring Boot (FlServerManager)
+  └── FlServerProcessRunner → bash fl-runtime/run_fl_server.sh --project_id xyz --port 50000 ...
+         └── fl-runtime/fl_server.py
                 └── import fedlearn; fedlearn.server.start_server(...)
 </code></pre></div>
 
+<blockquote>
+<p><strong>Local processes are the only supported deployed orchestration mode.</strong> The hardened single-VM
+topology — FL servers as local Python processes next to the backend — is what the <code>production</code>
+profile describes. Managed-task orchestration is deferred to <code>OP-12</code>: an earlier AWS
+ECS/Fargate implementation existed but was removed along with the AWS SDK, and the leftover
+<code>ecs.cluster-name</code> property is now fail-closed. Setting it to a non-blank value makes the
+backend throw at boot (<code>FlOrchestrationModeValidator</code>, in <strong>every</strong> profile), and the
+corresponding <code>FlServerManager</code> branch throws <code>UnsupportedOperationException</code>. Leave it blank.</p>
+</blockquote>
 <h3 id="2-electron-desktop-app">2. Electron Desktop App<a class="headerlink" href="#2-electron-desktop-app" title="Permanent link">&para;</a></h3>
-<p>The <code>fedlearn-desktop</code> Electron app has a <code>TrainingService</code> that spawns the server and multiple client processes locally using Node's <code>child_process.spawn</code>. This enables single-machine multi-client federation for offline/demo use.</p>
-<div class="codehilite"><pre><span></span><code>Electron main process
-  ├── spawn(&quot;python run_server.py ...&quot;)  →  FedLearn gRPC server :50051
-  └── spawn(&quot;python run_client.py ...&quot;)  →  N clients connecting to :50051
+<p>The <code>fedlearn-desktop</code> Electron app spawns the <strong>client only</strong> — it does <em>not</em> run an FL server. <code>DockerService</code> (<code>fedlearn-desktop/src/main/docker.service.ts</code>) resolves the native client invocation for the current runtime and spawns it as a child process; the server it connects to is the one the Spring backend started.</p>
+<div class="codehilite"><pre><span></span><code>Electron main process (docker.service.ts → resolveNativeInvocation)
+  ├── packaged:  spawn(&lt;resources&gt;/&lt;bundle&gt;/fedlearn-client)   ← PyInstaller bundle, no system python
+  └── dev:       spawn(&quot;python3 -u fl-runtime/client.py ...&quot;)  ← PYTHONPATH=framework/src
+                    └── --project-id … --server-address … --partition-id …
 </code></pre></div>
 
+<p>On Jetson, the same service takes the Docker path instead of the native one.</p>
 <h3 id="3-docker-containers">3. Docker Containers<a class="headerlink" href="#3-docker-containers" title="Permanent link">&para;</a></h3>
 <p><code>client-docker/</code> contains a <code>Dockerfile</code> that installs the framework and exposes a client entrypoint. The backend can instruct clients to spin up Docker containers for isolated training environments.</p>
 <hr />
@@ -364,6 +408,10 @@ Server stops gRPC server, returns (history, final_parameters)
 <span class="n">start_decomfl_client</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="n">MyDeComFLClient</span><span class="p">(</span><span class="o">...</span><span class="p">),</span> <span class="n">client_id</span><span class="o">=</span><span class="s2">&quot;c0&quot;</span><span class="p">)</span>
 </code></pre></div>
 
+<p>Also re-exported from <code>fedlearn/__init__.py</code>: the <code>Strategy</code> ABC, the <code>FedProx</code> / <code>FedOpt</code>
+strategies alongside <code>FedAvg</code>, <code>LocalTrainer</code> (the first-order client trainer), and
+<code>create_strategy</code> (the name → <code>Strategy</code> factory). <code>fedlearn.server</code> additionally exports
+<code>FedLoRA</code>, <code>RobustAggregator</code> (FR-12), and <code>STRATEGY_REGISTRY</code>.</p>
 <blockquote>
 <p><strong>Key design principle:</strong> Users only implement two methods (<code>get_parameters</code> and <code>fit</code>). All network communication, retry logic, heartbeating, and round synchronisation is handled by the framework.</p>
 </blockquote></article>

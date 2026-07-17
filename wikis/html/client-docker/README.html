@@ -27,9 +27,10 @@
 <li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -86,9 +87,9 @@
 <p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a><br />
 <strong>Stack:</strong> Docker, multi-arch base images, thin wrapper around <code>framework/</code></p>
 </blockquote>
-<p><code>client-docker/</code> is the <strong>containerised FL client</strong>. It bundles the <code>framework/</code> library plus the canonical <code>fl-runtime/client.py</code> entry point so a client can join training <strong>without a Python toolchain on the host</strong>. End users don't usually run it directly — the <strong>Electron desktop orchestrator</strong> (<code>fedlearn-desktop/</code>) launches it via <code>dockerode</code>. Developers and Jetson operators run it manually.</p>
+<p><code>client-docker/</code> is the <strong>containerised FL client</strong>. It bundles the <code>framework/</code> library plus the canonical <code>fl-runtime/client.py</code> entry point (shared with the desktop native bundle and dev/local runs) so a client can join training <strong>without a Python toolchain on the host</strong>. End users don't usually run it directly — the <strong>Electron desktop orchestrator</strong> (<code>fedlearn-desktop/</code>) launches it via <code>dockerode</code>. Developers and Jetson operators run it manually.</p>
 <blockquote>
-<p><strong>Thin wrapper, by design.</strong> <code>framework/</code> is <code>pip install</code>-ed inside the image. The container carries <strong>no FL logic of its own</strong> — DA-5 removed the old <code>client-docker/scripts/</code> client fork; don't reintroduce one.</p>
+<p><strong>Thin wrapper, by design.</strong> <code>framework/</code> is <code>pip install</code>-ed and the canonical <code>fl-runtime/client.py</code> is copied into the image. The container carries <strong>no forked FL logic of its own</strong> — DA-5 removed the old <code>client-docker/scripts/</code> client fork; don't reintroduce one.</p>
 </blockquote>
 <hr />
 <h2 id="layout">Layout<a class="headerlink" href="#layout" title="Permanent link">&para;</a></h2>
@@ -97,14 +98,16 @@
 ├── entrypoint.sh              # Single CLI surface; parses flags + env
 ├── run-client.sh              # Helper wrapper for ad-hoc local runs
 ├── requirements.txt           # Pinned client deps (framework installs its own)
-├── scripts/
-│   ├── client.py              # FL client entry point (thin — logic lives in framework/)
-│   ├── config.py
-│   ├── data_loaders/  ecg_data/  models/
-├── packaging/                 # PyInstaller bundling for the desktop installer (Mac / Win)
+├── test_docker_build.sh       # Build smoke check
+├── packaging/                 # PyInstaller bundling for the desktop installer (Mac / Win / Linux)
 └── DEPLOYMENT_GUIDE.md        # Canonical Jetson + native deployment procedure
 </code></pre></div>
 
+<p>There is <strong>no <code>client-docker/scripts/</code></strong> — DA-5 deleted that client fork. The image is
+assembled from two copies outside this directory (<code>Dockerfile</code>): <code>framework/</code> is copied to
+<code>/app/framework/</code> and <code>pip install</code>-ed, then <code>fl-runtime/</code> is copied to <code>/app/fl-runtime/</code>,
+which becomes the container <code>WORKDIR</code>. The container runs as an unprivileged <code>fedlearn</code>
+user (uid/gid <code>10001</code>), not root.</p>
 <hr />
 <h2 id="hardware-variants-base_image-build-arg">Hardware variants (<code>BASE_IMAGE</code> build arg)<a class="headerlink" href="#hardware-variants-base_image-build-arg" title="Permanent link">&para;</a></h2>
 <table>
@@ -152,17 +155,33 @@ docker<span class="w"> </span>build<span class="w"> </span><span class="se">\</s
 <h2 id="run">Run<a class="headerlink" href="#run" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>-v<span class="w"> </span>/path/to/data:/data<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-e<span class="w"> </span><span class="nv">FEDLEARN_CONNECTION_TOKEN</span><span class="o">=</span>&lt;token&gt;<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>fedlearn-client:latest<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--server-address<span class="w"> </span>&lt;server-host&gt;:&lt;grpc-port&gt;<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--client-id<span class="w"> </span><span class="m">0</span>
 </code></pre></div>
 
+<blockquote>
+<p><strong><code>FEDLEARN_CONNECTION_TOKEN</code> (SE-14).</strong> When the FL server enforces client auth
+(<code>app.fl.require-client-auth=true</code>), every client must present a backend-minted
+connection token or the server rejects it <code>UNAUTHENTICATED</code>. Fetch it from
+<code>GET /api/client/projects/{projectId}/connection</code> (<code>connectionToken</code>) over your
+authenticated web session; the framework client attaches it as <code>x-connection-token</code>
+on every gRPC call. The desktop launcher injects it automatically — a <strong>standalone
+<code>docker run</code> must pass it explicitly</strong> (omit only against a dev server with auth off).</p>
+</blockquote>
 <p>For multi-platform image distribution (<code>buildx</code>, registry pushes, offline export) see the in-repo <code>DEPLOYMENT_GUIDE.md</code>.</p>
 <hr />
 <h2 id="how-it-connects-to-the-rest-of-the-system">How it connects to the rest of the system<a class="headerlink" href="#how-it-connects-to-the-rest-of-the-system" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The <strong>Backend</strong> (<code>fl-platform-api</code>) spawns a Python FL server on a dynamic port in <code>50000-50010</code> when a project starts; the port is surfaced in the dashboard's live telemetry. Clients connect to <code>&lt;server-host&gt;:&lt;port&gt;</code>.</li>
-<li>gRPC currently uses <code>insecure_channel</code> — <strong>gradients fly plaintext over the WAN</strong> (repo audit item #37). Do not add behaviour that assumes encryption between the FL server and clients.</li>
+<li>gRPC is <strong>plaintext by default, TLS opt-in</strong>. Unset, the client builds an <code>insecure_channel</code> and
+  <strong>gradients fly plaintext over the WAN</strong>; set <code>FEDLEARN_GRPC_USE_TLS=1</code> (plus
+  <code>FEDLEARN_GRPC_ROOT_CERT</code>, and <code>FEDLEARN_GRPC_CLIENT_CERT</code>/<code>_KEY</code> for mTLS) and the client uses
+  <code>ssl_channel_credentials</code> + <code>secure_channel</code> instead
+  (<code>framework/src/fedlearn/client/grpc_client.py</code>). Server-side this is fail-closed: with
+  <code>FEDLEARN_REQUIRE_TLS=1</code> (which the backend sets on deployed profiles) and TLS not enabled, the FL
+  server refuses to serve rather than fall back to plaintext. See <a href="../../deploy/TLS.md"><code>deploy/TLS.md</code></a>.</li>
 <li>For cross-network demos (e.g. a classroom Jetson + a home Mac), use <strong>Tailscale</strong> to skip NAT/firewall issues.</li>
 </ul>
 <h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Permanent link">&para;</a></h2>

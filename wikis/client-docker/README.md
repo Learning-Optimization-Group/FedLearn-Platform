@@ -17,13 +17,16 @@ client-docker/
 ├── entrypoint.sh              # Single CLI surface; parses flags + env
 ├── run-client.sh              # Helper wrapper for ad-hoc local runs
 ├── requirements.txt           # Pinned client deps (framework installs its own)
-├── scripts/
-│   ├── client.py              # FL client entry point (thin — logic lives in framework/)
-│   ├── config.py
-│   ├── data_loaders/  ecg_data/  models/
-├── packaging/                 # PyInstaller bundling for the desktop installer (Mac / Win)
+├── test_docker_build.sh       # Build smoke check
+├── packaging/                 # PyInstaller bundling for the desktop installer (Mac / Win / Linux)
 └── DEPLOYMENT_GUIDE.md        # Canonical Jetson + native deployment procedure
 ```
+
+There is **no `client-docker/scripts/`** — DA-5 deleted that client fork. The image is
+assembled from two copies outside this directory (`Dockerfile`): `framework/` is copied to
+`/app/framework/` and `pip install`-ed, then `fl-runtime/` is copied to `/app/fl-runtime/`,
+which becomes the container `WORKDIR`. The container runs as an unprivileged `fedlearn`
+user (uid/gid `10001`), not root.
 
 ---
 
@@ -84,7 +87,13 @@ For multi-platform image distribution (`buildx`, registry pushes, offline export
 ## How it connects to the rest of the system
 
 - The **Backend** (`fl-platform-api`) spawns a Python FL server on a dynamic port in `50000-50010` when a project starts; the port is surfaced in the dashboard's live telemetry. Clients connect to `<server-host>:<port>`.
-- gRPC currently uses `insecure_channel` — **gradients fly plaintext over the WAN** (repo audit item #37). Do not add behaviour that assumes encryption between the FL server and clients.
+- gRPC is **plaintext by default, TLS opt-in**. Unset, the client builds an `insecure_channel` and
+  **gradients fly plaintext over the WAN**; set `FEDLEARN_GRPC_USE_TLS=1` (plus
+  `FEDLEARN_GRPC_ROOT_CERT`, and `FEDLEARN_GRPC_CLIENT_CERT`/`_KEY` for mTLS) and the client uses
+  `ssl_channel_credentials` + `secure_channel` instead
+  (`framework/src/fedlearn/client/grpc_client.py`). Server-side this is fail-closed: with
+  `FEDLEARN_REQUIRE_TLS=1` (which the backend sets on deployed profiles) and TLS not enabled, the FL
+  server refuses to serve rather than fall back to plaintext. See [`deploy/TLS.md`](../../deploy/TLS.md).
 - For cross-network demos (e.g. a classroom Jetson + a home Mac), use **Tailscale** to skip NAT/firewall issues.
 
 ## Related documentation

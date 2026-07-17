@@ -27,9 +27,10 @@
 <li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group" open>
 <summary>Frontend</summary><ul>
@@ -125,8 +126,9 @@
 </code></pre></div>
 
 <h3 id="roles-backend-rbac">Roles &amp; Backend RBAC<a class="headerlink" href="#roles-backend-rbac" title="Permanent link">&para;</a></h3>
-<p>Authentication is <strong>cookie-only</strong> — the frontend never reads or sends a token; the single role carried on the session is <code>users.role</code> (<code>USER</code> / <code>ADMIN</code>).</p>
-<blockquote class="callout warn"><p>⚠️ <strong>Branch reality.</strong> The identity/RBAC endpoints (membership, admin, access-request, discover) and the three-layer <code>platform_role</code> model are part of the identity-foundations work that is <strong>designed on a separate branch and is <em>not present</em> here</strong> (see the backend <a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy &amp; Audit</a> banner). On the current branch there is only the coarse <code>USER</code> / <code>ADMIN</code> role and no membership/admin/access-request/discover screens. The web client ships the <strong>Ember</strong> design system.</p>
+<p>Authentication is <strong>cookie-only</strong> — the frontend never reads or sends a token; the role carried on the session is the layered <code>platform_role</code> (<code>USER</code> / <code>PROJECT_OWNER</code> / <code>PLATFORM_ADMIN</code>).</p>
+<blockquote>
+<p>✅ <strong>Branch reality.</strong> The identity/RBAC endpoints (membership, admin, access-request, discover) and the three-layer <code>platform_role</code> model <strong>are present on this branch</strong> (backend <code>V4</code>–<code>V7</code> migrations; see the backend <a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy &amp; Audit</a> page). The web client renders them through role-gated routes (<code>RoleRoute allow={['PLATFORM_ADMIN']}</code> / <code>['PROJECT_OWNER', …]</code>) and dashboards (<code>AdminDashboard</code>, <code>OwnerDashboard</code>, <code>ClientDashboard</code>) plus the owner-promotion / deletion-request approval flows — superseding the original coarse <code>USER</code> / <code>ADMIN</code> role. The web client ships the <strong>Ember</strong> design system.</p>
 </blockquote>
 <h2 id="routing-configuration">Routing Configuration<a class="headerlink" href="#routing-configuration" title="Permanent link">&para;</a></h2>
 <p>We use <code>react-router-dom</code> v7 to handle application routing. The router distinguishes between public and protected routes.</p>
@@ -148,7 +150,7 @@ Notice how we seamlessly support both Legacy and V2 UIs by nesting them under di
 
 <span class="w">        </span><span class="p">{</span><span class="cm">/* Redesigned UI (v2) */</span><span class="p">}</span>
 <span class="w">        </span><span class="p">&lt;</span><span class="nt">Route</span><span class="w"> </span><span class="na">element</span><span class="o">=</span><span class="p">{&lt;</span><span class="nt">LayoutV2</span><span class="w"> </span><span class="p">/&gt;}&gt;</span>
-<span class="w">            </span><span class="p">&lt;</span><span class="nt">Route</span><span class="w"> </span><span class="na">path</span><span class="o">=</span><span class="s">&quot;/v2&quot;</span><span class="w"> </span><span class="na">element</span><span class="o">=</span><span class="p">{&lt;</span><span class="nt">DashboardV2</span><span class="w"> </span><span class="p">/&gt;}</span><span class="w"> </span><span class="p">/&gt;</span>
+<span class="w">            </span><span class="p">&lt;</span><span class="nt">Route</span><span class="w"> </span><span class="na">path</span><span class="o">=</span><span class="s">&quot;/dashboard&quot;</span><span class="w"> </span><span class="na">element</span><span class="o">=</span><span class="p">{&lt;</span><span class="nt">RoleDashboard</span><span class="w"> </span><span class="p">/&gt;}</span><span class="w"> </span><span class="p">/&gt;</span><span class="w">   </span><span class="p">{</span><span class="cm">/* role-aware: Admin/Owner/Client */</span><span class="p">}</span>
 <span class="w">            </span><span class="p">&lt;</span><span class="nt">Route</span><span class="w"> </span><span class="na">path</span><span class="o">=</span><span class="s">&quot;/v2/nodes&quot;</span><span class="w"> </span><span class="na">element</span><span class="o">=</span><span class="p">{&lt;</span><span class="nt">NodeNetwork</span><span class="w"> </span><span class="p">/&gt;}</span><span class="w"> </span><span class="p">/&gt;</span>
 <span class="w">            </span><span class="p">{</span><span class="cm">/* ... */</span><span class="p">}</span>
 <span class="w">        </span><span class="p">&lt;/</span><span class="nt">Route</span><span class="p">&gt;</span>

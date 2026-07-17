@@ -2,7 +2,9 @@
 
 Welcome to the internal documentation for the **FedLearn-Platform Backend**.
 
-This section of the wiki covers the Spring Boot 3 API, the database interactions, security, WebSockets, and how the federated learning python processes are orchestrated natively or scaled on AWS ECS Fargate.
+This section of the wiki covers the Spring Boot 3 API, the database interactions, security, WebSockets, and how the federated learning python processes are orchestrated as local OS processes on the host VM.
+
+> ⚠️ **Orchestration reality (OP-14).** The **only** supported deployed architecture is the **hardened single-VM**: the backend spawns each FL aggregation server as a local Python process (via the `FlServerProcessRunner` seam, DA-8) on a port in the `50000-50010` range. Managed cloud task orchestration on AWS ECS/Fargate *was* implemented once (`1239dda`) and later **removed** along with the AWS SDK (`9124b62`) — no ECS code and no AWS SDK dependency remain in the repo. The one surviving knob, `ecs.cluster-name` (blank default), exists **solely to be rejected**: `FlOrchestrationModeValidator` throws at boot in **every** profile if it is set to a non-blank value. The `production` profile is the single-VM profile, not an ECS profile. Managed-task orchestration is deferred to **OP-12**.
 
 > ✅ **Branch reality.** The backend runs on **PostgreSQL** for every profile (H2 has been retired) — `dev`/`ec2demo` against a local Postgres (`backend/fl-platform-api/docker-compose.yml` → `docker compose up -d`) and `test` against Testcontainers Postgres. The highest committed Flyway migration is **`V19`**. The full **identity / multi-tenancy / audit subsystem documented in page 06 IS present on this branch**: the three-layer role model (`PlatformRole` platform role, `OrgRole` org role, `MembershipRole` project membership), organization-scoped isolation (`OrgScopeFilter`), `AuthorizationService`, the `@Auditable`/`AuditEvent` trail, and the `email/` + `bootstrap/` plumbing — backed by the `V4`–`V7` identity migrations. (The single coarse `users.role IN (USER, ADMIN)` column from `V2` was the *original* model; it has since been superseded by the layered `PlatformRole`.)
 
@@ -18,7 +20,7 @@ This section of the wiki covers the Spring Boot 3 API, the database interactions
    Details the `ProjectService` and `ProjectController` logic. Explains how training rounds are configured, how projects are persisted to the database, and how models are initialized.
 
 4. **[Federated Orchestration (FlServerManager)](04_federated_orchestration.md)**
-   The most complex component. Documents how the Java API dynamically provisions the Python FL aggregation servers, differentiating between local machine `ProcessBuilder` execution and cloud-native AWS ECS Fargate orchestration.
+   The most complex component. Documents how the Java API dynamically provisions the Python FL aggregation servers as local OS processes — port reservation in the `50000-50010` range, the `FlServerProcessRunner` seam that shells out to the `fl-runtime/` scripts, and the `ProcessHandle` tracking that makes `/stop` work. Also covers why the removed ECS/Fargate path is now fail-closed at boot (OP-14) and deferred to OP-12.
 
 5. **[WebSocket Log Streaming](05_websocket_logs_streaming.md)**
    Explains the real-time observability pipeline. Shows how the backend captures standard output from the Python FL servers, routes it via STOMP topics to the React frontend, and persists it for export.

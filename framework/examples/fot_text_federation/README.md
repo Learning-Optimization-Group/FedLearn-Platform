@@ -12,8 +12,10 @@ Reference: *Federation over Text* (arXiv 2604.16778).
 >   (it has no access to a client's local raw corpus), so it is the client's responsibility.
 > - **server-side** (`FotServicer`/`TraceDistiller`): an ingest injection guard (`TraceValidator`)
 >   and a cross-client quorum (`InsightLedger`) that promotes an insight only when enough *distinct*
->   clients support it (quorum is only as trustworthy as client identity — the gRPC channel here is
->   unauthenticated plaintext, a platform-wide gap).
+>   clients support it (quorum is only as trustworthy as client identity — and the FoT server binds
+>   `add_insecure_port` unconditionally, with no TLS policy and no connection-token interceptor, so
+>   the `client_id` backing the quorum is self-reported. Unlike the gradient path, which has opt-in
+>   TLS (`FEDLEARN_GRPC_USE_TLS`) and SE-14 connection tokens, FoT has no such seam yet).
 
 ## Run it (in-process, offline)
 

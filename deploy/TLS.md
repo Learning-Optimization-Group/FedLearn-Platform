@@ -14,7 +14,7 @@ deployment, what is automated, and what still needs a real host to verify.
 | 2 | Browser → nginx `:443` (`/ws-logs`) | WSS (same cert; nginx upgrades the connection) | **Automated** — upgrade block in `deploy/nginx/fedlearn.conf` |
 | 3 | nginx → Spring Boot `127.0.0.1:8081` | Plain HTTP over loopback | Accepted — never leaves the host; keep `:8081` closed in the security group |
 | 4 | Backend → spawned FL server (env/stdout) | Local process, no network | N/A |
-| 5 | FL clients → FL server gRPC `:50000-50010` | **Plaintext by default** (audit #37) | **Wired, opt-in** — SE-2 fail-closed path + bootstrap-provisioned keypair; one flip away (below) |
+| 5 | FL clients → FL server gRPC `:50000-50010` | **TLS, fail-closed** on `ec2demo`/`production` (SE-2 full flip) | **On by default** — profile sets `app.fl.require-tls=true`; bootstrap provisions the keypair. Plaintext only via the `FEDLEARN_GRPC_TLS=0` escape hatch (below) |
 | 6 | FL server → backend `/api/internal/**` callbacks | `FEDLEARN_BACKEND_URL` (localhost on EC2) | Loopback on the demo; use the HTTPS origin if ever split across hosts |
 
 ## Hop 1–2: HTTPS at the edge (automated)
@@ -39,13 +39,18 @@ deployment, what is automated, and what still needs a real host to verify.
 - After HTTPS is live, flip `APP_AUTH_COOKIE_SECURE=true` in the systemd unit
   (commented line is already there) so the auth cookie is marked `Secure`.
 
-## Hop 5: FL gRPC boundary (wired, opt-in, default OFF)
+## Hop 5: FL gRPC boundary (TLS on by default, fail-closed)
 
 The FL servers bind their own ports and bypass nginx, so the edge cert does not
-cover them. The pieces (all pre-existing SE-2 hooks — nothing new invented):
+cover them. SE-2 has since been **fully flipped**: both `application-ec2demo.properties`
+and `application-production.properties` set `app.fl.require-tls=true`, so a deployed
+FL server serves TLS or refuses to start. The base profile default remains
+`APP_FL_REQUIRE_TLS:false` — plaintext is still the default for local/dev runs.
+
+The pieces:
 
 - **Backend**: `app.fl.require-tls` (`APP_FL_REQUIRE_TLS=true`). When set,
-  `FlowerServerManager` spawns each FL server with `FEDLEARN_GRPC_USE_TLS=1`
+  `FlServerManager` spawns each FL server with `FEDLEARN_GRPC_USE_TLS=1`
   **and** `FEDLEARN_REQUIRE_TLS=1`; the cert paths are inherited from the
   backend process env.
 - **FL server** (`framework/src/fedlearn/security/tls.py`, `server/server.py`):
@@ -58,23 +63,34 @@ cover them. The pieces (all pre-existing SE-2 hooks — nothing new invented):
 
 **What bootstrap does (step 7)**: generates a self-signed RSA-2048 keypair at
 `/etc/fedlearn/grpc/{server.key,server.crt}` (CN/SAN = `FEDLEARN_DOMAIN`,
-825 days, key `0600` owned by the app user, never clobbered on re-run) and
-writes the three `Environment=` lines into `fedlearn.service` — **commented out
-by default**, or active when bootstrap runs with `FEDLEARN_GRPC_TLS=1`.
+825 days, key `0600` / cert `0644` owned by the app user, never clobbered on
+re-run) and writes the `FEDLEARN_GRPC_SERVER_KEY` / `FEDLEARN_GRPC_SERVER_CERT`
+`Environment=` lines into `fedlearn.service` — **always active**, because a
+fail-closed FL server that cannot read the keypair cannot launch at all.
 
-**Why default OFF**: every current client (desktop bundle, Docker, scripts)
-dials `grpc.insecure_channel`-style plaintext. Because the SE-2 policy fails
-closed, flipping the server side alone would make every training run refuse to
-start or reject all clients. Enable it once clients are configured:
+**Configuring clients (required)**: because the server now fails closed, every
+client must dial TLS or be rejected. Copy `/etc/fedlearn/grpc/server.crt`
+(public — not a secret) to the client machine, set `FEDLEARN_GRPC_USE_TLS=1` and
+`FEDLEARN_GRPC_ROOT_CERT=/path/to/server.crt`, and dial the server by the DNS
+name in the cert SAN (`FEDLEARN_DOMAIN`), not by raw IP — TLS hostname
+verification fails otherwise.
 
-1. Server: uncomment the three lines in `/etc/systemd/system/fedlearn.service`
-   (or re-run bootstrap with `FEDLEARN_GRPC_TLS=1`), then
-   `sudo systemctl daemon-reload && sudo systemctl restart fedlearn`.
-2. Each client: copy `/etc/fedlearn/grpc/server.crt` (public — not a secret) to
-   the client machine, set `FEDLEARN_GRPC_USE_TLS=1` and
-   `FEDLEARN_GRPC_ROOT_CERT=/path/to/server.crt`, and dial the server by the
-   DNS name in the cert SAN (`FEDLEARN_DOMAIN`), not by raw IP — TLS hostname
-   verification fails otherwise.
+**Escape hatch — plaintext for a mixed-version rollout**: a desktop/mobile client
+built before the flip still dials plaintext and will be rejected. To re-open
+plaintext while those clients are rebuilt, bootstrap with `FEDLEARN_GRPC_TLS=0`.
+That emits an uncommented `Environment="APP_FL_REQUIRE_TLS=false"` line into the
+unit, which outranks the profile default (OS env > properties file, via Spring
+relaxed binding). On an already-provisioned host, uncomment that line in
+`/etc/systemd/system/fedlearn.service`, then
+`sudo systemctl daemon-reload && sudo systemctl restart fedlearn`.
+
+> ⚠ SE-14 pairs with this: `app.fl.require-client-auth=true` together with
+> `app.fl.require-tls=false` on a deployed profile is **rejected at boot** by
+> `FlBoundaryAuthPolicyValidator` — a connection token riding plaintext gRPC over
+> the WAN is replayable. If the escape hatch is taken on a trusted network
+> (Tailscale / loopback / private VPC), acknowledge it explicitly with
+> `app.fl.allow-plaintext-client-auth=true` (`APP_FL_ALLOW_PLAINTEXT_CLIENT_AUTH`)
+> or the backend will not start.
 
 **Why a self-signed cert instead of reusing the Let's Encrypt one**: the LE
 live dir is root-only while FL servers run as the unprivileged app user, and
@@ -93,11 +109,13 @@ For cross-network demos (e.g. Jetson clients behind NAT), running the gRPC
 plaintext channel **inside a Tailscale mesh** gives WireGuard encryption +
 authenticated peers without touching the FL protocol: install Tailscale on the
 EC2 host and each client, have clients dial the server's tailnet address, and
-keep the FL ports closed to the public internet in the security group (see
-`docs/guides/pneumonia_demo_plan.md`). In that topology leave
-`APP_FL_REQUIRE_TLS` off — transport encryption is provided by the tunnel, and
-double-encrypting adds operational cost for no threat-model gain. The gRPC TLS
-path above is for federations that must traverse the open WAN.
+keep the FL ports closed to the public internet in the security group. In that
+topology you can turn
+`APP_FL_REQUIRE_TLS` off (bootstrap with `FEDLEARN_GRPC_TLS=0`, plus
+`APP_FL_ALLOW_PLAINTEXT_CLIENT_AUTH=true` to satisfy the SE-14 validator) —
+transport encryption is provided by the tunnel, and double-encrypting adds
+operational cost for no threat-model gain. The fail-closed gRPC TLS default
+above is for federations that must traverse the open WAN.
 
 ## Verified vs. not verified
 
@@ -114,5 +132,6 @@ Verified by inspection/syntax on a workstation (no EC2 host in the loop):
 - The real TLS handshake on `:443`, the `wss://` upgrade, and HSTS in response
   headers (`curl -I https://<domain>`).
 - A renewal dry run (`sudo certbot renew --dry-run`) and the nginx reload hook.
-- An FL round over gRPC TLS end-to-end (`FEDLEARN_GRPC_TLS=1` server +
-  configured clients), including the fail-closed refusal path.
+- An FL round over gRPC TLS end-to-end (the bootstrap default) with TLS-configured
+  clients, including the fail-closed refusal path and the `FEDLEARN_GRPC_TLS=0`
+  plaintext escape hatch.

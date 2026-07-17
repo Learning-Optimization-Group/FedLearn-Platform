@@ -27,9 +27,10 @@
 <li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -111,7 +112,7 @@
 </ul>
 <hr />
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>The <code>framework/examples/</code> directory contains six end-to-end runnable experiments:</p>
+<p>The <code>framework/examples/</code> directory contains seven end-to-end runnable experiments:</p>
 <table>
 <thead>
 <tr>
@@ -165,9 +166,20 @@
 <td>3</td>
 <td>ECG (via full framework)</td>
 </tr>
+<tr>
+<td><code>fot_text_federation</code></td>
+<td>— (stub backend)</td>
+<td>FoT</td>
+<td>in-process</td>
+<td>synthetic text</td>
+</tr>
 </tbody>
 </table>
-<p>Each example is self-contained with its own <code>run_server.py</code> and <code>run_client.py</code>.</p>
+<p>The six gradient examples are each self-contained with their own <code>run_server.py</code> and <code>run_client.py</code>.
+<strong><code>fot_text_federation</code> is the exception</strong> — it is a single in-process <code>run_fot.py</code> demo of the
+Federation over Text mode, which is a separate, offline, local-LLM-only research path that is <em>additive
+and orthogonal</em> to the DeComFL gradient path rather than a replacement for it. See
+<code>framework/examples/fot_text_federation/README.md</code>.</p>
 <hr />
 <h2 id="example-1-simple-federation-mnist-cnn">Example 1: Simple Federation (MNIST + CNN)<a class="headerlink" href="#example-1-simple-federation-mnist-cnn" title="Permanent link">&para;</a></h2>
 <h3 id="what-it-demonstrates">What It Demonstrates<a class="headerlink" href="#what-it-demonstrates" title="Permanent link">&para;</a></h3>
@@ -282,7 +294,7 @@ Round 10: loss=0.15, accuracy=95.2%
 │        neutral)                                          │
 └────────────────────────┬────────────────────────────────┘
                          │ gRPC :50051
-                         │ streaming (500 MB chunks)
+                         │ streaming (50 MB chunks)
            ┌─────────────┼─────────────┐
            ▼             ▼             ▼
        Client 0      Client 1      Client 2
@@ -331,11 +343,16 @@ python<span class="w"> </span>run_client.py<span class="w"> </span><span class="
 </code></pre></div>
 
 <p>Memory footprint during streaming upload:</p>
-<div class="codehilite"><pre><span></span><code>torch.save() → BytesIO buffer → memoryview (zero-copy)
+<div class="codehilite"><pre><span></span><code>state_dict → safetensors blob → sliced into 50 MB chunks
 Peak extra memory: ~500 MB (just the serialized buffer)
 Total: ~1.5 GB per client (model + gradients + buffer)
 </code></pre></div>
 
+<blockquote>
+<p>The upload wire is the deterministic <strong>safetensors</strong> codec, not <code>torch.save</code>/pickle — see
+<a href="02_grpc_communication.html#chunked-streaming-for-large-models">02 — gRPC Communication</a>. It is
+float32-only and fails loud on any non-float32 tensor.</p>
+</blockquote>
 <h3 id="expected-results_1">Expected Results<a class="headerlink" href="#expected-results_1" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code>Round 1: loss=1.12, accuracy=72.3%
 Round 2: loss=0.89, accuracy=78.1%
@@ -471,8 +488,10 @@ python<span class="w"> </span>run_client.py<span class="w"> </span>--id<span cla
 
 <hr />
 <h2 id="running-multiple-examples-at-once">Running Multiple Examples at Once<a class="headerlink" href="#running-multiple-examples-at-once" title="Permanent link">&para;</a></h2>
-<p>Use the <code>launch_all.sh</code> script at the repository root to start all components:</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># From FedLearn-Platform root</span>
+<p>Use the <code>launch_all.sh</code> script at the repository root to start all components. It is <strong>macOS-only</strong> — it
+drives AppleScript (<code>osascript</code>) to open a Terminal window per service, so on Linux you must start each
+component by hand.</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># From FedLearn-Platform root (macOS)</span>
 ./launch_all.sh
 
 <span class="c1"># Or for just the framework (manual multi-terminal setup):</span>
@@ -514,46 +533,53 @@ sleep<span class="w"> </span><span class="m">2</span><span class="w">   </span><
 
 <hr />
 <h2 id="end-to-end-test-suites">End-to-End Test Suites<a class="headerlink" href="#end-to-end-test-suites" title="Permanent link">&para;</a></h2>
-<p>The framework ships with three test scripts:</p>
+<p>The framework ships with three test scripts. <strong>None of them take CLI arguments</strong> — each is configured in
+the source (or, for the platform test, by environment variable). Run them from <code>framework/</code>.</p>
 <h3 id="run_local_testpy-quick-sanity-test">run_local_test.py — Quick Sanity Test<a class="headerlink" href="#run_local_testpy-quick-sanity-test" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code><span class="c1"># Tests single-client FL on a tiny subset of MNIST</span>
-<span class="c1"># Completes in ~30 seconds</span>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>framework/
 python<span class="w"> </span>run_local_test.py
 </code></pre></div>
 
+<p>Spins up <strong>1 gRPC server and 3 clients</strong> locally using the <code>SimpleCNN</code> model from
+<code>examples/simple_federation</code>. Each client trains on a partition of MNIST with real SGD, and the server
+evaluates accuracy after each round.</p>
 <p>Exercises:
 - Server startup and client registration
-- One round of FedAvg (single client)
+- FedAvg across three real local-training clients
 - Model serialisation/deserialisation round-trip
 - Heartbeat flow</p>
 <h3 id="run_full_test_suitepy-comprehensive-e2e">run_full_test_suite.py — Comprehensive E2E<a class="headerlink" href="#run_full_test_suitepy-comprehensive-e2e" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code><span class="c1"># Runs all examples in sequence (takes ~20 minutes)</span>
-python<span class="w"> </span>run_full_test_suite.py<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--test<span class="w"> </span>simple<span class="w"> </span><span class="se">\ </span><span class="w">     </span><span class="c1"># or llm, ecg, decomfl</span>
-<span class="w">    </span>--num_rounds<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--num_clients<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--timeout<span class="w"> </span><span class="m">300</span><span class="w">        </span><span class="c1"># seconds per test</span>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>framework/
+python<span class="w"> </span>run_full_test_suite.py
 </code></pre></div>
 
-<p>Exercises:
-- All strategy types (FedAvg, DeComFL)
-- Multiple client counts
-- Streaming upload/download paths
-- Heartbeat and stale update rejection
-- Graceful shutdown sequence</p>
+<p>Runs all three major example configurations in sequence, spinning up a gRPC server + clients for each,
+running federated training, and verifying accuracy/convergence. Logs are stored per-test.</p>
+<ul>
+<li>Test 1: <code>SimpleCNN</code> + MNIST + FedAvg (10 rounds)</li>
+<li>Test 2: <code>ECGTransformer</code> + ECG data + FedAvg (10 rounds)</li>
+<li>Test 3: ECG MLP + ECG data + DeComFL (10 rounds)</li>
+</ul>
 <h3 id="run_platform_e2e_testpy-integration-with-spring-backend">run_platform_e2e_test.py — Integration with Spring Backend<a class="headerlink" href="#run_platform_e2e_testpy-integration-with-spring-backend" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code><span class="c1"># Requires running Spring Boot backend</span>
-python<span class="w"> </span>run_platform_e2e_test.py<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--backend_url<span class="w"> </span>http://localhost:8080<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--api_key<span class="w"> </span>your_api_key<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--project_id<span class="w"> </span>test_project_123
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>framework/
+python<span class="w"> </span>run_platform_e2e_test.py
+
+<span class="c1"># The backend API base is the ONLY knob, via env var (default shown):</span>
+<span class="nv">API_BASE_URL</span><span class="o">=</span>http://localhost:8081/api<span class="w"> </span>python<span class="w"> </span>run_platform_e2e_test.py
 </code></pre></div>
 
 <p>Exercises:
-- Backend-triggered FL server spawn
-- WebSocket log streaming from Python server to frontend
-- Project result persistence to the backend database (H2)
-- Full round-trip through the platform API</p></article>
+- Registering/logging in a test user via the Spring Boot backend (default <code>:8081</code>)
+- Creating a training project through the REST API
+- Backend-triggered FL server spawn (<code>FlServerManager</code>) + locally spawned simulated Python clients
+- Polling the backend API for <code>RoundResults</code> to verify persistence — to <strong>PostgreSQL</strong>, which backs
+  every Spring profile (H2 has been retired)
+- Automatic cleanup</p>
+<blockquote>
+<p><strong>Prerequisite:</strong> the backend needs a local Postgres. From <code>backend/fl-platform-api/</code>, run
+<code>docker compose up -d</code> (postgres:16.6-alpine; db/user/password all <code>federance</code> on <code>:5432</code>) before
+starting Spring Boot.</p>
+</blockquote></article>
     <nav class="toc"></nav>
   </div>
 </div>

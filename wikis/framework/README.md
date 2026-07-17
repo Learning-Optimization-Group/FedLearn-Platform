@@ -38,14 +38,19 @@ This framework is the core distributed federated learning engine that powers the
 
 ```
 fedlearn (Python package)
-├── server/          – Server entry point, coordinator, strategies, gRPC servicer
-├── client/          – Client ABC, gRPC wrapper, DeComFL client
-├── communication/   – Proto definitions, serializer, generated stubs
+├── server/          – Server entry point, coordinator, strategies, robust aggregation, gRPC servicer
+├── client/          – Client ABC, gRPC wrapper, local trainer, DeComFL client
+├── communication/   – Proto definitions, serializer, safetensors codec, generated stubs
 ├── estimators/      – Zeroth-order gradient estimators (DeComFL)
+├── privacy/         – Central-DP mechanism + RDP accountant
+├── security/        – TLS policy, connection-token verification, gRPC interceptors
+├── backbone/        – Shared backbone/distribution helpers
+├── bundle/          – Adapter-bundle manifest + format schema
+├── fot/             – Federation over Text (separate local-LLM research mode)
 └── data/            – Dataset utilities (MNIST partitioning, etc.)
 ```
 
 The framework is consumed by:
-- **`fedlearn-desktop`** Electron app (invokes `run_server.py` / `run_client.py` as child processes)
-- **`backend`** Spring Boot API (spawns Python FL servers via `ProcessBuilder` or AWS ECS Fargate)
+- **`fedlearn-desktop`** Electron app (spawns the FL **client** as a child process — the packaged PyInstaller bundle, or system `python3` against `fl-runtime/client.py` in dev mode)
+- **`backend`** Spring Boot API (spawns Python FL servers as local processes via `FlServerManager`)
 - **`client-docker`** Docker image for containerised client deployment

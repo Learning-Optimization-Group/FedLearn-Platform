@@ -50,18 +50,25 @@
 
 ### 2.2 Build the Docker Image
 
+The Dockerfile `COPY`s `framework/` and `fl-runtime/` from the repo root, so the
+**build context must be the repo root** — clone the whole repo to the Jetson, not
+just `client-docker/`.
+
 ```bash
-# Clone or copy the client-docker/ directory to the Jetson
-cd ~/codebase/client-docker
+cd ~/codebase/FedLearn-Platform
 
 # Build (use --no-cache on first build or after dependency changes).
 # Always tag BOTH :latest (default resolved by the Electron orchestrator)
 # AND a version tag (consumed via FEDLEARN_CLIENT_IMAGE overrides).
 sudo docker build --no-cache \
+  -f client-docker/Dockerfile \
   -t fedlearn-client:latest \
   -t fedlearn-client:0.1.0 \
   .
 ```
+
+`client-docker/test_docker_build.sh` runs this exact build from the project root and
+then validates the image (framework import, PyTorch, device backends).
 
 **Expected build time**: ~10-15 minutes (first build downloads ~2GB of dependencies).
 
@@ -158,7 +165,7 @@ sudo docker run --rm -it --network host \
 
 | Requirement | Version |
 |---|---|
-| Python | 3.9+ (tested on 3.12.7) |
+| Python | 3.10+ (`framework/setup.py` floor; repo pins 3.12.9) |
 | pip | 24.0+ |
 | torch | Pre-installed or auto-installed |
 
@@ -171,11 +178,11 @@ cd ~/codebase/personalProjects/FedLearn-Platform/client-docker
 python3 -m venv venv
 source venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install the FL framework (the canonical implementation the client wraps)
+pip install -e ../framework
 
-# Install torchvision (not in requirements.txt because it's pre-installed in Jetson Docker image)
-pip install torchvision lz4
+# Install client dependencies (torchvision and lz4 are already listed here)
+pip install -r requirements.txt
 ```
 
 ### 3.3 Regenerate Protobuf Files
@@ -412,7 +419,7 @@ safetensors>=0.3.1
 
 1. **Use minimum version bounds (`>=`), avoid strict upper bounds (`<X.Y.Z`)** unless there's a known breaking change. Pip's resolver will find the newest compatible version for each platform.
 
-2. **Regenerate protobuf files at build time**, not at development time. This ensures the generated code always matches the installed runtime, regardless of what protobuf version the developer used.
+2. **Keep the protobuf gencode and runtime on the same major version.** The framework ships pre-generated stubs; if a base image pins a protobuf runtime older than the gencode, regenerate from the `.proto` source (§3.3) rather than pinning the runtime forward.
 
 3. **Add `from __future__ import annotations`** to every Python file. This ensures compatibility from Python 3.7 through 3.13+ with zero runtime cost.
 
@@ -422,55 +429,73 @@ safetensors>=0.3.1
 
 ### 5.2 Dockerfile Anatomy
 
+This mirrors the committed `client-docker/Dockerfile`. Note that every `COPY` path is
+relative to the **repo root**, which is why the build context is the repo root and the
+Dockerfile is selected with `-f client-docker/Dockerfile`.
+
 ```dockerfile
-# 1. Base image: Use platform-specific base
-#    - Jetson: nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3
-#    - x86 GPU: nvidia/cuda:12.x-runtime-ubuntu22.04
-#    - CPU-only: python:3.10-slim
-FROM nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3
+# 1. Base image: selected per target via a build arg
+#    - Jetson:         nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3
+#    - Newer CUDA x86: pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+ARG BASE_IMAGE=pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
+FROM ${BASE_IMAGE}
+
+ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 
 # 2. System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3-dev python3-pip build-essential && \
-    rm -rf /var/lib/apt/lists/*
+    python3-venv python3-dev python3-pip build-essential git wget curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# 3. Python deps (copy requirements first for layer caching)
-COPY requirements.txt .
+WORKDIR /app
+
+# 3. Copy and pip-install the framework (single source of truth)
+COPY framework/ /app/framework/
+RUN pip3 install --no-cache-dir /app/framework/
+
+# 4. Client deps (copied separately for layer caching)
+COPY client-docker/requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# 4. Copy source code
-COPY fedlearn/ /app/fedlearn/
-
-# 5. Regenerate protobuf (critical for cross-platform)
-RUN python3 -m grpc_tools.protoc \
-    -I /app/fedlearn/communication/protos \
-    --python_out=/app/fedlearn/communication/generated \
-    --grpc_python_out=/app/fedlearn/communication/generated \
-    /app/fedlearn/communication/protos/fedlearn.proto \
-    && sed -i 's/^import fedlearn_pb2/from fedlearn.communication.generated import fedlearn_pb2/' \
-       /app/fedlearn/communication/generated/fedlearn_pb2_grpc.py
-
-# 6. Copy scripts and entrypoint
-COPY scripts/ /app/scripts/
-COPY entrypoint.sh /app/entrypoint.sh
+# 5. Copy the canonical client runtime + entrypoint
+COPY fl-runtime/ /app/fl-runtime/
+COPY client-docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
+# 6. Drop to an unprivileged user (GPU access does not require root)
+ARG APP_UID=10001
+ARG APP_GID=10001
+RUN groupadd --system --gid ${APP_GID} fedlearn \
+    && useradd --system --uid ${APP_UID} --gid ${APP_GID} --create-home --shell /bin/bash fedlearn \
+    && chown -R fedlearn:fedlearn /app /home/fedlearn
+
 ENV PYTHONPATH=/app:${PYTHONPATH}
-WORKDIR /app/scripts
+WORKDIR /app/fl-runtime
+USER fedlearn
 ENTRYPOINT ["/app/entrypoint.sh"]
+CMD []
 ```
 
-### 5.3 Enabling GPU on Jetson (Future Work)
+> **Note**: the image no longer regenerates protobuf at build time — the framework
+> ships pre-generated stubs under
+> `framework/src/fedlearn/communication/generated/`. Keep the regeneration recipe in
+> §3.3 and §4.5 in mind if you ever hit a gencode/runtime mismatch on a new base
+> image; the `.proto` source now declares `package fedlearn.v2`.
 
-To access the Jetson's GPU inside Docker without `--runtime nvidia`:
+### 5.3 Enabling GPU on Jetson (device mounts)
+
+To access the Jetson's GPU inside Docker without `--runtime nvidia`, mount the Tegra
+device nodes directly. This is the same set the desktop orchestrator applies for the
+Jetson hardware profile (`fedlearn-desktop/src/main/docker.service.ts`):
 
 ```bash
 sudo docker run --rm -it \
   --device /dev/nvhost-ctrl \
   --device /dev/nvhost-ctrl-gpu \
+  --device /dev/nvhost-dbg-gpu \
   --device /dev/nvhost-prof-gpu \
   --device /dev/nvmap \
-  --device /dev/nvgpu \
+  --device /dev/nvhost-gpu \
   -v /usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra:ro \
   -e PROJECT_ID="..." \
   -e SERVER_ADDRESS="..." \
@@ -501,7 +526,8 @@ sudo docker run --rm -it \
 
 ### Build & Run (Jetson)
 ```bash
-sudo docker build --no-cache -t fedlearn-client .
+# from the repo root — the Dockerfile COPYs framework/ and fl-runtime/
+sudo docker build --no-cache -f client-docker/Dockerfile -t fedlearn-client .
 sudo docker run --rm -it \
   -e PROJECT_ID="<uuid>" \
   -e SERVER_ADDRESS="<ip>:<port>" \

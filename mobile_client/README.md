@@ -1,9 +1,8 @@
 # FedLearn Mobile Client (v2)
 
 Native React Native + C++ (ExecuTorch on the shared core + Android; iOS libtorch
-xcframework build glue migration still pending) federated-learning client. Built fresh per
-[`docs/v2/build/15-LLD-mobile.md`](../docs/v2/build/15-LLD-mobile.md); see also the
-build order in [`docs/v2/build/90-BUILD-SEQUENCE.md`](../docs/v2/build/90-BUILD-SEQUENCE.md).
+xcframework build glue migration still pending) federated-learning client.
+Architecture deep-dive: [`wikis/mobile/README.md`](../wikis/mobile/README.md).
 
 > **RN** = React Native · **FL** = Federated Learning · **RNG** = Random Number Generator ·
 > **ZO** = Zeroth-Order optimization · **gRPC** = Google Remote Procedure Call ·
@@ -48,8 +47,8 @@ seed, and produce matching gradient scalars.
 | RN app `lib/` | `src/lib/`: `nativeCore` (typed TurboModule wrapper), `clientId` (stable encrypted UUID), `deviceClass` (tier cap; 100M never on mobile), `restClient`, `runJoin` (the §6.1 join flow) |
 | RN screens | `src/screens/`: `TrainingScreen` (join + DeComFL round loop + live metrics + device guard), `ModelLibraryScreen`, `ModelTestingScreen` (**real softmax**) — on NativeWind + OKLCH tokens, lucide icons |
 | RN nav + root | `src/navigation/AppNavigator.tsx` (3-tab, lucide), `src/App.tsx`; `src/theme/` (local OKLCH token placeholder for `@fedlearn/tokens`) |
-| Native-dep prebuild scripts | `scripts/`: `build_libtorch_arm64.sh` + `build_grpc_arm64.sh` (pinned cross-compile), `export_model.py` (1M/10M TorchScript — verified), `fetch_demo_data.sh` (MNIST, not committed) |
-| Mobile CI | `../.github/workflows/mobile.yml` — proto-mirror + python-parity + cpp-parity gates (the **golden-vector test gates the build**); `android-so-size` budget job (gated by repo var) |
+| Native-dep prebuild scripts | `scripts/`: `build_executorch_arm64.sh` + `build_grpc_arm64.sh` (pinned cross-compile; `build_libtorch_arm64.sh` remains for the iOS podspec's libtorch xcframework), `export_model.py`, `pte_export.py`, `fetch_demo_data.sh` (MNIST, not committed) |
+| Mobile CI | `../.github/workflows/mobile.yml` — proto-mirror + python-parity + cpp-parity gates (the **golden-vector test gates the build**); `android-so-size` budget job (nightly schedule, or force-enabled with the `MOBILE_NATIVE_CI` repo var) |
 | Android app project | `android/`: Gradle (root + app, `externalNativeBuild`→JNI) + committed **Gradle wrapper** (`gradlew` + `gradle/wrapper/*`, Gradle 8.14.1), `AndroidManifest.xml`, `network_security_config.xml`, `MainApplication`/`MainActivity` (RN New-Arch host + data-dir init) |
 | Foreground service (task 16) | `android/.../FlForegroundService.kt` + `FlServiceModule`/`FlServicePackage` + `src/lib/foregroundService.ts` (started around the round loop in `TrainingScreen`) |
 | Device-metrics provider (task 17) | `android/.../DeviceState.kt` + `bridge/android/jni/DeviceStateJni.cpp`; iOS `DeviceState.swift`; shared `bridge/common/DeviceState.{h,cpp}` → `getDeviceMetrics` |
@@ -63,8 +62,9 @@ regenerate any time with that script). Per-machine bring-up:
 
 ```bash
 npm install --legacy-peer-deps     # RN 0.80 deps (a react-navigation peer range needs this flag)
-# Android (needs Android SDK/NDK + cross-compiled ARM64 libtorch/gRPC):
-(cd android && ./gradlew assembleRelease -PLIBTORCH_DIR=… -PGENERATED_PROTO_DIR=…)
+# Android (needs Android SDK/NDK + the cross-compiled ARM64 ExecuTorch/gRPC artifacts):
+(cd android && ./gradlew assembleRelease \
+   -PET_SRC=… -PET_BUILD=… -PTORCH_INCLUDE=… -PGRPC_DIR=… -PGENERATED_PROTO_DIR=…)
 # iOS (needs full Xcode + CocoaPods):
 (cd ios && pod install)            # or re-run ios/generate_xcodeproj.sh, which also pod-installs
 ```
@@ -73,24 +73,27 @@ npm install --legacy-peer-deps     # RN 0.80 deps (a react-navigation peer range
 - **Android** — `app/build.gradle` `externalNativeBuild` builds `libfedlearn_jni.so` from
   `bridge/android/jni/CMakeLists.txt` (core + gRPC + bridge), and `bridge/android/jni/OnLoad.cpp`
   now registers the `cxxModuleProvider` in `JNI_OnLoad` so JS
-  `getEnforcing('NativeFedLearnCore')` resolves. Needs `-PLIBTORCH_DIR`/`-PGENERATED_PROTO_DIR`
-  (cross-compiled ARM64 artifacts) to assemble.
+  `getEnforcing('NativeFedLearnCore')` resolves. Needs `-PET_SRC`/`-PET_BUILD`/`-PTORCH_INCLUDE`/
+  `-PGRPC_DIR`/`-PGENERATED_PROTO_DIR` (the cross-compiled ARM64 artifacts) to assemble.
 - **iOS** — `ios/FedLearnCore.podspec` compiles `shared/` + `bridge/` + the gRPC layer into the app
   target; `bridge/ios/FedLearnFactoryDelegate.mm` is the New-Arch TurboModule hook (wired in
   `AppDelegate.swift` via `#if canImport(FedLearnCore)`); `ios/wire_native.rb` adds
   `DeviceState.swift` + the bridging header to the target. Enable with `FEDLEARN_NATIVE_IOS=1` +
   the libtorch/gRPC xcframework env vars (see the podspec); otherwise the JS shell builds without it.
 
-**Still remaining** (build inputs + release): the cross-compiled **ARM64 libtorch + gRPC** artifacts
-and buf-generated stubs for both platforms (`scripts/build_*_arm64.sh`, `buf generate`); a real
+**Still remaining** (build inputs + release): the cross-compiled **ARM64 ExecuTorch + gRPC**
+artifacts and buf-generated stubs for both platforms (`scripts/build_*_arm64.sh`, `buf generate`); a real
 **release signing config** for both (Android app `build.gradle` and iOS currently use debug/none);
-the shared `@fedlearn/tokens` package replacing the local `src/theme` placeholder; and on-device
-training-data wiring (`FedLearnCoreModule::setTrainingDataFromFiles`). Note the on-device DeComFL
+and the shared `@fedlearn/tokens` package replacing the local `src/theme` placeholder. The
+bundle-provisioning path is wired end-to-end (`src/lib/training.ts` →
+`provisionTrainingBundle` → `FedLearnCoreModule::stageBundleFile` →
+`setTrainingDataFromFiles`). Note the on-device DeComFL
 path currently loads the **fixed golden TinyNet fixture** (`Linear(4,5)→ReLU→Linear(5,3)`, fc2 frozen:
 43 params, 25 trainable) staged as the device's local partition — **not a per-recipe model**;
 per-recipe / per-device bundles and real on-device data are a deliberate post-MVP step (see
-`ON_DEVICE_TRAINING_E2E.md`). Once the Android project
-assembles, set the repo variable `MOBILE_NATIVE_CI=true` to enable the `android-so-size` CI job.
+`ON_DEVICE_TRAINING_E2E.md`). The heavy `android-so-size` CI job is off for normal push/PR
+(TE-8): it runs on the **nightly schedule**, and can be force-enabled on demand with the repo
+variable `MOBILE_NATIVE_CI=true`.
 
 The TurboModule bridge (tasks 11–13) is in `bridge/` — see `bridge/README.md` for its
 build/codegen/wiring steps and the React Native version-specific caveats.
@@ -98,13 +101,13 @@ build/codegen/wiring steps and the React Native version-specific caveats.
 ### Building the opt-in gRPC layer
 
 `FedLearnClient` / `FederatedLoop` / `DataLoader` need the buf-generated C++ stubs and a
-cross-compiled gRPC runtime, so they are **off by default** (the parity gate above builds
-with only libtorch). To build them:
+cross-compiled gRPC runtime, so they are **off by default** (`FEDLEARN_BUILD_GRPC=OFF`; the parity
+gate above builds against the ExecuTorch runtime alone). To build them:
 
 ```bash
 cd proto && buf generate          # emits C++ stubs into gen/cpp/fedlearn/v2/
 cmake -S mobile_client -B mobile_client/build \
-      -DLIBTORCH_DIR="$LIBTORCH_DIR" \
+      -DET_SRC="$ET_SRC" -DET_BUILD="$ET_BUILD" -DTORCH_INCLUDE="$TORCH_INCLUDE" \
       -DFEDLEARN_BUILD_GRPC=ON \
       -DGENERATED_PROTO_DIR="$PWD/gen/cpp"
 cmake --build mobile_client/build -j
@@ -134,19 +137,25 @@ it; this C++ core must reproduce them.
 
 ## Build & run the C++ core tests in isolation (the parity gate)
 
-Requires a host libtorch matching the pinned torch version (2.12.0). CMake ≥ 3.22, a
-C++17 compiler, and network access for the gtest fetch.
+The core links the **ExecuTorch** runtime (v1.3.1), not libtorch/ATen. Requires a host ExecuTorch
+build, a CPU torch install matching the pinned golden version (2.12.0) — used *only* to supply the
+`torch/headeronly/macros/cmake_macros.h` header — CMake ≥ 3.24, a C++17 compiler, and network
+access for the gtest fetch. This mirrors the `cpp-parity` job in `../.github/workflows/mobile.yml`.
 
 ```bash
-# 1. Get libtorch (CPU build is fine for the host parity gate). Example:
-#    download + unzip libtorch 2.12.0 from https://pytorch.org/get-started/locally/
-export LIBTORCH_DIR=/path/to/libtorch
+# 1. Build ExecuTorch v1.3.1 from source (the dir MUST be named "executorch"); see the
+#    configure flags in the mobile.yml cpp-parity job.
+export ET_SRC=/tmp/executorch ET_BUILD=/tmp/executorch/cmake-out
 
-# 2. Configure + build
-cmake -S mobile_client -B mobile_client/build -DLIBTORCH_DIR="$LIBTORCH_DIR"
+# 2. Point TORCH_INCLUDE at a venv torch 2.12.0 include dir (header only, no linking)
+export TORCH_INCLUDE=$(python -c 'import torch, os; print(os.path.join(os.path.dirname(torch.__file__), "include"))')
+
+# 3. Configure + build
+cmake -S mobile_client -B mobile_client/build -DFEDLEARN_BUILD_TESTS=ON \
+      -DET_SRC="$ET_SRC" -DET_BUILD="$ET_BUILD" -DTORCH_INCLUDE="$TORCH_INCLUDE"
 cmake --build mobile_client/build -j
 
-# 3. Run the parity + dtype tests
+# 4. Run the parity + dtype tests
 ctest --test-dir mobile_client/build --output-on-failure
 ```
 
@@ -160,9 +169,11 @@ cd framework && PYTHONPATH=src pytest tests/test_perturbation.py -v
 
 ## Toolchain for the full app (later increments, 15-LLD §11.1)
 
-Node 24 LTS, JDK 21, the Android SDK + NDK (for `arm64-v8a`), Xcode (iOS), CMake ≥ 3.22,
-and the CI-prebuilt libtorch/gRPC ARM64 artifacts (`scripts/build_libtorch_arm64.sh`,
-`scripts/build_grpc_arm64.sh` — not yet written). The Android app targets `arm64-v8a`
+Node 24 LTS, JDK 21, the Android SDK + NDK (for `arm64-v8a`), Xcode (iOS), CMake ≥ 3.24,
+and the CI-prebuilt ARM64 native deps, cross-compiled by the committed
+`scripts/build_executorch_arm64.sh` / `scripts/build_grpc_arm64.sh` (pinned; the artifacts
+themselves are not committed). `scripts/build_libtorch_arm64.sh` is retained only for the iOS
+podspec's libtorch xcframework — the Android/native core path is ExecuTorch. The Android app targets `arm64-v8a`
 only; the C++ core is consumed through the JNI TurboModule bridge.
 
 ---
@@ -171,5 +182,5 @@ only; the C++ core is consumed through the JNI TurboModule bridge.
 
 - One product name: **FedLearn** (the v1 "FedMob"/`com.mobileclientnew` names are retired).
 - One canonical proto (`buf`-generated); no drifted copies (the v1 third proto is deleted).
-- No committed dataset blobs; demo data is fetched (`scripts/fetch_demo_data.sh`, later).
+- No committed dataset blobs; demo data is fetched (`scripts/fetch_demo_data.sh`).
 - The C++ `SAFE_DTYPES` whitelist stays in lockstep with the Python serializer whitelist.

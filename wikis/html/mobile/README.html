@@ -27,9 +27,10 @@
 <li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -84,10 +85,10 @@
     <article class="article"><h1 id="fedlearn-mobile-wiki">FedLearn Mobile — Wiki<a class="headerlink" href="#fedlearn-mobile-wiki" title="Permanent link">&para;</a></h1>
 <blockquote>
 <p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a><br />
-<strong>Stack:</strong> React Native 0.80, TypeScript, native C++ (libtorch) via a TurboModule (JSI) bridge, Android + iOS<br />
+<strong>Stack:</strong> React Native 0.80, TypeScript, native C++ (ExecuTorch on the shared core + Android; iOS libtorch xcframework build glue migration still pending) via a TurboModule (JSI) bridge, Android + iOS<br />
 <strong>Version:</strong> <code>2.1.0</code> (adopted the <strong>Ember</strong> design system + brand fonts this cycle)</p>
 </blockquote>
-<p>The mobile client (<code>mobile_client/</code>) is an <strong>on-device</strong> federated-learning participant for phones and tablets. The React Native / TypeScript layer owns the UI, authentication, and round orchestration; the heavy lifting — the <strong>DeComFL zeroth-order (ZO) training path</strong> — runs <strong>natively in C++ on libtorch</strong>, reached through a TurboModule bridge. Training data never leaves the device.</p>
+<p>The mobile client (<code>mobile_client/</code>) is an <strong>on-device</strong> federated-learning participant for phones and tablets. The React Native / TypeScript layer owns the UI, authentication, and round orchestration; the heavy lifting — the <strong>DeComFL zeroth-order (ZO) training path</strong> — runs <strong>natively in C++ on the ExecuTorch runtime</strong> (the shared C++ core and the Android build link ExecuTorch, not libtorch/ATen; the iOS libtorch xcframework glue is a pending, incompatible scaffold), reached through a TurboModule bridge. Training data never leaves the device.</p>
 <p>The single product name is <strong>FedLearn</strong> (the v1 <code>FedMob</code> / <code>com.mobileclientnew</code> names are retired). "Ember" is the design system/theme adopted in <code>2.1.0</code>, not a product rename.</p>
 <hr />
 <h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
@@ -117,7 +118,7 @@
 <hr />
 <h2 id="project-layout">Project layout<a class="headerlink" href="#project-layout" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code>mobile_client/
-├── shared/             # C++ FL core (libtorch) + gtest parity/dtype/marshal tests
+├── shared/             # C++ FL core (ExecuTorch runtime) + gtest parity/dtype/marshal tests
 │   ├── src/  include/  tests/
 │   └── CMakeLists.txt
 ├── bridge/             # TurboModule: TS spec, common C++ module, Android JNI + iOS .mm
@@ -132,10 +133,16 @@
 <hr />
 <h2 id="build-status">Build status<a class="headerlink" href="#build-status" title="Permanent link">&para;</a></h2>
 <p>Both app projects are now <strong>buildable</strong>: the two prior template-scaffolding blockers were resolved and committed — the Android <strong>Gradle wrapper</strong> (<code>./gradlew</code> bootstraps Gradle 8.14.1) and the iOS <strong><code>FedLearn.xcodeproj</code></strong> (regenerate with <code>ios/generate_xcodeproj.sh</code>). The native FL core is wired into both targets (Android <code>externalNativeBuild</code> → <code>libfedlearn_jni.so</code>; iOS <code>FedLearnCore.podspec</code>, enabled with <code>FEDLEARN_NATIVE_IOS=1</code>).</p>
-<p>The <strong>C++ core is fully implemented and tested</strong> (parity, dtype, serialize round-trip, DeComFL equivalence, gRPC marshal). What still gates a shippable release: the cross-compiled <strong>ARM64 libtorch + gRPC</strong> artifacts and buf-generated stubs, real <strong>signing configs</strong> for both platforms, the shared <code>@fedlearn/tokens</code> package replacing the local theme placeholder, and on-device training-data wiring.</p>
+<p>The <strong>C++ core is fully implemented and tested</strong> (parity, dtype, serialize round-trip, DeComFL equivalence, gRPC marshal). What still gates a shippable release: the cross-compiled <strong>ARM64 ExecuTorch + gRPC</strong> artifacts and buf-generated stubs (the Android core links ExecuTorch statically; the iOS libtorch xcframework wiring is a separate, still-pending migration), real <strong>signing configs</strong> for both platforms, the shared <code>@fedlearn/tokens</code> package replacing the local theme placeholder, and on-device training-data wiring.</p>
 <h3 id="host-parity-gate-run-the-c-core-tests-in-isolation">Host parity gate (run the C++ core tests in isolation)<a class="headerlink" href="#host-parity-gate-run-the-c-core-tests-in-isolation" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">LIBTORCH_DIR</span><span class="o">=</span>/path/to/libtorch<span class="w">      </span><span class="c1"># CPU build is fine; must match torch 2.12.0</span>
-cmake<span class="w"> </span>-S<span class="w"> </span>mobile_client<span class="w"> </span>-B<span class="w"> </span>mobile_client/build<span class="w"> </span>-DLIBTORCH_DIR<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$LIBTORCH_DIR</span><span class="s2">&quot;</span>
+<p>The C++ core links the <strong>ExecuTorch runtime</strong> (no libtorch/ATen), so build ExecuTorch v1.3.1
+from source first, then point the build at it (must match the pinned torch 2.12.0):</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># ET_SRC        — ExecuTorch v1.3.1 source tree (the dir MUST be named &quot;executorch&quot;)</span>
+<span class="c1"># ET_BUILD      — its host build output (cmake-out); the static libs are resolved out of it</span>
+<span class="c1"># TORCH_INCLUDE — a venv torch include dir (supplies only the one missing headeronly macro header)</span>
+cmake<span class="w"> </span>-S<span class="w"> </span>mobile_client<span class="w"> </span>-B<span class="w"> </span>mobile_client/build<span class="w"> </span>-DFEDLEARN_BUILD_TESTS<span class="o">=</span>ON<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-DET_SRC<span class="o">=</span>/tmp/executorch<span class="w"> </span>-DET_BUILD<span class="o">=</span>/tmp/executorch/cmake-out<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-DTORCH_INCLUDE<span class="o">=</span>&lt;venv&gt;/lib/pythonX/site-packages/torch/include
 cmake<span class="w"> </span>--build<span class="w"> </span>mobile_client/build<span class="w"> </span>-j
 ctest<span class="w"> </span>--test-dir<span class="w"> </span>mobile_client/build<span class="w"> </span>--output-on-failure
 <span class="c1"># Python side of the same contract:</span>
@@ -144,11 +151,26 @@ ctest<span class="w"> </span>--test-dir<span class="w"> </span>mobile_client/bui
 
 <p>CI (<code>.github/workflows/mobile.yml</code>) runs the proto-mirror, Python-parity, and C++-parity gates; the golden-vector test gates the build.</p>
 <hr />
+<h2 id="on-device-model-bundle-current-state-honest-disclosure">On-device model bundle — current state (honest disclosure)<a class="headerlink" href="#on-device-model-bundle-current-state-honest-disclosure" title="Permanent link">&para;</a></h2>
+<p>The on-device DeComFL path does <strong>not</strong> yet load a per-recipe model. What it loads today is a
+<strong>fixed golden TinyNet fixture</strong>: <code>Linear(4,5) → ReLU → Linear(5,3)</code> with <code>fc2</code> frozen —
+<strong>43 total parameters, 25 trainable</strong> (<code>flat_dim = 25</code>). This is the committed fixture at
+<code>framework/tests/fixtures/decomfl_golden/</code> (see <code>zo_manifest.json</code>), the same fixture that
+backs the C++ parity gate.</p>
+<p>In the end-to-end on-device run, that fixture is <em>staged as the device's local partition</em> — it
+stands in for genuine per-device data, and its <code>.pte</code> loss/infer graphs stand in for a real
+per-recipe model. This is a deliberate MVP shortcut, <strong>not representative federation</strong>:
+per-recipe / per-device bundles and real on-device data are an explicit post-MVP step. The full
+plumbing, phases, and manual acceptance runbook are documented in
+<a href="../../mobile_client/ON_DEVICE_TRAINING_E2E.md"><code>mobile_client/ON_DEVICE_TRAINING_E2E.md</code></a>
+(the loaded model reports exactly 25 trainable params, and a round's loss ≈ the fixture
+<code>golden_loss</code> ~1.097).</p>
+<hr />
 <h2 id="key-cross-component-interfaces">Key cross-component interfaces<a class="headerlink" href="#key-cross-component-interfaces" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Authenticates against the <strong>Backend</strong> <code>POST /api/auth/login</code> (same cookie/JWT contract as the web client).</li>
 <li>Connects to a <strong>Framework</strong> FL server over gRPC and runs the native DeComFL client path.</li>
-<li>Shares the <strong>canonical</strong> <code>proto/fedlearn/v2</code> contract (byte-mirrored into <code>mobile_client/proto/</code>, enforced by <code>scripts/check_proto_mirror.sh</code>). Note: the running Python framework still generates from the older <code>fedlearn.v1</code> proto — the v2 contract is ahead of the framework implementation.</li>
+<li>Shares the <strong>canonical</strong> <code>proto/fedlearn/v2</code> contract (byte-mirrored into <code>mobile_client/proto/</code>, enforced by <code>scripts/check_proto_mirror.sh</code> — which checks three mirrors: this one plus the framework's <code>fedlearn.proto</code> and <code>fot.proto</code>). The framework's copy is byte-identical to canonical, so client and server share one <code>fedlearn.v2</code> contract with no version skew.</li>
 <li>The C++ <code>SAFE_DTYPES</code> whitelist stays in lockstep with the Python serializer whitelist.</li>
 </ul>
 <h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Permanent link">&para;</a></h2>

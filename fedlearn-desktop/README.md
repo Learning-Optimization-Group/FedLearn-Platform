@@ -15,7 +15,10 @@
    - **Windows x64 without GPU** — `FedLearn-Desktop-Setup-X.Y.Z-cpu.exe`
    - **Jetson AGX Orin** — install via `.deb` or AppImage, requires Docker + NVIDIA Container Toolkit (pre-installed with JetPack)
 2. Install and launch. The app auto-detects your hardware (Apple Silicon, NVIDIA GPU, or CPU) and pre-selects the right profile.
-3. Enter the server address + project ID and click **Start Training**.
+3. Sign in. The app lists the models you're allowed to train (`GET /api/client/projects`)
+   — pick one and click **Start Training**. It joins the project and fetches the gRPC
+   address, partition id, and connection token for you; there's no manual server
+   address / project ID / partition entry.
 
 ---
 
@@ -25,8 +28,8 @@
 
 | Requirement | Notes |
 |---|---|
-| **Node.js** ≥ 18.x | For building and running the Electron app |
-| **Python 3.11+** | Only needed for dev mode (the packaged installer bundles its own) |
+| **Node.js 24** | For building and running the Electron app (`.nvmrc` = `24`; CI builds on 24) |
+| **Python 3.10+** | Only needed for dev mode (the packaged installer bundles its own). Repo pins 3.12.9 |
 | **Docker Engine** | Only needed for the Jetson profile |
 | **FedLearn Backend** | Spring Boot API running at `http://localhost:8081` |
 
@@ -86,12 +89,13 @@ the **Jetson SoC** hardware profile; other profiles use the native bundle.
 cd fedlearn-desktop
 npm install
 
-# 2. Start the dev environment (renderer + main + preload, concurrent)
+# 2. Start the dev environment (preload + main + renderer, then Electron — all concurrent)
 npm run dev
-
-# 3. In a separate terminal, launch Electron
-npm run dev:electron
 ```
+
+`npm run dev` already launches Electron for you (it waits ~3s for the bundles, then
+runs `dev:electron`). Use `npm run dev:electron` on its own only when you want to
+re-attach Electron to bundles that are already built.
 
 The renderer dev server runs on `http://localhost:9000` with HMR. The Electron main process loads from this URL in development mode.
 
@@ -99,7 +103,8 @@ The renderer dev server runs on `http://localhost:9000` with HMR. The Electron m
 
 | Variable | Default | Description |
 |---|---|---|
-| `FEDLEARN_API_URL` | `http://localhost:8081/api` | Backend API base URL |
+| `FEDLEARN_API_URL` | `http://localhost:8081/api` | Backend API base URL (a URL saved in-app takes precedence) |
+| `FEDLEARN_CLIENT_IMAGE` | `fedlearn-client:latest` | Overrides the client image used by the Docker (Jetson) path |
 | `NODE_ENV` | — | Set to `production` for packaged builds |
 
 ---
@@ -114,22 +119,30 @@ npm run build
 npm run package
 
 # Package for specific platforms
-npm run package:mac    # macOS (.dmg)
-npm run package:linux  # Linux (.deb + .rpm)
-npm run package:win    # Windows (.exe via NSIS)
+npm run package:mac       # macOS (.dmg + .zip, arm64)
+npm run package:linux     # Linux (AppImage + .deb, x64 + arm64)
+npm run package:win:cpu   # Windows CPU (.exe via NSIS, x64)
+npm run package:win:cuda  # Windows CUDA (.exe via NSIS, x64)
 ```
+
+There is no bare `package:win` script — Windows ships as two variants (`cpu` /
+`cuda`) that differ only in the bundled native client, tagged via the NSIS
+`artifactName`.
 
 ### What the Production Build Does
 
-1. **Webpack** compiles Main, Preload, and Renderer bundles in production mode
-2. **TerserPlugin** with `drop_console: true` strips all `console.*` calls from Renderer + Preload bundles (prevents JWT/path leakage to DevTools)
-3. **electron-builder** packages the app with `asar` compression
+1. **`check-native-bundle.js`** verifies the PyInstaller client bundle is present for the target before anything else runs
+2. **Webpack** compiles Main, Preload, and Renderer bundles in production mode
+3. **TerserPlugin** with `drop_console: true` strips all `console.*` calls from Renderer + Preload bundles (prevents JWT/path leakage to DevTools)
+4. **electron-builder** packages the app with `asar` compression
 
 ---
 
 ## Hardware Profile Guide
 
-The Electron app supports three hardware profiles that control how Docker containers access GPU resources:
+The Electron app supports three hardware profiles. Only the **Jetson** profile goes
+through Docker; `discrete` and `cpu` run the bundled native client directly. The
+Docker flags below apply when the container path is taken:
 
 ### Discrete GPU (`discrete`)
 
@@ -197,27 +210,46 @@ For machines without GPU acceleration.
 fedlearn-desktop/
 ├── src/
 │   ├── main/
-│   │   ├── main.ts               # BrowserWindow + CSP + app lifecycle
-│   │   ├── ipc.handlers.ts       # All ipcMain.handle registrations
-│   │   ├── docker.service.ts     # DockerService using dockerode
-│   │   └── auth.service.ts       # JWT storage + backend API calls
+│   │   ├── main.ts                     # BrowserWindow + CSP + app lifecycle
+│   │   ├── ipc.handlers.ts             # All ipcMain.handle registrations
+│   │   ├── docker.service.ts           # DockerService (dockerode) + native-client spawn
+│   │   ├── auth.service.ts             # JWT storage + backend API calls
+│   │   ├── client-projects.service.ts  # "models I can train" + /connection flow
+│   │   ├── inference.service.ts        # Local inference on a trained model
+│   │   ├── inference-stream.service.ts # Streaming inference output
+│   │   ├── hardware.probe.ts           # Hardware auto-detection
+│   │   ├── deviceCapabilities.collector.ts
+│   │   ├── http.ts                     # HTTP client + auth interceptor
+│   │   ├── updater.ts                  # electron-updater wiring
+│   │   └── validators.ts               # Shared input validation
 │   ├── preload/
-│   │   └── preload.ts            # contextBridge API + input validation
+│   │   └── preload.ts                  # contextBridge API + input validation
 │   └── renderer/
-│       ├── App.tsx               # Main application layout
-│       ├── index.tsx             # React 18 entry point
-│       ├── index.html            # HTML template
-│       ├── styles.css            # Design system + global styles
+│       ├── App.tsx                     # Main application layout
+│       ├── index.tsx                   # React 18 entry point
+│       ├── index.html                  # HTML template
+│       ├── tokens.css                  # Ember design tokens
+│       ├── fonts.css                   # Bundled font faces
+│       ├── styles.css                  # Global styles
 │       └── components/
-│           ├── HardwareSelector.tsx   # Hardware profile cards + config
-│           ├── LogPanel.tsx           # Plain-text log viewer
-│           ├── StatusIndicator.tsx    # Container status badge
-│           └── AuthModal.tsx          # Login modal
+│           ├── HardwareSelector.tsx     # Hardware profile cards + config
+│           ├── LogPanel.tsx             # Plain-text log viewer
+│           ├── StatusIndicator.tsx      # Container status badge
+│           ├── AuthModal.tsx            # Login modal
+│           ├── SettingsModal.tsx        # Server URL + preferences
+│           ├── ModelPlayground.tsx      # Inference playground
+│           └── UpdateBanner.tsx         # Auto-update prompt
+├── scripts/
+│   ├── check-native-bundle.js    # Pre-package guard: native client present?
+│   └── generate-checksums.js
 ├── webpack.main.config.js        # Webpack: electron-main
 ├── webpack.renderer.config.js    # Webpack: renderer (web target)
 ├── webpack.preload.config.js     # Webpack: electron-preload
 ├── webpack.prod.config.js        # Webpack: production multi-config
+├── webpack.csp.js                # Shared CSP definition
 ├── electron-builder.yml          # Cross-platform packaging
+├── eslint.config.mjs             # ESLint 9 flat config (CI-gated)
+├── jest.config.js
 ├── tsconfig.json
 └── package.json
 ```

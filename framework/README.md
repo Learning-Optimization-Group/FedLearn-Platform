@@ -6,7 +6,9 @@
 
 ## Overview
 
-FedLearn is a flexible and extensible federated learning framework designed for distributed machine learning across multiple clients. **Built from scratch — no Flower / `flwr` dependency.** Communication is direct gRPC over a custom protobuf contract (`fedlearn.proto`, package `fedlearn.v1`); the framework supports CNNs, Transformers, and LLMs with pluggable aggregation strategies (FedAvg and DeComFL). The legacy `flower/` package name in the Spring Boot backend refers to the `FlowerServerManager` — that's a historical name for the FL-server process supervisor, not a Flower dependency.
+FedLearn is a flexible and extensible federated learning framework designed for distributed machine learning across multiple clients. **Built from scratch — this package carries no Flower / `flwr` dependency and borrows none of its semantics.** Communication is direct gRPC over a custom protobuf contract (`fedlearn.proto`, package `fedlearn.v2`); the framework supports CNNs, Transformers, and LLMs with pluggable aggregation strategies (FedAvg and DeComFL). The FL-server process supervisor in the Spring Boot backend is `FlServerManager` (package `com.federated.fl_platform_api.orchestration`) — it shells out to the `fl-runtime/` scripts and has nothing to do with Flower.
+
+> **Scope note:** `flwr` is absent from `framework/requirements.txt`. Elsewhere in the repo (`backend/fl-platform-api/requirements.txt`, `client-docker/requirements.txt`) `flwr` / `flwr-datasets` are pulled in **for dataset partitioning only** — never for FL server/client/strategy semantics.
 
 **Key Features:**
 - 🌐 **Server-Client Architecture** - Efficient gRPC-based communication
@@ -91,8 +93,8 @@ Basic federated learning with MNIST dataset and CNN model.
 ```bash
 cd examples/simple_federation
 
-# Terminal 1: Start server
-python run_server.py --num_rounds 10 --num_clients 3
+# Terminal 1: Start server (accepts --port and --num_rounds)
+python run_server.py --num_rounds 10
 
 # Terminal 2-4: Start clients
 python run_client.py --id 0 --server_address localhost:50051
@@ -108,8 +110,8 @@ Fine-tune OPT-125M on SuperGLUE CommitmentBank (CB) dataset.
 ```bash
 cd examples/llm_federation
 
-# Terminal 1: Start server
-python run_server.py --dataset cb --num_rounds 5 --num_clients 3
+# Terminal 1: Start server (cohort size is set by --clients_per_round / --min_fit_clients)
+python run_server.py --dataset cb --num_rounds 5 --clients_per_round 3
 
 # Terminal 2-4: Start clients
 python run_client.py --id 0 --dataset cb --server_address localhost:50051
@@ -180,18 +182,22 @@ FedLearn uses gRPC for efficient client-server communication and supports variou
 
 ```
 framework/
-├── src/fedlearn/           # Core federated learning package
-│   ├── client/            # Client implementations
-│   ├── server/            # Server and coordination logic
-│   ├── communication/     # gRPC and serialization
-│   ├── core/             # Core utilities
-│   ├── data/             # Data handling utilities
-│   └── estimators/       # DeComFL estimators
-├── examples/              # Ready-to-run examples
-│   ├── simple_federation/ # MNIST + CNN
-│   ├── llm_federation/    # OPT-125M fine-tuning
-│   └── ecg_federation/    # ECG classification
-└── docs/                  # Documentation
+├── src/fedlearn/            # Core federated learning package
+│   ├── backbone/            # Frozen-backbone distribution
+│   ├── bundle/              # Adapter-bundle packaging
+│   ├── client/              # Client implementations
+│   ├── communication/       # gRPC, safetensors serialization
+│   ├── estimators/          # DeComFL estimators
+│   ├── fot/                 # Federation over Text (research mode)
+│   ├── privacy/             # Differential-privacy accounting
+│   ├── security/            # TLS + connection-token plumbing
+│   └── server/              # Server, coordinator, strategies
+├── examples/                # Ready-to-run examples (full set in examples/)
+│   ├── simple_federation/   # MNIST + CNN
+│   ├── llm_federation/      # OPT-125M fine-tuning
+│   ├── ecg_federation/      # ECG classification
+│   └── fot_text_federation/ # Federation over Text, offline demo
+└── docs/                    # Documentation
 ```
 
 ## Citation
@@ -214,7 +220,7 @@ This framework implements algorithms from:
 - **Federation over Text (FoT)** — an additive, local-LLM-only text-federation research mode, orthogonal to the gradient path ([arXiv:2604.16778](https://arxiv.org/abs/2604.16778)); see [`src/fedlearn/fot/`](src/fedlearn/fot/)
 - Developed at Rochester Institute of Technology under Professor Haibo Yang
 
-Full papers-to-code mapping (DeComFL, FoT, HiSo, DPZV — implemented vs. roadmap): [`../docs/research/papers-and-implementation.md`](../docs/research/papers-and-implementation.md).
+DeComFL paper-to-code mapping (Algorithms 2–4 → `server/decomfl_strategy.py`, `client/decomfl_client.py`, `estimators/`): [`wikis/framework/06_decomfl.md`](../wikis/framework/06_decomfl.md).
 
 ## Contributing
 

@@ -27,9 +27,10 @@
 <li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -414,7 +415,7 @@ hostname:port       → fedlearn-server.local:8080
 domain:port         → api.fedlearn.company.com:8080
 </code></pre></div>
 
-<p>Note: This is <strong>not</strong> the same as the backend HTTP URL configured in the auth settings. That URL is for the Spring Boot REST API. This address is for the federated learning training coordinator (Flower/gRPC).</p>
+<p>Note: This is <strong>not</strong> the same as the backend HTTP URL configured in the auth settings. That URL is for the Spring Boot REST API. This address is for the federated learning training coordinator (gRPC).</p>
 <h3 id="partitionid-and-data-partitioning"><code>partitionId</code> and Data Partitioning<a class="headerlink" href="#partitionid-and-data-partitioning" title="Permanent link">&para;</a></h3>
 <p>In federated learning, the global dataset is divided into partitions — one per client (participant). Each client trains only on its local partition:</p>
 <div class="codehilite"><pre><span></span><code>Global Dataset

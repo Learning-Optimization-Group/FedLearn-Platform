@@ -27,9 +27,10 @@
 <li><a href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a class="active" href="02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -83,7 +84,8 @@
   <div class="content-wrap">
     <article class="article"><h1 id="02-security-and-authentication">02 - Security and Authentication<a class="headerlink" href="#02-security-and-authentication" title="Permanent link">&para;</a></h1>
 <p>The FedLearn backend implements a robust, multi-layered security architecture designed to handle both standard REST API clients (React) and internal Machine Learning servers (Python).</p>
-<blockquote class="callout warn"><p>⚠️ <strong>Branch reality.</strong> The JWT / cookie / WebSocket-handshake / internal-API-key mechanics on this page are <strong>current</strong>. The <strong>role and org-scope material</strong> — <code>PlatformRole</code> / <code>PLATFORM_ADMIN</code>, the three role layers, <code>OrgScope</code> / <code>OrgScopeFilter</code>, <code>organization_memberships</code>, and the <code>@Auditable</code> audit trail — is <strong>designed on a separate identity-foundations branch and is <em>not present</em> here.</strong> This branch ships a single coarse <code>users.role IN (USER, ADMIN)</code> column (migration <code>V2</code>; highest committed migration <code>V3</code>). See the banner on <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</p>
+<blockquote>
+<p>✅ <strong>Branch reality.</strong> The JWT / cookie / WebSocket-handshake / internal-API-key mechanics on this page are <strong>current</strong>. The <strong>role and org-scope material</strong> — <code>PlatformRole</code> / <code>PLATFORM_ADMIN</code>, the three role layers, <code>OrgScope</code> / <code>OrgScopeFilter</code>, <code>organization_memberships</code>, and the <code>@Auditable</code> audit trail — <strong>is also present on this branch</strong> (the <code>V4</code>–<code>V7</code> identity migrations; the coarse <code>users.role IN (USER, ADMIN)</code> column from <code>V2</code> has been superseded). See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</p>
 </blockquote>
 <h2 id="1-rest-api-security-jwt">1. REST API Security (JWT)<a class="headerlink" href="#1-rest-api-security-jwt" title="Permanent link">&para;</a></h2>
 <p>The platform uses <strong>JSON Web Tokens (JWT)</strong> for stateless user authentication. When a user logs in via <code>/api/auth/login</code>, the <code>AuthController</code> generates a token using <code>JwtTokenProvider</code> and returns it to the client.</p>
@@ -135,7 +137,7 @@
 <p>Once the socket is open, STOMP clients send <code>CONNECT</code> frames. The <code>JwtChannelInterceptor</code> takes the <code>PRINCIPAL_ATTR</code> saved during the handshake and officially promotes it into the STOMP message header context. This ensures that any <code>@SubscribeMapping</code> or message routing logic has access to the user's identity.</p>
 <hr />
 <h2 id="3-machine-to-machine-security-internal-api-key">3. Machine-to-Machine Security (Internal API Key)<a class="headerlink" href="#3-machine-to-machine-security-internal-api-key" title="Permanent link">&para;</a></h2>
-<p>The Python Federated Learning server (spawned by AWS ECS or <code>ProcessBuilder</code>) needs to send training results and status updates back to the Spring Boot API.</p>
+<p>The Python Federated Learning server — spawned as a <strong>local process</strong> on the backend host via the <code>FlServerProcessRunner</code> seam, which shells out to the <code>fl-runtime/</code> scripts — needs to send training results and status updates back to the Spring Boot API. This local-process path is the only supported deployment architecture: managed-task (ECS/Fargate) orchestration was implemented once, removed along with the AWS SDK, and is deferred to <code>OP-12</code>; setting <code>ecs.cluster-name</code> today is rejected at boot by <code>FlOrchestrationModeValidator</code> in every profile.</p>
 <p><strong>Problem:</strong> The Python script is not a "User". It doesn't have a username/password, and generating temporary JWTs for the script introduces unnecessary complexity.</p>
 <p><strong>Solution:</strong> The <code>InternalApiKeyFilter</code>.</p>
 <p>All internal reporting endpoints are placed under <code>/api/internal/**</code>. The <code>SecurityConfig</code> allows these endpoints to bypass the standard JWT checks. Instead, they are intercepted by the <code>InternalApiKeyFilter</code>.</p>
@@ -161,7 +163,7 @@
 <span class="p">}</span>
 </code></pre></div>
 
-<p>The Spring Boot backend securely passes this <code>FEDLEARN_INTERNAL_API_KEY</code> to the Python server via environment variables during the orchestration phase (see <code>FlowerServerManager</code>), ensuring that only backend-spawned ML processes can hit the internal endpoints.</p>
+<p>The Spring Boot backend securely passes this <code>FEDLEARN_INTERNAL_API_KEY</code> to the Python server via environment variables during the orchestration phase (see <code>FlServerManager</code>), ensuring that only backend-spawned ML processes can hit the internal endpoints.</p>
 <hr />
 <h2 id="4-authorization-roles-org-scoped-isolation">4. Authorization: Roles &amp; Org-Scoped Isolation<a class="headerlink" href="#4-authorization-roles-org-scoped-isolation" title="Permanent link">&para;</a></h2>
 <p>Once a request is <em>authenticated</em> (sections 1–2), a second layer decides what it

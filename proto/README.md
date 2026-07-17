@@ -4,7 +4,7 @@ This directory is the **single source of truth** for the FedLearn client ⇄ FL-
 protocol. Every language (Python, Java, TypeScript, C++) generates its stubs from here via
 [`buf`](https://buf.build); nothing is hand-written or copied. This governance is what kills
 the v1 drift the audit found — a malformed `SubmitModelUpdate` RPC and a message-type typo
-that diverged across the mobile copies (`docs/audit/2026-05-29/A3-framework.md` §5).
+that diverged across the mobile copies.
 
 > **gRPC** = Google Remote Procedure Call · **RPC** = Remote Procedure Call ·
 > **CI** = Continuous Integration · **TS** = TypeScript · **RNG** = Random Number Generator.
@@ -15,14 +15,18 @@ that diverged across the mobile copies (`docs/audit/2026-05-29/A3-framework.md` 
 proto/
 ├── buf.yaml                       # module + lint (STANDARD) + breaking (FILE) config
 ├── buf.gen.yaml                   # one config -> Python / Java / TS / C++ stubs
-└── fedlearn/v2/fedlearn.proto     # THE contract (package fedlearn.v2)
+├── fedlearn/v2/fedlearn.proto     # THE gradient contract (package fedlearn.v2)
+└── fedlearn/fot/v1/fot.proto      # Federation over Text (package fedlearn.fot.v1)
 ```
 
-The package is `fedlearn.v2` (the v1 package `fedlearn.v1` is retired, not co-hosted). The
-authoritative definition lives in `docs/v2/build/04-API-CONTRACTS.md §10.2`; this file is its
-checked-in form. Framing rules that proto cannot express (TLS+mTLS by default, the `codec`
-whitelist, chunk `sha256` symmetry, `max_payload_bytes`, the round deadline/quorum, and the
-gRPC status-code mapping) are specified in `04-API-CONTRACTS.md §10.3` and enforced in code.
+The gradient package is `fedlearn.v2` (the v1 package `fedlearn.v1` is retired, not co-hosted —
+nothing in the tree speaks it any more). FoT is deliberately a **separate** service/package
+(`fedlearn.fot.v1`) so the text-federation server cannot perturb the gradient wire. Framing rules
+that proto cannot express (the transport TLS/mTLS policy, the `codec` whitelist, chunk `sha256`
+symmetry, `max_payload_bytes`, the round deadline/quorum, and the gRPC status-code mapping) are
+not carried by the schema — they are enforced in code. Transport security is **opt-in**:
+plaintext is the default (`FEDLEARN_GRPC_USE_TLS=1` turns TLS on; `FEDLEARN_REQUIRE_TLS=1` makes
+the server fail-closed rather than serve plaintext).
 
 ## Generate the stubs
 
@@ -41,25 +45,27 @@ against it.
 
 ## The in-tree mirrors (framework + mobile)
 
-Two units keep a **byte-identical copy** of this file in-tree because their build systems need
+Two units keep a **byte-identical copy** of these files in-tree because their build systems need
 the proto locally rather than pulling from `buf`:
 
 | Copy | Path | Why it exists |
 |---|---|---|
-| **framework** | `framework/src/fedlearn/communication/protos/fedlearn.proto` | the running Python framework generates its `fedlearn_pb2` stubs from here |
+| **framework** | `framework/src/fedlearn/communication/protos/fedlearn.proto` | the running Python framework generates its `fedlearn_pb2` stubs from here (package `fedlearn.v2`, same bytes as canonical) |
 | **mobile** | `mobile_client/proto/fedlearn/v2/fedlearn.proto` | the native mobile core's CMake build |
+| **framework (FoT)** | `framework/src/fedlearn/communication/protos/fot.proto` | the Python FoT servicer's stubs, mirrored from `fedlearn/fot/v1/fot.proto` |
 
-Both are **mirrors, not independent copies**: they are regenerated/synced from this canonical
-file and **must never be hand-edited**. Edit only `fedlearn/v2/fedlearn.proto`, then `cp` it out:
+All three are **mirrors, not independent copies**: they are regenerated/synced from the canonical
+files and **must never be hand-edited**. Edit only under `proto/`, then `cp` out:
 
 ```bash
 cp proto/fedlearn/v2/fedlearn.proto framework/src/fedlearn/communication/protos/fedlearn.proto
 cp proto/fedlearn/v2/fedlearn.proto mobile_client/proto/fedlearn/v2/fedlearn.proto
+cp proto/fedlearn/fot/v1/fot.proto  framework/src/fedlearn/communication/protos/fot.proto
 ```
 
 Two gates enforce this so a mirror can never silently drift:
 
-- **`scripts/check_proto_mirror.sh`** — byte-compares *both* mirrors against canonical and exits
+- **`scripts/check_proto_mirror.sh`** — byte-compares *all three* mirrors against canonical and exits
   non-zero (with the exact `cp` fix) on any difference. Run it locally before pushing.
 - **`.github/workflows/proto.yml`** — the CI proto gate. Runs `buf lint`, `buf breaking`
   (against `main`), a `buf generate` freshness check, and `check_proto_mirror.sh`. It triggers on
@@ -68,7 +74,8 @@ Two gates enforce this so a mirror can never silently drift:
 
 ## Changing the contract
 
-1. Edit `fedlearn/v2/fedlearn.proto` only.
+1. Edit the canonical file under `proto/` only (`fedlearn/v2/fedlearn.proto`, or
+   `fedlearn/fot/v1/fot.proto` for FoT).
 2. Run `buf lint` and `buf breaking` (a breaking change requires a deliberate package bump).
 3. Re-run `buf generate` in every consumer; commit the regenerated stubs (or generate in CI).
-4. `cp` **both** mirrors (framework + mobile) and run `scripts/check_proto_mirror.sh`.
+4. `cp` **all three** mirrors (framework, mobile, framework-FoT) and run `scripts/check_proto_mirror.sh`.

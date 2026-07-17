@@ -106,5 +106,5 @@ When the FL Server successfully finishes all its federated rounds, it sends a fi
 ### Deletion
 When a user deletes a project (`DELETE /api/projects/{projectId}`):
 1. The service enforces org-scope (`requireOrgScope`) then ownership (`requireOwnerOrAdmin`). `deleteProject` is `@Auditable(action = PROJECT_DELETED)`.
-2. It makes a best-effort attempt to terminate any actively running FL Server processes via `FlServerManager.stopServerForProject()`. This prevents ghost processes or orphaned AWS Fargate tasks from lingering and consuming resources.
+2. It makes a best-effort attempt to terminate any actively running FL Server processes via `FlServerManager.stopServerForProject()`. FL servers are local Python processes, tracked in a `ConcurrentHashMap<UUID, ProcessHandle>` and torn down with `destroyForcibly()`; this prevents ghost processes from lingering and consuming resources.
 3. The database row is deleted. Cascade rules automatically delete the associated `ServerLog`, `RoundResult`, `ProjectMembership`, and `ProjectAccessRequest` entries.

@@ -27,9 +27,10 @@
 <li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -151,16 +152,21 @@
 <hr />
 <h2 id="framework-at-a-glance">Framework At A Glance<a class="headerlink" href="#framework-at-a-glance" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code>fedlearn (Python package)
-├── server/          – Server entry point, coordinator, strategies, gRPC servicer
-├── client/          – Client ABC, gRPC wrapper, DeComFL client
-├── communication/   – Proto definitions, serializer, generated stubs
+├── server/          – Server entry point, coordinator, strategies, robust aggregation, gRPC servicer
+├── client/          – Client ABC, gRPC wrapper, local trainer, DeComFL client
+├── communication/   – Proto definitions, serializer, safetensors codec, generated stubs
 ├── estimators/      – Zeroth-order gradient estimators (DeComFL)
+├── privacy/         – Central-DP mechanism + RDP accountant
+├── security/        – TLS policy, connection-token verification, gRPC interceptors
+├── backbone/        – Shared backbone/distribution helpers
+├── bundle/          – Adapter-bundle manifest + format schema
+├── fot/             – Federation over Text (separate local-LLM research mode)
 └── data/            – Dataset utilities (MNIST partitioning, etc.)
 </code></pre></div>
 
 <p>The framework is consumed by:
-- <strong><code>fedlearn-desktop</code></strong> Electron app (invokes <code>run_server.py</code> / <code>run_client.py</code> as child processes)
-- <strong><code>backend</code></strong> Spring Boot API (spawns Python FL servers via <code>ProcessBuilder</code> or AWS ECS Fargate)
+- <strong><code>fedlearn-desktop</code></strong> Electron app (spawns the FL <strong>client</strong> as a child process — the packaged PyInstaller bundle, or system <code>python3</code> against <code>fl-runtime/client.py</code> in dev mode)
+- <strong><code>backend</code></strong> Spring Boot API (spawns Python FL servers as local processes via <code>FlServerManager</code>)
 - <strong><code>client-docker</code></strong> Docker image for containerised client deployment</p></article>
     <nav class="toc"></nav>
   </div>

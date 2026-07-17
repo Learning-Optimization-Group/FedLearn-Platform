@@ -30,7 +30,7 @@
 
 ## Overview
 
-The `framework/examples/` directory contains six end-to-end runnable experiments:
+The `framework/examples/` directory contains seven end-to-end runnable experiments:
 
 | Example | Model | Strategy | Clients | Dataset |
 |---------|-------|----------|---------|---------|
@@ -40,8 +40,13 @@ The `framework/examples/` directory contains six end-to-end runnable experiments
 | `ecg_decomfl_central` | Transformer | DeComFL | 1 | ECG |
 | `ecg_decomfl_multiclient` | Transformer | DeComFL | 3 | ECG |
 | `ecg_decomfl_framework_integration` | Transformer | DeComFL | 3 | ECG (via full framework) |
+| `fot_text_federation` | — (stub backend) | FoT | in-process | synthetic text |
 
-Each example is self-contained with its own `run_server.py` and `run_client.py`.
+The six gradient examples are each self-contained with their own `run_server.py` and `run_client.py`.
+**`fot_text_federation` is the exception** — it is a single in-process `run_fot.py` demo of the
+Federation over Text mode, which is a separate, offline, local-LLM-only research path that is *additive
+and orthogonal* to the DeComFL gradient path rather than a replacement for it. See
+`framework/examples/fot_text_federation/README.md`.
 
 ---
 
@@ -174,7 +179,7 @@ Training time: ~5 minutes on CPU for 3 clients × 10 rounds with a small CNN.
 │        neutral)                                          │
 └────────────────────────┬────────────────────────────────┘
                          │ gRPC :50051
-                         │ streaming (500 MB chunks)
+                         │ streaming (50 MB chunks)
            ┌─────────────┼─────────────┐
            ▼             ▼             ▼
        Client 0      Client 1      Client 2
@@ -230,10 +235,14 @@ Download sequence:
 
 Memory footprint during streaming upload:
 ```
-torch.save() → BytesIO buffer → memoryview (zero-copy)
+state_dict → safetensors blob → sliced into 50 MB chunks
 Peak extra memory: ~500 MB (just the serialized buffer)
 Total: ~1.5 GB per client (model + gradients + buffer)
 ```
+
+> The upload wire is the deterministic **safetensors** codec, not `torch.save`/pickle — see
+> [02 — gRPC Communication](02_grpc_communication.md#chunked-streaming-for-large-models). It is
+> float32-only and fails loud on any non-float32 tensor.
 
 ### Expected Results
 
@@ -369,10 +378,12 @@ python run_client.py --id 2 --data_path ecg_data/ecg.csv --server_address localh
 
 ## Running Multiple Examples at Once
 
-Use the `launch_all.sh` script at the repository root to start all components:
+Use the `launch_all.sh` script at the repository root to start all components. It is **macOS-only** — it
+drives AppleScript (`osascript`) to open a Terminal window per service, so on Linux you must start each
+component by hand.
 
 ```bash
-# From FedLearn-Platform root
+# From FedLearn-Platform root (macOS)
 ./launch_all.sh
 
 # Or for just the framework (manual multi-terminal setup):
@@ -418,52 +429,58 @@ echo "Training complete"
 
 ## End-to-End Test Suites
 
-The framework ships with three test scripts:
+The framework ships with three test scripts. **None of them take CLI arguments** — each is configured in
+the source (or, for the platform test, by environment variable). Run them from `framework/`.
 
 ### run_local_test.py — Quick Sanity Test
 
 ```bash
-# Tests single-client FL on a tiny subset of MNIST
-# Completes in ~30 seconds
+cd framework/
 python run_local_test.py
 ```
 
+Spins up **1 gRPC server and 3 clients** locally using the `SimpleCNN` model from
+`examples/simple_federation`. Each client trains on a partition of MNIST with real SGD, and the server
+evaluates accuracy after each round.
+
 Exercises:
 - Server startup and client registration
-- One round of FedAvg (single client)
+- FedAvg across three real local-training clients
 - Model serialisation/deserialisation round-trip
 - Heartbeat flow
 
 ### run_full_test_suite.py — Comprehensive E2E
 
 ```bash
-# Runs all examples in sequence (takes ~20 minutes)
-python run_full_test_suite.py \
-    --test simple \      # or llm, ecg, decomfl
-    --num_rounds 3 \
-    --num_clients 3 \
-    --timeout 300        # seconds per test
+cd framework/
+python run_full_test_suite.py
 ```
 
-Exercises:
-- All strategy types (FedAvg, DeComFL)
-- Multiple client counts
-- Streaming upload/download paths
-- Heartbeat and stale update rejection
-- Graceful shutdown sequence
+Runs all three major example configurations in sequence, spinning up a gRPC server + clients for each,
+running federated training, and verifying accuracy/convergence. Logs are stored per-test.
+
+- Test 1: `SimpleCNN` + MNIST + FedAvg (10 rounds)
+- Test 2: `ECGTransformer` + ECG data + FedAvg (10 rounds)
+- Test 3: ECG MLP + ECG data + DeComFL (10 rounds)
 
 ### run_platform_e2e_test.py — Integration with Spring Backend
 
 ```bash
-# Requires running Spring Boot backend
-python run_platform_e2e_test.py \
-    --backend_url http://localhost:8080 \
-    --api_key your_api_key \
-    --project_id test_project_123
+cd framework/
+python run_platform_e2e_test.py
+
+# The backend API base is the ONLY knob, via env var (default shown):
+API_BASE_URL=http://localhost:8081/api python run_platform_e2e_test.py
 ```
 
 Exercises:
-- Backend-triggered FL server spawn
-- WebSocket log streaming from Python server to frontend
-- Project result persistence to the backend database (H2)
-- Full round-trip through the platform API
+- Registering/logging in a test user via the Spring Boot backend (default `:8081`)
+- Creating a training project through the REST API
+- Backend-triggered FL server spawn (`FlServerManager`) + locally spawned simulated Python clients
+- Polling the backend API for `RoundResults` to verify persistence — to **PostgreSQL**, which backs
+  every Spring profile (H2 has been retired)
+- Automatic cleanup
+
+> **Prerequisite:** the backend needs a local Postgres. From `backend/fl-platform-api/`, run
+> `docker compose up -d` (postgres:16.6-alpine; db/user/password all `federance` on `:5432`) before
+> starting Spring Boot.

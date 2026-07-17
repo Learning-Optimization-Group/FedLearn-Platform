@@ -3,7 +3,7 @@
 ## Table of Contents
 - [Overview](#overview)
 - [The Protocol Buffer Contract](#the-protocol-buffer-contract)
-- [Service Definition — All 9 RPCs](#service-definition--all-9-rpcs)
+- [Service Definition — All 10 RPCs](#service-definition--all-10-rpcs)
 - [Message Types In Depth](#message-types-in-depth)
 - [Serializer — Tensor ↔ Proto Conversion](#serializer--tensor--proto-conversion)
 - [Chunked Streaming for Large Models](#chunked-streaming-for-large-models)
@@ -22,50 +22,59 @@
 
 All communication between the Python FL server and its clients goes through a single gRPC service defined in `fedlearn.proto`. The design goals were:
 
-1. **Support arbitrarily large models** — LLMs can exceed 10 GB; plain unary gRPC fails above ~4 MB by default. The framework auto-detects model size and switches to bidirectional chunked streaming.
+1. **Support arbitrarily large models** — LLMs can exceed 10 GB, and a single unary message would have to be buffered whole. The client auto-detects model size (and transformer architecture) and switches from a unary call to a chunked *streaming* RPC — server-streaming for downloads, client-streaming for uploads.
 2. **Survive flaky networks** — exponential backoff retries on all transient gRPC errors.
 3. **Heartbeat without blocking training** — a second dedicated gRPC channel is used exclusively for heartbeats so they never queue behind large model uploads.
-4. **Optional TLS** — controlled entirely by environment variables; zero code changes needed to flip between insecure and mTLS.
+4. **Opt-in TLS** — plaintext is the default; TLS/mTLS is controlled entirely by environment variables, with zero code changes needed to flip between them. Deployed profiles fail closed rather than silently serve plaintext (SE-2).
+5. **No pickle on the wire** — model state-dicts travel as a deterministic, float32-only **safetensors** blob, decodable by the libtorch-free mobile C++ core and byte-identical across languages.
 
 ---
 
 ## The Protocol Buffer Contract
 
-**Source of truth:** `framework/src/fedlearn/communication/protos/fedlearn.proto`
+**Canonical source of truth:** `proto/fedlearn/v2/fedlearn.proto` (package `fedlearn.v2`, governed by `buf`).
+
+The framework does **not** own the contract — it keeps a **byte-identical mirror** at
+`framework/src/fedlearn/communication/protos/fedlearn.proto` for its own codegen. `scripts/check_proto_mirror.sh`
+diff-gates all three in-tree mirrors (framework `fedlearn.proto`, `mobile_client/proto/fedlearn/v2/fedlearn.proto`,
+framework `fot.proto` against `proto/fedlearn/fot/v1/fot.proto`) and runs in CI as `proto.yml`. **Never hand-edit a
+mirror** — edit the canonical and re-copy.
 
 The `.proto` file is compiled to Python stubs stored in `communication/generated/`:
-- `fedlearn_pb2.py` — message classes
+- `fedlearn_pb2.py` / `fedlearn_pb2.pyi` — message classes + type stubs
 - `fedlearn_pb2_grpc.py` — stub and servicer base class
+- `fot_pb2.py` / `fot_pb2_grpc.py` — the same for the FoT contract
 
 ```proto
 syntax = "proto3";
-package fedlearn.v1;
+package fedlearn.v2;
+
+option java_package = "com.fedlearn.v2";
 
 service FederatedLearningService {
-  // Client registration
-  rpc RegisterClient(RegisterClientRequest) returns (RegisterClientResponse);
+  // Registration, status and liveness
+  rpc RegisterClient        (RegisterClientRequest)        returns (RegisterClientResponse);
+  rpc GetServerStatus       (GetServerStatusRequest)       returns (GetServerStatusResponse);
+  rpc Heartbeat             (HeartbeatRequest)             returns (HeartbeatResponse);
 
-  // Model distribution (server → clients)
-  rpc GetGlobalModel(GetGlobalModelRequest)       returns (GetGlobalModelResponse);
-  rpc GetGlobalModelStream(GetGlobalModelRequest) returns (stream ModelChunk);
-
-  // Model update collection (clients → server)
-  rpc SubmitModelUpdate(SubmitModelUpdateRequest)          returns (SubmitModelUpdateResponse);
+  // Model distribution (server → clients) and update collection (clients → server)
+  rpc GetGlobalModel        (GetGlobalModelRequest)        returns (GetGlobalModelResponse);
+  rpc GetGlobalModelStream  (GetGlobalModelRequest)        returns (stream ModelChunk);
+  rpc SubmitModelUpdate     (SubmitModelUpdateRequest)     returns (SubmitModelUpdateResponse);
   rpc SubmitModelUpdateStream(stream ModelUpdateChunk)     returns (SubmitModelUpdateResponse);
 
-  // Status and liveness
-  rpc GetServerStatus(GetServerStatusRequest) returns (GetServerStatusResponse);
-  rpc Heartbeat(HeartbeatRequest)             returns (HeartbeatResponse);
-
   // DeComFL-specific
-  rpc GetDeComFLConfig(GetDeComFLConfigRequest)          returns (GetDeComFLConfigResponse);
-  rpc SubmitGradientScalars(SubmitGradientScalarsRequest) returns (SubmitGradientScalarsResponse);
+  rpc GetDeComFLConfig      (GetDeComFLConfigRequest)      returns (GetDeComFLConfigResponse);
+  rpc SubmitGradientScalars (SubmitGradientScalarsRequest) returns (SubmitGradientScalarsResponse);
+
+  // Telemetry
+  rpc ReportClientMetrics   (ReportClientMetricsRequest)   returns (ReportClientMetricsResponse);
 }
 ```
 
 ---
 
-## Service Definition — All 9 RPCs
+## Service Definition — All 10 RPCs
 
 ### Standard FL RPCs
 
@@ -77,7 +86,8 @@ service FederatedLearningService {
 | `SubmitModelUpdate` | client → server | Unary | Upload updated parameters (small models) |
 | `SubmitModelUpdateStream` | client → server | **Client streaming** | Upload model in 50 MB chunks |
 | `GetServerStatus` | client → server | Unary | Poll current round number and update count |
-| `Heartbeat` | client → server | Unary | Report liveness + training progress |
+| `Heartbeat` | client → server | Unary | Report liveness + training progress; carries the server's `should_stop` back (FR-10) |
+| `ReportClientMetrics` | client → server | Unary | Client-side telemetry reporting |
 
 ### DeComFL RPCs
 
@@ -95,42 +105,58 @@ service FederatedLearningService {
 ### Core Data Types
 
 ```proto
-// A single named tensor
+// A single typed tensor. The ONLY weight-bearing wire type; no torch.save blobs.
 message Tensor {
-  bytes  data = 1;       // raw numpy bytes (e.g., float32 little-endian)
-  repeated int64 dims = 2; // shape, e.g., [256, 512]
-  string dtype = 3;       // e.g., "float32" — validated against whitelist
+  bytes          data  = 1;   // raw bytes, dtype+dims interpret them
+  repeated int64 dims  = 2;   // shape, e.g., [256, 512]
+  string         dtype = 3;   // whitelist: "float32","float64","int32","int64","uint8","bool"
 }
 
 // A full model state_dict
 message ModelParameters {
-  map<string, Tensor> tensors = 1;       // key = parameter name
-  int64 num_examples_trained = 2;        // for weighted aggregation
+  map<string, Tensor> tensors              = 1;   // key = parameter name
+  int64               num_examples_trained = 2;   // for weighted aggregation
 }
 ```
 
 ### Streaming Chunk Messages
 
+Both chunk messages carry **explicit v2 framing** — the codec, compression flag, total size and payload
+hash all travel *on the wire* rather than being inferred from environment variables on each side (the
+A3-C1/A3-C3 fix). That is what makes save/load symmetric and lets a receiver bounds-check and verify
+before it deserialises anything.
+
 ```proto
 // Server → Client: one chunk of a model download
 message ModelChunk {
-  int32  chunk_index   = 1;
-  int32  total_chunks  = 2;
-  bytes  chunk_data    = 3;   // raw bytes of a torch.save() buffer
+  int32  chunk_index    = 1;
+  int32  total_chunks   = 2;
+  bytes  chunk_data     = 3;
   bool   is_final_chunk = 4;
-  int32  current_round = 5;
-  map<string, string> config = 6;  // only sent with chunk_index == 0
+  int32  current_round  = 5;
+  map<string,string> config = 6;  // only sent with chunk_index == 0
+  // --- v2 framing fields ---
+  string codec       = 7;   // "safetensors" (typed; NOT torch.save) — required, validated
+  bool   compressed  = 8;   // on the wire, not inferred from env; codec="lz4+safetensors" if true
+  int64  total_bytes = 9;   // full reassembled size; receiver bounds-checks cumulative (H5)
+  string sha256      = 10;  // hash of the full reassembled blob; receiver verifies (integrity)
 }
 
 // Client → Server: one chunk of a model upload
 message ModelUpdateChunk {
-  string client_id       = 1;
-  int32  trained_on_round = 2;
-  int32  chunk_index     = 3;
-  int32  total_chunks    = 4;
-  bytes  chunk_data      = 5;
-  bool   is_final_chunk  = 6;
-  int64  num_examples    = 7;
+  string client_id        = 1;
+  string run_id           = 2;
+  int32  trained_on_round = 3;
+  int32  chunk_index      = 4;
+  int32  total_chunks     = 5;
+  bytes  chunk_data       = 6;
+  bool   is_final_chunk   = 7;
+  int64  num_examples     = 8;
+  // --- v2 framing fields ---
+  string codec       = 9;    // "safetensors"
+  bool   compressed  = 10;
+  int64  total_bytes = 11;   // server bounds-checks cumulative against max_payload_bytes (H5)
+  string sha256      = 12;   // verified on reassembly
 }
 ```
 
@@ -210,11 +236,18 @@ def proto_to_parameters(proto: ModelParameters):
         np_array = np.frombuffer(tensor_proto.data, dtype=np.dtype(tensor_proto.dtype))
 
         # Security: validate shape vs. data length
-        expected_size = math.prod(tensor_proto.dims)
+        expected_size = math.prod(tensor_proto.dims)   # each dim must also be > 0
         if expected_size != len(np_array):
             raise ValueError("Shape mismatch")
 
-        parameters[name] = torch.tensor(np_array.reshape(tensor_proto.dims).copy())
+        np_array = np_array.reshape(tensor_proto.dims).copy()
+
+        # Security (SE-3): reject NaN/Inf. One malicious or buggy client could otherwise push
+        # non-finite weights that propagate through the average and destroy the global model
+        # for every honest client in the round.
+        _reject_non_finite(name, np_array)
+
+        parameters[name] = torch.tensor(np_array)
     return parameters, proto.num_examples_trained
 ```
 
@@ -222,15 +255,23 @@ def proto_to_parameters(proto: ModelParameters):
 
 ## Chunked Streaming for Large Models
 
-The framework uses `torch.save()` / `torch.load()` for streaming, bypassing the protobuf `Tensor` message type entirely for large transfers. This has a significant memory advantage:
+Streaming bypasses the protobuf `Tensor` message type entirely for large transfers, serialising the whole
+state_dict into **one deterministic safetensors blob** and chunking the bytes.
 
-### Why torch.save() Instead of Proto for Streaming?
+### Why safetensors Instead of Proto (or torch.save) for Streaming?
 
-| Approach | Memory for a 10 GB model |
-|---------|--------------------------|
-| Proto message (all-at-once) | ~30 GB peak (3× amplification from alloc + copy) |
-| `torch.save()` to `BytesIO` + chunked | ~12 GB (1.2× — only one extra copy) |
-| `torch.save()` + `memoryview` for send | ~10 GB (near zero-copy send) |
+The wire format used to be a `torch.save()` pickle blob. It is now the framework's own safetensors codec
+(`communication/safetensors_codec.py`) — the change buys three things at once:
+
+| Property | Why it matters |
+|---|---|
+| **No pickle** | `torch.save` blobs are pickles; a malicious client payload could execute code. safetensors is data-only. |
+| **Cross-language** | `bytes = u64_le(header_len) ++ header_json_utf8 ++ raw_tensor_data`. The libtorch-free mobile C++ core (`mobile_client/shared/src/ModelManager.cpp`) produces **byte-identical** output, and a golden fixture pins the contract. |
+| **Memory** | Still one contiguous serialized buffer + chunked sends, rather than the ~3× amplification of building a giant proto message. |
+
+The cost: the safetensors wire is **float32-only** and **fail-loud**. `state_dict_to_safetensors()` raises on
+any non-float32 tensor rather than silently coercing it to F32 and corrupting the model — cast to float32
+before training.
 
 ### Server-Side Streaming (GetGlobalModelStream)
 
@@ -239,27 +280,38 @@ The framework uses `torch.save()` / `torch.load()` for streaming, bypassing the 
 def GetGlobalModelStream(self, request, context):
     params, current_round, config = self.coordinator.get_global_model_for_client()
 
-    # Serialize with torch.save — much more memory-efficient than proto for large models
-    buffer = io.BytesIO()
-    torch.save({'parameters': params, 'num_examples': 0}, buffer)
-    data_to_send = buffer.getvalue()
-    buffer.close()
+    # FR-8 (download half): the same libtorch-free safetensors wire the upload path
+    # and the mobile C++ core use. F32-only and fail-loud.
+    data_to_send = state_dict_to_safetensors(params, num_examples=0)
+    download_codec = "safetensors"
+
+    # Declare the sha256 of the FULL payload so receivers verify the reassembled blob,
+    # format-agnostically, before any deserialization. Set on EVERY chunk: the mobile
+    # C++ client reads it from the first, the Python client from the final one.
+    payload_sha256 = hashlib.sha256(data_to_send).hexdigest()
 
     chunk_size = 50 * 1024 * 1024  # 50 MB per chunk
-    num_chunks = (len(data_to_send) + chunk_size - 1) // chunk_size
+    total_size = len(data_to_send)
+    num_chunks = (total_size + chunk_size - 1) // chunk_size
 
     for i in range(num_chunks):
         start = i * chunk_size
-        end = min(start + chunk_size, len(data_to_send))
+        end = min(start + chunk_size, total_size)
         yield fedlearn_pb2.ModelChunk(
             chunk_index=i,
             total_chunks=num_chunks,
             chunk_data=data_to_send[start:end],
             is_final_chunk=(i == num_chunks - 1),
             current_round=current_round,
-            config=config if i == 0 else {}   # config only in first chunk
+            config=config if i == 0 else {},   # config only in first chunk
+            codec=download_codec,
+            total_bytes=total_size,
+            sha256=payload_sha256,
         )
 ```
+
+> The mobile `FedLearnClient` **rejects any first chunk whose `codec` is not `"safetensors"`** — setting
+> `codec` (with `total_bytes`) is what makes the FedAvg download decode instead of throw.
 
 ### Client-Side Streaming Reception (get_global_model)
 
@@ -276,17 +328,33 @@ def get_global_model(self):
         if chunk.chunk_index == 0:
             current_round = chunk.current_round
             config = dict(chunk.config)
-
         buffer.write(chunk.chunk_data)
 
-    buffer.seek(0)
-    model_data = torch.load(buffer, map_location='cpu', weights_only=True)
+    # Integrity first: verify the reassembled payload against the server-declared sha256
+    # BEFORE deserializing anything. (A pre-integrity server declares none; verification
+    # is then skipped with a debug log.)
+    blob = buffer.getvalue()
     buffer.close()
 
-    return model_data['parameters'], current_round, config
+    # FR-8 (download half) version gate: decode the safetensors wire — the current format —
+    # but transparently fall back to a legacy torch.save pickle blob so a new client still
+    # works against an OLD server during a staged rollout. The `codec` field is the primary
+    # signal; a magic-byte sniff is the backstop when an old server sets no codec.
+    is_pickle = len(blob) >= 2 and (blob[:2] == b"PK" or blob[0] == 0x80)
+    if codec.endswith("safetensors") if codec else not is_pickle:
+        params, _num_examples = chunks_to_parameters(blob, compressed=codec.startswith("lz4"))
+    else:
+        model_data = torch.load(io.BytesIO(blob), map_location='cpu', weights_only=True)
+        params = model_data['parameters']
+
+    return params, current_round, config
 ```
 
-> **`weights_only=True`** — This flag, added in PyTorch 2.0, prevents arbitrary pickle execution during `torch.load`. Always required.
+> **Asymmetric legacy tolerance — worth internalising.** The *download* path still **accepts** a legacy
+> torch.save/pickle blob (guarded by `weights_only=True`, which prevents arbitrary pickle execution) purely
+> for staged-rollout compatibility with an old server. The *upload/receive* path does **not**: `chunks_to_parameters`
+> sniffs for a zip (`PK\x03\x04`) or pickle (`0x80`) prefix and **rejects it loudly**. Untrusted client bytes
+> never get pickle tolerance; only the server's own bytes do, and only transitionally.
 
 ### Client Upload: Auto-Select Unary vs. Streaming
 
@@ -312,31 +380,31 @@ def submit_update(self, params, num_examples, round_number):
         return self._submit_update_unary(params, num_examples, round_number)
 ```
 
-The streaming upload uses `memoryview` to achieve near-zero-copy chunking:
+The streaming upload delegates serialization + chunking to `serializer.parameters_to_chunks`, which emits
+plain dicts that the client wraps in `ModelUpdateChunk` messages:
 
 ```python
 def _generate_model_chunks(self, params, num_examples, round_number, chunk_size=50*1024*1024):
-    buffer = io.BytesIO()
-    torch.save(params, buffer)
-
-    view = memoryview(buffer.getbuffer())  # zero-copy view of the buffer
-    total_chunks = (len(view) + chunk_size - 1) // chunk_size
-
-    try:
-        for i in range(0, len(view), chunk_size):
-            chunk_index = i // chunk_size
-            yield fedlearn_pb2.ModelUpdateChunk(
-                client_id=self.client_id,
-                trained_on_round=round_number,
-                chunk_index=chunk_index,
-                total_chunks=total_chunks,
-                chunk_data=view[i:i + chunk_size].tobytes(),  # only copies this slice
-                is_final_chunk=(chunk_index == total_chunks - 1),
-                num_examples=num_examples,
-            )
-    finally:
-        view.release()  # always release the memoryview
+    # parameters_to_chunks uses the safetensors wire format. compress=False: the gRPC
+    # streaming path is uncompressed by design — see serializer.py.
+    for chunk_dict in parameters_to_chunks(params, num_examples,
+                                           chunk_size=chunk_size, compress=False):
+        yield fedlearn_pb2.ModelUpdateChunk(
+            client_id=self.client_id,
+            trained_on_round=round_number,
+            chunk_index=chunk_dict["chunk_index"],
+            total_chunks=chunk_dict["total_chunks"],
+            chunk_data=chunk_dict["chunk_data"],
+            is_final_chunk=chunk_dict["is_final_chunk"],
+            num_examples=num_examples,
+        )
 ```
+
+> **Chunk size — two different defaults, know which applies.** `_generate_model_chunks` passes an explicit
+> `chunk_size=50 MB`, so **the streaming RPC path chunks at 50 MB**. The `FEDLEARN_CHUNK_SIZE_MB` env var
+> (default **4 MB**) sets `serializer.CHUNK_SIZE`, which is only the fallback when a caller invokes
+> `parameters_to_chunks` *without* passing `chunk_size`. Setting the env var does not by itself resize the
+> gRPC upload chunks.
 
 ---
 
@@ -369,7 +437,15 @@ def parameters_to_chunks(params, num_examples, compress=None):
         data_to_send = serialized
 ```
 
-> **Note:** Both server and client must agree on whether compression is active. If only one side compresses, deserialization will fail. The `USE_COMPRESSION` flag is read at module import time, so set the env var before starting either process.
+> **Note:** `USE_COMPRESSION` is only the *default* for `parameters_to_chunks` / `chunks_to_parameters`
+> when the caller passes no explicit `compress=` / `compressed=`. It is read at module import time, so set
+> the env var before starting either process.
+>
+> **The gRPC streaming upload path ignores it**: `grpc_client._generate_model_chunks` passes
+> `compress=False` explicitly — that path is uncompressed by design. And under the v2 framing, receivers
+> no longer *infer* compression from their own env at all: the `compressed` flag (and the `codec` string,
+> `"lz4+safetensors"` when set) travels on the wire, which is precisely the A3-C3 fix for the old
+> both-sides-must-agree footgun described above.
 
 ---
 
@@ -377,11 +453,40 @@ def parameters_to_chunks(params, num_examples, compress=None):
 
 TLS is controlled entirely by environment variables. The framework supports both server-only TLS and mutual TLS (mTLS).
 
+> **Plaintext is the default — and that is a real, standing caveat.** With `FEDLEARN_GRPC_USE_TLS` unset,
+> the FL boundary is `insecure_channel` / `add_insecure_port`: model weights and updates cross the network
+> unencrypted. For cross-network demos, tunnel it. What is *not* true is that encryption is unavailable —
+> the mechanism below is implemented and opt-in, and deployed profiles are fail-closed against plaintext.
+
+### Policy Layer — SE-2 Fail-Closed
+
+`security/tls.py` separates *policy* from the *mechanism* in `server.py` / `grpc_client.py`. The backend sets
+`FEDLEARN_REQUIRE_TLS=1` on deployed spawns once server certs are provisioned; enforcement is opt-in so
+dev/test stay plaintext and nothing breaks before certs exist.
+
+```python
+# security/tls.py — check_server_tls_policy()
+require = env.get("FEDLEARN_REQUIRE_TLS") == "1"
+use     = env.get("FEDLEARN_GRPC_USE_TLS") == "1"
+
+# Fail closed: never silently serve a deployed profile in plaintext.
+if require and not use:
+    raise TlsPolicyError("FEDLEARN_REQUIRE_TLS=1 but FEDLEARN_GRPC_USE_TLS is not enabled — "
+                         "refusing to serve the FL boundary in plaintext on a deployed profile.")
+
+# If TLS is on, the key + cert must actually be present.
+if use:
+    missing = [n for n in ("FEDLEARN_GRPC_SERVER_KEY", "FEDLEARN_GRPC_SERVER_CERT") if not env.get(n)]
+    if missing:
+        raise TlsPolicyError(f"FEDLEARN_GRPC_USE_TLS=1 but {', '.join(missing)} not set")
+return use
+```
+
 ### Server-Side TLS Setup
 
 ```python
-# server.py
-use_tls = os.environ.get("FEDLEARN_GRPC_USE_TLS", "0") == "1"
+# server.py — the bind decision is delegated to the policy above
+use_tls = check_server_tls_policy()
 
 if use_tls:
     with open(os.environ["FEDLEARN_GRPC_SERVER_KEY"], "rb") as f:
@@ -403,9 +508,10 @@ if use_tls:
         require_client_auth=require_client_auth,
     )
     grpc_server.add_secure_port(server_address, credentials)
+    logging.info("gRPC TLS enabled (require_client_auth=%s)", require_client_auth)
 else:
     grpc_server.add_insecure_port(server_address)
-    logging.warning("Running without TLS. Set FEDLEARN_GRPC_USE_TLS=1 for production.")
+    logging.warning("gRPC server running without TLS. Set FEDLEARN_GRPC_USE_TLS=1 for production.")
 ```
 
 ### Client-Side TLS Setup
@@ -430,12 +536,19 @@ return grpc.secure_channel(server_address, credentials, options=grpc_options)
 | Variable | Server | Client | Description |
 |----------|--------|--------|-------------|
 | `FEDLEARN_GRPC_USE_TLS` | ✓ | ✓ | `"1"` to enable TLS |
+| `FEDLEARN_REQUIRE_TLS` | ✓ | — | `"1"` to **require** TLS — set by the backend on deployed profiles; refuses to serve plaintext (SE-2) |
 | `FEDLEARN_GRPC_SERVER_KEY` | ✓ | — | Path to server private key (PEM) |
 | `FEDLEARN_GRPC_SERVER_CERT` | ✓ | — | Path to server certificate (PEM) |
 | `FEDLEARN_GRPC_ROOT_CERT` | optional | optional | Path to CA root cert (for mTLS verification) |
 | `FEDLEARN_GRPC_REQUIRE_CLIENT_AUTH` | optional | — | `"1"` to require client certificates |
 | `FEDLEARN_GRPC_CLIENT_KEY` | — | optional | Client private key for mTLS |
 | `FEDLEARN_GRPC_CLIENT_CERT` | — | optional | Client certificate for mTLS |
+
+> **Distinct from TLS: the connection token (SE-1/SE-14).** `FEDLEARN_CONNECTION_TOKEN` authenticates the
+> *client* to the FL server and is orthogonal to transport encryption. `security/client_interceptor.py`
+> (`maybe_wrap_channel`) attaches it to every call when set, and is a no-op when unset — so dev and
+> unauthenticated servers are unaffected. Fetch a token from `GET /api/client/projects/{id}/connection`;
+> the desktop launcher sets it automatically.
 
 ---
 
@@ -540,11 +653,12 @@ class GrpcClient:
     def __init__(self, client_id, server_address):
         # Primary channel — used for all heavy operations:
         # RegisterClient, GetGlobalModelStream, SubmitModelUpdateStream
-        self.channel = _build_channel(server_address, grpc_options)
+        # maybe_wrap_channel attaches FEDLEARN_CONNECTION_TOKEN if present (SE-1); no-op when unset.
+        self.channel = maybe_wrap_channel(_build_channel(server_address, grpc_options))
         self.stub = FederatedLearningServiceStub(self.channel)
 
         # Dedicated heartbeat channel — never blocked by ongoing transfers
-        self.heartbeat_channel = _build_channel(server_address, grpc_options)
+        self.heartbeat_channel = maybe_wrap_channel(_build_channel(server_address, grpc_options))
         self.heartbeat_stub = FederatedLearningServiceStub(self.heartbeat_channel)
 ```
 
@@ -558,34 +672,65 @@ def _heartbeat_loop(self):
         try:
             self.send_heartbeat()
         except Exception:
-            log.debug("Heartbeat loop exception", exc_info=True)
-        time.sleep(self.heartbeat_interval)
+            log.debug("[%s] Heartbeat loop exception", self.client_id, exc_info=True)
+        # FR-10: interruptible — returns immediately once stop_heartbeat() sets the event,
+        # instead of sleeping out the full interval before noticing it should stop.
+        self._heartbeat_stop.wait(self.heartbeat_interval)
 ```
 
 It is launched as a daemon thread (exits automatically when the main process exits) immediately after client registration.
+
+### The Heartbeat Channel Is Also the Stop Signal (FR-10)
+
+The dual-channel split does more than keep liveness flowing. Because `fit()` blocks the *training* stub for
+the whole round, the heartbeat stub is the only channel that can reach a busy client — so it carries the
+server's stop request back:
+
+```python
+res = self.heartbeat_stub.Heartbeat(req, timeout=30.0)
+if res.should_stop:
+    # Latch it. The training thread's fit loop polls should_stop_training() between local
+    # steps and aborts the round. Previously this response was discarded by _heartbeat_loop,
+    # which made the server's stop request a silent no-op.
+    self._stop_training.set()
+    return False
+return res.acknowledged
+```
+
+This is the cross-stub signal that lets the parallel heartbeat stub halt a `fit()` that is blocking the
+training stub. When touching client lifecycle code, preserve both stubs *and* this latch.
 
 ---
 
 ## Regenerating Generated Code
 
-If you modify `fedlearn.proto`, regenerate the Python stubs:
+> **Do not hand-edit `framework/src/fedlearn/communication/protos/fedlearn.proto`.** It is a *mirror*.
+> The canonical contract lives at `proto/fedlearn/v2/fedlearn.proto` and is governed by `buf`. A stray edit
+> to the mirror fails CI with a `cp` fix — see `proto/README.md`.
+
+The flow is: **edit the canonical → run buf → sync the mirrors → regenerate the framework's stubs.**
 
 ```bash
-# From the framework/ directory
-pip install grpcio-tools
+# 1. Edit proto/fedlearn/v2/fedlearn.proto (the single source of truth), then:
+cd proto
+buf lint                                   # STANDARD ruleset (see buf.yaml for documented excepts)
+buf breaking --against '.git#branch=main'  # fail on a breaking change to the wire contract
+buf generate                               # writes gen/python, gen/java, gen/ts, gen/cpp
 
-python -m grpc_tools.protoc \
-    -I src/fedlearn/communication/protos \
-    --python_out=src/fedlearn/communication/generated \
-    --grpc_python_out=src/fedlearn/communication/generated \
-    src/fedlearn/communication/protos/fedlearn.proto
+# 2. Sync the in-tree mirrors back out from canonical
+cp proto/fedlearn/v2/fedlearn.proto framework/src/fedlearn/communication/protos/fedlearn.proto
+cp proto/fedlearn/v2/fedlearn.proto mobile_client/proto/fedlearn/v2/fedlearn.proto
+cp proto/fedlearn/fot/v1/fot.proto  framework/src/fedlearn/communication/protos/fot.proto
 
-# Fix import path in generated file (protoc generates absolute imports)
-sed -i 's/import fedlearn_pb2/from . import fedlearn_pb2/' \
-    src/fedlearn/communication/generated/fedlearn_pb2_grpc.py
+# 3. Verify no mirror has drifted (this is the CI gate)
+./scripts/check_proto_mirror.sh
 ```
 
-The generated files are **committed to the repository** so that users don't need `grpcio-tools` installed at runtime.
+CI enforces all of this as the `proto.yml` workflow: `buf lint`, `buf breaking` against `main`, a
+`buf generate` **freshness** check (regeneration must be a no-op, so committed stubs cannot silently rot),
+and the mirror check.
+
+The framework's generated files are **committed to the repository** so that users don't need codegen tooling installed at runtime.
 
 ---
 
@@ -598,7 +743,11 @@ The generated files are **committed to the repository** so that users don't need
 | `StatusCode.DEADLINE_EXCEEDED` | Model download timed out | Increase `timeout=3600` in stub calls; check network |
 | `ValueError: Unsafe dtype` | Client sent malicious/malformed proto | Security rejection; investigate client code |
 | `ValueError: Shape mismatch` | Corrupted proto payload | Retry; if persistent, check serializer on sender side |
-| `torch.load` fails with `weights_only=True` | Payload contains non-tensor objects | Do not pickle non-tensor data into model state dicts |
+| `ValueError: … contains non-finite values` | A client's update carries NaN/Inf | SE-3 poisoning rejection — a real reject, not a bug. Investigate that client's training (diverged loss / bad LR) |
+| `ValueError: Received a legacy pickle/zip blob` | Sender still on the old `torch.save` wire | Update the client; only safetensors is accepted on the receive path |
+| `ValueError: Tensor '…' has dtype …; only float32 is supported` | Non-float32 tensor in the state_dict | The safetensors wire is F32-only and fails loud rather than silently casting — cast to float32 before training |
+| `ValueError: safetensors: …` (offsets/shape/dtype) | Malformed or malicious blob | Header validation (FR-8) rejecting it before any bytes are mis-read |
+| Download `sha256` integrity failure | Payload corrupted in transit | The client refuses to deserialize a payload that doesn't match the server-declared hash; retry |
 | Heartbeat timeout on server | Client dead / network split | Normal — server logs will show stale clients; reduce `heartbeat_timeout` from 300s if desired |
 
 Enable verbose gRPC tracing with:

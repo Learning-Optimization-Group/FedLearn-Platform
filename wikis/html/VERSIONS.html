@@ -27,9 +27,10 @@
 <li><a href="backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="backend/02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="backend/03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -112,7 +113,7 @@ tagged release. Versions follow <a href="https://semver.org">Semantic Versioning
 </tr>
 <tr>
 <td><strong>desktop</strong> (Electron app)</td>
-<td><code>3.1.0-beta</code></td>
+<td><code>3.2.0-beta</code></td>
 <td><code>fedlearn-desktop/package.json</code></td>
 </tr>
 <tr>
@@ -147,6 +148,24 @@ tagged release. Versions follow <a href="https://semver.org">Semantic Versioning
    release workflow so only the matching unit builds.</li>
 </ol>
 <h2 id="release-history">Release history<a class="headerlink" href="#release-history" title="Permanent link">&para;</a></h2>
+<h3 id="2026-06-16">2026-06-16<a class="headerlink" href="#2026-06-16" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>desktop</td>
+<td><code>3.2.0-beta</code></td>
+<td>Model Playground — interactive "Use a model" inference (image + vector), reached over validated IPC with the JWT kept in the keychain</td>
+</tr>
+</tbody>
+</table>
+<p>Backend and web also gained the inference feature this cycle (new <code>/api/inference</code> API and <code>/playground</code> view) but are versioned as a pair and stay <code>1.4.1-beta</code>.</p>
 <h3 id="2026-06-10">2026-06-10<a class="headerlink" href="#2026-06-10" title="Permanent link">&para;</a></h3>
 <table>
 <thead>

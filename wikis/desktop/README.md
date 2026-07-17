@@ -83,4 +83,4 @@ npm run package:linux        # Linux AppImage + deb
 
 - [Backend Wiki](../backend/README.md) — Spring Boot API that coordinates federated learning rounds
 - [Frontend Wiki](../frontend/README.md) — Web dashboard for project management
-- [Framework Wiki](../framework/README.md) — Python federated learning framework (custom; **no Flower / `flwr`**)
+- [Framework Wiki](../framework/README.md) — Python federated learning framework (custom; **no Flower FL semantics** — own server/client/strategies and protobuf)

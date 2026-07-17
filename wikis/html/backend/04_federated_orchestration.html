@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>04 - Federated Orchestration (FlowerServerManager) · FedLearn Wiki</title>
+<title>04 - Federated Orchestration (FlServerManager) · FedLearn Wiki</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="../styles.css">
 <link rel="stylesheet" href="../fonts/fonts.css">
@@ -27,9 +27,10 @@
 <li><a href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="03_project_management.html">Project Management Lifecycle</a></li>
-<li><a class="active" href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a class="active" href="04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -76,69 +77,50 @@
 <div class="main">
   <header class="topbar">
     <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
-    <div class="crumb"><b>Backend</b> &nbsp;·&nbsp; 04 - Federated Orchestration (FlowerServerManager)</div>
+    <div class="crumb"><b>Backend</b> &nbsp;·&nbsp; 04 - Federated Orchestration (FlServerManager)</div>
     <span class="spacer"></span>
     <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
   </header>
   <div class="content-wrap">
-    <article class="article"><h1 id="04-federated-orchestration-flowerservermanager">04 - Federated Orchestration (FlowerServerManager)<a class="headerlink" href="#04-federated-orchestration-flowerservermanager" title="Permanent link">&para;</a></h1>
-<p>The <code>FlowerServerManager</code> is the most operationally complex class in the Spring Boot backend. It is responsible for bridging the gap between the stateless Java REST API and the stateful, heavily computational Python Federated Learning servers.</p>
-<p>The application supports two distinct execution paths, determined entirely by the presence of AWS configuration properties (<code>ecs.cluster-name</code>, <code>ecs.task-definition</code>, etc.) in the <code>application.properties</code>.</p>
-<h2 id="path-a-local-execution-processbuilder">Path A: Local Execution (ProcessBuilder)<a class="headerlink" href="#path-a-local-execution-processbuilder" title="Permanent link">&para;</a></h2>
-<p>When AWS configurations are not present, the <code>FlowerServerManager</code> falls back to local execution. This is primarily used for development, testing on a Macbook, or bare-metal deployments (like the RIT lab environment).</p>
+    <article class="article"><h1 id="04-federated-orchestration-flservermanager">04 - Federated Orchestration (FlServerManager)<a class="headerlink" href="#04-federated-orchestration-flservermanager" title="Permanent link">&para;</a></h1>
+<p>The <code>FlServerManager</code> is the most operationally complex class in the Spring Boot backend. It is responsible for bridging the gap between the stateless Java REST API and the stateful, heavily computational Python Federated Learning servers.</p>
+<p>The application has <strong>one</strong> supported execution path: the FL server runs as a <strong>local child process</strong> on the same host as the backend. This is true everywhere — development, the <code>ec2demo</code> profile, and the hardened single-VM <code>production</code> profile. There is no cloud-execution mode; see <a href="#the-ecsfargate-path-removed-fail-closed">The ECS/Fargate path (removed, fail-closed)</a> below.</p>
+<h2 id="local-execution-the-flserverprocessrunner-seam">Local Execution (the FlServerProcessRunner seam)<a class="headerlink" href="#local-execution-the-flserverprocessrunner-seam" title="Permanent link">&para;</a></h2>
+<p><code>startServerForProject(...)</code> performs its policy gates and then delegates to <code>startLocalServer(...)</code>, the only real path in the class. The raw <code>ProcessBuilder</code> mechanics no longer live in <code>FlServerManager</code> itself — since <strong>DA-8</strong> they sit behind the <code>FlServerProcessRunner</code> seam, whose default implementation is <code>LocalProcessFlServerRunner</code>. The manager keeps all <em>policy</em> (argv construction, environment scrubbing, port reservation, run-state persistence, the startup probe, log broadcasting); the runner does nothing but apply the env customizer, merge stderr into stdout, set the working directory, and start the process. That split is what makes the spawn path unit-testable with a fake runner.</p>
 <h3 id="process-lifecycle">Process Lifecycle<a class="headerlink" href="#process-lifecycle" title="Permanent link">&para;</a></h3>
 <ol>
-<li><strong>Port Allocation:</strong> The manager asks the host OS kernel for an ephemeral port via <code>new ServerSocket(0)</code>.</li>
-<li><strong>Process Construction:</strong> It builds a shell command array using <code>bash</code> and the path to the <code>run_fl_server.sh</code> script.</li>
-<li><strong>Environment Injection:</strong> It injects internal configuration strings directly into the child process's environment variables.
+<li><strong>Port Allocation:</strong> The manager scans the configured port range — <code>fl.server.port-range.start</code>/<code>.end</code>, defaulting to <strong>50000–50010</strong> — and reserves the first port it can actually bind with a probe <code>ServerSocket</code>. Reserved ports are tracked in a set guarded by a lock, so two concurrent project starts cannot pick the same port between probe-close and the Python child's bind.</li>
+<li><strong>Command Construction:</strong> It builds a command array around the FL-server shell wrapper, resolved from <code>python.script.fl-server.path</code> (default <code>../../fl-runtime/run_fl_server.sh</code>; <code>.bat</code> on Windows). Federation over Text (FoT) selects its own wrapper, <code>python.script.fot-server.path</code>. The wrapper indirection is what lets the same Java code work on macOS, Linux, and Windows.</li>
+<li><strong>Environment Construction:</strong> The child environment is <strong>rebuilt from an allowlist</strong> rather than inherited (SE-17), so no backend secret — DB password, web-auth JWT secret, CORS config — reaches the FL server. Only OS/runtime essentials plus the <code>FEDLEARN_*</code> namespace survive; the manager then sets the explicit per-run variables:
    <code>java
-   Map&lt;String, String&gt; env = pb.environment();
+   env.keySet().removeIf(key -&gt; !isAllowedChildEnvKey(key));
    env.put("FEDLEARN_INTERNAL_API_KEY", internalApiKey);
-   env.put("FEDLEARN_BACKEND_URL", backendInternalUrl);</code></li>
-<li><strong>Execution and Tracking:</strong> The process is started via <code>ProcessBuilder.start()</code>. The returned <code>java.lang.Process</code> object is stored in a <code>ConcurrentHashMap</code> keyed by the <code>UUID projectId</code>.</li>
+   env.put("FEDLEARN_INTERNAL_RUN_TOKEN", internalRunToken);  // SE-7: scoped to (projectId, runId)
+   env.put("FEDLEARN_BACKEND_URL", backendInternalUrl);</code>
+   The per-run token (SE-7) is minted fresh for each start and is the only credential the child can present on <code>/api/internal/**</code> — a leaked run token can mutate only its own project. TLS enforcement (SE-2) and client-auth enforcement (SE-1/SE-7) are passed as explicit toggles, both off by default.</li>
+<li><strong>Execution and Tracking:</strong> The runner starts the process and returns a <code>SpawnedFlProcess</code>. The manager stores <code>process.toHandle()</code> in a <code>ConcurrentHashMap&lt;UUID, ProcessHandle&gt;</code> keyed by the <code>projectId</code> — a <code>ProcessHandle</code> rather than a <code>Process</code> because a restarted JVM can only ever re-adopt a <em>handle</em> to a child that outlived a backend crash (BA-3).</li>
+<li><strong>Identity Persistence:</strong> The child's PID, start instant, reserved port, and run-token hash are recorded on the active <code>Run</code> (BA-3), so a startup reconciler can distinguish a still-live FL server from a dead — or PID-reused — one. If that persistence fails, the spawn <strong>fails closed</strong>: the child is killed rather than left as an unreconcilable orphan.</li>
 </ol>
 <h3 id="output-redirection">Output Redirection<a class="headerlink" href="#output-redirection" title="Permanent link">&para;</a></h3>
 <p>Because a spawned local process does not automatically print to the parent's console, the manager creates a dedicated daemon thread <code>fl-server-stdout-{id}</code>. This thread continuously reads from the child's <code>InputStream</code>.</p>
-<p>Every line read is passed to the <code>WebSocketService</code> to be broadcast to the UI. If the process crashes during startup (exits within 3 seconds), an exception is thrown containing the captured <code>stdout</code> to help developers debug.</p>
-<h2 id="path-b-cloud-native-execution-aws-ecs-fargate">Path B: Cloud-Native Execution (AWS ECS Fargate)<a class="headerlink" href="#path-b-cloud-native-execution-aws-ecs-fargate" title="Permanent link">&para;</a></h2>
-<p>When the backend is deployed to a production environment (like AWS), local process spawning is disabled. A Spring Boot container running behind an Application Load Balancer cannot spawn heavily computational Python tasks inside itself—it would cause OOM kills, and the dynamically allocated ports would be inaccessible from the public internet.</p>
-<p>Instead, the <code>FlowerServerManager</code> utilizes the AWS SDK (<code>EcsClient</code>) to orchestrate infrastructure-level task provisioning.</p>
-<h3 id="ecs-runtaskrequest">ECS <code>RunTaskRequest</code><a class="headerlink" href="#ecs-runtaskrequest" title="Permanent link">&para;</a></h3>
-<p>The manager dynamically builds a <code>RunTaskRequest</code>. It targets a serverless AWS Fargate cluster.</p>
-<div class="codehilite"><pre><span></span><code><span class="n">RunTaskRequest</span><span class="w"> </span><span class="n">request</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">RunTaskRequest</span><span class="p">.</span><span class="na">builder</span><span class="p">()</span>
-<span class="w">        </span><span class="p">.</span><span class="na">cluster</span><span class="p">(</span><span class="n">ecsClusterName</span><span class="p">)</span>
-<span class="w">        </span><span class="p">.</span><span class="na">taskDefinition</span><span class="p">(</span><span class="n">ecsTaskDefinition</span><span class="p">)</span>
-<span class="w">        </span><span class="p">.</span><span class="na">launchType</span><span class="p">(</span><span class="n">LaunchType</span><span class="p">.</span><span class="na">FARGATE</span><span class="p">)</span>
-<span class="w">        </span><span class="p">.</span><span class="na">networkConfiguration</span><span class="p">(</span><span class="n">NetworkConfiguration</span><span class="p">.</span><span class="na">builder</span><span class="p">()</span>
-<span class="w">                </span><span class="p">.</span><span class="na">awsvpcConfiguration</span><span class="p">(</span><span class="n">AwsVpcConfiguration</span><span class="p">.</span><span class="na">builder</span><span class="p">()</span>
-<span class="w">                        </span><span class="p">.</span><span class="na">subnets</span><span class="p">(</span><span class="n">splitCsv</span><span class="p">(</span><span class="n">ecsSubnetsCsv</span><span class="p">))</span>
-<span class="w">                        </span><span class="p">.</span><span class="na">securityGroups</span><span class="p">(</span><span class="n">splitCsv</span><span class="p">(</span><span class="n">ecsSecurityGroupsCsv</span><span class="p">))</span>
-<span class="w">                        </span><span class="p">.</span><span class="na">assignPublicIp</span><span class="p">(</span><span class="n">AssignPublicIp</span><span class="p">.</span><span class="na">fromValue</span><span class="p">(</span><span class="n">ecsAssignPublicIp</span><span class="p">))</span>
-<span class="w">                        </span><span class="p">.</span><span class="na">build</span><span class="p">())</span>
-<span class="w">                </span><span class="p">.</span><span class="na">build</span><span class="p">())</span>
-<span class="w">        </span><span class="p">...</span>
-</code></pre></div>
-
-<h3 id="dynamic-overrides">Dynamic Overrides<a class="headerlink" href="#dynamic-overrides" title="Permanent link">&para;</a></h3>
-<p>Instead of hardcoding environment variables in the task definition in AWS, the Java application uses <code>TaskOverride</code> and <code>ContainerOverride</code> to dynamically inject the specific parameters for the requested federated training round:</p>
-<div class="codehilite"><pre><span></span><code><span class="p">.</span><span class="na">overrides</span><span class="p">(</span><span class="n">TaskOverride</span><span class="p">.</span><span class="na">builder</span><span class="p">()</span>
-<span class="w">        </span><span class="p">.</span><span class="na">containerOverrides</span><span class="p">(</span><span class="n">ContainerOverride</span><span class="p">.</span><span class="na">builder</span><span class="p">()</span>
-<span class="w">                </span><span class="p">.</span><span class="na">name</span><span class="p">(</span><span class="n">ecsContainerName</span><span class="p">)</span>
-<span class="w">                </span><span class="p">.</span><span class="na">environment</span><span class="p">(</span>
-<span class="w">                        </span><span class="n">kv</span><span class="p">(</span><span class="s">&quot;PROJECT_ID&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">project</span><span class="p">.</span><span class="na">getId</span><span class="p">().</span><span class="na">toString</span><span class="p">()),</span>
-<span class="w">                        </span><span class="n">kv</span><span class="p">(</span><span class="s">&quot;MODEL_PATH&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">project</span><span class="p">.</span><span class="na">getModelPath</span><span class="p">()),</span>
-<span class="w">                        </span><span class="n">kv</span><span class="p">(</span><span class="s">&quot;STRATEGY&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">strategy</span><span class="p">),</span>
-<span class="w">                        </span><span class="n">kv</span><span class="p">(</span><span class="s">&quot;NUM_ROUNDS&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">String</span><span class="p">.</span><span class="na">valueOf</span><span class="p">(</span><span class="n">numRounds</span><span class="p">)),</span>
-<span class="w">                        </span><span class="n">kv</span><span class="p">(</span><span class="s">&quot;FEDLEARN_INTERNAL_API_KEY&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">internalApiKey</span><span class="p">)</span>
-<span class="w">                </span><span class="p">)</span>
-<span class="w">                </span><span class="p">.</span><span class="na">build</span><span class="p">())</span>
-<span class="w">        </span><span class="p">.</span><span class="na">build</span><span class="p">())</span>
-</code></pre></div>
-
-<h3 id="network-resolution-awsvpc">Network Resolution (awsvpc)<a class="headerlink" href="#network-resolution-awsvpc" title="Permanent link">&para;</a></h3>
-<p>When launched via ECS, the task runs in <code>awsvpc</code> mode. It receives its own Elastic Network Interface (ENI) and private IP. The Java app does <em>not</em> try to allocate a port. Instead, AWS ECS Service Connect (Envoy Proxies) registers the container in a private Cloud Map namespace, allowing edge clients to connect to it using a logical hostname rather than a hardcoded port.</p>
+<p>Every line read is passed to the <code>WebSocketService</code> to be broadcast to the UI. If the process crashes during startup — the probe window is <code>fl.server.startup-probe-seconds</code>, default <strong>3 seconds</strong> — an exception is thrown containing the captured <code>stdout</code> to help developers debug.</p>
+<h2 id="the-ecsfargate-path-removed-fail-closed">The ECS/Fargate path (removed, fail-closed)<a class="headerlink" href="#the-ecsfargate-path-removed-fail-closed" title="Permanent link">&para;</a></h2>
+<p><strong>There is no cloud-execution path in this build.</strong> The backend carries no AWS SDK dependency and no ECS orchestration code. The only surviving trace is a single property, <code>ecs.cluster-name=${ECS_CLUSTER_NAME:}</code> (blank by default), which exists purely so that setting it can be <strong>rejected</strong>. <code>ecs.task-definition</code>, <code>ecs.subnets</code>, <code>ecs.security-groups</code> and friends do not exist as properties at all.</p>
+<p>Two fail-closed gates enforce this:</p>
+<ol>
+<li><strong>Boot-time (OP-14, the real gate).</strong> <code>FlOrchestrationModeValidator</code> carries a <code>@PostConstruct</code> check that throws <code>IllegalStateException</code> when <code>ecs.cluster-name</code> is non-blank. It has <strong>no <code>@Profile</code> annotation</strong>, so it gates in <em>every</em> profile — ECS is unsupported everywhere. The blank default is the supported single-VM path and always boots. The point is to move the failure to startup: an operator who wires <code>ECS_CLUSTER_NAME</code> should be told immediately, not discover the gap mid-federation.
+   <code>OP-14: ecs.cluster-name is set ("...") but ECS/Fargate FL-server orchestration is not
+   implemented (tracked as OP-12). This build supports the hardened single-VM architecture
+   only — FL servers run as local processes. Unset ECS_CLUSTER_NAME to boot.</code></li>
+<li><strong>Runtime backstop.</strong> <code>FlServerManager.startServerForProject(...)</code> still throws <code>UnsupportedOperationException</code> on the same branch. A correctly-booted app can never reach it; it exists so that no route around the validator can record a project as <code>RUNNING</code> on an unreachable port while a real task leaks.</li>
+</ol>
+<blockquote>
+<p><strong>Historical note (past tense — not usable guidance).</strong> An AWS Fargate orchestration path <em>was</em> implemented once, in <code>1239dda refactor(backend): migrate to AWS Fargate orchestration</code>. The AWS SDK was subsequently removed (<code>9124b62</code>), which deleted that implementation along with it; <code>8d5dfdc</code> (OP-14) then added the boot-time validator to make the remaining configuration fail closed. None of that code is in the repository today, and none of it would compile without the SDK. Managed-task orchestration is <strong>deferred to OP-12</strong> and will, when built, arrive as an alternative <code>FlServerProcessRunner</code> implementation behind the DA-8 seam rather than as inline SDK calls.</p>
+</blockquote>
+<h3 id="the-supported-deployed-architecture">The supported deployed architecture<a class="headerlink" href="#the-supported-deployed-architecture" title="Permanent link">&para;</a></h3>
+<p>The <code>production</code> profile is the <strong>hardened single-VM</strong> profile — it is not, and never should be described as, an "ECS Fargate profile". FL servers run as local Python processes on the same VM as the backend, exactly as in development, with the hardening (secret scrubbing, fail-closed boot checks, run-token scoping) layered on top.</p>
 <h2 id="graceful-shutdown">Graceful Shutdown<a class="headerlink" href="#graceful-shutdown" title="Permanent link">&para;</a></h2>
-<p>To prevent orphaned processes, the manager hooks into the Spring Application Context lifecycle via the <code>@PreDestroy</code> annotation. When the Java backend is shutting down, it iterates through the <code>ConcurrentHashMap</code> of running servers and forcibly destroys all active child processes.</p></article>
+<p>To prevent orphaned processes, the manager hooks into the Spring Application Context lifecycle via the <code>@PreDestroy</code> annotation. When the Java backend is shutting down, it iterates through the <code>ConcurrentHashMap&lt;UUID, ProcessHandle&gt;</code> of running servers and calls <code>destroyForcibly()</code> on each live child. The same teardown (<code>stopServerForProject</code>) backs the stop endpoint, which additionally evicts the run's internal token from the <code>RunTokenRegistry</code> (SE-7) before terminating the child.</p></article>
     <nav class="toc"></nav>
   </div>
 </div>

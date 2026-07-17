@@ -87,6 +87,5 @@ npm run preview           # Local preview of the production bundle
 
 ## Adjacent docs
 
-- Coding guidance for AI assistants: `frontend/CLAUDE.md` (gitignored — local-only).
-- Wiki / deeper architecture: `docs/wikis/frontend/`.
-- Backend auth contract: `backend/fl-platform-api/CLAUDE.md` and `backend/fl-platform-api/DEVELOPMENT.md`.
+- Wiki / deeper architecture: [`wikis/frontend/`](../wikis/frontend/).
+- Backend auth contract: [`backend/fl-platform-api/README.md`](../backend/fl-platform-api/README.md#cookie-auth-contract) and [`DEVELOPMENT.md`](../backend/fl-platform-api/DEVELOPMENT.md).

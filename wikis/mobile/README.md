@@ -108,7 +108,7 @@ plumbing, phases, and manual acceptance runbook are documented in
 
 - Authenticates against the **Backend** `POST /api/auth/login` (same cookie/JWT contract as the web client).
 - Connects to a **Framework** FL server over gRPC and runs the native DeComFL client path.
-- Shares the **canonical** `proto/fedlearn/v2` contract (byte-mirrored into `mobile_client/proto/`, enforced by `scripts/check_proto_mirror.sh`). Note: the running Python framework still generates from the older `fedlearn.v1` proto — the v2 contract is ahead of the framework implementation.
+- Shares the **canonical** `proto/fedlearn/v2` contract (byte-mirrored into `mobile_client/proto/`, enforced by `scripts/check_proto_mirror.sh` — which checks three mirrors: this one plus the framework's `fedlearn.proto` and `fot.proto`). The framework's copy is byte-identical to canonical, so client and server share one `fedlearn.v2` contract with no version skew.
 - The C++ `SAFE_DTYPES` whitelist stays in lockstep with the Python serializer whitelist.
 
 ## Related documentation

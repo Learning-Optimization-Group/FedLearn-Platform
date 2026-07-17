@@ -34,7 +34,7 @@ Complete guide for developers working on the Spring Boot backend.
 │  Service Layer (Business Logic)             │
 │  - ProjectService                           │
 │  - UserService                              │
-│  - FlowerServerManager                      │
+│  - FlServerManager                          │
 │  - WebSocketService                         │
 └──────────────┬──────────────────────────────┘
                │ Entities
@@ -61,9 +61,9 @@ Complete guide for developers working on the Spring Boot backend.
               ↓
 3. Service: ProjectService.startServer(projectId)
               ↓
-4. Manager: FlowerServerManager.startServerForProject()
+4. Manager: FlServerManager.startServerForProject()
               ↓
-5. Process: Spawns Python script with parameters
+5. Runner: FlServerProcessRunner spawns the fl-runtime wrapper script
               ↓
 6. WebSocket: Streams logs to /topic/logs/{projectId}
               ↓
@@ -74,270 +74,168 @@ Complete guide for developers working on the Spring Boot backend.
 
 ## Key Components
 
-### 1. FlowerServerManager
+### 1. FlServerManager
 
-**Location**: `src/main/java/com/federated/fl_platform_api/flower/FlowerServerManager.java`
+**Location**: `src/main/java/com/federated/fl_platform_api/orchestration/FlServerManager.java`
 
-**Purpose**: Manages FL server processes (start, stop, monitor).
+**Purpose**: Manages FL server processes (start, stop, monitor). Renamed from the historical `FlowerServerManager` in the `flower/` package (DA-12) — the platform has never used Flower's FL semantics.
 
 **Key Features**:
-- Cross-platform support (Windows .bat, Linux/Mac .sh)
-- Dynamic port allocation
+- Policy gates before any spawn (SE-10 argv validation, SE-11 DP policy)
+- Range-based port reservation, race-safe across concurrent starts
+- Process launch delegated to the `FlServerProcessRunner` seam (DA-8)
 - Process output streaming to WebSocket
-- Concurrent server tracking
+- Concurrent server tracking by `ProcessHandle` (BA-3 orphan reconciliation)
 
-#### Full Implementation
+#### The FlServerProcessRunner seam (DA-8)
+
+The manager does **not** call `ProcessBuilder` directly. It builds the argv and the environment
+customizer, then hands both to an injectable runner:
 
 ```java
-package com.federated.fl_platform_api.flower;
-
-import com.federated.fl_platform_api.model.Project;
-import com.federated.fl_platform_api.service.WebSocketService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.ServerSocket;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-
-@Component
-public class FlowerServerManager {
-
-    // This property points to the run_fl_server wrapper script
-    @Value("${python.script.fl-server.path}")
-    private String flServerWrapperPath;
-
-    // A map to keep track of the running server processes for cleanup
-    private final Map<UUID, Process> runningServers = new ConcurrentHashMap<>();
-
-    @Autowired
-    private WebSocketService logBroadcaster;
-
-    /**
-     * Starts a dedicated Flower server process for a given project.
-     */
-    public int startServerForProject(Project project, boolean isPretrained, String strategy, Integer numRounds, Integer minClients) throws IOException, InterruptedException {
-
-        stopServerForProject(project.getId());
-        Thread.sleep(2000);
-
-        int freePort = findFreePort();
-
-        System.out.println("--- Preparing to Start Flower Server ---");
-
-        List<String> command = new ArrayList<>();
-        String os = System.getProperty("os.name").toLowerCase();
-
-        // Determine script path based on OS
-        String scriptPath;
-        if (os.contains("win")) {
-            // Windows - use .bat file
-            scriptPath = flServerWrapperPath.replace(".sh", ".bat");
-            command.add(scriptPath);
-        } else {
-            // Linux/Mac - use .sh file and call with bash
-            scriptPath = flServerWrapperPath.replace(".bat", ".sh");
-            File scriptFile = new File(scriptPath);
-            String absoluteScriptPath = scriptFile.getAbsolutePath();
-            command.add("bash");
-            command.add(absoluteScriptPath);
-        }
-
-        // Add the arguments for the script
-        command.add("--project-id");
-        command.add(project.getId().toString());
-        command.add("--model-path");
-        command.add(project.getModelPath());
-        command.add("--port");
-        command.add(String.valueOf(freePort));
-        command.add("--strategy");
-        command.add(strategy);
-        command.add("--num-rounds");
-        command.add(String.valueOf(numRounds));
-        command.add("--min-clients");
-        command.add(String.valueOf(minClients));
-        command.add("--model-type");
-        command.add(project.getModelType());
-        command.add("--model-name");
-        command.add(project.getModelName());
-
-        if (!isPretrained) {
-            command.add("--pretrain");
-        }
-
-        ProcessBuilder pb = new ProcessBuilder(command);
-        pb.redirectErrorStream(true);
-        pb.directory(new File("."));
-
-        System.out.println("Executing command: " + String.join(" ", pb.command()));
-
-        Process process = pb.start();
-        runningServers.put(project.getId(), process);
-
-        // --- Asynchronous output reader AND process health check ---
-        final StringBuilder startupOutput = new StringBuilder();
-        final var errorOccurred = new boolean[]{false};
-
-        Thread outputReaderThread = new Thread(() -> {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    System.out.println("[FL_SERVER_LOG " + project.getId() + "] " + line);
-                    logBroadcaster.sendLogs(project.getId(), line);
-                    startupOutput.append(line).append("\n");
-                }
-            } catch (IOException e) {
-                System.err.println("Error reading output from Flower server process for project " + project.getId());
-                errorOccurred[0] = true;
-                logBroadcaster.sendLogs(project.getId(), "ERROR: " + e);
-                e.printStackTrace();
-            }
-        });
-        outputReaderThread.setDaemon(true);
-        outputReaderThread.start();
-
-        // Wait for a short period to see if the process exits immediately
-        boolean exited = process.waitFor(3, TimeUnit.SECONDS);
-
-        if (exited || errorOccurred[0]) {
-            outputReaderThread.join(1000);
-            throw new RuntimeException("Flower server process failed to start. Exit code: " + process.exitValue() +
-                    "\nFull Output:\n" + startupOutput);
-        }
-
-        System.out.println("Started Flower server for project " + project.getName() + " on port " + freePort);
-        return freePort;
-    }
-
-    public boolean stopServerForProject(UUID projectId) {
-        Process process = runningServers.get(projectId);
-        if (process != null && process.isAlive()) {
-            System.out.println("Stopping Flower server for project: " + projectId);
-            process.destroyForcibly();
-            runningServers.remove(projectId);
-            return true;
-        }
-        System.out.println("No running server found for project: " + projectId);
-        return false;
-    }
-
-    private int findFreePort() {
-        try (ServerSocket serverSocket = new ServerSocket(0)) {
-            if (serverSocket != null) {
-                return serverSocket.getLocalPort();
-            }
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not find a free TCP/IP port", e);
-        }
-        throw new IllegalStateException("Could not find a free TCP/IP port");
-    }
-
-    public boolean isServerRunning(UUID projectId) {
-        Process p = runningServers.get(projectId);
-        return (p != null && p.isAlive());
-    }
+public interface FlServerProcessRunner {
+    SpawnedFlProcess start(List<String> command, Consumer<Map<String, String>> envCustomizer,
+                           File workingDir) throws IOException;
 }
 ```
 
+- **`LocalProcessFlServerRunner`** is the default — a local child process. It applies the env
+  customizer, merges stderr into stdout, sets the working directory, and starts the process.
+  Nothing else: all policy (argv building, secret scrubbing, port reservation, run-state
+  persistence, the startup probe, log broadcasting) stays in the manager.
+- A Spring bean of type `FlServerProcessRunner`, if defined, overrides the default via
+  `setProcessRunner`. Tests inject a fake with `ReflectionTestUtils` — this is what makes the
+  spawn orchestration unit-testable without a real process.
+- `SpawnedFlProcess` abstracts `java.lang.Process`, exposing only what the manager needs:
+  `pid()`, `startInstant()`, `toHandle()`, `getInputStream()`, `waitFor()`, `exitValue()`,
+  `isAlive()`, `destroyForcibly()`.
+
+> **ECS/Fargate is not implemented.** `startServerForProject` fails closed with an
+> `UnsupportedOperationException` when `ecs.cluster-name` is set, and `FlOrchestrationModeValidator`
+> already fails the **boot** on the same condition (OP-14). The managed-task runner is tracked as
+> OP-12; the seam above is where it would slot in.
+
 #### How It Works
 
-**1. Start Server**:
-```
-stopServerForProject(project.getId());  // Stop any existing server
-Thread.sleep(2000);                     // Wait for cleanup
-int freePort = findFreePort();          // Get available port
-```
-
-**2. Build Command** (cross-platform):
+**1. Gate, then reserve a port**:
 ```java
-// Windows
-run_fl_server.bat --project-id {id} --port {port} ...
-
-// Linux/Mac
-bash run_fl_server.sh --project-id {id} --port {port} ...
+requireDpPolicySatisfied(project);              // SE-11: regulated projects need complete DP config
+requireModelTypeInCatalog(project, strategy);   // SE-10: unknown modelType -> 400 before spawn
+stopServerForProject(project.getId());          // Stop any existing server
+int freePort = findFreePort();                  // Reserve from the configured range
 ```
 
-**3. Spawn Process**:
+**2. Select the wrapper and build the command**:
 ```java
-ProcessBuilder pb = new ProcessBuilder(command);
-pb.redirectErrorStream(true);  // Merge stderr into stdout
-Process process = pb.start();
+boolean isFoT = "FoT".equalsIgnoreCase(strategy);
+String wrapperPath = isFoT ? fotServerWrapperPath : flServerWrapperPath;
+String absoluteScriptPath = new File(wrapperPath).getAbsolutePath();
 ```
+Federation over Text (`FoT`) is a separate text-federation server spawned through the same seam;
+the gradient strategies (FedAvg, DeComFL) take the other branch. The configured wrapper path is used
+verbatim: on Linux/Mac it is invoked as `bash <script> ...`, and on Windows the `bash` prefix is
+dropped and the script is executed directly (point `PYTHON_SCRIPT_FL_SERVER_PATH` at
+`fl-runtime/run_fl_server.bat` there — the manager does not rewrite the extension for you).
+
+**3. Spawn via the runner**:
+```java
+process = processRunner.start(command,
+        env -> configureChildEnv(env, internalApiKey, backendInternalUrl,
+                flTokenSecret, requireClientAuth, runIdArg, requireTls, internalRunToken),
+        new File("."));
+runningServers.put(project.getId(), process.toHandle());
+recordProcessIdentity(project.getActiveRunId(), process.pid(),
+        process.startInstant().orElse(null), freePort, internalTokenHash);
+```
+SE-7: a random per-run token scoped to `(projectId, runId)` is minted and handed to the child —
+never a secret it could use to forge another project's token. BA-3: if the identity can't be
+persisted, the child is killed rather than leaked as an unreconcilable orphan.
 
 **4. Stream Output**:
 ```java
 Thread outputReaderThread = new Thread(() -> {
     try (BufferedReader reader = new BufferedReader(
-            new InputStreamReader(process.getInputStream()))) {
+            new InputStreamReader(readerProcess.getInputStream()))) {
         String line;
         while ((line = reader.readLine()) != null) {
-            System.out.println("[FL_SERVER_LOG] " + line);
+            log.debug("[FL_SERVER {}] {}", project.getId(), line);
             logBroadcaster.sendLogs(project.getId(), line);
+            startupOutput.append(line).append('\n');
         }
-    }
-});
+    } catch (IOException e) { /* errorOccurred[0] = true */ }
+}, "fl-server-stdout-" + project.getId());
 outputReaderThread.setDaemon(true);
 outputReaderThread.start();
 ```
 
-**5. Health Check**:
+**5. Startup probe**:
 ```java
-boolean exited = process.waitFor(3, TimeUnit.SECONDS);
-if (exited || errorOccurred[0]) {
-    throw new RuntimeException("Server failed to start");
+boolean exited = process.waitFor(startupProbeSeconds, TimeUnit.SECONDS);
+if (exited) {
+    // stdout is buffered — drain before surfacing, or you lose the stack trace
+    outputReaderThread.join(stdoutDrainMillis);
+    runningServers.remove(project.getId());
+    throw new ServerProcessException("FL server exited during startup ...");
 }
 ```
-
-**6. Track Process**:
-```java
-runningServers.put(project.getId(), process);
-```
+Tunable via `fl.server.startup-probe-seconds` (default `3`) and `fl.server.stdout-drain-millis`
+(default `5000`).
 
 #### Configuration
 
 In `application.properties`:
 ```properties
-# Path to the FL server wrapper script
-python.script.fl-server.path=../../fl-runtime/run_fl_server.sh
+# Wrapper scripts live in the repo-root fl-runtime/ directory, NOT under src/main/resources.
+python.script.fl-server.path=${PYTHON_SCRIPT_FL_SERVER_PATH:../../fl-runtime/run_fl_server.sh}
+fl.server.port-range.start=50000
+fl.server.port-range.end=50010
 ```
+The FoT wrapper is bound with an inline `@Value` default on the manager
+(`python.script.fot-server.path`, default `../../fl-runtime/run_fot_server.sh`) and has no entry in
+the properties file.
 
 #### Script Parameters
 
-The wrapper script receives:
+The gradient (`fl_server`) wrapper receives:
 - `--project-id`: UUID of the project
 - `--model-path`: Path to model checkpoint
-- `--port`: Port number (dynamically allocated)
+- `--init-model-path`: Registry-resolved warm-start weights (BA-11; omitted on a first run / LoRA)
+- `--port`: Port number (reserved from the range)
 - `--strategy`: Aggregation strategy (FedAvg, DeComFL)
 - `--num-rounds`: Number of training rounds
 - `--min-clients`: Minimum clients required
 - `--model-type`: Type of model (CNN, Transformer, etc.)
 - `--model-name`: Specific model architecture
-- `--pretrain`: Flag for pre-training (optional)
+- `--aggregation FFA_LORA` + `--task-type`: added only for the `LLM_LORA` model type
+- `--dp-enabled`, `--dp-clip-norm`, `--dp-target-epsilon`, `--dp-delta`, `--dp-rounds`,
+  `--dp-num-clients`: differential-privacy config, when DP is enabled
+
+The FoT wrapper takes a narrower set: `--project-id`, `--port`, `--num-rounds`.
+
+Every attacker-influenceable field is validated before it reaches the argv (SE-10). `ProcessBuilder`
+with a `List` never invokes a shell, so the concrete risks are option injection (a value starting
+with `-` read as an argparse flag) and path traversal via `--model-path` / `--model-name`. The
+checks fail closed and never echo the rejected value.
 
 #### Process Management
 
 **Concurrent Map**:
 ```java
-private final Map<UUID, Process> runningServers = new ConcurrentHashMap<>();
+private final Map<UUID, ProcessHandle> runningServers = new ConcurrentHashMap<>();
 ```
 - Key: Project UUID
-- Value: Running Process instance
+- Value: `ProcessHandle` — **not** `Process`. BA-3: a restarted JVM can only recover a *handle* to a
+  child that outlived a backend crash, never the original `Process` object, so the tracking map
+  stores handles and `StartupReconciler` can re-adopt orphans.
 
 **Stop Server**:
 ```java
 public boolean stopServerForProject(UUID projectId) {
-    Process process = runningServers.get(projectId);
-    if (process != null && process.isAlive()) {
-        process.destroyForcibly();  // Kill process
+    runTokenRegistry.evictForProject(projectId);   // SE-7: invalidate this run's internal token
+    ProcessHandle handle = runningServers.get(projectId);
+    if (handle != null && handle.isAlive()) {
+        handle.destroyForcibly();
+        handle.onExit().get(stopWaitSeconds(), TimeUnit.SECONDS);   // bounded wait
         runningServers.remove(projectId);
         return true;
     }
@@ -348,27 +246,36 @@ public boolean stopServerForProject(UUID projectId) {
 **Check Status**:
 ```java
 public boolean isServerRunning(UUID projectId) {
-    Process p = runningServers.get(projectId);
+    ProcessHandle p = runningServers.get(projectId);
     return (p != null && p.isAlive());
 }
 ```
 
 #### Port Allocation
 
-**Dynamic Port Finding**:
+Ports come from the configured range (`fl.server.port-range.start..end`, default `50000-50010`) —
+not from an OS-assigned ephemeral port — because clients must reach the server on a predictable,
+firewall-opened range.
+
 ```java
 private int findFreePort() {
-    try (ServerSocket serverSocket = new ServerSocket(0)) {
-        return serverSocket.getLocalPort();
-    } catch (IOException e) {
-        throw new IllegalStateException("Could not find a free TCP/IP port", e);
+    synchronized (portReservationLock) {
+        for (int port = portRangeStart; port <= portRangeEnd; port++) {
+            if (reservedPorts.contains(port)) continue;
+            try (ServerSocket s = new ServerSocket(port)) {
+                reservedPorts.add(port);
+                return port;
+            } catch (IOException ignored) { /* port in use, try next */ }
+        }
+        throw new IllegalStateException("No free port in range ...");
     }
 }
 ```
-- Creates temporary ServerSocket on port 0
-- OS assigns available port
-- Returns port number
-- Socket closes automatically (try-with-resources)
+- Scans the range, probing each port with a `ServerSocket`
+- The `reservedPorts` set closes a race: without it two concurrent project starts can both probe the
+  same port as free, both close their probe socket, and both spawn Python on it
+- The reservation is released in a `finally` regardless of outcome — on success the Python child now
+  holds the port, so the next probe skips it naturally
 
 ---
 
@@ -382,7 +289,7 @@ private int findFreePort() {
 - `sendLogs(UUID projectId, String message)` - Send log to topic
 - `sendStatusUpdate(UUID projectId, String status)` - Send status update
 
-**Integration with FlowerServerManager**:
+**Integration with FlServerManager**:
 ```java
 @Autowired
 private WebSocketService logBroadcaster;
@@ -405,7 +312,7 @@ logBroadcaster.sendLogs(project.getId(), line);
 
 **Key Responsibilities**:
 1. Create/Read/Update/Delete projects
-2. Coordinate with FlowerServerManager for server lifecycle
+2. Coordinate with FlServerManager for server lifecycle
 3. Update project status in database
 4. Validate project configuration
 
@@ -424,7 +331,7 @@ logBroadcaster.sendLogs(project.getId(), line);
 ```
 1. Receive StartProject DTO
 2. Get Project from database
-3. Call FlowerServerManager.startServerForProject()
+3. Call FlServerManager.startServerForProject()
 4. Update project.status = RUNNING
 5. Update project.port = {assignedPort}
 6. Save project
@@ -434,7 +341,7 @@ logBroadcaster.sendLogs(project.getId(), line);
 **Stop Server**:
 ```
 1. Get Project from database
-2. Call FlowerServerManager.stopServerForProject()
+2. Call FlServerManager.stopServerForProject()
 3. Update project.status = STOPPED
 4. Save project
 5. Return status
@@ -453,21 +360,26 @@ logBroadcaster.sendLogs(project.getId(), line);
 **Key Fields**:
 ```
 - id: UUID (Primary Key)
-- user: User (Many-to-One)
+- user: User (Many-to-One, LAZY)
+- orgId: UUID (multi-tenant scope)
 - name: String
-- type: String (CNN, Transformer, etc.)
+- modelType: String (CNN, TRANSFORMER, LLM_LORA, ...)
 - modelName: String
-- modelType: String
 - modelPath: String
 - optimizer: String
-- strategy: String
-- rounds: Integer
-- minClients: Integer
+- taskType: String
 - status: String (RUNNING, STOPPED, COMPLETED)
-- port: Integer
-- createdAt: LocalDateTime
-- updatedAt: LocalDateTime
+- initStatus: ProjectInitStatus
+- serverPort: Integer
+- visibility: ProjectVisibility (PUBLIC / RESTRICTED / PRIVATE, default PRIVATE)
+- modelPublished / modelDescription / modelTags / modelPublishedAt
+- activeRunId: UUID
+- regulated: boolean
+- dpEnabled: boolean, dpTargetEpsilon / dpDelta / dpClipNorm: Double
 ```
+
+Note: `strategy`, `rounds` and `minClients` are **not** persisted on the entity — they are
+per-start parameters passed into `FlServerManager.startServerForProject(...)`.
 
 **Relationships**:
 - Many-to-One with User
@@ -482,10 +394,16 @@ logBroadcaster.sendLogs(project.getId(), line);
 **Key Fields**:
 ```
 - id: Long (Primary Key)
-- username: String (Unique)
-- email: String (Unique)
+- username: String (Unique, max 50)
+- email: String (Unique, max 100)
 - password: String (BCrypt hashed)
-- createdAt: LocalDateTime
+- platformRole: PlatformRole (USER / PROJECT_OWNER / PLATFORM_ADMIN, default USER)
+- status: UserStatus (default ACTIVE)
+- emailVerified: Boolean
+- displayName / avatarUrl: String
+- lastLoginAt / deletedAt: Instant
+- createdAt: Instant
+- updatedAt: Instant
 ```
 
 **Relationships**:
@@ -499,13 +417,12 @@ logBroadcaster.sendLogs(project.getId(), line);
 
 **Key Fields**:
 ```
-- id: Long (Primary Key)
-- project: Project (Many-to-One)
-- roundNumber: Integer
-- accuracy: Double
+- id: UUID (Primary Key)
+- project: Project (Many-to-One, non-null)
+- serverRound: Integer (non-null)
 - loss: Double
-- metrics: String (JSON)
-- timestamp: LocalDateTime
+- accuracy: Double
+- gpuUtilization: Double
 ```
 
 ---
@@ -522,8 +439,20 @@ logBroadcaster.sendLogs(project.getId(), line);
 ```java
 public interface ProjectRepository extends JpaRepository<Project, UUID> {
     List<Project> findByUserId(Long userId);
-    List<Project> findByStatus(String status);
-    Optional<Project> findByIdAndUserId(UUID id, Long userId);
+
+    // "My Projects": union of owned + joined (any project_memberships role)
+    List<Project> findOwnedOrMemberOf(Long userId);
+
+    // Discover feed: every non-PRIVATE project the caller neither owns nor is a member of
+    List<Project> findDiscoverable(Long userId);
+
+    // Org-scoped variants of the two above (multi-tenant isolation)
+    List<Project> findOwnedOrMemberOfInOrgs(Long userId, Collection<UUID> orgIds);
+    List<Project> findDiscoverableInOrgs(Long userId, Collection<UUID> orgIds);
+
+    // PESSIMISTIC_WRITE row lock — serializes concurrent partition assignment for one project
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Project> lockById(UUID id);
 }
 ```
 
@@ -623,14 +552,25 @@ public class AuthController {
         // 2. Check if user exists
         // 3. Hash password (BCrypt)
         // 4. Save user
-        // 5. Return success
+        // 5. Set the jwtToken cookie, return the profile
     }
-    
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         // 1. Authenticate user
         // 2. Generate JWT token
-        // 3. Return token + user info
+        // 3. Set it as an HttpOnly jwtToken cookie; return user info ONLY
+        //    (the token never appears in a response body)
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> me() {
+        // Silent 401 probe used by the SPA to bootstrap auth state
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout() {
+        // Clear the cookie and revoke the token's jti (SE-8)
     }
 }
 ```
@@ -641,6 +581,8 @@ public class AuthController {
 
 ### JWT Authentication Flow
 
+The JWT travels as an **HttpOnly cookie**, not a Bearer header. The browser never sees the token.
+
 ```
 1. User sends POST /api/auth/login with credentials
               ↓
@@ -648,17 +590,27 @@ public class AuthController {
               ↓
 3. JwtTokenProvider generates JWT token
               ↓
-4. Token returned to client
+4. Token returned as a Set-Cookie header (jwtToken; HttpOnly; SameSite)
+   — the response body carries the user profile only
               ↓
-5. Client includes token in Authorization header:
-   "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+5. Browser replays the cookie automatically (frontend sets withCredentials: true)
               ↓
 6. JwtAuthenticationFilter intercepts request
               ↓
-7. Extracts token, validates, sets SecurityContext
+7. Reads the jwtToken cookie, validates signature + expiry, checks the
+   revocation list (SE-8 logout), loads UserDetails, sets SecurityContext
               ↓
 8. Request proceeds to controller
 ```
+
+**SE-9 — Bearer is scoped to native clients only.** The filter always honors a valid `jwtToken`
+cookie (the browser path). It falls back to an `Authorization: Bearer <jwt>` header **only** when
+the request also carries the native-client marker header — desktop/mobile clients, which hold the
+token in the OS keychain, need this. This is deliberately fail-closed: absent the explicit marker,
+a Bearer header does nothing, so a browser-origin request cannot use one.
+
+Authorities are reloaded from the database on every request (via `CustomUserDetailsService`), so a
+role change takes effect immediately without re-login.
 
 ### SecurityConfig
 
@@ -673,11 +625,15 @@ public class AuthController {
 **Public Endpoints** (no auth required):
 - `/api/auth/login`
 - `/api/auth/register`
-- `/ws/**` (WebSocket)
+- `/ws-logs/**` (WebSocket handshake — authenticated separately by `JwtHandshakeInterceptor`)
+- `/api/internal/**` (service-to-service callbacks from FL-server processes — the Spring chain is
+  `permitAll` because these authenticate with the internal API key / per-run token, not a JWT)
+- `/actuator/health`
 
 **Protected Endpoints** (JWT required):
 - `/api/projects/**`
 - `/api/results/**`
+- `/actuator/**` — `PLATFORM_ADMIN` only (everything except `/actuator/health`)
 
 ---
 
@@ -728,17 +684,22 @@ protected void doFilterInternal(
     HttpServletResponse response,
     FilterChain filterChain
 ) {
-    // 1. Extract token from Authorization header
-    String token = getTokenFromRequest(request);
-    
-    // 2. Validate token
-    if (token != null && jwtTokenProvider.validateToken(token)) {
+    // 1. Read the jwtToken cookie; fall back to a Bearer header ONLY for
+    //    marked native clients (SE-9)
+    String jwt = readJwtCookie(request);
+    if (jwt == null && isNativeClient(request)) {
+        jwt = readBearerToken(request);
+    }
+
+    // 2. Validate token (signature, expiry, and the SE-8 revocation list)
+    if (jwt != null && jwtTokenProvider.validateToken(jwt, userDetails)
+            && !tokenRevocationService.isRevoked(jwtTokenProvider.getJti(jwt))) {
         // 3. Get username
-        String username = jwtTokenProvider.getUsernameFromToken(token);
-        
-        // 4. Load user details
+        String username = jwtTokenProvider.getUsernameFromToken(jwt);
+
+        // 4. Load user details (authorities re-read from the DB every request)
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-        
+
         // 5. Set authentication in SecurityContext
         UsernamePasswordAuthenticationToken auth = 
             new UsernamePasswordAuthenticationToken(
@@ -765,26 +726,39 @@ protected void doFilterInternal(
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
-    
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws")
-                .setAllowedOrigins("http://localhost:5173", "https://your-frontend.com")
-                .withSockJS();
+        registry.addEndpoint("/ws-logs")
+                .setAllowedOrigins(/* the CORS_ALLOWED_ORIGINS allowlist */)
+                .addInterceptors(jwtHandshakeInterceptor);
     }
-    
+
     @Override
-    public void configureMessageBroker(MessageBrokerRegistry registry) {
-        registry.enableSimpleBroker("/topic");
-        registry.setApplicationDestinationPrefixes("/app");
+    public void configureMessageBroker(MessageBrokerRegistry config) {
+        config.enableSimpleBroker("/topic", "/queue");
+        config.setApplicationDestinationPrefixes("/app");
+    }
+
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        // Order matters: jwtChannelInterceptor promotes the handshake principal and
+        // rejects unauthenticated CONNECTs; stompSubscriptionInterceptor then
+        // authorizes each SUBSCRIBE destination.
+        registration.interceptors(jwtChannelInterceptor, stompSubscriptionInterceptor);
     }
 }
 ```
 
 **Endpoints**:
-- Connection: `ws://localhost:8080/ws`
-- Subscription prefix: `/topic`
+- Connection: `ws://localhost:8081/ws-logs`
+- Subscription prefixes: `/topic`, `/queue`
 - Application prefix: `/app`
+
+**Three interceptors guard the socket**:
+- `JwtHandshakeInterceptor` — authenticates the HTTP upgrade using the same `jwtToken` cookie
+- `JwtChannelInterceptor` — promotes the principal onto the STOMP session, rejects unauthenticated `CONNECT`
+- `StompSubscriptionInterceptor` — authorizes each `SUBSCRIBE` destination (you cannot subscribe to another project's topic)
 
 ---
 
@@ -806,14 +780,25 @@ public class NewEntity {
 }
 ```
 
-**2. Create Repository**:
+**2. Write a Flyway migration** — **not optional**. Hibernate runs `ddl-auto=validate` in every
+profile except `test`, so an entity without a matching migration fails the boot rather than
+creating its table. Add `src/main/resources/db/migration/V{n}__add_new_entity.sql` (the highest
+committed migration is `V19`):
+```sql
+CREATE TABLE new_entity (
+    id BIGSERIAL PRIMARY KEY
+    -- columns matching the entity
+);
+```
+
+**3. Create Repository**:
 ```java
 public interface NewEntityRepository extends JpaRepository<NewEntity, Long> {
     // Custom queries
 }
 ```
 
-**3. Create Service**:
+**4. Create Service**:
 ```java
 @Service
 public class NewEntityService {
@@ -825,7 +810,7 @@ public class NewEntityService {
 }
 ```
 
-**4. Create Controller**:
+**5. Create Controller**:
 ```java
 @RestController
 @RequestMapping("/api/new-entity")
@@ -909,23 +894,37 @@ class ProjectServiceTest {
 
 ### Integration Testing Controllers
 
+Integration tests run against **real PostgreSQL via Testcontainers** — `@ActiveProfiles("test")`
+loads `src/test/resources/application-test.properties`, whose `jdbc:tc:postgresql:16.6-alpine:///fedlearn_test`
+URL starts (or reuses) one throwaway container for the JVM run. **A working Docker daemon is
+required**; there is no in-memory fallback since H2 was retired.
+
+Authenticate with the `jwtToken` **cookie**, not a Bearer header:
+
 ```java
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class ProjectControllerIntegrationTest {
-    
+
     @Autowired
     private MockMvc mockMvc;
-    
+
     @Test
     void testGetAllProjects() throws Exception {
         mockMvc.perform(get("/api/projects")
-                .header("Authorization", "Bearer " + token))
+                .cookie(new Cookie("jwtToken", token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray());
     }
 }
 ```
+
+The bulk suite builds the schema with Hibernate `create-drop` and keeps Flyway **off**; the
+dedicated `V*MigrationTest` classes flip Flyway on to exercise the real migrations against real
+Postgres. Note the deliberately small Hikari pool (`maximum-pool-size=4`, `minimum-idle=0`): the
+suite caches ~20 Spring contexts that all pool against the single shared container, and at Hikari's
+default pool size the summed pools overshoot Postgres's `max_connections` under full-suite load.
 
 ---
 
@@ -962,6 +961,6 @@ class ProjectControllerIntegrationTest {
 
 ---
 
-For API endpoint reference, see [API.md](API.md).
+For API endpoint reference, see [REST endpoints](README.md#rest-endpoints-overview) in the README, or the backend wiki: [`wikis/backend/README.md`](../../wikis/backend/README.md).
 
 For deployment guide, see main [README.md](README.md).

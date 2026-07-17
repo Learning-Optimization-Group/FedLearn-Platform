@@ -27,9 +27,10 @@
 <li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -86,7 +87,7 @@
 <ul>
 <li><a href="#overview">Overview</a></li>
 <li><a href="#the-protocol-buffer-contract">The Protocol Buffer Contract</a></li>
-<li><a href="#service-definition--all-9-rpcs">Service Definition — All 9 RPCs</a></li>
+<li><a href="#service-definition--all-10-rpcs">Service Definition — All 10 RPCs</a></li>
 <li><a href="#message-types-in-depth">Message Types In Depth</a></li>
 <li><a href="#serializer--tensor--proto-conversion">Serializer — Tensor ↔ Proto Conversion</a></li>
 <li><a href="#chunked-streaming-for-large-models">Chunked Streaming for Large Models</a></li>
@@ -103,44 +104,52 @@
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>All communication between the Python FL server and its clients goes through a single gRPC service defined in <code>fedlearn.proto</code>. The design goals were:</p>
 <ol>
-<li><strong>Support arbitrarily large models</strong> — LLMs can exceed 10 GB; plain unary gRPC fails above ~4 MB by default. The framework auto-detects model size and switches to bidirectional chunked streaming.</li>
+<li><strong>Support arbitrarily large models</strong> — LLMs can exceed 10 GB, and a single unary message would have to be buffered whole. The client auto-detects model size (and transformer architecture) and switches from a unary call to a chunked <em>streaming</em> RPC — server-streaming for downloads, client-streaming for uploads.</li>
 <li><strong>Survive flaky networks</strong> — exponential backoff retries on all transient gRPC errors.</li>
 <li><strong>Heartbeat without blocking training</strong> — a second dedicated gRPC channel is used exclusively for heartbeats so they never queue behind large model uploads.</li>
-<li><strong>Optional TLS</strong> — controlled entirely by environment variables; zero code changes needed to flip between insecure and mTLS.</li>
+<li><strong>Opt-in TLS</strong> — plaintext is the default; TLS/mTLS is controlled entirely by environment variables, with zero code changes needed to flip between them. Deployed profiles fail closed rather than silently serve plaintext (SE-2).</li>
+<li><strong>No pickle on the wire</strong> — model state-dicts travel as a deterministic, float32-only <strong>safetensors</strong> blob, decodable by the libtorch-free mobile C++ core and byte-identical across languages.</li>
 </ol>
 <hr />
 <h2 id="the-protocol-buffer-contract">The Protocol Buffer Contract<a class="headerlink" href="#the-protocol-buffer-contract" title="Permanent link">&para;</a></h2>
-<p><strong>Source of truth:</strong> <code>framework/src/fedlearn/communication/protos/fedlearn.proto</code></p>
+<p><strong>Canonical source of truth:</strong> <code>proto/fedlearn/v2/fedlearn.proto</code> (package <code>fedlearn.v2</code>, governed by <code>buf</code>).</p>
+<p>The framework does <strong>not</strong> own the contract — it keeps a <strong>byte-identical mirror</strong> at
+<code>framework/src/fedlearn/communication/protos/fedlearn.proto</code> for its own codegen. <code>scripts/check_proto_mirror.sh</code>
+diff-gates all three in-tree mirrors (framework <code>fedlearn.proto</code>, <code>mobile_client/proto/fedlearn/v2/fedlearn.proto</code>,
+framework <code>fot.proto</code> against <code>proto/fedlearn/fot/v1/fot.proto</code>) and runs in CI as <code>proto.yml</code>. <strong>Never hand-edit a
+mirror</strong> — edit the canonical and re-copy.</p>
 <p>The <code>.proto</code> file is compiled to Python stubs stored in <code>communication/generated/</code>:
-- <code>fedlearn_pb2.py</code> — message classes
-- <code>fedlearn_pb2_grpc.py</code> — stub and servicer base class</p>
+- <code>fedlearn_pb2.py</code> / <code>fedlearn_pb2.pyi</code> — message classes + type stubs
+- <code>fedlearn_pb2_grpc.py</code> — stub and servicer base class
+- <code>fot_pb2.py</code> / <code>fot_pb2_grpc.py</code> — the same for the FoT contract</p>
 <div class="codehilite"><pre><span></span><code><span class="k">syntax</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;proto3&quot;</span><span class="p">;</span>
-<span class="kn">package</span><span class="w"> </span><span class="nn">fedlearn</span><span class="o">.</span><span class="n">v1</span><span class="p">;</span>
+<span class="kn">package</span><span class="w"> </span><span class="nn">fedlearn</span><span class="o">.</span><span class="n">v2</span><span class="p">;</span>
+
+<span class="k">option</span><span class="w"> </span><span class="na">java_package</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;com.fedlearn.v2&quot;</span><span class="p">;</span>
 
 <span class="kd">service</span><span class="w"> </span><span class="n">FederatedLearningService</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="c1">// Client registration</span>
-<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">RegisterClient</span><span class="p">(</span><span class="n">RegisterClientRequest</span><span class="p">)</span><span class="w"> </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">RegisterClientResponse</span><span class="p">);</span>
+<span class="w">  </span><span class="c1">// Registration, status and liveness</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">RegisterClient</span><span class="w">        </span><span class="p">(</span><span class="n">RegisterClientRequest</span><span class="p">)</span><span class="w">        </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">RegisterClientResponse</span><span class="p">);</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">GetServerStatus</span><span class="w">       </span><span class="p">(</span><span class="n">GetServerStatusRequest</span><span class="p">)</span><span class="w">       </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">GetServerStatusResponse</span><span class="p">);</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">Heartbeat</span><span class="w">             </span><span class="p">(</span><span class="n">HeartbeatRequest</span><span class="p">)</span><span class="w">             </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">HeartbeatResponse</span><span class="p">);</span>
 
-<span class="w">  </span><span class="c1">// Model distribution (server → clients)</span>
-<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">GetGlobalModel</span><span class="p">(</span><span class="n">GetGlobalModelRequest</span><span class="p">)</span><span class="w">       </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">GetGlobalModelResponse</span><span class="p">);</span>
-<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">GetGlobalModelStream</span><span class="p">(</span><span class="n">GetGlobalModelRequest</span><span class="p">)</span><span class="w"> </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">stream</span><span class="w"> </span><span class="n">ModelChunk</span><span class="p">);</span>
-
-<span class="w">  </span><span class="c1">// Model update collection (clients → server)</span>
-<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">SubmitModelUpdate</span><span class="p">(</span><span class="n">SubmitModelUpdateRequest</span><span class="p">)</span><span class="w">          </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">SubmitModelUpdateResponse</span><span class="p">);</span>
+<span class="w">  </span><span class="c1">// Model distribution (server → clients) and update collection (clients → server)</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">GetGlobalModel</span><span class="w">        </span><span class="p">(</span><span class="n">GetGlobalModelRequest</span><span class="p">)</span><span class="w">        </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">GetGlobalModelResponse</span><span class="p">);</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">GetGlobalModelStream</span><span class="w">  </span><span class="p">(</span><span class="n">GetGlobalModelRequest</span><span class="p">)</span><span class="w">        </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">stream</span><span class="w"> </span><span class="n">ModelChunk</span><span class="p">);</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">SubmitModelUpdate</span><span class="w">     </span><span class="p">(</span><span class="n">SubmitModelUpdateRequest</span><span class="p">)</span><span class="w">     </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">SubmitModelUpdateResponse</span><span class="p">);</span>
 <span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">SubmitModelUpdateStream</span><span class="p">(</span><span class="n">stream</span><span class="w"> </span><span class="n">ModelUpdateChunk</span><span class="p">)</span><span class="w">     </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">SubmitModelUpdateResponse</span><span class="p">);</span>
 
-<span class="w">  </span><span class="c1">// Status and liveness</span>
-<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">GetServerStatus</span><span class="p">(</span><span class="n">GetServerStatusRequest</span><span class="p">)</span><span class="w"> </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">GetServerStatusResponse</span><span class="p">);</span>
-<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">Heartbeat</span><span class="p">(</span><span class="n">HeartbeatRequest</span><span class="p">)</span><span class="w">             </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">HeartbeatResponse</span><span class="p">);</span>
-
 <span class="w">  </span><span class="c1">// DeComFL-specific</span>
-<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">GetDeComFLConfig</span><span class="p">(</span><span class="n">GetDeComFLConfigRequest</span><span class="p">)</span><span class="w">          </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">GetDeComFLConfigResponse</span><span class="p">);</span>
-<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">SubmitGradientScalars</span><span class="p">(</span><span class="n">SubmitGradientScalarsRequest</span><span class="p">)</span><span class="w"> </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">SubmitGradientScalarsResponse</span><span class="p">);</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">GetDeComFLConfig</span><span class="w">      </span><span class="p">(</span><span class="n">GetDeComFLConfigRequest</span><span class="p">)</span><span class="w">      </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">GetDeComFLConfigResponse</span><span class="p">);</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">SubmitGradientScalars</span><span class="w"> </span><span class="p">(</span><span class="n">SubmitGradientScalarsRequest</span><span class="p">)</span><span class="w"> </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">SubmitGradientScalarsResponse</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Telemetry</span>
+<span class="w">  </span><span class="k">rpc</span><span class="w"> </span><span class="n">ReportClientMetrics</span><span class="w">   </span><span class="p">(</span><span class="n">ReportClientMetricsRequest</span><span class="p">)</span><span class="w">   </span><span class="k">returns</span><span class="w"> </span><span class="p">(</span><span class="n">ReportClientMetricsResponse</span><span class="p">);</span>
 <span class="p">}</span>
 </code></pre></div>
 
 <hr />
-<h2 id="service-definition-all-9-rpcs">Service Definition — All 9 RPCs<a class="headerlink" href="#service-definition-all-9-rpcs" title="Permanent link">&para;</a></h2>
+<h2 id="service-definition-all-10-rpcs">Service Definition — All 10 RPCs<a class="headerlink" href="#service-definition-all-10-rpcs" title="Permanent link">&para;</a></h2>
 <h3 id="standard-fl-rpcs">Standard FL RPCs<a class="headerlink" href="#standard-fl-rpcs" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -192,7 +201,13 @@
 <td><code>Heartbeat</code></td>
 <td>client → server</td>
 <td>Unary</td>
-<td>Report liveness + training progress</td>
+<td>Report liveness + training progress; carries the server's <code>should_stop</code> back (FR-10)</td>
+</tr>
+<tr>
+<td><code>ReportClientMetrics</code></td>
+<td>client → server</td>
+<td>Unary</td>
+<td>Client-side telemetry reporting</td>
 </tr>
 </tbody>
 </table>
@@ -227,40 +242,55 @@
 <hr />
 <h2 id="message-types-in-depth">Message Types In Depth<a class="headerlink" href="#message-types-in-depth" title="Permanent link">&para;</a></h2>
 <h3 id="core-data-types">Core Data Types<a class="headerlink" href="#core-data-types" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code><span class="c1">// A single named tensor</span>
+<div class="codehilite"><pre><span></span><code><span class="c1">// A single typed tensor. The ONLY weight-bearing wire type; no torch.save blobs.</span>
 <span class="kd">message</span><span class="w"> </span><span class="nc">Tensor</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="kt">bytes</span><span class="w">  </span><span class="na">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">       </span><span class="c1">// raw numpy bytes (e.g., float32 little-endian)</span>
-<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="kt">int64</span><span class="w"> </span><span class="na">dims</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="c1">// shape, e.g., [256, 512]</span>
-<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">dtype</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w">       </span><span class="c1">// e.g., &quot;float32&quot; — validated against whitelist</span>
+<span class="w">  </span><span class="kt">bytes</span><span class="w">          </span><span class="na">data</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">   </span><span class="c1">// raw bytes, dtype+dims interpret them</span>
+<span class="w">  </span><span class="k">repeated</span><span class="w"> </span><span class="kt">int64</span><span class="w"> </span><span class="na">dims</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">   </span><span class="c1">// shape, e.g., [256, 512]</span>
+<span class="w">  </span><span class="kt">string</span><span class="w">         </span><span class="na">dtype</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w">   </span><span class="c1">// whitelist: &quot;float32&quot;,&quot;float64&quot;,&quot;int32&quot;,&quot;int64&quot;,&quot;uint8&quot;,&quot;bool&quot;</span>
 <span class="p">}</span>
 
 <span class="c1">// A full model state_dict</span>
 <span class="kd">message</span><span class="w"> </span><span class="nc">ModelParameters</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="n">map</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="n">Tensor</span><span class="p">&gt;</span><span class="w"> </span><span class="na">tensors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">       </span><span class="c1">// key = parameter name</span>
-<span class="w">  </span><span class="kt">int64</span><span class="w"> </span><span class="na">num_examples_trained</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">        </span><span class="c1">// for weighted aggregation</span>
+<span class="w">  </span><span class="n">map</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="n">Tensor</span><span class="p">&gt;</span><span class="w"> </span><span class="na">tensors</span><span class="w">              </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">   </span><span class="c1">// key = parameter name</span>
+<span class="w">  </span><span class="kt">int64</span><span class="w">               </span><span class="na">num_examples_trained</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">   </span><span class="c1">// for weighted aggregation</span>
 <span class="p">}</span>
 </code></pre></div>
 
 <h3 id="streaming-chunk-messages">Streaming Chunk Messages<a class="headerlink" href="#streaming-chunk-messages" title="Permanent link">&para;</a></h3>
+<p>Both chunk messages carry <strong>explicit v2 framing</strong> — the codec, compression flag, total size and payload
+hash all travel <em>on the wire</em> rather than being inferred from environment variables on each side (the
+A3-C1/A3-C3 fix). That is what makes save/load symmetric and lets a receiver bounds-check and verify
+before it deserialises anything.</p>
 <div class="codehilite"><pre><span></span><code><span class="c1">// Server → Client: one chunk of a model download</span>
 <span class="kd">message</span><span class="w"> </span><span class="nc">ModelChunk</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">chunk_index</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
-<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">total_chunks</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
-<span class="w">  </span><span class="kt">bytes</span><span class="w">  </span><span class="na">chunk_data</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w">   </span><span class="c1">// raw bytes of a torch.save() buffer</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">chunk_index</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">total_chunks</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">bytes</span><span class="w">  </span><span class="na">chunk_data</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
 <span class="w">  </span><span class="kt">bool</span><span class="w">   </span><span class="na">is_final_chunk</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
-<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">current_round</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
-<span class="w">  </span><span class="n">map</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">string</span><span class="p">&gt;</span><span class="w"> </span><span class="na">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span><span class="w">  </span><span class="c1">// only sent with chunk_index == 0</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">current_round</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+<span class="w">  </span><span class="n">map</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="kt">string</span><span class="p">&gt;</span><span class="w"> </span><span class="na">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span><span class="w">  </span><span class="c1">// only sent with chunk_index == 0</span>
+<span class="w">  </span><span class="c1">// --- v2 framing fields ---</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">codec</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">;</span><span class="w">   </span><span class="c1">// &quot;safetensors&quot; (typed; NOT torch.save) — required, validated</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w">   </span><span class="na">compressed</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span><span class="w">   </span><span class="c1">// on the wire, not inferred from env; codec=&quot;lz4+safetensors&quot; if true</span>
+<span class="w">  </span><span class="kt">int64</span><span class="w">  </span><span class="na">total_bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">9</span><span class="p">;</span><span class="w">   </span><span class="c1">// full reassembled size; receiver bounds-checks cumulative (H5)</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">sha256</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span><span class="w">  </span><span class="c1">// hash of the full reassembled blob; receiver verifies (integrity)</span>
 <span class="p">}</span>
 
 <span class="c1">// Client → Server: one chunk of a model upload</span>
 <span class="kd">message</span><span class="w"> </span><span class="nc">ModelUpdateChunk</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">client_id</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
-<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">trained_on_round</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
-<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">chunk_index</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
-<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">total_chunks</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
-<span class="w">  </span><span class="kt">bytes</span><span class="w">  </span><span class="na">chunk_data</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
-<span class="w">  </span><span class="kt">bool</span><span class="w">   </span><span class="na">is_final_chunk</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span>
-<span class="w">  </span><span class="kt">int64</span><span class="w">  </span><span class="na">num_examples</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">client_id</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">run_id</span><span class="w">           </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">trained_on_round</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">chunk_index</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int32</span><span class="w">  </span><span class="na">total_chunks</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">bytes</span><span class="w">  </span><span class="na">chunk_data</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w">   </span><span class="na">is_final_chunk</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int64</span><span class="w">  </span><span class="na">num_examples</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span>
+<span class="w">  </span><span class="c1">// --- v2 framing fields ---</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">codec</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="mi">9</span><span class="p">;</span><span class="w">    </span><span class="c1">// &quot;safetensors&quot;</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w">   </span><span class="na">compressed</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">int64</span><span class="w">  </span><span class="na">total_bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">11</span><span class="p">;</span><span class="w">   </span><span class="c1">// server bounds-checks cumulative against max_payload_bytes (H5)</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">sha256</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="mi">12</span><span class="p">;</span><span class="w">   </span><span class="c1">// verified on reassembly</span>
 <span class="p">}</span>
 </code></pre></div>
 
@@ -330,67 +360,92 @@
         <span class="n">np_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">tensor_proto</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">tensor_proto</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
 
         <span class="c1"># Security: validate shape vs. data length</span>
-        <span class="n">expected_size</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">tensor_proto</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span>
+        <span class="n">expected_size</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">tensor_proto</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span>   <span class="c1"># each dim must also be &gt; 0</span>
         <span class="k">if</span> <span class="n">expected_size</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">np_array</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Shape mismatch&quot;</span><span class="p">)</span>
 
-        <span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np_array</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">tensor_proto</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+        <span class="n">np_array</span> <span class="o">=</span> <span class="n">np_array</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">tensor_proto</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># Security (SE-3): reject NaN/Inf. One malicious or buggy client could otherwise push</span>
+        <span class="c1"># non-finite weights that propagate through the average and destroy the global model</span>
+        <span class="c1"># for every honest client in the round.</span>
+        <span class="n">_reject_non_finite</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">np_array</span><span class="p">)</span>
+
+        <span class="n">parameters</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np_array</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">proto</span><span class="o">.</span><span class="n">num_examples_trained</span>
 </code></pre></div>
 
 <hr />
 <h2 id="chunked-streaming-for-large-models">Chunked Streaming for Large Models<a class="headerlink" href="#chunked-streaming-for-large-models" title="Permanent link">&para;</a></h2>
-<p>The framework uses <code>torch.save()</code> / <code>torch.load()</code> for streaming, bypassing the protobuf <code>Tensor</code> message type entirely for large transfers. This has a significant memory advantage:</p>
-<h3 id="why-torchsave-instead-of-proto-for-streaming">Why torch.save() Instead of Proto for Streaming?<a class="headerlink" href="#why-torchsave-instead-of-proto-for-streaming" title="Permanent link">&para;</a></h3>
+<p>Streaming bypasses the protobuf <code>Tensor</code> message type entirely for large transfers, serialising the whole
+state_dict into <strong>one deterministic safetensors blob</strong> and chunking the bytes.</p>
+<h3 id="why-safetensors-instead-of-proto-or-torchsave-for-streaming">Why safetensors Instead of Proto (or torch.save) for Streaming?<a class="headerlink" href="#why-safetensors-instead-of-proto-or-torchsave-for-streaming" title="Permanent link">&para;</a></h3>
+<p>The wire format used to be a <code>torch.save()</code> pickle blob. It is now the framework's own safetensors codec
+(<code>communication/safetensors_codec.py</code>) — the change buys three things at once:</p>
 <table>
 <thead>
 <tr>
-<th>Approach</th>
-<th>Memory for a 10 GB model</th>
+<th>Property</th>
+<th>Why it matters</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Proto message (all-at-once)</td>
-<td>~30 GB peak (3× amplification from alloc + copy)</td>
+<td><strong>No pickle</strong></td>
+<td><code>torch.save</code> blobs are pickles; a malicious client payload could execute code. safetensors is data-only.</td>
 </tr>
 <tr>
-<td><code>torch.save()</code> to <code>BytesIO</code> + chunked</td>
-<td>~12 GB (1.2× — only one extra copy)</td>
+<td><strong>Cross-language</strong></td>
+<td><code>bytes = u64_le(header_len) ++ header_json_utf8 ++ raw_tensor_data</code>. The libtorch-free mobile C++ core (<code>mobile_client/shared/src/ModelManager.cpp</code>) produces <strong>byte-identical</strong> output, and a golden fixture pins the contract.</td>
 </tr>
 <tr>
-<td><code>torch.save()</code> + <code>memoryview</code> for send</td>
-<td>~10 GB (near zero-copy send)</td>
+<td><strong>Memory</strong></td>
+<td>Still one contiguous serialized buffer + chunked sends, rather than the ~3× amplification of building a giant proto message.</td>
 </tr>
 </tbody>
 </table>
+<p>The cost: the safetensors wire is <strong>float32-only</strong> and <strong>fail-loud</strong>. <code>state_dict_to_safetensors()</code> raises on
+any non-float32 tensor rather than silently coercing it to F32 and corrupting the model — cast to float32
+before training.</p>
 <h3 id="server-side-streaming-getglobalmodelstream">Server-Side Streaming (GetGlobalModelStream)<a class="headerlink" href="#server-side-streaming-getglobalmodelstream" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="c1"># grpc_servicer.py — GetGlobalModelStream</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">GetGlobalModelStream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
     <span class="n">params</span><span class="p">,</span> <span class="n">current_round</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span><span class="o">.</span><span class="n">get_global_model_for_client</span><span class="p">()</span>
 
-    <span class="c1"># Serialize with torch.save — much more memory-efficient than proto for large models</span>
-    <span class="n">buffer</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span>
-    <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">({</span><span class="s1">&#39;parameters&#39;</span><span class="p">:</span> <span class="n">params</span><span class="p">,</span> <span class="s1">&#39;num_examples&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span> <span class="n">buffer</span><span class="p">)</span>
-    <span class="n">data_to_send</span> <span class="o">=</span> <span class="n">buffer</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span>
-    <span class="n">buffer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="c1"># FR-8 (download half): the same libtorch-free safetensors wire the upload path</span>
+    <span class="c1"># and the mobile C++ core use. F32-only and fail-loud.</span>
+    <span class="n">data_to_send</span> <span class="o">=</span> <span class="n">state_dict_to_safetensors</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">download_codec</span> <span class="o">=</span> <span class="s2">&quot;safetensors&quot;</span>
+
+    <span class="c1"># Declare the sha256 of the FULL payload so receivers verify the reassembled blob,</span>
+    <span class="c1"># format-agnostically, before any deserialization. Set on EVERY chunk: the mobile</span>
+    <span class="c1"># C++ client reads it from the first, the Python client from the final one.</span>
+    <span class="n">payload_sha256</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">data_to_send</span><span class="p">)</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
 
     <span class="n">chunk_size</span> <span class="o">=</span> <span class="mi">50</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span>  <span class="c1"># 50 MB per chunk</span>
-    <span class="n">num_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data_to_send</span><span class="p">)</span> <span class="o">+</span> <span class="n">chunk_size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">chunk_size</span>
+    <span class="n">total_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_to_send</span><span class="p">)</span>
+    <span class="n">num_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="n">total_size</span> <span class="o">+</span> <span class="n">chunk_size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">chunk_size</span>
 
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_chunks</span><span class="p">):</span>
         <span class="n">start</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="n">chunk_size</span>
-        <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">start</span> <span class="o">+</span> <span class="n">chunk_size</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_to_send</span><span class="p">))</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">start</span> <span class="o">+</span> <span class="n">chunk_size</span><span class="p">,</span> <span class="n">total_size</span><span class="p">)</span>
         <span class="k">yield</span> <span class="n">fedlearn_pb2</span><span class="o">.</span><span class="n">ModelChunk</span><span class="p">(</span>
             <span class="n">chunk_index</span><span class="o">=</span><span class="n">i</span><span class="p">,</span>
             <span class="n">total_chunks</span><span class="o">=</span><span class="n">num_chunks</span><span class="p">,</span>
             <span class="n">chunk_data</span><span class="o">=</span><span class="n">data_to_send</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span>
             <span class="n">is_final_chunk</span><span class="o">=</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">num_chunks</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span>
             <span class="n">current_round</span><span class="o">=</span><span class="n">current_round</span><span class="p">,</span>
-            <span class="n">config</span><span class="o">=</span><span class="n">config</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">{}</span>   <span class="c1"># config only in first chunk</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">config</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">{},</span>   <span class="c1"># config only in first chunk</span>
+            <span class="n">codec</span><span class="o">=</span><span class="n">download_codec</span><span class="p">,</span>
+            <span class="n">total_bytes</span><span class="o">=</span><span class="n">total_size</span><span class="p">,</span>
+            <span class="n">sha256</span><span class="o">=</span><span class="n">payload_sha256</span><span class="p">,</span>
         <span class="p">)</span>
 </code></pre></div>
 
+<blockquote>
+<p>The mobile <code>FedLearnClient</code> <strong>rejects any first chunk whose <code>codec</code> is not <code>"safetensors"</code></strong> — setting
+<code>codec</code> (with <code>total_bytes</code>) is what makes the FedAvg download decode instead of throw.</p>
+</blockquote>
 <h3 id="client-side-streaming-reception-get_global_model">Client-Side Streaming Reception (get_global_model)<a class="headerlink" href="#client-side-streaming-reception-get_global_model" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="c1"># grpc_client.py — get_global_model</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_global_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -404,18 +459,34 @@
         <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">chunk_index</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">current_round</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">current_round</span>
             <span class="n">config</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
-
         <span class="n">buffer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">chunk_data</span><span class="p">)</span>
 
-    <span class="n">buffer</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-    <span class="n">model_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># Integrity first: verify the reassembled payload against the server-declared sha256</span>
+    <span class="c1"># BEFORE deserializing anything. (A pre-integrity server declares none; verification</span>
+    <span class="c1"># is then skipped with a debug log.)</span>
+    <span class="n">blob</span> <span class="o">=</span> <span class="n">buffer</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span>
     <span class="n">buffer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
-    <span class="k">return</span> <span class="n">model_data</span><span class="p">[</span><span class="s1">&#39;parameters&#39;</span><span class="p">],</span> <span class="n">current_round</span><span class="p">,</span> <span class="n">config</span>
+    <span class="c1"># FR-8 (download half) version gate: decode the safetensors wire — the current format —</span>
+    <span class="c1"># but transparently fall back to a legacy torch.save pickle blob so a new client still</span>
+    <span class="c1"># works against an OLD server during a staged rollout. The `codec` field is the primary</span>
+    <span class="c1"># signal; a magic-byte sniff is the backstop when an old server sets no codec.</span>
+    <span class="n">is_pickle</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">blob</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="p">(</span><span class="n">blob</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="sa">b</span><span class="s2">&quot;PK&quot;</span> <span class="ow">or</span> <span class="n">blob</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mh">0x80</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">codec</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;safetensors&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">codec</span> <span class="k">else</span> <span class="ow">not</span> <span class="n">is_pickle</span><span class="p">:</span>
+        <span class="n">params</span><span class="p">,</span> <span class="n">_num_examples</span> <span class="o">=</span> <span class="n">chunks_to_parameters</span><span class="p">(</span><span class="n">blob</span><span class="p">,</span> <span class="n">compressed</span><span class="o">=</span><span class="n">codec</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;lz4&quot;</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">model_data</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">blob</span><span class="p">),</span> <span class="n">map_location</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="n">model_data</span><span class="p">[</span><span class="s1">&#39;parameters&#39;</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">params</span><span class="p">,</span> <span class="n">current_round</span><span class="p">,</span> <span class="n">config</span>
 </code></pre></div>
 
 <blockquote>
-<p><strong><code>weights_only=True</code></strong> — This flag, added in PyTorch 2.0, prevents arbitrary pickle execution during <code>torch.load</code>. Always required.</p>
+<p><strong>Asymmetric legacy tolerance — worth internalising.</strong> The <em>download</em> path still <strong>accepts</strong> a legacy
+torch.save/pickle blob (guarded by <code>weights_only=True</code>, which prevents arbitrary pickle execution) purely
+for staged-rollout compatibility with an old server. The <em>upload/receive</em> path does <strong>not</strong>: <code>chunks_to_parameters</code>
+sniffs for a zip (<code>PK\x03\x04</code>) or pickle (<code>0x80</code>) prefix and <strong>rejects it loudly</strong>. Untrusted client bytes
+never get pickle tolerance; only the server's own bytes do, and only transitionally.</p>
 </blockquote>
 <h3 id="client-upload-auto-select-unary-vs-streaming">Client Upload: Auto-Select Unary vs. Streaming<a class="headerlink" href="#client-upload-auto-select-unary-vs-streaming" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="c1"># grpc_client.py — submit_update()</span>
@@ -439,30 +510,31 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_submit_update_unary</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">round_number</span><span class="p">)</span>
 </code></pre></div>
 
-<p>The streaming upload uses <code>memoryview</code> to achieve near-zero-copy chunking:</p>
+<p>The streaming upload delegates serialization + chunking to <code>serializer.parameters_to_chunks</code>, which emits
+plain dicts that the client wraps in <code>ModelUpdateChunk</code> messages:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_generate_model_chunks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">round_number</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="mi">50</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">):</span>
-    <span class="n">buffer</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span>
-    <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">buffer</span><span class="p">)</span>
-
-    <span class="n">view</span> <span class="o">=</span> <span class="nb">memoryview</span><span class="p">(</span><span class="n">buffer</span><span class="o">.</span><span class="n">getbuffer</span><span class="p">())</span>  <span class="c1"># zero-copy view of the buffer</span>
-    <span class="n">total_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">view</span><span class="p">)</span> <span class="o">+</span> <span class="n">chunk_size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">chunk_size</span>
-
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">view</span><span class="p">),</span> <span class="n">chunk_size</span><span class="p">):</span>
-            <span class="n">chunk_index</span> <span class="o">=</span> <span class="n">i</span> <span class="o">//</span> <span class="n">chunk_size</span>
-            <span class="k">yield</span> <span class="n">fedlearn_pb2</span><span class="o">.</span><span class="n">ModelUpdateChunk</span><span class="p">(</span>
-                <span class="n">client_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">client_id</span><span class="p">,</span>
-                <span class="n">trained_on_round</span><span class="o">=</span><span class="n">round_number</span><span class="p">,</span>
-                <span class="n">chunk_index</span><span class="o">=</span><span class="n">chunk_index</span><span class="p">,</span>
-                <span class="n">total_chunks</span><span class="o">=</span><span class="n">total_chunks</span><span class="p">,</span>
-                <span class="n">chunk_data</span><span class="o">=</span><span class="n">view</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="n">chunk_size</span><span class="p">]</span><span class="o">.</span><span class="n">tobytes</span><span class="p">(),</span>  <span class="c1"># only copies this slice</span>
-                <span class="n">is_final_chunk</span><span class="o">=</span><span class="p">(</span><span class="n">chunk_index</span> <span class="o">==</span> <span class="n">total_chunks</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span>
-                <span class="n">num_examples</span><span class="o">=</span><span class="n">num_examples</span><span class="p">,</span>
-            <span class="p">)</span>
-    <span class="k">finally</span><span class="p">:</span>
-        <span class="n">view</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>  <span class="c1"># always release the memoryview</span>
+    <span class="c1"># parameters_to_chunks uses the safetensors wire format. compress=False: the gRPC</span>
+    <span class="c1"># streaming path is uncompressed by design — see serializer.py.</span>
+    <span class="k">for</span> <span class="n">chunk_dict</span> <span class="ow">in</span> <span class="n">parameters_to_chunks</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span>
+                                           <span class="n">chunk_size</span><span class="o">=</span><span class="n">chunk_size</span><span class="p">,</span> <span class="n">compress</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">yield</span> <span class="n">fedlearn_pb2</span><span class="o">.</span><span class="n">ModelUpdateChunk</span><span class="p">(</span>
+            <span class="n">client_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">client_id</span><span class="p">,</span>
+            <span class="n">trained_on_round</span><span class="o">=</span><span class="n">round_number</span><span class="p">,</span>
+            <span class="n">chunk_index</span><span class="o">=</span><span class="n">chunk_dict</span><span class="p">[</span><span class="s2">&quot;chunk_index&quot;</span><span class="p">],</span>
+            <span class="n">total_chunks</span><span class="o">=</span><span class="n">chunk_dict</span><span class="p">[</span><span class="s2">&quot;total_chunks&quot;</span><span class="p">],</span>
+            <span class="n">chunk_data</span><span class="o">=</span><span class="n">chunk_dict</span><span class="p">[</span><span class="s2">&quot;chunk_data&quot;</span><span class="p">],</span>
+            <span class="n">is_final_chunk</span><span class="o">=</span><span class="n">chunk_dict</span><span class="p">[</span><span class="s2">&quot;is_final_chunk&quot;</span><span class="p">],</span>
+            <span class="n">num_examples</span><span class="o">=</span><span class="n">num_examples</span><span class="p">,</span>
+        <span class="p">)</span>
 </code></pre></div>
 
+<blockquote>
+<p><strong>Chunk size — two different defaults, know which applies.</strong> <code>_generate_model_chunks</code> passes an explicit
+<code>chunk_size=50 MB</code>, so <strong>the streaming RPC path chunks at 50 MB</strong>. The <code>FEDLEARN_CHUNK_SIZE_MB</code> env var
+(default <strong>4 MB</strong>) sets <code>serializer.CHUNK_SIZE</code>, which is only the fallback when a caller invokes
+<code>parameters_to_chunks</code> <em>without</em> passing <code>chunk_size</code>. Setting the env var does not by itself resize the
+gRPC upload chunks.</p>
+</blockquote>
 <hr />
 <h2 id="lz4-compression-optional">LZ4 Compression (Optional)<a class="headerlink" href="#lz4-compression-optional" title="Permanent link">&para;</a></h2>
 <p>Compression is <strong>off by default</strong> to preserve backward compatibility. Enable it by setting:</p>
@@ -489,14 +561,48 @@
 </code></pre></div>
 
 <blockquote>
-<p><strong>Note:</strong> Both server and client must agree on whether compression is active. If only one side compresses, deserialization will fail. The <code>USE_COMPRESSION</code> flag is read at module import time, so set the env var before starting either process.</p>
+<p><strong>Note:</strong> <code>USE_COMPRESSION</code> is only the <em>default</em> for <code>parameters_to_chunks</code> / <code>chunks_to_parameters</code>
+when the caller passes no explicit <code>compress=</code> / <code>compressed=</code>. It is read at module import time, so set
+the env var before starting either process.</p>
+<p><strong>The gRPC streaming upload path ignores it</strong>: <code>grpc_client._generate_model_chunks</code> passes
+<code>compress=False</code> explicitly — that path is uncompressed by design. And under the v2 framing, receivers
+no longer <em>infer</em> compression from their own env at all: the <code>compressed</code> flag (and the <code>codec</code> string,
+<code>"lz4+safetensors"</code> when set) travels on the wire, which is precisely the A3-C3 fix for the old
+both-sides-must-agree footgun described above.</p>
 </blockquote>
 <hr />
 <h2 id="tls-configuration">TLS Configuration<a class="headerlink" href="#tls-configuration" title="Permanent link">&para;</a></h2>
 <p>TLS is controlled entirely by environment variables. The framework supports both server-only TLS and mutual TLS (mTLS).</p>
+<blockquote>
+<p><strong>Plaintext is the default — and that is a real, standing caveat.</strong> With <code>FEDLEARN_GRPC_USE_TLS</code> unset,
+the FL boundary is <code>insecure_channel</code> / <code>add_insecure_port</code>: model weights and updates cross the network
+unencrypted. For cross-network demos, tunnel it. What is <em>not</em> true is that encryption is unavailable —
+the mechanism below is implemented and opt-in, and deployed profiles are fail-closed against plaintext.</p>
+</blockquote>
+<h3 id="policy-layer-se-2-fail-closed">Policy Layer — SE-2 Fail-Closed<a class="headerlink" href="#policy-layer-se-2-fail-closed" title="Permanent link">&para;</a></h3>
+<p><code>security/tls.py</code> separates <em>policy</em> from the <em>mechanism</em> in <code>server.py</code> / <code>grpc_client.py</code>. The backend sets
+<code>FEDLEARN_REQUIRE_TLS=1</code> on deployed spawns once server certs are provisioned; enforcement is opt-in so
+dev/test stay plaintext and nothing breaks before certs exist.</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># security/tls.py — check_server_tls_policy()</span>
+<span class="n">require</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FEDLEARN_REQUIRE_TLS&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;1&quot;</span>
+<span class="n">use</span>     <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FEDLEARN_GRPC_USE_TLS&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;1&quot;</span>
+
+<span class="c1"># Fail closed: never silently serve a deployed profile in plaintext.</span>
+<span class="k">if</span> <span class="n">require</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">use</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="n">TlsPolicyError</span><span class="p">(</span><span class="s2">&quot;FEDLEARN_REQUIRE_TLS=1 but FEDLEARN_GRPC_USE_TLS is not enabled — &quot;</span>
+                         <span class="s2">&quot;refusing to serve the FL boundary in plaintext on a deployed profile.&quot;</span><span class="p">)</span>
+
+<span class="c1"># If TLS is on, the key + cert must actually be present.</span>
+<span class="k">if</span> <span class="n">use</span><span class="p">:</span>
+    <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">n</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;FEDLEARN_GRPC_SERVER_KEY&quot;</span><span class="p">,</span> <span class="s2">&quot;FEDLEARN_GRPC_SERVER_CERT&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">TlsPolicyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;FEDLEARN_GRPC_USE_TLS=1 but </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="si">}</span><span class="s2"> not set&quot;</span><span class="p">)</span>
+<span class="k">return</span> <span class="n">use</span>
+</code></pre></div>
+
 <h3 id="server-side-tls-setup">Server-Side TLS Setup<a class="headerlink" href="#server-side-tls-setup" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code><span class="c1"># server.py</span>
-<span class="n">use_tls</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FEDLEARN_GRPC_USE_TLS&quot;</span><span class="p">,</span> <span class="s2">&quot;0&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;1&quot;</span>
+<div class="codehilite"><pre><span></span><code><span class="c1"># server.py — the bind decision is delegated to the policy above</span>
+<span class="n">use_tls</span> <span class="o">=</span> <span class="n">check_server_tls_policy</span><span class="p">()</span>
 
 <span class="k">if</span> <span class="n">use_tls</span><span class="p">:</span>
     <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;FEDLEARN_GRPC_SERVER_KEY&quot;</span><span class="p">],</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
@@ -518,9 +624,10 @@
         <span class="n">require_client_auth</span><span class="o">=</span><span class="n">require_client_auth</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">grpc_server</span><span class="o">.</span><span class="n">add_secure_port</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">credentials</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;gRPC TLS enabled (require_client_auth=</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">require_client_auth</span><span class="p">)</span>
 <span class="k">else</span><span class="p">:</span>
     <span class="n">grpc_server</span><span class="o">.</span><span class="n">add_insecure_port</span><span class="p">(</span><span class="n">server_address</span><span class="p">)</span>
-    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Running without TLS. Set FEDLEARN_GRPC_USE_TLS=1 for production.&quot;</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;gRPC server running without TLS. Set FEDLEARN_GRPC_USE_TLS=1 for production.&quot;</span><span class="p">)</span>
 </code></pre></div>
 
 <h3 id="client-side-tls-setup">Client-Side TLS Setup<a class="headerlink" href="#client-side-tls-setup" title="Permanent link">&para;</a></h3>
@@ -554,6 +661,12 @@
 <td>✓</td>
 <td>✓</td>
 <td><code>"1"</code> to enable TLS</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_REQUIRE_TLS</code></td>
+<td>✓</td>
+<td>—</td>
+<td><code>"1"</code> to <strong>require</strong> TLS — set by the backend on deployed profiles; refuses to serve plaintext (SE-2)</td>
 </tr>
 <tr>
 <td><code>FEDLEARN_GRPC_SERVER_KEY</code></td>
@@ -593,6 +706,13 @@
 </tr>
 </tbody>
 </table>
+<blockquote>
+<p><strong>Distinct from TLS: the connection token (SE-1/SE-14).</strong> <code>FEDLEARN_CONNECTION_TOKEN</code> authenticates the
+<em>client</em> to the FL server and is orthogonal to transport encryption. <code>security/client_interceptor.py</code>
+(<code>maybe_wrap_channel</code>) attaches it to every call when set, and is a no-op when unset — so dev and
+unauthenticated servers are unaffected. Fetch a token from <code>GET /api/client/projects/{id}/connection</code>;
+the desktop launcher sets it automatically.</p>
+</blockquote>
 <hr />
 <h2 id="retry-logic-and-backoff">Retry Logic and Backoff<a class="headerlink" href="#retry-logic-and-backoff" title="Permanent link">&para;</a></h2>
 <p>All unary client calls go through <code>_retry_unary()</code>:</p>
@@ -675,11 +795,12 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">server_address</span><span class="p">):</span>
         <span class="c1"># Primary channel — used for all heavy operations:</span>
         <span class="c1"># RegisterClient, GetGlobalModelStream, SubmitModelUpdateStream</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">channel</span> <span class="o">=</span> <span class="n">_build_channel</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">grpc_options</span><span class="p">)</span>
+        <span class="c1"># maybe_wrap_channel attaches FEDLEARN_CONNECTION_TOKEN if present (SE-1); no-op when unset.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">channel</span> <span class="o">=</span> <span class="n">maybe_wrap_channel</span><span class="p">(</span><span class="n">_build_channel</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">grpc_options</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stub</span> <span class="o">=</span> <span class="n">FederatedLearningServiceStub</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">)</span>
 
         <span class="c1"># Dedicated heartbeat channel — never blocked by ongoing transfers</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span> <span class="o">=</span> <span class="n">_build_channel</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">grpc_options</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span> <span class="o">=</span> <span class="n">maybe_wrap_channel</span><span class="p">(</span><span class="n">_build_channel</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">grpc_options</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_stub</span> <span class="o">=</span> <span class="n">FederatedLearningServiceStub</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span><span class="p">)</span>
 </code></pre></div>
 
@@ -690,29 +811,56 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">send_heartbeat</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Heartbeat loop exception&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_interval</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;[</span><span class="si">%s</span><span class="s2">] Heartbeat loop exception&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_id</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># FR-10: interruptible — returns immediately once stop_heartbeat() sets the event,</span>
+        <span class="c1"># instead of sleeping out the full interval before noticing it should stop.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_heartbeat_stop</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_interval</span><span class="p">)</span>
 </code></pre></div>
 
 <p>It is launched as a daemon thread (exits automatically when the main process exits) immediately after client registration.</p>
-<hr />
-<h2 id="regenerating-generated-code">Regenerating Generated Code<a class="headerlink" href="#regenerating-generated-code" title="Permanent link">&para;</a></h2>
-<p>If you modify <code>fedlearn.proto</code>, regenerate the Python stubs:</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># From the framework/ directory</span>
-pip<span class="w"> </span>install<span class="w"> </span>grpcio-tools
-
-python<span class="w"> </span>-m<span class="w"> </span>grpc_tools.protoc<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>-I<span class="w"> </span>src/fedlearn/communication/protos<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--python_out<span class="o">=</span>src/fedlearn/communication/generated<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--grpc_python_out<span class="o">=</span>src/fedlearn/communication/generated<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>src/fedlearn/communication/protos/fedlearn.proto
-
-<span class="c1"># Fix import path in generated file (protoc generates absolute imports)</span>
-sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/import fedlearn_pb2/from . import fedlearn_pb2/&#39;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>src/fedlearn/communication/generated/fedlearn_pb2_grpc.py
+<h3 id="the-heartbeat-channel-is-also-the-stop-signal-fr-10">The Heartbeat Channel Is Also the Stop Signal (FR-10)<a class="headerlink" href="#the-heartbeat-channel-is-also-the-stop-signal-fr-10" title="Permanent link">&para;</a></h3>
+<p>The dual-channel split does more than keep liveness flowing. Because <code>fit()</code> blocks the <em>training</em> stub for
+the whole round, the heartbeat stub is the only channel that can reach a busy client — so it carries the
+server's stop request back:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_stub</span><span class="o">.</span><span class="n">Heartbeat</span><span class="p">(</span><span class="n">req</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+    <span class="c1"># Latch it. The training thread&#39;s fit loop polls should_stop_training() between local</span>
+    <span class="c1"># steps and aborts the round. Previously this response was discarded by _heartbeat_loop,</span>
+    <span class="c1"># which made the server&#39;s stop request a silent no-op.</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_stop_training</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+    <span class="k">return</span> <span class="kc">False</span>
+<span class="k">return</span> <span class="n">res</span><span class="o">.</span><span class="n">acknowledged</span>
 </code></pre></div>
 
-<p>The generated files are <strong>committed to the repository</strong> so that users don't need <code>grpcio-tools</code> installed at runtime.</p>
+<p>This is the cross-stub signal that lets the parallel heartbeat stub halt a <code>fit()</code> that is blocking the
+training stub. When touching client lifecycle code, preserve both stubs <em>and</em> this latch.</p>
+<hr />
+<h2 id="regenerating-generated-code">Regenerating Generated Code<a class="headerlink" href="#regenerating-generated-code" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Do not hand-edit <code>framework/src/fedlearn/communication/protos/fedlearn.proto</code>.</strong> It is a <em>mirror</em>.
+The canonical contract lives at <code>proto/fedlearn/v2/fedlearn.proto</code> and is governed by <code>buf</code>. A stray edit
+to the mirror fails CI with a <code>cp</code> fix — see <code>proto/README.md</code>.</p>
+</blockquote>
+<p>The flow is: <strong>edit the canonical → run buf → sync the mirrors → regenerate the framework's stubs.</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 1. Edit proto/fedlearn/v2/fedlearn.proto (the single source of truth), then:</span>
+<span class="nb">cd</span><span class="w"> </span>proto
+buf<span class="w"> </span>lint<span class="w">                                   </span><span class="c1"># STANDARD ruleset (see buf.yaml for documented excepts)</span>
+buf<span class="w"> </span>breaking<span class="w"> </span>--against<span class="w"> </span><span class="s1">&#39;.git#branch=main&#39;</span><span class="w">  </span><span class="c1"># fail on a breaking change to the wire contract</span>
+buf<span class="w"> </span>generate<span class="w">                               </span><span class="c1"># writes gen/python, gen/java, gen/ts, gen/cpp</span>
+
+<span class="c1"># 2. Sync the in-tree mirrors back out from canonical</span>
+cp<span class="w"> </span>proto/fedlearn/v2/fedlearn.proto<span class="w"> </span>framework/src/fedlearn/communication/protos/fedlearn.proto
+cp<span class="w"> </span>proto/fedlearn/v2/fedlearn.proto<span class="w"> </span>mobile_client/proto/fedlearn/v2/fedlearn.proto
+cp<span class="w"> </span>proto/fedlearn/fot/v1/fot.proto<span class="w">  </span>framework/src/fedlearn/communication/protos/fot.proto
+
+<span class="c1"># 3. Verify no mirror has drifted (this is the CI gate)</span>
+./scripts/check_proto_mirror.sh
+</code></pre></div>
+
+<p>CI enforces all of this as the <code>proto.yml</code> workflow: <code>buf lint</code>, <code>buf breaking</code> against <code>main</code>, a
+<code>buf generate</code> <strong>freshness</strong> check (regeneration must be a no-op, so committed stubs cannot silently rot),
+and the mirror check.</p>
+<p>The framework's generated files are <strong>committed to the repository</strong> so that users don't need codegen tooling installed at runtime.</p>
 <hr />
 <h2 id="common-errors-and-debugging">Common Errors and Debugging<a class="headerlink" href="#common-errors-and-debugging" title="Permanent link">&para;</a></h2>
 <table>
@@ -750,9 +898,29 @@ sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;s/imp
 <td>Retry; if persistent, check serializer on sender side</td>
 </tr>
 <tr>
-<td><code>torch.load</code> fails with <code>weights_only=True</code></td>
-<td>Payload contains non-tensor objects</td>
-<td>Do not pickle non-tensor data into model state dicts</td>
+<td><code>ValueError: … contains non-finite values</code></td>
+<td>A client's update carries NaN/Inf</td>
+<td>SE-3 poisoning rejection — a real reject, not a bug. Investigate that client's training (diverged loss / bad LR)</td>
+</tr>
+<tr>
+<td><code>ValueError: Received a legacy pickle/zip blob</code></td>
+<td>Sender still on the old <code>torch.save</code> wire</td>
+<td>Update the client; only safetensors is accepted on the receive path</td>
+</tr>
+<tr>
+<td><code>ValueError: Tensor '…' has dtype …; only float32 is supported</code></td>
+<td>Non-float32 tensor in the state_dict</td>
+<td>The safetensors wire is F32-only and fails loud rather than silently casting — cast to float32 before training</td>
+</tr>
+<tr>
+<td><code>ValueError: safetensors: …</code> (offsets/shape/dtype)</td>
+<td>Malformed or malicious blob</td>
+<td>Header validation (FR-8) rejecting it before any bytes are mis-read</td>
+</tr>
+<tr>
+<td>Download <code>sha256</code> integrity failure</td>
+<td>Payload corrupted in transit</td>
+<td>The client refuses to deserialize a payload that doesn't match the server-declared hash; retry</td>
 </tr>
 <tr>
 <td>Heartbeat timeout on server</td>

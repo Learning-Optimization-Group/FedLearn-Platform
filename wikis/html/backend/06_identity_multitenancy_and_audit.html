@@ -27,9 +27,10 @@
 <li><a href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a class="active" href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -88,23 +89,26 @@ multi-tenant isolation</strong>, an <strong>audit trail</strong>, and the <stron
 plumbing that seeds the first administrator. It is the deepest part of the
 backend's authorization story; the JWT/cookie/WebSocket mechanics that establish
 <em>who</em> the caller is live in <a href="02_security_and_auth.html">02 - Security and Authentication</a>.</p>
-<blockquote class="callout warn"><p>⚠️ <strong>Branch reality (read this first).</strong> This entire subsystem is <strong>designed on a
-separate identity-foundations branch and is <em>not present</em> on the current branch
-(<code>feat/ember-rebrand</code>).</strong> On this branch, authorization is a single coarse column —
-<code>users.role IN (USER, ADMIN)</code> (added by migration <code>V2</code>); <code>users.id</code> is <code>BIGINT</code>,
-<code>projects.id</code> is <code>UUID</code>, and the <strong>highest committed Flyway migration is <code>V3</code></strong>.
-There are <strong>no <code>V4</code>/<code>V5</code>/<code>V6</code> migrations and no corresponding Java</strong> here: the
-three-layer platform/org/project role model, <code>organization_memberships</code> /
-<code>project_memberships</code>, <code>users.platform_role</code> / <code>PLATFORM_ADMIN</code>, <code>projects.org_id</code>,
-the <code>audit_events</code> table + <code>@Auditable</code> / <code>AuditAction</code> aspect, the <code>EmailService</code>
-stack, and the <code>APP_BOOTSTRAP_ADMIN_*</code> bootstrap <strong>do not exist on this branch</strong>.
-Everything below documents that <strong>designed</strong> system for reference — it is not what
-is currently committed here.</p>
-<p>On the identity-foundations branch the subsystem is <strong>backend-first</strong>: the
-membership/admin/access-request/user-search/client endpoints are enforced on the
-server, but the web/desktop RBAC UI is deferred (those clients ship the <strong>Ember</strong>
-design system unchanged and do not yet surface organizations, memberships, or the
-admin console).</p>
+<blockquote>
+<p>✅ <strong>Branch reality (read this first).</strong> This entire subsystem <strong>IS present and
+committed on this branch.</strong> Authorization layers the original single-user model:
+<code>users.id</code> is <code>BIGINT</code>, <code>projects.id</code> is <code>UUID</code>, and the <strong>highest committed Flyway
+migration is <code>V19</code></strong>. The identity foundations landed in <strong><code>V4</code>–<code>V7</code></strong>
+(<code>V5__identity_foundations.sql</code>, <code>V6__identity_hardening.sql</code>,
+<code>V7__owner_role_and_approval_workflows.sql</code>): the three-layer platform/org/project
+role model, <code>organization_memberships</code> / <code>project_memberships</code>,
+<code>users.platform_role</code> / <code>PLATFORM_ADMIN</code>, <code>projects.org_id</code>, the <code>audit_events</code>
+table + <code>@Auditable</code> / <code>AuditAction</code> aspect, the <code>EmailService</code> stack, and the
+<code>APP_BOOTSTRAP_ADMIN_*</code> bootstrap <strong>all exist here</strong> (<code>PlatformRole</code>, <code>OrgRole</code>,
+<code>OrgScopeFilter</code>, <code>AuthorizationService</code>, and the membership/audit repositories are
+all under <code>com.federated.fl_platform_api</code>). The single coarse <code>users.role IN (USER,
+ADMIN)</code> column from <code>V2</code> was the original model and has since been superseded.</p>
+<p>The subsystem is enforced on the <strong>backend</strong> (the membership / admin /
+access-request / user-search / client endpoints) AND surfaced in the <strong>frontend</strong>:
+role-gated routes (<code>RoleRoute allow={['PLATFORM_ADMIN']}</code> / <code>['PROJECT_OWNER', …]</code>),
+the <code>AdminDashboard</code> / <code>OwnerDashboard</code> / <code>ClientDashboard</code>, and the
+owner-promotion / deletion-request approval flows. The clients ship the <strong>Ember</strong>
+design system.</p>
 </blockquote>
 <hr />
 <h2 id="1-the-three-role-layers">1. The Three Role Layers<a class="headerlink" href="#1-the-three-role-layers" title="Permanent link">&para;</a></h2>
@@ -124,7 +128,7 @@ persisted in its own table; they do <strong>not</strong> form a single inherited
 <td><strong>Platform</strong></td>
 <td><code>users.platform_role</code></td>
 <td><code>PlatformRole</code></td>
-<td><code>USER</code>, <code>PLATFORM_ADMIN</code></td>
+<td><code>USER</code>, <code>PROJECT_OWNER</code>, <code>PLATFORM_ADMIN</code></td>
 </tr>
 <tr>
 <td><strong>Organization</strong></td>
@@ -148,7 +152,15 @@ it <strong>bypasses organization-scope checks entirely</strong>.</p>
 <p>The enum owns its own Spring Security authority mapping:</p>
 <div class="codehilite"><pre><span></span><code><span class="c1">// PlatformRole.java</span>
 <span class="kd">public</span><span class="w"> </span><span class="kd">enum</span><span class="w"> </span><span class="n">PlatformRole</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/** Default tier. May join/train projects (as a CLIENT) but may not create them. */</span>
 <span class="w">    </span><span class="n">USER</span><span class="p">,</span>
+<span class="w">    </span><span class="cm">/**</span>
+<span class="cm">     * May create and own projects (admin-granted via the owner-promotion workflow).</span>
+<span class="cm">     * Per-project ownership of a specific project is still tracked by</span>
+<span class="cm">     * projects.user_id; this role only gates the capability to create one.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">PROJECT_OWNER</span><span class="p">,</span>
+<span class="w">    </span><span class="cm">/** Platform administrator. Unrestricted across orgs; approves owner/deletion requests. */</span>
 <span class="w">    </span><span class="n">PLATFORM_ADMIN</span><span class="p">;</span>
 
 <span class="w">    </span><span class="cm">/** The Spring Security authority string (ROLE_USER / ROLE_PLATFORM_ADMIN). */</span>
@@ -158,6 +170,10 @@ it <strong>bypasses organization-scope checks entirely</strong>.</p>
 <span class="p">}</span>
 </code></pre></div>
 
+<p><code>PROJECT_OWNER</code> was added by the <strong>V7</strong> migration, which drops and re-adds
+<code>chk_users_platform_role</code> to widen the column's CHECK domain to all three values.
+<code>AuthorizationService.canCreateProjects()</code> gates project creation on
+<code>hasAuthority("ROLE_PROJECT_OWNER") || isPlatformAdmin()</code>.</p>
 <p><code>CustomUserDetailsService</code> resolves the user's <code>PlatformRole</code> to a single
 <code>SimpleGrantedAuthority(role.authority())</code>, so admin-only routes gate on it with
 <code>@PreAuthorize("hasRole('PLATFORM_ADMIN')")</code> (see <code>AdminController</code>,
@@ -185,9 +201,13 @@ Two additional concepts hang off project membership:</p>
 <ul>
 <li><strong><code>JoinedVia</code></strong> — provenance of the membership row:
   <code>OWNER_ADD</code>, <code>PUBLIC_JOIN</code>, <code>REQUEST_APPROVED</code>, <code>OWNER_SELF</code>.</li>
-<li><strong><code>ProjectVisibility</code></strong> — <code>PRIVATE</code> (default) or <code>PUBLIC</code>, on <code>projects.visibility</code>.</li>
-<li><strong><code>ProjectAccessRequest</code></strong> — the join-request workflow for PRIVATE projects
-  (<code>AccessRequestStatus</code> = <code>PENDING</code>/<code>APPROVED</code>/<code>DENIED</code>), see §5.</li>
+<li><strong><code>ProjectVisibility</code></strong> — three tiers on <code>projects.visibility</code>: <code>PUBLIC</code>
+  (discoverable, auto-join), <code>RESTRICTED</code> (discoverable, owner-approved request),
+  <code>PRIVATE</code> (hidden, invite-only; the column default). <code>RESTRICTED</code> needed no
+  schema change — <code>projects.visibility</code> is a plain <code>VARCHAR(32)</code> with no CHECK
+  constraint, so the value set is owned entirely by the enum (see V7).</li>
+<li><strong><code>ProjectAccessRequest</code></strong> — the join-request workflow (<code>AccessRequestStatus</code> =
+  <code>PENDING</code>/<code>APPROVED</code>/<code>DENIED</code>), see §5.</li>
 </ul>
 <p>A subtlety: a project's <code>OWNER</code> is decided by <code>projects.user_id</code>, <strong>not</strong> by a
 membership row. <code>role = OWNER</code> rows are created lazily (<code>JoinedVia.OWNER_SELF</code>)
@@ -449,10 +469,13 @@ org-scope-gated:</p>
   <code>OWNER</code> memberships are not user-creatable. <code>add</code>/<code>remove</code> are <code>@Auditable</code>
   (<code>PROJECT_MEMBER_ADDED</code> / <code>PROJECT_MEMBER_REMOVED</code>).</li>
 <li><strong><code>AccessRequestService</code></strong> (<code>submit</code> / <code>listForProject</code> / <code>decide</code> / <code>listMine</code>) —
-  joining a <strong>PUBLIC</strong> project creates a <code>CLIENT</code> membership immediately
-  (<code>JoinedVia.PUBLIC_JOIN</code>); requesting a <strong>PRIVATE</strong> project upserts a <code>PENDING</code>
-  <code>ProjectAccessRequest</code> and notifies the owner/members. <code>decide</code> approves
-  (→ <code>CLIENT</code> membership, <code>JoinedVia.REQUEST_APPROVED</code>) or denies.</li>
+  behaviour branches on the visibility tier: joining a <strong>PUBLIC</strong> project creates a
+  <code>CLIENT</code> membership immediately (<code>JoinedVia.PUBLIC_JOIN</code>); a <strong>PRIVATE</strong> project is
+  invite-only and self-requests are rejected with <strong>403</strong> ("Ask the owner to add
+  you") — the owner adds participants directly via <code>MembershipController</code>; a
+  <strong>RESTRICTED</strong> project upserts a <code>PENDING</code> <code>ProjectAccessRequest</code> and notifies the
+  owner/members. <code>decide</code> approves (→ <code>CLIENT</code> membership,
+  <code>JoinedVia.REQUEST_APPROVED</code>) or denies.</li>
 <li><strong><code>ClientApiService</code></strong> (<code>listForCurrentUser</code> / <code>getConnection</code>) — the FL-client
   view. <code>getConnection</code> takes a pessimistic write lock on the project row
   (<code>ProjectRepository.lockById</code>) and assigns a <strong>sticky <code>partition_id</code></strong> to the
@@ -460,12 +483,14 @@ org-scope-gated:</p>
   collide.</li>
 </ul>
 <hr />
-<h2 id="6-flyway-migrations-v4v6">6. Flyway Migrations (V4–V6)<a class="headerlink" href="#6-flyway-migrations-v4v6" title="Permanent link">&para;</a></h2>
-<p>The schema for this subsystem lands across three migrations
-(<code>src/main/resources/db/migration/</code>). The base profile runs JPA in <code>validate</code>
-mode, so these migrations are the source of truth — except the <code>test</code> profile,
-which disables Flyway and builds from JPA <code>create-drop</code> on H2 (so V6's
-Postgres-only DDL never runs there).</p>
+<h2 id="6-flyway-migrations-v4v7">6. Flyway Migrations (V4–V7)<a class="headerlink" href="#6-flyway-migrations-v4v7" title="Permanent link">&para;</a></h2>
+<p>The schema for this subsystem lands across four migrations
+(<code>src/main/resources/db/migration/</code>). Every profile runs PostgreSQL and JPA in
+<code>validate</code> mode, so these migrations are the source of truth — except the <code>test</code>
+profile, which disables Flyway and builds from JPA <code>create-drop</code> against
+Testcontainers Postgres (<code>jdbc:tc:postgresql:16.6-alpine</code>) for the bulk suite, so
+these files don't run there. The dedicated <code>V*MigrationTest</code> classes flip Flyway
+back on to exercise the real migrations against real Postgres.</p>
 <table>
 <thead>
 <tr>
@@ -476,15 +501,19 @@ Postgres-only DDL never runs there).</p>
 <tbody>
 <tr>
 <td><strong>V4</strong> <code>__project_membership_and_model_hub.sql</code></td>
-<td><code>projects.visibility</code> (default <code>PRIVATE</code>), Model-Hub columns; <code>project_memberships</code> and <code>project_access_requests</code> tables with their indexes. One <code>ALTER</code> per column (H2 rejects multi-clause <code>ALTER TABLE</code>).</td>
+<td><code>projects.visibility</code> (default <code>PRIVATE</code>), Model-Hub columns; <code>project_memberships</code> and <code>project_access_requests</code> tables with their indexes. Written as one <code>ALTER</code> per column — a legacy constraint from when <code>dev</code> ran on H2, which rejects multi-clause <code>ALTER TABLE</code>.</td>
 </tr>
 <tr>
 <td><strong>V5</strong> <code>__identity_foundations.sql</code></td>
 <td><code>organizations</code>, <code>organization_memberships</code>; renames <code>users.role</code> → <code>platform_role</code> and adds the lifecycle/profile columns; <code>audit_events</code> (metadata initially <code>CLOB</code>); <code>projects.org_id</code>. Backfills a single <strong>Default</strong> org (<code>...0001</code>), enrolls every existing user, marks project owners as org <code>OWNER</code>, then sets <code>projects.org_id NOT NULL</code>.</td>
 </tr>
 <tr>
-<td><strong>V6</strong> <code>__identity_hardening.sql</code> (Postgres-only)</td>
-<td>Normalises legacy <code>platform_role = 'ADMIN'</code> → <code>'PLATFORM_ADMIN'</code>; adds a <code>CHECK (platform_role IN ('USER','PLATFORM_ADMIN'))</code>; promotes <code>audit_events.metadata</code> from <code>CLOB</code> to native <strong>JSONB</strong>.</td>
+<td><strong>V6</strong> <code>__identity_hardening.sql</code></td>
+<td>Normalises legacy <code>platform_role = 'ADMIN'</code> → <code>'PLATFORM_ADMIN'</code>; adds <code>chk_users_platform_role</code> — <code>CHECK (platform_role IN ('USER','PLATFORM_ADMIN'))</code>; promotes <code>audit_events.metadata</code> from <code>CLOB</code> to native <strong>JSONB</strong>.</td>
+</tr>
+<tr>
+<td><strong>V7</strong> <code>__owner_role_and_approval_workflows.sql</code></td>
+<td>Widens <code>chk_users_platform_role</code> to include <strong><code>PROJECT_OWNER</code></strong> (drops and re-adds the constraint); creates <code>owner_promotion_requests</code> (<code>USER</code> → <code>PROJECT_OWNER</code>, admin-approved) and <code>project_deletion_requests</code> (owner-requested, admin-approved) with their status indexes. The <code>RESTRICTED</code> visibility tier needs no DDL — <code>projects.visibility</code> carries no CHECK constraint.</td>
 </tr>
 </tbody>
 </table>
@@ -499,6 +528,11 @@ Postgres-only DDL never runs there).</p>
 <span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="k">ADD</span><span class="w"> </span><span class="k">CONSTRAINT</span><span class="w"> </span><span class="n">chk_users_platform_role</span>
 <span class="w">    </span><span class="k">CHECK</span><span class="w"> </span><span class="p">(</span><span class="n">platform_role</span><span class="w"> </span><span class="k">IN</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;USER&#39;</span><span class="p">,</span><span class="s1">&#39;PLATFORM_ADMIN&#39;</span><span class="p">));</span>
 <span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">audit_events</span><span class="w"> </span><span class="k">ALTER</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="n">metadata</span><span class="w"> </span><span class="k">TYPE</span><span class="w"> </span><span class="n">JSONB</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="p">(</span><span class="k">NULLIF</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span><span class="s1">&#39;&#39;</span><span class="p">)::</span><span class="n">jsonb</span><span class="p">);</span>
+
+<span class="c1">-- V7: widen the role domain to the third tier (IF EXISTS guards dev DBs baselined past V6)</span>
+<span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="k">DROP</span><span class="w"> </span><span class="k">CONSTRAINT</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">chk_users_platform_role</span><span class="p">;</span>
+<span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="k">ADD</span><span class="w"> </span><span class="k">CONSTRAINT</span><span class="w"> </span><span class="n">chk_users_platform_role</span>
+<span class="w">    </span><span class="k">CHECK</span><span class="w"> </span><span class="p">(</span><span class="n">platform_role</span><span class="w"> </span><span class="k">IN</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;USER&#39;</span><span class="p">,</span><span class="s1">&#39;PROJECT_OWNER&#39;</span><span class="p">,</span><span class="s1">&#39;PLATFORM_ADMIN&#39;</span><span class="p">));</span>
 </code></pre></div>
 
 <hr />
@@ -538,8 +572,10 @@ otherwise a random one is generated and WARN-logged <strong>only</strong> under 
 profile; in any non-dev profile a missing password throws at startup.</p>
 <hr />
 <h2 id="8-new-rest-endpoints-summary">8. New REST Endpoints (summary)<a class="headerlink" href="#8-new-rest-endpoints-summary" title="Permanent link">&para;</a></h2>
-<p>All of these are live on the backend but <strong>not yet surfaced in any client UI</strong>
-(see the scope note at the top).</p>
+<p>These are live on the backend <strong>and</strong> surfaced in the frontend — see the branch-reality
+note at the top: <code>App.tsx</code> wraps the owner routes in
+<code>RoleRoute allow={['PROJECT_OWNER', 'PLATFORM_ADMIN']}</code> and the admin routes in
+<code>RoleRoute allow={['PLATFORM_ADMIN']}</code>.</p>
 <table>
 <thead>
 <tr>

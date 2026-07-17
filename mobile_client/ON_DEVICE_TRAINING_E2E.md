@@ -2,28 +2,32 @@
 
 **Goal:** make the mobile client run a **real on-device DeComFL round against a real server**, with training data staying on the device (only perturbation seeds + gradient scalars leave).
 
-**Status today:** the mobile client is fully wired client-side (`registerClient → setModelManifest →
-loadModel → setTrainingDataFromFiles → runDeComFLRound` loop; `provisionTrainingBundle()` is a
-throwing placeholder). It cannot run end-to-end because of three cross-stack gaps below. None are
-mobile-side.
+**Status today:** all six phases below have landed — the framework server speaks `fedlearn.v2`,
+the bundle staging + `GET /api/runs/{runId}/model-bundle` endpoint exist, and
+`provisionTrainingBundle()` is implemented (fetch → sha256-verify → stage → local paths). What is
+left is the hands-on device-in-the-loop acceptance run: see [Status (2026-07-02)](#status-2026-07-02)
+for the per-phase evidence and the runbook. Everything between here and there is the **original
+plan**, kept as the record of what each phase had to close.
 
-## The three gaps
+## The three gaps (the plan's starting point — all now closed)
 
-1. **Proto / server.** The mobile core speaks `fedlearn.v2`; the running framework server speaks
-   `fedlearn.v1`. They cannot communicate: package mismatch, missing `run_id` /
+1. **Proto / server.** The mobile core spoke `fedlearn.v2` while the running framework server still
+   spoke `fedlearn.v1`. They could not communicate: package mismatch, missing `run_id` /
    `protocol_version` / `enrollment_token` on `RegisterClient`, `int32`-vs-`int64` seed truncation,
    absent `perturbation_seeds` on `SubmitGradientScalarsRequest`, no `codec`/`sha256` chunk framing,
    no `ReportClientMetrics` RPC, and colliding `ServerState` enums (v1 `AGGREGATING=3` ↔ v2
-   `TRAINING=3`).
+   `TRAINING=3`). *Closed by P0:* `framework/src/fedlearn/communication/protos/fedlearn.proto` is now
+   a byte-identical `fedlearn.v2` mirror of canonical, gated by `scripts/check_proto_mirror.sh`.
+   Nothing in the tree speaks `fedlearn.v1` any more.
 2. **Export / bundle.** A loadable `.pte` bundle (loss graph + infer graph + a manifest carrying
-   `paramLayout` + sha256s + fixture data) must be produced and staged per run.
+   `paramLayout` + sha256s + fixture data) had to be produced and staged per run. *Closed by P3.*
 3. **Backend / data.** `GET /api/runs/{runId}/model-bundle` + binary file serving + an
-   `enrollment_token` do not exist yet.
+   `enrollment_token` did not exist. *Closed by P2.*
 
 ## Key leverage (why this is plumbing, not a rebuild)
 
-- The v1 servicer **already implements all five DeComFL RPCs** and the seed/gradient proto helpers
-  (`framework/src/fedlearn/server/grpc_servicer.py`) — this is a proto upgrade + field plumbing.
+- The servicer **already implemented all five DeComFL RPCs** and the seed/gradient proto helpers
+  (`framework/src/fedlearn/server/grpc_servicer.py`) — this was a proto upgrade + field plumbing.
 - `framework/tests/fixtures/decomfl_golden/` **already ships a complete TinyNet bundle**
   (`Linear(4,5)→ReLU→Linear(5,3)`, fc2 frozen, 25 trainable params): both weight-free `.pte` graphs,
   `zo_inputs.f32`, `zo_targets.i64`, safetensors state, and a manifest with `golden_g`/`golden_loss`
@@ -143,7 +147,9 @@ run in CI. Runbook:
 2. **Backend:** `SPRING_PROFILES_ACTIVE=dev APP_MODEL_BUNDLE_DIR=/var/models ./gradlew bootRun`. Confirm
    `GET /api/runs/<uuid>/model-bundle` (authed) returns the DTO and each `/files/*` binary downloads.
 3. **v2 fl_server:** launch the framework server on the DeComFL strategy with `min_clients=1` and a long
-   round deadline, bound to a LAN/Tailscale address the phone can reach (gRPC is plaintext — audit #37).
+   round deadline, bound to a LAN/Tailscale address the phone can reach (gRPC is **plaintext by
+   default** — audit #37; TLS is opt-in via `FEDLEARN_GRPC_USE_TLS=1`, and `FEDLEARN_REQUIRE_TLS=1`
+   makes the server refuse to serve without it).
 4. **Phone:** install the arm64 APK, log in, pick the run; the app calls `provisionTrainingBundle`, stages
    the files, then registers with `protocol_version=2` + `enrollment_token` and runs the DeComFL loop.
 5. **Assert data-locality:** capture the phone↔server gRPC (Tailscale tap / mitm / server-side frame log)

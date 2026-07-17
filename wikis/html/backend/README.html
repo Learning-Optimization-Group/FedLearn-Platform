@@ -27,9 +27,10 @@
 <li><a href="01_architecture_overview.html">Architecture & Core Concepts</a></li>
 <li><a href="02_security_and_auth.html">Security and Authentication</a></li>
 <li><a href="03_project_management.html">Project Management Lifecycle</a></li>
-<li><a href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></li>
+<li><a href="04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
 <li><a href="05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
 <li><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Frontend</summary><ul>
@@ -83,8 +84,9 @@
   <div class="content-wrap">
     <article class="article"><h1 id="backend-architecture-wiki">Backend Architecture Wiki<a class="headerlink" href="#backend-architecture-wiki" title="Permanent link">&para;</a></h1>
 <p>Welcome to the internal documentation for the <strong>FedLearn-Platform Backend</strong>.</p>
-<p>This section of the wiki covers the Spring Boot 3 API, the database interactions, security, WebSockets, and how the federated learning python processes are orchestrated natively or scaled on AWS ECS Fargate.</p>
-<blockquote class="callout warn"><p>⚠️ <strong>Branch reality.</strong> The running backend uses <strong>H2</strong> (file-mode in <code>dev</code>/<code>ec2demo</code>, in-memory in <code>test</code>); PostgreSQL is the intended production/Fargate target and that path is unfinished. Authorization on this branch is the single coarse <code>users.role IN (USER, ADMIN)</code> column (migration <code>V2</code>; highest committed migration <code>V3</code>). The identity / multi-tenancy / audit subsystem documented in page 06 is <strong>designed on a separate identity-foundations branch and is not present here.</strong></p>
+<p>This section of the wiki covers the Spring Boot 3 API, the database interactions, security, WebSockets, and how the federated learning python processes are orchestrated as local OS processes on the host VM.</p>
+<blockquote class="callout warn"><p>⚠️ <strong>Orchestration reality (OP-14).</strong> The <strong>only</strong> supported deployed architecture is the <strong>hardened single-VM</strong>: the backend spawns each FL aggregation server as a local Python process (via the <code>FlServerProcessRunner</code> seam, DA-8) on a port in the <code>50000-50010</code> range. Managed cloud task orchestration on AWS ECS/Fargate <em>was</em> implemented once (<code>1239dda</code>) and later <strong>removed</strong> along with the AWS SDK (<code>9124b62</code>) — no ECS code and no AWS SDK dependency remain in the repo. The one surviving knob, <code>ecs.cluster-name</code> (blank default), exists <strong>solely to be rejected</strong>: <code>FlOrchestrationModeValidator</code> throws at boot in <strong>every</strong> profile if it is set to a non-blank value. The <code>production</code> profile is the single-VM profile, not an ECS profile. Managed-task orchestration is deferred to <strong>OP-12</strong>.</p>
+<p>✅ <strong>Branch reality.</strong> The backend runs on <strong>PostgreSQL</strong> for every profile (H2 has been retired) — <code>dev</code>/<code>ec2demo</code> against a local Postgres (<code>backend/fl-platform-api/docker-compose.yml</code> → <code>docker compose up -d</code>) and <code>test</code> against Testcontainers Postgres. The highest committed Flyway migration is <strong><code>V19</code></strong>. The full <strong>identity / multi-tenancy / audit subsystem documented in page 06 IS present on this branch</strong>: the three-layer role model (<code>PlatformRole</code> platform role, <code>OrgRole</code> org role, <code>MembershipRole</code> project membership), organization-scoped isolation (<code>OrgScopeFilter</code>), <code>AuthorizationService</code>, the <code>@Auditable</code>/<code>AuditEvent</code> trail, and the <code>email/</code> + <code>bootstrap/</code> plumbing — backed by the <code>V4</code>–<code>V7</code> identity migrations. (The single coarse <code>users.role IN (USER, ADMIN)</code> column from <code>V2</code> was the <em>original</em> model; it has since been superseded by the layered <code>PlatformRole</code>.)</p>
 </blockquote>
 <h2 id="documentation-index">Documentation Index<a class="headerlink" href="#documentation-index" title="Permanent link">&para;</a></h2>
 <ol>
@@ -101,16 +103,20 @@
    Details the <code>ProjectService</code> and <code>ProjectController</code> logic. Explains how training rounds are configured, how projects are persisted to the database, and how models are initialized.</p>
 </li>
 <li>
-<p><strong><a href="04_federated_orchestration.html">Federated Orchestration (FlowerServerManager)</a></strong>
-   The most complex component. Documents how the Java API dynamically provisions the Python FL aggregation servers, differentiating between local machine <code>ProcessBuilder</code> execution and cloud-native AWS ECS Fargate orchestration.</p>
+<p><strong><a href="04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></strong>
+   The most complex component. Documents how the Java API dynamically provisions the Python FL aggregation servers as local OS processes — port reservation in the <code>50000-50010</code> range, the <code>FlServerProcessRunner</code> seam that shells out to the <code>fl-runtime/</code> scripts, and the <code>ProcessHandle</code> tracking that makes <code>/stop</code> work. Also covers why the removed ECS/Fargate path is now fail-closed at boot (OP-14) and deferred to OP-12.</p>
 </li>
 <li>
 <p><strong><a href="05_websocket_logs_streaming.html">WebSocket Log Streaming</a></strong>
    Explains the real-time observability pipeline. Shows how the backend captures standard output from the Python FL servers, routes it via STOMP topics to the React frontend, and persists it for export.</p>
 </li>
 <li>
-<p><strong><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy &amp; Audit</a></strong> — ⚠️ <strong>designed on a separate identity-foundations branch; not present on this branch.</strong>
-   Documents the identity subsystem: the three-layer role model (platform / organization / project), organization-scoped multi-tenant isolation (<code>OrgScope</code>), the <code>@Auditable</code> audit trail, the email + first-run bootstrap plumbing, the V4–V6 migrations, and the membership/admin/access-request REST endpoints. None of this is committed on the current branch — it is included for reference.</p>
+<p><strong><a href="06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy &amp; Audit</a></strong>
+   Documents the identity subsystem — <strong>present on this branch</strong>: the three-layer role model (platform / organization / project), organization-scoped multi-tenant isolation (<code>OrgScopeFilter</code>), the <code>@Auditable</code> audit trail, the email + first-run bootstrap plumbing, the <code>V4</code>–<code>V7</code> identity migrations, and the membership/admin/access-request REST endpoints.</p>
+</li>
+<li>
+<p><strong><a href="07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></strong>
+   Documents the registry that replaced the single overwritable <code>.npz</code> at <code>projects.model_path</code>: the <code>artifact_blobs</code> / <code>model_artifacts</code> / <code>artifact_lineage</code> data model, the <code>ArtifactBlobStore</code> write-once content store, <code>RegistryModelResolver</code>'s registry-first read path for inference and FL-server warm-start, the artifact/lineage/marketplace REST surface, and the <code>V12</code>/<code>V18</code> migrations.</p>
 </li>
 </ol></article>
     <nav class="toc"></nav>
