@@ -371,9 +371,12 @@ def _write_markdown(args, meta, clean_acc, sweep, breakdown) -> None:
         "onset that accuracy alone smooths over. The gap between the estimator breakdown (near beta) and the "
         "ACCURACY breakdown (near 0.5) for trimmed-mean is a genuine finding: below-breakdown corruption is "
         "bounded (as theory guarantees) and small enough to not move the decision boundary until the attacker "
-        "share nears a majority — reported, not hidden. The deviations are a GRADUAL curve, not a razor-sharp "
-        "step, because the ipm attack strength varies smoothly with f; the ordering and the beta/0.5/0+ "
-        "structure are the robust takeaways.",
+        "share nears a majority — reported, not hidden. Sharpness is attack-dependent: under this run's "
+        "attack the beta onset may be a gradual acceleration, but under strong model poisoning "
+        "(`--attack sign_flip_scale` / `alie`) it is near-VERTICAL (trimmed-mean ~0.3 at beta jumping to "
+        "~2.4-3.0 just past it); a weak `label_flip` is too mild to reach any estimator's breakdown. The "
+        "ordering and the beta/0.5/0+ structure reproduce across the strong-attack families — the robust "
+        "takeaways.",
         "",
         "## Honesty caveats",
         "",

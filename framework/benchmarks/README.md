@@ -167,8 +167,11 @@ past β (→ would read breakdown ~0.5), but the **estimator deviation stays sma
 and roughly doubles just past β (0.74 at f=0.3)** — the β onset the theory predicts IS visible in the
 estimator and is exactly what the forgiving accuracy metric hides. Below-breakdown corruption is bounded
 (as theory guarantees) and too small to move the decision boundary until the attacker share nears a
-majority. The deviations are a gradual curve, not a razor-sharp step (ipm strength varies with f) —
-reproduced ordering FedAvg(0⁺) < trimmed-mean(β) < median(0.5). See `results/robust_breakdown_point.md`.
+majority. Sharpness is attack-dependent: the default ipm onset is gradual, but `--attack sign_flip_scale` / `alie`
+make trimmed-mean's β onset near-vertical (~0.3 at β → ~2.4–3.0 just past it) and median's 0.5 onset
+sharp — the β/0.5/0⁺ structure reproduces across the strong-attack families (a weak `label_flip` is too
+mild to reach any breakdown). Reproduced ordering FedAvg(0⁺) < trimmed-mean(β) < median(0.5). See
+`results/robust_breakdown_point.md`.
 
 ## TE-15 — fair algorithm comparison (`algo_comparison.py`)
 
