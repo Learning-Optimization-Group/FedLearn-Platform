@@ -54,3 +54,40 @@ def test_frozen_demo_backbone_roundtrips_via_serialize_reconstruct():
     assert torch.equal(other.backbone.bias.detach(), ref.backbone.bias.detach())
     assert other.backbone.weight.requires_grad is False
     assert other.head.weight.requires_grad is True
+
+
+def test_recipe_derived_model_is_a_valid_subset_federation_participant():
+    """The bridge: a model built by the fl-runtime recipe (build_frozen_backbone_model over a shared
+    BASE_REF blob) is a valid participant in the framework's trainable-subset contract end to end —
+    its wire payload is head-only, two clients guard + aggregate via the real FedAvgAggregator, and
+    apply_trainable_subset preserves the shared frozen backbone. Guards the seam between the recipe
+    (this repo) and the DA-11 framework modules that Ph3.0 activates."""
+    from fedlearn.backbone.distribution import serialize_backbone
+    from fedlearn.estimators.params import trainable_state
+    from fedlearn.server.strategy import FedAvgAggregator
+    from fedlearn.server.subset_federation import apply_trainable_subset, guard_client_updates
+
+    # One shared frozen backbone (a BASE_REF); every participant reconstructs the SAME one.
+    ref = recipes.build_frozen_backbone_model(num_classes=3)
+    blob = serialize_backbone(ref)
+    c0 = recipes.build_frozen_backbone_model(num_classes=3, backbone_bytes=blob)
+    c1 = recipes.build_frozen_backbone_model(num_classes=3, backbone_bytes=blob)
+    server = recipes.build_frozen_backbone_model(num_classes=3, backbone_bytes=blob)
+
+    with torch.no_grad():
+        c0.head.weight.fill_(0.25); c0.head.bias.fill_(0.1)
+        c1.head.weight.fill_(0.75); c1.head.bias.fill_(0.3)
+    u0, u1 = trainable_state(c0), trainable_state(c1)
+    assert set(u0.keys()) == {"head.weight", "head.bias"}          # head-only wire
+
+    guard_client_updates([u0, u1], server)                        # fail-loud guard passes
+    expected_head_w = (u0["head.weight"].clone() + u1["head.weight"].clone()) / 2
+    backbone_before = server.backbone.weight.detach().clone()
+
+    agg = FedAvgAggregator().aggregate([("c0", u0, 10), ("c1", u1, 10)])
+    assert set(agg.keys()) == {"head.weight", "head.bias"}
+    apply_trainable_subset(server, agg)
+
+    assert torch.allclose(server.head.weight.detach(), expected_head_w)   # head is the average
+    assert torch.equal(server.backbone.weight.detach(), backbone_before)  # frozen backbone survives
+    assert torch.equal(server.backbone.weight.detach(), ref.backbone.weight.detach())  # == the shared base
