@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { FlatList, RefreshControl, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Boxes } from 'lucide-react-native';
 
@@ -27,10 +28,11 @@ export function ModelLibraryScreen() {
   );
 
   return (
-    <View className="flex-1 bg-canvas">
+    // Top/side safe areas only — the bottom inset belongs to the tab bar.
+    <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-canvas">
       <View className="px-4 pt-4 pb-2">
         <Text className="text-h2 font-sans text-fg">Model Library</Text>
-        <Text className="text-caption text-fg-muted mt-1">On-device snapshots, encrypted at rest</Text>
+        <Text className="text-caption font-sans text-fg-muted mt-1">On-device snapshots, encrypted at rest</Text>
       </View>
       <FlatList
         data={models}
@@ -45,9 +47,12 @@ export function ModelLibraryScreen() {
         contentContainerClassName="px-4 pb-8"
         ListEmptyComponent={
           <View className="items-center mt-24">
-            <Boxes color={colors['fg-muted']} size={40} strokeWidth={1.5} />
-            <Text className="text-fg-muted text-body mt-3">
-              No models yet — finish a training run to save one.
+            <View className="w-16 h-16 rounded-pill bg-surface-2 items-center justify-center">
+              <Boxes color={colors['fg-muted']} size={28} strokeWidth={1.5} />
+            </View>
+            <Text className="text-body-lg font-sans font-semibold text-fg mt-3">No models yet</Text>
+            <Text className="text-body font-sans text-fg-muted mt-1">
+              Finish a training run to save one.
             </Text>
           </View>
         }
@@ -69,6 +74,6 @@ export function ModelLibraryScreen() {
           </View>
         )}
       />
-    </View>
+    </SafeAreaView>
   );
 }

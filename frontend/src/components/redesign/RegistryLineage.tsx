@@ -4,8 +4,9 @@
 // Renders an artifact's ancestor chain as an ordered, top-to-bottom list. The
 // backend returns the chain root-most first; we render it verbatim.
 
-import { GitBranch, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import type { LineageNode } from '../../services/artifactService';
+import { SectionLabel } from '../ui';
 
 interface RegistryLineageProps {
     nodes: LineageNode[];
@@ -20,9 +21,7 @@ function shortSha(sha: string): string {
 export function RegistryLineage({ nodes, loading }: RegistryLineageProps) {
     return (
         <div className="flex flex-col gap-2">
-            <span className="text-caption uppercase tracking-wide font-semibold text-fg-muted flex items-center gap-1.5">
-                <GitBranch className="w-3.5 h-3.5" strokeWidth={1.5} /> Lineage
-            </span>
+            <SectionLabel>Lineage</SectionLabel>
             {loading ? (
                 <div className="flex items-center gap-2 text-label text-fg-muted">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2} /> Loading lineage…
@@ -32,13 +31,10 @@ export function RegistryLineage({ nodes, loading }: RegistryLineageProps) {
                     No ancestors — this is a root artifact.
                 </div>
             ) : (
-                <ol className="flex flex-col gap-2">
+                <ol className="rounded-card border border-hairline bg-surface-1 divide-y divide-hairline">
                     {nodes.map((node, i) => (
-                        <li
-                            key={node.id}
-                            className="flex items-center gap-3 rounded-card border border-hairline bg-surface-1 px-4 py-2.5"
-                        >
-                            <span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-pill bg-surface-2 border border-hairline text-caption font-mono tabular-nums text-fg-muted">
+                        <li key={node.id} className="flex items-center gap-3 px-4 py-2.5">
+                            <span className="w-5 flex-shrink-0 text-right font-mono tabular-nums text-caption text-fg-subtle">
                                 {i + 1}
                             </span>
                             <span className="text-caption font-medium px-2 py-0.5 rounded-pill bg-surface-2 border border-hairline text-fg-muted">

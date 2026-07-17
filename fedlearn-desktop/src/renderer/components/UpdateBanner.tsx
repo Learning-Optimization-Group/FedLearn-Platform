@@ -4,7 +4,7 @@
 // Shows a persistent "Check for Updates" button in idle state.
 // When an update is found/downloading/ready, the banner expands with status.
 //
-// Instrument design system: all color/radius/space/motion comes from token vars
+// Ledger design system: all color/radius/space/motion comes from token vars
 // via shared classes in styles.css. No inline hex/rgb, no gradients, no glow.
 // State semantics: available/checking/downloading→accent, ready/upToDate→
 // success, error→danger.
@@ -192,25 +192,26 @@ const UpdateBanner: React.FC = () => {
         {updateState === 'error' && (
           <button
             id="update-retry-button"
-            className="btn btn-danger btn-banner"
+            className="btn btn-secondary btn-banner"
             onClick={handleCheck}
           >
             Retry
           </button>
         )}
 
-        {/* Dismiss — shown for available / error / ready */}
-        {(updateState === 'available' || updateState === 'error' || updateState === 'ready') && (
+        {/* Dismiss — only rendered when dismissing is actually possible.
+            The "ready" state is not dismissible (a restart is pending), so the
+            control is hidden there rather than shown disabled. */}
+        {(updateState === 'available' || updateState === 'error') && (
           <button
             id="update-dismiss-button"
             className="btn-dismiss"
+            aria-label="Dismiss notification"
+            title="Dismiss"
             onClick={() => {
-              if (updateState === 'ready') return; // don't allow dismissing "ready"
               setDismissed(true);
               setUpdateState('idle');
             }}
-            title={updateState === 'ready' ? 'Please restart to apply the update' : 'Dismiss'}
-            disabled={updateState === 'ready'}
           >
             <X strokeWidth={1.5} size={16} />
           </button>

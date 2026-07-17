@@ -6,7 +6,7 @@
 // Parsing is fully defensive: anything that isn't a plain JSON object renders
 // the honest "No eval card" empty state instead of throwing.
 
-import { ClipboardList } from 'lucide-react';
+import { SectionLabel } from '../ui';
 
 interface RegistryEvalCardProps {
     evalCardJson: string | null;
@@ -39,24 +39,22 @@ export function RegistryEvalCard({ evalCardJson }: RegistryEvalCardProps) {
 
     return (
         <div className="flex flex-col gap-2">
-            <span className="text-caption uppercase tracking-wide font-semibold text-fg-muted flex items-center gap-1.5">
-                <ClipboardList className="w-3.5 h-3.5" strokeWidth={1.5} /> Eval card
-            </span>
+            <SectionLabel>Evaluation</SectionLabel>
             {entries.length === 0 ? (
                 <div className="rounded-card border border-hairline bg-surface-1 px-4 py-3 text-label text-fg-muted">
                     No eval card
                 </div>
             ) : (
-                <div className="rounded-card border border-hairline bg-surface-1 divide-y divide-hairline">
+                <dl className="rounded-card border border-hairline bg-surface-1 divide-y divide-hairline">
                     {entries.map(([key, value]) => (
                         <div key={key} className="flex items-start justify-between gap-4 px-4 py-2.5">
-                            <span className="text-label text-fg-muted">{key}</span>
-                            <span className="text-label font-mono tabular-nums text-fg text-right break-all">
+                            <dt className="text-caption text-fg-muted">{key}</dt>
+                            <dd className="font-mono tabular-nums text-caption text-fg text-right break-all">
                                 {displayValue(value)}
-                            </span>
+                            </dd>
                         </div>
                     ))}
-                </div>
+                </dl>
             )}
         </div>
     );

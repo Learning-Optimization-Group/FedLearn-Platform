@@ -4,8 +4,11 @@ import { AlertTriangle, BatteryLow } from 'lucide-react-native';
 
 import type { DeviceMetrics } from '../lib/nativeCore';
 import { useThemeTokens } from '../theme/useThemeTokens';
+import { withAlpha } from '../theme/withAlpha';
 
 // Surfaces a throttling/draining phone so the round loop can pause (15-LLD §10 bound 3).
+// Ledger banner style: warning tint fill + warning text (AA in both schemes), never
+// white-on-warning.
 export function DeviceBanner({ metrics }: { metrics: DeviceMetrics | null }) {
   const { colors } = useThemeTokens();
   if (!metrics) return null;
@@ -19,9 +22,15 @@ export function DeviceBanner({ metrics }: { metrics: DeviceMetrics | null }) {
   const Icon = hot ? AlertTriangle : BatteryLow;
 
   return (
-    <View className="mx-4 my-2 p-3 rounded-md bg-warning flex-row items-center">
-      <Icon color={colors['accent-fg']} size={18} strokeWidth={1.5} />
-      <Text className="text-accent-fg text-label font-sans ml-2 flex-1">{message}</Text>
+    <View
+      accessibilityRole="alert"
+      className="mx-4 my-2 p-3 rounded-md border flex-row items-center"
+      style={{
+        backgroundColor: withAlpha(colors.warning, 0.12),
+        borderColor: withAlpha(colors.warning, 0.3),
+      }}>
+      <Icon color={colors.warning} size={18} strokeWidth={1.5} />
+      <Text className="text-warning text-label font-sans ml-2 flex-1">{message}</Text>
     </View>
   );
 }

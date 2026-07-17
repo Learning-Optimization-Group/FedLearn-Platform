@@ -44,8 +44,9 @@ const LogPanel: React.FC<LogPanelProps> = ({ logs }) => {
       >
         <div className="log-empty-state">
           <span className="log-empty-icon"><ScrollText strokeWidth={1.5} size={28} /></span>
+          <p className="log-empty-title">No output yet</p>
           <p className="log-empty-text">
-            No container output yet. Start a training session to see real-time logs.
+            Start a training session to see live logs here.
           </p>
         </div>
       </div>

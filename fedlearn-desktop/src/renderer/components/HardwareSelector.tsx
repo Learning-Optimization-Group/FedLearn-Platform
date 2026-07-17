@@ -223,7 +223,7 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
   return (
     <div className="hardware-selector">
       {detectionLabel && (
-        <div className="detection-label" role="status" style={{ fontSize: '0.75rem', color: 'var(--fg-muted)', marginBottom: 'var(--space-2)' }}>
+        <div className="detection-label" role="status">
           Detected: {detectionLabel}
         </div>
       )}
@@ -250,31 +250,31 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
       {/* Models you can train */}
       <div className="config-inputs">
         <div className="form-group">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="form-label-row">
             <label className="form-label" htmlFor="config-project">
               Model to train
             </label>
             <button
               type="button"
-              className="btn btn-ghost"
+              className="btn btn-ghost btn-sm btn-icon-only"
               onClick={() => { void loadProjects(); }}
               disabled={isRunning || loadingProjects}
-              style={{ whiteSpace: 'nowrap', fontSize: '0.75rem' }}
+              aria-label="Refresh model list"
+              title="Refresh model list"
             >
-              <span className="btn-icon"><RefreshCw strokeWidth={1.5} size={14} /></span>
-              Refresh
+              <RefreshCw strokeWidth={1.5} size={14} />
             </button>
           </div>
 
           {loadingProjects ? (
-            <div style={{ fontSize: '0.85rem', color: 'var(--fg-muted)' }}>Loading your models…</div>
+            <div className="form-help">Loading your models…</div>
           ) : projectsError ? (
             <div className="validation-error" role="alert">
               <span className="error-icon"><AlertTriangle strokeWidth={1.5} size={16} /></span>
               {projectsError}
             </div>
           ) : projects.length === 0 ? (
-            <div style={{ fontSize: '0.85rem', color: 'var(--fg-muted)' }}>
+            <div className="form-help">
               You don&apos;t have any models to train yet. Ask a project owner to grant you access,
               or browse available projects in the web dashboard.
             </div>
@@ -289,16 +289,16 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
               >
                 {projects.map((p) => {
                   const elig = eligibilityByProject[p.projectId];
-                  const marker = elig ? eligibilitySummary(elig).marker + ' ' : '';
+                  const marker = elig ? eligibilitySummary(elig).marker : '';
                   return (
                     <option key={p.projectId} value={p.projectId}>
-                      {marker}{p.name} — {p.modelType} ({p.status})
+                      {p.name} — {p.modelType} ({p.status}){marker}
                     </option>
                   );
                 })}
               </select>
               {selectedProject && selectedProject.status !== 'RUNNING' && (
-                <div style={{ fontSize: '0.75rem', color: 'var(--warning, var(--fg-muted))', marginTop: 'var(--space-1)' }}>
+                <div className="form-help form-help-warning">
                   Waiting for the owner to start this model&apos;s training server.
                 </div>
               )}
@@ -306,12 +306,10 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
                 const elig = eligibilityByProject[selectedProject.projectId];
                 if (!elig) return null;
                 const s = eligibilitySummary(elig);
-                if (s.marker === '✅') return null;
+                if (s.lines.length === 0) return null;
                 return (
-                  <div
-                    style={{ fontSize: '0.75rem', marginTop: 'var(--space-1)', color: s.marker === '⚠️' ? 'var(--warning, var(--fg-muted))' : 'var(--fg-muted)' }}
-                  >
-                    {s.marker} {s.lines.join(' · ')}
+                  <div className={elig.eligible ? 'form-help' : 'form-help form-help-warning'}>
+                    {s.lines.join(' · ')}
                   </div>
                 );
               })()}
@@ -321,28 +319,31 @@ const HardwareSelector: React.FC<HardwareSelectorProps> = ({ onStart, onStop, is
 
         <div className="form-group">
           <label className="form-label" htmlFor="config-dataset-path">
-            Local Dataset Path (Optional)
+            Dataset folder (optional)
           </label>
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <div className="form-input-row">
             <input
               id="config-dataset-path"
               className="form-input"
               type="text"
               value={datasetPath}
               readOnly
-              placeholder="Select the local folder containing your training data. E.g., C:/Datasets/CIFAR10"
+              placeholder="No folder selected"
+              aria-describedby="config-dataset-path-help"
               disabled={isRunning}
             />
             <button
               type="button"
-              className="btn btn-ghost"
+              className="btn btn-secondary"
               onClick={handleSelectDataset}
               disabled={isRunning}
-              style={{ whiteSpace: 'nowrap' }}
             >
-              Browse...
+              Browse…
             </button>
           </div>
+          <p className="form-help" id="config-dataset-path-help">
+            Choose the local folder containing your training data.
+          </p>
         </div>
       </div>
 

@@ -9,15 +9,14 @@
 // `withCredentials`. No token handling here.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Package, Download, Fingerprint, AlertCircle, Loader2, Clock, ScrollText, Store, Undo2 } from 'lucide-react';
+import { Package, Download, Fingerprint, AlertCircle, Loader2, Clock } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import * as api from '../../services/apiServices';
 import { errorMessage } from '../../services/apiServices';
 import type { Project } from '../../services/apiServices';
 import * as registry from '../../services/artifactService';
 import type { ArtifactDto, LineageNode } from '../../services/artifactService';
-import { Card, Button, Select, Skeleton } from '../ui';
-import { BrandMark } from '../brand';
+import { Card, Button, Select, Skeleton, FormField, SectionLabel } from '../ui';
 import { PageHeader } from './PageHeader';
 import { RegistryEvalCard } from './RegistryEvalCard';
 import { RegistryLineage } from './RegistryLineage';
@@ -176,146 +175,143 @@ export function RegistryView() {
                 subtitle="Versioned, content-addressed model artifacts and their lineage."
             />
 
-            <div className="flex-1 overflow-y-auto px-6 md:px-10 py-8 bg-canvas">
-                {pageError && (
-                    <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
-                        <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
-                        {pageError}
-                    </div>
-                )}
-
-                {loadingProjects ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-6">
-                        <Card padding="lg" className="flex flex-col gap-4">
-                            <Skeleton className="h-5 w-40" />
-                            <Skeleton className="h-24 w-full" />
-                            <Skeleton className="h-24 w-full" />
-                        </Card>
-                        <Card padding="lg" className="flex flex-col gap-4">
-                            <Skeleton className="h-5 w-32" />
-                            <Skeleton className="h-40 w-full" />
-                        </Card>
-                    </div>
-                ) : projects.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center text-center gap-5 mt-16 md:mt-24">
-                        <div className="grid h-20 w-20 place-items-center rounded-card border border-hairline bg-surface-1">
-                            <BrandMark size={48} />
+            <div className="flex-1 overflow-y-auto">
+                <div className="mx-auto w-full max-w-[1400px] px-6 py-6 md:px-10 reveal">
+                    {pageError && (
+                        <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+                            {pageError}
                         </div>
-                        <div className="max-w-sm">
-                            <p className="text-h4 font-display text-fg">No projects yet</p>
-                            <p className="text-body text-fg-muted mt-1.5">
-                                Create a project and its model artifacts will show up here.
-                            </p>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="flex flex-col gap-6">
-                        {/* Project selector */}
-                        <label className="flex flex-col gap-1.5 max-w-sm">
-                            <span className="text-caption uppercase tracking-wide font-semibold text-fg-muted">
-                                Project
-                            </span>
-                            <Select
-                                aria-label="Project"
-                                value={selectedProjectId}
-                                onChange={(e) => setSelectedProjectId(e.target.value)}
-                            >
-                                {projects.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.name}
-                                    </option>
-                                ))}
-                            </Select>
-                        </label>
+                    )}
 
-                        {artifactsError && (
-                            <div className="flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
-                                <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
-                                {artifactsError}
+                    {loadingProjects ? (
+                        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-6">
+                            <Card padding="lg" className="flex flex-col gap-4">
+                                <Skeleton className="h-5 w-40" />
+                                <Skeleton className="h-24 w-full" />
+                                <Skeleton className="h-24 w-full" />
+                            </Card>
+                            <Card padding="lg" className="flex flex-col gap-4">
+                                <Skeleton className="h-5 w-32" />
+                                <Skeleton className="h-40 w-full" />
+                            </Card>
+                        </div>
+                    ) : projects.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center text-center gap-4 pt-16 md:pt-24">
+                            <div className="grid h-12 w-12 place-items-center rounded-pill bg-surface-2 text-fg-muted">
+                                <Package className="h-6 w-6" strokeWidth={1.5} />
                             </div>
-                        )}
+                            <div className="max-w-sm">
+                                <p className="text-h4 font-semibold text-fg">No projects yet</p>
+                                <p className="text-caption text-fg-muted mt-1">
+                                    Create a project and its model artifacts will show up here.
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-6">
+                            {/* Project selector */}
+                            <FormField label="Project" className="max-w-sm">
+                                <Select
+                                    value={selectedProjectId}
+                                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                                >
+                                    {projects.map((p) => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.name}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </FormField>
 
-                        {loadingArtifacts ? (
-                            <div className="flex flex-col gap-3">
-                                {[0, 1, 2].map((i) => (
-                                    <Card key={i} padding="md" className="flex flex-col gap-2">
-                                        <Skeleton className="h-4 w-24" />
-                                        <Skeleton className="h-4 w-48" />
+                            {artifactsError && (
+                                <div className="flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
+                                    <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+                                    {artifactsError}
+                                </div>
+                            )}
+
+                            {loadingArtifacts ? (
+                                <Card padding="none">
+                                    <div className="divide-y divide-hairline">
+                                        {[0, 1, 2].map((i) => (
+                                            <div key={i} className="flex flex-col gap-2 px-4 py-3">
+                                                <Skeleton className="h-4 w-24" />
+                                                <Skeleton className="h-4 w-48" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </Card>
+                            ) : !artifactsError && artifacts.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center text-center gap-4 pt-16 md:pt-24">
+                                    <div className="grid h-12 w-12 place-items-center rounded-pill bg-surface-2 text-fg-muted">
+                                        <Package className="h-6 w-6" strokeWidth={1.5} />
+                                    </div>
+                                    <div className="max-w-sm">
+                                        <p className="text-h4 font-semibold text-fg">No artifacts yet</p>
+                                        <p className="text-caption text-fg-muted mt-1">
+                                            Artifacts appear here once a run produces a checkpoint or adapter.
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-6 items-start">
+                                    {/* ── Artifact list — one card, hairline-divided rows ── */}
+                                    <Card padding="none" className="overflow-hidden">
+                                        <ul className="divide-y divide-hairline">
+                                            {artifacts.map((a) => {
+                                                const isActive = a.id === selectedArtifactId;
+                                                return (
+                                                    <li key={a.id}>
+                                                        <button
+                                                            type="button"
+                                                            aria-pressed={isActive}
+                                                            aria-label={`View artifact ${a.kind} ${shortSha(a.blobSha256)}`}
+                                                            onClick={() => selectArtifact(a)}
+                                                            className={cn(
+                                                                'w-full cursor-pointer text-left flex flex-col gap-2 px-4 py-3 border-l-2',
+                                                                'transition-colors duration-[120ms]',
+                                                                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
+                                                                isActive
+                                                                    ? 'border-l-accent bg-surface-2'
+                                                                    : 'border-l-transparent hover:bg-surface-2',
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <Chip>{a.kind}</Chip>
+                                                                <span className="font-mono text-caption text-fg-subtle flex items-center gap-1">
+                                                                    <Fingerprint className="w-3 h-3" strokeWidth={1.5} />
+                                                                    {shortSha(a.blobSha256)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="text-label text-fg truncate">
+                                                                    {a.recipeKey ?? 'No recipe'}
+                                                                </span>
+                                                                <span className="text-caption text-fg-muted flex items-center gap-1 flex-shrink-0">
+                                                                    <Clock className="w-3 h-3" strokeWidth={1.5} />
+                                                                    {formatDate(a.createdAt)}
+                                                                </span>
+                                                            </div>
+                                                            {a.licenseTag && (
+                                                                <div>
+                                                                    <Chip>{a.licenseTag}</Chip>
+                                                                </div>
+                                                            )}
+                                                        </button>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
                                     </Card>
-                                ))}
-                            </div>
-                        ) : !artifactsError && artifacts.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center text-center gap-5 mt-10 md:mt-16">
-                                <div className="grid h-20 w-20 place-items-center rounded-card border border-hairline bg-surface-1">
-                                    <Package className="w-9 h-9 text-fg-subtle" strokeWidth={1.25} />
-                                </div>
-                                <div className="max-w-sm">
-                                    <p className="text-h4 font-display text-fg">No artifacts yet</p>
-                                    <p className="text-body text-fg-muted mt-1.5">
-                                        This project hasn't published any model artifacts. They appear here
-                                        once a run produces a checkpoint or adapter.
-                                    </p>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-6">
-                                {/* ── Artifact list ── */}
-                                <div className="flex flex-col gap-3">
-                                    {artifacts.map((a) => {
-                                        const isActive = a.id === selectedArtifactId;
-                                        return (
-                                            <Card
-                                                key={a.id}
-                                                padding="md"
-                                                interactive
-                                                role="button"
-                                                tabIndex={0}
-                                                aria-pressed={isActive}
-                                                aria-label={`View artifact ${a.kind} ${shortSha(a.blobSha256)}`}
-                                                onClick={() => selectArtifact(a)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' || e.key === ' ') {
-                                                        e.preventDefault();
-                                                        selectArtifact(a);
-                                                    }
-                                                }}
-                                                className={cn(
-                                                    'flex flex-col gap-2',
-                                                    isActive && 'border-accent/50 bg-surface-2',
-                                                )}
-                                            >
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <Chip>{a.kind}</Chip>
-                                                    <span className="font-mono text-caption text-fg-subtle flex items-center gap-1">
-                                                        <Fingerprint className="w-3 h-3" strokeWidth={1.5} />
-                                                        {shortSha(a.blobSha256)}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <span className="text-label text-fg truncate">
-                                                        {a.recipeKey ?? 'No recipe'}
-                                                    </span>
-                                                    <span className="text-caption text-fg-muted flex items-center gap-1 flex-shrink-0">
-                                                        <Clock className="w-3 h-3" strokeWidth={1.5} />
-                                                        {formatDate(a.createdAt)}
-                                                    </span>
-                                                </div>
-                                                {a.licenseTag && (
-                                                    <div>
-                                                        <Chip>{a.licenseTag}</Chip>
-                                                    </div>
-                                                )}
-                                            </Card>
-                                        );
-                                    })}
-                                </div>
 
-                                {/* ── Detail panel ── */}
-                                <div>
+                                    {/* ── Detail panel ── */}
                                     {!selected ? (
-                                        <Card padding="lg" className="flex flex-1 flex-col items-center justify-center text-center gap-2 min-h-[240px]">
-                                            <Package className="w-8 h-8 text-fg-subtle" strokeWidth={1.25} />
-                                            <p className="text-body text-fg-muted">
+                                        <Card padding="lg" className="flex flex-col items-center justify-center text-center gap-3 min-h-[240px]">
+                                            <div className="grid h-12 w-12 place-items-center rounded-pill bg-surface-2 text-fg-muted">
+                                                <Package className="h-6 w-6" strokeWidth={1.5} />
+                                            </div>
+                                            <p className="text-caption text-fg-muted max-w-xs">
                                                 Select an artifact to see its provenance, eval card, and lineage.
                                             </p>
                                         </Card>
@@ -327,9 +323,7 @@ export function RegistryView() {
                                                     <Package strokeWidth={1.5} className="w-5 h-5" />
                                                 </span>
                                                 <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <h3 className="text-h4 font-display text-fg">{selected.kind}</h3>
-                                                    </div>
+                                                    <h3 className="text-h4 font-semibold text-fg">{selected.kind}</h3>
                                                     <p className="text-caption font-mono text-fg-subtle break-all mt-0.5">
                                                         {selected.blobSha256}
                                                     </p>
@@ -355,9 +349,7 @@ export function RegistryView() {
 
                                             {/* Provenance / metadata */}
                                             <div className="flex flex-col gap-2">
-                                                <span className="text-caption uppercase tracking-wide font-semibold text-fg-muted flex items-center gap-1.5">
-                                                    <ScrollText className="w-3.5 h-3.5" strokeWidth={1.5} /> Provenance
-                                                </span>
+                                                <SectionLabel>Provenance</SectionLabel>
                                                 <dl className="rounded-card border border-hairline bg-surface-1 divide-y divide-hairline">
                                                     {(
                                                         [
@@ -370,8 +362,8 @@ export function RegistryView() {
                                                         ] as const
                                                     ).map(([label, value]) => (
                                                         <div key={label} className="flex items-start justify-between gap-4 px-4 py-2.5">
-                                                            <dt className="text-label text-fg-muted">{label}</dt>
-                                                            <dd className="text-label text-fg text-right break-all">{value}</dd>
+                                                            <dt className="text-caption text-fg-muted">{label}</dt>
+                                                            <dd className="font-mono text-caption text-fg text-right break-all">{value}</dd>
                                                         </div>
                                                     ))}
                                                 </dl>
@@ -380,9 +372,7 @@ export function RegistryView() {
                                             {/* Marketplace publish toggle — LORA_ADAPTER only. */}
                                             {selected.kind === 'LORA_ADAPTER' && (
                                                 <div className="flex flex-col gap-2">
-                                                    <span className="text-caption uppercase tracking-wide font-semibold text-fg-muted flex items-center gap-1.5">
-                                                        <Store className="w-3.5 h-3.5" strokeWidth={1.5} /> Marketplace
-                                                    </span>
+                                                    <SectionLabel>Marketplace</SectionLabel>
                                                     <div className="rounded-card border border-hairline bg-surface-1 px-4 py-3 flex items-center justify-between gap-4">
                                                         <div className="min-w-0">
                                                             <p className="text-label text-fg">
@@ -395,8 +385,9 @@ export function RegistryView() {
                                                             )}
                                                         </div>
                                                         <Button
-                                                            variant={selected.published ? 'secondary' : 'primary'}
+                                                            variant="secondary"
                                                             size="sm"
+                                                            aria-pressed={selected.published}
                                                             onClick={() => handlePublishToggle(selected)}
                                                             disabled={publishingId === selected.id}
                                                             className="flex-shrink-0"
@@ -405,13 +396,28 @@ export function RegistryView() {
                                                                 <>
                                                                     <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} /> Working…
                                                                 </>
-                                                            ) : selected.published ? (
-                                                                <>
-                                                                    <Undo2 className="w-4 h-4" strokeWidth={1.5} /> Unpublish
-                                                                </>
                                                             ) : (
                                                                 <>
-                                                                    <Store className="w-4 h-4" strokeWidth={1.5} /> Publish to marketplace
+                                                                    <span
+                                                                        aria-hidden="true"
+                                                                        className={cn(
+                                                                            'inline-flex h-4 w-7 flex-shrink-0 items-center rounded-pill border px-0.5',
+                                                                            'transition-colors duration-[120ms]',
+                                                                            selected.published
+                                                                                ? 'justify-end border-accent bg-accent'
+                                                                                : 'justify-start border-line bg-surface-3',
+                                                                        )}
+                                                                    >
+                                                                        <span
+                                                                            className={cn(
+                                                                                'h-2.5 w-2.5 rounded-pill',
+                                                                                selected.published
+                                                                                    ? 'bg-accent-fg'
+                                                                                    : 'bg-surface-1 border border-line',
+                                                                            )}
+                                                                        />
+                                                                    </span>
+                                                                    {selected.published ? 'Unpublish' : 'Publish to marketplace'}
                                                                 </>
                                                             )}
                                                         </Button>
@@ -430,10 +436,10 @@ export function RegistryView() {
                                         </Card>
                                     )}
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                )}
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -1,8 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Settings, AlertTriangle, Check } from 'lucide-react';
+// =============================================================================
+// FedLearn Desktop — SettingsModal Component
+// =============================================================================
+// A real dialog: centered panel over a scrim, role="dialog" + aria-modal,
+// Escape closes, close X in the header. Ledger design system — all styling
+// comes from shared classes in styles.css and token vars; no inline styles.
+// =============================================================================
 
-// Re-declare the window.fedLearnAPI interface locally for this component
-// if it is not exported from App.tsx or available globally in this file's context.
+import React, { useState, useEffect } from 'react';
+import { AlertTriangle, Check, X } from 'lucide-react';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -33,6 +38,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     fetchUrl();
   }, []);
 
+  // Escape closes the dialog.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
   const save = async (overrideInsecure: boolean) => {
     setIsSaving(true);
     setError('');
@@ -46,7 +60,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
       if (result.success) {
         // Accepted via override — keep the plaintext warning visible.
         setInsecureWarning(result.warning ?? '');
-        setSuccessMsg('Server URL updated successfully.');
+        setSuccessMsg('Server URL updated.');
         // Optionally close after a short delay
         setTimeout(() => onClose(), 1500);
       } else if (result.code === 'INSECURE_HTTP') {
@@ -72,88 +86,100 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="auth-overlay" style={{ position: 'absolute', top: 0, left: 0, zIndex: 100 }}>
-      <div className="auth-modal" style={{ width: '480px' }}>
-        <div className="auth-content">
-          <div className="auth-logo">
-            <span className="auth-logo-icon"><Settings strokeWidth={1.5} size={24} /></span>
-            <h2 className="auth-title">Settings</h2>
-            <p className="auth-subtitle">Configure advanced properties</p>
+    <div className="modal-overlay">
+      <div
+        className="modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-modal-title"
+      >
+        <div className="modal-header">
+          <h2 className="modal-title" id="settings-modal-title">Settings</h2>
+          <button
+            type="button"
+            className="modal-close"
+            aria-label="Close settings"
+            onClick={onClose}
+          >
+            <X strokeWidth={1.5} size={16} />
+          </button>
+        </div>
+
+        <form className="modal-body" onSubmit={handleSave}>
+          <div className="form-group">
+            <label className="form-label" htmlFor="server-url">
+              Server URL
+            </label>
+            <input
+              id="server-url"
+              className="form-input"
+              type="text"
+              value={serverUrl}
+              onChange={(e) => {
+                setServerUrl(e.target.value);
+                // A different URL needs a fresh transport decision.
+                setAllowInsecure(false);
+                setInsecureWarning('');
+              }}
+              placeholder="https://server.example.com:8081"
+              aria-describedby="server-url-help"
+              disabled={isSaving}
+              autoFocus
+            />
+            <p className="form-help" id="server-url-help">
+              Address of the FedLearn server this app connects to.
+            </p>
           </div>
 
-          <form className="auth-form" onSubmit={handleSave}>
-            <div className="form-group">
-              <label className="form-label" htmlFor="server-url">
-                AWS Application Load Balancer Endpoint
-              </label>
-              <input
-                id="server-url"
-                className="form-input"
-                type="text"
-                value={serverUrl}
-                onChange={(e) => {
-                  setServerUrl(e.target.value);
-                  // A different URL needs a fresh transport decision.
-                  setAllowInsecure(false);
-                  setInsecureWarning('');
-                }}
-                placeholder="https://your-aws-alb-url.com:8081"
-                disabled={isSaving}
-              />
+          {insecureWarning && (
+            <div className="auth-warning" role="alert">
+              <span className="error-icon"><AlertTriangle strokeWidth={1.5} size={16} /></span>
+              <span>{insecureWarning}</span>
+              {!allowInsecure && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={handleAllowInsecure}
+                  disabled={isSaving}
+                >
+                  Use HTTP anyway
+                </button>
+              )}
             </div>
+          )}
 
-            {insecureWarning && (
-              <div className="auth-warning" role="alert">
-                <span className="error-icon"><AlertTriangle strokeWidth={1.5} size={16} /></span>
-                <span>{insecureWarning}</span>
-                {!allowInsecure && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-secondary"
-                    onClick={handleAllowInsecure}
-                    disabled={isSaving}
-                  >
-                    Use HTTP anyway
-                  </button>
-                )}
-              </div>
-            )}
-
-            {error && (
-              <div className="auth-error" role="alert">
-                <span className="error-icon"><AlertTriangle strokeWidth={1.5} size={16} /></span>
-                {error}
-              </div>
-            )}
-            
-            {successMsg && (
-              <div className="validation-error" style={{ background: 'var(--surface-2)', color: 'var(--success)', borderColor: 'var(--success)' }} role="alert">
-                <span className="error-icon"><Check strokeWidth={1.5} size={16} /></span>
-                {successMsg}
-              </div>
-            )}
-
-            <div className="action-buttons" style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={onClose}
-                disabled={isSaving}
-                style={{ flex: 1 }}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSaving || !serverUrl.trim()}
-                style={{ flex: 1 }}
-              >
-                {isSaving ? 'Saving...' : 'Save Configuration'}
-              </button>
+          {error && (
+            <div className="validation-error" role="alert">
+              <span className="error-icon"><AlertTriangle strokeWidth={1.5} size={16} /></span>
+              {error}
             </div>
-          </form>
-        </div>
+          )}
+
+          {successMsg && (
+            <div className="validation-success" role="status">
+              <span className="error-icon"><Check strokeWidth={1.5} size={16} /></span>
+              {successMsg}
+            </div>
+          )}
+
+          <div className="modal-footer">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onClose}
+              disabled={isSaving}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={isSaving || !serverUrl.trim()}
+            >
+              {isSaving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

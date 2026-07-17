@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Play, Square } from 'lucide-react-native';
 
@@ -13,21 +14,28 @@ import { ModelDeliveryUnavailableError } from '../lib/modelProvisioning';
 import { readError } from '../lib/errors';
 import { StatusBadge, type StatusVariant } from '../components/StatusBadge';
 import { DeviceBanner } from '../components/DeviceBanner';
+import { ErrorBanner } from '../components/ErrorBanner';
 import { useThemeTokens } from '../theme/useThemeTokens';
 
 const MAX_LOG_LINES = 500; // ring the activity log so a long run can't grow memory unbounded
 
 type Phase = 'idle' | 'joining' | 'ready' | 'error';
 
+// Activity-log line: server output verbatim, or a client-side line tagged with a severity level
+// rendered as a token-colored text prefix (WARN → warning, INFO → muted) — no glyphs/emoji.
+type LogLevel = 'WARN' | 'INFO';
+type LogLine = { level?: LogLevel; text: string };
+
 export function TrainingScreen() {
   const { colors } = useThemeTokens();
+  const insets = useSafeAreaInsets(); // top safe area on both roots; bottom belongs to the tab bar
   // Whether the native C++ FL core is compiled into this build. Absent on the iOS scaffold (MO-14),
   // where on-device training can't run — we render an explicit unavailable state instead (MO-5).
   const nativeAvailable = isNativeCoreAvailable();
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [joined, setJoined] = useState<JoinedRun | null>(null);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<LogLine[]>([]);
   const [stopping, setStopping] = useState(false);
   const [training, setTraining] = useState(false);
   const [latestRound, setLatestRound] = useState<RoundResult | null>(null);
@@ -78,7 +86,7 @@ export function TrainingScreen() {
     setLogs([]);
     (async () => {
       try {
-        const handle = await connectStomp((msg) => alive && appendLog(setLogs, `⚠ ${msg}`));
+        const handle = await connectStomp((msg) => alive && appendLog(setLogs, msg, 'WARN'));
         if (!alive) {
           handle.deactivate();
           return;
@@ -88,7 +96,7 @@ export function TrainingScreen() {
           appendLog(setLogs, body),
         );
       } catch (e) {
-        if (alive) appendLog(setLogs, `⚠ ${readError(e)}`);
+        if (alive) appendLog(setLogs, readError(e), 'WARN');
       }
     })();
     return () => {
@@ -162,11 +170,11 @@ export function TrainingScreen() {
     } catch (e) {
       if (e instanceof ModelDeliveryUnavailableError || e instanceof MobileFedAvgUnsupportedError) {
         // Known "can't train here (yet)" refusals — informational, not a failure. MO-4 / model-delivery.
-        appendLog(setLogs, `ℹ ${e.message}`);
+        appendLog(setLogs, e.message, 'INFO');
       } else {
         const msg = readError(e);
         setError(msg);
-        appendLog(setLogs, `⚠ ${msg}`);
+        appendLog(setLogs, msg, 'WARN');
       }
     } finally {
       foregroundService.stop();
@@ -181,14 +189,14 @@ export function TrainingScreen() {
     const heading =
       Platform.OS === 'ios' ? 'iOS training preview unavailable' : 'On-device training unavailable';
     return (
-      <ScrollView className="flex-1 bg-canvas">
+      <ScrollView className="flex-1 bg-canvas" style={{ paddingTop: insets.top }}>
         <View className="px-4 pt-4 pb-2 flex-row items-center justify-between">
           <Text className="text-h2 font-sans text-fg">Training</Text>
           <StatusBadge label="Unavailable" variant="idle" />
         </View>
-        <View className="mx-4 mt-2 p-4 rounded-card bg-surface-1 border border-hairline">
-          <Text className="text-body font-sans text-fg mb-1">{heading}</Text>
-          <Text className="text-caption text-fg-muted">
+        <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
+          <Text className="text-label font-sans font-semibold text-fg mb-1">{heading}</Text>
+          <Text className="text-caption font-sans text-fg-muted">
             The native federated-learning core isn’t built into this app on
             {Platform.OS === 'ios' ? ' iOS' : ' this platform'}, so on-device training is disabled here.
             You can still browse projects and models. On-device training runs on Android; the native iOS
@@ -201,7 +209,7 @@ export function TrainingScreen() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-canvas">
+    <ScrollView className="flex-1 bg-canvas" style={{ paddingTop: insets.top }}>
       <View className="px-4 pt-4 pb-2 flex-row items-center justify-between">
         <Text className="text-h2 font-sans text-fg">Training</Text>
         <StatusBadge label={badge.label} variant={badge.variant} />
@@ -210,24 +218,39 @@ export function TrainingScreen() {
       <DeviceBanner metrics={null} />
 
       {!joined ? (
-        <View className="mx-4 mt-2 p-4 rounded-card bg-surface-1 border border-hairline">
-          <Text className="text-body font-sans text-fg mb-1">Join a training run</Text>
-          <Text className="text-caption text-fg-muted mb-3">Your data stays on this device — only learning updates are shared.</Text>
+        <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
+          <Text className="text-label font-sans font-semibold text-fg mb-1">Join a training run</Text>
+          <Text className="text-caption font-sans text-fg-muted mb-3">Your data stays on this device — only learning updates are shared.</Text>
           {projectId ? (
             <>
               <Text className="text-label font-sans text-fg-muted">Selected project</Text>
               <Text className="mt-1 text-body font-mono text-fg">{projectId}</Text>
-              <Pressable className="mt-3" onPress={() => navigation.navigate('Projects')}>
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel="Change project"
+                className="mt-3 py-2 self-start active:opacity-80"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => navigation.navigate('Projects')}>
                 <Text className="text-body font-sans text-accent">Change project</Text>
               </Pressable>
             </>
           ) : (
-            <Pressable className="py-2" onPress={() => navigation.navigate('Projects')}>
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="Choose a project to train"
+              className="py-2 self-start active:opacity-80"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={() => navigation.navigate('Projects')}>
               <Text className="text-body font-sans text-accent">Choose a project to train</Text>
             </Pressable>
           )}
           <Pressable
-            className="flex-row items-center justify-center bg-accent rounded-md py-3"
+            accessibilityRole="button"
+            accessibilityLabel="Join run"
+            accessibilityState={{ disabled: phase === 'joining' }}
+            className={`mt-4 flex-row items-center justify-center bg-accent rounded-md py-3 active:opacity-80 ${
+              phase === 'joining' ? 'opacity-50' : ''
+            }`}
             disabled={phase === 'joining'}
             onPress={onJoin}>
             {phase === 'joining' ? (
@@ -239,7 +262,7 @@ export function TrainingScreen() {
         </View>
       ) : (
         <>
-        <View className="mx-4 mt-2 p-4 rounded-card bg-surface-1 border border-hairline">
+        <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
           <Text className="text-label font-sans text-fg-muted">Registered with run</Text>
           <Text className="mt-1 text-body font-mono text-fg">{joined.runId}</Text>
           <View className="mt-3 flex-row justify-between">
@@ -254,16 +277,12 @@ export function TrainingScreen() {
             <Text className="text-caption font-sans text-fg-muted">Model</Text>
             <Text className="text-caption font-sans text-fg">{joined.manifest.recipeKey} · {joined.manifest.strategy}</Text>
           </View>
-          <Text className="mt-3 text-caption font-sans text-fg-subtle">
-            Training runs entirely on this device — only learning updates (perturbation seeds + gradient
-            scalars) are shared, never your data.
-          </Text>
         </View>
 
         {/* MO-3: live server progress — the run's current round + deadline countdown + how many clients
             have reported this round, refreshed on a heartbeat independent of this device's round pace. */}
         {serverStatus ? (
-          <View className="mx-4 mt-2 p-4 rounded-card bg-surface-1 border border-hairline">
+          <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
             <View className="flex-row items-center justify-between">
               <Text className="text-label font-sans text-fg-muted">Server progress</Text>
               <Text className="text-caption font-mono text-fg-subtle">{serverStatus.serverState}</Text>
@@ -291,35 +310,60 @@ export function TrainingScreen() {
           </View>
         ) : null}
 
-        {/* Start on-device training, or show live round progress while it runs. */}
+        {/* One action slot: Start when idle; while a run is training it becomes the (danger) Stop —
+            aborting the native gRPC/training path and the foreground service. */}
         {training ? (
-          <View className="mx-4 mt-2 p-4 rounded-card bg-surface-1 border border-hairline">
-            <View className="flex-row items-center justify-between">
-              <Text className="text-body font-sans text-fg">Training on device…</Text>
-              <ActivityIndicator color={colors.accent} />
+          <>
+            <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-body font-sans text-fg">Training on device…</Text>
+                <ActivityIndicator color={colors.accent} />
+              </View>
+              {latestRound ? (
+                <>
+                  <View className="mt-2 flex-row justify-between">
+                    <Text className="text-caption font-sans text-fg-muted">Round</Text>
+                    <Text className="text-caption font-mono text-fg">{latestRound.round}</Text>
+                  </View>
+                  <View className="mt-1 flex-row justify-between">
+                    <Text className="text-caption font-sans text-fg-muted">Loss</Text>
+                    <Text className="text-caption font-mono text-fg">{latestRound.loss.toFixed(4)}</Text>
+                  </View>
+                  <View className="mt-1 flex-row justify-between">
+                    <Text className="text-caption font-sans text-fg-muted">Scalars uploaded</Text>
+                    <Text className="text-caption font-mono text-fg">{latestRound.scalarsTransmitted}</Text>
+                  </View>
+                </>
+              ) : (
+                <Text className="mt-2 text-caption font-sans text-fg-subtle">Staging model + on-device data…</Text>
+              )}
             </View>
-            {latestRound ? (
-              <>
-                <View className="mt-2 flex-row justify-between">
-                  <Text className="text-caption font-sans text-fg-muted">Round</Text>
-                  <Text className="text-caption font-mono text-fg">{latestRound.round}</Text>
-                </View>
-                <View className="mt-1 flex-row justify-between">
-                  <Text className="text-caption font-sans text-fg-muted">Loss</Text>
-                  <Text className="text-caption font-mono text-fg">{latestRound.loss.toFixed(4)}</Text>
-                </View>
-                <View className="mt-1 flex-row justify-between">
-                  <Text className="text-caption font-sans text-fg-muted">Scalars uploaded</Text>
-                  <Text className="text-caption font-mono text-fg">{latestRound.scalarsTransmitted}</Text>
-                </View>
-              </>
-            ) : (
-              <Text className="mt-2 text-caption font-sans text-fg-subtle">Staging model + on-device data…</Text>
-            )}
-          </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Stop training"
+              accessibilityState={{ disabled: stopping }}
+              className={`mx-4 mt-3 flex-row items-center justify-center bg-danger rounded-md py-3 active:opacity-80 ${
+                stopping ? 'opacity-50' : ''
+              }`}
+              disabled={stopping}
+              onPress={() => {
+                void onStop();
+              }}>
+              {stopping ? (
+                <ActivityIndicator color={colors['accent-fg']} />
+              ) : (
+                <>
+                  <Square color={colors['accent-fg']} size={18} strokeWidth={1.5} />
+                  <Text className="text-accent-fg text-label font-sans ml-2">Stop training</Text>
+                </>
+              )}
+            </Pressable>
+          </>
         ) : (
           <Pressable
-            className="mx-4 mt-2 flex-row items-center justify-center bg-accent rounded-card py-3"
+            accessibilityRole="button"
+            accessibilityLabel="Start training"
+            className="mx-4 mt-3 flex-row items-center justify-center bg-accent rounded-md py-3 active:opacity-80"
             onPress={() => {
               void onStartTraining();
             }}>
@@ -328,27 +372,10 @@ export function TrainingScreen() {
           </Pressable>
         )}
 
-        {/* Stop control — aborts the native gRPC/training path and the foreground service. */}
-        <Pressable
-          className="mx-4 mt-2 flex-row items-center justify-center bg-danger rounded-card py-3"
-          disabled={stopping}
-          onPress={() => {
-            void onStop();
-          }}>
-          {stopping ? (
-            <ActivityIndicator color={colors['accent-fg']} />
-          ) : (
-            <>
-              <Square color={colors['accent-fg']} size={18} strokeWidth={1.5} />
-              <Text className="text-accent-fg text-label font-sans ml-2">Stop training</Text>
-            </>
-          )}
-        </Pressable>
-
         {/* Live activity log (server round output over STOMP /topic/logs). */}
         <View className="mx-4 mt-3 rounded-card bg-code-well border border-hairline overflow-hidden">
           <View className="px-3 py-2 border-b border-hairline">
-            <Text className="text-caption font-sans text-fg-muted">Activity log</Text>
+            <Text className="text-label font-sans font-semibold text-fg">Activity log</Text>
           </View>
           <ScrollView
             ref={logScrollRef}
@@ -362,7 +389,15 @@ export function TrainingScreen() {
             ) : (
               logs.map((line, i) => (
                 <Text key={i} className="text-caption font-mono text-fg" selectable>
-                  {line}
+                  {line.level ? (
+                    <Text
+                      className={`text-caption font-mono ${
+                        line.level === 'WARN' ? 'text-warning' : 'text-fg-muted'
+                      }`}>
+                      {`${line.level} `}
+                    </Text>
+                  ) : null}
+                  {line.text}
                 </Text>
               ))
             )}
@@ -371,24 +406,23 @@ export function TrainingScreen() {
         </>
       )}
 
-      {error ? (
-        <View className="mx-4 my-3 p-3 rounded-md bg-danger">
-          <Text className="text-accent-fg text-body">{error}</Text>
-        </View>
-      ) : null}
+      {error ? <ErrorBanner message={error} className="mx-4 my-3" /> : null}
       <View className="h-8" />
     </ScrollView>
   );
 }
 
 // Append server log line(s) to the ring-buffered activity log (capped so a long run stays bounded).
+// A `level` tags client-side lines with a severity the renderer colors by token.
 function appendLog(
-  setLogs: React.Dispatch<React.SetStateAction<string[]>>,
+  setLogs: React.Dispatch<React.SetStateAction<LogLine[]>>,
   body: string,
+  level?: LogLevel,
 ): void {
   const incoming = String(body)
     .split('\n')
-    .filter((l) => l.length > 0);
+    .filter((l) => l.length > 0)
+    .map((text): LogLine => ({ level, text }));
   if (incoming.length === 0) return;
   setLogs((prev) => {
     const next = prev.concat(incoming);

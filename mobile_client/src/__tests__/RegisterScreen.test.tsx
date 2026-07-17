@@ -39,6 +39,11 @@ jest.mock('../context/AuthContext', () => ({ useAuth: () => ({ register: mockReg
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ goBack: mockGoBack, navigate: mockNavigate }),
 }));
+// The screen reads the active palette for its spinner tint; the real hook calls nativewind's
+// useColorScheme, which needs a live React dispatcher this function-call harness doesn't provide.
+jest.mock('../theme/useThemeTokens', () => ({
+  useThemeTokens: () => ({ colors: { 'accent-fg': 'accent-fg-token' } }),
+}));
 
 import RegisterScreen from '../screens/RegisterScreen';
 

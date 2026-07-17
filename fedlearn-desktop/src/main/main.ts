@@ -38,7 +38,10 @@ function createWindow(): void {
     minWidth: 960,
     minHeight: 640,
     title: 'FedLearn Desktop',
-    backgroundColor: '#0a0a0f',
+    // Mirrors the light canvas token from design/tokens.json — the main
+    // process cannot read CSS vars, so this literal must be kept in sync
+    // manually on any palette swap.
+    backgroundColor: '#F6F3EE',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {

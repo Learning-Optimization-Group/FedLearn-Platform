@@ -8,7 +8,7 @@
 // =============================================================================
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlaskConical, Upload, Sparkles, AlertTriangle } from 'lucide-react';
+import { FlaskConical, Upload, Play, Send, AlertTriangle } from 'lucide-react';
 import type { InferableModel, InferenceResult, GenerationResult } from '../inference.types';
 
 // Reject oversized files before FileReader pulls them fully into renderer memory.
@@ -195,7 +195,7 @@ const ModelPlayground: React.FC = () => {
         </div>
 
         {error && (
-          <div className="docker-warning" role="alert">
+          <div className="validation-error" role="alert">
             <span className="error-icon"><AlertTriangle strokeWidth={1.5} size={16} /></span>
             <span>{error}</span>
           </div>
@@ -235,7 +235,7 @@ const ModelPlayground: React.FC = () => {
 
             {selected?.inputKind === 'image' && (
               <div className="form-group">
-                <label className="form-label">Image</label>
+                <label className="form-label" htmlFor="pg-image-file">Image</label>
                 <div
                   className="pg-dropzone"
                   onClick={() => fileInputRef.current?.click()}
@@ -260,9 +260,10 @@ const ModelPlayground: React.FC = () => {
                 </div>
                 <input
                   ref={fileInputRef}
+                  id="pg-image-file"
                   type="file"
                   accept="image/*"
-                  style={{ display: 'none' }}
+                  hidden
                   onChange={(e) => handleFile(e.target.files?.[0])}
                 />
               </div>
@@ -298,53 +299,90 @@ const ModelPlayground: React.FC = () => {
             )}
 
             {selected?.inputKind === 'generation' && (
-              <div className="form-group">
-                <textarea
-                  id="pg-prompt"
-                  className="form-input"
-                  rows={4}
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Message the model…"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey && canRun && !running) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                />
-                <label className="form-label">Max new tokens: {maxNewTokens}</label>
-                <input type="range" min={1} max={2048} step={1} value={maxNewTokens}
-                  onChange={(e) => setMaxNewTokens(Number(e.target.value))} />
-                <label className="form-label">Temperature: {temperature.toFixed(1)}</label>
-                <input type="range" min={0} max={2} step={0.1} value={temperature}
-                  onChange={(e) => setTemperature(Number(e.target.value))} />
+              <>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="pg-prompt">Prompt</label>
+                  <textarea
+                    id="pg-prompt"
+                    className="form-input"
+                    rows={4}
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Message the model…"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey && canRun && !running) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                  />
+                </div>
+                <div className="form-group">
+                  <div className="form-label-row">
+                    <label className="form-label" htmlFor="pg-max-tokens">Max new tokens</label>
+                    <span className="form-value">{maxNewTokens}</span>
+                  </div>
+                  <input
+                    id="pg-max-tokens"
+                    className="form-range"
+                    type="range"
+                    min={1}
+                    max={2048}
+                    step={1}
+                    value={maxNewTokens}
+                    onChange={(e) => setMaxNewTokens(Number(e.target.value))}
+                  />
+                </div>
+                <div className="form-group">
+                  <div className="form-label-row">
+                    <label className="form-label" htmlFor="pg-temperature">Temperature</label>
+                    <span className="form-value">{temperature.toFixed(1)}</span>
+                  </div>
+                  <input
+                    id="pg-temperature"
+                    className="form-range"
+                    type="range"
+                    min={0}
+                    max={2}
+                    step={0.1}
+                    value={temperature}
+                    onChange={(e) => setTemperature(Number(e.target.value))}
+                  />
+                </div>
                 <div className="pg-chat-actions">
                   {running ? (
-                    <button className="btn btn-primary btn-full" onClick={handleStop} disabled={stopped}>Stop</button>
+                    <button className="btn btn-secondary" onClick={handleStop} disabled={stopped}>
+                      Stop
+                    </button>
                   ) : (
-                    <>
-                      <button className="btn btn-primary btn-full" onClick={handleSend} disabled={!canRun}>
-                        <Sparkles size={16} strokeWidth={1.5} /> Send
-                      </button>
-                      <button
-                        className="btn btn-secondary"
-                        onClick={() => setMessages([])}
-                        disabled={running || messages.length === 0}
-                      >
-                        Clear
-                      </button>
-                    </>
+                    <button className="btn btn-primary" onClick={handleSend} disabled={!canRun}>
+                      <span className="btn-icon"><Send strokeWidth={1.5} size={16} /></span>
+                      Send
+                    </button>
                   )}
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setMessages([])}
+                    disabled={running || messages.length === 0}
+                  >
+                    Clear
+                  </button>
                 </div>
-              </div>
+              </>
             )}
 
             {selected?.inputKind !== 'generation' && (
               <button className="btn btn-primary btn-full"
                 onClick={handleRun}
                 disabled={!canRun}>
-                {running ? 'Running…' : (<><Sparkles size={16} strokeWidth={1.5} /> Run inference</>)}
+                {running
+                  ? 'Running…'
+                  : (
+                    <>
+                      <span className="btn-icon"><Play strokeWidth={1.5} size={16} /></span>
+                      Run inference
+                    </>
+                  )}
               </button>
             )}
           </div>

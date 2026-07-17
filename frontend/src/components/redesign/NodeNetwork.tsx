@@ -1,5 +1,5 @@
 // =============================================================================
-// FedLearn Frontend — Users (Platform account management, Ember design system)
+// FedLearn Frontend — Users (Platform account management, Ledger design system)
 // =============================================================================
 // This is the PLATFORM USER table, not a device inventory: it lists real user
 // accounts and "Remove user" PERMANENTLY DELETES the account (DELETE /users/:id,
@@ -11,11 +11,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import * as api from '../../services/apiServices';
-import { Plus, Trash2, AlertCircle, UserRound } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, UserRound, Users } from 'lucide-react';
 import type { User, RegisterData } from '../../services/apiServices';
-import { Button, Card, Input, Modal, ConfirmDialog, Skeleton } from '../ui';
+import { Button, Card, Input, Modal, ConfirmDialog, FormField, Skeleton } from '../ui';
 import { useAuth } from '../../context/AuthContext';
-import { BrandMark } from '../brand';
 import { PageHeader } from './PageHeader';
 
 interface CreateClientModalProps {
@@ -24,8 +23,6 @@ interface CreateClientModalProps {
   onSubmit: (data: RegisterData) => void;
   isLoading?: boolean;
 }
-
-const labelClass = 'text-label font-medium text-fg';
 
 function CreateClientModal({ isOpen, onClose, onSubmit, isLoading }: CreateClientModalProps) {
   const [username, setUsername] = useState('');
@@ -49,19 +46,27 @@ function CreateClientModal({ isOpen, onClose, onSubmit, isLoading }: CreateClien
     <Modal
       open={isOpen}
       onClose={onClose}
-      title={
-        <span className="flex items-center gap-2">
-          <UserRound strokeWidth={1.5} className="w-5 h-5 text-accent" />
-          Add a user
-        </span>
+      title="Add a user"
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="add-user-form"
+            disabled={isLoading || !username || !email || !password}
+          >
+            {isLoading ? 'Adding…' : 'Add user'}
+          </Button>
+        </>
       }
     >
       <p className="-mt-1 mb-5 text-body text-fg-muted">
         Create a platform account so this person can sign in and join training runs.
       </p>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Username</label>
+      <form id="add-user-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <FormField label="Username">
           <Input
             type="text"
             value={username}
@@ -70,9 +75,8 @@ function CreateClientModal({ isOpen, onClose, onSubmit, isLoading }: CreateClien
             required
             autoFocus
           />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Email</label>
+        </FormField>
+        <FormField label="Email">
           <Input
             type="email"
             value={email}
@@ -80,9 +84,8 @@ function CreateClientModal({ isOpen, onClose, onSubmit, isLoading }: CreateClien
             placeholder="e.g. anna@example.com"
             required
           />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Password</label>
+        </FormField>
+        <FormField label="Password">
           <Input
             type="password"
             value={password}
@@ -90,25 +93,7 @@ function CreateClientModal({ isOpen, onClose, onSubmit, isLoading }: CreateClien
             placeholder="••••••••"
             required
           />
-        </div>
-        <div className="flex gap-3 mt-2">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onClose}
-            disabled={isLoading}
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={isLoading || !username || !email || !password}
-            className="flex-1"
-          >
-            {isLoading ? 'Adding…' : 'Add user'}
-          </Button>
-        </div>
+        </FormField>
       </form>
     </Modal>
   );
@@ -182,83 +167,75 @@ export function NodeNetwork() {
         </Button>
       </PageHeader>
 
-      <div className="flex-1 overflow-y-auto px-6 md:px-10 py-8 relative z-10 bg-canvas">
-        {error && (
-          <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
-            {error}
-          </div>
-        )}
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[1400px] px-6 py-6 md:px-10">
+          {error && (
+            <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+              {error}
+            </div>
+          )}
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[0, 1, 2].map((i) => (
-              <Card key={i} padding="lg" className="flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  <Skeleton className="h-11 w-11 rounded-full" />
+          {isLoading ? (
+            <div className="flex flex-col gap-2">
+              {[0, 1, 2].map((i) => (
+                <Card key={i} padding="md" className="flex items-center gap-3">
+                  <Skeleton className="h-11 w-11 rounded-lg" />
                   <div className="flex flex-col gap-2">
                     <Skeleton className="h-4 w-28" />
                     <Skeleton className="h-3 w-40" />
                   </div>
-                </div>
-                <Skeleton className="h-10 w-full" />
-              </Card>
-            ))}
-          </div>
-        ) : users.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {users.map((user) => {
-              const self = isSelf(user);
-              return (
-              <Card key={user.id} padding="lg" className="flex flex-col gap-4 transition-colors duration-[160ms] hover:bg-surface-2 hover:border-accent/25">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="icon-tile flex-shrink-0">
-                      <UserRound strokeWidth={1.5} className="w-5 h-5" />
-                    </span>
-                    <div className="min-w-0">
-                      <h3 className="text-h4 font-display text-fg truncate">
-                        {user.username}
-                        {self && <span className="ml-2 text-caption text-fg-subtle">(you)</span>}
-                      </h3>
-                      <p className="text-label text-fg-muted truncate">{user.email}</p>
+                </Card>
+              ))}
+            </div>
+          ) : users.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {users.map((user) => {
+                const self = isSelf(user);
+                return (
+                  <Card key={user.id} padding="md" className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="icon-tile flex-shrink-0">
+                        <UserRound strokeWidth={1.5} className="w-5 h-5" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-body font-medium text-fg truncate">
+                          {user.username}
+                          {self && <span className="ml-2 text-caption text-fg-subtle">(you)</span>}
+                        </p>
+                        <p className="text-caption text-fg-muted truncate">{user.email}</p>
+                      </div>
                     </div>
-                  </div>
-                  <button
-                    onClick={() => setPendingDelete(user)}
-                    disabled={self}
-                    className="w-8 h-8 flex items-center justify-center rounded-pill hover:bg-surface-2 text-fg-muted hover:text-danger transition-colors duration-[120ms] flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-fg-muted"
-                    aria-label={self ? 'You cannot remove your own account' : `Remove user ${user.username}`}
-                    title={self ? 'You cannot remove your own account' : undefined}
-                  >
-                    <Trash2 strokeWidth={1.5} className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="bg-surface-2 border border-hairline rounded-lg p-3 flex justify-between items-center text-label">
-                  <span className="text-fg-muted">User #</span>
-                  <span className="font-mono tabular-nums text-fg">{user.id}</span>
-                </div>
-              </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center text-center gap-5 mt-16 md:mt-24">
-            <div className="grid h-20 w-20 place-items-center rounded-card border border-hairline bg-surface-1">
-              <BrandMark size={48} />
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="font-mono tabular-nums text-label text-fg-muted">#{user.id}</span>
+                      <button
+                        onClick={() => setPendingDelete(user)}
+                        disabled={self}
+                        className="flex h-8 w-8 items-center justify-center rounded-md text-fg-muted transition-colors duration-[120ms] hover:bg-surface-2 hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+                        aria-label={self ? 'You cannot remove your own account' : `Remove user ${user.username}`}
+                        title={self ? 'You cannot remove your own account' : undefined}
+                      >
+                        <Trash2 strokeWidth={1.5} className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
-            <div className="max-w-sm">
-              <p className="text-h4 font-display text-fg">No users yet</p>
-              <p className="text-body text-fg-muted mt-1.5">
-                Add a user so they can sign in and join training runs.
-              </p>
+          ) : (
+            <div className="flex flex-col items-center justify-center text-center gap-4 pt-16 md:pt-24">
+              <div className="grid h-12 w-12 place-items-center rounded-pill bg-surface-2 text-fg-muted">
+                <Users className="h-6 w-6" strokeWidth={1.5} />
+              </div>
+              <div className="max-w-sm">
+                <p className="text-h4 font-semibold text-fg">No users yet</p>
+                <p className="text-caption text-fg-muted mt-1">
+                  Add a user so they can sign in and join training runs.
+                </p>
+              </div>
             </div>
-            <Button size="lg" onClick={() => setIsModalOpen(true)}>
-              <Plus strokeWidth={2} className="w-[18px] h-[18px]" />
-              Add your first user
-            </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <CreateClientModal

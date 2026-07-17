@@ -4,17 +4,17 @@
 // Browses PUBLISHED LORA_ADAPTER bundles the caller may see. Visibility is
 // org-scoped server-side, so an empty feed is a normal, honest result — not an
 // error. Each entry surfaces its recipe, its content address, its license
-// (marketplace-load-bearing — shown prominently), its provenance base model,
-// and its parsed eval card (via the shared RegistryEvalCard).
+// (as a quiet chip), its provenance base model, and its parsed eval card (via
+// the shared RegistryEvalCard).
 //
 // Cookie auth only — every request rides the shared axios instance's
 // `withCredentials`. No token handling here.
 
 import { useEffect, useState } from 'react';
-import { Store, Fingerprint, AlertCircle, Clock, Scale, GitBranch } from 'lucide-react';
+import { Store, Fingerprint, AlertCircle, Scale } from 'lucide-react';
 import * as registry from '../../services/artifactService';
 import type { ArtifactDto } from '../../services/artifactService';
-import { Card, Skeleton } from '../ui';
+import { Card, Skeleton, SectionLabel } from '../ui';
 import { PageHeader } from './PageHeader';
 import { RegistryEvalCard } from './RegistryEvalCard';
 
@@ -40,14 +40,14 @@ function Chip({ children }: { children: React.ReactNode }) {
     );
 }
 
-/** License is marketplace-load-bearing: give it a prominent, accent-toned badge. */
-function LicenseBadge({ licenseTag }: { licenseTag: string | null }) {
+/** License chip — quiet metadata, same vocabulary as the kind chip. */
+function LicenseChip({ licenseTag }: { licenseTag: string | null }) {
     return (
         <span
-            className="inline-flex items-center gap-1.5 text-label font-semibold px-3 py-1 rounded-pill bg-accent/10 border border-accent/30 text-accent"
+            className="inline-flex items-center gap-1.5 text-caption font-medium px-2.5 py-0.5 rounded-pill bg-surface-2 border border-hairline text-fg-muted"
             aria-label={`License ${licenseTag ?? 'unspecified'}`}
         >
-            <Scale className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <Scale className="w-3.5 h-3.5" strokeWidth={1.5} />
             {licenseTag ?? 'License unspecified'}
         </span>
     );
@@ -63,10 +63,11 @@ function MarketplaceCard({ adapter }: { adapter: ArtifactDto }) {
                 </span>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-h4 font-display text-fg truncate">
-                            {adapter.recipeKey ?? 'LORA adapter'}
+                        <h3 className="text-h4 font-semibold text-fg truncate">
+                            {adapter.recipeKey ?? 'LoRA adapter'}
                         </h3>
                         <Chip>{adapter.kind}</Chip>
+                        <LicenseChip licenseTag={adapter.licenseTag} />
                     </div>
                     <span className="font-mono text-caption text-fg-subtle flex items-center gap-1 mt-1">
                         <Fingerprint className="w-3 h-3" strokeWidth={1.5} />
@@ -75,30 +76,24 @@ function MarketplaceCard({ adapter }: { adapter: ArtifactDto }) {
                 </div>
             </div>
 
-            {/* License — surfaced prominently. */}
-            <div>
-                <LicenseBadge licenseTag={adapter.licenseTag} />
-            </div>
-
             {/* Provenance + published time */}
-            <dl className="rounded-card border border-hairline bg-surface-1 divide-y divide-hairline">
-                <div className="flex items-start justify-between gap-4 px-4 py-2.5">
-                    <dt className="text-label text-fg-muted flex items-center gap-1.5">
-                        <GitBranch className="w-3.5 h-3.5" strokeWidth={1.5} /> Base model
-                    </dt>
-                    <dd className="text-label text-fg text-right break-all">
-                        {adapter.baseModelRef ?? '—'}
-                    </dd>
-                </div>
-                <div className="flex items-start justify-between gap-4 px-4 py-2.5">
-                    <dt className="text-label text-fg-muted flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" strokeWidth={1.5} /> Published
-                    </dt>
-                    <dd className="text-label text-fg text-right break-all">
-                        {formatDate(adapter.publishedAt)}
-                    </dd>
-                </div>
-            </dl>
+            <div className="flex flex-col gap-2">
+                <SectionLabel>Provenance</SectionLabel>
+                <dl className="rounded-card border border-hairline bg-surface-1 divide-y divide-hairline">
+                    <div className="flex items-start justify-between gap-4 px-4 py-2.5">
+                        <dt className="text-caption text-fg-muted">Base model</dt>
+                        <dd className="font-mono text-caption text-fg text-right break-all">
+                            {adapter.baseModelRef ?? '—'}
+                        </dd>
+                    </div>
+                    <div className="flex items-start justify-between gap-4 px-4 py-2.5">
+                        <dt className="text-caption text-fg-muted">Published</dt>
+                        <dd className="font-mono text-caption text-fg text-right break-all">
+                            {formatDate(adapter.publishedAt)}
+                        </dd>
+                    </div>
+                </dl>
+            </div>
 
             <RegistryEvalCard evalCardJson={adapter.evalCardJson} />
         </Card>
@@ -134,47 +129,49 @@ export function MarketplaceView() {
                 subtitle="Published LoRA adapters you can browse across your organization."
             />
 
-            <div className="flex-1 overflow-y-auto px-6 md:px-10 py-8 bg-canvas">
-                {error && (
-                    <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
-                        <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
-                        {error}
-                    </div>
-                )}
+            <div className="flex-1 overflow-y-auto">
+                <div className="mx-auto w-full max-w-[1400px] px-6 py-6 md:px-10 reveal">
+                    {error && (
+                        <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+                            {error}
+                        </div>
+                    )}
 
-                {loading ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {[0, 1].map((i) => (
-                            <Card key={i} padding="lg" className="flex flex-col gap-4">
-                                <div className="flex items-center gap-3">
-                                    <Skeleton className="h-11 w-11 rounded-xl" />
-                                    <Skeleton className="h-5 w-40" />
-                                </div>
-                                <Skeleton className="h-6 w-28" />
-                                <Skeleton className="h-24 w-full" />
-                            </Card>
-                        ))}
-                    </div>
-                ) : !error && adapters.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center text-center gap-5 mt-16 md:mt-24">
-                        <div className="grid h-20 w-20 place-items-center rounded-card border border-hairline bg-surface-1">
-                            <Store className="w-9 h-9 text-fg-subtle" strokeWidth={1.25} />
+                    {loading ? (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {[0, 1].map((i) => (
+                                <Card key={i} padding="lg" className="flex flex-col gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <Skeleton className="h-11 w-11 rounded-lg" />
+                                        <Skeleton className="h-5 w-40" />
+                                    </div>
+                                    <Skeleton className="h-6 w-28" />
+                                    <Skeleton className="h-24 w-full" />
+                                </Card>
+                            ))}
                         </div>
-                        <div className="max-w-sm">
-                            <p className="text-h4 font-display text-fg">No published adapters yet</p>
-                            <p className="text-body text-fg-muted mt-1.5">
-                                When an owner publishes a LoRA adapter to the marketplace, it shows up
-                                here for your organization to browse.
-                            </p>
+                    ) : !error && adapters.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center text-center gap-4 pt-16 md:pt-24">
+                            <div className="grid h-12 w-12 place-items-center rounded-pill bg-surface-2 text-fg-muted">
+                                <Store className="h-6 w-6" strokeWidth={1.5} />
+                            </div>
+                            <div className="max-w-sm">
+                                <p className="text-h4 font-semibold text-fg">No published adapters yet</p>
+                                <p className="text-caption text-fg-muted mt-1">
+                                    When an owner publishes a LoRA adapter, it shows up here for your
+                                    organization to browse.
+                                </p>
+                            </div>
                         </div>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {adapters.map((a) => (
-                            <MarketplaceCard key={a.id} adapter={a} />
-                        ))}
-                    </div>
-                )}
+                    ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {adapters.map((a) => (
+                                <MarketplaceCard key={a.id} adapter={a} />
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

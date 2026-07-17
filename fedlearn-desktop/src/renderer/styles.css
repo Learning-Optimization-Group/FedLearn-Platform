@@ -1,12 +1,13 @@
 /* =============================================================================
-   FedLearn Desktop — Instrument Design System & Global Styles
+   FedLearn Desktop — Ledger Design System & Global Styles
    =============================================================================
-   Dark-first instrument UI. Single token source: tokens.css (generated from
-   design/tokens.json). Depth comes from the surface ladder + 1px hairline
-   borders — NO glows, NO blurred orbs, NO violet accent, NO gradients on
-   interactive surfaces. Every color/radius/space/motion value below resolves
-   to a var(--token).
-   Typography: Inter (UI) + JetBrains Mono (logs/IDs/metrics, tnum).
+   Light-first paper UI. Single token source: tokens.css (generated from
+   design/tokens.json): navy structural ink on warm paper surfaces. Depth comes
+   from the surface ladder + 1px hairline borders + the shadow tokens — NO
+   glows, NO gradients, NO decorative ambience. Every color/radius/space/type
+   value below resolves to a var(--token); type sizes come from the --text-*
+   ramp only.
+   Typography: Hanken Grotesk (UI) + JetBrains Mono (logs/IDs/metrics, tnum).
    ============================================================================= */
 
 /* tokens.css MUST load first so :root / .dark custom properties are global. */
@@ -14,76 +15,6 @@
 
 /* Self-hosted fonts (DE-14) — see fonts.css for details. */
 @import './fonts.css';
-
-/* ========== Token aliases ==========
-   The class definitions below were written against an older violet/glass
-   variable vocabulary. Rather than touch every rule, we re-point the old
-   variable names at the Instrument tokens. New code should consume the
-   tokens.css vars directly; these aliases keep existing markup working. */
-
-:root {
-  /* Surfaces — old bespoke dark ramp → Instrument surface ladder */
-  --color-bg-primary: var(--canvas);
-  --color-bg-secondary: var(--surface-1);
-  --color-bg-tertiary: var(--surface-2);
-  --color-bg-elevated: var(--surface-3);
-  --color-bg-hover: var(--surface-3);
-
-  /* "Glass" — no longer glass: flat surface + hairline, no shadow/blur */
-  --glass-bg: var(--surface-1);
-  --glass-border: var(--hairline);
-  --glass-border-hover: var(--line);
-  --glass-shadow: none;
-
-  /* Brand — retire violet (#7c5cfc / #6366f1) → Instrument accent */
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-glow: transparent; /* glow retired */
-  --color-accent-subtle: var(--surface-3);
-
-  /* Semantic */
-  --color-success: var(--success);
-  --color-success-bg: var(--surface-2);
-  --color-warning: var(--warning);
-  --color-warning-bg: var(--surface-2);
-  --color-danger: var(--danger);
-  --color-danger-bg: var(--surface-2);
-  --color-info: var(--accent);
-  --color-info-bg: var(--surface-2);
-
-  /* Text */
-  --color-text-primary: var(--fg);
-  --color-text-secondary: var(--fg-muted);
-  --color-text-muted: var(--fg-subtle);
-  --color-text-inverse: var(--accent-fg);
-
-  /* Borders */
-  --color-border: var(--hairline);
-  --color-border-strong: var(--line);
-
-  /* Typography — sourced from tokens.css (--font-sans / --font-mono already
-     defined there; do not redefine). */
-
-  /* Spacing — old t-shirt scale → Instrument space scale */
-  --space-xs: var(--space-1);
-  --space-sm: var(--space-2);
-  --space-md: var(--space-4);
-  --space-lg: var(--space-6);
-  --space-xl: var(--space-8);
-  --space-2xl: var(--space-12);
-
-  /* Radii — old scale → Instrument radii. Inputs use sm, buttons md, cards/
-     panels/modals card. */
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-card);
-  --radius-xl: var(--radius-card);
-
-  /* Transitions — color/opacity/transform only, Instrument durations + ease */
-  --transition-fast: var(--duration-fast) var(--ease-out);
-  --transition-normal: var(--duration-base) var(--ease-out);
-  --transition-slow: var(--duration-slow) var(--ease-out);
-}
 
 /* ========== Reset & Base ========== */
 
@@ -104,17 +35,32 @@ html {
 body {
   font-family: var(--font-sans);
   font-feature-settings: var(--font-feature-settings);
+  font-size: var(--text-body-size);
   background-color: var(--canvas);
   color: var(--fg);
   line-height: 1.6;
   overflow: hidden;
-  user-select: none;
-  -webkit-user-select: none;
+  /* Text is selectable app-wide (copying errors, model names, URLs must
+     work); only the draggable window chrome opts out below. */
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 #root {
   height: 100vh;
   width: 100vw;
+}
+
+::selection {
+  background-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* Keyboard focus is always visible: one ring vocabulary for every
+   interactive element (buttons, inputs, selects, sliders, links, tabs). */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ========== App Container ========== */
@@ -129,9 +75,6 @@ body {
   overflow: hidden;
 }
 
-/* Decorative animated glow background retired — Instrument has no glows.
-   The .app-container::before orb stack and bgShift keyframes are gone. */
-
 /* ========== Header ========== */
 
 .app-header {
@@ -143,8 +86,10 @@ body {
   border-bottom: 1px solid var(--hairline);
   z-index: 10;
   position: relative;
-  /* macOS traffic lights */
+  /* macOS traffic lights — drag chrome stays non-selectable. */
   -webkit-app-region: drag;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .header-left {
@@ -170,21 +115,22 @@ body {
 }
 
 .logo-icon {
-  font-size: 1.4rem;
+  display: inline-flex;
+  align-items: center;
   color: var(--accent);
-  /* drop-shadow glow retired */
 }
 
 .app-title {
-  font-size: 1.1rem;
+  font-size: var(--text-body-lg-size);
+  line-height: var(--text-body-lg-line);
+  letter-spacing: var(--text-body-lg-tracking);
   font-weight: 600;
-  letter-spacing: -0.02em;
   color: var(--fg);
 }
 
 /* ========== Status Indicator ========== */
-/* Semantics: running→accent, completed→success, error→danger,
-   pending/pulling→warning, idle/stopped→fg-muted. */
+/* Semantics: running→running (navy-bright, "active" not alarm), completed→
+   success, error→danger, pending/pulling→warning, idle/stopped→fg-muted. */
 
 .status-indicator {
   display: flex;
@@ -193,8 +139,9 @@ body {
   padding: var(--space-1) var(--space-4);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-pill);
-  font-size: 0.75rem;
-  font-weight: 500;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   transition: color var(--duration-base) var(--ease-out),
@@ -235,10 +182,10 @@ body {
 
 .status-running {
   background: var(--surface-2);
-  color: var(--accent);
+  color: var(--running);
 }
 .status-running .status-dot {
-  background-color: var(--accent);
+  background-color: var(--running);
 }
 
 .status-completed {
@@ -258,17 +205,16 @@ body {
 }
 
 /* ========== Update Banner ========== */
-/* Semantics: available/checking/downloading→accent (running/in-progress),
-   ready/upToDate→success, error→danger. Flat surface + 1px hairline, no glow,
-   no gradient. State accent shown via the left border + text color only. */
+/* Semantics: available/checking/downloading→accent (in-progress), ready/
+   upToDate→success, error→danger. Flat surface + 1px hairline; state accent
+   shown via the left border + text color only. */
 
 .update-check-row {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  padding: var(--space-2) var(--space-6);
+  padding: var(--space-1) var(--space-6);
   border-bottom: 1px solid var(--hairline);
-  min-height: 36px;
 }
 
 .update-banner {
@@ -279,7 +225,8 @@ body {
   background: var(--surface-2);
   border-bottom: 1px solid var(--hairline);
   border-left: 2px solid var(--accent);
-  font-size: 0.8rem;
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-line);
   color: var(--fg);
   min-height: 44px;
 }
@@ -317,7 +264,7 @@ body {
 
 .update-banner-rate {
   color: var(--fg-muted);
-  font-size: 0.7rem;
+  font-size: var(--text-caption-size);
   font-family: var(--font-mono);
   font-feature-settings: 'tnum' 1;
 }
@@ -349,32 +296,36 @@ body {
 }
 
 /* Compact buttons used inside the update banner / check row. Reuse .btn-* for
-   color semantics; this just trims the padding to banner scale. */
+   color semantics; this just trims the geometry to banner scale. */
 .btn-banner {
   padding: var(--space-1) var(--space-3);
-  font-size: 0.75rem;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
   border-radius: var(--radius-md);
 }
 
 .btn-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
   background: transparent;
-  border: 1px solid var(--hairline);
+  border: none;
   color: var(--fg-muted);
-  padding: var(--space-1) var(--space-3);
-  font-size: 0.75rem;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-caption-size);
   border-radius: var(--radius-md);
   cursor: pointer;
   font-family: var(--font-sans);
   font-weight: 600;
   transition: color var(--duration-base) var(--ease-out),
-    border-color var(--duration-base) var(--ease-out),
     background-color var(--duration-base) var(--ease-out);
 }
 
 .btn-dismiss:hover:not(:disabled) {
   color: var(--fg);
-  background: var(--surface-3);
-  border-color: var(--line);
+  background: var(--surface-2);
 }
 
 .btn-dismiss:disabled {
@@ -392,7 +343,8 @@ body {
   background: var(--surface-2);
   border-bottom: 1px solid var(--hairline);
   color: var(--warning);
-  font-size: 0.8rem;
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-line);
   font-weight: 500;
   z-index: 10;
   position: relative;
@@ -400,7 +352,7 @@ body {
 
 .docker-warning-hint {
   margin-left: auto;
-  font-size: 0.7rem;
+  font-size: var(--text-caption-size);
   color: var(--fg-muted);
 }
 
@@ -416,7 +368,8 @@ body {
 
 .main-grid {
   display: grid;
-  grid-template-columns: 420px 1fr;
+  /* Config column yields below 420px instead of starving the log panel. */
+  grid-template-columns: minmax(320px, 420px) 1fr;
   gap: var(--space-6);
   height: 100%;
 }
@@ -427,14 +380,10 @@ body {
   background: var(--surface-1);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: border-color var(--duration-base) var(--ease-out);
-}
-
-.panel:hover {
-  border-color: var(--line);
 }
 
 .panel-header {
@@ -446,26 +395,29 @@ body {
 }
 
 .panel-title {
-  font-size: 0.875rem;
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--fg);
 }
 
+/* Uppercase micro-label (shared spec with the web SectionLabel). */
 .panel-badge {
-  font-size: 0.65rem;
-  font-weight: 500;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--accent);
-  background: var(--surface-3);
+  color: var(--fg-muted);
+  background: var(--surface-2);
   border: 1px solid var(--hairline);
-  padding: 2px 10px;
+  padding: var(--space-0_5) var(--space-2);
   border-radius: var(--radius-pill);
 }
 
 .log-count {
-  font-size: 0.7rem;
+  font-size: var(--text-caption-size);
   font-weight: 500;
   color: var(--fg-muted);
   font-family: var(--font-mono);
@@ -487,6 +439,12 @@ body {
   gap: var(--space-6);
 }
 
+.detection-label {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  color: var(--fg-muted);
+}
+
 .profile-cards {
   display: flex;
   flex-direction: column;
@@ -499,7 +457,7 @@ body {
   align-items: flex-start;
   gap: var(--space-1);
   padding: var(--space-4);
-  background: var(--surface-2);
+  background: var(--surface-1);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-card);
   cursor: pointer;
@@ -511,7 +469,7 @@ body {
 }
 
 .profile-card:hover:not(:disabled) {
-  background: var(--surface-3);
+  background: var(--surface-2);
   border-color: var(--line);
 }
 
@@ -520,39 +478,38 @@ body {
   cursor: not-allowed;
 }
 
-.profile-card-active {
-  border-color: var(--accent);
-  background: var(--surface-3);
-}
-
+.profile-card-active,
 .profile-card-active:hover:not(:disabled) {
-  background: var(--surface-3);
   border-color: var(--accent);
+  background: var(--surface-2);
 }
 
 .profile-icon {
-  font-size: 1.5rem;
+  display: inline-flex;
+  align-items: center;
   margin-bottom: var(--space-1);
+  color: var(--fg-muted);
 }
 
 .profile-label {
-  font-size: 0.875rem;
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line);
   font-weight: 600;
 }
 
 .profile-desc {
-  font-size: 0.75rem;
+  font-size: var(--text-caption-size);
   color: var(--fg-muted);
   line-height: 1.5;
 }
 
 .profile-docker {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
+  font-size: var(--text-caption-size);
   color: var(--fg-muted);
   background: var(--code-well);
   border: 1px solid var(--hairline);
-  padding: 2px 8px;
+  padding: var(--space-0_5) var(--space-2);
   border-radius: var(--radius-sm);
   margin-top: var(--space-1);
 }
@@ -565,6 +522,13 @@ body {
   gap: var(--space-4);
 }
 
+/* When the input stack sits directly inside a panel (Model Playground), it
+   carries the same inset the Train view gets from .hardware-selector. */
+.panel > .config-inputs,
+.panel > .pg-muted {
+  padding: var(--space-6);
+}
+
 /* ========== Form Elements ========== */
 
 .form-group {
@@ -574,23 +538,23 @@ body {
 }
 
 .form-label {
-  font-size: 0.75rem;
-  font-weight: 500;
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-line);
+  font-weight: var(--text-label-weight);
   color: var(--fg-muted);
-  letter-spacing: 0.02em;
 }
 
 .form-input {
   width: 100%;
-  padding: 10px 14px;
-  background: var(--surface-2);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
   color: var(--fg);
   font-family: var(--font-sans);
-  font-size: 0.875rem;
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line);
   transition: border-color var(--duration-fast) var(--ease-out);
-  outline: none;
 }
 
 .form-input:focus {
@@ -606,25 +570,73 @@ body {
   color: var(--fg-subtle);
 }
 
+/* Label row: label on the left, an inline affordance (refresh button, live
+   slider value) on the right. */
+.form-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* Input + trailing button (e.g. Browse) on one line. */
+.form-input-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.form-input-row .form-input {
+  flex: 1;
+}
+
+/* Help/hint text under a control (associated via aria-describedby). */
+.form-help {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  color: var(--fg-muted);
+}
+
+.form-help-warning {
+  color: var(--warning);
+}
+
+/* Live numeric readout beside a slider label. */
+.form-value {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+  font-size: var(--text-label-size);
+  color: var(--fg-muted);
+}
+
+/* Native range slider, tinted to the ink. */
+.form-range {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
 /* ========== Buttons ========== */
+/* One primary (navy fill) per view. Secondary = surface + hairline border.
+   Ghost = text only. Danger = solid destructive fill (a destructive confirm
+   must never read weaker than Cancel). Flat fills — no glow, no press-scale. */
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  padding: 10px 20px;
+  padding: var(--space-2) var(--space-4);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   font-family: var(--font-sans);
-  font-size: 0.875rem;
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line);
   font-weight: 600;
   cursor: pointer;
   transition: background-color var(--duration-base) var(--ease-out),
     border-color var(--duration-base) var(--ease-out),
     color var(--duration-base) var(--ease-out),
+    filter var(--duration-base) var(--ease-out),
     opacity var(--duration-base) var(--ease-out);
-  outline: none;
 }
 
 .btn:disabled {
@@ -643,6 +655,17 @@ body {
   border-color: var(--accent-hover);
 }
 
+.btn-secondary {
+  background: var(--surface-1);
+  color: var(--fg);
+  border-color: var(--hairline);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
 .btn-danger {
   background: var(--danger);
   color: var(--accent-fg);
@@ -650,21 +673,30 @@ body {
 }
 
 .btn-danger:hover:not(:disabled) {
-  opacity: 0.9;
+  filter: brightness(0.95);
 }
 
 .btn-ghost {
   background: transparent;
   color: var(--fg-muted);
-  border: 1px solid var(--hairline);
-  padding: 8px 16px;
-  font-size: 0.8rem;
 }
 
 .btn-ghost:hover:not(:disabled) {
   color: var(--fg);
-  background: var(--surface-3);
-  border-color: var(--line);
+  background: var(--surface-2);
+}
+
+.btn-sm {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-line);
+}
+
+/* Square icon-only button (e.g. the model-list refresh). */
+.btn-icon-only {
+  padding: var(--space-1);
+  min-width: 28px;
+  min-height: 28px;
 }
 
 .btn-full {
@@ -672,7 +704,8 @@ body {
 }
 
 .btn-icon {
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
 }
 
 .btn-loading {
@@ -689,16 +722,32 @@ body {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  background: var(--surface-2);
+  background: var(--surface-1);
   border: 1px solid var(--danger);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--danger);
-  font-size: 0.8rem;
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-line);
   font-weight: 500;
 }
 
 .error-icon {
   flex-shrink: 0;
+}
+
+/* Success feedback — same shape as .validation-error, keyed to --success. */
+.validation-success {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--success);
+  border-radius: var(--radius-md);
+  color: var(--success);
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-line);
+  font-weight: 500;
 }
 
 /* Plaintext-HTTP transport warning (DE-13) — same shape as .auth-error but
@@ -709,11 +758,12 @@ body {
   gap: var(--space-2);
   margin-top: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  background: var(--surface-2);
+  background: var(--surface-1);
   border: 1px solid var(--warning);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--warning);
-  font-size: 0.8rem;
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-line);
   font-weight: 500;
 }
 
@@ -749,31 +799,49 @@ body {
 }
 
 .log-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
   padding: var(--space-12);
 }
 
+/* Empty state: neutral icon in a muted circle. */
 .log-empty-icon {
-  font-size: 2.5rem;
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--fg-muted);
   margin-bottom: var(--space-4);
-  opacity: 0.4;
+}
+
+.log-empty-title {
+  font-size: var(--text-h4-size);
+  line-height: var(--text-h4-line);
+  letter-spacing: var(--text-h4-tracking);
+  font-weight: var(--text-h4-weight);
+  color: var(--fg);
+  margin-bottom: var(--space-1);
 }
 
 .log-empty-text {
   color: var(--fg-subtle);
-  font-size: 0.85rem;
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line);
   max-width: 280px;
   margin: 0 auto;
-  line-height: 1.6;
 }
 
 .log-content {
   font-family: var(--font-mono);
   font-feature-settings: 'tnum' 1;
-  font-size: 0.75rem;
+  font-size: var(--text-caption-size);
   line-height: 1.7;
-  color: var(--fg-muted);
+  color: var(--code-fg);
   white-space: pre-wrap;
   word-break: break-all;
   margin: 0;
@@ -822,17 +890,9 @@ body {
   background: var(--surface-1);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
   z-index: 1;
-}
-
-/* Decorative glows behind the modal retired — Instrument has no glows.
-   .auth-glow / .auth-glow-1 / .auth-glow-2 are kept as no-op (hidden) so any
-   stray markup does not paint a blurred orb. */
-.auth-glow,
-.auth-glow-1,
-.auth-glow-2 {
-  display: none;
 }
 
 .auth-content {
@@ -846,23 +906,23 @@ body {
 }
 
 .auth-logo-icon {
-  font-size: 2.5rem;
   color: var(--accent);
-  /* drop-shadow glow retired */
   display: block;
   margin-bottom: var(--space-4);
 }
 
 .auth-title {
-  font-size: 1.75rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-size: var(--text-h3-size);
+  line-height: var(--text-h3-line);
+  letter-spacing: var(--text-h3-tracking);
+  font-weight: var(--text-h3-weight);
   margin-bottom: var(--space-1);
   color: var(--fg);
 }
 
 .auth-subtitle {
-  font-size: 0.85rem;
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line);
   color: var(--fg-muted);
   font-weight: 400;
 }
@@ -876,9 +936,85 @@ body {
 .auth-footer-text {
   text-align: center;
   margin-top: var(--space-6);
-  font-size: 0.7rem;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
   color: var(--fg-subtle);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--text-caption-tracking);
+}
+
+/* ========== Modal (Settings) ========== */
+/* Shared dialog shape: scrim overlay, surface card, [Cancel] [Primary]
+   right-aligned natural-width footer, one close affordance (the X). */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--scrim);
+  z-index: 100;
+}
+
+.modal-panel {
+  width: 480px;
+  max-width: calc(100vw - var(--space-8));
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-overlay);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.modal-title {
+  font-size: var(--text-h4-size);
+  line-height: var(--text-h4-line);
+  letter-spacing: var(--text-h4-tracking);
+  font-weight: var(--text-h4-weight);
+  color: var(--fg);
+}
+
+.modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  padding: var(--space-1);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: color var(--duration-base) var(--ease-out),
+    background-color var(--duration-base) var(--ease-out);
+}
+
+.modal-close:hover {
+  color: var(--fg);
+  background: var(--surface-2);
+}
+
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
 }
 
 /* ========== Loading Screen ========== */
@@ -917,7 +1053,8 @@ body {
 
 .loading-text {
   color: var(--fg-subtle);
-  font-size: 0.85rem;
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line);
 }
 
 /* ========== Footer ========== */
@@ -934,14 +1071,15 @@ body {
 }
 
 .footer-text {
-  font-size: 0.7rem;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
   color: var(--fg-subtle);
 }
 
 .footer-version {
   font-family: var(--font-mono);
   font-feature-settings: 'tnum' 1;
-  font-size: 0.65rem;
+  font-size: var(--text-caption-size);
   color: var(--fg-subtle);
 }
 
@@ -958,13 +1096,14 @@ body {
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   background: var(--surface-2);
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--fg-muted);
   font-family: var(--font-sans);
-  font-size: 0.75rem;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
   cursor: pointer;
   transition: border-color var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out);
@@ -977,7 +1116,8 @@ body {
 }
 
 .server-toggle-icon {
-  font-size: 0.65rem;
+  display: inline-flex;
+  align-items: center;
   color: var(--fg-subtle);
   flex-shrink: 0;
 }
@@ -991,7 +1131,7 @@ body {
 .server-toggle-url {
   font-family: var(--font-mono);
   font-feature-settings: 'tnum' 1;
-  font-size: 0.7rem;
+  font-size: var(--text-caption-size);
   color: var(--fg-subtle);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1013,28 +1153,12 @@ body {
   flex: 1;
 }
 
-.btn-sm {
-  padding: 8px 14px;
-  font-size: 0.8rem;
-}
-
-.btn-secondary {
-  background: var(--surface-2);
-  color: var(--fg-muted);
-  border: 1px solid var(--hairline);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--surface-3);
-  color: var(--fg);
-  border-color: var(--line);
-}
-
 .server-hint {
-  font-size: 0.65rem;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
   color: var(--fg-subtle);
   margin-top: var(--space-1);
-  padding-left: 2px;
+  padding-left: var(--space-0_5);
 }
 
 @keyframes slideDown {
@@ -1051,153 +1175,112 @@ body {
   }
 }
 
-/* =============================================================================
-   Ember accents — warm glow on the void. Layered after the base rules so these
-   win. Re-introduces a tasteful ember CTA glow + ambient warmth + display face.
-   ============================================================================= */
-
-::selection {
-  background-color: color-mix(in oklab, var(--accent) 32%, transparent);
-  color: var(--fg);
-}
-
-.app-title,
-.auth-title {
-  font-family: var(--font-display);
-  /* Bricolage Grotesque variable axes — refined title weight, not the heavy default. */
-  font-variation-settings: 'opsz' 36, 'wght' 600;
-}
-
-/* Subtle ember ambience rising behind the app + auth */
-.app-container::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(72% 42% at 50% -12%, color-mix(in oklab, var(--accent) 7%, transparent), transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.auth-overlay {
-  background:
-    radial-gradient(58% 48% at 50% 32%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 70%),
-    var(--canvas);
-}
-
-.auth-modal {
-  box-shadow: 0 30px 90px -24px rgba(0, 0, 0, 0.92);
-}
-.auth-modal::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--accent) 35%, transparent), transparent);
-}
-
-/* The ember CTA — the flat ember accent (same tone as "Learn") + sheen + glow */
-.btn-primary {
-  background: var(--accent);
-  border-color: transparent;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 8px 24px -10px color-mix(in oklab, var(--accent) 55%, transparent);
-}
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent);
-  filter: brightness(1.07);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 12px 32px -10px color-mix(in oklab, var(--accent) 75%, transparent);
-}
-
-/* Ember focus ring on inputs */
-.form-input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 20%, transparent);
-}
-
-/* Selected hardware profile picks up the ember */
-.profile-card-active,
-.profile-card-active:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--accent) 10%, var(--surface-2));
-  border-color: color-mix(in oklab, var(--accent) 42%, var(--hairline));
-}
-
-/* Live status dot glows */
-.status-running .status-dot {
-  box-shadow: 0 0 8px color-mix(in oklab, var(--accent) 60%, transparent);
-}
-
-.log-panel::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklab, var(--accent) 40%, var(--line));
-}
-
 /* ===================== View tabs (Train / Use a model) ===================== */
+
 .view-tabs {
   display: inline-flex;
-  gap: 4px;
-  margin-left: 16px;
-  padding: 3px;
+  gap: var(--space-1);
+  margin-left: var(--space-4);
+  padding: var(--space-0_5);
   background: var(--surface-2);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-pill);
 }
+
 .view-tab {
   appearance: none;
   border: none;
   background: transparent;
   color: var(--fg-muted);
   font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 500;
-  padding: 5px 14px;
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-line);
+  font-weight: 600;
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+  transition: background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
-.view-tab:hover { color: var(--fg); }
+
+.view-tab:hover {
+  color: var(--fg);
+}
+
 .view-tab-active {
   background: var(--accent);
   color: var(--accent-fg);
 }
 
+.view-tab-active:hover {
+  color: var(--accent-fg);
+}
+
 /* ===================== Model Playground ===================== */
-.pg-muted { color: var(--fg-muted); font-size: 13px; }
-.pg-hint { color: var(--fg-subtle); font-size: 12px; }
+
+.pg-muted {
+  color: var(--fg-muted);
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-line);
+}
+
+.pg-hint {
+  color: var(--fg-subtle);
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+}
+
 .pg-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: var(--space-3);
   text-align: center;
-  color: var(--fg-subtle);
-  padding: 40px 16px;
+  color: var(--fg-muted);
+  padding: var(--space-12) var(--space-4);
   flex: 1;
 }
-.pg-empty p { color: var(--fg-muted); font-size: 14px; max-width: 280px; }
+
+/* Empty state: neutral icon in a muted circle. */
+.pg-empty > svg {
+  box-sizing: content-box;
+  padding: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--fg-muted);
+}
+
+.pg-empty p {
+  color: var(--fg-muted);
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line);
+  max-width: 280px;
+}
 
 .pg-dropzone {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-2);
   text-align: center;
   min-height: 160px;
-  padding: 20px;
+  padding: var(--space-6);
   color: var(--fg-muted);
   background: var(--surface-2);
-  border: 1px dashed var(--hairline);
+  border: 1px dashed var(--line);
   border-radius: var(--radius-card);
   cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
 }
+
 .pg-dropzone:hover {
-  border-color: color-mix(in oklab, var(--accent) 40%, var(--hairline));
+  border-color: var(--accent);
   background: var(--surface-3);
 }
+
 .pg-preview {
   max-height: 120px;
   border-radius: var(--radius-sm);
@@ -1205,58 +1288,143 @@ body {
   object-fit: contain;
 }
 
-.pg-result { display: flex; flex-direction: column; gap: 16px; padding: 4px; }
+.pg-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  overflow-y: auto;
+  min-height: 0;
+}
+
 .pg-top {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 16px;
-  background: color-mix(in oklab, var(--accent) 10%, var(--surface-2));
-  border: 1px solid color-mix(in oklab, var(--accent) 25%, var(--hairline));
+  gap: var(--space-0_5);
+  padding: var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
   border-radius: var(--radius-card);
 }
+
+/* Uppercase micro-label (shared spec with the web SectionLabel). */
 .pg-top-label {
-  font-size: 11px;
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 600;
   color: var(--fg-muted);
 }
-.pg-top-value {
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 600;
-  color: var(--fg);
-  text-transform: capitalize;
-}
-.pg-top-conf { font-family: var(--font-mono); font-size: 13px; color: var(--fg-muted); }
 
-.pg-bars { display: flex; flex-direction: column; gap: 8px; }
-.pg-bar-row { display: flex; flex-direction: column; gap: 4px; }
-.pg-bar-head { display: flex; justify-content: space-between; font-size: 13px; }
-.pg-bar-label { color: var(--fg-muted); text-transform: capitalize; }
-.pg-bar-label-top { color: var(--fg); font-weight: 500; text-transform: capitalize; }
-.pg-bar-pct { font-family: var(--font-mono); color: var(--fg-muted); }
+.pg-top-value {
+  font-family: var(--font-sans);
+  font-size: var(--text-h3-size);
+  line-height: var(--text-h3-line);
+  letter-spacing: var(--text-h3-tracking);
+  font-weight: var(--text-h3-weight);
+  color: var(--fg);
+}
+
+.pg-top-conf {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+  font-size: var(--text-label-size);
+  color: var(--fg-muted);
+}
+
+.pg-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pg-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.pg-bar-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-line);
+}
+
+.pg-bar-label {
+  color: var(--fg-muted);
+}
+
+.pg-bar-label-top {
+  color: var(--fg);
+  font-weight: 500;
+}
+
+.pg-bar-pct {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+  color: var(--fg-muted);
+}
+
 .pg-bar-track {
   height: 8px;
   border-radius: var(--radius-pill);
   background: var(--surface-3);
   overflow: hidden;
 }
-.pg-bar-fill { height: 100%; border-radius: var(--radius-pill); background: color-mix(in oklab, var(--fg-subtle) 50%, transparent); }
-.pg-bar-fill-top { height: 100%; border-radius: var(--radius-pill); background: var(--accent); }
 
-/* Chat thread (generation inputKind) */
-.pg-chat { display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; padding: 4px; }
+.pg-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--line);
+}
+
+.pg-bar-fill-top {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+/* Chat thread (generation inputKind) — fills the panel instead of capping at
+   a fixed height. */
+.pg-chat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-6);
+}
+
 .pg-bubble-user,
 .pg-bubble-assistant {
-  padding: 10px 12px;
-  border-radius: var(--radius-card);
-  font-family: var(--font-mono);
-  font-size: 13px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-sans);
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line);
   white-space: pre-wrap;
   max-width: 85%;
 }
-.pg-bubble-user { align-self: flex-end; background: color-mix(in oklab, var(--accent) 14%, var(--surface-2)); color: var(--fg); }
-.pg-bubble-assistant { align-self: flex-start; background: var(--surface-2); color: var(--fg); }
-.pg-chat-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+.pg-bubble-user {
+  align-self: flex-end;
+  background: var(--surface-3);
+  border: 1px solid var(--hairline);
+  color: var(--fg);
+}
+
+.pg-bubble-assistant {
+  align-self: flex-start;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  color: var(--fg);
+}
+
+.pg-chat-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}

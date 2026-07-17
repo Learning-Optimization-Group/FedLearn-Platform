@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Activity, Boxes, FlaskConical, FolderOpen, Settings, Wand2 } from 'lucide-react-native';
+import { Activity, Boxes, CirclePlay, FlaskConical, FolderOpen, Settings } from 'lucide-react-native';
 
 import { ProjectPickerScreen } from '../screens/ProjectPickerScreen';
 import { TrainingScreen } from '../screens/TrainingScreen';
@@ -12,20 +12,26 @@ import { useThemeTokens } from '../theme/useThemeTokens';
 
 const Tab = createBottomTabNavigator();
 
-// 4-tab bottom bar with lucide icons (NO emoji tab icons — C5 §9).
-// Tint colors are raw values (not classNames), so they come from the active palette: active tab =
-// `accent`, inactive = `fg-muted`. status table: running→accent, idle→fg-muted.
-// Projects is first so it's the default landing tab after login.
+// Six-tab bottom bar with lucide icons (NO emoji tab icons — C5 §9).
+// Tab-bar styles are raw values (not classNames), so they come from the active palette via
+// useThemeTokens: active tab = `accent`, inactive = `fg-muted`, bar = `surface-1` over a hairline
+// top border. Projects is first so it's the default landing tab after login.
 export function AppNavigator() {
-  const { colors } = useThemeTokens();
+  const { colors, text, font } = useThemeTokens();
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors['fg-muted'],
-        // Six tabs — keep labels compact so they don't truncate on narrow devices.
-        tabBarLabelStyle: { fontSize: 10 },
+        tabBarStyle: {
+          backgroundColor: colors['surface-1'],
+          borderTopWidth: 1,
+          borderTopColor: colors.hairline,
+        },
+        // Smallest on-scale type size (caption). Never below 11 — the old hand-typed 10 was
+        // off-scale.
+        tabBarLabelStyle: { fontSize: text.caption.size, fontFamily: font.sans },
       }}>
       <Tab.Screen
         name="Projects"
@@ -40,7 +46,7 @@ export function AppNavigator() {
       <Tab.Screen
         name="Playground"
         component={PlaygroundScreen}
-        options={{ tabBarIcon: ({ color, size }) => <Wand2 color={color} size={size} /> }}
+        options={{ tabBarIcon: ({ color, size }) => <CirclePlay color={color} size={size} /> }}
       />
       <Tab.Screen
         name="Library"

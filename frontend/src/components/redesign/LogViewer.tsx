@@ -5,15 +5,16 @@
 // closing & reopening the modal preserves prior session output.
 
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Filter, TerminalSquare, Trash2, Activity } from 'lucide-react';
+import { Pause, Filter, TerminalSquare, Trash2, X } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line } from 'recharts';
 import { cn } from '../../lib/utils';
 import * as api from '../../services/apiServices';
 import { logStore, StoredLogEntry } from '../../services/logStore';
-import { Button, LogConsole, StatusPill } from '../ui';
+import { Button, LogConsole, MetricTile, SectionLabel, StatusPill } from '../ui';
 import { WS_BROKER_URL } from '../../lib/serverConfig';
 import { useStompClient, type StompSubscriptionSpec } from '../../hooks/useStompClient';
 import { describeStompConnection, type StompConnectionSnapshot } from '../../lib/connectionStatus';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface TelemetryEntry {
   timestamp: string;
@@ -36,6 +37,16 @@ function normalizeLevel(level?: string): 'INFO' | 'ERROR' | 'WARN' | 'DEBUG' {
   if (upper === 'ERROR' || upper === 'WARN' || upper === 'DEBUG') return upper;
   return 'INFO';
 }
+
+// Line ink on the light code-well: INFO carries the plain ink, DEBUG recedes,
+// WARN/ERROR use the semantic text tones. Applied to both the level tag and
+// the message so a line reads as one unit.
+const LEVEL_INK: Record<ReturnType<typeof normalizeLevel>, string> = {
+  INFO: 'text-fg',
+  DEBUG: 'text-fg-muted',
+  WARN: 'text-warning',
+  ERROR: 'text-danger',
+};
 
 // Map the connection state to the one status-semantics scale: paused wins
 // (explicit user action), then the honest STOMP phase — streaming -> running
@@ -65,6 +76,19 @@ export function LogViewerV2({ projectId, onClose }: LogViewerProps) {
   // No pausedRef anymore — we always append to the store regardless of
   // pause state. "Pause" only affects auto-scroll (see effect below) so
   // the user can read history without losing in-flight messages.
+
+  // Dialog contract: this overlay is mounted only while open, so the trap is
+  // always active. Focus moves in on open and returns to the trigger on close.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, panelRef);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   // Hydrate + subscribe to the shared log cache.
   useEffect(() => {
@@ -159,20 +183,41 @@ export function LogViewerV2({ projectId, onClose }: LogViewerProps) {
   const latest = telemetry.length > 0 ? telemetry[telemetry.length - 1] : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md font-sans">
-      <div className="bg-surface-1 border border-line w-full max-w-7xl h-[85vh] rounded-card flex flex-col overflow-hidden text-fg shadow-[0_30px_90px_-24px_rgba(0,0,0,0.95)]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim font-sans"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Training activity"
+        tabIndex={-1}
+        className="bg-surface-1 border border-hairline w-full max-w-7xl h-[85vh] rounded-card flex flex-col overflow-hidden text-fg shadow-overlay"
+      >
 
         {/* Header */}
-        <div className="h-[60px] border-b border-hairline flex items-center justify-between px-6 bg-surface-1">
+        <div className="h-14 shrink-0 border-b border-hairline flex items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <TerminalSquare strokeWidth={1.5} className="w-[18px] h-[18px] text-accent" />
-            <h2 className="text-h4 font-display text-fg">Training activity</h2>
-            <div className="w-px h-[18px] bg-hairline mx-2" />
+            <TerminalSquare strokeWidth={1.5} className="w-4 h-4 text-accent" />
+            <h2 className="text-h4 text-fg">Training activity</h2>
+            <div className="w-px h-4 bg-hairline mx-2" />
             <StatusPill status={status.kind}>{status.label}</StatusPill>
           </div>
-          <Button variant="secondary" size="sm" onClick={onClose}>
-            Done
-          </Button>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className={cn(
+              'flex h-8 w-8 items-center justify-center rounded-md -mr-2',
+              'text-fg-muted hover:text-fg hover:bg-surface-2 transition-colors duration-[120ms]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+            )}
+          >
+            <X strokeWidth={1.5} className="h-5 w-5" />
+          </button>
         </div>
 
         {/* Content */}
@@ -180,21 +225,26 @@ export function LogViewerV2({ projectId, onClose }: LogViewerProps) {
 
           {/* Logs Pane */}
           <div className="flex-1 flex flex-col border-r border-hairline bg-canvas">
-            {/* Toolbar */}
-            <div className="h-[52px] border-b border-hairline flex items-center justify-between px-6">
+            {/* Toolbar — Pause and Errors Only are pressed-state toggles, not
+                semantic (primary/danger) buttons: active = surface-2 + line. */}
+            <div className="h-12 shrink-0 border-b border-hairline flex items-center justify-between px-6">
               <div className="flex items-center gap-3">
                 <Button
-                  variant={isPaused ? 'primary' : 'secondary'}
+                  variant="secondary"
                   size="sm"
+                  aria-pressed={isPaused}
                   onClick={() => setIsPaused(!isPaused)}
+                  className={cn(isPaused && 'bg-surface-2 border-line')}
                 >
-                  {isPaused ? <Play strokeWidth={1.5} className="w-3.5 h-3.5 fill-current" /> : <Pause strokeWidth={1.5} className="w-3.5 h-3.5 fill-current" />}
-                  {isPaused ? 'Resume' : 'Pause'}
+                  <Pause strokeWidth={1.5} className="w-3.5 h-3.5" />
+                  Pause
                 </Button>
                 <Button
-                  variant={filterError ? 'danger' : 'secondary'}
+                  variant="secondary"
                   size="sm"
+                  aria-pressed={filterError}
                   onClick={() => setFilterError(!filterError)}
+                  className={cn(filterError && 'bg-surface-2 border-line')}
                 >
                   <Filter strokeWidth={1.5} className="w-3.5 h-3.5" />
                   Errors Only
@@ -224,22 +274,12 @@ export function LogViewerV2({ projectId, onClose }: LogViewerProps) {
                 return (
                   // Keying by store-assigned id so prepended historical
                   // entries don't shift array indexes and confuse React.
-                  <div key={log.id} className="flex hover:bg-surface-1 py-[2px] px-2 -mx-2 rounded-sm transition-colors font-mono">
-                    <span className="text-fg-subtle w-[90px] shrink-0 select-none tabular-nums">{log.timestamp}</span>
-                    <span className={cn(
-                      "w-[60px] shrink-0 font-medium select-none",
-                      level === 'INFO' && "text-accent",
-                      level === 'ERROR' && "text-danger",
-                      level === 'WARN' && "text-warning",
-                      level === 'DEBUG' && "text-fg-muted"
-                    )}>
+                  <div key={log.id} className="flex hover:bg-surface-2 py-0.5 px-2 -mx-2 rounded-sm transition-colors font-mono">
+                    <span className="text-fg-subtle w-20 shrink-0 select-none tabular-nums">{log.timestamp}</span>
+                    <span className={cn('w-16 shrink-0 font-medium select-none', LEVEL_INK[level])}>
                       {level}
                     </span>
-                    <span className={cn(
-                      "flex-1 break-words",
-                      level === 'ERROR' ? "text-danger" : "text-fg",
-                      level === 'WARN' && "text-warning"
-                    )}>
+                    <span className={cn('flex-1 break-words', LEVEL_INK[level])}>
                       {log.message}
                     </span>
                   </div>
@@ -250,48 +290,40 @@ export function LogViewerV2({ projectId, onClose }: LogViewerProps) {
           </div>
 
           {/* Telemetry Pane */}
-          <div className="w-[360px] flex flex-col shrink-0 bg-surface-1 border-l border-hairline">
-            <div className="p-6 flex flex-col gap-6 h-full overflow-y-auto">
-              <div>
-                <h3 className="text-caption font-semibold uppercase tracking-widest text-fg-muted mb-1">Live numbers</h3>
+          <div className="w-80 flex flex-col shrink-0 bg-surface-1 border-l border-hairline">
+            <div className="p-6 flex flex-col gap-4 h-full overflow-y-auto">
+              <SectionLabel>Live numbers</SectionLabel>
+
+              <div className="bg-surface-2 border border-hairline rounded-card p-4">
+                <MetricTile
+                  label="Loss"
+                  value={latest ? latest.loss.toFixed(4) : '—'}
+                  sparkline={
+                    <div className="h-24 w-full">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                        <LineChart data={telemetry}>
+                          <Line type="stepAfter" dataKey="loss" stroke="var(--color-series-1)" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  }
+                />
               </div>
 
-              <div className="bg-surface-2 rounded-card p-5 flex flex-col gap-4 border border-hairline">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2 text-fg-muted">
-                    <Activity strokeWidth={1.5} className="w-4 h-4" />
-                    <span className="text-label font-medium">Loss</span>
-                  </div>
-                  <span className="font-mono text-h4 tabular-nums text-fg">
-                    {latest ? latest.loss.toFixed(4) : '---'}
-                  </span>
-                </div>
-                <div className="h-[100px] w-full">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                    <LineChart data={telemetry}>
-                      <Line type="stepAfter" dataKey="loss" stroke="var(--color-danger)" strokeWidth={2.5} dot={false} isAnimationActive={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              <div className="bg-surface-2 rounded-card p-5 flex flex-col gap-4 border border-hairline">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2 text-fg-muted">
-                    <Activity strokeWidth={1.5} className="w-4 h-4" />
-                    <span className="text-label font-medium">Accuracy</span>
-                  </div>
-                  <span className="font-mono text-h4 tabular-nums text-fg">
-                    {latest ? (latest.accuracy * 100).toFixed(2) + '%' : '---'}
-                  </span>
-                </div>
-                <div className="h-[100px] w-full">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                    <LineChart data={telemetry}>
-                      <Line type="monotone" dataKey="accuracy" stroke="var(--color-series-1)" strokeWidth={2.5} dot={false} isAnimationActive={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+              <div className="bg-surface-2 border border-hairline rounded-card p-4">
+                <MetricTile
+                  label="Accuracy"
+                  value={latest ? `${(latest.accuracy * 100).toFixed(2)}%` : '—'}
+                  sparkline={
+                    <div className="h-24 w-full">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                        <LineChart data={telemetry}>
+                          <Line type="monotone" dataKey="accuracy" stroke="var(--color-series-1)" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  }
+                />
               </div>
             </div>
           </div>
