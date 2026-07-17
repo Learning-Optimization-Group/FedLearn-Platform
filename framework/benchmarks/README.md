@@ -155,15 +155,20 @@ PYTHONPATH=src python benchmarks/robust_breakdown_point.py           # default: 
 ```
 Artifacts: `benchmarks/results/robust_breakdown_point.{json,md}` (~33s CPU).
 
-**The result (honest, incl. the gap):** FedAvg collapses at the first non-zero fraction (f=0.1, one
-strong Byzantine client) — its accuracy breakdown IS 0⁺, matching theory exactly. median and
-trimmed-mean(β=0.2) both hold **100% through f=0.3**, degrade at f=0.4 (81%/73%), and collapse only at
-the **majority threshold f=0.5** — median's ~0.5 matches its 0.5 bound. The honesty-critical finding:
-trimmed-mean(β=0.2)'s *accuracy* breakdown (~0.5) is FAR above its β=0.2 worst-case *estimate* bound —
-because once f>β a Byzantine value does survive the trim, but that residual corruption is diluted by
-the averaged middle and doesn't move the decision boundary until the attacker share nears a majority.
-The classical β bounds ESTIMATE corruption; accuracy is a more forgiving downstream signal. Reported as
-a gap, not a contradiction — see the generated `results/robust_breakdown_point.md`.
+Reports TWO metrics per f: **accuracy retention** (practical) and **estimator deviation**
+`‖agg(all) − agg(honest-only)‖ / ‖agg(honest-only) − global‖` (the quantity the classical breakdown is
+*defined on*).
+
+**The result (honest, incl. the gap):** FedAvg collapses at the first non-zero fraction (f=0.1) — both
+metrics agree, breakdown 0⁺ (deviation jumps 0→1.6 and stays ~1.4). median and trimmed-mean(β=0.2) both
+hold **100% accuracy through f=0.3**, degrade at f=0.4 (81%/73%), collapse at the **majority threshold
+0.5**. The honesty-critical finding is where the two metrics DISAGREE for trimmed-mean: accuracy holds
+past β (→ would read breakdown ~0.5), but the **estimator deviation stays small for f≤β (0.33 at f=0.2)
+and roughly doubles just past β (0.74 at f=0.3)** — the β onset the theory predicts IS visible in the
+estimator and is exactly what the forgiving accuracy metric hides. Below-breakdown corruption is bounded
+(as theory guarantees) and too small to move the decision boundary until the attacker share nears a
+majority. The deviations are a gradual curve, not a razor-sharp step (ipm strength varies with f) —
+reproduced ordering FedAvg(0⁺) < trimmed-mean(β) < median(0.5). See `results/robust_breakdown_point.md`.
 
 ## TE-15 — fair algorithm comparison (`algo_comparison.py`)
 
