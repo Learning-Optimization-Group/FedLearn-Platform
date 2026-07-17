@@ -20,6 +20,8 @@ const helpClass = 'text-caption text-fg-subtle';
 const STRATEGIES: { value: string; label: string }[] = [
   { value: 'FedAvg', label: 'Standard — averages everyone\'s learning (recommended)' },
   { value: 'DeComFL', label: 'Low-bandwidth — sends tiny updates' },
+  { value: 'FedOpt', label: 'Adaptive — faster convergence on varied data' },
+  { value: 'Robust', label: 'Robust — resists a few bad or noisy clients' },
   { value: 'FoT', label: 'For text models' },
 ];
 

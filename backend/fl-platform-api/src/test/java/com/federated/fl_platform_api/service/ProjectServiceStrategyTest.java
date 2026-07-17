@@ -20,4 +20,12 @@ class ProjectServiceStrategyTest {
         assertEquals("FedAvg", ProjectService.resolveStrategy("CNN", null));
         assertEquals("FedAvg", ProjectService.resolveStrategy("MLP", ""));
     }
+
+    @Test
+    void newlyExposedStrategiesPassThrough() {
+        // FedOpt (server-side adaptive) and Robust (Byzantine-robust median) now run end-to-end and
+        // are user-selectable; resolveStrategy forwards them unchanged for a non-LLM_LORA model.
+        assertEquals("FedOpt", ProjectService.resolveStrategy("CNN", "FedOpt"));
+        assertEquals("Robust", ProjectService.resolveStrategy("MLP", "Robust"));
+    }
 }

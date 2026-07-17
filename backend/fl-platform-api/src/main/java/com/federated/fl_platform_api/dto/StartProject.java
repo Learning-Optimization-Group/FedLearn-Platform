@@ -15,17 +15,22 @@ import jakarta.validation.constraints.Pattern;
 public class StartProject {
 
     /**
-     * Gradient strategies (FedAvg, DeComFL) mirror those registered in
+     * Gradient strategies mirror those registered in
      * {@code framework/src/fedlearn/server/strategy.py} + {@code decomfl_strategy.py} and spawn
-     * the gradient FL server. {@code FoT} (Federation over Text) is a SEPARATE, additive
-     * text-federation mode that spawns the standalone {@code fl_fot_server.py} instead. Keep this
-     * regex in sync when a strategy/mode is added on the Python side.
+     * the gradient FL server: {@code FedAvg}, {@code DeComFL}, {@code FedOpt} (server-side adaptive,
+     * FedAdam by default) and {@code Robust} (Byzantine-robust coordinate-wise median). {@code FoT}
+     * (Federation over Text) is a SEPARATE, additive text-federation mode that spawns the standalone
+     * {@code fl_fot_server.py} instead. Keep this regex in sync when a strategy/mode is added on the
+     * Python side.
      * <p>
-     * NOTE: FedLoRA is NOT listed here — it is derived server-side for LLM_LORA runs (see ProjectService.resolveStrategy), never user-submitted.
+     * NOTE: FedLoRA is NOT listed here — it is derived server-side for LLM_LORA runs (see
+     * ProjectService.resolveStrategy), never user-submitted. {@code FedProx} is deliberately NOT
+     * listed: the production client cannot honor its proximal term yet (FR-20 makes it refuse a
+     * proximal_mu), so selecting it would fail the run — re-add once FR-32 lands the client support.
      */
     @Pattern(
-            regexp = "FedAvg|DeComFL|FoT",
-            message = "strategy must be one of: FedAvg, DeComFL, FoT"
+            regexp = "FedAvg|DeComFL|FedOpt|Robust|FoT",
+            message = "strategy must be one of: FedAvg, DeComFL, FedOpt, Robust, FoT"
     )
     private String strategy;
 
