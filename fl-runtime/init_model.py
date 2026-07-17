@@ -6,7 +6,6 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Subset
 from torchvision.datasets import CIFAR10
 import torchvision.transforms as transforms
-from transformers import AutoModelForSequenceClassification
 import os
 from collections import OrderedDict
 
@@ -71,13 +70,13 @@ def get_model(model_type: str, model_name: str, device: str, aggregation: str = 
         return recipes.get_recipe('BLOOD_CNN').build_model(device)
 
     elif model_type == 'TRANSFORMER':
-        if model_name == 'opt-125m':
-            print("Loading pre-trained 'facebook/opt-125m' for sequence classification.")
-            return AutoModelForSequenceClassification.from_pretrained(
-                "facebook/opt-125m", num_labels=3, use_safetensors=True
-            ).to(device)
-        else:
+        # DA-14 Phase 1 / FR-29: delegate to the recipe registry (single num_labels authority —
+        # len(classes)=3). Byte-identical to the former inline num_labels=3 build.
+        if model_name != 'opt-125m':
             raise ValueError(f"Unsupported Transformer model: {model_name}")
+        import recipes
+        print("Loading pre-trained 'facebook/opt-125m' for sequence classification via registry.")
+        return recipes.get_recipe('TRANSFORMER').build_model(device)
 
     elif model_type == 'MLP':
         # DA-14 Phase 1: delegate to the recipe registry (ECG MLP, byte-identical keys).

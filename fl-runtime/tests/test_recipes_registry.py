@@ -95,3 +95,42 @@ def test_init_model_delegates_cnn_and_mlp_to_the_registry():
     for mtype, name, golden in (("CNN", "net", CNN_GOLDEN_KEYS), ("MLP", "ecg_mlp", MLP_GOLDEN_KEYS)):
         legacy = init_model.get_model(mtype, name, "cpu")
         assert list(legacy.state_dict().keys()) == golden
+
+
+# --- DA-14 Phase 1: collapse the TRANSFORMER model construction onto the registry (FR-29) -------
+# The TRANSFORMER recipe is the opt-125m sequence-classification model. Its head width is the single
+# num_labels authority: len(classes)=3 (CB). The legacy sites disagreed — init_model.py hardcoded
+# num_labels=3, but client.py built num_labels=config["num_classes"] (cb->3 loads the 3-class wire;
+# sst2->2 can NEVER strict-load the 3-class global model init_model produces — a latent crash).
+# Collapsing every site onto build_model('TRANSFORMER') unifies on 3: byte-identical on the cb path,
+# corrective on the already-broken sst2 path.
+def test_transformer_recipe_classes_is_the_num_labels_authority():
+    """The recipe's class list is the single source for the opt-125m SEQ_CLS head width (FR-29)."""
+    r = recipes.get_recipe("TRANSFORMER")
+    assert r.classes == ["entailment", "contradiction", "neutral"]
+    assert len(r.classes) == 3
+
+
+@pytest.mark.slow  # loads facebook/opt-125m from the HF cache (~250MB); deselected in CI (-m "not slow")
+def test_registry_builds_transformer_with_num_labels_from_classes():
+    """build_model('TRANSFORMER') constructs opt-125m with head width == len(classes) (=3), and is
+    byte-identical (same state-dict keys, same head shape) to a legacy from_pretrained(num_labels=3)."""
+    from transformers import AutoModelForSequenceClassification
+    r = recipes.get_recipe("TRANSFORMER")
+    model = r.build_model(device="cpu")
+    assert model.score.weight.shape[0] == len(r.classes) == 3
+    legacy = AutoModelForSequenceClassification.from_pretrained(
+        "facebook/opt-125m", num_labels=3, use_safetensors=True)
+    assert list(model.state_dict().keys()) == list(legacy.state_dict().keys())
+    assert model.score.weight.shape == legacy.score.weight.shape
+
+
+@pytest.mark.slow  # loads facebook/opt-125m from the HF cache; deselected in CI
+def test_init_model_delegates_transformer_to_the_registry():
+    """The server-init collapse is behavior-preserving: init_model.get_model('TRANSFORMER', ...) and
+    the registry build the same architecture (byte-identical state-dict keys, same head shape)."""
+    import init_model
+    legacy = init_model.get_model("TRANSFORMER", "opt-125m", "cpu")
+    viareg = recipes.get_recipe("TRANSFORMER").build_model(device="cpu")
+    assert list(legacy.state_dict().keys()) == list(viareg.state_dict().keys())
+    assert legacy.score.weight.shape == viareg.score.weight.shape

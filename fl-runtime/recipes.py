@@ -722,6 +722,18 @@ class Recipe:
             # phase moves them into the derivation record.
             from models.ecg_mlp import ECGModel
             return ECGModel(input_dim=140, hidden_dim=64, num_classes=len(self.classes)).to(device)
+        if self.key == "TRANSFORMER":
+            # DA-14 Phase 1 / FR-29: opt-125m sequence-classification model. num_labels is sourced
+            # from the recipe's class list (=3, CB) — the single authority that ends the three-way
+            # split (init_model.py hardcoded 3; client.py used the dataset's num_classes, so an sst2
+            # 2-class head could never strict-load the 3-class global model init_model produces).
+            # Byte-identical to the legacy from_pretrained(num_labels=3) build; the score head is
+            # randomly initialised (no seed) in every legacy path, so only key order + head shape are
+            # load-bearing on the wire.
+            from transformers import AutoModelForSequenceClassification
+            return AutoModelForSequenceClassification.from_pretrained(
+                "facebook/opt-125m", num_labels=len(self.classes), use_safetensors=True
+            ).to(device)
         if self.key == "TINYNET_GOLDEN":
             return build_tinynet_golden().to(device)
         if self.key == "PNEUMONIA_CNN":

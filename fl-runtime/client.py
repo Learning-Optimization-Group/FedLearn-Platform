@@ -22,7 +22,7 @@ from fedlearn.client import DeComFLClient  # Import DeComFL client from framewor
 from flwr_datasets import FederatedDataset
 import torchvision.transforms as transforms
 from datasets import load_dataset
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
+from transformers import AutoTokenizer, get_linear_schedule_with_warmup
 from models import CnnNet
 from device import resolve_device
 
@@ -587,14 +587,12 @@ class ZOSLClient(fl.Client):
             ).to(DEVICE)
             print(f"Loaded ECG MLP model ({config.num_classes} classes)")
         elif USE_LLM:
-            config = DATASET_CONFIGS[dataset_name]
-            self.net = AutoModelForSequenceClassification.from_pretrained(
-                MODEL_NAME,
-                num_labels=config["num_classes"],
-                use_safetensors=True
-            )
-            self.net.to(DEVICE)
-            print(f"Loaded {MODEL_NAME} for {dataset_name} ({config['num_classes']} classes)")
+            # DA-14 Phase 1 / FR-29: build via the recipe registry so the client head width matches
+            # the wire (len(classes)=3). The old dataset-derived num_labels built a 2-class head for
+            # sst2 that could never strict-load the 3-class global model the server initialises.
+            import recipes
+            self.net = recipes.get_recipe("TRANSFORMER").build_model(DEVICE)
+            print(f"Loaded {MODEL_NAME} for {dataset_name} (3 classes) via registry")
         elif USE_PNEUMONIA:
             import recipes
             self.net = recipes.get_recipe("PNEUMONIA_CNN").build_model(DEVICE)
@@ -1074,15 +1072,12 @@ def main():
             )
 
         elif USE_LLM:
-            # LLM with DeComFL
-            config = DATASET_CONFIGS[args.dataset]
+            # LLM with DeComFL — DA-14 Phase 1 / FR-29: build via the registry (head width =
+            # len(classes)=3), matching the wire the server initialises for every TRANSFORMER run.
             decomfl_config = get_decomfl_config("default")
 
-            net = AutoModelForSequenceClassification.from_pretrained(
-                MODEL_NAME,
-                num_labels=config["num_classes"],
-                use_safetensors=True
-            ).to(DEVICE)
+            import recipes
+            net = recipes.get_recipe("TRANSFORMER").build_model(DEVICE)
 
             # Load LLM data (reuse existing load_data function)
             trainloader_original, _ = load_data(
