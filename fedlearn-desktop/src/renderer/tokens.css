@@ -52,6 +52,38 @@
   --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --text-caption-size: 12px;
+  --text-caption-line: 16px;
+  --text-caption-tracking: 0.1px;
+  --text-caption-weight: 500;
+  --text-label-size: 13px;
+  --text-label-line: 18px;
+  --text-label-tracking: 0px;
+  --text-label-weight: 500;
+  --text-body-size: 14px;
+  --text-body-line: 20px;
+  --text-body-tracking: 0px;
+  --text-body-weight: 400;
+  --text-body-lg-size: 16px;
+  --text-body-lg-line: 24px;
+  --text-body-lg-tracking: -0.05px;
+  --text-body-lg-weight: 400;
+  --text-h4-size: 18px;
+  --text-h4-line: 24px;
+  --text-h4-tracking: -0.2px;
+  --text-h4-weight: 600;
+  --text-h3-size: 22px;
+  --text-h3-line: 28px;
+  --text-h3-tracking: -0.4px;
+  --text-h3-weight: 600;
+  --text-h2-size: 30px;
+  --text-h2-line: 36px;
+  --text-h2-tracking: -0.6px;
+  --text-h2-weight: 600;
+  --text-h1-size: 40px;
+  --text-h1-line: 44px;
+  --text-h1-tracking: -1px;
+  --text-h1-weight: 700;
   --font-feature-settings: 'calt' 1, 'tnum' 1;
 }
 .dark, :root.dark {

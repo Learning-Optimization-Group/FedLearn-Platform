@@ -72,6 +72,12 @@ function desktopCss() {
     `  --font-display: ${T.font.display};`,
     `  --font-mono: ${T.font.mono};`,
   );
+  for (const [k, s] of Object.entries(T.text)) {
+    L.push(`  --text-${k}-size: ${s.size};`);
+    L.push(`  --text-${k}-line: ${s.line};`);
+    L.push(`  --text-${k}-tracking: ${s.tracking};`);
+    L.push(`  --text-${k}-weight: ${s.weight};`);
+  }
   L.push(`  --font-feature-settings: ${T.font['feature-settings']};`, '}');
   L.push('.dark, :root.dark {', ...colorVars('dark'), '}');
   return L.join('\n') + '\n';

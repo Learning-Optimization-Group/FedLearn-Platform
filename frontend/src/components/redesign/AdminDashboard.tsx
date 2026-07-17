@@ -7,7 +7,7 @@
 // admin) and is rendered inline rather than logging out.
 
 import { useState, useEffect, useCallback } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import * as api from '../../services/apiServices';
 import {
     errorMessage,
@@ -18,7 +18,7 @@ import {
     type DeletionRequest,
     type Role,
 } from '../../services/apiServices';
-import { Card, Button, StatusPill, StatGroup, Select, ConfirmDialog, type StatusKind } from '../ui';
+import { Card, Button, StatusPill, StatGroup, Select, ConfirmDialog, SectionLabel, type StatusKind } from '../ui';
 import { PageHeader } from './PageHeader';
 import { createLogger } from '../../lib/logger';
 
@@ -138,92 +138,90 @@ export function AdminDashboard() {
                         </div>
                     )}
 
-                    {/* Overview stats — platform totals + pending activity */}
-                    <section className="flex flex-col gap-4">
+                    {/* 1 · Needs attention — the queues an admin must act on.
+                        Rendered per-queue only when non-empty; a single quiet
+                        line when there is nothing to review. */}
+                    <section className="flex flex-col gap-3">
+                        <h2 className={sectionTitle}>Needs attention</h2>
+                        {ownerRequests.length === 0 && deletionRequests.length === 0 ? (
+                            <p className="flex items-center gap-2 text-body text-fg-muted">
+                                <CheckCircle2 className="w-4 h-4 text-success" strokeWidth={1.5} />
+                                Nothing waiting for review.
+                            </p>
+                        ) : (
+                            <div className="flex flex-col gap-5">
+                                {ownerRequests.length > 0 && (
+                                    <div className="flex flex-col gap-2">
+                                        <SectionLabel>Owner requests · {ownerRequests.length}</SectionLabel>
+                                        {ownerRequests.map((r) => (
+                                            <Card key={r.id} padding="md" className="flex items-center justify-between gap-4">
+                                                <div className="min-w-0">
+                                                    <p className="text-body font-medium text-fg truncate">
+                                                        {r.username} <span className="text-fg-muted">· {r.email}</span>
+                                                    </p>
+                                                    {r.message && <p className="text-caption text-fg-muted truncate">{r.message}</p>}
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <Button size="sm" variant="secondary" onClick={() => handleOwnerDecision(r.id, 'APPROVED')}>
+                                                        Approve
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="text-danger hover:text-danger"
+                                                        onClick={() => handleOwnerDecision(r.id, 'DENIED')}
+                                                    >
+                                                        Deny
+                                                    </Button>
+                                                </div>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                )}
+                                {deletionRequests.length > 0 && (
+                                    <div className="flex flex-col gap-2">
+                                        <SectionLabel>Deletion requests · {deletionRequests.length}</SectionLabel>
+                                        {deletionRequests.map((r) => (
+                                            <Card key={r.id} padding="md" className="flex items-center justify-between gap-4">
+                                                <div className="min-w-0">
+                                                    <p className="text-body font-medium text-fg truncate">
+                                                        {r.projectName} <span className="text-fg-muted">· by {r.requestedByUsername}</span>
+                                                    </p>
+                                                    {r.reason && <p className="text-caption text-fg-muted truncate">{r.reason}</p>}
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <Button size="sm" variant="secondary" onClick={() => setConfirmDeletion(r)}>
+                                                        Approve deletion
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="text-danger hover:text-danger"
+                                                        onClick={() => handleDeletionDecision(r.id, 'DENIED')}
+                                                    >
+                                                        Deny
+                                                    </Button>
+                                                </div>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </section>
+
+                    {/* 2 · Platform health — durable totals only. Pending counts
+                        live in the queues above, not duplicated here. */}
+                    <section className="flex flex-col gap-3">
+                        <h2 className={sectionTitle}>Platform</h2>
                         <StatGroup
                             stats={[
                                 { label: 'Users', value: overview?.totalUsers ?? '—' },
                                 { label: 'Owners', value: overview?.owners ?? '—' },
-                                { label: 'Admins', value: overview?.admins ?? '—' },
                                 { label: 'Projects', value: overview?.totalProjects ?? '—' },
+                                { label: 'Running now', value: overview?.runningProjects ?? '—' },
                             ]}
                         />
-                        <StatGroup
-                            stats={[
-                                { label: 'Running', value: overview?.runningProjects ?? '—' },
-                                { label: 'Owner requests', value: overview?.pendingOwnerRequests ?? '—' },
-                                { label: 'Deletion requests', value: overview?.pendingDeletionRequests ?? '—' },
-                                { label: 'Access requests', value: overview?.pendingAccessRequests ?? '—' },
-                            ]}
-                        />
-                    </section>
-
-                    {/* Owner-promotion queue */}
-                    <section className="flex flex-col gap-3">
-                        <h2 className={sectionTitle}>Owner requests ({ownerRequests.length})</h2>
-                        {ownerRequests.length === 0 ? (
-                            <Card padding="lg" className="text-body text-fg-muted">No pending owner requests.</Card>
-                        ) : (
-                            <div className="flex flex-col gap-2">
-                                {ownerRequests.map((r) => (
-                                    <Card key={r.id} padding="md" className="flex items-center justify-between gap-4">
-                                        <div className="min-w-0">
-                                            <p className="text-body font-medium text-fg truncate">
-                                                {r.username} <span className="text-fg-muted">· {r.email}</span>
-                                            </p>
-                                            {r.message && <p className="text-caption text-fg-muted truncate">{r.message}</p>}
-                                        </div>
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                            <Button size="sm" variant="secondary" onClick={() => handleOwnerDecision(r.id, 'APPROVED')}>
-                                                Approve
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                className="text-danger hover:text-danger"
-                                                onClick={() => handleOwnerDecision(r.id, 'DENIED')}
-                                            >
-                                                Deny
-                                            </Button>
-                                        </div>
-                                    </Card>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-
-                    {/* Deletion queue */}
-                    <section className="flex flex-col gap-3">
-                        <h2 className={sectionTitle}>Deletion requests ({deletionRequests.length})</h2>
-                        {deletionRequests.length === 0 ? (
-                            <Card padding="lg" className="text-body text-fg-muted">No pending deletion requests.</Card>
-                        ) : (
-                            <div className="flex flex-col gap-2">
-                                {deletionRequests.map((r) => (
-                                    <Card key={r.id} padding="md" className="flex items-center justify-between gap-4">
-                                        <div className="min-w-0">
-                                            <p className="text-body font-medium text-fg truncate">
-                                                {r.projectName} <span className="text-fg-muted">· by {r.requestedByUsername}</span>
-                                            </p>
-                                            {r.reason && <p className="text-caption text-fg-muted truncate">{r.reason}</p>}
-                                        </div>
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                            <Button size="sm" variant="secondary" onClick={() => setConfirmDeletion(r)}>
-                                                Approve deletion
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                className="text-danger hover:text-danger"
-                                                onClick={() => handleDeletionDecision(r.id, 'DENIED')}
-                                            >
-                                                Deny
-                                            </Button>
-                                        </div>
-                                    </Card>
-                                ))}
-                            </div>
-                        )}
                     </section>
 
                     {/* Users table */}
