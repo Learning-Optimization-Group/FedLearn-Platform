@@ -30,16 +30,16 @@ def test_generate_text_completion_only(tmp_path):
 
 
 def test_build_model_generation_kind(monkeypatch):
-    # LLM_LORA + CAUSAL_LM yields input_kind 'generation'; default stays 'text'. (No network: stub the recipe.)
-    import infer, recipes
+    # LLM_LORA + CAUSAL_LM yields input_kind 'generation'; default stays 'text'. The kind logic
+    # now lives in Recipe.build_for_inference (DA-14 Ph3.1); stub build_model/input_transform so
+    # there is no network (infer.build_model is a thin delegate to this — covered separately).
+    import recipes
 
-    class _Stub:
-        classes = ["x"]
-        def build_model(self, device, model_name=None, aggregation="FFA_LORA", task_type="SEQ_CLASSIFICATION"):
-            return object()
-        def input_transform(self, model_name=None):
-            return object()
-    monkeypatch.setattr(recipes, "get_recipe", lambda k: _Stub())
-    _, _, kind_gen, _ = infer.build_model("LLM_LORA", "qwen2.5-0.5b", "CAUSAL_LM")
-    _, _, kind_cls, _ = infer.build_model("LLM_LORA", "qwen2.5-0.5b", "SEQ_CLASSIFICATION")
-    assert kind_gen == "generation" and kind_cls == "text"
+    def _kind_for(task):
+        r = recipes.get_recipe("LLM_LORA")
+        monkeypatch.setattr(r, "build_model", lambda *a, **k: object())
+        monkeypatch.setattr(r, "input_transform", lambda *a, **k: object())
+        return r.build_for_inference("qwen2.5-0.5b", task)[2]
+
+    assert _kind_for("CAUSAL_LM") == "generation"
+    assert _kind_for("SEQ_CLASSIFICATION") == "text"

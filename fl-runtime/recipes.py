@@ -913,6 +913,25 @@ class Recipe:
     def adapter_keys(self, model, aggregation):
         return llm_lora_adapter_keys(model, aggregation)
 
+    def build_for_inference(self, model_name=None, task_type="SEQ_CLASSIFICATION"):
+        """(net, classes, input_kind, transform) for the inference server (infer.py), so infer
+        stays a one-line registry delegate (DA-14 Ph3.1). Data-driven default: build_model +
+        (input_transform or None) + input_kind. Two per-recipe tweaks live here, not in infer:
+        TRANSFORMER wires the model to its tokenizer's pad id; LLM_LORA reports 'generation' kind
+        for the causal task. A recipe with no input_transform (CNN/MLP) yields transform=None and,
+        because input_transform raises before importing anything, never drags transformers in."""
+        net = self.build_model("cpu", model_name=model_name, task_type=task_type)
+        try:
+            transform = self.input_transform(model_name)
+        except NotImplementedError:
+            transform = None
+        kind = self.input_kind
+        if self.key == "TRANSFORMER" and transform is not None:
+            net.config.pad_token_id = transform.pad_token_id
+        if self.key == "LLM_LORA" and str(task_type).upper() == "CAUSAL_LM":
+            kind = "generation"
+        return net, self.classes, kind, transform
+
 
 def get_recipe(key):
     """Return the Recipe for `key` (case-insensitive). Raises on unknown key."""

@@ -64,6 +64,28 @@ def test_infer_model_strict_loads_weights_saved_from_the_registry_build(tmp_path
     assert list(state.keys()) == golden
 
 
+def test_infer_build_model_is_registry_driven(monkeypatch):
+    """DA-14 Ph3.1: infer.build_model routes ANY recipe key through recipe.build_for_inference()
+    with no dedicated if/elif branch — a new recipe needs no infer edit. Before the collapse an
+    unbranched key hit the terminal 'Unsupported model type' raise."""
+    import torch.nn as nn
+    real_get_recipe = recipes.get_recipe
+
+    class _FakeRecipe:
+        key = "FAKE_IMG"
+        classes = ["a", "b"]
+        input_kind = "image"
+
+        def build_for_inference(self, model_name=None, task_type="SEQ_CLASSIFICATION"):
+            return nn.Linear(2, 2), self.classes, self.input_kind, None
+
+    monkeypatch.setattr(recipes, "get_recipe",
+                        lambda k: _FakeRecipe() if str(k).upper() == "FAKE_IMG" else real_get_recipe(k))
+    net, classes, kind, transform = infer.build_model("FAKE_IMG", "x")
+    assert isinstance(net, nn.Linear)
+    assert classes == ["a", "b"] and kind == "image" and transform is None
+
+
 @pytest.mark.slow  # loads facebook/opt-125m from the HF cache (~250MB); deselected in CI
 def test_infer_transformer_delegates_model_and_tokenizer_to_the_registry():
     net, classes, kind, tok = infer.build_model("TRANSFORMER", "opt-125m")

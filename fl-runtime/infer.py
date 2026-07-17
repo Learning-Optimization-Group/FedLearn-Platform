@@ -66,41 +66,12 @@ def build_model(model_type: str, model_name: str, task_type: str = "SEQ_CLASSIFI
     Imports the architecture modules directly (not models.py/init_model.py) so we
     don't drag in the heavy `transformers` import for CNN/MLP inference.
     """
-    mt = model_type.upper()
-    # DA-14 Phase 1: every arch comes from the recipe registry (single build authority). CNN/MLP
-    # source their labels + input kind from the recipe and carry no transform; recipes.py imports
-    # torch/transformers lazily inside build_model, so CNN/MLP inference still never pulls in
-    # transformers (the reason build_model dispatch, not init_model.get_model, is used here).
-    if mt == "CNN":
-        import recipes
-        recipe = recipes.get_recipe("CNN")  # 3x32x32 -> 10
-        return recipe.build_model("cpu"), recipe.classes, recipe.input_kind, None
-    if mt == "PNEUMONIA_CNN":
-        import recipes
-        recipe = recipes.get_recipe("PNEUMONIA_CNN")  # 1x224x224 grayscale -> [NORMAL, PNEUMONIA]
-        return recipe.build_model("cpu"), recipe.classes, recipe.input_kind, recipe.input_transform()
-    if mt == "BLOOD_CNN":
-        import recipes
-        recipe = recipes.get_recipe("BLOOD_CNN")  # 3x28x28 RGB -> 8 blood cell types
-        return recipe.build_model("cpu"), recipe.classes, recipe.input_kind, recipe.input_transform()
-    if mt == "MLP":
-        import recipes
-        recipe = recipes.get_recipe("MLP")  # 140-float ECG vector -> [Normal, Abnormal]
-        return recipe.build_model("cpu"), recipe.classes, recipe.input_kind, None
-    if mt == "TRANSFORMER":
-        import recipes
-        recipe = recipes.get_recipe("TRANSFORMER")  # opt-125m SEQ_CLS -> 3 classes
-        net = recipe.build_model("cpu")
-        tok = recipe.input_transform()
-        net.config.pad_token_id = tok.pad_token_id  # wire the model to the (padded) tokenizer
-        return net, recipe.classes, recipe.input_kind, tok
-    if mt == "LLM_LORA":
-        import recipes
-        recipe = recipes.get_recipe("LLM_LORA")
-        net = recipe.build_model("cpu", model_name=model_name, aggregation="FFA_LORA", task_type=task_type)
-        kind = "generation" if task_type.upper() == "CAUSAL_LM" else "text"
-        return net, recipe.classes, kind, recipe.input_transform(model_name)
-    raise ValueError(f"Unsupported model type: {model_type}")
+    # DA-14 Ph3.1: data-driven dispatch — every arch's inference spec is owned by its recipe
+    # (build_for_inference), so infer needs no per-type branch. get_recipe raises on an unknown key.
+    # recipes.py imports torch/transformers lazily, so CNN/MLP inference still never pulls in
+    # transformers (their input_transform raises NotImplementedError before importing anything).
+    import recipes
+    return recipes.get_recipe(model_type).build_for_inference(model_name=model_name, task_type=task_type)
 
 
 def decode_npz(model_path: str) -> dict:
