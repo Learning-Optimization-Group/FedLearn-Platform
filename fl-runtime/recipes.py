@@ -541,6 +541,55 @@ def load_blood_server_test_data(batch_size=128):
 
 
 # ---------------------------------------------------------------------------
+# MLP — ECG heartbeat classification (140-float vector -> Normal/Abnormal).
+# Thin wrappers over data_loaders.ecg_loader; every hyperparameter comes from
+# config.get_dataset_config("ecg") (NOT recipe-style defaults) so the Dirichlet partition and
+# train/test split are byte-identical to the legacy client.py / fl_server.py call sites.
+# num_clients is caller-supplied (each site passes its own value; do not hardcode it).
+# ---------------------------------------------------------------------------
+def _ecg_default_csv_path():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "ecg_data", "ecg.csv")
+
+
+def _read_ecg_csv(dataset_path):
+    import numpy as np
+    import pandas as pd
+    df = pd.read_csv(dataset_path or _ecg_default_csv_path(), header=None)
+    X = df.iloc[:, :-1].values.astype(np.float32)
+    y = df.iloc[:, -1].values.astype(np.int64)
+    return X, y
+
+
+def load_ecg_client_data(partition_id, num_clients, dataset_path=None, **kw):
+    """(train_loader, val_loader) for one ECG client shard — byte-identical to the legacy
+    client.py DeComFL/MLP block. Hyperparameters sourced from the ecg dataset config."""
+    from config import get_dataset_config
+    from data_loaders.ecg_loader import get_ecg_loaders
+    c = get_dataset_config("ecg")
+    X, y = _read_ecg_csv(dataset_path)
+    train_loader, val_loader, _info = get_ecg_loaders(
+        X=X, y=y, client_id=partition_id, num_clients=num_clients,
+        batch_size_train=c.batch_size_train, batch_size_test=c.batch_size_test,
+        data_fraction=c.data_fraction, alpha=c.alpha, test_size=c.test_size,
+        num_workers=0, seed=c.seed)
+    return train_loader, val_loader
+
+
+def load_ecg_server_test_data(num_clients, dataset_path=None, **kw):
+    """Server-side ECG test DataLoader — byte-identical to the legacy fl_server.py block.
+    num_clients is required for split-cache consistency (the caller passes config.num_clients)."""
+    from config import get_dataset_config
+    from data_loaders.ecg_loader import get_test_loader
+    c = get_dataset_config("ecg")
+    X, y = _read_ecg_csv(dataset_path)
+    test_loader, _info = get_test_loader(
+        X=X, y=y, num_clients=num_clients, batch_size=c.batch_size_test,
+        alpha=c.alpha, data_fraction=c.data_fraction, test_size=c.test_size,
+        num_workers=0, seed=c.seed)
+    return test_loader
+
+
+# ---------------------------------------------------------------------------
 # LLM_LORA — federated LoRA sequence classification (Qwen2.5-0.5B / TinyLlama).
 # ---------------------------------------------------------------------------
 LLM_LORA_BASE_MODELS = {
@@ -777,6 +826,8 @@ class Recipe:
             return load_pneumonia_client_data(partition_id, num_clients, **kw)
         if self.key == "BLOOD_CNN":
             return load_blood_client_data(partition_id, num_clients, **kw)
+        if self.key == "MLP":
+            return load_ecg_client_data(partition_id, num_clients, **kw)
         if self.key == "LLM_LORA":
             if task_type == "CAUSAL_LM":
                 return load_dolly_client_data(partition_id, num_clients, **kw)
@@ -788,6 +839,8 @@ class Recipe:
             return load_pneumonia_server_test_data(**kw)
         if self.key == "BLOOD_CNN":
             return load_blood_server_test_data(**kw)
+        if self.key == "MLP":
+            return load_ecg_server_test_data(**kw)
         if self.key == "LLM_LORA":
             if task_type == "CAUSAL_LM":
                 return load_dolly_server_test_data(**kw)

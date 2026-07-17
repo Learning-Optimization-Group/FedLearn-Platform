@@ -131,31 +131,9 @@ def log_processing_usage(step_tag=""):
           f"GPU util {entry['gpu_util_percent']}")
 
 
-# ==============================================================================
-# --- ECG Data Loading ---
-# ==============================================================================
-def load_ecg_data_from_csv(dataset_path: str) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Load ECG data from CSV file.
-
-    Args:
-        dataset_path: Path to ECG CSV file
-
-    Returns:
-        X: Feature array (n_samples, n_features)
-        y: Label array (n_samples,)
-    """
-    print(f"Loading ECG data from {dataset_path}")
-
-    # Load CSV
-    df = pd.read_csv(dataset_path, header=None)
-
-    # Last column is label, rest are features
-    X = df.iloc[:, :-1].values.astype(np.float32)
-    y = df.iloc[:, -1].values.astype(np.int64)
-
-    print(f"Loaded ECG data: X shape={X.shape}, y shape={y.shape}")
-    return X, y
+# ECG CSV loading + partitioning now lives in the recipe registry
+# (recipes._read_ecg_csv / load_ecg_client_data); the client delegates via
+# recipes.get_recipe("MLP").load_client_data() in the DeComFL/MLP path below.
 
 
 # ==============================================================================
@@ -1040,36 +1018,15 @@ def main():
         from config import get_decomfl_config
 
         if USE_MLP:
-            # MLP/ECG with DeComFL
-            from models.ecg_mlp import ECGModel
-            from config import get_dataset_config
-
-            ecg_config = get_dataset_config("ecg")
+            # MLP/ECG with DeComFL — DA-14 Phase 1: model + client shard both via the recipe
+            # registry (single authority). Byte-identical to the former inline ECGModel build +
+            # get_ecg_loaders call (the recipe sources every ECG hyperparameter from the same config).
+            import recipes
             decomfl_config = get_decomfl_config("ecg")
 
-            net = ECGModel(
-                input_dim=ecg_config.input_dim,
-                hidden_dim=ecg_config.hidden_dim,
-                num_classes=ecg_config.num_classes
-            ).to(DEVICE)
-
-            # Load data
-            X, y = load_ecg_data_from_csv(dataset_path)
-            from data_loaders.ecg_loader import get_ecg_loaders
-
-            trainloader, _, _ = get_ecg_loaders(
-                X=X,
-                y=y,
-                client_id=args.partition_id,
-                num_clients=num_clients,
-                batch_size_train=ecg_config.batch_size_train,
-                batch_size_test=ecg_config.batch_size_test,
-                data_fraction=ecg_config.data_fraction,
-                alpha=ecg_config.alpha,
-                test_size=ecg_config.test_size,
-                num_workers=0,
-                seed=ecg_config.seed
-            )
+            net = recipes.get_recipe("MLP").build_model(DEVICE)
+            trainloader, _ = recipes.get_recipe("MLP").load_client_data(
+                partition_id=args.partition_id, num_clients=num_clients, dataset_path=dataset_path)
 
         elif USE_LLM:
             # LLM with DeComFL — DA-14 Phase 1 / FR-29: build via the registry (head width =

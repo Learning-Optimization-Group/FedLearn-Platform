@@ -199,33 +199,9 @@ logging.info(f"[NETWORK] Backend callbacks will target: {BACKEND_URL}")
 # ==============================================================================
 # Helper Functions
 # ==============================================================================
-def load_ecg_data(dataset_path: str) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Load ECG data from CSV file.
-
-    Args:
-        dataset_path: Path to ECG CSV file
-
-    Returns:
-        X: Feature array (n_samples, n_features)
-        y: Label array (n_samples,)
-    """
-    logging.info(f"Loading ECG data from {dataset_path}")
-
-    if not os.path.exists(dataset_path):
-        raise FileNotFoundError(f"ECG dataset not found at: {dataset_path}")
-
-    # Load CSV
-    df = pd.read_csv(dataset_path, header=None)
-
-    # Last column is label, rest are features
-    X = df.iloc[:, :-1].values.astype(np.float32)
-    y = df.iloc[:, -1].values.astype(np.int64)
-
-    logging.info(f"Loaded ECG data: X shape={X.shape}, y shape={y.shape}")
-    logging.info(f"Label distribution: Normal={np.sum(y==0)}, Abnormal={np.sum(y==1)}")
-
-    return X, y
+# ECG CSV loading + test-split now live in the recipe registry
+# (recipes._read_ecg_csv / load_ecg_server_test_data); the server delegates via
+# recipes.get_recipe("MLP").load_server_test_data() in the test-data block below.
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -639,27 +615,13 @@ def main():
         test_loader = recipes.get_recipe('PNEUMONIA_CNN').load_server_test_data(batch_size=32)
         logging.info("Loaded chest X-ray test data via recipes.PNEUMONIA_CNN (NORMAL/PNEUMONIA)")
     elif is_mlp and args.dataset == "ecg":
-        # Load ECG test data
-        from data_loaders.ecg_loader import get_test_loader
-
-        X, y = load_ecg_data(dataset_path)
-
-        # Get number of clients from args or config
-        num_clients =  config.num_clients
-
-        test_loader, test_info = get_test_loader(
-            X=X,
-            y=y,
-            num_clients=num_clients,
-            batch_size=config.batch_size_test,
-            alpha=config.alpha,
-            data_fraction=config.data_fraction,
-            test_size=config.test_size,
-            num_workers=0,  # Set to 0 for server
-            seed=config.seed
-        )
-
-        logging.info(f"Loaded ECG test data: {test_info['test_samples']} samples")
+        # DA-14 Phase 1: server ECG test set via the recipe registry (byte-identical). The recipe
+        # sources batch/alpha/frac/test_size/seed from the ecg config; num_clients is passed through
+        # (config.num_clients) so the split-cache key matches the legacy call site exactly.
+        import recipes
+        test_loader = recipes.get_recipe("MLP").load_server_test_data(
+            num_clients=config.num_clients, dataset_path=dataset_path)
+        logging.info("Loaded ECG server test data via recipes.MLP")
     else:
         # Load CIFAR-10 or LLM test data
         test_loader = load_server_test_data(is_llm, args.dataset if is_llm else None)
