@@ -91,8 +91,9 @@ from torch.utils.data import DataLoader, TensorDataset
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_HERE, "..", "src"))
-sys.path.insert(0, os.path.join(_HERE, "..", "..", "backend", "fl-platform-api",
-                                "src", "main", "resources", "scripts"))
+# recipes.py (the shared _dirichlet_indices non-IID split helper) lives in fl-runtime/, the executable
+# FL layer — NOT backend resources/scripts (which does not exist; that stale path broke this import).
+sys.path.insert(0, os.path.join(_HERE, "..", "..", "fl-runtime"))
 
 from fedlearn.server.strategy import FedAvg  # noqa: E402
 from fedlearn.server.robust_aggregation import RobustAggregator  # noqa: E402
