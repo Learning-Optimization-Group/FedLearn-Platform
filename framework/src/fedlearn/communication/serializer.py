@@ -101,6 +101,20 @@ def state_dict_to_safetensors(params: OrderedDict[str, torch.Tensor], num_exampl
                 f"Tensor '{name}' has dtype {tensor.dtype}; only float32 is supported "
                 "on the safetensors wire format. Cast to float32 before training."
             )
+        # Fail-loud on two edges the wire mishandled silently (adversarial-audit fixes): a 0-dim
+        # scalar round-trips with the wrong shape (the wire carries rank>=1 model params), and a
+        # parameter literally named '__metadata__' collides with the safetensors metadata block and
+        # is dropped. Neither occurs for a real state_dict; reject rather than corrupt.
+        if tensor.dim() == 0:
+            raise ValueError(
+                f"Tensor '{name}' is 0-dim (scalar); the safetensors wire carries rank>=1 model "
+                "parameters — reshape or exclude a scalar rather than send it."
+            )
+        if name == "__metadata__":
+            raise ValueError(
+                "Parameter name '__metadata__' is reserved (it names the safetensors metadata "
+                "block); rename the parameter."
+            )
     named_arrays = [(name, tensor.detach().cpu().numpy()) for name, tensor in params.items()]
     return save_safetensors(named_arrays, metadata={"num_examples": str(num_examples)})
 
