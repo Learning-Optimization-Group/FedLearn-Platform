@@ -6,7 +6,7 @@
 // management, and "request deletion" (admin approves the actual delete).
 
 import { useState, useEffect, useCallback } from 'react';
-import { Settings2, Check, X, UserPlus, Trash2, AlertCircle } from 'lucide-react';
+import { Check, X, UserPlus, Trash2, AlertCircle } from 'lucide-react';
 import * as api from '../../services/apiServices';
 import {
     errorMessage,
@@ -18,13 +18,12 @@ import {
     type Membership,
     type DeletionRequest,
 } from '../../services/apiServices';
-import { Modal, Button, Input, Select, StatusPill } from '../ui';
+import { Modal, Button, Input, Select, StatusPill, FormField, SectionLabel, ConfirmDialog } from '../ui';
 import { createLogger } from '../../lib/logger';
 
 const log = createLogger('ProjectOwnerPanel');
 
 const VISIBILITY_ORDER: Visibility[] = ['PUBLIC', 'RESTRICTED', 'PRIVATE'];
-const sectionLabel = 'text-caption font-semibold uppercase tracking-wider text-fg-muted';
 
 interface ProjectOwnerPanelProps {
     open: boolean;
@@ -49,6 +48,7 @@ export function ProjectOwnerPanel({ open, project, onClose, onChanged }: Project
     // Request-deletion form
     const [deleteReason, setDeleteReason] = useState('');
     const [requestingDelete, setRequestingDelete] = useState(false);
+    const [confirmRequestDelete, setConfirmRequestDelete] = useState(false);
 
     const projectId = project?.id ?? '';
 
@@ -147,12 +147,7 @@ export function ProjectOwnerPanel({ open, project, onClose, onChanged }: Project
             open={open}
             onClose={onClose}
             size="lg"
-            title={
-                <span className="flex items-center gap-2">
-                    <Settings2 strokeWidth={1.5} className="h-5 w-5 text-accent" />
-                    Manage “{project.name}”
-                </span>
-            }
+            title={`Manage “${project.name}”`}
         >
             <div className="flex flex-col gap-6">
                 {error && (
@@ -164,24 +159,24 @@ export function ProjectOwnerPanel({ open, project, onClose, onChanged }: Project
 
                 {/* Visibility */}
                 <section className="flex flex-col gap-2">
-                    <span className={sectionLabel}>Visibility</span>
-                    <Select
-                        value={visibility}
-                        disabled={savingVisibility}
-                        onChange={(e) => handleSaveVisibility(e.target.value as Visibility)}
-                    >
-                        {VISIBILITY_ORDER.map((v) => (
-                            <option key={v} value={v}>
-                                {v.charAt(0) + v.slice(1).toLowerCase()}
-                            </option>
-                        ))}
-                    </Select>
-                    <span className="text-caption text-fg-subtle">{VISIBILITY_HELP[visibility]}</span>
+                    <FormField label="Visibility" help={VISIBILITY_HELP[visibility]}>
+                        <Select
+                            value={visibility}
+                            disabled={savingVisibility}
+                            onChange={(e) => handleSaveVisibility(e.target.value as Visibility)}
+                        >
+                            {VISIBILITY_ORDER.map((v) => (
+                                <option key={v} value={v}>
+                                    {v.charAt(0) + v.slice(1).toLowerCase()}
+                                </option>
+                            ))}
+                        </Select>
+                    </FormField>
                 </section>
 
                 {/* Access requests */}
                 <section className="flex flex-col gap-2">
-                    <span className={sectionLabel}>Join requests ({requests.length})</span>
+                    <SectionLabel>Join requests ({requests.length})</SectionLabel>
                     {requests.length === 0 ? (
                         <p className="text-body text-fg-muted">No pending requests.</p>
                     ) : (
@@ -198,10 +193,15 @@ export function ProjectOwnerPanel({ open, project, onClose, onChanged }: Project
                                         )}
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
-                                        <Button size="sm" onClick={() => handleDecide(r.id, 'APPROVED')}>
+                                        <Button size="sm" variant="secondary" onClick={() => handleDecide(r.id, 'APPROVED')}>
                                             <Check className="h-3.5 w-3.5" strokeWidth={2} /> Approve
                                         </Button>
-                                        <Button size="sm" variant="danger" onClick={() => handleDecide(r.id, 'DENIED')}>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="text-danger hover:text-danger"
+                                            onClick={() => handleDecide(r.id, 'DENIED')}
+                                        >
                                             <X className="h-3.5 w-3.5" strokeWidth={2} /> Deny
                                         </Button>
                                     </div>
@@ -213,7 +213,7 @@ export function ProjectOwnerPanel({ open, project, onClose, onChanged }: Project
 
                 {/* Members */}
                 <section className="flex flex-col gap-2">
-                    <span className={sectionLabel}>Members ({members.length})</span>
+                    <SectionLabel>Members ({members.length})</SectionLabel>
                     {members.length > 0 && (
                         <ul className="flex flex-col gap-2">
                             {members.map((m) => (
@@ -241,28 +241,28 @@ export function ProjectOwnerPanel({ open, project, onClose, onChanged }: Project
                         </ul>
                     )}
                     <div className="flex items-end gap-2">
-                        <div className="flex-1">
+                        <FormField label="Add by username" className="flex-1">
                             <Input
                                 value={newUsername}
                                 onChange={(e) => setNewUsername(e.target.value)}
-                                placeholder="Add by username"
+                                placeholder="username"
                             />
-                        </div>
-                        <div className="w-32">
+                        </FormField>
+                        <FormField label="Role" className="w-32">
                             <Select value={newRole} onChange={(e) => setNewRole(e.target.value as 'CLIENT' | 'MEMBER')}>
                                 <option value="CLIENT">Client</option>
                                 <option value="MEMBER">Member</option>
                             </Select>
-                        </div>
+                        </FormField>
                         <Button variant="secondary" onClick={handleAddMember} disabled={!newUsername.trim()}>
-                            <UserPlus className="h-[18px] w-[18px]" strokeWidth={1.5} /> Add
+                            <UserPlus className="h-[18px] w-[18px]" strokeWidth={1.5} /> Add member
                         </Button>
                     </div>
                 </section>
 
                 {/* Request deletion */}
                 <section className="flex flex-col gap-2 border-t border-hairline pt-5">
-                    <span className={sectionLabel}>Danger zone</span>
+                    <SectionLabel>Danger zone</SectionLabel>
                     {deletion ? (
                         <div className="flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2.5 text-body font-medium text-warning">
                             <StatusPill status="pending">Pending</StatusPill>
@@ -270,19 +270,21 @@ export function ProjectOwnerPanel({ open, project, onClose, onChanged }: Project
                         </div>
                     ) : (
                         <>
-                            <p className="text-body text-fg-muted">
+                            <p className="text-caption text-fg-muted">
                                 Deleting a project is permanent and must be approved by a platform admin.
                             </p>
-                            <Input
-                                value={deleteReason}
-                                onChange={(e) => setDeleteReason(e.target.value)}
-                                placeholder="Optional: reason for deletion"
-                            />
+                            <FormField label="Reason (optional)">
+                                <Input
+                                    value={deleteReason}
+                                    onChange={(e) => setDeleteReason(e.target.value)}
+                                    placeholder="Why should this project be deleted?"
+                                />
+                            </FormField>
                             <Button
-                                variant="danger"
-                                onClick={handleRequestDeletion}
+                                variant="ghost"
+                                onClick={() => setConfirmRequestDelete(true)}
                                 disabled={requestingDelete}
-                                className="self-start"
+                                className="self-start text-danger hover:text-danger"
                             >
                                 <Trash2 className="h-[18px] w-[18px]" strokeWidth={1.5} />
                                 {requestingDelete ? 'Requesting…' : 'Request deletion'}
@@ -291,6 +293,21 @@ export function ProjectOwnerPanel({ open, project, onClose, onChanged }: Project
                     )}
                 </section>
             </div>
+
+            {/* Destructive confirm — solid danger fill, never weaker than Cancel. */}
+            <ConfirmDialog
+                open={confirmRequestDelete}
+                title="Request project deletion?"
+                message={`Deleting “${project.name}” is permanent. A platform admin has to approve the request before anything is removed.`}
+                confirmLabel="Request deletion"
+                cancelLabel="Cancel"
+                danger
+                onConfirm={() => {
+                    setConfirmRequestDelete(false);
+                    handleRequestDeletion();
+                }}
+                onCancel={() => setConfirmRequestDelete(false)}
+            />
         </Modal>
     );
 }

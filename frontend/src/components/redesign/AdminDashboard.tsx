@@ -7,7 +7,7 @@
 // admin) and is rendered inline rather than logging out.
 
 import { useState, useEffect, useCallback } from 'react';
-import { AlertCircle, ShieldAlert } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import * as api from '../../services/apiServices';
 import {
     errorMessage,
@@ -18,7 +18,8 @@ import {
     type DeletionRequest,
     type Role,
 } from '../../services/apiServices';
-import { Card, Button, StatusPill, MetricTile, Select, ConfirmDialog, type StatusKind } from '../ui';
+import { Card, Button, StatusPill, StatGroup, Select, ConfirmDialog, type StatusKind } from '../ui';
+import { PageHeader } from './PageHeader';
 import { createLogger } from '../../lib/logger';
 
 const log = createLogger('AdminDashboard');
@@ -43,8 +44,9 @@ function projectStatusKind(status: string): StatusKind {
     }
 }
 
-const sectionTitle = 'text-h4 font-display font-semibold text-fg';
-const th = 'text-left text-caption font-semibold uppercase tracking-wider text-fg-muted px-4 py-2.5';
+const sectionTitle = 'text-h4 font-semibold text-fg';
+// SectionLabel-styled table header cell (the one uppercase micro-label).
+const th = 'px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted';
 const td = 'px-4 py-3 text-body text-fg align-middle';
 
 export function AdminDashboard() {
@@ -125,15 +127,10 @@ export function AdminDashboard() {
 
     return (
         <div className="flex-1 flex flex-col h-screen overflow-hidden bg-canvas text-fg font-sans">
-            <header className="flex items-center justify-between gap-4 px-6 md:px-10 h-20 border-b border-hairline bg-canvas/80 backdrop-blur-xl sticky top-0 z-20">
-                <div>
-                    <h1 className="text-h3 font-display font-semibold tracking-tight text-fg">Admin</h1>
-                    <p className="text-label text-fg-muted mt-0.5">Manage users, requests, and every project.</p>
-                </div>
-            </header>
+            <PageHeader title="Admin" subtitle="Manage users, requests, and every project." />
 
-            <div className="flex-1 overflow-y-auto px-6 md:px-10 py-8 relative z-10 bg-canvas">
-                <div className="max-w-[1600px] mx-auto flex flex-col gap-8">
+            <div className="flex-1 overflow-y-auto">
+                <div className="mx-auto w-full max-w-[1400px] px-6 py-6 md:px-10 flex flex-col gap-8 reveal">
                     {error && (
                         <div className="flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
                             <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
@@ -141,16 +138,24 @@ export function AdminDashboard() {
                         </div>
                     )}
 
-                    {/* Overview tiles */}
-                    <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <Card padding="lg"><MetricTile label="Users" value={overview?.totalUsers ?? '—'} /></Card>
-                        <Card padding="lg"><MetricTile label="Owners" value={overview?.owners ?? '—'} /></Card>
-                        <Card padding="lg"><MetricTile label="Admins" value={overview?.admins ?? '—'} /></Card>
-                        <Card padding="lg"><MetricTile label="Projects" value={overview?.totalProjects ?? '—'} /></Card>
-                        <Card padding="lg"><MetricTile label="Running" value={overview?.runningProjects ?? '—'} /></Card>
-                        <Card padding="lg"><MetricTile label="Owner reqs" value={overview?.pendingOwnerRequests ?? '—'} /></Card>
-                        <Card padding="lg"><MetricTile label="Delete reqs" value={overview?.pendingDeletionRequests ?? '—'} /></Card>
-                        <Card padding="lg"><MetricTile label="Access reqs" value={overview?.pendingAccessRequests ?? '—'} /></Card>
+                    {/* Overview stats — platform totals + pending activity */}
+                    <section className="flex flex-col gap-4">
+                        <StatGroup
+                            stats={[
+                                { label: 'Users', value: overview?.totalUsers ?? '—' },
+                                { label: 'Owners', value: overview?.owners ?? '—' },
+                                { label: 'Admins', value: overview?.admins ?? '—' },
+                                { label: 'Projects', value: overview?.totalProjects ?? '—' },
+                            ]}
+                        />
+                        <StatGroup
+                            stats={[
+                                { label: 'Running', value: overview?.runningProjects ?? '—' },
+                                { label: 'Owner requests', value: overview?.pendingOwnerRequests ?? '—' },
+                                { label: 'Deletion requests', value: overview?.pendingDeletionRequests ?? '—' },
+                                { label: 'Access requests', value: overview?.pendingAccessRequests ?? '—' },
+                            ]}
+                        />
                     </section>
 
                     {/* Owner-promotion queue */}
@@ -169,8 +174,17 @@ export function AdminDashboard() {
                                             {r.message && <p className="text-caption text-fg-muted truncate">{r.message}</p>}
                                         </div>
                                         <div className="flex items-center gap-2 flex-shrink-0">
-                                            <Button size="sm" onClick={() => handleOwnerDecision(r.id, 'APPROVED')}>Approve</Button>
-                                            <Button size="sm" variant="danger" onClick={() => handleOwnerDecision(r.id, 'DENIED')}>Deny</Button>
+                                            <Button size="sm" variant="secondary" onClick={() => handleOwnerDecision(r.id, 'APPROVED')}>
+                                                Approve
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="text-danger hover:text-danger"
+                                                onClick={() => handleOwnerDecision(r.id, 'DENIED')}
+                                            >
+                                                Deny
+                                            </Button>
                                         </div>
                                     </Card>
                                 ))}
@@ -194,10 +208,17 @@ export function AdminDashboard() {
                                             {r.reason && <p className="text-caption text-fg-muted truncate">{r.reason}</p>}
                                         </div>
                                         <div className="flex items-center gap-2 flex-shrink-0">
-                                            <Button size="sm" variant="danger" onClick={() => setConfirmDeletion(r)}>
-                                                <ShieldAlert className="h-3.5 w-3.5" strokeWidth={1.5} /> Approve delete
+                                            <Button size="sm" variant="secondary" onClick={() => setConfirmDeletion(r)}>
+                                                Approve deletion
                                             </Button>
-                                            <Button size="sm" variant="secondary" onClick={() => handleDeletionDecision(r.id, 'DENIED')}>Deny</Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="text-danger hover:text-danger"
+                                                onClick={() => handleDeletionDecision(r.id, 'DENIED')}
+                                            >
+                                                Deny
+                                            </Button>
                                         </div>
                                     </Card>
                                 ))}
@@ -231,6 +252,7 @@ export function AdminDashboard() {
                                                     <div className="w-40">
                                                         <Select
                                                             value={u.role}
+                                                            aria-label={`Change role for ${u.username}`}
                                                             disabled={savingUserId === u.id}
                                                             onChange={(e) => handleRoleChange(u, e.target.value as Role)}
                                                         >

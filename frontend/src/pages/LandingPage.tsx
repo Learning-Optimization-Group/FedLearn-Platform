@@ -8,14 +8,14 @@ import {
     Cpu,
     Boxes,
     ArrowRight,
-    Sparkles,
+    SlidersHorizontal,
     MessageSquareLock,
     Bot,
     Rocket,
     Github,
     Lock,
 } from 'lucide-react';
-import { Button } from '../components/ui';
+import { Button, Card, SectionLabel } from '../components/ui';
 import { Wordmark, HeroNetwork } from '../components/brand';
 
 /* ------------------------------ content (plain language) ------------------------------ */
@@ -83,7 +83,7 @@ const roadmap = [
     {
         group: 'Language models',
         items: [
-            { icon: Sparkles, title: 'Fine-tune language models', body: 'Teach models like Llama on private data they never have to upload.' },
+            { icon: SlidersHorizontal, title: 'Fine-tune language models', body: 'Teach models like Llama on private data they never have to upload.' },
             { icon: MessageSquareLock, title: 'Private answers & summaries', body: 'Run Q&A and summaries through a secure, private endpoint.' },
             { icon: Bot, title: 'Custom AI assistants', body: 'Package your tuned model as a focused helper for your team.' },
         ],
@@ -101,12 +101,12 @@ const FeatureItem: React.FC<{ icon: IconType; title: string; body: string }> = (
     title,
     body,
 }) => (
-    <div className="group flex flex-col gap-4">
-        <span className="icon-tile transition-transform duration-300 group-hover:-translate-y-0.5">
+    <div className="flex flex-col gap-4">
+        <span className="icon-tile">
             <Icon className="h-5 w-5" strokeWidth={1.5} />
         </span>
         <div>
-            <h3 className="text-h4 font-display text-fg">{title}</h3>
+            <h3 className="text-h4 text-fg">{title}</h3>
             <p className="mt-1.5 text-body text-fg-muted">{body}</p>
         </div>
     </div>
@@ -118,7 +118,7 @@ const LandingPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-canvas font-sans text-fg">
             {/* header */}
-            <header className="sticky top-0 z-40 border-b border-hairline/70 bg-canvas/70 backdrop-blur-xl">
+            <header className="sticky top-0 z-40 border-b border-hairline bg-canvas">
                 <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-5 md:px-8">
                     <Link to="/" aria-label="FedLearn home">
                         <Wordmark size={28} />
@@ -151,12 +151,11 @@ const LandingPage: React.FC = () => {
 
             <main>
                 {/* hero */}
-                <section className="bg-ambient relative overflow-hidden">
-                    <div className="bg-grid pointer-events-none absolute inset-0 opacity-70" />
-                    <div className="relative mx-auto max-w-6xl px-5 pb-10 pt-16 text-center md:px-8 md:pt-24">
+                <section>
+                    <div className="mx-auto max-w-6xl px-5 pb-10 pt-16 text-center md:px-8 md:pt-24">
                         <div className="reveal flex justify-center" style={{ animationDelay: '40ms' }}>
                             <span className="chip">
-                                <span className="h-1.5 w-1.5 rounded-full bg-accent dot-pulse" />
+                                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
                                 Open source · Private by design
                             </span>
                         </div>
@@ -167,7 +166,7 @@ const LandingPage: React.FC = () => {
                         >
                             Train AI together.
                             <br />
-                            Keep your data <span className="text-ember">home</span>.
+                            Keep your data <span className="text-accent">home</span>.
                         </h1>
 
                         <p
@@ -204,9 +203,7 @@ const LandingPage: React.FC = () => {
 
                         {/* platform strip */}
                         <div className="mt-12 flex flex-col items-center gap-4">
-                            <span className="text-caption uppercase tracking-[0.18em] text-fg-subtle">
-                                Works on the devices you already have
-                            </span>
+                            <SectionLabel>Works on the devices you already have</SectionLabel>
                             <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
                                 {platforms.map((p) => (
                                     <span key={p} className="text-label font-medium text-fg-muted">
@@ -222,8 +219,8 @@ const LandingPage: React.FC = () => {
                 <section id="features" className="border-t border-hairline">
                     <div className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-28">
                         <div className="max-w-2xl">
-                            <span className="eyebrow">What you get</span>
-                            <h2 className="mt-4 font-display text-h1 font-bold tracking-tight text-fg">
+                            <SectionLabel>What you get</SectionLabel>
+                            <h2 className="mt-4 text-h1 text-fg">
                                 Everything you need to train AI, together.
                             </h2>
                             <p className="mt-4 text-body-lg text-fg-muted">
@@ -240,24 +237,21 @@ const LandingPage: React.FC = () => {
                 </section>
 
                 {/* how it works */}
-                <section id="how" className="border-t border-hairline bg-ambient-soft">
+                <section id="how" className="border-t border-hairline bg-surface-2">
                     <div className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-28">
                         <div className="mx-auto max-w-2xl text-center">
-                            <span className="eyebrow is-centered justify-center">How it works</span>
-                            <h2 className="mt-4 font-display text-h1 font-bold tracking-tight text-fg">
+                            <SectionLabel>How it works</SectionLabel>
+                            <h2 className="mt-4 text-h1 text-fg">
                                 Three steps. No expertise required.
                             </h2>
                         </div>
                         <div className="mt-16 grid grid-cols-1 gap-5 md:grid-cols-3">
                             {steps.map((s, i) => (
-                                <div
-                                    key={s.n}
-                                    className="relative rounded-card border border-hairline bg-surface-1 p-7"
-                                >
-                                    <span className="font-mono text-h2 font-medium text-accent/40">
+                                <Card key={s.n} padding="lg" className="relative">
+                                    <span className="font-mono text-h2 font-medium text-fg-subtle">
                                         {s.n}
                                     </span>
-                                    <h3 className="mt-4 font-display text-h3 text-fg">{s.title}</h3>
+                                    <h3 className="mt-4 text-h4 text-fg">{s.title}</h3>
                                     <p className="mt-2 text-body text-fg-muted">{s.body}</p>
                                     {i < steps.length - 1 && (
                                         <ArrowRight
@@ -265,7 +259,7 @@ const LandingPage: React.FC = () => {
                                             strokeWidth={1.5}
                                         />
                                     )}
-                                </div>
+                                </Card>
                             ))}
                         </div>
                     </div>
@@ -275,8 +269,8 @@ const LandingPage: React.FC = () => {
                 <section id="roadmap" className="border-t border-hairline">
                     <div className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-28">
                         <div className="max-w-2xl">
-                            <span className="eyebrow">On the way</span>
-                            <h2 className="mt-4 font-display text-h1 font-bold tracking-tight text-fg">
+                            <SectionLabel>On the way</SectionLabel>
+                            <h2 className="mt-4 text-h1 text-fg">
                                 Growing into a full AI workshop.
                             </h2>
                             <p className="mt-4 text-body-lg text-fg-muted">
@@ -286,23 +280,16 @@ const LandingPage: React.FC = () => {
                         <div className="mt-14 space-y-14">
                             {roadmap.map((section) => (
                                 <div key={section.group}>
-                                    <h3 className="text-label font-medium uppercase tracking-[0.14em] text-fg-subtle">
-                                        {section.group}
-                                    </h3>
+                                    <SectionLabel>{section.group}</SectionLabel>
                                     <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                         {section.items.map((f) => (
-                                            <div
-                                                key={f.title}
-                                                className="rounded-card border border-hairline bg-surface-1 p-6 transition-colors duration-200 hover:border-accent/30"
-                                            >
+                                            <Card key={f.title} padding="lg">
                                                 <span className="icon-tile">
                                                     <f.icon className="h-5 w-5" strokeWidth={1.5} />
                                                 </span>
-                                                <h4 className="mt-4 text-h4 font-display text-fg">
-                                                    {f.title}
-                                                </h4>
+                                                <h4 className="mt-4 text-h4 text-fg">{f.title}</h4>
                                                 <p className="mt-1.5 text-body text-fg-muted">{f.body}</p>
-                                            </div>
+                                            </Card>
                                         ))}
                                     </div>
                                 </div>
@@ -313,38 +300,28 @@ const LandingPage: React.FC = () => {
 
                 {/* CTA */}
                 <section className="border-t border-hairline">
-                    <div className="bg-ambient relative mx-auto max-w-6xl overflow-hidden px-5 py-24 text-center md:px-8">
-                        <div className="bg-grid pointer-events-none absolute inset-0 opacity-60" />
-                        <div className="relative">
-                            <h2 className="display-hero mx-auto max-w-2xl text-[32px] leading-tight text-fg sm:text-[46px]">
-                                Ready to train your first model?
-                            </h2>
-                            <p className="mx-auto mt-4 max-w-xl text-body-lg text-fg-muted">
-                                Create a free account and start a training session in minutes.
-                            </p>
-                            <div className="mt-9 flex justify-center">
-                                <Link to="/register">
-                                    <Button variant="primary" size="lg">
-                                        Get started — it's free
-                                        <ArrowRight className="h-4 w-4" strokeWidth={2} />
-                                    </Button>
-                                </Link>
-                            </div>
+                    <div className="mx-auto max-w-6xl px-5 py-24 text-center md:px-8">
+                        <h2 className="display-hero mx-auto max-w-2xl text-[32px] leading-tight text-fg sm:text-[46px]">
+                            Ready to train your first model?
+                        </h2>
+                        <p className="mx-auto mt-4 max-w-xl text-body-lg text-fg-muted">
+                            Create a free account and start a training session in minutes.
+                        </p>
+                        <div className="mt-9 flex justify-center">
+                            <Link to="/register">
+                                <Button variant="primary" size="lg">
+                                    Get started — it's free
+                                    <ArrowRight className="h-4 w-4" strokeWidth={2} />
+                                </Button>
+                            </Link>
                         </div>
                     </div>
                 </section>
             </main>
 
             {/* footer */}
-            <footer className="relative overflow-hidden border-t border-hairline">
-                {/* ghosted wordmark */}
-                <div
-                    className="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 select-none font-display text-[26vw] font-bold leading-none tracking-tighter text-fg/[0.025]"
-                    aria-hidden
-                >
-                    FedLearn
-                </div>
-                <div className="relative mx-auto max-w-6xl px-5 py-16 md:px-8">
+            <footer className="border-t border-hairline">
+                <div className="mx-auto max-w-6xl px-5 py-16 md:px-8">
                     <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
                         <div className="col-span-2 md:col-span-1">
                             <Wordmark size={26} />

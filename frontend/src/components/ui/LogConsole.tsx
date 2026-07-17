@@ -6,7 +6,7 @@ export interface LogConsoleProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 /**
- * Streaming log surface. The navy terminal well: bg-code-well + code-fg ink,
+ * Streaming log surface. A quiet recessed well: bg-code-well + code-fg ink,
  * mono text-label, scrollable, no animation. Consumers render their own line
  * rows inside. Forwarded ref lets callers manage auto-scroll-to-bottom.
  */

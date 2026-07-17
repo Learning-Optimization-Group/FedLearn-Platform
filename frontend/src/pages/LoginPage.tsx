@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ShieldCheck, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { loginUser, errorMessage } from '../services/apiServices';
-import { Button, Card, Input } from '../components/ui';
+import { Button, Card, Input, FormField } from '../components/ui';
 import { Wordmark } from '../components/brand';
 
 const LoginPage: React.FC = () => {
@@ -46,9 +46,8 @@ const LoginPage: React.FC = () => {
     };
 
     return (
-        <div className="bg-ambient relative flex min-h-screen items-center justify-center bg-canvas px-4 py-12 font-sans text-fg">
-            <div className="bg-grid pointer-events-none absolute inset-0 opacity-50" />
-            <div className="relative w-full max-w-md">
+        <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-12 font-sans text-fg">
+            <div className="reveal w-full max-w-md">
                 <div className="mb-8 flex justify-center">
                     <Link to="/" aria-label="FedLearn home">
                         <Wordmark size={32} />
@@ -56,43 +55,35 @@ const LoginPage: React.FC = () => {
                 </div>
 
                 <Card padding="lg" className="p-7">
-                    <h1 className="font-display text-h2 text-fg">Welcome back</h1>
+                    <h1 className="text-h3 text-fg">Welcome back</h1>
                     <p className="mt-1.5 text-body text-fg-muted">
                         Sign in to keep training your models.
                     </p>
 
-                    <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="identifier" className="text-label font-medium text-fg">
-                                Email or username
-                            </label>
+                    <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
+                        <FormField label="Email or username">
                             <Input
                                 type="text"
                                 id="identifier"
-                                className="h-11"
                                 value={identifier}
                                 onChange={(e) => setIdentifier(e.target.value)}
                                 required
                                 autoComplete="username"
                                 placeholder="you@example.com"
                             />
-                        </div>
+                        </FormField>
 
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="password" className="text-label font-medium text-fg">
-                                Password
-                            </label>
+                        <FormField label="Password">
                             <Input
                                 type="password"
                                 id="password"
-                                className="h-11"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
                                 autoComplete="current-password"
                                 placeholder="••••••••"
                             />
-                        </div>
+                        </FormField>
 
                         {error && (
                             <p
@@ -104,12 +95,7 @@ const LoginPage: React.FC = () => {
                             </p>
                         )}
 
-                        <Button
-                            type="submit"
-                            size="lg"
-                            disabled={isLoading}
-                            className="mt-2 w-full"
-                        >
+                        <Button type="submit" disabled={isLoading} className="mt-2 w-full">
                             {isLoading ? 'Signing in…' : 'Sign in'}
                         </Button>
                     </form>

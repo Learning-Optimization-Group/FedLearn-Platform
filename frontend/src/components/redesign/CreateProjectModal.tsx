@@ -3,9 +3,9 @@
 // =============================================================================
 
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { fetchModelRecipes, fetchProject, errorMessage, type ModelRecipe, type Project } from '../../services/apiServices';
-import { Modal, Input, Select, Button } from '../ui';
+import { Modal, Input, Select, Button, FormField } from '../ui';
 
 // BA-1: a freshly created project comes back INITIALIZING while the backend prepares its weights on an
 // async worker. The modal polls the project until it resolves before closing.
@@ -50,9 +50,6 @@ interface CreateProjectModalProps {
   onClose: () => void;
   isLoading?: boolean;
 }
-
-const labelClass = 'text-label font-medium text-fg';
-const helpClass = 'text-caption text-fg-subtle';
 
 export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isLoading = false }: CreateProjectModalProps) {
   const [name, setName] = useState('');
@@ -173,11 +170,29 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
     <Modal
       open={isOpen}
       onClose={onClose}
-      title={
-        <span className="flex items-center gap-2">
-          <Sparkles strokeWidth={1.5} className="h-5 w-5 text-accent" />
-          New project
-        </span>
+      title="New project"
+      footer={
+        phase === 'form' ? (
+          <>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="create-project-form"
+              disabled={isLoading || !name.trim() || !selectedRecipe}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
+                  Creating…
+                </>
+              ) : (
+                'Create project'
+              )}
+            </Button>
+          </>
+        ) : undefined
       }
     >
       {phase === 'preparing' ? (
@@ -196,7 +211,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
         A project is one model you'll train together with your devices.
       </p>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      <form id="create-project-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
         {error && (
           <p className="flex items-center gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2.5 text-label text-danger">
             <AlertCircle className="h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
@@ -204,9 +219,7 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
           </p>
         )}
 
-        {/* Project Name */}
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Project name</label>
+        <FormField label="Project name">
           <Input
             type="text"
             value={name}
@@ -215,11 +228,9 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
             required
             autoFocus
           />
-        </div>
+        </FormField>
 
-        {/* Model Architecture */}
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>What kind of model?</label>
+        <FormField label="What kind of model?">
           <Select
             value={modelType}
             onChange={(e) => setModelType(e.target.value)}
@@ -230,12 +241,11 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
               <option key={r.key} value={r.key}>{r.displayName}</option>
             ))}
           </Select>
-        </div>
+        </FormField>
 
         {/* Model + Optimizer row */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Base model</label>
+          <FormField label="Base model">
             <Select
               value={modelName}
               onChange={(e) => setModelName(e.target.value)}
@@ -245,9 +255,8 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
                 <option key={m} value={m}>{m}</option>
               ))}
             </Select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Optimizer</label>
+          </FormField>
+          <FormField label="Optimizer">
             <Select
               value={optimizer}
               onChange={(e) => setOptimizer(e.target.value)}
@@ -257,53 +266,30 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
                 <option key={o} value={o}>{o}</option>
               ))}
             </Select>
-          </div>
+          </FormField>
         </div>
 
         {/* Task type — LLM_LORA only */}
         {modelType === 'LLM_LORA' && (
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Task</label>
+          <FormField label="Task">
             <Select value={taskType} onChange={(e) => setTaskType(e.target.value)}>
               <option value="SEQ_CLASSIFICATION">Classification (text → label)</option>
               <option value="CAUSAL_LM">Generation (instruction fine-tune)</option>
             </Select>
-          </div>
+          </FormField>
         )}
 
-        {/* Pre-train Epochs */}
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Warm-up rounds</label>
+        <FormField
+          label="Warm-up rounds"
+          help="Give the model a head start before devices join. Leave at 0 if unsure."
+        >
           <Input
             type="number"
             value={pretrainEpochs}
             onChange={(e) => setPretrainEpochs(Number(e.target.value))}
             min="0"
           />
-          <span className={helpClass}>
-            Give the model a head start before devices join. Leave at 0 if unsure.
-          </span>
-        </div>
-
-        {/* Buttons */}
-        <div className="flex gap-3 mt-2 pt-4 border-t border-hairline">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onClose}
-            disabled={isLoading}
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={isLoading || !name.trim() || !selectedRecipe}
-            className="flex-1"
-          >
-            {isLoading ? 'Creating…' : 'Create project'}
-          </Button>
-        </div>
+        </FormField>
       </form>
         </>
       )}
