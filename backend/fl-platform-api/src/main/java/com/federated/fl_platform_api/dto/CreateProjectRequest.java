@@ -100,4 +100,19 @@ public class CreateProjectRequest {
 
     public Double getDpClipNorm() { return dpClipNorm; }
     public void setDpClipNorm(Double dpClipNorm) { this.dpClipNorm = dpClipNorm; }
+
+    // DA-14 Ph3.2: optional derivation record. Absent == a from-scratch recipe project (today's
+    // behavior); persisted null-safe in ProjectService.createProject.
+    private Boolean initFromPretrained;   // derive from a pretrained/frozen base
+    private String baseRef;               // content-addressed BASE_REF sha256 to derive from
+    private String derivationSpec;        // JSON: dataset / head / freeze / lora
+
+    public Boolean getInitFromPretrained() { return initFromPretrained; }
+    public void setInitFromPretrained(Boolean initFromPretrained) { this.initFromPretrained = initFromPretrained; }
+
+    public String getBaseRef() { return baseRef; }
+    public void setBaseRef(String baseRef) { this.baseRef = baseRef; }
+
+    public String getDerivationSpec() { return derivationSpec; }
+    public void setDerivationSpec(String derivationSpec) { this.derivationSpec = derivationSpec; }
 }

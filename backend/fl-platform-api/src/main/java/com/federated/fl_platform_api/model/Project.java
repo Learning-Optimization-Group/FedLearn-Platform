@@ -234,6 +234,28 @@ public class Project {
     public Double getDpClipNorm() { return dpClipNorm; }
     public void setDpClipNorm(Double dpClipNorm) { this.dpClipNorm = dpClipNorm; }
 
+    // DA-14 Ph3.2: per-project derivation record (V20). A NULL/false derivation == a normal
+    // from-scratch recipe project (today's behavior); nothing on the training path reads these yet.
+    @Column(name = "init_from_pretrained", nullable = false)
+    private boolean initFromPretrained = false;
+
+    /** Content address (sha256) of the frozen BASE_REF backbone this project derives from; null = from-scratch. */
+    @Column(name = "base_ref_sha256")
+    private String baseRefSha256;
+
+    /** JSON derivation spec (dataset / head / freeze / lora); null when absent. */
+    @Column(name = "derivation_spec")
+    private String derivationSpec;
+
+    public boolean isInitFromPretrained() { return initFromPretrained; }
+    public void setInitFromPretrained(boolean initFromPretrained) { this.initFromPretrained = initFromPretrained; }
+
+    public String getBaseRefSha256() { return baseRefSha256; }
+    public void setBaseRefSha256(String baseRefSha256) { this.baseRefSha256 = baseRefSha256; }
+
+    public String getDerivationSpec() { return derivationSpec; }
+    public void setDerivationSpec(String derivationSpec) { this.derivationSpec = derivationSpec; }
+
     /**
      * SE-11: true iff (epsilon, delta, S) form a complete, sane DP config — epsilon > 0, delta in
      * (0,1) exclusive, clip norm S > 0. Single source of truth for the creation validation, the

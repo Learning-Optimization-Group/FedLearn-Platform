@@ -193,6 +193,11 @@ public class ProjectService {
         project.setDpTargetEpsilon(request.getDpTargetEpsilon());
         project.setDpDelta(request.getDpDelta());
         project.setDpClipNorm(request.getDpClipNorm());
+        // DA-14 Ph3.2: optional derivation record — null-safe, so a request that omits it produces a
+        // normal from-scratch project (init_from_pretrained stays false, the refs stay null).
+        project.setInitFromPretrained(Boolean.TRUE.equals(request.getInitFromPretrained()));
+        project.setBaseRefSha256(request.getBaseRef());
+        project.setDerivationSpec(request.getDerivationSpec());
         project.setUser(owner);
         // V5 made projects.org_id NOT NULL. Pin the project to the owner's first
         // org membership; fall back to the Default org (seeded by V5) for users
