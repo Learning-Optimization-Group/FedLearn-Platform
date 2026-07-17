@@ -69,3 +69,19 @@ def test_max_insights_cap():
     d = TraceDistiller(DeterministicStubBackend(default="{}"), quorum=1, max_insights=2)
     traces = [_tr(f"c{i}", {f"insight_{i}": f"Idea number {i}."}) for i in range(5)]
     assert len(d.distill(traces)) == 2
+
+
+def test_canonical_statement_is_deterministic_under_cluster_member_order():
+    # Same clustering with members in different index order must yield the SAME canonical statement
+    # and library sha256: the canonical (longest, ties broken lexicographically) must not depend on
+    # the LLM's cluster-member ordering, or insight_id / the artifact sha256 silently flip run-to-run.
+    def run(order_json):
+        stub = DeterministicStubBackend(keyed={"Group the following": order_json}, default="{}")
+        lib = TraceDistiller(stub, quorum=1).distill([
+            ReasoningTrace("c1", "c1", "r", 0, "t", {"insight_a": "AAA equal len stmt X"}),
+            ReasoningTrace("c2", "c2", "r", 0, "t", {"insight_b": "BBB equal len stmt Y"})])
+        return lib.insights[0].statement, lib.sha256()
+    s01, h01 = run('{"clusters": [[0, 1]]}')
+    s10, h10 = run('{"clusters": [[1, 0]]}')
+    assert s01 == s10  # canonical independent of member order
+    assert h01 == h10  # -> stable insight_id / library sha256

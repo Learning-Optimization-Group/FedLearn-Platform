@@ -1,9 +1,16 @@
 """FoT trace -> insight-library distiller (server side).
 
 Faithful to FoT's server pipeline: collect raw traces -> cluster near-duplicate insights (an LLM
-step) -> knowledge-extract canonical statements. Crucially, provenance/quorum is computed HERE
-from the REAL traces (never trusted to the LLM), so a hallucination in one client's trace is not
-promoted into the shared library unless `quorum` distinct clients independently support it.
+step) -> knowledge-extract canonical statements. Provenance/quorum COUNTING is computed HERE from
+the REAL traces: each insight's support is the number of DISTINCT client-ids that submitted it —
+never a count the LLM invents. The LLM's role is bounded to CLUSTERING near-duplicate phrasings
+(deciding which statements are "the same idea"); it chooses cluster MEMBERSHIP, not support numbers.
+
+So a hallucination in one client's trace is not promoted unless `quorum` distinct clients support
+it — with one honest caveat: because the LLM decides membership, an adversarial trace that steers
+the clustering to OVER-MERGE could union a victim's sources into an attacker's insight (screened,
+not prevented, by trace_guard's injection denylist; a structural fix — verifiable-evidence merges —
+is future work). The counting itself is not LLM-trusted; the membership it counts over is.
 
 Torch-free; the LLM is behind the AgentBackend seam, so distillation is fully testable offline.
 """
@@ -99,7 +106,10 @@ class TraceDistiller:
             for k in member_keys:
                 srcs |= sources[k]
             srcs.discard("")
-            canonical = max((display[k] for k in member_keys), key=len)  # richest phrasing wins
+            # Richest (longest) phrasing wins, ties broken lexicographically so the canonical choice
+            # — and thus insight_id and the library sha256 — never depends on the LLM's cluster-member
+            # ordering (a real LLM may emit the same grouping with members in a different index order).
+            canonical = max((display[k] for k in member_keys), key=lambda s: (len(s), s))
             support = max(len(srcs), max((floor.get(k, 0) for k in member_keys), default=0))
             built.append(Insight(insight_id(canonical), canonical, support, tuple(sorted(srcs))))
 

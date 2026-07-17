@@ -34,7 +34,12 @@ class InsightLedger:
 
     def record(self, statement: str, client_id: str) -> None:
         key = normalize(statement)
-        if not key:
+        # An empty statement or an empty/absent client_id is not a countable distinct source: an
+        # empty client_id would otherwise count toward quorum, so one real client plus a spoofed
+        # empty id would forge quorum=2. Mirrors the distiller's srcs.discard("") (fot_servicer.py
+        # binds the identity and fail-closes on empty on the live path; this keeps the sibling public
+        # API consistent so a future caller reaching quorum via the ledger can't reopen the hole).
+        if not key or not client_id:
             return
         self._sources.setdefault(key, set()).add(client_id)
         self._display.setdefault(key, statement.strip())
