@@ -19,6 +19,7 @@ import {
   validateServerAddress,
   validateStringInput,
 } from './validators';
+import { recordConsentedDatasetPath, isDatasetPathConsented } from './dataset-consent';
 import { AuthService } from './auth.service';
 import { InferenceService, InferencePayload } from './inference.service';
 import { ClientProjectService } from './client-projects.service';
@@ -94,6 +95,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       if (result.canceled || result.filePaths.length === 0) {
         return { success: false, error: 'User canceled.' };
       }
+      // Record the user-selected directory as consented so docker:start-training may mount it. Only a
+      // path the user physically picked here can later be bind-mounted (see dataset-consent.ts).
+      recordConsentedDatasetPath(result.filePaths[0]);
       return { success: true, path: result.filePaths[0] };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -145,6 +149,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         return {
           success: false,
           error: 'Invalid dataset path: must be an existing absolute directory',
+        };
+      }
+      // A non-empty dataset path is bind-mounted into the container, so it must be one the user actually
+      // selected via the native dialog — not an arbitrary path a compromised renderer supplied. ('' means
+      // "use the container's default dataset" and mounts nothing.)
+      if (safeDatasetPath !== '' && !isDatasetPathConsented(safeDatasetPath)) {
+        log.error('[IPC:docker:start-training] Rejected dataset path not chosen via the native dialog');
+        return {
+          success: false,
+          error: 'Dataset path must be selected with the "Select dataset" button',
         };
       }
 
