@@ -116,8 +116,11 @@ export function LogViewerV2({ projectId, onClose }: LogViewerProps) {
             stackTrace: parsed.stackTrace,
           });
 
-          // Check if payload is a RoundResultDto
-          if (parsed.loss !== undefined && parsed.accuracy !== undefined) {
+          // Check if payload is a RoundResultDto. Require FINITE NUMBERS (not merely "defined"): a
+          // malformed or hostile frame with loss/accuracy = null | "x" would otherwise enter the
+          // telemetry cache and crash the render at `latest.loss.toFixed(...)` — one bad frame
+          // white-screening the whole SPA. Non-numeric telemetry is ignored.
+          if (Number.isFinite(parsed.loss) && Number.isFinite(parsed.accuracy)) {
             const prev = telemetryCache.get(projectId) ?? [];
             const next = [
               ...prev.slice(-30),

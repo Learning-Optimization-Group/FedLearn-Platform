@@ -102,4 +102,24 @@ describe('LogViewerV2 — honest connection indicator (FE-8)', () => {
 
     expect(fakeClient.deactivate).toHaveBeenCalled();
   });
+
+  it('ignores a malformed telemetry frame instead of crashing the render', async () => {
+    // A hostile/malformed backend (or a MITM on the plaintext dev ws://) sends a frame whose
+    // loss/accuracy are non-numeric. Before the finiteness guard this entered the telemetry cache and
+    // threw at render (latest.loss.toFixed(...)), white-screening the whole SPA. It must be ignored.
+    render(<LogViewerV2 projectId="proj-1" onClose={() => {}} />);
+    act(() => { fakeClient.onConnect?.({ headers: {} }); });
+    await screen.findByText('Live Streaming');
+
+    const sub = fakeClient.subscribe.mock.calls.find((c) => String(c[0]).includes('/topic/logs/'));
+    const onMessage = sub?.[1] as (m: { body: string }) => void;
+    expect(onMessage).toBeTypeOf('function');
+
+    act(() => {
+      onMessage({ body: JSON.stringify({ level: 'INFO', message: 'hi', serverRound: 1, loss: null, accuracy: 'x' }) });
+    });
+
+    // No crash — the component is still mounted and live.
+    expect(screen.getByText('Live Streaming')).toBeInTheDocument();
+  });
 });
