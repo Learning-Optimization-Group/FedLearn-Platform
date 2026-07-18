@@ -90,7 +90,13 @@ const RegisterPage: React.FC = () => {
                 navigate('/login');
             }, 2000);
         } catch (err: unknown) {
-            log.error('register failed', err);
+            // Never log the raw error: an AxiosError's `.config.data` carries the submitted
+            // { username, email, password }, so logging the whole object would write the plaintext
+            // password to the log sink. Log only a safe status/message summary.
+            log.error(
+                'register failed',
+                isAxiosError(err) ? `${err.response?.status ?? 'network'}: ${err.message}` : String(err),
+            );
             // GlobalExceptionHandler returns either {message, fieldErrors:{...}}
             // (validation), {message} (generic), or — for legacy paths —
             // {error}. Try them in order without losing the field-level detail.
