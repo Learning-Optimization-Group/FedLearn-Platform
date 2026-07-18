@@ -73,10 +73,28 @@ public class StompSubscriptionInterceptor implements ChannelInterceptor {
         }
 
         String destination = accessor.getDestination();
+
+        // BA-5 hardening: the SimpleBroker matches SUBSCRIBE destinations as Ant PATTERNS
+        // (DefaultSubscriptionRegistry + AntPathMatcher), so an ungated wildcard destination
+        // (/topic/**, /topic/*/*, /queue/**) would receive EVERY project's / user's broadcasts —
+        // sidestepping the per-project gate below (projectIdFor("/topic/**") returns null because it
+        // matches no concrete prefix). No legitimate client subscription uses a wildcard, so reject any
+        // pattern destination outright, before it can reach the broker.
+        if (destination != null && (destination.indexOf('*') >= 0 || destination.indexOf('?') >= 0)) {
+            log.info("STOMP SUBSCRIBE rejected: wildcard/pattern destination {}", destination);
+            throw new AccessDeniedException("Wildcard subscriptions are not permitted");
+        }
+
         UUID projectId = projectIdFor(destination);
         if (projectId == null) {
-            // Not a project-scoped topic (/user/**, app destinations, unknown
-            // topics) — leave delivery unchanged.
+            // Deny-by-default WITHIN the project broadcast namespace: a /topic destination that is not a
+            // recognized project topic (e.g. /topic/random) is rejected rather than passed through. Other
+            // namespaces (/user/** user-destinations, /app/** app destinations) are not project broadcasts
+            // and pass through unchanged.
+            if (destination != null && destination.startsWith("/topic")) {
+                log.info("STOMP SUBSCRIBE rejected: unrecognized /topic destination {}", destination);
+                throw new AccessDeniedException("Subscription to this destination is not permitted");
+            }
             return message;
         }
 

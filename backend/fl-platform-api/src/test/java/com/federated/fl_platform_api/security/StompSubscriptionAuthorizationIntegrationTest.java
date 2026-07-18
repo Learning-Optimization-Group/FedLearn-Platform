@@ -109,6 +109,30 @@ class StompSubscriptionAuthorizationIntegrationTest {
     }
 
     @Test
+    void wildcardSubscription_isRejectedAndReceivesNoBroadcasts() throws Exception {
+        // BA-5 wildcard bypass: the SimpleBroker matches SUBSCRIBE destinations as Ant patterns, so an
+        // ungated /topic/** would receive every project's broadcasts across tenants. It must be rejected.
+        User owner = createUser("owner-wc", PlatformRole.USER);
+        createUser("attacker-wc", PlatformRole.USER);
+        Project p = createProject(owner, DEFAULT_ORG_ID, ProjectVisibility.PRIVATE);
+
+        RecordingSessionHandler handler = new RecordingSessionHandler();
+        StompSession session = connect(jwtFor("attacker-wc"), handler);
+
+        BlockingQueue<String> received = new LinkedBlockingQueue<>();
+        session.subscribe("/topic/**", stringFrames(received));
+
+        assertTrue(handler.errorLatch.await(5, TimeUnit.SECONDS),
+                "a wildcard SUBSCRIBE (/topic/**) must be rejected");
+
+        for (int i = 0; i < 5; i++) {
+            messagingTemplate.convertAndSend("/topic/logs/" + p.getId(), "wildcard-leak-" + i);
+        }
+        assertNull(received.poll(1, TimeUnit.SECONDS),
+                "a wildcard subscriber must never receive project broadcasts across tenants");
+    }
+
+    @Test
     void participantClient_canSubscribeAndReceiveProjectLogs() throws Exception {
         User owner = createUser("owner-cl", PlatformRole.USER);
         User client = createUser("client-cl", PlatformRole.USER);
