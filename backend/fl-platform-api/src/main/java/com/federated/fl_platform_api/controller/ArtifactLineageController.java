@@ -51,7 +51,13 @@ public class ArtifactLineageController {
         if (target == null || !mayRead(target)) {
             return ResponseEntity.notFound().build(); // 404 for all — no cross-org/cross-project leak (SE-16)
         }
+        // SE-16: gate EVERY artifact in the chain, not just the target. getLineageChain walks the whole
+        // provenance DAG, which can include PRIVATE intermediate ancestors (e.g. CONTINUED_FROM prior
+        // heads) the caller may not read; a private ancestor must read as absent — same rule as the leaf.
+        // The base (no project) and any published ancestors remain visible, so license/provenance
+        // transparency for a published adapter is preserved.
         List<Map<String, Object>> chain = registry.getLineageChain(id).stream()
+                .filter(this::mayRead)
                 .map(ArtifactLineageController::toDto)
                 .toList();
         return ResponseEntity.ok(chain);

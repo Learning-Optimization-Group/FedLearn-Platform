@@ -140,6 +140,31 @@ class ArtifactLineageControllerTest {
                 .andExpect(jsonPath("$[0].id").value(id.toString()));
     }
 
+    @Test
+    void lineage_hides_a_private_ancestor_from_a_non_participant_of_a_published_leaf() throws Exception {
+        // The read gate was applied only to the TARGET; getLineageChain returned every ancestor. A
+        // non-participant reading a PUBLISHED adapter must NOT see its PRIVATE ancestors' provenance
+        // (sha256 / base / license) — those private intermediates must be filtered out (SE-16).
+        UUID id = UUID.randomUUID(), org = UUID.randomUUID(), pid = UUID.randomUUID();
+        UUID privateAncestorId = UUID.randomUUID();
+        ModelArtifact base = artifact(UUID.randomUUID(), org, ArtifactKind.BASE_REF);          // no project -> readable
+        ModelArtifact privateAncestor =
+                projectArtifact(privateAncestorId, org, ArtifactKind.LORA_ADAPTER, pid);        // unpublished, private
+        ModelArtifact target = projectArtifact(id, org, ArtifactKind.LORA_ADAPTER, pid);
+        target.setPublished(true);
+
+        when(artifacts.findById(id)).thenReturn(Optional.of(target));
+        when(registry.getLineageChain(id)).thenReturn(List.of(base, privateAncestor, target));
+        when(authz.isParticipant(any())).thenReturn(false);                                     // outsider
+
+        mvc(scopeOf(org)).perform(get("/api/artifacts/{id}/lineage", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))                                     // base + published leaf only
+                .andExpect(jsonPath("$[0].kind").value("BASE_REF"))
+                .andExpect(jsonPath("$[1].id").value(id.toString()))
+                .andExpect(jsonPath("$[?(@.id=='" + privateAncestorId + "')]").doesNotExist());  // private ancestor gone
+    }
+
     private OrgScope scopeOf(UUID... orgs) {
         OrgScope s = new OrgScope();
         s.set(Set.of(orgs), false);
