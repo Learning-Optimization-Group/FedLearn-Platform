@@ -99,9 +99,20 @@ export class AuthService {
    * Update the backend API URL and persist it for future launches.
    */
   setApiUrl(url: string): void {
+    const changed = url !== this.apiBaseUrl;
     this.apiBaseUrl = url;
     this.store.set(SERVER_URL_KEY, url);
     log.info(`[AuthService] API base URL updated to: ${url}`);
+    if (changed) {
+      // Security: a JWT (and the login credentials) are minted by ONE backend and must NEVER be sent to
+      // a different host. Repointing the server URL — whether a legitimate switch or a compromised
+      // renderer calling setServerUrl('https://attacker...') — invalidates the current session, so clear
+      // it here. Otherwise the very next authenticated call would ship the Bearer token to the newly-set
+      // host. handleSessionExpired() clears the store + in-memory session and signals the renderer to
+      // re-auth (guarded so it only signals when there actually was a session). Startup loads apiBaseUrl
+      // directly in the constructor, not via setApiUrl, so persisted sessions survive a normal relaunch.
+      this.handleSessionExpired();
+    }
   }
 
   /**

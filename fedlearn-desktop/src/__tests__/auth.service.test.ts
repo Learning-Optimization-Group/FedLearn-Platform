@@ -257,3 +257,36 @@ describe('AuthService login/logout lifecycle (DE-11)', () => {
     post.mockRestore();
   });
 });
+
+// Client-audit HIGH: a JWT is minted by ONE backend and must never be sent to a different host. If the
+// server URL is repointed (a compromised renderer calling setServerUrl, or a legitimate server switch),
+// changing it must clear the session so the token/credentials are never delivered to the newly-set host.
+describe('AuthService.setApiUrl — a server change clears the session', () => {
+  beforeEach(() => {
+    (safeStorage.isEncryptionAvailable as jest.Mock).mockReturnValue(true);
+  });
+
+  it('clears the session and signals re-auth when the server URL changes', () => {
+    const { win, send } = fakeWindow();
+    const auth = new AuthService(win);
+    asInternals(auth).storeJwt('jwt-abc', 'alice');
+    expect(auth.isAuthenticated()).toBe(true);
+
+    auth.setApiUrl('https://attacker.example/api'); // renderer repoints the API base to a foreign host
+
+    expect(auth.isAuthenticated()).toBe(false);          // the old JWT is gone
+    expect(auth.getAuthHeader()).toBeNull();             // nothing to leak to the new host
+    expect(send).toHaveBeenCalledWith('auth:session-expired');
+  });
+
+  it('does not clear the session when setApiUrl keeps the same URL', () => {
+    const { win, send } = fakeWindow();
+    const auth = new AuthService(win);
+    asInternals(auth).storeJwt('jwt-abc', 'alice');
+
+    auth.setApiUrl(auth.getApiUrl()); // re-saving the unchanged URL must not drop the session
+
+    expect(auth.isAuthenticated()).toBe(true);
+    expect(send).not.toHaveBeenCalled();
+  });
+});
