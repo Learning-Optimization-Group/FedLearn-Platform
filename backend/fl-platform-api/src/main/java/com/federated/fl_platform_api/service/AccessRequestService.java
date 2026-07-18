@@ -58,10 +58,12 @@ public class AccessRequestService {
         }
 
         if (project.getVisibility() == ProjectVisibility.PRIVATE) {
-            // Invite-only: a private project is not joinable by self-request. The
-            // owner adds participants directly via MembershipController.
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                "This project is private (invite-only). Ask the owner to add you.");
+            // Invite-only AND hidden: a non-participant may not learn a PRIVATE project even exists. A
+            // distinct 403 here would be an existence oracle (404 for a missing id vs 403 for a real
+            // private one), so return the SAME 404 as a nonexistent project — the owner adds participants
+            // directly via MembershipController. (The owner / existing-participant branches above already
+            // returned before this point, so only outsiders reach here.)
+            throw ResourceNotFoundException.project(projectId);
         }
 
         // RESTRICTED: upsert a PENDING request the owner must approve. @PrePersist

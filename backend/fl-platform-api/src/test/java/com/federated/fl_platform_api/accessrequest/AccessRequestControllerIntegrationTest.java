@@ -119,19 +119,32 @@ class AccessRequestControllerIntegrationTest {
     }
 
     @Test
-    void privateProject_submit_isForbidden_inviteOnly() {
+    void privateProject_submit_isHidden_404_notAnExistenceOracle() {
+        // PRIVATE = hidden + invite-only. A non-participant self-requesting access must get the SAME
+        // response as for a project that does not exist (404) — a distinct 403 "this project is private"
+        // would be an existence oracle, defeating the hidden guarantee (every user shares the Default org,
+        // so org-scope never blocks and any id can be probed).
         User alice = createUser("alice_privonly");
         createUser("bob_privonly");
         Project p = createProject(alice, ProjectVisibility.PRIVATE);
-
         String bobCookie = loginAs("bob_privonly");
+
         @SuppressWarnings({"unchecked", "rawtypes"})
-        ResponseEntity<Map> resp = restTemplate.exchange(
+        ResponseEntity<Map> existingPrivate = restTemplate.exchange(
             "/api/projects/" + p.getId() + "/access-requests",
             HttpMethod.POST,
             new HttpEntity<>(Map.of("message", "let me in"), headers(bobCookie)),
             Map.class);
-        // PRIVATE is invite-only — self-service join requests are rejected.
-        assertEquals(HttpStatus.FORBIDDEN, resp.getStatusCode());
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        ResponseEntity<Map> nonexistent = restTemplate.exchange(
+            "/api/projects/" + java.util.UUID.randomUUID() + "/access-requests",
+            HttpMethod.POST,
+            new HttpEntity<>(Map.of("message", "let me in"), headers(bobCookie)),
+            Map.class);
+
+        assertEquals(HttpStatus.NOT_FOUND, existingPrivate.getStatusCode(),
+            "an outsider's request for a PRIVATE project must read as 'not found', not 'forbidden'");
+        assertEquals(nonexistent.getStatusCode(), existingPrivate.getStatusCode(),
+            "existing-PRIVATE and nonexistent must be indistinguishable (no existence oracle)");
     }
 }
