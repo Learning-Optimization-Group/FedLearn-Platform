@@ -1428,3 +1428,273 @@ body {
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
+
+/* ===================== App Shell (drag strip / rail / outlet / status bar) =====================
+   Additive shell vocabulary — nothing above this block is renamed or altered.
+   The shell replaces .app-header/.view-tabs/.app-footer usage in App.tsx; those
+   rules stay intact for any remaining consumers. All values resolve to tokens;
+   fixed px here are structural dimensions (strip heights, rail width), not
+   colors. */
+
+/* --- Top drag strip (~44px) — the only draggable window chrome. --- */
+
+.shell-titlebar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 44px;
+  flex-shrink: 0;
+  padding: 0 var(--space-4);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--hairline);
+  position: relative;
+  z-index: 20;
+  -webkit-app-region: drag;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* macOS hiddenInset: clear the traffic lights (trafficLightPosition x:16). */
+.shell-titlebar-mac {
+  padding-left: 84px;
+}
+
+.shell-titlebar-logo {
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+}
+
+.shell-titlebar-title {
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-line);
+  font-weight: 600;
+  color: var(--fg);
+}
+
+/* --- Update layer: overlays the outlet below the drag strip, every section. --- */
+
+.shell-update-layer {
+  position: absolute;
+  top: 44px;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  pointer-events: none;
+}
+
+.shell-update-layer > * {
+  pointer-events: auto;
+}
+
+/* Idle "Check for Updates" affordance floats top-right, chromeless. */
+.shell-update-layer .update-check-row {
+  align-self: flex-end;
+  border-bottom: none;
+  background: transparent;
+  padding: var(--space-1) var(--space-2);
+}
+
+/* Active banner states render as a floating card. Left border (state accent)
+   comes from the base .update-banner rules — only the remaining edges, radius,
+   and elevation are added here so success/error left-border colors still win. */
+.shell-update-layer .update-banner {
+  margin: var(--space-2) var(--space-3) 0;
+  border-top: 1px solid var(--hairline);
+  border-right: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+}
+
+/* --- Shell body: rail + section outlet. --- */
+
+.shell-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* --- Left icon rail (64px). --- */
+
+.rail {
+  width: 64px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--space-3) 0;
+  background: var(--surface-1);
+  border-right: 1px solid var(--hairline);
+}
+
+.rail-items,
+.rail-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.rail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-0_5);
+  width: 56px;
+  padding: var(--space-2) 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: color var(--duration-base) var(--ease-out),
+    background-color var(--duration-base) var(--ease-out);
+}
+
+.rail-item:hover {
+  color: var(--fg);
+  background: var(--surface-2);
+}
+
+.rail-item-active,
+.rail-item-active:hover {
+  color: var(--accent);
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.rail-item-label {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  font-weight: 500;
+  letter-spacing: var(--text-caption-tracking);
+}
+
+/* Non-interactive account identity above Sign out. */
+.rail-user {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-0_5);
+  width: 56px;
+  padding: var(--space-2) 0;
+  color: var(--fg-subtle);
+}
+
+/* --- Section outlet: sections mount once, visibility via CSS only. --- */
+
+.shell-outlet {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mirrors the retired .app-main framing so section content keeps its insets. */
+.shell-section {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-6);
+  overflow: hidden;
+  position: relative;
+}
+
+.shell-section-hidden {
+  display: none;
+}
+
+/* --- Bottom status bar (persistent, shell-owned). --- */
+
+.statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  height: 32px;
+  flex-shrink: 0;
+  padding: 0 var(--space-4);
+  background: var(--surface-1);
+  border-top: 1px solid var(--hairline);
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  color: var(--fg-muted);
+  position: relative;
+  z-index: 10;
+}
+
+.statusbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.statusbar-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.statusbar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--fg-subtle);
+  flex-shrink: 0;
+}
+
+.statusbar-dot-ok {
+  background: var(--success);
+}
+
+.statusbar-host {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusbar-chip {
+  border: 1px solid var(--hairline);
+  background: var(--surface-2);
+  border-radius: var(--radius-pill);
+  padding: var(--space-0_5) var(--space-2);
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+/* Trim the reused StatusIndicator badge to strip scale (scoped, additive). */
+.statusbar .status-indicator {
+  padding: var(--space-0_5) var(--space-3);
+}
+
+.statusbar-run-detail {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.statusbar-version {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+  font-size: var(--text-caption-size);
+  color: var(--fg-subtle);
+  flex-shrink: 0;
+}

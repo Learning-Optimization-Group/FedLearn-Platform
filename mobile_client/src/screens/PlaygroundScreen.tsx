@@ -9,7 +9,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Play, Send, Square } from 'lucide-react-native';
 
@@ -39,10 +38,10 @@ const isClassifyModel = (m: InferableModel) =>
 
 // Server-side model playground — parity with the desktop "Use a Model" tab: pick a trained model and
 // either classify an input (vector/text) or hold a streaming chat with a generative model. Tokens
-// stream over STOMP (/topic/inference/{projectId}); the on-device native-inference path stays on the
-// Testing tab.
+// stream over STOMP (/topic/inference/{projectId}); the on-device native-inference path lives on the
+// ModelTesting push. Pushed over the tabs from the Models hub — the native-stack header owns the
+// title and back affordance, so no h2 self-title and no manual top inset here.
 export function PlaygroundScreen() {
-  const insets = useSafeAreaInsets(); // top safe area on the root; bottom belongs to the tab bar
   const { colors } = useThemeTokens();
   const [mode, setMode] = useState<Mode>('classify');
   const [models, setModels] = useState<InferableModel[]>([]);
@@ -79,13 +78,9 @@ export function PlaygroundScreen() {
   }, [mode, models]);
 
   return (
-    <ScrollView
-      className="flex-1 bg-canvas"
-      style={{ paddingTop: insets.top }}
-      keyboardShouldPersistTaps="handled">
+    <ScrollView className="flex-1 bg-canvas" keyboardShouldPersistTaps="handled">
       <View className="px-4 pt-4 pb-2">
-        <Text className="text-h2 font-sans text-fg">Playground</Text>
-        <Text className="text-caption font-sans text-fg-muted mt-1">Run a trained model on the server.</Text>
+        <Text className="text-caption font-sans text-fg-muted">Run a trained model on the server.</Text>
       </View>
 
       {/* Mode switch */}

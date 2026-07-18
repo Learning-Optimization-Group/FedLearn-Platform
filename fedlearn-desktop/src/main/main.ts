@@ -9,7 +9,8 @@
 // No use of the deprecated 'remote' module.
 // =============================================================================
 
-import { app, BrowserWindow, session, crashReporter } from 'electron';
+import { app, BrowserWindow, Menu, session, crashReporter } from 'electron';
+import type { MenuItemConstructorOptions } from 'electron';
 import * as path from 'path';
 import log from 'electron-log';
 import { registerIpcHandlers, getDockerService } from './ipc.handlers';
@@ -31,12 +32,40 @@ let mainWindow: BrowserWindow | null = null;
 
 const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
 
+// Application menu with STANDARD ROLES ONLY: restores the system copy/paste,
+// zoom, and window shortcuts without custom items or IPC. Section-switching
+// shortcuts (Cmd/Ctrl+1..3) live in a renderer keydown listener, deliberately
+// NOT here — a menu item reaching the renderer would require a new IPC channel.
+function setApplicationMenu(): void {
+  const template: MenuItemConstructorOptions[] = [
+    ...(process.platform === 'darwin'
+      ? ([{ role: 'appMenu' }] as MenuItemConstructorOptions[])
+      : []),
+    { role: 'editMenu' },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    { role: 'windowMenu' },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 960,
-    minHeight: 640,
+    // Shell layout budget: 64px rail + ~380px setup column + usable log pane
+    // needs >= 1024 wide; drag strip + checklist + logs + status bar needs
+    // >= 700 tall.
+    width: 1360,
+    height: 860,
+    minWidth: 1024,
+    minHeight: 700,
     title: 'FedLearn Desktop',
     // Mirrors the light canvas token from design/tokens.json — the main
     // process cannot read CSS vars, so this literal must be kept in sync
@@ -139,6 +168,7 @@ function createWindow(): void {
 // ========== App Lifecycle ==========
 
 app.whenReady().then(() => {
+  setApplicationMenu();
   createWindow();
 
   app.on('activate', () => {

@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DeviceInfo from 'react-native-device-info';
-import { LogOut, Server, Cpu } from 'lucide-react-native';
+import { LogOut, Server, Cpu, Smartphone } from 'lucide-react-native';
 
 import { api } from '../lib/restClient';
 import { getServerBaseUrl, setServerBaseUrl } from '../lib/serverConfig';
@@ -86,6 +86,31 @@ export function SettingsScreen() {
         ) : null}
       </View>
 
+      {/* This device — what hardware/app the rest of the screens talk about. All values come
+          from the existing device-info source (react-native-device-info sync getters). */}
+      <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
+        <View className="flex-row items-center mb-1">
+          <Smartphone color={colors.fg} size={18} strokeWidth={1.5} />
+          <Text className="text-label font-sans font-semibold text-fg ml-2">This device</Text>
+        </View>
+        <View className="mt-1 flex-row justify-between">
+          <Text className="text-caption font-sans text-fg-muted">Platform</Text>
+          <Text className="text-caption font-sans text-fg">
+            {Platform.OS === 'ios' ? 'iOS' : 'Android'} {DeviceInfo.getSystemVersion()}
+          </Text>
+        </View>
+        <View className="mt-1 flex-row justify-between">
+          <Text className="text-caption font-sans text-fg-muted">Model</Text>
+          <Text className="text-caption font-sans text-fg">{DeviceInfo.getModel()}</Text>
+        </View>
+        <View className="mt-1 flex-row justify-between">
+          <Text className="text-caption font-sans text-fg-muted">App version</Text>
+          <Text className="text-caption font-mono text-fg">
+            {DeviceInfo.getVersion()} ({DeviceInfo.getBuildNumber()})
+          </Text>
+        </View>
+      </View>
+
       {/* Backend server */}
       <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
         <View className="flex-row items-center mb-2">
@@ -151,15 +176,9 @@ export function SettingsScreen() {
         </Text>
       </View>
 
-      {/* Account */}
+      {/* Account (the app-version row moved into the This-device card above) */}
       <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
         <Text className="text-label font-sans font-semibold text-fg mb-2">Account</Text>
-        <View className="flex-row justify-between mb-3">
-          <Text className="text-caption font-sans text-fg-muted">App version</Text>
-          <Text className="text-caption font-mono text-fg">
-            {DeviceInfo.getVersion()} ({DeviceInfo.getBuildNumber()})
-          </Text>
-        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Sign out"

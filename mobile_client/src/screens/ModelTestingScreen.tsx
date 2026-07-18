@@ -1,6 +1,7 @@
+// Pushed over the tabs from the Models hub — the native-stack header owns the title and back
+// affordance, so this screen renders no h2 self-title and takes no manual top inset.
 import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Eraser, Play } from 'lucide-react-native';
 
@@ -8,13 +9,15 @@ import nativeCore, { type InferResult } from '../lib/nativeCore';
 import { listModels, type SavedModel } from '../lib/modelStore';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { useThemeTokens } from '../theme/useThemeTokens';
+import type { AppStackScreenProps } from '../navigation/types';
 
 const GRID = 8; // 8x8 input grid; the RN layer flattens it for the model (input shape is model-specific)
 const N = GRID * GRID;
 
-export function ModelTestingScreen() {
+export function ModelTestingScreen({ route }: AppStackScreenProps<'ModelTesting'>) {
   const { colors } = useThemeTokens();
-  const insets = useSafeAreaInsets(); // top safe area on the root; bottom belongs to the tab bar
+  // The Models hub passes the tapped snapshot's path; absent → newest saved model.
+  const modelPath = route.params?.modelPath;
   const [active, setActive] = useState<SavedModel | null>(null);
   const [cells, setCells] = useState<boolean[]>(() => new Array(N).fill(false));
   const [result, setResult] = useState<InferResult | null>(null);
@@ -25,14 +28,17 @@ export function ModelTestingScreen() {
       (async () => {
         try {
           const models = await listModels();
-          const first = models[0] ?? null;
-          setActive(first);
-          if (first) await nativeCore.loadModel(first.path, first.sha256); // integrity-checked
+          const chosen =
+            (modelPath ? models.find((m) => m.path === modelPath) : undefined) ??
+            models[0] ??
+            null;
+          setActive(chosen);
+          if (chosen) await nativeCore.loadModel(chosen.path, chosen.sha256); // integrity-checked
         } catch (e) {
           setError(String(e));
         }
       })();
-    }, []),
+    }, [modelPath]),
   );
 
   const toggle = useCallback((i: number) => {
@@ -61,10 +67,9 @@ export function ModelTestingScreen() {
   const rows = useMemo(() => Array.from({ length: GRID }, (_, r) => r), []);
 
   return (
-    <ScrollView className="flex-1 bg-canvas" style={{ paddingTop: insets.top }}>
+    <ScrollView className="flex-1 bg-canvas">
       <View className="px-4 pt-4 pb-2">
-        <Text className="text-h2 font-sans text-fg">Model Testing</Text>
-        <Text className="text-caption font-sans text-fg-muted mt-1">
+        <Text className="text-caption font-sans text-fg-muted">
           {active ? `Active: ${active.name}` : 'No saved model — train one first'}
         </Text>
       </View>

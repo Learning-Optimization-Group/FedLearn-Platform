@@ -60,7 +60,7 @@ artifacts, so it is gated on the build machine / `mobile.yml` CI.
 `getEnforcing()`), so **importing the spec never throws at load** even when the C++ core wasn't
 compiled in. When the module is absent the default export is a typed fallback whose methods reject
 with `native FL core unavailable on this platform` *only when invoked*, and `isNativeCoreAvailable()`
-returns `false` so the RN app disables the training entry point (see `src/screens/TrainingScreen.tsx`)
+returns `false` so the RN app disables the training entry point (see `src/screens/HomeScreen.tsx`)
 instead of launching into a crash. iOS is that absent case today: `ios/FedLearnCore.podspec` vendors a
 **libtorch** xcframework that is incompatible with the shared **ExecuTorch** core, so
 `FEDLEARN_NATIVE_IOS` stays strictly opt-in and the real iOS port is tracked in **MO-14**.
