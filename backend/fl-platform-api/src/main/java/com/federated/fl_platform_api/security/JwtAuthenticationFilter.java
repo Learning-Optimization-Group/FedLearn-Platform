@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -101,6 +102,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // Token references a deleted/disabled user. Treat as anonymous; let
             // downstream Spring Security produce a 401.
             log.info("JWT references unknown user; rejecting as anonymous");
+        } catch (DisabledException e) {
+            // Account is no longer ACTIVE (suspended / pending / soft-deleted):
+            // CustomUserDetailsService throws before any principal is built, so a
+            // suspension takes effect on the very next request — the still-valid
+            // JWT cannot keep an ended account alive until token expiry.
+            log.info("JWT references a non-active user; rejecting as anonymous");
         } catch (RuntimeException e) {
             // Catches expired, malformed, or signature-mismatched JWTs. We never
             // log the token itself, only the exception class, to avoid disclosure.

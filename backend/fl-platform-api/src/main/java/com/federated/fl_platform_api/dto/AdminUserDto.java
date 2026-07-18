@@ -10,6 +10,10 @@ public class AdminUserDto {
     private long projectsOwned;
     private long memberships;
     private Instant createdAt;
+    // Additive fields for the paginated admin directory (all nullable-safe).
+    private String status;
+    private String displayName;
+    private Instant lastLoginAt;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -25,4 +29,10 @@ public class AdminUserDto {
     public void setMemberships(long memberships) { this.memberships = memberships; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getDisplayName() { return displayName; }
+    public void setDisplayName(String displayName) { this.displayName = displayName; }
+    public Instant getLastLoginAt() { return lastLoginAt; }
+    public void setLastLoginAt(Instant lastLoginAt) { this.lastLoginAt = lastLoginAt; }
 }

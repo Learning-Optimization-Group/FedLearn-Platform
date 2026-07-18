@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Link, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -18,6 +18,14 @@ import { PlaygroundView } from './components/redesign/PlaygroundView';
 import { DatasetsView } from './components/redesign/DatasetsView';
 import { SettingsView } from './components/redesign/SettingsView';
 import { BenchmarkDashboard } from './components/redesign/BenchmarkDashboard';
+import { AdminProjectsView } from './components/redesign/AdminProjectsView';
+import { AdminProjectDetail } from './components/redesign/AdminProjectDetail';
+
+// Lazy so the audit surface loads on demand — it's an admin-only, rarely-hit
+// route and keeps the main chunk lean.
+const AuditLogView = lazy(() =>
+    import('./components/redesign/AuditLogView').then((m) => ({ default: m.AuditLogView })),
+);
 
 const AppLoading: React.FC = () => (
     <div className="flex items-center justify-center h-screen bg-canvas text-fg">
@@ -94,6 +102,16 @@ function App() {
                             not in the owner block. See NodeNetwork.tsx. */}
                         <Route element={<RoleRoute allow={['PLATFORM_ADMIN']} />}>
                             <Route path="/nodes" element={<NodeNetwork />} />
+                            <Route path="/admin/projects" element={<AdminProjectsView />} />
+                            <Route path="/admin/projects/:projectId" element={<AdminProjectDetail />} />
+                            <Route
+                                path="/admin/audit"
+                                element={
+                                    <Suspense fallback={<AppLoading />}>
+                                        <AuditLogView />
+                                    </Suspense>
+                                }
+                            />
                             <Route path="/admin/benchmarks" element={<BenchmarkDashboard />} />
                         </Route>
                     </Route>

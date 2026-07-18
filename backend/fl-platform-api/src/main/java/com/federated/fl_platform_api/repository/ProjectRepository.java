@@ -82,6 +82,31 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
                                          @Param("orgIds") Collection<UUID> orgIds);
 
     /**
+     * Admin directory search: case-insensitive substring match on project name
+     * OR owner username, optionally narrowed by visibility, ordered by name so
+     * the service layer can slice pages deterministically. Status is NOT
+     * filtered here — project status is derived from the active run at read
+     * time (BA-4, ProjectStatusService), so the service derives + filters
+     * before paginating. The owner join is a LEFT join: an ownerless project
+     * must still match on its name.
+     *
+     * <p>{@code pattern} must be a non-null, pre-lowercased LIKE pattern
+     * (caller passes {@code "%"} for match-all) — binding a nullable string
+     * through {@code LOWER(CONCAT(...))} makes Postgres infer {@code bytea}
+     * and fail with "function lower(bytea) does not exist".
+     */
+    @Query("""
+        select p from Project p
+        left join p.user owner
+        where (lower(p.name) like :pattern
+               or lower(owner.username) like :pattern)
+          and (:visibility is null or p.visibility = :visibility)
+        order by p.name asc
+    """)
+    List<Project> searchForAdmin(@Param("pattern") String pattern,
+                                 @Param("visibility") com.federated.fl_platform_api.model.ProjectVisibility visibility);
+
+    /**
      * Acquires a pessimistic write-lock on a single project row. Used by the
      * partition-assignment path to serialize concurrent connections for the
      * same project. Returns Optional.empty() if the project doesn't exist.
