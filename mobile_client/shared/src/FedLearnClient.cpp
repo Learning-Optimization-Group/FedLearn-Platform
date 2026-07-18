@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <fstream>
 #include <mutex>
 #include <sstream>
@@ -194,6 +195,12 @@ DeComFLConfig FedLearnClient::getDeComFLConfig(const std::string& runId,
   out.currentRound = resp.current_round();
   out.config.learningRate = std::stod(cfgGet(resp.config(), "lr", "0.001"));
   out.config.mu = std::stod(cfgGet(resp.config(), "mu", "0.001"));
+  // mu is the zeroth-order finite-difference radius and a DIVISOR of the g-scalar: g = Δloss / mu. A
+  // server-supplied mu of 0 makes it 0/0 = NaN, which poisons the local update AND the uploaded scalars;
+  // a non-finite mu is likewise degenerate. Reject anything that is not strictly positive and finite.
+  if (!(out.config.mu > 0.0) || !std::isfinite(out.config.mu)) {
+    throw std::runtime_error("DeComFL config: mu must be a positive finite number");
+  }
   out.config.method = parseMethod(resp.grad_estimate_method());
   out.config.torchVersion = resp.torch_version();  // carried but NOT gated by FederatedLoop
   out.seeds = fromProtoSeeds(resp.current_seeds());
@@ -419,6 +426,23 @@ Seeds2D FedLearnClient::fromProtoSeeds(const v2::PerturbationSeeds& s) {
   for (const auto& step : s.local_steps()) {
     out.emplace_back(step.seeds().begin(), step.seeds().end());
   }
+  // Validate the server-supplied seed matrix at the trust boundary: DeComFLClient::fit takes P from row 0
+  // and applies it to EVERY row (`seeds[k][p]`, unchecked operator[]) — a shorter row is an out-of-bounds
+  // heap read — and rebuildModel divides the step by P per row — an empty row (P=0) is a divide-by-zero
+  // that NaN-poisons the model. Canonical DeComFL uses a FIXED, non-zero P across the K local steps, so
+  // every row must be the same non-zero length. (An empty matrix — no local steps — is left as-is; the
+  // no-work `current_round == -1` case is handled upstream.)
+  if (!out.empty()) {
+    const size_t p = out.front().size();
+    if (p == 0) {
+      throw std::runtime_error("DeComFL seeds: empty perturbation row (P=0) from server");
+    }
+    for (const auto& row : out) {
+      if (row.size() != p) {
+        throw std::runtime_error("DeComFL seeds: jagged seed matrix from server (rows differ in length)");
+      }
+    }
+  }
   return out;
 }
 
@@ -428,8 +452,20 @@ RebuildHistory FedLearnClient::fromProtoRebuildHistory(const v2::RebuildHistory&
   for (const auto& r : h.rounds()) {
     RebuildRound rr;
     rr.roundNumber = r.round_number();
-    rr.seeds = fromProtoSeeds(r.seeds());
+    rr.seeds = fromProtoSeeds(r.seeds());  // validated rectangular + non-empty rows above
     rr.gradients = fromProtoScalars(r.average_gradients());
+    // The gradients matrix must match the seeds matrix shape EXACTLY: rebuildModel derives K and P from
+    // `seeds` and indexes `gradients[k][p]` with them (unchecked operator[]). seeds and gradients arrive
+    // in two INDEPENDENT proto fields, so a server that sends fewer gradient rows/cols than seeds triggers
+    // an out-of-bounds heap read. Reject any shape mismatch here.
+    if (rr.gradients.size() != rr.seeds.size()) {
+      throw std::runtime_error("DeComFL rebuild: gradients/seeds row count mismatch from server");
+    }
+    for (size_t k = 0; k < rr.seeds.size(); ++k) {
+      if (rr.gradients[k].size() != rr.seeds[k].size()) {
+        throw std::runtime_error("DeComFL rebuild: gradients/seeds column count mismatch from server");
+      }
+    }
     // RoundHistory carries no learning rate; FederatedLoop sets rr.learningRate from config["lr"].
     rr.learningRate = 0.0;
     out.push_back(std::move(rr));

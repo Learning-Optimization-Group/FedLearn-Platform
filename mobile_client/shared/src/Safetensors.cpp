@@ -109,7 +109,10 @@ std::vector<NamedTensor> loadSafetensors(const std::string& blob, MetadataList* 
   for (int i = 0; i < 8; ++i) {
     hlen |= static_cast<uint64_t>(static_cast<unsigned char>(blob[static_cast<size_t>(i)])) << (8 * i);
   }
-  if (8 + hlen > blob.size()) {
+  // Compare WITHOUT computing 8 + hlen: hlen is an attacker-controlled uint64, so `8 + hlen` can wrap
+  // around (e.g. hlen = 2^64-1 -> 7) and pass a `> blob.size()` test. blob.size() >= 8 is guaranteed
+  // above, so `hlen > blob.size() - 8` is the overflow-safe form.
+  if (hlen > blob.size() - 8) {
     throw std::runtime_error("safetensors: header length exceeds blob (corrupt or legacy pickle blob)");
   }
   const std::string header = blob.substr(8, static_cast<size_t>(hlen));
