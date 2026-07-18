@@ -66,6 +66,7 @@ def load_safetensors(blob: bytes) -> Tuple[List[Tuple[str, np.ndarray]], Dict[st
     base = 8 + hlen
     data_len = len(blob) - base
     out: List[Tuple[str, np.ndarray]] = []
+    total_span = 0  # sum of all tensor byte-spans; bounded by data_len (decode-amplification guard)
     for name, info in header.items():
         if not isinstance(info, dict) or not {"dtype", "shape", "data_offsets"} <= info.keys():
             raise ValueError(f"safetensors: malformed entry for tensor {name!r}")
@@ -86,6 +87,15 @@ def load_safetensors(blob: bytes) -> Tuple[List[Tuple[str, np.ndarray]], Dict[st
         if (e - s) != expected:
             raise ValueError(
                 f"safetensors: byte count {e - s} != shape {shape} size {expected} for {name!r}")
+        # Decode-amplification guard (SE): each [s,e] is already in-range, but many tensors can point at
+        # the SAME bytes so the SUM of spans (= total decoded bytes) is unbounded while the wire stays
+        # small. Canonical safetensors is contiguous (sum of spans == data length), so a running total
+        # exceeding the data section can only be overlap/duplication — reject before allocating it.
+        total_span += (e - s)
+        if total_span > data_len:
+            raise ValueError(
+                f"safetensors: total tensor bytes {total_span} exceed data section {data_len} "
+                "(overlapping/duplicated data_offsets — decode-amplification guard)")
         arr = np.frombuffer(blob[base + s:base + e], dtype="<f4").reshape(shape)
         out.append((name, arr.copy()))
     return out, meta

@@ -94,14 +94,16 @@ def test_malformed_header_entries_are_rejected(header):
         load_safetensors(_blob(header, data))
 
 
-def test_overlapping_offsets_are_accepted_and_safe():
-    # Non-overlapping/contiguous layout is NOT required on decode: two tensors that share the same
-    # data range decode to independent copies (safe — bounds are still enforced). Documents the
-    # lenient-but-safe contract so a future "tighten" doesn't mistake it for a bug.
+def test_overlapping_offsets_are_rejected_decode_amplification():
+    # Overlapping / duplicated data_offsets are a DECODE-AMPLIFICATION DoS: K tensors all pointing at
+    # the same [0,D] span decode to K*D bytes while the wire stays ~D (a tiny header lists them). The
+    # gRPC receive path caps the WIRE (SE-18, 2 GiB) but NOT the decoded size, so an unbounded sum of
+    # tensor spans OOMs the server. Canonical safetensors is contiguous (sum of spans == data length),
+    # so a total span exceeding the data section can only be overlap/duplication — reject it. (Was
+    # previously accepted as "lenient but safe"; that missed the amplification at scale.)
     blob = _blob({
         "a": {"dtype": "F32", "shape": [1], "data_offsets": [0, 4]},
-        "b": {"dtype": "F32", "shape": [1], "data_offsets": [0, 4]},
+        "b": {"dtype": "F32", "shape": [1], "data_offsets": [0, 4]},   # duplicates a's bytes -> sum 8 > data 4
     }, struct.pack("<f", 2.5))
-    out, _ = load_safetensors(blob)
-    assert {n for n, _ in out} == {"a", "b"}
-    assert all(float(arr[0]) == 2.5 for _, arr in out)
+    with pytest.raises(ValueError, match="exceed"):
+        load_safetensors(blob)
