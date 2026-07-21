@@ -15,6 +15,16 @@ add_library(fedlearn_core STATIC
   src/FederatedLoop.cpp
 )
 
+# First-order (FedAvg/FedProx) on-device training via the ExecuTorch training extension. OFF by
+# default so the existing forward-only builds — including the Android arm64 cross-compile — are
+# unchanged; enable with -DFEDLEARN_BUILD_TRAINING=ON against an ET build configured with
+# EXECUTORCH_BUILD_EXTENSION_TRAINING=ON. It adds TrainableExecutorchModel + the training libs.
+option(FEDLEARN_BUILD_TRAINING "First-order training (ET training extension + TrainableExecutorchModel)" OFF)
+if(FEDLEARN_BUILD_TRAINING)
+  target_sources(fedlearn_core PRIVATE src/TrainableExecutorchModel.cpp)
+  target_compile_definitions(fedlearn_core PUBLIC FEDLEARN_HAS_TRAINING)
+endif()
+
 # Resolve the ExecuTorch static libs out of the host build tree.
 set(_et_libs
   executorch
@@ -24,11 +34,17 @@ set(_et_libs
   extension_flat_tensor
   extension_tensor
 )
+# TrainingModule extends extension Module and pulls in the named-data-map (MergedDataMap); the
+# training extension itself supplies execute_forward_backward + the optimizer surface.
+if(FEDLEARN_BUILD_TRAINING)
+  list(APPEND _et_libs extension_training extension_module extension_named_data_map)
+endif()
 set(_resolved "")
 foreach(_lib IN LISTS _et_libs)
   find_library(ET_LIB_${_lib} NAMES ${_lib} lib${_lib}
     PATHS "${ET_BUILD}"
     PATH_SUFFIXES . lib kernels/portable extension/data_loader extension/flat_tensor extension/tensor
+                  extension/training extension/module extension/named_data_map
     NO_DEFAULT_PATH REQUIRED)
   list(APPEND _resolved "${ET_LIB_${_lib}}")
 endforeach()
