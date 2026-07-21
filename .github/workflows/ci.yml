@@ -162,6 +162,20 @@ jobs:
           npm run test:coverage   # TE-11: vitest --coverage; thresholds enforced from vitest.config.ts
           npm run build
 
+  design-tokens:
+    # The per-platform token outputs (frontend/desktop CSS, mobile TS) must stay byte-in-sync with
+    # design/tokens.json — the design-system analogue of proto-mirror. Fast + pure-node, so it runs
+    # unconditionally (no path filter): a hand-edit of a generated file, or a tokens.json change without
+    # regenerating, fails here instead of silently drifting.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Design tokens in sync with source of truth
+        run: bash scripts/check_design_tokens.sh
+
   desktop:
     needs: changes
     if: ${{ needs.changes.outputs.desktop == 'true' }}

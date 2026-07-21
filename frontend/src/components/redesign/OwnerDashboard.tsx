@@ -243,7 +243,7 @@ export function OwnerDashboard() {
                 </Button>
                 <span className="flex items-center gap-1.5">
                     <span
-                        className={cn('h-1.5 w-1.5 rounded-pill', dotOn ? 'bg-running' : 'bg-fg-subtle')}
+                        className={cn('h-1.5 w-1.5 rounded-pill', dotOn ? 'bg-accent' : 'bg-fg-subtle')}
                         aria-hidden
                     />
                     <span className="text-caption text-fg-muted">{connectionDisplay.label}</span>

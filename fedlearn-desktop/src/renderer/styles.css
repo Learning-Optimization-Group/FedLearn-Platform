@@ -129,8 +129,9 @@ body {
 }
 
 /* ========== Status Indicator ========== */
-/* Semantics: running→running (navy-bright, "active" not alarm), completed→
-   success, error→danger, pending/pulling→warning, idle/stopped→fg-muted. */
+/* Semantics: running→accent (the ONE status map — running IS the accent, not a separate
+   blue/green; matches web + mobile), completed→success, error→danger,
+   pending/pulling→warning, idle/stopped→fg-muted. */
 
 .status-indicator {
   display: flex;
@@ -182,10 +183,10 @@ body {
 
 .status-running {
   background: var(--surface-2);
-  color: var(--running);
+  color: var(--accent);
 }
 .status-running .status-dot {
-  background-color: var(--running);
+  background-color: var(--accent);
 }
 
 .status-completed {

@@ -357,7 +357,7 @@
   width: 8px;
   height: 8px;
   border-radius: var(--radius-pill);
-  background: var(--running);
+  background: var(--accent);
   flex-shrink: 0;
   animation: run-dot-pulse 1.6s var(--ease-in-out) infinite;
 }
