@@ -56,7 +56,8 @@ cmake -S . -B "${ET_BUILD_DIR}" \
   -DEXECUTORCH_BUILD_EXTENSION_TRAINING=ON \
   -DEXECUTORCH_BUILD_KERNELS_OPTIMIZED=ON
 
-cmake --build "${ET_BUILD_DIR}" -j"$(nproc)"
+# JOBS caps parallelism on memory-constrained hosts (set JOBS=4 etc.); defaults to nproc.
+cmake --build "${ET_BUILD_DIR}" -j"${JOBS:-$(nproc)}"
 
 echo "Built ExecuTorch ${ET_VERSION} (${ANDROID_ABI}) -> ${OUTPUT_DIR}"
 echo "ET_SRC=${ET_SRC_DIR}"

@@ -49,7 +49,9 @@ cmake -S . -B cmake-out \
 # gz_intmax, a symbol not defined for the Android build. NDK r27's lld is strict about undefined
 # version-script symbols (older ld silently allowed them), so the link fails with "version script
 # assignment of 'local' to symbol 'gz_intmax' failed". The flag restores the permissive behaviour.
-cmake --build cmake-out -j"$(nproc)"
+# JOBS caps parallelism on memory-constrained hosts — gRPC/abseil/protobuf templates use ~1-2 GB per
+# compile job, so -j all-cores can exhaust RAM. Default to nproc; set JOBS=4 (etc.) to bound it.
+cmake --build cmake-out -j"${JOBS:-$(nproc)}"
 cmake --install cmake-out
 
 echo "Built gRPC ${GRPC_CPP_VERSION} (${ANDROID_ABI}) -> ${OUTPUT_DIR}"
