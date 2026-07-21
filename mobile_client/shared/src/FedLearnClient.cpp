@@ -284,6 +284,14 @@ std::string FedLearnClient::getGlobalModelStream(const std::string& runId,
   return blob;
 }
 
+void FedLearnClient::submitModelUpdate(const std::string& runId, const std::string& clientId,
+                                       int trainedOnRound, const std::string& modelBlob,
+                                       int64_t numExamples) {
+  // Proto-free seam entry point (FederatedLoop's first-order round calls this). Marshal onto the
+  // chunked SubmitModelUpdateStream; the proto response carries no data the seam contract needs.
+  (void)submitModelUpdateStream(runId, clientId, trainedOnRound, modelBlob, numExamples);
+}
+
 v2::SubmitModelUpdateResponse FedLearnClient::submitModelUpdateStream(
     const std::string& runId, const std::string& clientId, int trainedOnRound,
     const std::string& modelBlob, int64_t numExamples, bool compressed) {

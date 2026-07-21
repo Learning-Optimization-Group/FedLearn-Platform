@@ -15,6 +15,9 @@
 #include "fedlearn/IFedLearnClient.h"
 #include "fedlearn/ModelManager.h"
 #include "fedlearn/Types.h"
+#ifdef FEDLEARN_HAS_TRAINING
+#include "fedlearn/TrainableExecutorchModel.h"
+#endif
 
 namespace fedlearn {
 
@@ -43,6 +46,16 @@ class FederatedLoop {
                            const std::string& clientId, const DataBatch& batch,
                            int numLocalSteps, double learningRate, double mu,
                            int numPerturbations = 1);
+
+#ifdef FEDLEARN_HAS_TRAINING
+  // One TRUE first-order (FedAvg) round via real backprop (Phase B M2): GetGlobalModelStream ->
+  // load the global weights into `model` -> K local SGD steps (execute_forward_backward + SGD in
+  // TrainableExecutorchModel::trainStep) -> serialize the updated weights -> submitModelUpdate (the
+  // weight-blob wire, NOT the ZO scalar wire). K (numLocalSteps) + learningRate are server-authoritative.
+  RoundOutcome firstOrderRound(TrainableExecutorchModel& model, const std::string& runId,
+                               const std::string& clientId, const DataBatch& batch,
+                               int numLocalSteps, double learningRate);
+#endif
 
  private:
   IFedLearnClient& net_;

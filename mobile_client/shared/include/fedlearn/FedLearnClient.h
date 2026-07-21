@@ -70,6 +70,10 @@ class FedLearnClient : public IFedLearnClient {
   // cumulative size cap + sha256), sets *outCurrentRound. Single decode site is ModelManager.
   std::string getGlobalModelStream(const std::string& runId, const std::string& clientId,
                                    int* outCurrentRound) override;
+  // Proto-free seam upload: marshals the weight blob onto SubmitModelUpdateStream (below).
+  void submitModelUpdate(const std::string& runId, const std::string& clientId,
+                         int trainedOnRound, const std::string& modelBlob,
+                         int64_t numExamples) override;
 
   // --- FedAvg path (streaming, chunked) — proto-typed, kept for the (legacy) weight-blob upload ---
   v2::SubmitModelUpdateResponse submitModelUpdateStream(const std::string& runId,

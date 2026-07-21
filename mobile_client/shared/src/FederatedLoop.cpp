@@ -153,4 +153,52 @@ RoundOutcome FederatedLoop::fedAvgRound(ExecutorchModel& model, const std::strin
   return out;
 }
 
+#ifdef FEDLEARN_HAS_TRAINING
+// M2: the TRUE first-order (FedAvg) round. Unlike fedAvgRound (ZO-SGD + scalar upload), this uses
+// TrainableExecutorchModel's real backprop and uploads the resulting WEIGHT BLOB via submitModelUpdate
+// — which is what a FedAvg-strategy server aggregates (SubmitModelUpdateStream), so this path lifts the
+// mismatch that MO-4 gated the ZO fedAvgRound off for. ModelManager owns the (de)serialization; the
+// compute is TrainableExecutorchModel. The endpoint is parity-tested against the framework's
+// LocalTrainer.fit golden (fedavg_firstorder_round_test.cpp).
+RoundOutcome FederatedLoop::firstOrderRound(TrainableExecutorchModel& model, const std::string& runId,
+                                            const std::string& clientId, const DataBatch& batch,
+                                            int numLocalSteps, double learningRate) {
+  RoundOutcome out;
+  if (net_.shouldStop()) {
+    out.shouldStop = true;
+    out.note = "abort flag set before round";
+    return out;
+  }
+
+  int currentRound = 0;
+  const std::string blob = net_.getGlobalModelStream(runId, clientId, &currentRound);
+  out.round = currentRound;
+  mm_.loadStateDict(blob);                    // codec-validated + sha-checked by the stream layer
+  model.setFlatParams(mm_.getFlatParams());   // load the fresh global weights into the trainable model
+
+  const float lr = static_cast<float>(learningRate);
+  for (int k = 0; k < numLocalSteps; ++k) {
+    if (net_.shouldStop()) {
+      out.shouldStop = true;
+      out.note = "abort during local SGD";
+      return out;
+    }
+    model.trainStep(batch.inputs, batch.inputShape, batch.targets, batch.numSamples, lr);
+  }
+
+  mm_.setFlatParams(model.getFlatParams());   // updated (locally-advanced) weights back into the manager
+  const std::string upload = mm_.serializeStateDict(batch.numSamples);
+
+  if (net_.shouldStop()) {
+    out.shouldStop = true;
+    out.note = "abort after local SGD";
+    return out;
+  }
+
+  net_.submitModelUpdate(runId, clientId, currentRound, upload, batch.numSamples);
+  out.ranTraining = true;
+  return out;
+}
+#endif  // FEDLEARN_HAS_TRAINING
+
 }  // namespace fedlearn

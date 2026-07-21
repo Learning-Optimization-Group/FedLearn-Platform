@@ -39,6 +39,13 @@ class IFedLearnClient {
   // FedAvg global-model download: returns the verified safetensors blob; sets *outCurrentRound.
   virtual std::string getGlobalModelStream(const std::string& runId, const std::string& clientId,
                                            int* outCurrentRound) = 0;
+  // FedAvg (first-order) weight-update upload: the client trained locally with real gradients and
+  // uploads the resulting model weight blob (safetensors, ModelManager::serializeStateDict) for
+  // server-side aggregation — the model-blob analogue of submitGradientScalars. Proto-free; the
+  // concrete client marshals it onto SubmitModelUpdateStream.
+  virtual void submitModelUpdate(const std::string& runId, const std::string& clientId,
+                                 int trainedOnRound, const std::string& modelBlob,
+                                 int64_t numExamples) = 0;
 };
 
 }  // namespace fedlearn

@@ -38,7 +38,10 @@ add_executable(fedlearn_core_tests
 # First-order FedAvg parity gtest — only when the training extension is built in (it links
 # TrainableExecutorchModel, which needs the ET training libs).
 if(FEDLEARN_BUILD_TRAINING)
-  target_sources(fedlearn_core_tests PRIVATE fedavg_parity_test.cpp)
+  target_sources(fedlearn_core_tests PRIVATE
+    fedavg_parity_test.cpp
+    fedavg_firstorder_round_test.cpp
+  )
 endif()
 
 target_link_libraries(fedlearn_core_tests PRIVATE

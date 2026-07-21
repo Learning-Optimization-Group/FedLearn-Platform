@@ -68,6 +68,17 @@ class MockFedLearnClient : public fedlearn::IFedLearnClient {
     lastNumExamples = numExamples;
   }
 
+  // recorder for the first-order weight-blob upload (M2)
+  std::string lastModelBlob;
+
+  void submitModelUpdate(const std::string&, const std::string&, int trainedOnRound,
+                         const std::string& modelBlob, int64_t numExamples) override {
+    submitCalled = true;
+    lastTrainedOnRound = trainedOnRound;
+    lastModelBlob = modelBlob;
+    lastNumExamples = numExamples;
+  }
+
   std::string getGlobalModelStream(const std::string&, const std::string&,
                                    int* outCurrentRound) override {
     if (outCurrentRound) *outCurrentRound = globalRound;
