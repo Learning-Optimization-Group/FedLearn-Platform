@@ -4,7 +4,8 @@
 // The platform-admin home, deliberately BOUNDED: nothing unbounded ever renders
 // here. The approval queues cap at 5 visible rows with an inline expander, the
 // platform stats deep-link into the directories, and the old full user/project
-// tables are replaced by compact 5-row "Recent" cards. Directory work (search,
+// tables are replaced by compact 5-row directory cards fed by the paginated
+// search endpoints (never the full legacy lists). Directory work (search,
 // role + status management) lives on /nodes and /admin/projects.
 // 403 from any of these means "not allowed" (shouldn't happen for an admin) and
 // is rendered inline rather than logging out.
@@ -20,8 +21,9 @@ import {
     type AdminProject,
     type OwnerRequest,
     type DeletionRequest,
+    type Paged,
 } from '../../services/apiServices';
-import { Card, Button, StatusPill, StatGroup, ConfirmDialog, SectionLabel, type StatusKind } from '../ui';
+import { Card, Button, StatusPill, StatGroup, ConfirmDialog, SectionLabel, toStatusKind } from '../ui';
 import { PageHeader } from './PageHeader';
 import { createLogger } from '../../lib/logger';
 
@@ -29,21 +31,8 @@ const log = createLogger('AdminDashboard');
 
 // Hard cap on rows a queue shows before the inline expander takes over.
 const QUEUE_CAP = 5;
-// The compact "Recent" cards always show at most this many rows.
+// Page size the compact directory cards request from the search endpoints.
 const RECENT_CAP = 5;
-
-function projectStatusKind(status: string): StatusKind {
-    switch (status?.toUpperCase()) {
-        case 'RUNNING':
-            return 'running';
-        case 'COMPLETED':
-            return 'completed';
-        case 'FAILED':
-            return 'error';
-        default:
-            return 'idle';
-    }
-}
 
 function formatDate(iso?: string): string {
     if (!iso) return '—';
@@ -71,7 +60,7 @@ function StatLink({ to, value, label }: { to: string; value: number | string; la
     );
 }
 
-/** Card header for the compact Recent cards: title + "View all →". */
+/** Card header for the compact directory cards: title + "View all →". */
 function RecentCardHeader({ title, to, linkLabel }: { title: string; to: string; linkLabel: string }) {
     return (
         <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
@@ -109,8 +98,8 @@ function QueueExpander({
 
 export function AdminDashboard() {
     const [overview, setOverview] = useState<AdminOverview | null>(null);
-    const [users, setUsers] = useState<AdminUser[]>([]);
-    const [projects, setProjects] = useState<AdminProject[]>([]);
+    const [usersPage, setUsersPage] = useState<Paged<AdminUser> | null>(null);
+    const [projectsPage, setProjectsPage] = useState<Paged<AdminProject> | null>(null);
     const [ownerRequests, setOwnerRequests] = useState<OwnerRequest[]>([]);
     const [deletionRequests, setDeletionRequests] = useState<DeletionRequest[]>([]);
     const [error, setError] = useState('');
@@ -123,14 +112,14 @@ export function AdminDashboard() {
     const loadAll = useCallback(async () => {
         const [ovr, usr, prj, own, del] = await Promise.allSettled([
             api.fetchAdminOverview(),
-            api.fetchAdminUsers(),
-            api.fetchAdminProjects(),
+            api.searchAdminUsers({ page: 0, size: RECENT_CAP }),
+            api.searchAdminProjects({ page: 0, size: RECENT_CAP }),
             api.fetchOwnerRequests('PENDING'),
             api.fetchDeletionRequests('PENDING'),
         ]);
         if (ovr.status === 'fulfilled') setOverview(ovr.value.data);
-        if (usr.status === 'fulfilled') setUsers(usr.value.data);
-        if (prj.status === 'fulfilled') setProjects(prj.value.data);
+        if (usr.status === 'fulfilled') setUsersPage(usr.value.data);
+        if (prj.status === 'fulfilled') setProjectsPage(prj.value.data);
         if (own.status === 'fulfilled') setOwnerRequests(own.value.data);
         if (del.status === 'fulfilled') setDeletionRequests(del.value.data);
 
@@ -167,16 +156,10 @@ export function AdminDashboard() {
         }
     };
 
-    // 5 newest accounts. The legacy list carries createdAt (ISO), so a plain
-    // lexicographic sort is a correct recency sort; missing values sink last.
-    const recentUsers = [...users]
-        .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
-        .slice(0, RECENT_CAP);
-
-    // The admin projects list carries no createdAt, so "newest" is approximated
-    // by the tail of the list (insertion order from the backend). Good enough
-    // for a glanceable card; the directory has real search + filters.
-    const recentProjects = projects.slice(-RECENT_CAP).reverse();
+    // First page (size RECENT_CAP) from each search endpoint — the server
+    // orders these (username / name asc), so the cards make no "newest" claim.
+    const recentUsers = usersPage?.items ?? [];
+    const recentProjects = projectsPage?.items ?? [];
 
     const visibleOwnerRequests = showAllOwnerRequests ? ownerRequests : ownerRequests.slice(0, QUEUE_CAP);
     const visibleDeletionRequests = showAllDeletionRequests
@@ -330,13 +313,19 @@ export function AdminDashboard() {
                         />
                     </section>
 
-                    {/* 3 · Recent — two glanceable read-only cards. Role and
-                        status management live in the directories, not here. */}
+                    {/* 3 · Directory snapshots — two glanceable read-only cards
+                        showing the first search page, titled "x of N" from the
+                        paginated envelope. Role and status management live in
+                        the directories, not here. */}
                     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                         <section className="flex flex-col gap-3">
-                            <h2 className={sectionTitle}>Recent users</h2>
+                            <h2 className={sectionTitle}>Users</h2>
                             <Card padding="none" className="overflow-hidden">
-                                <RecentCardHeader title="Newest accounts" to="/nodes" linkLabel="View all" />
+                                <RecentCardHeader
+                                    title={usersPage ? `${recentUsers.length} of ${usersPage.total}` : 'Users'}
+                                    to="/nodes"
+                                    linkLabel="View all"
+                                />
                                 {recentUsers.length === 0 ? (
                                     <p className="px-4 py-6 text-body text-fg-muted">No users yet.</p>
                                 ) : (
@@ -358,9 +347,13 @@ export function AdminDashboard() {
                         </section>
 
                         <section className="flex flex-col gap-3">
-                            <h2 className={sectionTitle}>Recent projects</h2>
+                            <h2 className={sectionTitle}>Projects</h2>
                             <Card padding="none" className="overflow-hidden">
-                                <RecentCardHeader title="Newest projects" to="/admin/projects" linkLabel="View all" />
+                                <RecentCardHeader
+                                    title={projectsPage ? `${recentProjects.length} of ${projectsPage.total}` : 'Projects'}
+                                    to="/admin/projects"
+                                    linkLabel="View all"
+                                />
                                 {recentProjects.length === 0 ? (
                                     <p className="px-4 py-6 text-body text-fg-muted">No projects yet.</p>
                                 ) : (
@@ -373,7 +366,7 @@ export function AdminDashboard() {
                                                         {p.ownerUsername} · {p.modelType}
                                                     </p>
                                                 </div>
-                                                <StatusPill status={projectStatusKind(p.status)} className="flex-shrink-0">
+                                                <StatusPill status={toStatusKind(p.status)} className="flex-shrink-0">
                                                     {p.status}
                                                 </StatusPill>
                                             </li>

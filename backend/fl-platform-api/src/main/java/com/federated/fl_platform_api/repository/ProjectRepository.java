@@ -16,6 +16,9 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
 
     List<Project> findByUserId(Long userId);
 
+    /** Owned-project count for the admin user DTO — avoids loading the full list. */
+    long countByUserId(Long userId);
+
     /**
      * Returns the union of projects owned by the user and projects where the
      * user appears in project_memberships (any role). Used to populate the

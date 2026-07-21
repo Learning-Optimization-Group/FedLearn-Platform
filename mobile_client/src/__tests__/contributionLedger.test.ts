@@ -48,6 +48,14 @@ describe('ContributionLedger — record + list', () => {
     expect(all.map((e) => e.round)).toEqual([2, 1]);
   });
 
+  it('serializes overlapping record() calls so neither entry is dropped', async () => {
+    // Without the internal write queue both records read the same (empty) store before
+    // either writes, and the second setItem clobbers the first entry.
+    const ledger = new ContributionLedger(memoryStorage());
+    await Promise.all([ledger.record(entry({ round: 1 })), ledger.record(entry({ round: 2 }))]);
+    expect((await ledger.list()).map((e) => e.round)).toEqual([2, 1]);
+  });
+
   it('honors the list limit', async () => {
     const ledger = new ContributionLedger(memoryStorage());
     for (let i = 1; i <= 4; i++) await ledger.record(entry({ round: i }));

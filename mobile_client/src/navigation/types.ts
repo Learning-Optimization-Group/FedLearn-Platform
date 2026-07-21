@@ -29,10 +29,10 @@ export type AppStackParamList = {
   ProjectDetail: { projectId: string };
 };
 
-/** The 4 tabs (was 6): Home is the default landing tab. */
+/** The 4 tabs (was 6): Home is the default landing tab. No tab takes params — joining a
+ *  project lives in ProjectDetail, so there is no Projects→Home selection handoff. */
 export type MainTabParamList = {
-  /** Optional selection handed over from Projects ("train this project here"). */
-  Home: { projectId?: string; projectName?: string } | undefined;
+  Home: undefined;
   Projects: undefined;
   Models: undefined;
   Settings: undefined;

@@ -50,6 +50,9 @@ public class AdminService {
     /** Open upper bound for the audit-event search (see the repository note). */
     private static final Instant FAR_FUTURE = Instant.parse("9999-12-31T23:59:59Z");
 
+    /** Hard ceiling for the paginated admin endpoints — see {@link #clampSize(int)}. */
+    private static final int MAX_PAGE_SIZE = 200;
+
     @Autowired private UserRepository userRepository;
     @Autowired private ProjectRepository projectRepository;
     @Autowired private ProjectMembershipRepository membershipRepository;
@@ -76,11 +79,18 @@ public class AdminService {
 
         PlatformRole role = PlatformRole.valueOf(newRole);
 
-        if (role == PlatformRole.USER && target.getPlatformRole() == PlatformRole.PLATFORM_ADMIN) {
-            long adminCount = userRepository.countByPlatformRole(PlatformRole.PLATFORM_ADMIN);
-            if (adminCount <= 1) {
+        // Last-admin guard, aligned with suspendUser: at least one ACTIVE
+        // PLATFORM_ADMIN must remain. Suspended admins don't count — demoting
+        // the last ACTIVE admin is a 409 even if suspended admins exist, and
+        // demoting an already-suspended admin never reduces the active count.
+        if (role != PlatformRole.PLATFORM_ADMIN
+                && target.getPlatformRole() == PlatformRole.PLATFORM_ADMIN
+                && target.getStatus() == UserStatus.ACTIVE) {
+            long activeAdmins = userRepository.countByPlatformRoleAndStatus(
+                PlatformRole.PLATFORM_ADMIN, UserStatus.ACTIVE);
+            if (activeAdmins <= 1) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Cannot demote the only remaining admin");
+                    "Cannot demote the last active platform admin");
             }
         }
         target.setPlatformRole(role);
@@ -102,6 +112,7 @@ public class AdminService {
      */
     public PagedResponseDto<AdminUserDto> searchUsers(String q, String role, String status,
                                                       int page, int size) {
+        size = clampSize(size);
         PlatformRole roleFilter = parseEnumFilter(PlatformRole.class, role, "role");
         UserStatus statusFilter = parseEnumFilter(UserStatus.class, status, "status");
         Page<User> result = userRepository.searchForAdmin(
@@ -120,8 +131,13 @@ public class AdminService {
      */
     public PagedResponseDto<ProjectResponseDto> searchProjects(String q, String status, String visibility,
                                                                int page, int size) {
+        size = clampSize(size);
         ProjectStatus statusFilter = parseEnumFilter(ProjectStatus.class, status, "status");
         ProjectVisibility visibilityFilter = parseEnumFilter(ProjectVisibility.class, visibility, "visibility");
+        // Known cost: loads the full DB match set and derives status per candidate
+        // before slicing the page. Deliberate for now — the status filter needs
+        // the derived (BA-4) status for a correct total, and derivation cannot
+        // run inside the DB query.
         List<Project> candidates = projectRepository.searchForAdmin(likePattern(q), visibilityFilter);
 
         List<Project> matched = new ArrayList<>();
@@ -191,11 +207,13 @@ public class AdminService {
     /**
      * Paginated audit-event search, newest first. {@code actor} is a username
      * resolved to the numeric actor id server-side; an unknown username matches
-     * nothing (empty page, not an error). Actor usernames on the response are
-     * resolved with one batched lookup per page — no N+1.
+     * nothing (empty page, not an error), and an unknown {@code action} behaves
+     * the same way. Actor usernames on the response are resolved with one
+     * batched lookup per page — no N+1.
      */
     public PagedResponseDto<AuditEventDto> searchAuditEvents(String actor, String action, String targetType,
                                                              Instant from, Instant to, int page, int size) {
+        size = clampSize(size);
         Long actorId = null;
         if (actor != null && !actor.isBlank()) {
             Optional<User> actorUser = userRepository.findByUsername(actor.trim());
@@ -204,7 +222,17 @@ public class AdminService {
             }
             actorId = actorUser.get().getId();
         }
-        AuditAction actionFilter = parseEnumFilter(AuditAction.class, action, "action");
+        // An unknown action matches nothing — mirror the unknown-actor filter
+        // (empty page, not a 400). Malformed from/to timestamps still 400 at
+        // the controller's Instant conversion, before this method runs.
+        AuditAction actionFilter = null;
+        if (action != null && !action.isBlank()) {
+            try {
+                actionFilter = AuditAction.valueOf(action.trim());
+            } catch (IllegalArgumentException e) {
+                return new PagedResponseDto<>(List.of(), page, size, 0);
+            }
+        }
 
         // The repository requires non-null bounds (a nullable Instant cannot be
         // bound through an IS-NULL guard on Postgres) — substitute sentinels
@@ -253,8 +281,8 @@ public class AdminService {
         d.setUsername(u.getUsername());
         d.setEmail(u.getEmail());
         d.setRole(u.getPlatformRole() != null ? u.getPlatformRole().name() : null);
-        d.setProjectsOwned(projectRepository.findByUserId(u.getId()).size());
-        d.setMemberships(membershipRepository.findByIdUserId(u.getId()).size());
+        d.setProjectsOwned(projectRepository.countByUserId(u.getId()));
+        d.setMemberships(membershipRepository.countByIdUserId(u.getId()));
         d.setCreatedAt(u.getCreatedAt());
         d.setStatus(u.getStatus() != null ? u.getStatus().name() : null);
         d.setDisplayName(u.getDisplayName());
@@ -314,6 +342,16 @@ public class AdminService {
 
     private static String normalize(String s) {
         return (s == null || s.isBlank()) ? null : s.trim();
+    }
+
+    /**
+     * Server-side page-size guard for the paginated admin endpoints: floors
+     * {@code size} at 1 and caps it at {@link #MAX_PAGE_SIZE} so a caller
+     * can't request an unbounded page. The response envelope echoes the
+     * clamped value.
+     */
+    private static int clampSize(int size) {
+        return Math.max(1, Math.min(size, MAX_PAGE_SIZE));
     }
 
     /**

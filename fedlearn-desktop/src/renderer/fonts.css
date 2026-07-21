@@ -5,16 +5,11 @@
    packaged app's CSP needs no remote font-host allowances at all. (No remote host
    literals in this file, so a regression grep over the built bundle stays clean.)
    Family names below match tokens.css (--font-sans / --font-display / --font-mono)
-   exactly, so no other CSS changes are required. Weights mirror what the app
-   previously requested from Google Fonts:
-     - Bricolage Grotesque: only weight 600 is used (see styles.css .app-title /
-       .auth-title / .pg-top-value); 400 is bundled too as the family's default.
-     - Hanken Grotesk: 400/500/600/700/800 (same set as the old Google Fonts link).
-     - JetBrains Mono: 400/500/700 (same set as the old Google Fonts link).
+   exactly, so no other CSS changes are required. Ledger uses a single sans
+   family (Bricolage Grotesque was retired with the Ember system):
+     - Hanken Grotesk: 400/500/600/700/800 (sans + display).
+     - JetBrains Mono: 400/500/700 (logs / ids).
    ============================================================================= */
-
-@import '@fontsource/bricolage-grotesque/400.css';
-@import '@fontsource/bricolage-grotesque/600.css';
 
 @import '@fontsource/hanken-grotesk/400.css';
 @import '@fontsource/hanken-grotesk/500.css';

@@ -2,8 +2,8 @@
 //   · Joined   — projects this account belongs to, each row showing what this phone has
 //                actually contributed (device-local ledger fold); tap → ProjectDetail.
 //   · Discover — everything else from the projects fetch, with device-eligibility markers.
-//                PUBLIC rows get a one-tap Join affordance that ROUTES THROUGH ProjectDetail:
-//                the join executes there, behind the privacy label (the single interstitial) —
+//                PUBLIC rows carry a visual Join chip; the row tap opens ProjectDetail and the
+//                join executes there, behind the privacy label (the single interstitial) —
 //                this screen never joins directly anymore.
 import React, { useCallback, useState } from 'react';
 import { View, Text, Pressable, FlatList, ActivityIndicator } from 'react-native';
@@ -15,6 +15,8 @@ import { collectDeviceCapabilities } from '../lib/deviceClass';
 import { eligibilitySummary } from '../lib/evaluateEligibility';
 import { annotateEligibility, listProjects } from '../lib/projectsApi';
 import { contributionLedger } from '../lib/contributionLedger';
+import { readError } from '../lib/errors';
+import { ErrorBanner } from '../components/ErrorBanner';
 import {
   canOneTapJoin,
   foldLedgerByProject,
@@ -40,6 +42,7 @@ export function ProjectPickerScreen() {
   const [rows, setRows] = useState<AnnotatedProject[]>([]);
   const [ledger, setLedger] = useState<ProjectLedgerMap>({});
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -51,6 +54,11 @@ export function ProjectPickerScreen() {
       ]);
       setRows(annotateEligibility(projects, caps));
       setLedger(foldLedgerByProject(entries));
+      setLoadError(null);
+    } catch (e) {
+      // A failed fetch must not read as "nothing to discover" / "no joined projects" —
+      // surface the real error with a Retry instead of the empty-segment copy.
+      setLoadError(readError(e));
     } finally {
       setBusy(false);
     }
@@ -106,6 +114,19 @@ export function ProjectPickerScreen() {
       {busy && rows.length === 0 ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={colors.accent} />
+        </View>
+      ) : loadError ? (
+        <View className="px-4">
+          <ErrorBanner message={loadError} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Retry"
+            className="mt-3 flex-row items-center justify-center bg-surface-1 border border-hairline rounded-md py-3 active:opacity-80"
+            onPress={() => {
+              void load();
+            }}>
+            <Text className="text-label font-sans text-accent">Retry</Text>
+          </Pressable>
         </View>
       ) : (
         <FlatList
@@ -185,15 +206,12 @@ export function ProjectPickerScreen() {
                   </Text>
                 )}
                 {canOneTapJoin(item.project) ? (
-                  // One-tap Join still routes through ProjectDetail — the privacy label is the
-                  // single interstitial and the join executes there, never from this list.
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Join ${item.project.name}`}
-                    className="mt-3 self-start px-4 py-2 rounded-md border border-accent active:opacity-80"
-                    onPress={() => open(item.project.projectId)}>
+                  // Visual-only Join chip — the row is the single touchable and it routes
+                  // through ProjectDetail (the privacy label is the single interstitial; the
+                  // join executes there). A nested pressable would just duplicate the row tap.
+                  <View className="mt-3 self-start px-4 py-2 rounded-md border border-accent">
                     <Text className="text-label font-sans text-accent">Join</Text>
-                  </Pressable>
+                  </View>
                 ) : null}
               </Pressable>
             );

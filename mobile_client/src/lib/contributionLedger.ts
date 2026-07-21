@@ -70,6 +70,10 @@ function foldTotals(entries: ContributionEntry[]): ContributionTotals {
 }
 
 export class ContributionLedger {
+  /** Tail of the internal write queue — record() chains onto it so the read-modify-write
+   *  never interleaves with another record() (overlap would drop whichever wrote first). */
+  private writeTail: Promise<void> = Promise.resolve();
+
   constructor(private readonly storage: LedgerStorage) {}
 
   /** All entries, newest first. A missing or corrupted store reads as empty (never throws). */
@@ -90,11 +94,23 @@ export class ContributionLedger {
     }
   }
 
-  /** Prepend a completed round (newest first), capped at MAX_LEDGER_ENTRIES. */
-  async record(entry: ContributionEntry): Promise<void> {
-    const all = await this.list();
-    const next = [entry, ...all].slice(0, MAX_LEDGER_ENTRIES);
-    await this.storage.setItem(KEY, JSON.stringify(next));
+  /**
+   * Prepend a completed round (newest first), capped at MAX_LEDGER_ENTRIES.
+   * Serialized through the internal write queue: overlapping record() calls run one after
+   * another, so a concurrent caller can never clobber another's freshly written entry.
+   */
+  record(entry: ContributionEntry): Promise<void> {
+    const task = this.writeTail.then(async () => {
+      const all = await this.list();
+      const next = [entry, ...all].slice(0, MAX_LEDGER_ENTRIES);
+      await this.storage.setItem(KEY, JSON.stringify(next));
+    });
+    // A failed write surfaces to THIS caller but must not wedge the queue for the next one.
+    this.writeTail = task.then(
+      () => undefined,
+      () => undefined,
+    );
+    return task;
   }
 
   /** Lifetime totals across every project (within the entry cap). */

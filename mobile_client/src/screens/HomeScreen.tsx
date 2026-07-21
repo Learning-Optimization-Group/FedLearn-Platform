@@ -4,14 +4,16 @@
 // the STOMP stream, heartbeat, and stop semantics); this screen is a view over it plus two
 // local presentation concerns: a 1s ticker for the deadline countdown and the polled device
 // metrics that finally feed DeviceBanner real data (it received a hard-coded null before).
+// Both timers are gated on screen focus — they stop while another tab is showing.
 //
 // Top-to-bottom: header + StatusBadge · DeviceBanner · NOW card (state machine) ·
 // THIS SESSION fold · recent contribution-ledger rows · live activity log · ErrorBanner.
-// One primary action per state: Join run → Start training → Stop training (danger).
+// One primary action per state: Choose a project → Start training → Stop training (danger);
+// joining lives in ProjectDetail, and a joined-but-idle run also gets a secondary Leave.
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import { Play, Square } from 'lucide-react-native';
 
 import { isNativeCoreAvailable, type DeviceMetrics } from '../lib/nativeCore';
@@ -24,7 +26,7 @@ import { StatusBadge, type StatusVariant } from '../components/StatusBadge';
 import { DeviceBanner } from '../components/DeviceBanner';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { useThemeTokens } from '../theme/useThemeTokens';
-import type { MainTabParamList, MainTabScreenProps } from '../navigation/types';
+import type { MainTabScreenProps } from '../navigation/types';
 
 const RECENT_LEDGER_ROWS = 5;
 
@@ -34,35 +36,34 @@ export function HomeScreen() {
   // Whether the native C++ FL core is compiled into this build. Absent on the iOS scaffold (MO-14),
   // where on-device training can't run — we render an explicit unavailable state instead (MO-5).
   const nativeAvailable = isNativeCoreAvailable();
-  const { state, join, startTraining, stopTraining } = useTraining();
+  const { state, startTraining, stopTraining } = useTraining();
   const { machine, joining, stopping, error, joined, logs, latestRound, serverStatus, session } =
     state;
 
-  const route = useRoute<RouteProp<MainTabParamList, 'Home'>>();
   const navigation = useNavigation<MainTabScreenProps<'Home'>['navigation']>();
-  const projectId: string = route.params?.projectId ?? '';
-  const projectName: string | undefined = route.params?.projectName;
+  const isFocused = useIsFocused();
 
   const logScrollRef = React.useRef<ScrollView | null>(null);
 
   // 1s ticker so the round-deadline countdown renders live between heartbeats (view concern —
-  // the heartbeat itself lives in the provider).
+  // the heartbeat itself lives in the provider). Focus-gated: no ticking while Home is hidden.
   const [now, setNow] = useState<number>(() => Date.now());
   useEffect(() => {
-    if (!joined) return;
+    if (!joined || !isFocused) return;
     setNow(Date.now());
     const ticker = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(ticker);
-  }, [joined]);
+  }, [joined, isFocused]);
 
   // Poll real device metrics (thermal / battery) for the DeviceBanner. The TurboModule exposes
-  // getDeviceMetrics(); gate on native availability so the iOS scaffold doesn't reject every tick.
+  // getDeviceMetrics(); gate on native availability so the iOS scaffold doesn't reject every
+  // tick, and on focus so the bridge stays quiet while another tab is showing.
   const [metrics, setMetrics] = useState<DeviceMetrics | null>(null);
   useEffect(() => {
-    if (!nativeAvailable) return;
+    if (!nativeAvailable || !isFocused) return;
     const poll = startDeviceMetricsPoll({ onMetrics: setMetrics });
     return () => poll.stop();
-  }, [nativeAvailable]);
+  }, [nativeAvailable, isFocused]);
 
   // Recent persisted contributions — refreshed on focus and after each completed round.
   const [recent, setRecent] = useState<ContributionEntry[]>([]);
@@ -122,59 +123,23 @@ export function HomeScreen() {
 
       <DeviceBanner metrics={metrics} />
 
-      {/* NOW card — driven by the shared state machine. */}
+      {/* NOW card — driven by the shared state machine. Joining lives in ProjectDetail (behind
+          the privacy label), so the not-joined state only points at the Projects tab. */}
       {!joined ? (
-        projectId ? (
-          <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
-            <Text className="text-label font-sans font-semibold text-fg mb-1">Join a training run</Text>
-            <Text className="text-caption font-sans text-fg-muted mb-3">Your data stays on this device — only learning updates are shared.</Text>
-            <Text className="text-label font-sans text-fg-muted">Selected project</Text>
-            <Text className="mt-1 text-body font-sans text-fg">{projectName ?? projectId}</Text>
-            {projectName ? (
-              <Text className="mt-0.5 text-caption font-mono text-fg-subtle">{projectId}</Text>
-            ) : null}
-            <Pressable
-              accessibilityRole="link"
-              accessibilityLabel="Change project"
-              className="mt-3 py-2 self-start active:opacity-80"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              onPress={() => navigation.navigate('Projects')}>
-              <Text className="text-body font-sans text-accent">Change project</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Join run"
-              accessibilityState={{ disabled: joining }}
-              className={`mt-4 flex-row items-center justify-center bg-accent rounded-md py-3 active:opacity-80 ${
-                joining ? 'opacity-50' : ''
-              }`}
-              disabled={joining}
-              onPress={() => {
-                void join(projectId, projectName);
-              }}>
-              {joining ? (
-                <ActivityIndicator color={colors['accent-fg']} />
-              ) : (
-                <Text className="text-accent-fg text-label font-sans">Join run</Text>
-              )}
-            </Pressable>
-          </View>
-        ) : (
-          <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
-            <Text className="text-label font-sans font-semibold text-fg mb-1">This phone is idle</Text>
-            <Text className="text-caption font-sans text-fg-muted mb-3">
-              Pick a project to train on this device. Your data stays here — only learning updates are
-              shared.
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Choose a project"
-              className="flex-row items-center justify-center bg-accent rounded-md py-3 active:opacity-80"
-              onPress={() => navigation.navigate('Projects')}>
-              <Text className="text-accent-fg text-label font-sans">Choose a project</Text>
-            </Pressable>
-          </View>
-        )
+        <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
+          <Text className="text-label font-sans font-semibold text-fg mb-1">This phone is idle</Text>
+          <Text className="text-caption font-sans text-fg-muted mb-3">
+            Pick a project to train on this device. Your data stays here — only learning updates are
+            shared.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Choose a project"
+            className="flex-row items-center justify-center bg-accent rounded-md py-3 active:opacity-80"
+            onPress={() => navigation.navigate('Projects')}>
+            <Text className="text-accent-fg text-label font-sans">Choose a project</Text>
+          </Pressable>
+        </View>
       ) : (
         <>
           <View className="mx-4 mt-3 p-4 rounded-card bg-surface-1 border border-hairline">
@@ -288,16 +253,38 @@ export function HomeScreen() {
               </Pressable>
             </>
           ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Start training"
-              className="mx-4 mt-3 flex-row items-center justify-center bg-accent rounded-md py-3 active:opacity-80"
-              onPress={() => {
-                void startTraining();
-              }}>
-              <Play color={colors['accent-fg']} size={18} strokeWidth={1.5} />
-              <Text className="text-accent-fg text-label font-sans ml-2">Start training</Text>
-            </Pressable>
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Start training"
+                className="mx-4 mt-3 flex-row items-center justify-center bg-accent rounded-md py-3 active:opacity-80"
+                onPress={() => {
+                  void startTraining();
+                }}>
+                <Play color={colors['accent-fg']} size={18} strokeWidth={1.5} />
+                <Text className="text-accent-fg text-label font-sans ml-2">Start training</Text>
+              </Pressable>
+              {/* Secondary exit for a joined-but-idle run — without it the phone is stuck if
+                  the project stops being listed (ProjectDetail's Leave becomes unreachable).
+                  Same leave/stop path ProjectDetail uses. */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Leave run"
+                accessibilityState={{ disabled: stopping }}
+                className={`mx-4 mt-3 flex-row items-center justify-center bg-surface-1 border border-hairline rounded-md py-3 active:opacity-80 ${
+                  stopping ? 'opacity-50' : ''
+                }`}
+                disabled={stopping}
+                onPress={() => {
+                  void stopTraining();
+                }}>
+                {stopping ? (
+                  <ActivityIndicator color={colors.danger} />
+                ) : (
+                  <Text className="text-danger text-label font-sans">Leave run</Text>
+                )}
+              </Pressable>
+            </>
           )}
         </>
       )}

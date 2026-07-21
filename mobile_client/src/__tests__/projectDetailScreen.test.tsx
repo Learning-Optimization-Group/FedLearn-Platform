@@ -65,6 +65,7 @@ jest.mock('../state/TrainingContext', () => ({
 
 import { ProjectDetailScreen } from '../screens/ProjectDetailScreen';
 import {
+  allElements,
   flush,
   press,
   pressableByLabel,
@@ -269,6 +270,36 @@ describe('joined run', () => {
     expect(screenText()).toContain('already joined to ECG Study');
     expect(pressableLabels()).not.toContain('Join training run');
     expect(pressableLabels()).not.toContain('Leave run');
+  });
+});
+
+describe('load failure', () => {
+  const bannerMessages = () => allElements().map((e) => e.props.message);
+
+  test('a failed fetch shows the error + Retry, never the "not visible anymore" copy', async () => {
+    mockListProjects.mockRejectedValue(new Error('network down'));
+    renderScreen('p-public');
+    await focusScreen();
+    expect(bannerMessages()).toContain('network down');
+    expect(bannerMessages()).not.toContain('This project is not visible to this account anymore.');
+    expect(pressableByLabel('Retry')).toBeTruthy();
+  });
+
+  test('a successful load that lacks the project still reads "not visible anymore"', async () => {
+    mockListProjects.mockResolvedValue([]);
+    renderScreen('p-public');
+    await focusScreen();
+    expect(bannerMessages()).toContain('This project is not visible to this account anymore.');
+    expect(pressableLabels()).not.toContain('Retry');
+  });
+
+  test('Retry reloads and recovers the project card', async () => {
+    mockListProjects.mockRejectedValueOnce(new Error('network down'));
+    renderScreen('p-public');
+    await focusScreen();
+    await press(pressableByLabel('Retry'));
+    expect(screenText()).toContain('Open MNIST');
+    expect(bannerMessages()).not.toContain('network down');
   });
 });
 

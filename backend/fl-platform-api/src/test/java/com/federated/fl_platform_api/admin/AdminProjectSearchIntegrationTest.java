@@ -169,6 +169,23 @@ class AdminProjectSearchIntegrationTest {
     }
 
     @Test
+    void oversizedPageSize_isClampedTo200() {
+        String cookie = seedThreeProjectsAndLoginAdmin();
+
+        ResponseEntity<Map> resp = search(cookie, "?size=100000");
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        assertEquals(200, ((Number) resp.getBody().get("size")).intValue());
+        assertEquals(3, total(resp));
+
+        // Floor: a size below 1 clamps up to 1.
+        ResponseEntity<Map> floored = search(cookie, "?size=0");
+        assertEquals(HttpStatus.OK, floored.getStatusCode());
+        assertEquals(1, ((Number) floored.getBody().get("size")).intValue());
+        assertEquals(1, items(floored).size());
+        assertEquals(3, total(floored));
+    }
+
+    @Test
     void invalidVisibilityFilter_returns400() {
         String cookie = seedThreeProjectsAndLoginAdmin();
 

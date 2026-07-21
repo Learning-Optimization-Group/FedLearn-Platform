@@ -79,6 +79,17 @@ describe('TrainSection — running state swap', () => {
     expect(html).toMatch(/<button[^>]*id="stop-training-button"/);
   });
 
+  it.each(['restarting', 'paused'] as const)(
+    'treats %s as an active run — running layout, never the setup card',
+    (status) => {
+      const html = renderTrain({ status });
+      expect(html).toContain('run-header');
+      expect(html).toMatch(/<button[^>]*id="stop-training-button"/);
+      expect(html).not.toContain('id="start-training-button"');
+      expect(html).not.toContain('Readiness');
+    },
+  );
+
   it('accepts the legacy isRunning boolean when no status is supplied', () => {
     const running = renderTrain({ status: undefined, isRunning: true });
     expect(running).toMatch(/<button[^>]*id="stop-training-button"/);

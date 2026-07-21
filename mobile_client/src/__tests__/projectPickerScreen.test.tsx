@@ -181,22 +181,26 @@ describe('Discover segment', () => {
     expect(text).not.toContain('Thermal Study');
   });
 
-  test('the PUBLIC one-tap Join routes through ProjectDetail and never joins directly', async () => {
+  test('the PUBLIC row routes through ProjectDetail; the Join chip is visual only', async () => {
     renderScreen();
     await focusScreen();
     await press(pressableByLabel('Discover'));
-    await press(pressableByLabel('Join Open MNIST', flatListRows()));
+    const rows = flatListRows();
+    // The row is the single touchable — no nested Join pressable duplicating its onPress.
+    expect(pressables(rows)).toHaveLength(rows.length);
+    await press(pressableByLabel('Open MNIST — recommended', rows));
     expect(mockNavigate).toHaveBeenCalledWith('ProjectDetail', { projectId: 'p-public' });
     expect(mockJoinProject).not.toHaveBeenCalled();
   });
 
-  test('non-PUBLIC rows get no Join affordance (approval flows live in ProjectDetail)', async () => {
+  test('non-PUBLIC rows get no Join chip (approval flows live in ProjectDetail)', async () => {
     renderScreen();
     await focusScreen();
     await press(pressableByLabel('Discover'));
-    const labels = pressables(flatListRows()).map((e) => e.props.accessibilityLabel);
-    expect(labels).toContain('Join Open MNIST');
-    expect(labels).not.toContain('Join Hospital ECG');
+    const rows = flatListRows();
+    const rowText = (name: string) => rows.map(textOf).find((t) => t.includes(name)) ?? '';
+    expect(rowText('Open MNIST')).toContain('Join');
+    expect(rowText('Hospital ECG')).not.toContain('Join');
   });
 
   test('tapping a discover row opens ProjectDetail', async () => {
@@ -205,5 +209,27 @@ describe('Discover segment', () => {
     await press(pressableByLabel('Discover'));
     await press(pressableByLabel('Hospital ECG — recommended', flatListRows()));
     expect(mockNavigate).toHaveBeenCalledWith('ProjectDetail', { projectId: 'p-restricted' });
+  });
+});
+
+describe('load failure', () => {
+  test('a failed fetch shows the error + Retry, never the misleading empty-segment copy', async () => {
+    mockListProjects.mockRejectedValue(new Error('network down'));
+    renderScreen();
+    await focusScreen();
+    // The list (and with it the "No joined projects" / "Nothing to discover" empty states)
+    // must not render — the error banner + Retry replace it.
+    expect(() => flatListRows()).toThrow('no FlatList');
+    expect(allElements().map((e) => e.props.message)).toContain('network down');
+    expect(pressableByLabel('Retry')).toBeTruthy();
+  });
+
+  test('Retry reloads and recovers the list', async () => {
+    mockListProjects.mockRejectedValueOnce(new Error('network down'));
+    renderScreen();
+    await focusScreen();
+    await press(pressableByLabel('Retry'));
+    expect(flatListRows().map(textOf).join('\n')).toContain('Thermal Study');
+    expect(allElements().map((e) => e.props.message)).not.toContain('network down');
   });
 });

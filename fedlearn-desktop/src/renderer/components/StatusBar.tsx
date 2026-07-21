@@ -17,6 +17,7 @@
 
 import React, { useState, useEffect } from 'react';
 import StatusIndicator from './StatusIndicator';
+import { formatElapsed } from './trainFlow';
 import type { ContainerStatus } from '../App';
 
 export interface ActiveRun {
@@ -36,17 +37,6 @@ interface StatusBarProps {
   activeRun: ActiveRun | null;
   appVersion: string;
 }
-
-/** mm:ss under an hour, h:mm:ss beyond. */
-const formatElapsed = (ms: number): string => {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return h > 0
-    ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-    : `${m}:${String(s).padStart(2, '0')}`;
-};
 
 const StatusBar: React.FC<StatusBarProps> = ({
   containerStatus,

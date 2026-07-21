@@ -21,6 +21,9 @@ public interface ProjectMembershipRepository
 
     List<ProjectMembership> findByIdUserId(Long userId);
 
+    /** Membership count for the admin user DTO — avoids loading the full list. */
+    long countByIdUserId(Long userId);
+
     Optional<ProjectMembership> findByIdProjectIdAndIdUserId(UUID projectId, Long userId);
 
     /**

@@ -40,6 +40,7 @@ export function ProjectDetailScreen({ route }: AppStackScreenProps<'ProjectDetai
   const [annotated, setAnnotated] = useState<AnnotatedProject | null>(null);
   const [history, setHistory] = useState<ContributionEntry[]>([]);
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [joinBusy, setJoinBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -56,6 +57,11 @@ export function ProjectDetailScreen({ route }: AppStackScreenProps<'ProjectDetai
       );
       setAnnotated(found ?? null);
       setHistory(entries);
+      setLoadError(null);
+    } catch (e) {
+      // A failed fetch is NOT "project gone" — keep that copy for a successful load that
+      // doesn't contain this project, and surface the real error with a Retry instead.
+      setLoadError(readError(e));
     } finally {
       setBusy(false);
     }
@@ -143,6 +149,19 @@ export function ProjectDetailScreen({ route }: AppStackScreenProps<'ProjectDetai
         <View className="items-center mt-8">
           <ActivityIndicator color={colors.accent} />
         </View>
+      ) : loadError ? (
+        <>
+          <ErrorBanner message={loadError} className="mx-4 mt-4" />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Retry"
+            className="mx-4 mt-3 flex-row items-center justify-center bg-surface-1 border border-hairline rounded-md py-3 active:opacity-80"
+            onPress={() => {
+              void load();
+            }}>
+            <Text className="text-label font-sans text-accent">Retry</Text>
+          </Pressable>
+        </>
       ) : (
         <ErrorBanner
           message="This project is not visible to this account anymore."

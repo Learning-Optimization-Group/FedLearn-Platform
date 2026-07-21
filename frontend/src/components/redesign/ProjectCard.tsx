@@ -6,7 +6,7 @@
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
 import { ResponsiveContainer, LineChart, Line, YAxis } from 'recharts';
 import { Trash2, Copy, Check, MoreHorizontal, Edit3, Play, Square, Settings2, Clock } from 'lucide-react';
-import { Card, Button, Input, Modal, FormField, MetricTile, StatusPill, ConfirmDialog, type StatusKind } from '../ui';
+import { Card, Button, Input, Modal, FormField, MetricTile, StatusPill, ConfirmDialog, toStatusKind } from '../ui';
 import { useAuth } from '../../context/AuthContext';
 import type { Project, ProjectResult } from '../../services/apiServices';
 
@@ -37,22 +37,6 @@ interface ProjectCardProps {
    * request-deletion). When provided, a "Manage" item appears in the menu.
    */
   onManageProject?: () => void;
-}
-
-/** Map domain status -> the 5 Ember status kinds. */
-function toStatusKind(status: Project['status']): StatusKind {
-  switch (status) {
-    case 'INITIALIZING':
-      return 'pending';
-    case 'RUNNING':
-      return 'running';
-    case 'COMPLETED':
-      return 'completed';
-    case 'FAILED':
-      return 'error';
-    default:
-      return 'idle';
-  }
 }
 
 /** Plain-language status label shown to people. */

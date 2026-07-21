@@ -230,12 +230,43 @@ class AdminAuditEventsIntegrationTest {
     }
 
     @Test
-    void invalidActionOrTimestamp_returns400() {
-        createUser("admin_ae8", PlatformRole.PLATFORM_ADMIN);
+    void unknownAction_returnsEmptyPage() {
+        // Mirrors the unknown-actor filter: an action that matches no enum
+        // constant matches no events — empty page, not a 400.
+        User admin = createUser("admin_ae8", PlatformRole.PLATFORM_ADMIN);
+        seedEvent(AuditAction.PROJECT_CREATED, admin.getId(), "PROJECT", "p-1");
         String cookie = loginAs("admin_ae8");
 
-        assertEquals(HttpStatus.BAD_REQUEST, query(cookie, "?action=NOT_AN_ACTION").getStatusCode());
+        ResponseEntity<Map> resp = query(cookie, "?action=NOT_AN_ACTION");
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        assertEquals(0, total(resp));
+        assertTrue(items(resp).isEmpty());
+    }
+
+    @Test
+    void malformedTimestamp_returns400() {
+        createUser("admin_ae8b", PlatformRole.PLATFORM_ADMIN);
+        String cookie = loginAs("admin_ae8b");
+
         assertEquals(HttpStatus.BAD_REQUEST, query(cookie, "?from=yesterday").getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, query(cookie, "?to=not-a-time").getStatusCode());
+    }
+
+    @Test
+    void oversizedPageSize_isClampedTo200() {
+        User admin = createUser("admin_ae10", PlatformRole.PLATFORM_ADMIN);
+        seedEvent(AuditAction.PROJECT_CREATED, admin.getId(), "PROJECT", "p-1");
+        String cookie = loginAs("admin_ae10");
+
+        ResponseEntity<Map> resp = query(cookie, "?size=100000");
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        assertEquals(200, ((Number) resp.getBody().get("size")).intValue());
+
+        // Floor: a size below 1 clamps up to 1.
+        ResponseEntity<Map> floored = query(cookie, "?size=0");
+        assertEquals(HttpStatus.OK, floored.getStatusCode());
+        assertEquals(1, ((Number) floored.getBody().get("size")).intValue());
+        assertEquals(1, items(floored).size());
     }
 
     @Test

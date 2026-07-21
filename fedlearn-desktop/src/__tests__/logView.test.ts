@@ -2,9 +2,11 @@
 
 import {
   classifyLogSeverity,
+  createLogLineCache,
   filterLogLines,
   formatLogTime,
   splitLogEntries,
+  updateLogLineCache,
 } from '../renderer/components/logView';
 
 describe('classifyLogSeverity', () => {
@@ -53,6 +55,62 @@ describe('splitLogEntries', () => {
 
   it('returns an empty list for an empty buffer', () => {
     expect(splitLogEntries([])).toEqual([]);
+  });
+
+  it('numbers lines with a stable, contiguous lineIndex', () => {
+    expect(splitLogEntries(['a\nb\n', '\n', 'c']).map((l) => l.lineIndex)).toEqual([0, 1, 2]);
+  });
+});
+
+describe('updateLogLineCache (incremental split)', () => {
+  it('parses appended entries only, preserving earlier line objects and their keys', () => {
+    const cache = createLogLineCache();
+    const first = updateLogLineCache(cache, ['a\nb\n']);
+    expect(first.map((l) => [l.text, l.entryIndex, l.lineIndex])).toEqual([
+      ['a', 0, 0],
+      ['b', 0, 1],
+    ]);
+
+    const second = updateLogLineCache(cache, ['a\nb\n', 'ERROR: c\n']);
+    expect(second.map((l) => [l.text, l.entryIndex, l.lineIndex])).toEqual([
+      ['a', 0, 0],
+      ['b', 0, 1],
+      ['ERROR: c', 1, 2],
+    ]);
+    expect(second[2].severity).toBe('error');
+    // Already-parsed lines keep object identity (React.memo rows skip re-render)…
+    expect(second[0]).toBe(first[0]);
+    expect(second[1]).toBe(first[1]);
+    // …while the array reference changes because content changed.
+    expect(second).not.toBe(first);
+  });
+
+  it('returns the same array reference when nothing was appended', () => {
+    const cache = createLogLineCache();
+    const entries = ['a\n', 'b\n'];
+    const first = updateLogLineCache(cache, entries);
+    expect(updateLogLineCache(cache, entries)).toBe(first);
+  });
+
+  it('resets on clear (shorter buffer) and re-numbers from zero', () => {
+    const cache = createLogLineCache();
+    updateLogLineCache(cache, ['a\n', 'b\n']);
+    const cleared = updateLogLineCache(cache, []);
+    expect(cleared).toEqual([]);
+    const fresh = updateLogLineCache(cache, ['new run\n']);
+    expect(fresh.map((l) => [l.text, l.entryIndex, l.lineIndex])).toEqual([['new run', 0, 0]]);
+  });
+
+  it("re-splits in full when the buffer's head was trimmed (App's 10K cap)", () => {
+    const cache = createLogLineCache();
+    updateLogLineCache(cache, ['a\n', 'b\n', 'c\n']);
+    // Same length, but the oldest entry was dropped and a new one appended.
+    const trimmed = updateLogLineCache(cache, ['b\n', 'c\n', 'd\n']);
+    expect(trimmed.map((l) => [l.text, l.entryIndex, l.lineIndex])).toEqual([
+      ['b', 0, 0],
+      ['c', 1, 1],
+      ['d', 2, 2],
+    ]);
   });
 });
 

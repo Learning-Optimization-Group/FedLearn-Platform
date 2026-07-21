@@ -19,25 +19,12 @@ import {
     type Project,
     type ProjectResult,
 } from '../../services/apiServices';
-import { Button, Card, ConfirmDialog, MetricTile, SectionLabel, Skeleton, StatusPill, type StatusKind } from '../ui';
+import { Button, Card, ConfirmDialog, MetricTile, SectionLabel, Skeleton, StatusPill, toStatusKind } from '../ui';
 import { PageHeader } from './PageHeader';
 import { LogViewerV2 } from './LogViewer';
 import { createLogger } from '../../lib/logger';
 
 const log = createLogger('AdminProjectDetail');
-
-function projectStatusKind(status?: string): StatusKind {
-    switch (status?.toUpperCase()) {
-        case 'RUNNING':
-            return 'running';
-        case 'COMPLETED':
-            return 'completed';
-        case 'FAILED':
-            return 'error';
-        default:
-            return 'idle';
-    }
-}
 
 /** Mono id with a copy-to-clipboard affordance. */
 function CopyableId({ value, label }: { value: string; label: string }) {
@@ -105,22 +92,29 @@ export function AdminProjectDetail() {
     const load = useCallback(async () => {
         if (!projectId) return;
         setIsLoading(true);
-        const [prj, adminList, mem, res] = await Promise.allSettled([
+        const [prj, mem, res] = await Promise.allSettled([
             api.fetchProject(projectId),
-            api.fetchAdminProjects(),
             api.fetchMemberships(projectId),
             api.fetchProjectResults(projectId),
         ]);
         if (prj.status === 'fulfilled') setProject(prj.value.data);
-        if (adminList.status === 'fulfilled') {
-            setAdminMeta(adminList.value.data.find((p) => p.id === projectId) ?? null);
-        }
         // Members / results stay null on failure so their sections can degrade
         // to a quiet line instead of a page-level error.
         if (mem.status === 'fulfilled') setMembers(mem.value.data);
         if (res.status === 'fulfilled') setResults(res.value.data);
 
-        if (prj.status === 'rejected' && adminList.status === 'rejected') {
+        // Owner / visibility / participants only exist on the unpaginated admin
+        // list today, so that heavier call runs behind the core project fetch.
+        // Follow-up: replace with an admin project-by-id endpoint.
+        let adminListFailed = false;
+        try {
+            const adminList = await api.fetchAdminProjects();
+            setAdminMeta(adminList.data.find((p) => p.id === projectId) ?? null);
+        } catch {
+            adminListFailed = true;
+        }
+
+        if (prj.status === 'rejected' && adminListFailed) {
             setError(errorMessage(prj.reason, 'Could not load this project.'));
             log.warn('project detail load failed', prj.reason);
         } else {
@@ -161,7 +155,7 @@ export function AdminProjectDetail() {
                 title={name}
                 subtitle={adminMeta ? `Owned by ${adminMeta.ownerUsername}` : 'Project detail'}
             >
-                {status && <StatusPill status={projectStatusKind(status)}>{status}</StatusPill>}
+                {status && <StatusPill status={toStatusKind(status)}>{status}</StatusPill>}
                 <Button variant="secondary" size="sm" onClick={() => setShowLogs(true)} disabled={!projectId}>
                     <ScrollText className="h-3.5 w-3.5" strokeWidth={1.5} />
                     Open logs

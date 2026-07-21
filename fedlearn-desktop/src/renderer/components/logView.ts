@@ -13,6 +13,8 @@ export interface DisplayLogLine {
   text: string;
   /** Index of the App-buffer entry this line came from (for arrival times). */
   entryIndex: number;
+  /** Stable position in the flattened line list (used as the React key). */
+  lineIndex: number;
   severity: LogSeverity;
 }
 
@@ -28,19 +30,71 @@ export function classifyLogSeverity(text: string): LogSeverity {
 }
 
 /**
- * Flatten App's log-entry buffer (entries may hold several '\n'-separated
- * lines) into displayable lines. Empty segments (trailing newlines, blank
- * lines) are dropped.
+ * Incremental split cache. App's log buffer grows append-only (except on a
+ * clear, and the rare head trim when the 10K entry cap is hit), so LogPanel
+ * keeps one of these per mount and only the entries appended since the last
+ * render are split/classified per batch — never the whole buffer.
  */
-export function splitLogEntries(entries: string[]): DisplayLogLine[] {
-  const lines: DisplayLogLine[] = [];
-  for (let i = 0; i < entries.length; i++) {
+export interface LogLineCache {
+  /** Number of buffer entries already parsed into `lines`. */
+  parsedEntries: number;
+  /** Probe values used to detect a non-append-only buffer change. */
+  firstEntry: string | undefined;
+  lastParsedEntry: string | undefined;
+  /** Flattened display lines for the first `parsedEntries` entries. */
+  lines: DisplayLogLine[];
+}
+
+export function createLogLineCache(): LogLineCache {
+  return { parsedEntries: 0, firstEntry: undefined, lastParsedEntry: undefined, lines: [] };
+}
+
+/**
+ * Flatten App's log-entry buffer (entries may hold several '\n'-separated
+ * lines) into displayable lines, incrementally: only entries beyond
+ * `cache.parsedEntries` are split per call. Empty segments (trailing newlines,
+ * blank lines) are dropped. A shrunken buffer (clear) or a changed head/tail
+ * probe (App's 10K cap trimmed the oldest entries) resets the cache and
+ * re-splits in full — correctness over speed in that rare regime. (Like the
+ * arrival-time stamps, the probes compare string values, so an all-identical
+ * buffer trimmed in place can go undetected — an accepted approximation.)
+ *
+ * Identity contract: the returned array is `cache.lines`, and its reference
+ * changes only when its content changed — appended lines land in a fresh
+ * array — so callers can use it directly as a memo/effect dependency, and
+ * unchanged `DisplayLogLine` objects keep their identity for React.memo rows.
+ */
+export function updateLogLineCache(cache: LogLineCache, entries: string[]): DisplayLogLine[] {
+  const appendOnly =
+    entries.length >= cache.parsedEntries
+    && (cache.parsedEntries === 0
+      || (entries[0] === cache.firstEntry
+        && entries[cache.parsedEntries - 1] === cache.lastParsedEntry));
+  if (!appendOnly) {
+    cache.parsedEntries = 0;
+    cache.firstEntry = undefined;
+    cache.lastParsedEntry = undefined;
+    cache.lines = [];
+  }
+  if (entries.length === cache.parsedEntries) return cache.lines;
+
+  const lines = cache.lines.slice();
+  for (let i = cache.parsedEntries; i < entries.length; i++) {
     for (const seg of entries[i].split('\n')) {
       if (seg.trim() === '') continue;
-      lines.push({ text: seg, entryIndex: i, severity: classifyLogSeverity(seg) });
+      lines.push({ text: seg, entryIndex: i, lineIndex: lines.length, severity: classifyLogSeverity(seg) });
     }
   }
+  cache.parsedEntries = entries.length;
+  cache.firstEntry = entries[0];
+  cache.lastParsedEntry = entries[entries.length - 1];
+  cache.lines = lines;
   return lines;
+}
+
+/** One-shot (non-cached) flatten — the incremental path with a throwaway cache. */
+export function splitLogEntries(entries: string[]): DisplayLogLine[] {
+  return updateLogLineCache(createLogLineCache(), entries);
 }
 
 /** Case-insensitive substring filter. An empty/whitespace query keeps all. */

@@ -362,6 +362,10 @@ export function AuditLogView() {
                         </Button>
                     </div>
 
+                    {/* The error banner renders ABOVE the (possibly empty) table
+                        instead of replacing it — a bad filter value (e.g. a 400
+                        from the params) keeps the filter row + table usable, so
+                        fixing the filter recovers without retyping the URL. */}
                     {error && (
                         <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
                             <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
@@ -391,7 +395,7 @@ export function AuditLogView() {
                                 </p>
                             </div>
                         </div>
-                    ) : !error ? (
+                    ) : (
                         <Card padding="none" className="overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full border-collapse">
@@ -449,7 +453,7 @@ export function AuditLogView() {
                                 </div>
                             </div>
                         </Card>
-                    ) : null}
+                    )}
                 </div>
             </div>
         </div>

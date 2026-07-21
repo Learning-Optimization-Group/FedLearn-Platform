@@ -17,7 +17,7 @@ import {
     type Paged,
     type Visibility,
 } from '../../services/apiServices';
-import { Button, Card, Input, Select, Skeleton, StatusPill, type StatusKind } from '../ui';
+import { Button, Card, Input, Select, Skeleton, StatusPill, toStatusKind } from '../ui';
 import { PageHeader } from './PageHeader';
 
 const PAGE_SIZE = 25;
@@ -25,19 +25,6 @@ const SEARCH_DEBOUNCE_MS = 300;
 
 const STATUS_OPTIONS = ['INITIALIZING', 'CREATED', 'RUNNING', 'STOPPED', 'COMPLETED', 'FAILED'];
 const VISIBILITY_OPTIONS: Visibility[] = ['PUBLIC', 'RESTRICTED', 'PRIVATE'];
-
-function projectStatusKind(status: string): StatusKind {
-    switch (status?.toUpperCase()) {
-        case 'RUNNING':
-            return 'running';
-        case 'COMPLETED':
-            return 'completed';
-        case 'FAILED':
-            return 'error';
-        default:
-            return 'idle';
-    }
-}
 
 // SectionLabel-styled table header cell (the one uppercase micro-label).
 const th = 'px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-muted';
@@ -254,7 +241,7 @@ export function AdminProjectsView() {
                                                 <td className={`${td} font-mono tabular-nums`}>{p.participantCount}</td>
                                                 <td className={`${td} text-fg-muted`}>{p.visibility}</td>
                                                 <td className={td}>
-                                                    <StatusPill status={projectStatusKind(p.status)}>{p.status}</StatusPill>
+                                                    <StatusPill status={toStatusKind(p.status)}>{p.status}</StatusPill>
                                                 </td>
                                             </tr>
                                         ))

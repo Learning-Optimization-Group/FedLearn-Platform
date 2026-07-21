@@ -46,9 +46,10 @@ describe('role dashboards mount and render for their role', () => {
   });
 
   it('AdminDashboard renders the admin console', async () => {
+    const emptyPage = { items: [], page: 0, size: 5, total: 0 };
     vi.mocked(api.fetchAdminOverview).mockResolvedValue(ok({}) as never);
-    vi.mocked(api.fetchAdminUsers).mockResolvedValue(ok([]) as never);
-    vi.mocked(api.fetchAdminProjects).mockResolvedValue(ok([]) as never);
+    vi.mocked(api.searchAdminUsers).mockResolvedValue(ok(emptyPage) as never);
+    vi.mocked(api.searchAdminProjects).mockResolvedValue(ok(emptyPage) as never);
     vi.mocked(api.fetchOwnerRequests).mockResolvedValue(ok([]) as never);
     vi.mocked(api.fetchDeletionRequests).mockResolvedValue(ok([]) as never);
     renderWithRouter(<AdminDashboard />);

@@ -14,17 +14,48 @@
 //
 // PERFORMANCE: Per-line severity/timestamps need per-line nodes, so rendering
 // is capped at the most recent MAX_RENDERED_LINES lines (the full buffer stays
-// in App and remains searchable — filtering runs over everything).
+// in App and remains searchable — filtering runs over everything). Line parsing
+// is INCREMENTAL: a per-mount LogLineCache splits/classifies only the entries
+// appended since the last batch (App's buffer is append-only except on clear,
+// which resets the cache), line objects keep their identity, and rows are
+// memoized with stable keys so React reuses the untouched DOM nodes instead of
+// re-rendering up to MAX_RENDERED_LINES spans per batch.
 // =============================================================================
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { ScrollText, Search, ArrowDown } from 'lucide-react';
-import { splitLogEntries, filterLogLines, formatLogTime } from './logView';
+import {
+  createLogLineCache,
+  updateLogLineCache,
+  filterLogLines,
+  formatLogTime,
+  type DisplayLogLine,
+} from './logView';
 import './sections.css';
 
 interface LogPanelProps {
   logs: string[];
 }
+
+// Memoized row: with cached line objects (stable identity) and a stable
+// arrival time, appending a batch re-renders only the new rows.
+const LogLineRow = React.memo<{ line: DisplayLogLine; arrivedAt: number }>(
+  ({ line, arrivedAt }) => (
+    <span
+      className={
+        line.severity === 'error'
+          ? 'log-line log-line-error'
+          : line.severity === 'warn'
+            ? 'log-line log-line-warn'
+            : 'log-line'
+      }
+    >
+      <span className="log-time">{formatLogTime(arrivedAt)}</span>
+      {line.text}
+    </span>
+  ),
+);
+LogLineRow.displayName = 'LogLineRow';
 
 /** Upper bound on DOM log lines; the App-side buffer (10K entries) is larger. */
 const MAX_RENDERED_LINES = 2000;
@@ -49,7 +80,12 @@ const LogPanel: React.FC<LogPanelProps> = ({ logs }) => {
     entryTimesRef.current.push(Date.now());
   }
 
-  const allLines = useMemo(() => splitLogEntries(logs), [logs]);
+  // Incremental split: only entries appended since the last render are parsed.
+  // updateLogLineCache returns a new array reference only when content changed
+  // (and resets itself when the buffer shrinks on clear), so it is safe as a
+  // useMemo dependency despite living in a ref.
+  const lineCacheRef = useRef(createLogLineCache());
+  const allLines = updateLogLineCache(lineCacheRef.current, logs);
   const filtered = useMemo(() => filterLogLines(allLines, query), [allLines, query]);
   const isFiltering = query.trim() !== '';
 
@@ -124,22 +160,12 @@ const LogPanel: React.FC<LogPanelProps> = ({ logs }) => {
             node — React escapes all content, so no HTML from container output
             is ever interpreted.
           */}
-          {visible.map((line, i) => (
-            <span
-              key={hiddenCount + i}
-              className={
-                line.severity === 'error'
-                  ? 'log-line log-line-error'
-                  : line.severity === 'warn'
-                    ? 'log-line log-line-warn'
-                    : 'log-line'
-              }
-            >
-              <span className="log-time">
-                {formatLogTime(entryTimesRef.current[line.entryIndex] ?? Date.now())}
-              </span>
-              {line.text}
-            </span>
+          {visible.map((line) => (
+            <LogLineRow
+              key={line.lineIndex}
+              line={line}
+              arrivedAt={entryTimesRef.current[line.entryIndex] ?? 0}
+            />
           ))}
         </pre>
       </div>

@@ -458,10 +458,15 @@ const App: React.FC = () => {
             className={`shell-section ${section === 'train' ? '' : 'shell-section-hidden'}`}
             aria-label="Train"
           >
+            {/* Pass the FULL container status — TrainSection derives its
+                setup/running/outcome phases from it. A collapsed boolean
+                would make the completed/error banners and the run-finished
+                notifications unreachable, and would show the setup card
+                mid-run during 'restarting'/'paused'. */}
             <TrainSection
               onStart={handleStartTraining}
               onStop={handleStopTraining}
-              isRunning={containerStatus === 'running' || containerStatus === 'pulling'}
+              status={containerStatus}
               logs={logs}
             />
           </section>

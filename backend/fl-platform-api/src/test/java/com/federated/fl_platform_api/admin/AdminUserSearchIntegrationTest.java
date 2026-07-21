@@ -168,6 +168,22 @@ class AdminUserSearchIntegrationTest {
     }
 
     @Test
+    void oversizedPageSize_isClampedTo200() {
+        createUser("admin_us8", "admin_us8@example.com", PlatformRole.PLATFORM_ADMIN, UserStatus.ACTIVE, null);
+        String cookie = loginAs("admin_us8");
+
+        ResponseEntity<Map> resp = search(cookie, "?size=100000");
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        assertEquals(200, ((Number) resp.getBody().get("size")).intValue());
+
+        // Floor: a size below 1 clamps up to 1.
+        ResponseEntity<Map> floored = search(cookie, "?size=0");
+        assertEquals(HttpStatus.OK, floored.getStatusCode());
+        assertEquals(1, ((Number) floored.getBody().get("size")).intValue());
+        assertEquals(1, items(floored).size());
+    }
+
+    @Test
     void invalidRoleFilter_returns400() {
         createUser("admin_us6", "admin_us6@example.com", PlatformRole.PLATFORM_ADMIN, UserStatus.ACTIVE, null);
         String cookie = loginAs("admin_us6");
