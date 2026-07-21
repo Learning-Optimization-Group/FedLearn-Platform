@@ -36,6 +36,9 @@
 #include "BridgeTypes.h"
 #include "fedlearn/DataLoader.h"   // OwnedBatch (owns trainingBatch_'s backing storage)
 #include "fedlearn/ExecutorchModel.h"
+#ifdef FEDLEARN_HAS_TRAINING
+#include "fedlearn/TrainableExecutorchModel.h"
+#endif
 #include "fedlearn/FedLearnClient.h"
 #include "fedlearn/FederatedLoop.h"
 #include "fedlearn/ModelManager.h"
@@ -78,6 +81,12 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
     int64_t totalParamCount = 0;                   // incl. frozen, for ModelInfo tier
     std::string inferPtePath;                      // forward(flat,x)->logits graph
     std::string inferSha256;                       // sha of the infer .pte
+    // First-order (FedAvg) path: a TRAINABLE .pte (forward+backward joint graph) + its trainable
+    // param names in canonical flat order. Empty => no first-order support provisioned, so a FedAvg
+    // round falls back to the ZO-SGD path. (Populated by the backend once the bundle carries one.)
+    std::string trainablePtePath;
+    std::string trainableSha256;
+    std::vector<std::string> trainableParamNames;
   };
   void applyModelManifest(const ModelManifest& manifest);
 
@@ -139,6 +148,11 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   std::unique_ptr<fedlearn::FederatedLoop> loop_;
   std::unique_ptr<fedlearn::ExecutorchModel> model_;       // loss graph: forward(flat,x,y)->loss
   std::unique_ptr<fedlearn::ExecutorchModel> inferModel_;  // infer graph: forward(flat,x)->logits
+#ifdef FEDLEARN_HAS_TRAINING
+  // First-order (FedAvg) trainable model: real backprop via the ET training extension. Non-null only
+  // when the manifest provisioned a trainable .pte; a FedAvg round then uses firstOrderRound.
+  std::unique_ptr<fedlearn::TrainableExecutorchModel> trainableModel_;
+#endif
   bool modelLoaded_ = false;
   ModelManifest manifest_;
   bool manifestSet_ = false;

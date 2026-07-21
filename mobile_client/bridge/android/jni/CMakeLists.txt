@@ -30,6 +30,10 @@ set(FEDLEARN_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
 # ExecuTorch source + build (fedlearn_core resolves its static libs out of ET_BUILD).
 set(FEDLEARN_BUILD_TESTS OFF CACHE BOOL "" FORCE)   # no gtest in the app build
 set(FEDLEARN_BUILD_GRPC ON CACHE BOOL "" FORCE)
+# First-order (FedAvg) on-device training: links TrainableExecutorchModel + firstOrderRound and
+# defines FEDLEARN_HAS_TRAINING for the bridge. Requires the arm64 ET build to include the training
+# extension (build_executorch_arm64.sh sets EXECUTORCH_BUILD_EXTENSION_TRAINING=ON).
+set(FEDLEARN_BUILD_TRAINING ON CACHE BOOL "" FORCE)
 add_subdirectory("${FEDLEARN_ROOT}/shared" "${CMAKE_BINARY_DIR}/fedlearn_shared")
 
 find_package(ReactAndroid REQUIRED CONFIG)   # provides jsi + reactnative (New Architecture) prefab

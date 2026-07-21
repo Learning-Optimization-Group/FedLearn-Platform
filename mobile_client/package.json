@@ -50,6 +50,11 @@
   },
   "jest": {
     "preset": "react-native",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/.artifacts/",
+      "/.build/"
+    ],
     "moduleNameMapper": {
       "^@spec/(.*)$": "<rootDir>/bridge/specs/$1",
       "^@/(.*)$": "<rootDir>/src/$1"

@@ -80,6 +80,12 @@ export interface ModelManifest {
   totalParamCount: number;
   inferPtePath: string;
   inferSha256: string;
+  // First-order (FedAvg) path — OPTIONAL. When the backend provisions a TRAINABLE .pte (forward+backward
+  // graph), these carry its staged path, sha256, and the trainable param names in canonical flat order.
+  // Present => the native FedAvg round uses real backprop + a weight-blob upload; absent => ZO fallback.
+  trainablePtePath?: string;
+  trainableSha256?: string;
+  trainableParamNames?: string[];
 }
 
 export interface Spec extends TurboModule {

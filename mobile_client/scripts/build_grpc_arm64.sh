@@ -26,7 +26,11 @@ cd "${WORK}"
 git submodule sync
 git submodule update --init --recursive --depth 1
 
-cmake -S . -B build \
+# NB: build dir is "cmake-out", NOT "build" — gRPC's repo root has a Bazel `BUILD` file, and on a
+# case-insensitive filesystem (macOS APFS) `cmake -B build` collides with it ("Unable to (re)create
+# ... pkgRedirects"). Linux CI is case-sensitive so it is unaffected; a distinct name fixes both.
+cmake -S . -B cmake-out \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK}/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI="${ANDROID_ABI}" \
   -DANDROID_PLATFORM="${ANDROID_PLATFORM}" \
@@ -45,8 +49,8 @@ cmake -S . -B build \
 # gz_intmax, a symbol not defined for the Android build. NDK r27's lld is strict about undefined
 # version-script symbols (older ld silently allowed them), so the link fails with "version script
 # assignment of 'local' to symbol 'gz_intmax' failed". The flag restores the permissive behaviour.
-cmake --build build -j"$(nproc)"
-cmake --install build
+cmake --build cmake-out -j"$(nproc)"
+cmake --install cmake-out
 
 echo "Built gRPC ${GRPC_CPP_VERSION} (${ANDROID_ABI}) -> ${OUTPUT_DIR}"
 echo "GRPC_DIR=${OUTPUT_DIR}"

@@ -297,6 +297,17 @@ ModelInfo FedLearnCoreModule::doLoadModel(const std::string& modelPath,
   model_ = std::make_unique<fedlearn::ExecutorchModel>(modelPath, expectedSha256);
   inferModel_ =
       std::make_unique<fedlearn::ExecutorchModel>(manifest_.inferPtePath, manifest_.inferSha256);
+#ifdef FEDLEARN_HAS_TRAINING
+  // First-order (FedAvg) support: load the TRAINABLE graph if the manifest provisioned one (sha256
+  // verified inside), so a FedAvg round uses real backprop + a weight-blob upload. Otherwise leave it
+  // null and FedAvg falls back to the ZO-SGD path.
+  if (!manifest_.trainablePtePath.empty()) {
+    trainableModel_ = std::make_unique<fedlearn::TrainableExecutorchModel>(
+        manifest_.trainablePtePath, manifest_.trainableSha256, manifest_.trainableParamNames);
+  } else {
+    trainableModel_.reset();
+  }
+#endif
   modelLoaded_ = true;
   ModelInfo out;
   out.paramCount = info.paramCount;
@@ -357,8 +368,26 @@ RoundResult FedLearnCoreModule::doRunFedAvgRound(const std::string& runId, const
   std::lock_guard<std::mutex> lk(stateMutex_);
   requireReady();
   const auto t0 = std::chrono::steady_clock::now();
-  // FedAvg is now ZO-SGD (Constraint 7): K ZO-SGD steps, each averaging P forward-difference
-  // estimates; the upload is the per-(k,p) seeds + g-scalars, NOT a weight blob.
+#ifdef FEDLEARN_HAS_TRAINING
+  if (trainableModel_) {
+    // TRUE first-order (MO-4 lift): real backprop (firstOrderRound) + a WEIGHT-blob upload via
+    // SubmitModelUpdateStream — what a FedAvg-strategy server aggregates. K/eta are server-authoritative.
+    fedlearn::RoundOutcome outcome = loop_->firstOrderRound(
+        *trainableModel_, runId, clientId_, trainingBatch_, cfg.numLocalSteps, cfg.learningRate);
+    const auto t1 = std::chrono::steady_clock::now();
+    if (outcome.shouldStop) throw std::runtime_error("STOP: " + outcome.note);
+    RoundResult r;
+    r.round = outcome.round;
+    r.reverted = false;        // first-order keeps the locally-advanced weights
+    r.scalarsTransmitted = 0;  // a weight blob is uploaded, not ZO scalars
+    r.uplinkBytes = static_cast<int64_t>(mm_.trainableParamCount()) * 4;  // ~ the F32 weight blob
+    r.computeMs = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
+    evalBatch(r.loss, r.accuracy);
+    return r;
+  }
+#endif
+  // ZO-SGD fallback (no trainable .pte provisioned): K ZO-SGD steps, each averaging P
+  // forward-difference estimates; the upload is per-(k,p) seeds + g-scalars, NOT a weight blob.
   fedlearn::RoundOutcome outcome =
       loop_->fedAvgRound(*model_, runId, clientId_, trainingBatch_, cfg.numLocalSteps,
                          cfg.learningRate, cfg.mu, cfg.numPerturbations);
@@ -583,6 +612,21 @@ jsi::Value FedLearnCoreModule::setModelManifest(jsi::Runtime& rt, jsi::Object ma
   m.totalParamCount = static_cast<int64_t>(manifest.getProperty(rt, "totalParamCount").asNumber());
   m.inferPtePath = manifest.getProperty(rt, "inferPtePath").asString(rt).utf8(rt);
   m.inferSha256 = manifest.getProperty(rt, "inferSha256").asString(rt).utf8(rt);
+  // First-order (FedAvg) fields — OPTIONAL. Present only when the backend provisioned a trainable
+  // .pte bundle; absent => the FedAvg round falls back to the ZO path. Read defensively.
+  if (manifest.hasProperty(rt, "trainablePtePath")) {
+    jsi::Value tp = manifest.getProperty(rt, "trainablePtePath");
+    if (tp.isString()) {
+      m.trainablePtePath = tp.asString(rt).utf8(rt);
+      m.trainableSha256 = manifest.getProperty(rt, "trainableSha256").asString(rt).utf8(rt);
+      jsi::Array names = manifest.getProperty(rt, "trainableParamNames").asObject(rt).asArray(rt);
+      const size_t nn = names.size(rt);
+      m.trainableParamNames.reserve(nn);
+      for (size_t i = 0; i < nn; ++i) {
+        m.trainableParamNames.push_back(names.getValueAtIndex(rt, i).asString(rt).utf8(rt));
+      }
+    }
+  }
   return runOnWorker(
       rt, [this, m]() { applyModelManifest(m); return true; },
       [](jsi::Runtime&, const bool&) { return jsi::Value::undefined(); });
