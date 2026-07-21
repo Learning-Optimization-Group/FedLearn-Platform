@@ -14,6 +14,13 @@ export interface RunManifest {
   partitioningMode: string;
   seed: number;
   torchVersion: string;
+  // MO-4 lift seam: true iff the backend provisioned a first-order-capable bundle (a TRAINABLE .pte
+  // with a captured backward graph) for this run, so the on-device path can run true first-order
+  // FedAvg (real backprop -> weight-blob upload via SubmitModelUpdateStream) rather than the ZO-scalar
+  // path a FedAvg server can't aggregate. Absent/false => the phone refuses a FedAvg run (fail-closed),
+  // exactly as before. Set true only once the trainable-.pte bundle + the native firstOrderRound
+  // wiring are in place end-to-end.
+  firstOrderSupported?: boolean;
 }
 
 export interface JoinParams {

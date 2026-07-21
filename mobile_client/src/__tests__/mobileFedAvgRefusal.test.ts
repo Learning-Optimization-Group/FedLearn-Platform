@@ -1,10 +1,9 @@
-// MO-4: the on-device "FedAvg" round path (FederatedLoop::fedAvgRound) does K local ZO-SGD steps and
-// uploads per-(k,p) seeds + gradient SCALARS via SubmitGradientScalars — the DeComFL wire, NOT a weight
-// blob via SubmitModelUpdateStream. A server running the FedAvg *strategy* aggregates weight updates and
-// cannot consume those scalars, so a phone joining a FedAvg run would "train" and submit into a void.
-// Until SubmitModelUpdateStream is wired end-to-end (and the server can aggregate a mobile weight blob),
-// runTrainingLoop must refuse a FedAvg run FAIL-CLOSED — before it provisions a model or touches the
-// device — instead of silently no-op'ing. These tests pin that contract.
+// MO-4 (capability-gated): a phone runs a FedAvg round on-device ONLY when the backend provisioned a
+// first-order-capable bundle (manifest.firstOrderSupported) — then FederatedLoop::firstOrderRound does
+// real backprop and uploads a WEIGHT blob a FedAvg server aggregates (SubmitModelUpdateStream). WITHOUT
+// it, the only on-device path is the ZO-scalar fedAvgRound the server can't consume, so runTrainingLoop
+// refuses fail-closed before provisioning. These tests pin both sides of that gate (refuse without the
+// capability; proceed with it), plus the DeComFL path is unaffected.
 import { runTrainingLoop, MobileFedAvgUnsupportedError } from '../lib/training';
 import type { JoinedRun } from '../lib/runJoin';
 import { provisionTrainingBundle } from '../lib/modelProvisioning';
@@ -27,7 +26,7 @@ jest.mock('../lib/nativeCore', () => ({
   },
 }));
 
-function joinedRun(strategy: string): JoinedRun {
+function joinedRun(strategy: string, firstOrderSupported = false): JoinedRun {
   return {
     runId: 'run-1',
     projectId: 'proj-1',
@@ -36,6 +35,7 @@ function joinedRun(strategy: string): JoinedRun {
     grpcEndpoint: 'localhost:50000',
     message: '',
     manifest: {
+      firstOrderSupported,
       runId: 'run-1',
       projectId: 'proj-1',
       recipeKey: 'CNN',
@@ -53,8 +53,10 @@ const hooks = { onLog: jest.fn(), onRound: jest.fn(), shouldStop: () => false };
 
 beforeEach(() => jest.clearAllMocks());
 
-describe('runTrainingLoop — mobile FedAvg refusal (MO-4)', () => {
-  test('refuses a FedAvg run fail-closed, before provisioning a model or touching the device', async () => {
+describe('runTrainingLoop — MO-4 capability-gated FedAvg', () => {
+  test('refuses a FedAvg run WITHOUT first-order support, fail-closed before any provisioning', async () => {
+    // firstOrderSupported defaults false => the only on-device path is the ZO-scalar fedAvgRound a
+    // FedAvg server can't aggregate => refuse before touching the device (unchanged MO-4 behavior).
     const p = runTrainingLoop(joinedRun('FedAvg'), hooks);
     await expect(p).rejects.toBeInstanceOf(MobileFedAvgUnsupportedError);
     await expect(runTrainingLoop(joinedRun('FedAvg'), hooks)).rejects.toThrow(/FedAvg/i);
@@ -62,6 +64,17 @@ describe('runTrainingLoop — mobile FedAvg refusal (MO-4)', () => {
     expect(provisionTrainingBundle).not.toHaveBeenCalled();
     expect(nativeCore.loadModel).not.toHaveBeenCalled();
     expect(nativeCore.setTrainingDataFromFiles).not.toHaveBeenCalled();
+  });
+
+  test('a FedAvg run WITH first-order support proceeds past the guard into provisioning', async () => {
+    // firstOrderSupported=true (backend provisioned a trainable-.pte bundle) => FedAvg is no longer
+    // refused; it enters the same provision->load->round flow as DeComFL. Sentinel-reject at
+    // provisioning proves the guard let it through, without standing up the whole native round.
+    (provisionTrainingBundle as jest.Mock).mockRejectedValueOnce(new Error('SENTINEL_PAST_GUARD'));
+    await expect(
+      runTrainingLoop(joinedRun('FedAvg', /*firstOrderSupported=*/ true), hooks),
+    ).rejects.toThrow('SENTINEL_PAST_GUARD');
+    expect(provisionTrainingBundle).toHaveBeenCalledWith('run-1');
   });
 
   test('does NOT refuse a DeComFL run — it proceeds past the guard into provisioning', async () => {

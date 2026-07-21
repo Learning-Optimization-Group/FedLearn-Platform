@@ -17,13 +17,15 @@ export interface TrainingHooks {
 }
 
 /**
- * MO-4: raised when a phone tries to join a run whose strategy is FedAvg. The on-device round path
- * (FederatedLoop::fedAvgRound) does local ZO-SGD and uploads per-step seeds + gradient SCALARS via
- * SubmitGradientScalars — the DeComFL wire, NOT a weight blob via SubmitModelUpdateStream. A server
- * running the FedAvg *strategy* aggregates weight updates and cannot consume those scalars, so the
- * phone's "training" would submit into a void. Until SubmitModelUpdateStream is wired end-to-end (and
- * the server can aggregate a mobile weight blob), we refuse FedAvg fail-closed rather than silently
- * no-op. Caught by the training UI to show a clear "not supported on this device yet" message.
+ * MO-4: raised when a phone joins a FedAvg run that has NOT been provisioned for first-order on-device
+ * training (manifest.firstOrderSupported is absent/false). Without first-order support the only
+ * on-device path is FederatedLoop::fedAvgRound — local ZO-SGD uploading seeds + gradient SCALARS via
+ * SubmitGradientScalars (the DeComFL wire), which a FedAvg *strategy* server cannot aggregate (it
+ * expects a weight blob via SubmitModelUpdateStream), so the "training" would submit into a void. We
+ * refuse fail-closed rather than no-op. Once the backend provisions a trainable-.pte bundle AND the
+ * native firstOrderRound (real backprop -> weight-blob upload) is wired, the run's manifest sets
+ * firstOrderSupported and the phone runs the first-order path instead of raising this.
+ * Caught by the training UI to show a clear "not provisioned for on-device training yet" message.
  */
 export class MobileFedAvgUnsupportedError extends Error {
   constructor(message: string) {
@@ -200,14 +202,16 @@ export async function runTrainingLoop(
 ): Promise<void> {
   const isFedAvg = joined.manifest.strategy === 'FedAvg';
 
-  // MO-4: fail-closed on FedAvg BEFORE any provisioning/native work. The on-device fedAvgRound uploads
-  // ZO-SGD gradient scalars (SubmitGradientScalars), which a FedAvg-strategy server cannot aggregate —
-  // it expects weight updates (SubmitModelUpdateStream). Refuse rather than silently submit into a void.
-  if (isFedAvg) {
+  // MO-4 (capability-gated): a FedAvg run is on-device-trainable ONLY when the backend provisioned a
+  // first-order-capable bundle (manifest.firstOrderSupported) — then the native firstOrderRound does
+  // real backprop and uploads a WEIGHT blob a FedAvg server aggregates. Without it, the only on-device
+  // path is the ZO-scalar fedAvgRound the server can't consume, so refuse fail-closed BEFORE any
+  // provisioning/native work rather than submit into a void.
+  if (isFedAvg && !joined.manifest.firstOrderSupported) {
     throw new MobileFedAvgUnsupportedError(
-      'This project uses the FedAvg strategy, which is not supported on this device yet: the on-device ' +
-        'path uploads zeroth-order gradient scalars that a FedAvg server cannot aggregate. Join a ' +
-        'DeComFL project to train on this device.',
+      'This project uses the FedAvg strategy, which is not provisioned for on-device training on this ' +
+        'run yet: first-order (weight-update) support is not enabled. Join a DeComFL project to train ' +
+        'on this device.',
     );
   }
 
