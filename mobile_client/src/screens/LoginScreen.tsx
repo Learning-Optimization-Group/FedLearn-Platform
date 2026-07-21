@@ -2,11 +2,15 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
+import { useThemeTokens } from '../theme/useThemeTokens';
+import type { RootStackParamList } from '../navigation/types';
 
 export default function LoginScreen() {
-  const navigation = useNavigation<{ navigate: (screen: string) => void }>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { login } = useAuth();
+  const { colors } = useThemeTokens();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -28,6 +32,7 @@ export default function LoginScreen() {
         <Text className="text-label font-sans text-fg-muted">Username</Text>
         <TextInput
           className="mt-1 mb-3 px-3 py-2 rounded-md bg-surface-2 text-body font-sans text-fg border border-hairline"
+          accessibilityLabel="Username"
           autoCapitalize="none"
           autoCorrect={false}
           value={username}
@@ -36,21 +41,28 @@ export default function LoginScreen() {
         <Text className="text-label font-sans text-fg-muted">Password</Text>
         <TextInput
           className="mt-1 px-3 py-2 rounded-md bg-surface-2 text-body font-sans text-fg border border-hairline"
+          accessibilityLabel="Password"
           secureTextEntry
           value={password}
           onChangeText={setPassword}
         />
         {error && <Text className="mt-3 text-caption font-sans text-danger">{error}</Text>}
         <Pressable
-          className="mt-4 py-3 rounded-pill bg-accent items-center"
+          accessibilityRole="button"
+          accessibilityLabel="Sign in"
+          accessibilityState={{ disabled: busy }}
+          className={`mt-4 py-3 rounded-md bg-accent items-center active:opacity-80 ${busy ? 'opacity-50' : ''}`}
           disabled={busy}
           onPress={onSubmit}>
           {busy
-            ? <ActivityIndicator color="#FFFFFF" />
-            : <Text className="text-body font-sans text-accent-fg">Sign in</Text>}
+            ? <ActivityIndicator color={colors['accent-fg']} />
+            : <Text className="text-label font-sans text-accent-fg">Sign in</Text>}
         </Pressable>
         <Pressable
-          className="mt-3 items-center"
+          accessibilityRole="link"
+          accessibilityLabel="Create an account"
+          className="mt-3 py-2 items-center active:opacity-80"
+          hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}
           disabled={busy}
           onPress={() => navigation.navigate('Register')}>
           <Text className="text-caption font-sans text-fg-muted">

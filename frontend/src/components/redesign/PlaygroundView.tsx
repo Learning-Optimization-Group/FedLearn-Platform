@@ -1,16 +1,28 @@
 // =============================================================================
-// FedLearn Frontend — Playground / "Use a model" (Ember design system)
+// FedLearn Frontend — Playground / "Use a model" (Ledger design system)
 // =============================================================================
 // Pick one of your trained federated models and run inference on an input.
 // Image models (CNN) take an uploaded image; tabular models (MLP) take a
 // numeric feature vector. Inference runs server-side (real PyTorch).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlaskConical, AlertCircle, Upload, Sparkles, ImageIcon, Hash, Loader2 } from 'lucide-react';
+import {
+    FlaskConical,
+    AlertCircle,
+    Upload,
+    ImageIcon,
+    Hash,
+    Loader2,
+    Play,
+    SendHorizonal,
+    Square,
+    MessageSquare,
+    Target,
+    Type,
+} from 'lucide-react';
 import * as api from '../../services/apiServices';
 import type { InferableModel, InferenceResult } from '../../services/apiServices';
-import { Card, Button, Select, Skeleton, StatusPill } from '../ui';
-import { BrandMark } from '../brand';
+import { Card, Button, Select, Skeleton, StatusPill, FormField, SectionLabel } from '../ui';
 import { PageHeader } from './PageHeader';
 import { WS_BROKER_URL } from '../../lib/serverConfig';
 import { useStompClient, type StompSubscriptionSpec } from '../../hooks/useStompClient';
@@ -20,6 +32,20 @@ import { describeStompConnection } from '../../lib/connectionStatus';
 // The backend also bounds the encoded body, but this gives immediate feedback and
 // avoids a large wasted upload from a multi-hundred-MB pick.
 const MAX_IMAGE_FILE_BYTES = 10 * 1024 * 1024;
+
+// Textareas share the Input primitive's surface/border/focus treatment.
+const TEXTAREA_CLASSES =
+    'w-full bg-surface-2 border border-hairline rounded-md px-3 py-2 ' +
+    'text-body text-fg placeholder:text-fg-subtle ' +
+    'transition-[border-color,box-shadow,background-color] duration-[140ms] ' +
+    'hover:border-line ' +
+    'focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 ' +
+    'resize-y';
+
+const RANGE_CLASSES =
+    'w-full accent-accent rounded-pill ' +
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ' +
+    'focus-visible:ring-offset-2 focus-visible:ring-offset-canvas';
 
 /** Parse a free-form textarea (commas / spaces / newlines) into finite numbers. */
 function parseVector(raw: string): number[] {
@@ -275,78 +301,89 @@ export function PlaygroundView() {
         try { await api.stopGeneration(selected.projectId); } catch { /* best-effort */ }
     };
 
+    const modelOptions = models.map((m) => (
+        <option key={m.projectId} value={m.projectId}>
+            {m.name} — {m.modelType}/{m.modelName}
+            {m.supported ? '' : ' (not runnable yet)'}
+        </option>
+    ));
+
     return (
         <div className="flex-1 flex flex-col h-screen overflow-hidden bg-canvas text-fg font-sans">
             <PageHeader title="Use a model" subtitle="Run one of your trained models on a new input." />
 
-            <div className="flex-1 overflow-y-auto px-6 md:px-10 py-8 bg-canvas">
-                {error && (
-                    <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
-                        <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
-                        {error}
-                    </div>
-                )}
+            <div className="flex-1 overflow-y-auto">
+                <div className="mx-auto w-full max-w-[1400px] px-6 py-6 md:px-10 reveal">
+                    {error && (
+                        <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+                            {error}
+                        </div>
+                    )}
 
-                {loadingModels ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card padding="lg" className="flex flex-col gap-4">
-                            <Skeleton className="h-5 w-40" />
-                            <Skeleton className="h-40 w-full" />
-                        </Card>
-                        <Card padding="lg" className="flex flex-col gap-4">
-                            <Skeleton className="h-5 w-32" />
-                            <Skeleton className="h-40 w-full" />
-                        </Card>
-                    </div>
-                ) : models.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center text-center gap-5 mt-16 md:mt-24">
-                        <div className="grid h-20 w-20 place-items-center rounded-card border border-hairline bg-surface-1">
-                            <BrandMark size={48} />
+                    {loadingModels ? (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <Card padding="lg" className="flex flex-col gap-4">
+                                <Skeleton className="h-5 w-40" />
+                                <Skeleton className="h-40 w-full" />
+                            </Card>
+                            <Card padding="lg" className="flex flex-col gap-4">
+                                <Skeleton className="h-5 w-32" />
+                                <Skeleton className="h-40 w-full" />
+                            </Card>
                         </div>
-                        <div className="max-w-sm">
-                            <p className="text-h4 font-display text-fg">No trained models yet</p>
-                            <p className="text-body text-fg-muted mt-1.5">
-                                Once a project finishes training, its model shows up here ready to use.
-                            </p>
+                    ) : models.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center text-center gap-4 pt-16 md:pt-24">
+                            <div className="grid h-12 w-12 place-items-center rounded-pill bg-surface-2 text-fg-muted">
+                                <FlaskConical className="h-6 w-6" strokeWidth={1.5} />
+                            </div>
+                            <div className="max-w-sm">
+                                <p className="text-h4 font-semibold text-fg">No trained models yet</p>
+                                <p className="text-caption text-fg-muted mt-1">
+                                    Once a project finishes training, its model shows up here ready to use.
+                                </p>
+                            </div>
                         </div>
-                    </div>
-                ) : selected?.inputKind === 'generation' ? (
+                    ) : selected?.inputKind === 'generation' ? (
                         /* ── Chat thread (generation models) ── */
                         <Card padding="lg" className="flex flex-col gap-4">
-                            <div className="flex items-center gap-3">
-                                <span className="icon-tile flex-shrink-0">
-                                    <Sparkles strokeWidth={1.5} className="w-5 h-5" />
-                                </span>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-h4 font-display text-fg">Chat</h3>
-                                        {streaming && (
-                                            <StatusPill status={streamStatus.kind}>{streamStatus.label}</StatusPill>
-                                        )}
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <span className="icon-tile flex-shrink-0">
+                                        <MessageSquare strokeWidth={1.5} className="w-5 h-5" />
+                                    </span>
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="text-h4 font-semibold text-fg">Chat</h3>
+                                            {streaming && (
+                                                <StatusPill status={streamStatus.kind}>{streamStatus.label}</StatusPill>
+                                            )}
+                                        </div>
+                                        <p className="text-label text-fg-muted truncate">
+                                            {selected.name} — {selected.modelType}/{selected.modelName}
+                                        </p>
                                     </div>
-                                    <p className="text-label text-fg-muted truncate">
-                                        {selected.name} — {selected.modelType}/{selected.modelName}
-                                    </p>
                                 </div>
-                                <label className="flex flex-col gap-0.5 text-caption text-fg-muted shrink-0">
-                                    <span className="text-caption uppercase tracking-wide font-semibold text-fg-muted">Model</span>
+                                <FormField label="Model" className="w-64 shrink-0">
                                     <Select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-                                        {models.map((m) => (
-                                            <option key={m.projectId} value={m.projectId}>
-                                                {m.name} — {m.modelType}/{m.modelName}
-                                                {m.supported ? '' : ' (not runnable yet)'}
-                                            </option>
-                                        ))}
+                                        {modelOptions}
                                     </Select>
-                                </label>
+                                </FormField>
                             </div>
 
                             {/* Scrollable bubble list */}
                             <div className="flex flex-col gap-3 overflow-y-auto max-h-[420px] min-h-[200px] rounded-card border border-hairline bg-surface-1 px-4 py-4">
                                 {messages.length === 0 && !streamingText ? (
-                                    <div className="flex flex-1 flex-col items-center justify-center text-center gap-2 py-10 text-fg-subtle">
-                                        <Sparkles className="w-8 h-8" strokeWidth={1.25} />
-                                        <p className="text-body text-fg-muted">Start the conversation…</p>
+                                    <div className="flex flex-1 flex-col items-center justify-center text-center gap-3 py-10">
+                                        <div className="grid h-12 w-12 place-items-center rounded-pill bg-surface-2 text-fg-muted">
+                                            <FlaskConical className="h-6 w-6" strokeWidth={1.5} />
+                                        </div>
+                                        <div>
+                                            <p className="text-h4 font-semibold text-fg">No messages yet</p>
+                                            <p className="text-caption text-fg-muted mt-1">
+                                                Send a prompt to start the conversation.
+                                            </p>
+                                        </div>
                                     </div>
                                 ) : (
                                     messages.map((msg, i) => (
@@ -355,10 +392,10 @@ export function PlaygroundView() {
                                             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                                         >
                                             <div
-                                                className={`max-w-[80%] rounded-card px-3 py-2 whitespace-pre-wrap font-mono text-label ${
+                                                className={`max-w-[80%] rounded-card px-3 py-2 whitespace-pre-wrap text-body text-fg ${
                                                     msg.role === 'user'
-                                                        ? 'bg-accent/10 text-fg border border-accent/25'
-                                                        : 'bg-surface-2 text-fg border border-hairline'
+                                                        ? 'bg-surface-2'
+                                                        : 'bg-surface-1 border border-hairline'
                                                 }`}
                                             >
                                                 {msg.content}
@@ -369,14 +406,18 @@ export function PlaygroundView() {
                                 {/* Live in-flight assistant bubble */}
                                 {running && streamingText && (
                                     <div className="flex justify-start">
-                                        <div className="max-w-[80%] rounded-card px-3 py-2 whitespace-pre-wrap font-mono text-label bg-surface-2 text-fg border border-hairline">
-                                            {streamingText}<span className="animate-pulse">▌</span>
+                                        <div className="max-w-[80%] rounded-card px-3 py-2 whitespace-pre-wrap text-body bg-surface-1 text-fg border border-hairline">
+                                            {streamingText}
+                                            <span
+                                                className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] animate-pulse bg-fg-muted"
+                                                aria-hidden
+                                            />
                                         </div>
                                     </div>
                                 )}
                                 {running && !streamingText && (
                                     <div className="flex justify-start">
-                                        <div className="rounded-card px-3 py-2 bg-surface-2 border border-hairline text-fg-muted text-label flex items-center gap-2">
+                                        <div className="rounded-card px-3 py-2 bg-surface-1 border border-hairline text-fg-muted text-label flex items-center gap-2">
                                             <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2} /> Generating…
                                         </div>
                                     </div>
@@ -385,257 +426,275 @@ export function PlaygroundView() {
                             </div>
 
                             {/* Prompt textarea */}
-                            <textarea
-                                value={prompt}
-                                onChange={(e) => setPrompt(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canRun) {
-                                        e.preventDefault();
-                                        handleSend();
-                                    }
-                                }}
-                                rows={3}
-                                placeholder="Message the model…"
-                                className="w-full rounded-md border border-hairline bg-surface-1 px-3 py-2 text-label text-fg placeholder:text-fg-subtle focus:border-accent/50 focus:outline-none resize-y"
-                            />
+                            <FormField label="Prompt">
+                                <textarea
+                                    value={prompt}
+                                    onChange={(e) => setPrompt(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canRun) {
+                                            e.preventDefault();
+                                            handleSend();
+                                        }
+                                    }}
+                                    rows={3}
+                                    placeholder="Message the model…"
+                                    className={TEXTAREA_CLASSES}
+                                />
+                            </FormField>
 
                             {/* Compact sliders */}
                             <div className="flex flex-wrap gap-6">
-                                <label className="flex flex-col gap-1 text-label text-fg-muted flex-1 min-w-[160px]">
-                                    Max new tokens: <span className="font-mono tabular-nums text-fg">{maxNewTokens}</span>
-                                    <input type="range" min={1} max={2048} step={1} value={maxNewTokens}
-                                        onChange={(e) => setMaxNewTokens(Number(e.target.value))} />
-                                </label>
-                                <label className="flex flex-col gap-1 text-label text-fg-muted flex-1 min-w-[160px]">
-                                    Temperature: <span className="font-mono tabular-nums text-fg">{temperature.toFixed(1)}</span>
-                                    <input type="range" min={0} max={2} step={0.1} value={temperature}
-                                        onChange={(e) => setTemperature(Number(e.target.value))} />
-                                </label>
+                                <FormField
+                                    className="flex-1 min-w-[160px]"
+                                    label={
+                                        <span className="flex items-center justify-between gap-2">
+                                            Max new tokens
+                                            <span className="font-mono tabular-nums text-fg">{maxNewTokens}</span>
+                                        </span>
+                                    }
+                                >
+                                    <input
+                                        type="range" min={1} max={2048} step={1} value={maxNewTokens}
+                                        onChange={(e) => setMaxNewTokens(Number(e.target.value))}
+                                        className={RANGE_CLASSES}
+                                    />
+                                </FormField>
+                                <FormField
+                                    className="flex-1 min-w-[160px]"
+                                    label={
+                                        <span className="flex items-center justify-between gap-2">
+                                            Temperature
+                                            <span className="font-mono tabular-nums text-fg">{temperature.toFixed(1)}</span>
+                                        </span>
+                                    }
+                                >
+                                    <input
+                                        type="range" min={0} max={2} step={0.1} value={temperature}
+                                        onChange={(e) => setTemperature(Number(e.target.value))}
+                                        className={RANGE_CLASSES}
+                                    />
+                                </FormField>
                             </div>
 
-                            {/* Button row */}
-                            <div className="flex items-center gap-2">
-                                {running ? (
-                                    <Button
-                                        variant="primary"
-                                        onClick={handleStop}
-                                        disabled={stopped}
-                                        className="inline-flex items-center justify-center gap-2"
-                                    >
-                                        Stop
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        variant="primary"
-                                        onClick={handleSend}
-                                        disabled={!canRun}
-                                        className="inline-flex items-center justify-center gap-2"
-                                    >
-                                        <Sparkles className="w-4 h-4" strokeWidth={1.5} /> Send
-                                    </Button>
-                                )}
+                            {/* Composer actions — primary on the right */}
+                            <div className="flex items-center justify-end gap-2">
                                 <Button
-                                    variant="secondary"
+                                    variant="ghost"
                                     onClick={() => setMessages([])}
                                     disabled={running || messages.length === 0}
-                                    className="inline-flex items-center justify-center gap-2"
                                 >
                                     Clear
                                 </Button>
+                                {running ? (
+                                    <Button variant="secondary" onClick={handleStop} disabled={stopped}>
+                                        <Square className="w-3.5 h-3.5" strokeWidth={1.5} /> Stop
+                                    </Button>
+                                ) : (
+                                    <Button variant="primary" onClick={handleSend} disabled={!canRun}>
+                                        <SendHorizonal className="w-4 h-4" strokeWidth={1.5} /> Send
+                                    </Button>
+                                )}
                             </div>
                         </Card>
                     ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* ── Input panel ── */}
-                        <Card padding="lg" className="flex flex-col gap-5">
-                            <div className="flex items-center gap-3">
-                                <span className="icon-tile flex-shrink-0">
-                                    <FlaskConical strokeWidth={1.5} className="w-5 h-5" />
-                                </span>
-                                <div>
-                                    <h3 className="text-h4 font-display text-fg">Input</h3>
-                                    <p className="text-label text-fg-muted">Choose a model and give it something to predict.</p>
-                                </div>
-                            </div>
-
-                            <label className="flex flex-col gap-1.5">
-                                <span className="text-caption uppercase tracking-wide font-semibold text-fg-muted">Model</span>
-                                <Select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-                                    {models.map((m) => (
-                                        <option key={m.projectId} value={m.projectId}>
-                                            {m.name} — {m.modelType}/{m.modelName}
-                                            {m.supported ? '' : ' (not runnable yet)'}
-                                        </option>
-                                    ))}
-                                </Select>
-                            </label>
-
-                            {selected && !selected.supported && (
-                                <div className="flex items-center gap-2 px-3 py-2.5 rounded-md border border-hairline bg-surface-1 text-fg-muted text-label">
-                                    <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
-                                    Interactive inference for {selected.modelType} models isn't supported yet.
-                                </div>
-                            )}
-
-                            {/* Image input */}
-                            {selected?.inputKind === 'image' && (
-                                <div className="flex flex-col gap-3">
-                                    <span className="text-caption uppercase tracking-wide font-semibold text-fg-muted flex items-center gap-1.5">
-                                        <ImageIcon className="w-3.5 h-3.5" strokeWidth={1.5} /> Image
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* ── Input panel ── */}
+                            <Card padding="lg" className="flex flex-col gap-5">
+                                <div className="flex items-center gap-3">
+                                    <span className="icon-tile flex-shrink-0">
+                                        <FlaskConical strokeWidth={1.5} className="w-5 h-5" />
                                     </span>
-                                    <div
-                                        onClick={() => fileInputRef.current?.click()}
-                                        onDragOver={(e) => e.preventDefault()}
-                                        onDrop={(e) => {
-                                            e.preventDefault();
-                                            handleFile(e.dataTransfer.files?.[0]);
-                                        }}
-                                        className="cursor-pointer rounded-card border border-dashed border-hairline bg-surface-1 hover:border-accent/40 hover:bg-surface-2 transition-colors p-6 flex flex-col items-center justify-center gap-3 text-center min-h-[180px]"
-                                    >
-                                        {imageDataUrl ? (
-                                            <>
-                                                <img
-                                                    src={imageDataUrl}
-                                                    alt="input preview"
-                                                    className="max-h-32 rounded-md border border-hairline object-contain"
-                                                />
-                                                <span className="text-label text-fg-muted truncate max-w-full">{imageName}</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Upload className="w-7 h-7 text-fg-subtle" strokeWidth={1.5} />
-                                                <span className="text-body text-fg-muted">
-                                                    Click or drop an image here
-                                                </span>
-                                                <span className="text-caption text-fg-subtle">
-                                                    Resized to 32×32 for the model
-                                                </span>
-                                            </>
-                                        )}
+                                    <div>
+                                        <h3 className="text-h4 font-semibold text-fg">Input</h3>
+                                        <p className="text-label text-fg-muted">Choose a model and give it something to predict.</p>
                                     </div>
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={(e) => handleFile(e.target.files?.[0])}
-                                    />
                                 </div>
-                            )}
 
-                            {/* Vector input */}
-                            {selected?.inputKind === 'vector' && (
-                                <div className="flex flex-col gap-2">
-                                    <span className="text-caption uppercase tracking-wide font-semibold text-fg-muted flex items-center gap-1.5">
-                                        <Hash className="w-3.5 h-3.5" strokeWidth={1.5} /> Feature vector
-                                    </span>
-                                    <textarea
-                                        value={vectorText}
-                                        onChange={(e) => setVectorText(e.target.value)}
-                                        rows={6}
-                                        placeholder="Paste numbers separated by commas, spaces, or newlines…"
-                                        className="w-full rounded-md border border-hairline bg-surface-1 px-3 py-2 text-label font-mono text-fg placeholder:text-fg-subtle focus:border-accent/50 focus:outline-none resize-y"
-                                    />
-                                    <span className="text-caption text-fg-subtle">
-                                        {parsedVector.length} value{parsedVector.length === 1 ? '' : 's'} parsed
-                                    </span>
-                                </div>
-                            )}
+                                <FormField label="Model">
+                                    <Select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
+                                        {modelOptions}
+                                    </Select>
+                                </FormField>
 
-                            {/* Text input */}
-                            {selected?.inputKind === 'text' && (
-                                <div className="flex flex-col gap-2">
-                                    <span className="text-caption uppercase tracking-wide font-semibold text-fg-muted flex items-center gap-1.5">
-                                        <Sparkles className="w-3.5 h-3.5" strokeWidth={1.5} /> Text
-                                    </span>
-                                    <textarea
-                                        value={textInput}
-                                        onChange={(e) => setTextInput(e.target.value)}
-                                        rows={5}
-                                        placeholder="Enter text to classify…"
-                                        className="w-full rounded-md border border-hairline bg-surface-1 px-3 py-2 text-label text-fg placeholder:text-fg-subtle focus:border-accent/50 focus:outline-none resize-y"
-                                    />
-                                </div>
-                            )}
-
-                            <Button
-                                variant="primary"
-                                onClick={handleRun}
-                                disabled={!canRun}
-                                className="mt-1 inline-flex items-center justify-center gap-2"
-                            >
-                                {running ? (
-                                    <span className="flex items-center gap-2">
-                                        <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} /> Running…
-                                    </span>
-                                ) : (
-                                    <span className="flex items-center gap-2">
-                                        <Sparkles className="w-4 h-4" strokeWidth={1.5} /> Run inference
-                                    </span>
+                                {selected && !selected.supported && (
+                                    <div className="flex items-center gap-2 px-3 py-2.5 rounded-md border border-hairline bg-surface-1 text-fg-muted text-label">
+                                        <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+                                        Interactive inference for {selected.modelType} models isn't supported yet.
+                                    </div>
                                 )}
-                            </Button>
-                        </Card>
 
-                        {/* ── Result panel ── */}
-                        <Card padding="lg" className="flex flex-col gap-5">
-                            <div className="flex items-center gap-3">
-                                <span className="icon-tile flex-shrink-0">
-                                    <Sparkles strokeWidth={1.5} className="w-5 h-5" />
-                                </span>
-                                <div>
-                                    <h3 className="text-h4 font-display text-fg">Prediction</h3>
-                                    <p className="text-label text-fg-muted">What the model thinks.</p>
-                                </div>
-                            </div>
-
-                            {!result ? (
-                                <div className="flex flex-1 flex-col items-center justify-center text-center gap-2 py-10 text-fg-subtle">
-                                    <FlaskConical className="w-8 h-8" strokeWidth={1.25} />
-                                    <p className="text-body text-fg-muted">Run a model to see its prediction.</p>
-                                </div>
-                            ) : (
-                                <div className="flex flex-col gap-4">
-                                    <div className="rounded-card border border-accent/25 bg-accent/10 px-4 py-4">
-                                        <p className="text-caption uppercase tracking-wide font-semibold text-fg-muted">
-                                            Top prediction
-                                        </p>
-                                        <p className="text-h2 font-display text-fg capitalize mt-1">
-                                            {result.predictedLabel}
-                                        </p>
-                                        <p className="text-label text-fg-muted mt-0.5 font-mono tabular-nums">
-                                            {(result.probabilities[result.predictedIndex] * 100).toFixed(1)}% confidence
-                                        </p>
+                                {/* Image input */}
+                                {selected?.inputKind === 'image' && (
+                                    <div className="flex flex-col gap-3">
+                                        <SectionLabel className="flex items-center gap-1.5">
+                                            <ImageIcon className="w-3.5 h-3.5" strokeWidth={1.5} /> Image
+                                        </SectionLabel>
+                                        <button
+                                            type="button"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            onDragOver={(e) => e.preventDefault()}
+                                            onDrop={(e) => {
+                                                e.preventDefault();
+                                                handleFile(e.dataTransfer.files?.[0]);
+                                            }}
+                                            className="cursor-pointer rounded-card border border-dashed border-hairline bg-surface-1 hover:border-line hover:bg-surface-2 transition-colors p-6 flex flex-col items-center justify-center gap-3 text-center min-h-[180px] w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                                        >
+                                            {imageDataUrl ? (
+                                                <>
+                                                    <img
+                                                        src={imageDataUrl}
+                                                        alt="input preview"
+                                                        className="max-h-32 rounded-md border border-hairline object-contain"
+                                                    />
+                                                    <span className="text-label text-fg-muted truncate max-w-full">{imageName}</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload className="w-7 h-7 text-fg-subtle" strokeWidth={1.5} />
+                                                    <span className="text-body text-fg-muted">
+                                                        Click or drop an image here
+                                                    </span>
+                                                    <span className="text-caption text-fg-subtle">
+                                                        Resized to 32×32 for the model
+                                                    </span>
+                                                </>
+                                            )}
+                                        </button>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            tabIndex={-1}
+                                            aria-hidden="true"
+                                            onChange={(e) => handleFile(e.target.files?.[0])}
+                                        />
                                     </div>
+                                )}
 
-                                    <div className="flex flex-col gap-2">
-                                        {result.classes.map((cls, i) => {
-                                            const p = result.probabilities[i] ?? 0;
-                                            const isTop = i === result.predictedIndex;
-                                            return (
-                                                <div key={cls} className="flex flex-col gap-1">
-                                                    <div className="flex items-center justify-between text-label">
-                                                        <span className={isTop ? 'text-fg font-medium capitalize' : 'text-fg-muted capitalize'}>
-                                                            {cls}
-                                                        </span>
-                                                        <span className="font-mono tabular-nums text-fg-muted">
-                                                            {(p * 100).toFixed(1)}%
-                                                        </span>
-                                                    </div>
-                                                    <div className="h-2 rounded-pill bg-surface-2 overflow-hidden">
-                                                        <div
-                                                            className={isTop ? 'h-full rounded-pill bg-accent' : 'h-full rounded-pill bg-fg-subtle/40'}
-                                                            style={{ width: `${Math.max(p * 100, 0.5)}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
+                                {/* Vector input */}
+                                {selected?.inputKind === 'vector' && (
+                                    <FormField
+                                        label={
+                                            <span className="flex items-center gap-1.5">
+                                                <Hash className="w-3.5 h-3.5" strokeWidth={1.5} /> Feature vector
+                                            </span>
+                                        }
+                                        help={`${parsedVector.length} value${parsedVector.length === 1 ? '' : 's'} parsed`}
+                                    >
+                                        <textarea
+                                            value={vectorText}
+                                            onChange={(e) => setVectorText(e.target.value)}
+                                            rows={6}
+                                            placeholder="Paste numbers separated by commas, spaces, or newlines…"
+                                            className={`${TEXTAREA_CLASSES} font-mono text-label`}
+                                        />
+                                    </FormField>
+                                )}
+
+                                {/* Text input */}
+                                {selected?.inputKind === 'text' && (
+                                    <FormField
+                                        label={
+                                            <span className="flex items-center gap-1.5">
+                                                <Type className="w-3.5 h-3.5" strokeWidth={1.5} /> Text
+                                            </span>
+                                        }
+                                    >
+                                        <textarea
+                                            value={textInput}
+                                            onChange={(e) => setTextInput(e.target.value)}
+                                            rows={5}
+                                            placeholder="Enter text to classify…"
+                                            className={TEXTAREA_CLASSES}
+                                        />
+                                    </FormField>
+                                )}
+
+                                <Button
+                                    variant="primary"
+                                    onClick={handleRun}
+                                    disabled={!canRun}
+                                    className="mt-1"
+                                >
+                                    {running ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} /> Running…
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Play className="w-4 h-4" strokeWidth={1.5} /> Run inference
+                                        </>
+                                    )}
+                                </Button>
+                            </Card>
+
+                            {/* ── Result panel ── */}
+                            <Card padding="lg" className="flex flex-col gap-5">
+                                <div className="flex items-center gap-3">
+                                    <span className="icon-tile flex-shrink-0">
+                                        <Target strokeWidth={1.5} className="w-5 h-5" />
+                                    </span>
+                                    <div>
+                                        <h3 className="text-h4 font-semibold text-fg">Prediction</h3>
+                                        <p className="text-label text-fg-muted">What the model thinks.</p>
                                     </div>
                                 </div>
-                            )}
-                        </Card>
-                    </div>
-                )}
+
+                                {!result ? (
+                                    <div className="flex flex-1 flex-col items-center justify-center text-center gap-3 py-10">
+                                        <div className="grid h-12 w-12 place-items-center rounded-pill bg-surface-2 text-fg-muted">
+                                            <FlaskConical className="h-6 w-6" strokeWidth={1.5} />
+                                        </div>
+                                        <div>
+                                            <p className="text-h4 font-semibold text-fg">No prediction yet</p>
+                                            <p className="text-caption text-fg-muted mt-1">
+                                                Run a model to see its prediction.
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col gap-4">
+                                        <div className="rounded-card border border-hairline bg-surface-2 px-4 py-4">
+                                            <SectionLabel>Top prediction</SectionLabel>
+                                            <p className="text-h2 font-semibold text-fg capitalize mt-1">
+                                                {result.predictedLabel}
+                                            </p>
+                                            <p className="text-label text-fg-muted mt-0.5 font-mono tabular-nums">
+                                                {(result.probabilities[result.predictedIndex] * 100).toFixed(1)}% confidence
+                                            </p>
+                                        </div>
+
+                                        <div className="flex flex-col gap-2">
+                                            {result.classes.map((cls, i) => {
+                                                const p = result.probabilities[i] ?? 0;
+                                                const isTop = i === result.predictedIndex;
+                                                return (
+                                                    <div key={cls} className="flex flex-col gap-1">
+                                                        <div className="flex items-center justify-between text-label">
+                                                            <span className={isTop ? 'text-fg font-medium capitalize' : 'text-fg-muted capitalize'}>
+                                                                {cls}
+                                                            </span>
+                                                            <span className="font-mono tabular-nums text-fg-muted">
+                                                                {(p * 100).toFixed(1)}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="h-2 rounded-pill bg-surface-3 overflow-hidden">
+                                                            <div
+                                                                className={isTop ? 'h-full rounded-pill bg-accent' : 'h-full rounded-pill bg-accent/40'}
+                                                                style={{ width: `${Math.max(p * 100, 0.5)}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </Card>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

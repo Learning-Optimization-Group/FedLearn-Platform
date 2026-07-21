@@ -33,6 +33,7 @@ function webCss() {
   L.push(...colorVars('light'));
   for (const [k, v] of Object.entries(T.radius)) L.push(`  --radius-${k}: ${v};`);
   for (const [k, v] of Object.entries(T.space)) L.push(`  --space-${cssKey(k)}: ${v};`);
+  for (const [k, v] of Object.entries(T.shadow)) L.push(`  --shadow-${k}: ${v};`);
   for (const [k, v] of Object.entries(T.duration)) L.push(`  --duration-${k}: ${v};`);
   for (const [k, v] of Object.entries(T.ease)) L.push(`  --ease-${k}: ${v};`);
   L.push(`  --font-feature-settings: ${T.font['feature-settings']};`, '}');
@@ -42,6 +43,7 @@ function webCss() {
   for (const k of Object.keys(T.color.light)) L.push(`  --color-${k}: var(--${k});`);
   T.color.series.forEach((_, i) => L.push(`  --color-series-${i + 1}: var(--series-${i + 1});`));
   for (const k of Object.keys(T.radius)) L.push(`  --radius-${k}: var(--radius-${k});`);
+  for (const k of Object.keys(T.shadow)) L.push(`  --shadow-${k}: var(--shadow-${k});`);
   L.push(
     `  --font-sans: ${T.font.sans};`,
     `  --font-display: ${T.font.display};`,
@@ -62,6 +64,7 @@ function desktopCss() {
   L.push(...colorVars('light'));
   for (const [k, v] of Object.entries(T.radius)) L.push(`  --radius-${k}: ${v};`);
   for (const [k, v] of Object.entries(T.space)) L.push(`  --space-${cssKey(k)}: ${v};`);
+  for (const [k, v] of Object.entries(T.shadow)) L.push(`  --shadow-${k}: ${v};`);
   for (const [k, v] of Object.entries(T.duration)) L.push(`  --duration-${k}: ${v};`);
   for (const [k, v] of Object.entries(T.ease)) L.push(`  --ease-${k}: ${v};`);
   L.push(
@@ -69,6 +72,12 @@ function desktopCss() {
     `  --font-display: ${T.font.display};`,
     `  --font-mono: ${T.font.mono};`,
   );
+  for (const [k, s] of Object.entries(T.text)) {
+    L.push(`  --text-${k}-size: ${s.size};`);
+    L.push(`  --text-${k}-line: ${s.line};`);
+    L.push(`  --text-${k}-tracking: ${s.tracking};`);
+    L.push(`  --text-${k}-weight: ${s.weight};`);
+  }
   L.push(`  --font-feature-settings: ${T.font['feature-settings']};`, '}');
   L.push('.dark, :root.dark {', ...colorVars('dark'), '}');
   return L.join('\n') + '\n';

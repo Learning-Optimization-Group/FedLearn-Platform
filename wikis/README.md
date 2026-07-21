@@ -1,13 +1,13 @@
 # FedLearn Platform — Master Wiki
 
 > **Repository:** `FedLearn-Platform`  
-> **Last Updated:** 2026-06-10
+> **Last Updated:** 2026-07-20
 
 This is the top-level technical wiki for the **FedLearn Platform** — a privacy-preserving, distributed machine learning system that enables federated learning across heterogeneous hardware. Use this page as your starting point and navigate into any subsection for in-depth documentation.
 
 > **Recent hardening (2026-06):** dependency/security pass — npm and pip audits cleared, Electron upgraded 34 → 42, gitleaks secret scanning added via the free CLI, and the unused `flwr` dependency dropped from the **framework** (`framework/pyproject.toml`). Note that `flwr` / `flwr-datasets` are still pinned in `backend/fl-platform-api/requirements.txt` and `client-docker/requirements.txt` — they are used for **dataset partitioning only** (`FederatedDataset`), never for FL semantics.
 >
-> **Ember design-system rebrand (2026-06-10):** the frontend, the desktop renderer, and the mobile client adopted the **Ember** design system — warm canvas (`#FBF9F6`), burnt-orange accent (`#C56A1E`), and the Bricolage Grotesque / Hanken Grotesk / JetBrains Mono type family — along with rebranded icons. "Ember" is the name of the **design system / theme**; the platform itself is still **FedLearn** (a product-domain rename is a separate, in-progress effort). This wiki ships an Ember-themed HTML rendering under [`html/`](./html/index.html).
+> **Ledger design-system redesign (2026-07):** the frontend, the desktop renderer, and the mobile client adopted the **Ledger** design system — navy structural ink (`#1C314D`) on quiet paper surfaces (`#F6F3EE` canvas, white cards), with a single Hanken Grotesk type family (JetBrains Mono for logs/ids). Ledger superseded **Ember** (warm canvas + burnt orange + Bricolage Grotesque, 2026-06), which had superseded "Instrument" — see [`frontend/UI_and_Components.md`](./frontend/UI_and_Components.md). "Ledger" is the name of the **design system / theme**; the platform itself is still **FedLearn** (a product-domain rename is a separate, in-progress effort). This wiki ships an HTML rendering under [`html/`](./html/index.html) (generated during the Ember cycle; re-theming is pending).
 
 ---
 

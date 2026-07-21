@@ -13,28 +13,24 @@ const PADDING: Record<CardPadding, string> = {
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
     /** Inner padding. Defaults to `md` (16px). Use `none` when composing custom regions. */
     padding?: CardPadding;
-    /** Hover affordance: warms the border to ember and lifts slightly. For clickable cards. */
+    /** Hover affordance: strengthens the border and lifts the shadow. For clickable cards. */
     interactive?: boolean;
-    /** Adds a soft ember halo — for focal / featured cards. */
+    /** Deprecated — halos are retired; accepted so call sites keep compiling. */
     glow?: boolean;
 }
 
 /**
  * Surface container — the base panel for cards, panels and modals.
- * Near-black bg-surface-1 + 1px hairline + rounded-card, lifted from the void by
- * the surface ladder + a faint top highlight. `interactive` adds an ember hover.
+ * White surface + 1px hairline + rounded-card + the quiet card shadow.
  */
 export const Card = forwardRef<HTMLDivElement, CardProps>(
-    ({ className, padding = 'md', interactive = false, glow = false, ...props }, ref) => (
+    ({ className, padding = 'md', interactive = false, glow: _glow = false, ...props }, ref) => (
         <div
             ref={ref}
             className={cn(
-                'relative bg-surface-1 border border-hairline rounded-card',
-                'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px',
-                'before:bg-gradient-to-r before:from-transparent before:via-white/[0.06] before:to-transparent before:rounded-t-card',
+                'relative bg-surface-1 border border-hairline rounded-card shadow-card',
                 interactive &&
-                    'transition-[transform,border-color,background-color] duration-[180ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:border-accent/35 hover:bg-surface-2 cursor-pointer',
-                glow && 'glow-ember',
+                    'transition-[border-color,box-shadow] duration-[180ms] ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-line hover:shadow-card-hover cursor-pointer',
                 PADDING[padding],
                 className,
             )}

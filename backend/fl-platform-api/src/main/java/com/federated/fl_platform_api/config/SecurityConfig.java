@@ -104,7 +104,9 @@ public class SecurityConfig {
         // (e.g. "http://localhost:*") while still permitting credentials. With credentials
         // enabled, Spring requires patterns instead of a literal "*" origin.
         configuration.setAllowedOriginPatterns(origins);
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        // PATCH is load-bearing: project edit (PATCH /api/projects/{id}) and profile
+        // updates (PATCH /api/users/me/profile) both preflight against this list.
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -134,6 +136,13 @@ public class SecurityConfig {
                         // here because InternalApiKeyFilter (added below) rejects any request without
                         // a valid X-Internal-Key header before Spring Security sees it.
                         .requestMatchers("/api/internal/**").permitAll()
+                        // Self-service profile: reachable by ANY authenticated user regardless of
+                        // role, ordered BEFORE any broader /api/users/** rule so an admin lock on
+                        // the legacy user-management surface can never shadow it. permitAll at the
+                        // chain level (same pattern as /api/auth/me): ProfileController enforces
+                        // authentication itself and 401s anonymous callers, which the SPA's
+                        // interceptor understands — the chain's default entry point would 403.
+                        .requestMatchers("/api/users/me/profile").permitAll()
                         // SE-5: actuator management endpoints (loggers/metrics/…) are admin-only —
                         // a plain USER could otherwise POST /actuator/loggers to flip log levels
                         // (log-flood DoS / recon). /actuator/health stays permitAll via publicPaths

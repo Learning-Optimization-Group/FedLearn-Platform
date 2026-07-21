@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { registerUser } from '../services/apiServices';
 import { createLogger } from '../lib/logger';
-import { Button, Card, Input } from '../components/ui';
+import { Button, Card, Input, FormField } from '../components/ui';
 import { Wordmark } from '../components/brand';
 
 const log = createLogger('RegisterPage');
@@ -120,9 +120,8 @@ const RegisterPage: React.FC = () => {
     };
 
     return (
-        <div className="bg-ambient relative flex min-h-screen items-center justify-center bg-canvas px-4 py-12 font-sans text-fg">
-            <div className="bg-grid pointer-events-none absolute inset-0 opacity-50" />
-            <div className="relative w-full max-w-md">
+        <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-12 font-sans text-fg">
+            <div className="reveal w-full max-w-md">
                 <div className="mb-8 flex justify-center">
                     <Link to="/" aria-label="FedLearn home">
                         <Wordmark size={32} />
@@ -130,52 +129,43 @@ const RegisterPage: React.FC = () => {
                 </div>
 
                 <Card padding="lg" className="p-7">
-                    <h1 className="font-display text-h2 text-fg">Create your account</h1>
+                    <h1 className="text-h3 text-fg">Create your account</h1>
                     <p className="mt-1.5 text-body text-fg-muted">
                         Start training AI together — it's free.
                     </p>
 
-                    <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="username" className="text-label font-medium text-fg">
-                                Username
-                            </label>
+                    <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
+                        <FormField label="Username">
                             <Input
                                 type="text"
                                 id="username"
-                                className="h-11"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
                                 required
                                 autoComplete="username"
                                 placeholder="yourname"
                             />
-                        </div>
+                        </FormField>
 
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="email" className="text-label font-medium text-fg">
-                                Email
-                            </label>
+                        <FormField label="Email">
                             <Input
                                 type="email"
                                 id="email"
-                                className="h-11"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                                 autoComplete="email"
                                 placeholder="you@example.com"
                             />
-                        </div>
+                        </FormField>
 
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="password" className="text-label font-medium text-fg">
-                                Password
-                            </label>
+                        <FormField
+                            label="Password"
+                            help={`At least ${MIN_PASSWORD_LENGTH} characters, with an uppercase letter, a lowercase letter, and a number.`}
+                        >
                             <Input
                                 type="password"
                                 id="password"
-                                className="h-11"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
@@ -183,27 +173,19 @@ const RegisterPage: React.FC = () => {
                                 minLength={MIN_PASSWORD_LENGTH}
                                 placeholder="••••••••"
                             />
-                            <span className="text-caption text-fg-subtle">
-                                At least {MIN_PASSWORD_LENGTH} characters, with an uppercase letter, a
-                                lowercase letter, and a number.
-                            </span>
-                        </div>
+                        </FormField>
 
-                        <div className="flex flex-col gap-1.5">
-                            <label htmlFor="confirmPassword" className="text-label font-medium text-fg">
-                                Confirm password
-                            </label>
+                        <FormField label="Confirm password">
                             <Input
                                 type="password"
                                 id="confirmPassword"
-                                className="h-11"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 required
                                 autoComplete="new-password"
                                 placeholder="••••••••"
                             />
-                        </div>
+                        </FormField>
 
                         {error && (
                             <p
@@ -224,12 +206,7 @@ const RegisterPage: React.FC = () => {
                             </p>
                         )}
 
-                        <Button
-                            type="submit"
-                            size="lg"
-                            disabled={isLoading}
-                            className="mt-2 w-full"
-                        >
+                        <Button type="submit" disabled={isLoading} className="mt-2 w-full">
                             {isLoading ? 'Creating account…' : 'Create account'}
                         </Button>
                     </form>

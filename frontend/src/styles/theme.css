@@ -1,11 +1,11 @@
 /* =============================================================================
- * Brand base layer for the "Ember" design system.
+ * Brand base layer for the "Ledger" design system (navy ink on paper).
  * The canonical tokens live in tokens.css (generated from design/tokens.json).
  * This file (a) keeps the `.dark` variant wired for Tailwind v4, (b) aliases the
- * legacy shadcn-style token names to the Ember semantic tokens so any stray
+ * legacy shadcn-style token names to the semantic tokens so any stray
  * `bg-card` / `text-muted-foreground` / `border-border` utilities still resolve,
- * and (c) sets global base styles: AMOLED body, display headings, ember focus
- * rings, ember text-selection, and a slim themed scrollbar.
+ * and (c) sets global base styles: paper body, heading weights, focus rings,
+ * text-selection, and a slim themed scrollbar.
  * ========================================================================== */
 @custom-variant dark (&:is(.dark *));
 
@@ -25,7 +25,7 @@
   --muted: var(--surface-2);
   --muted-foreground: var(--fg-muted);
   --destructive: var(--danger);
-  --destructive-foreground: #ffffff;
+  --destructive-foreground: var(--accent-fg);
   --border: var(--hairline);
   --input: var(--surface-2);
   --input-background: var(--surface-2);
@@ -37,13 +37,12 @@
 }
 
 .dark {
-  /* Legacy shadcn names → Ember semantic tokens (dark / AMOLED).
-     The Ember tokens themselves flip in tokens.css `.dark`, so these aliases
-     follow automatically. */
+  /* Legacy shadcn names → semantic tokens (dark). The semantic tokens
+     themselves flip in tokens.css `.dark`, so these aliases follow
+     automatically. */
   --border: var(--hairline);
   --input: var(--surface-2);
   --ring: var(--accent);
-  --destructive-foreground: #1c0f03;
 }
 
 @theme inline {
@@ -87,21 +86,20 @@
     font-feature-settings: var(--font-feature-settings);
   }
 
-  /* Display face for headings; utilities (text-h1, etc.) still control size.
-     Bricolage Grotesque is variable with an optical-size axis — pin a refined
-     title weight (NOT the heavy default) and tighten tracking. */
+  /* One family everywhere — headings differ by size and weight only.
+     Utilities (text-h1, etc.) control size; this pins weight + tracking. */
   h1, h2, h3 {
     font-family: var(--font-display);
-    font-variation-settings: 'opsz' 40, 'wght' 600;
+    font-weight: 600;
     letter-spacing: -0.015em;
   }
 
   ::selection {
-    background-color: color-mix(in oklab, var(--accent) 32%, transparent);
+    background-color: color-mix(in oklab, var(--accent) 18%, transparent);
     color: var(--fg);
   }
 
-  /* Slim, themed scrollbar — warm thumb on the void. */
+  /* Slim, themed scrollbar. */
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--surface-3) transparent;
@@ -120,7 +118,7 @@
     background-clip: content-box;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background-color: color-mix(in oklab, var(--accent) 40%, var(--surface-3));
+    background-color: var(--line);
     background-clip: content-box;
   }
 }

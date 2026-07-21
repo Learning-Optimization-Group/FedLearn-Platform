@@ -2,6 +2,7 @@ package com.federated.fl_platform_api.admin;
 
 import com.federated.fl_platform_api.model.PlatformRole;
 import com.federated.fl_platform_api.model.User;
+import com.federated.fl_platform_api.model.UserStatus;
 import com.federated.fl_platform_api.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -119,6 +120,26 @@ class AdminControllerIntegrationTest {
             "/api/admin/users/" + adminId + "/role", HttpMethod.PUT,
             new HttpEntity<>(Map.of("role", "USER"), headers(cookie)), Map.class);
         assertEquals(HttpStatus.CONFLICT, resp.getStatusCode());
+    }
+
+    @Test
+    void demoteLastActiveAdmin_returns409_whenOnlyOtherAdminIsSuspended() {
+        // The guard counts ACTIVE admins only: a suspended admin does not keep
+        // the platform administrable, so demoting the last ACTIVE admin is a
+        // conflict even though a second PLATFORM_ADMIN row exists.
+        User active = createUser("admin_a5", PlatformRole.PLATFORM_ADMIN);
+        User suspended = createUser("admin_a5b", PlatformRole.PLATFORM_ADMIN);
+        suspended.setStatus(UserStatus.SUSPENDED);
+        userRepository.save(suspended);
+        String cookie = loginAs("admin_a5");
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        ResponseEntity<Map> resp = restTemplate.exchange(
+            "/api/admin/users/" + active.getId() + "/role", HttpMethod.PUT,
+            new HttpEntity<>(Map.of("role", "USER"), headers(cookie)), Map.class);
+        assertEquals(HttpStatus.CONFLICT, resp.getStatusCode());
+        assertEquals(PlatformRole.PLATFORM_ADMIN,
+            userRepository.findById(active.getId()).orElseThrow().getPlatformRole());
     }
 
     @Test

@@ -1,16 +1,24 @@
 // =============================================================================
 // FedLearn Desktop — Main Application Component
 // =============================================================================
+// Shell layout (authenticated): a top drag strip (hiddenInset traffic-light
+// spacing), a 64px left icon rail (Train / Models / Settings + account item),
+// a section outlet, and a persistent bottom StatusBar. Sections mount once and
+// toggle visibility with CSS so ModelPlayground's inference stream/chat state
+// and the training log buffer survive section switches. UpdateBanner stays
+// mounted at shell level forever (its preload listeners have no removal API)
+// and overlays the outlet as a top layer regardless of section.
+// =============================================================================
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Network, Settings } from 'lucide-react';
+import { Activity, Boxes, LogOut, Network, Settings, User } from 'lucide-react';
 import AuthModal from './components/AuthModal';
-import HardwareSelector from './components/HardwareSelector';
-import LogPanel from './components/LogPanel';
-import StatusIndicator from './components/StatusIndicator';
-import SettingsModal from './components/SettingsModal';
 import UpdateBanner from './components/UpdateBanner';
 import ModelPlayground from './components/ModelPlayground';
+import StatusBar from './components/StatusBar';
+import type { ActiveRun } from './components/StatusBar';
+import { TrainSection } from './components/TrainSection';
+import { SettingsSection } from './components/SettingsSection';
 import type { InferableModel, InferenceResult } from './inference.types';
 import type { ClientProject, ProjectConnection } from './client.types';
 import type { UpdateInfo, ProgressInfo } from 'electron-updater';
@@ -95,17 +103,36 @@ declare global {
 
 export type ContainerStatus = 'idle' | 'pulling' | 'running' | 'completed' | 'error' | 'restarting' | 'paused' | 'stopped';
 
+export type Section = 'train' | 'models' | 'settings';
+
 // Cap log buffer at 10K lines to prevent unbounded memory growth during long training runs.
 // When exceeded, the oldest lines are dropped.
 const MAX_LOG_LINES = 10_000;
+
+// Labels for the hardware profile chip in the StatusBar — same ids the Train
+// flow's profile cards use (HardwareSelector HARDWARE_PROFILES).
+const PROFILE_LABELS: Record<string, string> = {
+  discrete: 'Discrete GPU',
+  jetson: 'Jetson SoC',
+  mps: 'Apple Silicon',
+  cpu: 'CPU Only',
+};
+
+// hiddenInset traffic lights only exist on macOS; the drag strip inset and the
+// shortcut hints are keyed off this.
+const IS_MAC = navigator.userAgent.includes('Mac');
+
+const shortcutHint = (n: number): string => (IS_MAC ? `⌘${n}` : `Ctrl+${n}`);
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [containerStatus, setContainerStatus] = useState<ContainerStatus>('idle');
   const [logs, setLogs] = useState<string[]>([]);
-  const [showSettings, setShowSettings] = useState(false);
-  const [view, setView] = useState<'train' | 'use'>('train');
+  const [section, setSection] = useState<Section>('train');
+  const [serverHost, setServerHost] = useState('');
+  const [hardwareLabel, setHardwareLabel] = useState('');
+  const [activeRun, setActiveRun] = useState<ActiveRun | null>(null);
 
   // Check authentication on mount
   useEffect(() => {
@@ -133,6 +160,10 @@ const App: React.FC = () => {
       setIsAuthenticated(false);
       setLogs([]);
       setContainerStatus('idle');
+      setSection('train');
+      setActiveRun(null);
+      setServerHost('');
+      setHardwareLabel('');
     });
     return () => {
       window.fedLearnAPI.removeSessionExpiredListener();
@@ -195,6 +226,67 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 
+  // Hardware detection for the StatusBar chip — same preload call the Train
+  // flow uses for its profile preselection; advisory only, so failures just
+  // leave the chip hidden.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+    window.fedLearnAPI
+      .detectHardware()
+      .then((result) => {
+        if (cancelled || !result.success || !result.detection) return;
+        const profile = result.detection.recommendedProfile;
+        setHardwareLabel(PROFILE_LABELS[profile] ?? profile);
+      })
+      .catch(() => {
+        // Detection is advisory; the chip stays hidden.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
+
+  // Server host for the StatusBar connection readout. Re-fetched on section
+  // change so a URL saved in Settings is reflected when navigating away.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+    window.fedLearnAPI
+      .getServerUrl()
+      .then((result) => {
+        if (cancelled || !result.success || !result.url) return;
+        try {
+          setServerHost(new URL(result.url).host);
+        } catch {
+          setServerHost(result.url);
+        }
+      })
+      .catch(() => {
+        // Strip shows "Not connected" until the URL resolves.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, section]);
+
+  // Keyboard section switching: Cmd/Ctrl+1..3. Pure renderer listener — no
+  // menu accelerators, no IPC.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+      const target: Section | null =
+        e.key === '1' ? 'train' : e.key === '2' ? 'models' : e.key === '3' ? 'settings' : null;
+      if (target) {
+        e.preventDefault();
+        setSection(target);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isAuthenticated]);
+
   const handleLogin = useCallback(() => {
     setIsAuthenticated(true);
   }, []);
@@ -204,6 +296,10 @@ const App: React.FC = () => {
     setIsAuthenticated(false);
     setLogs([]);
     setContainerStatus('idle');
+    setSection('train');
+    setActiveRun(null);
+    setServerHost('');
+    setHardwareLabel('');
   }, []);
 
   const handleStartTraining = useCallback(
@@ -216,6 +312,25 @@ const App: React.FC = () => {
       datasetPath: string;
       connectionToken?: string;
     }) => {
+      // Anchor the elapsed timer at the moment the user pressed Start — never
+      // derived from the 3s status poll. Label falls back to the model type
+      // until the project name resolves.
+      setActiveRun({
+        projectLabel: config.modelType || config.projectId.slice(0, 8),
+        startedAt: Date.now(),
+      });
+      window.fedLearnAPI
+        .listTrainableProjects()
+        .then((result) => {
+          const project = result.projects?.find((p) => p.projectId === config.projectId);
+          if (project) {
+            setActiveRun((prev) => (prev ? { ...prev, projectLabel: project.name } : prev));
+          }
+        })
+        .catch(() => {
+          // Keep the model-type fallback label.
+        });
+
       setLogs([]);
       setContainerStatus('pulling');
       setLogs((prev) => [...prev, '[System] Starting training container...\n']);
@@ -263,88 +378,121 @@ const App: React.FC = () => {
     );
   }
 
-  // Main dashboard
+  // Main shell
   return (
     <div className="app-container">
-      {/* Header */}
-      <header className="app-header">
-        <div className="header-left">
-          <div className="app-logo">
-            <span className="logo-icon"><Network strokeWidth={1.5} size={20} /></span>
-            <h1 className="app-title">FedLearn Desktop</h1>
-          </div>
-          <StatusIndicator status={containerStatus} />
-          <nav className="view-tabs" role="tablist" aria-label="View">
-            <button
-              role="tab"
-              aria-selected={view === 'train'}
-              className={`view-tab ${view === 'train' ? 'view-tab-active' : ''}`}
-              onClick={() => setView('train')}
-            >
-              Train
-            </button>
-            <button
-              role="tab"
-              aria-selected={view === 'use'}
-              className={`view-tab ${view === 'use' ? 'view-tab-active' : ''}`}
-              onClick={() => setView('use')}
-            >
-              Use a model
-            </button>
-          </nav>
-        </div>
-        <div className="header-right header-actions">
-          <button className="btn btn-ghost" onClick={() => setShowSettings(true)} id="settings-button">
-            <span><Settings strokeWidth={1.5} size={16} /> Settings</span>
-          </button>
-          <button className="btn btn-ghost" onClick={handleLogout} id="logout-button">
-            Sign out
-          </button>
-        </div>
+      {/* Top drag strip — the only draggable window chrome. */}
+      <header className={`shell-titlebar ${IS_MAC ? 'shell-titlebar-mac' : ''}`}>
+        <span className="shell-titlebar-logo">
+          <Network strokeWidth={1.5} size={18} />
+        </span>
+        <h1 className="shell-titlebar-title">FedLearn Desktop</h1>
       </header>
 
-      {/* Auto-Update Banner */}
-      <UpdateBanner />
+      {/* Auto-Update layer — mounted exactly once at shell level (its preload
+          listeners have no removal API) and overlaying every section. */}
+      <div className="shell-update-layer">
+        <UpdateBanner />
+      </div>
 
-      {/* Main Content */}
-      <main className="app-main">
-        {view === 'train' ? (
-          <div className="main-grid">
-            {/* Left Panel: Configuration */}
-            <section className="panel config-panel">
-              <div className="panel-header">
-                <h2 className="panel-title">Set up training</h2>
-                <span className="panel-badge">This device</span>
-              </div>
-              <HardwareSelector
-                onStart={handleStartTraining}
-                onStop={handleStopTraining}
-                isRunning={containerStatus === 'running' || containerStatus === 'pulling'}
-              />
-            </section>
-
-            {/* Right Panel: Logs */}
-            <section className="panel log-panel-container">
-              <div className="panel-header">
-                <h2 className="panel-title">Activity log</h2>
-                <span className="log-count">{logs.length} lines</span>
-              </div>
-              <LogPanel logs={logs} />
-            </section>
+      <div className="shell-body">
+        {/* Left icon rail */}
+        <nav className="rail" aria-label="Primary">
+          <div className="rail-items">
+            <button
+              type="button"
+              className={`rail-item ${section === 'train' ? 'rail-item-active' : ''}`}
+              aria-current={section === 'train' ? 'page' : undefined}
+              title={`Train (${shortcutHint(1)})`}
+              onClick={() => setSection('train')}
+            >
+              <Activity strokeWidth={1.5} size={20} />
+              <span className="rail-item-label">Train</span>
+            </button>
+            <button
+              type="button"
+              className={`rail-item ${section === 'models' ? 'rail-item-active' : ''}`}
+              aria-current={section === 'models' ? 'page' : undefined}
+              title={`Models (${shortcutHint(2)})`}
+              onClick={() => setSection('models')}
+            >
+              <Boxes strokeWidth={1.5} size={20} />
+              <span className="rail-item-label">Models</span>
+            </button>
+            <button
+              type="button"
+              id="settings-button"
+              className={`rail-item ${section === 'settings' ? 'rail-item-active' : ''}`}
+              aria-current={section === 'settings' ? 'page' : undefined}
+              title={`Settings (${shortcutHint(3)})`}
+              onClick={() => setSection('settings')}
+            >
+              <Settings strokeWidth={1.5} size={20} />
+              <span className="rail-item-label">Settings</span>
+            </button>
           </div>
-        ) : (
-          <ModelPlayground />
-        )}
-      </main>
+          <div className="rail-foot">
+            {/* The frozen preload API exposes no username readback, so the
+                account item shows a generic signed-in identity. */}
+            <div className="rail-user" title="Signed in">
+              <User strokeWidth={1.5} size={20} />
+              <span className="rail-item-label">Signed in</span>
+            </div>
+            <button
+              type="button"
+              id="logout-button"
+              className="rail-item"
+              title="Sign out"
+              onClick={handleLogout}
+            >
+              <LogOut strokeWidth={1.5} size={20} />
+              <span className="rail-item-label">Sign out</span>
+            </button>
+          </div>
+        </nav>
 
-      {/* Footer */}
-      <footer className="app-footer">
-        <span className="footer-text">FedLearn — Train AI together. Share nothing.</span>
-        <span className="footer-version">v{__APP_VERSION__}</span>
-      </footer>
+        {/* Section outlet — every section stays mounted; visibility toggles
+            via CSS so training/playground state survives switches. */}
+        <main className="shell-outlet">
+          <section
+            className={`shell-section ${section === 'train' ? '' : 'shell-section-hidden'}`}
+            aria-label="Train"
+          >
+            {/* Pass the FULL container status — TrainSection derives its
+                setup/running/outcome phases from it. A collapsed boolean
+                would make the completed/error banners and the run-finished
+                notifications unreachable, and would show the setup card
+                mid-run during 'restarting'/'paused'. */}
+            <TrainSection
+              onStart={handleStartTraining}
+              onStop={handleStopTraining}
+              status={containerStatus}
+              logs={logs}
+            />
+          </section>
+          <section
+            className={`shell-section ${section === 'models' ? '' : 'shell-section-hidden'}`}
+            aria-label="Models"
+          >
+            <ModelPlayground />
+          </section>
+          <section
+            className={`shell-section ${section === 'settings' ? '' : 'shell-section-hidden'}`}
+            aria-label="Settings"
+          >
+            <SettingsSection />
+          </section>
+        </main>
+      </div>
 
-      {/* Settings Modal Layer */}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {/* Persistent bottom status strip */}
+      <StatusBar
+        containerStatus={containerStatus}
+        serverHost={serverHost}
+        hardwareLabel={hardwareLabel}
+        activeRun={activeRun}
+        appVersion={__APP_VERSION__}
+      />
     </div>
   );
 };

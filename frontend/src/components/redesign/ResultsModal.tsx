@@ -5,10 +5,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { ResponsiveContainer, LineChart, Line, YAxis, XAxis, Tooltip, CartesianGrid } from 'recharts';
-import { X, Trophy, Timer, TrendingDown, Table, LineChart as ChartIcon } from 'lucide-react';
+import { X, Table, LineChart as ChartIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { ProjectResult } from '../../services/apiServices';
-import { Button, MetricTile } from '../ui';
+import { SectionLabel, StatGroup } from '../ui';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface ResultsModalProps {
@@ -17,6 +17,18 @@ interface ResultsModalProps {
   projectName: string;
   results: ProjectResult[];
 }
+
+// Shared recharts tooltip styling — recharts requires inline styles, so these
+// route through the token CSS variables rather than raw values.
+const TOOLTIP_CONTENT_STYLE = {
+  backgroundColor: 'var(--color-surface-1)',
+  borderColor: 'var(--color-hairline)',
+  borderRadius: 'var(--radius-md)',
+  color: 'var(--color-fg)',
+};
+const TOOLTIP_ITEM_STYLE = { fontWeight: 600, fontSize: '13px' };
+const TOOLTIP_LABEL_STYLE = { color: 'var(--color-fg-muted)', marginBottom: '8px', fontSize: '12px' };
+const AXIS_TICK = { fill: 'var(--color-fg-muted)', fontSize: 12 };
 
 export function ResultsModalV2({ isOpen, onClose, projectName, results }: ResultsModalProps) {
   const [activeTab, setActiveTab] = useState<'chart' | 'table'>('chart');
@@ -48,9 +60,18 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
   const bestAccuracy = hasResults ? Math.max(...results.map((r) => r.accuracy)) : 0;
   const finalLoss = hasResults ? results[results.length - 1].loss : 0;
 
+  const tabClass = (active: boolean) =>
+    cn(
+      'flex items-center gap-2 px-5 h-9 rounded-md text-body font-medium transition-colors duration-[160ms]',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-1',
+      active
+        ? 'bg-surface-2 text-accent border border-hairline'
+        : 'text-fg-muted hover:bg-surface-2 hover:text-fg border border-transparent',
+    );
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-black/75 backdrop-blur-md font-sans"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-scrim font-sans"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -61,95 +82,73 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
         aria-modal="true"
         aria-label={`${projectName} — Results`}
         tabIndex={-1}
-        className="bg-surface-1 border border-line w-full max-w-6xl h-full max-h-[90vh] rounded-card flex flex-col overflow-hidden text-fg shadow-[0_30px_90px_-24px_rgba(0,0,0,0.95)]"
+        className="bg-surface-1 border border-hairline w-full max-w-6xl h-full max-h-[90vh] rounded-card flex flex-col overflow-hidden text-fg shadow-overlay"
       >
 
         {/* Header */}
-        <div className="flex items-center justify-between p-8 pb-6 border-b border-hairline">
+        <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-4 border-b border-hairline">
           <div>
-            <h2 className="text-h2 font-display text-fg">{projectName} — Results</h2>
+            <h2 className="text-h4 text-fg">{projectName} — Results</h2>
             <p className="text-body text-fg-muted mt-1">
               {hasResults ? `${results.length} training rounds done.` : 'No training rounds recorded yet.'}
             </p>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onClose}
+          <button
+            type="button"
             aria-label="Close"
-            className="w-8 px-0"
+            onClick={onClose}
+            className={cn(
+              'flex h-8 w-8 shrink-0 items-center justify-center rounded-md -mr-2',
+              'text-fg-muted hover:text-fg hover:bg-surface-2 transition-colors duration-[120ms]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+            )}
           >
-            <X strokeWidth={1.5} className="w-4 h-4" />
-          </Button>
+            <X strokeWidth={1.5} className="h-5 w-5" />
+          </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-8 pb-8 flex flex-col gap-6 scroll-smooth">
+        <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-6 scroll-smooth">
 
           {!hasResults && (
             <div className="flex flex-col items-center justify-center flex-1 text-center gap-3 py-16">
-              <div className="w-14 h-14 rounded-card bg-surface-2 flex items-center justify-center">
+              <div className="w-14 h-14 rounded-pill bg-surface-2 flex items-center justify-center">
                 <ChartIcon strokeWidth={1.5} className="w-6 h-6 text-fg-muted" />
               </div>
               <h3 className="text-h4 text-fg">No results yet</h3>
               <p className="text-body text-fg-muted max-w-md">
-                Results appear here once the project has completed at least one
-                federated training round. Start the server and connect clients
-                to produce data.
+                Results appear once the project completes its first federated training round.
               </p>
-              <Button variant="secondary" onClick={onClose} className="mt-4">
-                Close
-              </Button>
             </div>
           )}
 
           {hasResults && <>
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-surface-2 rounded-card p-8 border border-hairline">
-              <div className="flex items-center gap-2 text-success mb-3">
-                <Trophy strokeWidth={1.5} className="w-5 h-5" />
-                <span className="text-caption font-semibold tracking-wide uppercase text-fg-muted">Best accuracy</span>
-              </div>
-              <MetricTile label="" value={`${(bestAccuracy * 100).toFixed(2)}%`} />
-            </div>
-
-            <div className="bg-surface-2 rounded-card p-8 border border-hairline">
-              <div className="flex items-center gap-2 text-danger mb-3">
-                <TrendingDown strokeWidth={1.5} className="w-5 h-5" />
-                <span className="text-caption font-semibold tracking-wide uppercase text-fg-muted">Final loss</span>
-              </div>
-              <MetricTile label="" value={finalLoss.toFixed(4)} />
-            </div>
-
-            <div className="bg-surface-2 rounded-card p-8 border border-hairline">
-              <div className="flex items-center gap-2 text-accent mb-3">
-                <Timer strokeWidth={1.5} className="w-5 h-5" />
-                <span className="text-caption font-semibold tracking-wide uppercase text-fg-muted">Rounds done</span>
-              </div>
-              <MetricTile label="" value={results.length} />
-            </div>
-          </div>
+          {/* Summary stats — one card, internal dividers */}
+          <StatGroup
+            stats={[
+              { label: 'Best accuracy', value: `${(bestAccuracy * 100).toFixed(2)}%` },
+              { label: 'Final loss', value: finalLoss.toFixed(4) },
+              { label: 'Rounds done', value: results.length },
+            ]}
+          />
 
           {/* Tabs */}
           <div className="flex items-center gap-3 border-b border-hairline pb-2">
             <button
+              type="button"
+              aria-pressed={activeTab === 'chart'}
               onClick={() => setActiveTab('chart')}
-              className={cn(
-                "flex items-center gap-2 px-5 h-9 rounded-md text-body font-medium transition-colors duration-[160ms]",
-                activeTab === 'chart' ? "bg-surface-2 text-accent border border-hairline" : "text-fg-muted hover:bg-surface-2 hover:text-fg border border-transparent"
-              )}
+              className={tabClass(activeTab === 'chart')}
             >
               <ChartIcon strokeWidth={1.5} className="w-4 h-4" />
               Performance Chart
             </button>
             <button
+              type="button"
+              aria-pressed={activeTab === 'table'}
               onClick={() => setActiveTab('table')}
-              className={cn(
-                "flex items-center gap-2 px-5 h-9 rounded-md text-body font-medium transition-colors duration-[160ms]",
-                activeTab === 'table' ? "bg-surface-2 text-accent border border-hairline" : "text-fg-muted hover:bg-surface-2 hover:text-fg border border-transparent"
-              )}
+              className={tabClass(activeTab === 'table')}
             >
               <Table strokeWidth={1.5} className="w-4 h-4" />
               Raw Data
@@ -157,62 +156,73 @@ export function ResultsModalV2({ isOpen, onClose, projectName, results }: Result
           </div>
 
           {/* Tab Content */}
-          <div className="flex-1 bg-code-well rounded-card p-8 min-h-[440px] border border-hairline">
-            {activeTab === 'chart' ? (
-              <div className="h-full w-full flex flex-col gap-6">
-                <div className="flex items-center justify-end gap-6 text-label font-medium">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: 'var(--color-series-1)' }} />
-                    <span className="text-fg-muted">Accuracy (Right Axis)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: 'var(--color-danger)' }} />
-                    <span className="text-fg-muted">Loss (Left Axis)</span>
-                  </div>
-                </div>
-                <div className="flex-1 min-h-[400px]">
+          {activeTab === 'chart' ? (
+            // Two stacked single-axis charts over the same round domain —
+            // single series each, so no legend; tooltips carry the values.
+            <div className="flex flex-col gap-6">
+              <div>
+                <SectionLabel className="mb-3">Accuracy</SectionLabel>
+                <div className="h-52 w-full">
                   <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                    <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                    <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="4 4" stroke="var(--color-hairline)" vertical={false} />
-                      <XAxis dataKey="round" stroke="var(--color-hairline)" tick={{ fill: 'var(--color-fg-muted)', fontSize: 12 }} tickLine={false} axisLine={false} dy={10} />
-                      <YAxis yAxisId="left" stroke="var(--color-hairline)" tick={{ fill: 'var(--color-fg-muted)', fontSize: 12 }} tickLine={false} axisLine={false} dx={-10} />
-                      <YAxis yAxisId="right" orientation="right" stroke="var(--color-hairline)" tick={{ fill: 'var(--color-fg-muted)', fontSize: 12 }} tickLine={false} axisLine={false} dx={10} tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`} />
+                      <XAxis dataKey="round" stroke="var(--color-hairline)" tick={AXIS_TICK} tickLine={false} axisLine={false} dy={8} />
+                      <YAxis stroke="var(--color-hairline)" tick={AXIS_TICK} tickLine={false} axisLine={false} width={44} tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`} />
                       <Tooltip
-                        contentStyle={{ backgroundColor: 'var(--color-surface-2)', borderColor: 'var(--color-hairline)', borderRadius: '8px', color: 'var(--color-fg)' }}
-                        itemStyle={{ fontWeight: 600, fontSize: '13px' }}
-                        labelStyle={{ color: 'var(--color-fg-muted)', marginBottom: '8px', fontSize: '12px' }}
-                        formatter={(value: number, name: string) => [name === 'accuracy' ? `${(value * 100).toFixed(2)}%` : value.toFixed(4), name.charAt(0).toUpperCase() + name.slice(1)]}
+                        contentStyle={TOOLTIP_CONTENT_STYLE}
+                        itemStyle={TOOLTIP_ITEM_STYLE}
+                        labelStyle={TOOLTIP_LABEL_STYLE}
+                        formatter={(value: number) => [`${(value * 100).toFixed(2)}%`, 'Accuracy']}
                         labelFormatter={(label) => `Round ${label}`}
                       />
-                      <Line yAxisId="left" type="monotone" dataKey="loss" stroke="var(--color-danger)" strokeWidth={2.5} dot={false} activeDot={{ r: 5, strokeWidth: 0, fill: 'var(--color-danger)' }} />
-                      <Line yAxisId="right" type="monotone" dataKey="accuracy" stroke="var(--color-series-1)" strokeWidth={2.5} dot={false} activeDot={{ r: 5, strokeWidth: 0, fill: 'var(--color-series-1)' }} />
+                      <Line type="monotone" dataKey="accuracy" stroke="var(--color-series-1)" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: 'var(--color-series-1)' }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
-            ) : (
-              <div className="h-[450px] overflow-auto rounded-card border border-hairline">
-                <table className="w-full text-left border-collapse bg-surface-1">
-                  <thead className="bg-surface-2 sticky top-0 z-10 border-b border-hairline">
-                    <tr>
-                      <th className="px-6 py-3 text-caption font-semibold uppercase tracking-wider text-fg-muted">Round</th>
-                      <th className="px-6 py-3 text-caption font-semibold uppercase tracking-wider text-fg-muted">Loss</th>
-                      <th className="px-6 py-3 text-caption font-semibold uppercase tracking-wider text-fg-muted">Accuracy</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-hairline text-label font-mono tabular-nums text-fg">
-                    {results.slice().reverse().map((row) => (
-                      <tr key={row.serverRound} className="hover:bg-surface-2 transition-colors">
-                        <td className="px-6 py-3.5 text-fg-muted">#{row.serverRound}</td>
-                        <td className="px-6 py-3.5 text-danger">{row.loss.toFixed(4)}</td>
-                        <td className="px-6 py-3.5 text-success">{(row.accuracy * 100).toFixed(2)}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div>
+                <SectionLabel className="mb-3">Loss</SectionLabel>
+                <div className="h-52 w-full">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                    <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="4 4" stroke="var(--color-hairline)" vertical={false} />
+                      <XAxis dataKey="round" stroke="var(--color-hairline)" tick={AXIS_TICK} tickLine={false} axisLine={false} dy={8} />
+                      <YAxis stroke="var(--color-hairline)" tick={AXIS_TICK} tickLine={false} axisLine={false} width={44} />
+                      <Tooltip
+                        contentStyle={TOOLTIP_CONTENT_STYLE}
+                        itemStyle={TOOLTIP_ITEM_STYLE}
+                        labelStyle={TOOLTIP_LABEL_STYLE}
+                        formatter={(value: number) => [value.toFixed(4), 'Loss']}
+                        labelFormatter={(label) => `Round ${label}`}
+                      />
+                      <Line type="monotone" dataKey="loss" stroke="var(--color-series-1)" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: 'var(--color-series-1)' }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="max-h-[480px] overflow-auto rounded-lg border border-hairline">
+              <table className="w-full text-left border-collapse bg-surface-1">
+                <thead className="bg-surface-2 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-6 py-3"><SectionLabel>Round</SectionLabel></th>
+                    <th className="px-6 py-3"><SectionLabel>Loss</SectionLabel></th>
+                    <th className="px-6 py-3"><SectionLabel>Accuracy</SectionLabel></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-hairline text-label font-mono tabular-nums text-fg">
+                  {results.slice().reverse().map((row) => (
+                    <tr key={row.serverRound} className="hover:bg-surface-2 transition-colors">
+                      <td className="px-6 py-3 text-fg-muted">#{row.serverRound}</td>
+                      <td className="px-6 py-3">{row.loss.toFixed(4)}</td>
+                      <td className="px-6 py-3">{(row.accuracy * 100).toFixed(2)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           </>}
         </div>
       </div>

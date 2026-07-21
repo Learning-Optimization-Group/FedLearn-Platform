@@ -1,48 +1,78 @@
 # UI and Components
 
-> **Current design system: Ember.** As of the `1.4.1-beta` Ember rollout, the redesign track described below now uses the **Ember** design system — warm canvas (`#FBF9F6`), burnt-orange accent (`#C56A1E`), Bricolage Grotesque / Hanken Grotesk / JetBrains Mono — driven by CSS variables in `src/styles/tokens.css`. Ember superseded the earlier "Instrument" tokens; the glassmorphic dark "V2" styling discussed here was the design language that preceded it.
+> **Current design system: Ledger** — navy structural ink (`#1C314D`) on quiet paper
+> surfaces (`#F6F3EE` canvas, white cards), one type family (Hanken Grotesk; JetBrains
+> Mono for logs/ids), 4px-grid spacing, quiet card shadows, and a light-first theme.
+> Ledger superseded **Ember** (AMOLED black + burnt orange, 2026-06), which had
+> superseded **Instrument**. Tokens are generated — see below — and the dark palette
+> (a navy-dark family, not pure black) stays wired for a future deliberate dark mode.
 
-The FedLearn frontend is transitioning from a traditional custom-CSS layout to a modern, utility-first (Tailwind CSS) approach. 
+## Design tokens are generated, not hand-written
 
-## Two UI Paradigms
+`design/tokens.json` is the single source of truth. `node design/build-tokens.mjs`
+regenerates the per-platform artifacts:
 
-The application currently supports two distinct visual languages side-by-side:
+| Artifact | Consumer |
+|---|---|
+| `frontend/src/styles/tokens.css` | Tailwind v4 `@theme` (semantic utilities: `bg-canvas`, `text-fg`, `border-hairline`, `bg-accent`, `shadow-card`, `text-h3`, …) |
+| `fedlearn-desktop/src/renderer/tokens.css` | plain CSS custom properties incl. the `--text-*` type ramp |
+| `mobile_client/src/theme/tokens.generated.ts` + `global.css` | typed token object + NativeWind semantic classes |
 
-### 1. Legacy UI (Standard Routes)
-Located in `src/components/` and `src/pages/`, the legacy UI relies on standard CSS files located in `src/styles/`. Components like `ProjectCard`, `ModelCard`, and standard forms utilize classes defined in files like `Dashboard.css` and `Layout.css`.
+Never hardcode a color, radius, shadow, or font in a component — consume the semantic
+tokens. Palette changes are made once in `tokens.json` and propagate to all three
+surfaces.
 
-### 2. Redesign V2 (now the Ember design system)
-Located in `src/components/redesign/`, this is the current direction of the platform — now themed by the **Ember** design system. The V2 interface leverages **Tailwind CSS 4.x** to construct a dynamic UI from design-token CSS variables rather than custom CSS files.
-These components are accessed via the `/v2` routes.
+**Gotcha — custom class merging:** `src/lib/utils.ts` extends `tailwind-merge` with
+the token scales so custom text *sizes* (`text-body`) and text *colors*
+(`text-accent-fg`) merge independently. Without that config, stock tailwind-merge
+treats them as one group and silently drops one — keep the config in sync when adding
+token names.
 
-## The V2 Design System
+## Component conventions (the rules the UI follows)
 
-The V2 redesign strictly adheres to modern web aesthetics.
+- **One primary action per view** — the navy fill. Secondary = white surface +
+  hairline border; ghost = borderless; danger = solid destructive fill (a destructive
+  confirm must never read weaker than Cancel).
+- **Dialogs** — everything goes through `ui/Modal`: scrim backdrop, overlay shadow,
+  Escape + one close affordance, footer slot with right-aligned natural-width
+  `[Cancel] [Primary]`. `ConfirmDialog` for confirmations (`danger` prop for
+  destructive ones).
+- **Forms** — every control sits in `ui/FormField` (label association via
+  `htmlFor`/`id`, help/error slots). Specific verb labels ("Create project", not
+  "Submit"); loading state renders inside the submit button.
+- **Page shell** — every routed view renders `PageHeader` (h3 title, subtitle,
+  right-aligned actions) and a `max-w-[1400px]` content container. Live-connection
+  state is a quiet dot+caption chip in the header actions, never part of the title.
+- **Status** — `ui/StatusPill` is the only status vocabulary (no emoji, no unicode
+  glyphs, never repurposed for non-status data).
+- **Stats** — `ui/StatGroup` (one card, hairline-divided) instead of card-per-number
+  grids.
+- **Micro-labels** — `ui/SectionLabel` is the one uppercase label style.
+- **Empty states** — neutral lucide icon in a muted circle + title + one-line body.
+  The brand mark is a logo, not illustration.
+- **Icons** — `lucide-react` only.
+- **Charts** — series colors come from the `--color-series-N` tokens (a
+  colorblind-validated categorical ramp, fixed assignment order); one axis per chart
+  (no dual-axis), legend for ≥2 series.
+- **Focus** — every interactive element has a visible `focus-visible` ring (2px
+  accent, offset 2).
 
-- **Layout**: Uses a permanent Sidebar (`Sidebar.tsx`) and a flexible main content area (`LayoutV2.tsx`).
-- **Cards**: Elements like `ProjectCard.tsx` in V2 use soft gradients, semi-transparent backgrounds (`bg-gray-800/50`), and subtle borders (`border-white/10`) to simulate glass.
-- **Icons**: `lucide-react` provides a consistent, crisp icon set.
+## Primitives (`src/components/ui/`)
 
-### Example: Tailwind Card Component
-```tsx
-export const Card = ({ children, className }) => (
-    <div className={`bg-gray-900/40 border border-white/5 rounded-2xl p-6 backdrop-blur-xl ${className}`}>
-        {children}
-    </div>
-);
-```
+`Button` (primary/secondary/ghost/danger × sm/md/lg) · `Card` · `Modal` ·
+`ConfirmDialog` · `Input` · `Select` · `StatusPill` · `MetricTile` · `StatGroup` ·
+`SectionLabel` · `FormField` · `LogConsole` (recessed mono well) · `Skeleton`.
 
-## Shared Components and Utilities
+## App structure
 
-Regardless of the UI version, some components are universally applied to handle complex logic gracefully:
+Views live in `src/components/redesign/` (the `redesign/` path is historical — it is
+the only UI; the old `/v2` routes redirect to the canonical paths). `LayoutV2`
+composes `Sidebar` + routed view; auth pages live in `src/pages/`. `ErrorBoundary`
+wraps the app; `DiskLoader` is the standard async spinner. Brand assets
+(`favicon.svg`, icons, `og-image.png`) carry the flat navy network mark and are
+regenerated alongside palette changes.
 
-- **`LogViewer.tsx`**: Renders real-time log outputs. The V2 equivalent is highly stylized to look like an integrated terminal window.
-- **`ErrorBoundary.tsx`**: Wraps the entire application to catch rendering errors and prevent white screens of death, providing a fallback UI instead.
-- **`DiskLoader.tsx`**: A standardized loading spinner used across the app during asynchronous transitions or bootups.
-- **Modals**: E.g., `CreateProjectModal.tsx` / `ResultsModal.tsx` rely on React Portals or absolute positioning to render overlays above the main interface.
+## Responsive design
 
-## Responsive Design
-
-Both UI versions are designed to be responsive.
-- The legacy UI uses media queries inside CSS.
-- The V2 UI uses Tailwind's built-in breakpoint prefixes (e.g., `md:flex`, `lg:grid-cols-3`) to reflow layouts fluidly from mobile to desktop sizes.
+Layouts reflow with Tailwind breakpoint prefixes (`md:flex`, `lg:grid-cols-3`);
+tables scroll horizontally inside their cards on narrow viewports.

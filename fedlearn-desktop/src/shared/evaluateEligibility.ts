@@ -55,11 +55,15 @@ export function evaluateEligibility(
   return { eligible: hardFailures.length === 0, hardFailures, softWarnings };
 }
 
-/** Compact display helper for the picker. */
+/**
+ * Compact display helper for the picker. `marker` is a plain-text suffix meant
+ * to be appended to an item's display name (no emoji — renders consistently in
+ * native controls and can be styled by the consumer).
+ */
 export function eligibilitySummary(r: EligibilityResult): { marker: string; lines: string[] } {
-  if (!r.eligible) return { marker: '⚠️', lines: r.hardFailures };
-  if (r.softWarnings.length > 0) return { marker: 'ℹ️', lines: r.softWarnings };
-  return { marker: '✅', lines: [] };
+  if (!r.eligible) return { marker: ' — unsupported', lines: r.hardFailures };
+  if (r.softWarnings.length > 0) return { marker: ' — limited', lines: r.softWarnings };
+  return { marker: ' — recommended', lines: [] };
 }
 
 /** Compare dotted version strings (e.g. "16.0"). <0 if a<b, 0 equal, >0 if a>b. */

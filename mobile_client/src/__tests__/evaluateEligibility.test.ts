@@ -84,15 +84,24 @@ describe('evaluateEligibility — soft gates', () => {
 });
 
 describe('eligibilitySummary', () => {
-  test('eligible + no warnings → ✅', () => {
-    expect(eligibilitySummary({ eligible: true, hardFailures: [], softWarnings: [] }).marker).toBe('✅');
+  test('eligible + no warnings → recommended suffix', () => {
+    expect(eligibilitySummary({ eligible: true, hardFailures: [], softWarnings: [] }).marker).toBe(' — recommended');
   });
-  test('eligible + warnings → ℹ️', () => {
-    expect(eligibilitySummary({ eligible: true, hardFailures: [], softWarnings: ['slow'] }).marker).toBe('ℹ️');
+  test('eligible + warnings → limited suffix', () => {
+    expect(eligibilitySummary({ eligible: true, hardFailures: [], softWarnings: ['slow'] }).marker).toBe(' — limited');
   });
-  test('hard failure → ⚠️ with the failure lines', () => {
+  test('hard failure → unsupported suffix with the failure lines', () => {
     const s = eligibilitySummary({ eligible: false, hardFailures: ['needs 8 GB'], softWarnings: [] });
-    expect(s.marker).toBe('⚠️');
+    expect(s.marker).toBe(' — unsupported');
     expect(s.lines).toContain('needs 8 GB');
+  });
+  test('markers contain no emoji', () => {
+    for (const r of [
+      { eligible: true, hardFailures: [], softWarnings: [] },
+      { eligible: true, hardFailures: [], softWarnings: ['slow'] },
+      { eligible: false, hardFailures: ['x'], softWarnings: [] },
+    ]) {
+      expect(eligibilitySummary(r).marker).toMatch(/^[ -~—…]*$/);
+    }
   });
 });

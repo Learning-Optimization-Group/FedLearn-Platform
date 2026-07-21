@@ -22,6 +22,28 @@ const STATUS: Record<StatusKind, { text: string; dot: string; live?: boolean }> 
     idle: { text: 'text-fg-muted', dot: 'bg-fg-muted' },
 };
 
+/**
+ * The ONE domain-status → StatusKind mapper. Takes the backend's project
+ * status string (any case): INITIALIZING → pending, RUNNING → running,
+ * COMPLETED → completed, FAILED → error, everything else (CREATED / STOPPED /
+ * unknown) → idle.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- the mapper belongs beside the pill's STATUS map
+export function toStatusKind(status: string): StatusKind {
+    switch (status?.toUpperCase()) {
+        case 'INITIALIZING':
+            return 'pending';
+        case 'RUNNING':
+            return 'running';
+        case 'COMPLETED':
+            return 'completed';
+        case 'FAILED':
+            return 'error';
+        default:
+            return 'idle';
+    }
+}
+
 export interface StatusPillProps {
     status: StatusKind;
     /** Label text. Defaults to the capitalised status. */

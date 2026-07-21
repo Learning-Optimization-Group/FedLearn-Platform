@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Play, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Project, errorMessage } from '../../services/apiServices';
 import { createLogger } from '../../lib/logger';
-import { Modal, Input, Select, Button } from '../ui';
+import { Modal, Input, Select, Button, FormField } from '../ui';
 
 const log = createLogger('StartProjectModal');
 
@@ -12,9 +12,6 @@ interface StartProjectModalProps {
   onClose: () => void;
   onSubmit: (projectId: string, config: { strategy: string; numRounds: number; minClients: number }) => Promise<void>;
 }
-
-const labelClass = 'text-label font-medium text-fg';
-const helpClass = 'text-caption text-fg-subtle';
 
 // Plain-language descriptions for each training method (values stay as-is).
 const STRATEGIES: { value: string; label: string }[] = [
@@ -64,11 +61,16 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
     <Modal
       open={isOpen}
       onClose={onClose}
-      title={
-        <span className="flex items-center gap-2">
-          <Play strokeWidth={1.5} className="h-5 w-5 text-accent" />
-          Start training
-        </span>
+      title="Start training"
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button type="submit" form="start-project-form" disabled={isLoading}>
+            {isLoading ? 'Starting…' : 'Start training'}
+          </Button>
+        </>
       }
     >
       <p className="-mt-1 mb-5 text-body text-fg-muted">
@@ -76,7 +78,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
         You can change these any time you start again.
       </p>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      <form id="start-project-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
         {error && (
           <p className="flex items-center gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2.5 text-label text-danger">
             <AlertCircle className="h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
@@ -85,25 +87,24 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
         )}
 
         {/* Strategy */}
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Training method</label>
-          {isLlmLora ? (
-            <div className="rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+        {isLlmLora ? (
+          <FormField label="Training method">
+            <div className="rounded-md border border-hairline bg-surface-2 px-3 py-2 text-caption text-fg-muted">
               FedLoRA (automatic for LoRA fine-tuning)
             </div>
-          ) : (
+          </FormField>
+        ) : (
+          <FormField label="Training method">
             <Select value={strategy} onChange={(e) => setStrategy(e.target.value)}>
               {STRATEGIES.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </Select>
-          )}
-        </div>
+          </FormField>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
-          {/* Rounds */}
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Training rounds</label>
+          <FormField label="Training rounds" help="How many times devices share progress.">
             <Input
               type="number"
               min="1"
@@ -111,11 +112,8 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
               onChange={(e) => setNumRounds(Number(e.target.value))}
               required
             />
-            <span className={helpClass}>How many times devices share progress.</span>
-          </div>
-          {/* Min Clients */}
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Devices needed to start</label>
+          </FormField>
+          <FormField label="Devices needed to start" help="Training begins once this many join.">
             <Input
               type="number"
               min="1"
@@ -123,28 +121,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
               onChange={(e) => setMinClients(Number(e.target.value))}
               required
             />
-            <span className={helpClass}>Training begins once this many join.</span>
-          </div>
-        </div>
-
-        {/* Buttons */}
-        <div className="flex gap-3 mt-2 pt-4 border-t border-hairline">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onClose}
-            disabled={isLoading}
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="flex-1"
-          >
-            {isLoading ? 'Starting…' : <><Play strokeWidth={2} className="h-4 w-4 fill-current" /> Start training</>}
-          </Button>
+          </FormField>
         </div>
       </form>
     </Modal>

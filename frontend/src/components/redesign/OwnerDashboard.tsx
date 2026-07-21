@@ -7,7 +7,7 @@
 // the shared project lifecycle (WebSocket status, start/stop, edit, results, logs).
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, AlertCircle } from 'lucide-react';
+import { Plus, Search, AlertCircle, FolderPlus } from 'lucide-react';
 import * as api from '../../services/apiServices';
 import type { OwnedProject, ProjectResult, Project } from '../../services/apiServices';
 import { ProjectCard } from './ProjectCard';
@@ -17,8 +17,9 @@ import { CreateProjectModalV2 } from './CreateProjectModal';
 import { EditProjectModal } from './EditProjectModal';
 import { StartProjectModal } from './StartProjectModal';
 import { ProjectOwnerPanel } from './ProjectOwnerPanel';
-import { Button, Card, Skeleton, StatusPill } from '../ui';
-import { BrandMark } from '../brand';
+import { PageHeader } from './PageHeader';
+import { Button, Card, Input, Skeleton } from '../ui';
+import { cn } from '../../lib/utils';
 import { createLogger } from '../../lib/logger';
 import { useProjectStatus } from '../../hooks/useProjectStatus';
 import { describeStompConnection } from '../../lib/connectionStatus';
@@ -218,44 +219,48 @@ export function OwnerDashboard() {
         error: 'Connection error',
     });
 
+    // Quiet header chip: dot is "on" (running token) while the socket is live or
+    // actively retrying, and muted otherwise (connecting / never connected).
+    const dotOn = connectionDisplay.kind === 'running' || connectionDisplay.kind === 'pending';
+
     return (
         <div className="flex-1 flex flex-col h-screen overflow-hidden bg-canvas text-fg font-sans">
-            <header className="flex items-center justify-between gap-4 px-6 md:px-10 h-20 border-b border-hairline bg-canvas/80 backdrop-blur-xl sticky top-0 z-20">
-                <div>
-                    <div className="flex items-center gap-2.5">
-                        <h1 className="text-h3 font-display font-semibold tracking-tight text-fg">My projects</h1>
-                        <StatusPill status={connectionDisplay.kind}>{connectionDisplay.label}</StatusPill>
-                    </div>
-                    <p className="text-label text-fg-muted mt-0.5">Create, run, and manage who can join.</p>
+            <PageHeader title="My projects" subtitle="Create, run, and manage who can join.">
+                <div className="relative hidden sm:block">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-subtle pointer-events-none" strokeWidth={1.5} />
+                    <Input
+                        type="text"
+                        placeholder="Search projects"
+                        aria-label="Search projects"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-64 pl-9"
+                    />
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="relative hidden sm:block">
-                        <Search className="w-[18px] h-[18px] absolute left-3.5 top-1/2 -translate-y-1/2 text-fg-subtle" strokeWidth={1.5} />
-                        <input
-                            type="text"
-                            placeholder="Search projects"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-surface-2 border border-hairline pl-10 pr-4 h-9 rounded-md text-body text-fg placeholder:text-fg-subtle transition-[border-color,box-shadow] duration-[140ms] hover:border-line focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 w-64"
-                        />
-                    </div>
-                    <Button onClick={() => setIsCreateModalOpen(true)}>
-                        <Plus className="w-[18px] h-[18px]" strokeWidth={2} />
-                        New project
-                    </Button>
-                </div>
-            </header>
+                <Button onClick={() => setIsCreateModalOpen(true)}>
+                    <Plus className="w-[18px] h-[18px]" strokeWidth={2} />
+                    New project
+                </Button>
+                <span className="flex items-center gap-1.5">
+                    <span
+                        className={cn('h-1.5 w-1.5 rounded-pill', dotOn ? 'bg-running' : 'bg-fg-subtle')}
+                        aria-hidden
+                    />
+                    <span className="text-caption text-fg-muted">{connectionDisplay.label}</span>
+                </span>
+            </PageHeader>
 
-            <div className="flex-1 overflow-y-auto px-6 md:px-10 py-8 relative z-10 bg-canvas">
+            <div className="flex-1 overflow-y-auto">
+                <div className="mx-auto w-full max-w-[1400px] px-6 py-6 md:px-10">
                 {error && (
-                    <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium max-w-[1600px] mx-auto">
+                    <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-md border border-danger/30 bg-danger/10 text-danger text-body font-medium">
                         <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
                         {error}
                     </div>
                 )}
 
                 {isLoading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-[1600px] mx-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                         {[0, 1, 2].map((i) => (
                             <Card key={i} padding="lg" className="flex flex-col gap-5">
                                 <div className="flex justify-between">
@@ -263,18 +268,15 @@ export function OwnerDashboard() {
                                         <Skeleton className="h-5 w-40" />
                                         <Skeleton className="h-4 w-24" />
                                     </div>
-                                    <Skeleton className="h-14 w-14 rounded-full" />
+                                    <Skeleton className="h-8 w-8 rounded-pill" />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Skeleton className="h-24" />
-                                    <Skeleton className="h-24" />
-                                </div>
-                                <Skeleton className="h-9 w-full" />
+                                <Skeleton className="h-20 w-full" />
+                                <Skeleton className="h-8 w-full" />
                             </Card>
                         ))}
                     </div>
                 ) : filtered.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-[1600px] mx-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                         {filtered.map((project) => (
                             <ProjectCard
                                 key={project.id}
@@ -296,11 +298,11 @@ export function OwnerDashboard() {
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center text-center gap-5 mt-16 md:mt-24">
-                        <div className="grid h-20 w-20 place-items-center rounded-card border border-hairline bg-surface-1">
-                            <BrandMark size={48} />
+                        <div className="grid h-14 w-14 place-items-center rounded-pill bg-surface-2 text-fg-muted">
+                            <FolderPlus className="h-6 w-6" strokeWidth={1.5} />
                         </div>
                         <div className="max-w-sm">
-                            <p className="text-h4 font-display text-fg">
+                            <p className="text-h4 text-fg">
                                 {searchQuery ? 'No projects match your search' : 'No projects yet'}
                             </p>
                             <p className="text-body text-fg-muted mt-1.5">
@@ -315,6 +317,7 @@ export function OwnerDashboard() {
                         </Button>
                     </div>
                 )}
+                </div>
             </div>
 
             {/* Modals */}

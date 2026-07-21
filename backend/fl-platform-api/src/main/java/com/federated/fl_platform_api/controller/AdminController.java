@@ -2,12 +2,16 @@ package com.federated.fl_platform_api.controller;
 
 import com.federated.fl_platform_api.dto.AdminOverviewDto;
 import com.federated.fl_platform_api.dto.AdminUserDto;
+import com.federated.fl_platform_api.dto.AuditEventDto;
 import com.federated.fl_platform_api.dto.DecideAccessRequestRequest;
 import com.federated.fl_platform_api.dto.DeletionRequestDto;
 import com.federated.fl_platform_api.dto.OwnerRequestDto;
+import com.federated.fl_platform_api.dto.PagedResponseDto;
 import com.federated.fl_platform_api.dto.ProjectResponseDto;
 import com.federated.fl_platform_api.dto.UpdateUserRoleRequest;
+import com.federated.fl_platform_api.dto.UpdateUserStatusRequest;
 import com.federated.fl_platform_api.model.AccessRequestStatus;
+import com.federated.fl_platform_api.model.UserStatus;
 import com.federated.fl_platform_api.service.AdminService;
 import com.federated.fl_platform_api.service.OwnerPromotionService;
 import com.federated.fl_platform_api.service.ProjectDeletionService;
@@ -17,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.List;
 
 @RestController
@@ -52,6 +57,58 @@ public class AdminController {
     @GetMapping("/projects")
     public ResponseEntity<List<ProjectResponseDto>> projects() {
         return ResponseEntity.ok(adminService.listAllProjects());
+    }
+
+    // ─── Search-first directories (server-side pagination) ───────────────────
+
+    @GetMapping("/users/search")
+    public ResponseEntity<PagedResponseDto<AdminUserDto>> searchUsers(
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "role", required = false) String role,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "25") int size) {
+        return ResponseEntity.ok(adminService.searchUsers(q, role, status, page, size));
+    }
+
+    @GetMapping("/projects/search")
+    public ResponseEntity<PagedResponseDto<ProjectResponseDto>> searchProjects(
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "visibility", required = false) String visibility,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "25") int size) {
+        return ResponseEntity.ok(adminService.searchProjects(q, status, visibility, page, size));
+    }
+
+    // ─── Account status (suspend / reactivate) ───────────────────────────────
+
+    @PutMapping("/users/{id}/status")
+    public ResponseEntity<AdminUserDto> updateStatus(@PathVariable Long id,
+                                                     @Valid @RequestBody UpdateUserStatusRequest body) {
+        // Dispatch to a dedicated service method per transition so each carries
+        // its own @Auditable action (USER_SUSPENDED / USER_REACTIVATED) and the
+        // aspect fires through the Spring proxy (self-invocation would bypass it).
+        UserStatus requested = UserStatus.valueOf(body.getStatus());
+        AdminUserDto dto = requested == UserStatus.SUSPENDED
+            ? adminService.suspendUser(id)
+            : adminService.reactivateUser(id);
+        return ResponseEntity.ok(dto);
+    }
+
+    // ─── Audit-event explorer ────────────────────────────────────────────────
+
+    @GetMapping("/audit-events")
+    public ResponseEntity<PagedResponseDto<AuditEventDto>> auditEvents(
+            @RequestParam(value = "actor", required = false) String actor,
+            @RequestParam(value = "action", required = false) String action,
+            @RequestParam(value = "targetType", required = false) String targetType,
+            @RequestParam(value = "from", required = false) Instant from,
+            @RequestParam(value = "to", required = false) Instant to,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "50") int size) {
+        return ResponseEntity.ok(
+            adminService.searchAuditEvents(actor, action, targetType, from, to, page, size));
     }
 
     // ─── Owner-promotion queue ───────────────────────────────────────────────

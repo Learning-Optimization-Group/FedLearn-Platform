@@ -5,16 +5,19 @@ import { useAuth } from '../context/AuthContext';
 import { AppNavigator } from './AppNavigator';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
+import { useThemeTokens } from '../theme/useThemeTokens';
+import type { RootStackParamList } from './types';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const { status } = useAuth();
+  const { colors } = useThemeTokens();
 
   if (status === 'unknown') {
     return (
       <View className="flex-1 bg-canvas items-center justify-center">
-        <ActivityIndicator />
+        <ActivityIndicator color={colors.accent} />
       </View>
     );
   }

@@ -5,9 +5,8 @@
 
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
 import { ResponsiveContainer, LineChart, Line, YAxis } from 'recharts';
-import { Activity, Cpu, Trash2, Copy, Check, MoreHorizontal, Edit3, Play, Square, Settings2, Clock } from 'lucide-react';
-import { cn } from '../../lib/utils';
-import { Card, Button, Input, Modal, StatusPill, ConfirmDialog, type StatusKind } from '../ui';
+import { Trash2, Copy, Check, MoreHorizontal, Edit3, Play, Square, Settings2, Clock } from 'lucide-react';
+import { Card, Button, Input, Modal, FormField, MetricTile, StatusPill, ConfirmDialog, toStatusKind } from '../ui';
 import { useAuth } from '../../context/AuthContext';
 import type { Project, ProjectResult } from '../../services/apiServices';
 
@@ -38,22 +37,6 @@ interface ProjectCardProps {
    * request-deletion). When provided, a "Manage" item appears in the menu.
    */
   onManageProject?: () => void;
-}
-
-/** Map domain status -> the 5 Ember status kinds. */
-function toStatusKind(status: Project['status']): StatusKind {
-  switch (status) {
-    case 'INITIALIZING':
-      return 'pending';
-    case 'RUNNING':
-      return 'running';
-    case 'COMPLETED':
-      return 'completed';
-    case 'FAILED':
-      return 'error';
-    default:
-      return 'idle';
-  }
 }
 
 /** Plain-language status label shown to people. */
@@ -178,7 +161,6 @@ export function ProjectCard({
   const canRequestDeletion = !isAdmin && !!onRequestDeletion;
 
   const isRunning = project.status === 'RUNNING';
-  const isCompleted = project.status === 'COMPLETED';
   const isFailed = project.status === 'FAILED';
 
   // Build accuracy trend from real results
@@ -193,38 +175,21 @@ export function ProjectCard({
   // dial is the wrong abstraction. We show the round COUNT and let the status
   // pill (not a fake percentage) convey state.
   const roundsTrained = results.length > 0 ? results[results.length - 1].serverRound : 0;
-  const hasTraining = roundsTrained > 0;
 
-  // The ring is a status indicator, not a completion %: it fills once the model
-  // has been trained (running/completed with ≥1 round) and is empty before that.
-  const radius = 26;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (hasTraining ? 1 : 0) * circumference;
-
-  // Ring uses the status semantics: running -> accent, completed -> success,
-  // failed -> danger, otherwise muted. (text-* drives the SVG currentColor.)
-  const ringColor = isRunning
-    ? 'text-accent'
-    : isCompleted
-      ? 'text-success'
-      : isFailed
-        ? 'text-danger'
-        : 'text-fg-muted';
+  const latestAccuracy =
+    accuracyTrend.length > 0
+      ? `${(accuracyTrend[accuracyTrend.length - 1].accuracy * 100).toFixed(1)}%`
+      : '—';
 
   return (
-    <Card
-      padding="lg"
-      className={cn(
-        'group relative flex w-full flex-col gap-5 text-fg font-sans',
-        'transition-[transform,border-color,background-color] duration-[200ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
-        'hover:-translate-y-0.5 hover:bg-surface-2 hover:border-accent/25',
-        isRunning && 'border-accent/25',
-      )}
-    >
+    <Card padding="lg" className="group relative flex w-full flex-col gap-5 text-fg font-sans">
       {/* Header Row */}
       <div className="flex justify-between items-start gap-3">
         <div className="flex-1 min-w-0">
-          <h3 className="text-h4 font-display font-semibold tracking-tight truncate">{project.name}</h3>
+          <h3 className="text-h4 font-semibold tracking-tight truncate">{project.name}</h3>
+          <p className="text-caption text-fg-muted mt-0.5 truncate">
+            {project.modelName} · {project.modelType} · {project.optimizer}
+          </p>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <StatusPill status={toStatusKind(project.status)}>{statusLabel(project.status)}</StatusPill>
             {deletionPending && <StatusPill status="pending">Deletion pending</StatusPill>}
@@ -236,7 +201,7 @@ export function ProjectCard({
           <button
             ref={menuButtonRef}
             onClick={() => setShowMenu(!showMenu)}
-            className="w-8 h-8 flex items-center justify-center rounded-pill hover:bg-surface-3 text-fg-muted hover:text-fg transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-pill hover:bg-surface-2 text-fg-muted hover:text-fg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-1"
             aria-label="Project actions"
             aria-haspopup="menu"
             aria-expanded={showMenu}
@@ -251,7 +216,7 @@ export function ProjectCard({
                 role="menu"
                 aria-label="Project actions"
                 onKeyDown={onMenuKeyDown}
-                className="absolute right-0 top-10 z-20 bg-surface-2 border border-line rounded-lg py-1 w-48 shadow-[0_16px_48px_-16px_rgba(0,0,0,0.9)]"
+                className="absolute right-0 top-10 z-20 bg-surface-1 border border-line rounded-lg py-1 w-48 shadow-overlay"
               >
                 <button
                   role="menuitem"
@@ -260,7 +225,7 @@ export function ProjectCard({
                     onEditProject();
                     setShowMenu(false);
                   }}
-                  className="w-full px-4 py-2 text-left text-body font-medium transition-colors flex items-center gap-2 text-fg hover:bg-surface-3"
+                  className="w-full px-4 py-2 text-left text-body font-medium transition-colors flex items-center gap-2 text-fg hover:bg-surface-2"
                 >
                   <Edit3 className="w-4 h-4" strokeWidth={1.5} />
                   Edit project
@@ -273,7 +238,7 @@ export function ProjectCard({
                       onManageProject();
                       setShowMenu(false);
                     }}
-                    className="w-full px-4 py-2 text-left text-body font-medium transition-colors flex items-center gap-2 text-fg hover:bg-surface-3"
+                    className="w-full px-4 py-2 text-left text-body font-medium transition-colors flex items-center gap-2 text-fg hover:bg-surface-2"
                   >
                     <Settings2 className="w-4 h-4" strokeWidth={1.5} />
                     Manage access
@@ -298,7 +263,7 @@ export function ProjectCard({
                       setRequestDelete(true);
                       setShowMenu(false);
                     }}
-                    className="w-full px-4 py-2 text-left text-body font-medium transition-colors flex items-center gap-2 text-danger hover:bg-surface-3"
+                    className="w-full px-4 py-2 text-left text-body font-medium transition-colors flex items-center gap-2 text-danger hover:bg-surface-2"
                   >
                     <Trash2 className="w-4 h-4" strokeWidth={1.5} />
                     Request deletion
@@ -311,7 +276,7 @@ export function ProjectCard({
                       setConfirmDelete(true);
                       setShowMenu(false);
                     }}
-                    className="w-full px-4 py-2 text-left text-body font-medium transition-colors flex items-center gap-2 text-danger hover:bg-surface-3"
+                    className="w-full px-4 py-2 text-left text-body font-medium transition-colors flex items-center gap-2 text-danger hover:bg-surface-2"
                   >
                     <Trash2 className="w-4 h-4" strokeWidth={1.5} />
                     Delete project
@@ -322,23 +287,6 @@ export function ProjectCard({
           )}
         </div>
 
-        {/* Circular Progress Ring */}
-        <div className="relative flex items-center justify-center w-14 h-14 ml-1">
-          <svg className="w-full h-full transform -rotate-90">
-            <circle cx="28" cy="28" r={radius} stroke="currentColor" strokeWidth="4.5" fill="transparent" className="text-surface-3" />
-            <circle
-              cx="28" cy="28" r={radius} stroke="currentColor" strokeWidth="4.5" fill="transparent"
-              strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round"
-              className={cn("transition-all duration-[240ms] ease-out", ringColor)}
-            />
-          </svg>
-          <div className="absolute flex flex-col items-center justify-center text-center leading-none">
-            <span className="text-body font-mono tabular-nums font-bold text-fg">{roundsTrained}</span>
-            <span className="text-[9px] uppercase tracking-wider text-fg-muted mt-0.5">
-              {roundsTrained === 1 ? 'round' : 'rounds'}
-            </span>
-          </div>
-        </div>
       </div>
 
       {/* Project ID & Port — Copyable */}
@@ -349,64 +297,45 @@ export function ProjectCard({
         )}
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Model Info */}
-        <div className="bg-surface-2 border border-hairline rounded-lg p-4 flex flex-col justify-between gap-3">
-          <div className="flex items-center text-fg-muted gap-1.5">
-            <Cpu className="w-[14px] h-[14px] text-accent" strokeWidth={1.5} />
-            <span className="text-caption font-semibold uppercase tracking-wider">Model</span>
-          </div>
-          <div className="text-body font-medium text-fg tracking-tight truncate">
-            {project.modelName}
-          </div>
-          <div className="text-caption text-fg-muted tracking-tight truncate">
-            {project.modelType} · {project.optimizer}
-          </div>
+      {/* Metrics — one strip, divided tiles */}
+      <div className="grid grid-cols-2 rounded-lg border border-hairline">
+        <div className="px-4 py-3">
+          <MetricTile label="Rounds" value={roundsTrained} />
         </div>
-
-        {/* Accuracy Sparkline */}
-        <div className="bg-surface-2 border border-hairline rounded-lg p-4 flex flex-col justify-between gap-2 relative overflow-hidden">
-          <div className="flex items-center justify-between text-fg-muted">
-            <div className="flex items-center gap-1.5">
-              <Activity className="w-[14px] h-[14px] text-accent" strokeWidth={1.5} />
-              <span className="text-caption font-semibold uppercase tracking-wider">Accuracy</span>
-            </div>
-            {accuracyTrend.length > 0 && (
-              <span className="text-label font-mono tabular-nums font-semibold text-fg">
-                {(accuracyTrend[accuracyTrend.length - 1].accuracy * 100).toFixed(1)}%
-              </span>
-            )}
-          </div>
-          <div className="h-8 w-full mt-auto">
-            {accuracyTrend.length > 1 ? (
-              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                <LineChart data={accuracyTrend}>
-                  <YAxis domain={['auto', 'auto']} hide />
-                  <Line type="monotone" dataKey="accuracy" stroke="var(--color-accent)" strokeWidth={2.5} dot={false} isAnimationActive={true} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full text-caption text-fg-muted">
-                No data yet
-              </div>
-            )}
-          </div>
+        <div className="px-4 py-3 border-l border-hairline">
+          <MetricTile
+            label="Accuracy"
+            value={latestAccuracy}
+            sparkline={
+              accuracyTrend.length > 1 ? (
+                <div className="h-8 w-full">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                    <LineChart data={accuracyTrend}>
+                      <YAxis domain={['auto', 'auto']} hide />
+                      <Line type="monotone" dataKey="accuracy" stroke="var(--color-accent)" strokeWidth={2} dot={false} isAnimationActive={true} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : undefined
+            }
+          />
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-2 mt-1">
-        <Button variant="secondary" onClick={onOpenResults} className="flex-1">
+      {/* Action Row — Results/Logs quiet on the left, the lifecycle action on the right */}
+      <div className="flex items-center gap-1 mt-1">
+        <Button variant="ghost" size="sm" onClick={onOpenResults}>
           Results
         </Button>
-        <Button variant="secondary" onClick={onOpenLogs} className="flex-1">
+        <Button variant="ghost" size="sm" onClick={onOpenLogs}>
           Logs
         </Button>
         <Button
           variant={isRunning ? 'danger' : 'primary'}
+          size="sm"
           onClick={onToggleServer}
           disabled={isFailed}
+          className="ml-auto"
         >
           {isRunning ? (
             <>
@@ -465,11 +394,13 @@ export function ProjectCard({
           <p className="text-body text-fg-muted">
             Deleting “{project.name}” is permanent and must be approved by a platform admin.
           </p>
-          <Input
-            value={deleteReason}
-            onChange={(e) => setDeleteReason(e.target.value)}
-            placeholder="Optional: reason for deletion"
-          />
+          <FormField label="Reason (optional)" help="Shown to the platform admin reviewing the request.">
+            <Input
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder="Why should this project be deleted?"
+            />
+          </FormField>
         </div>
       </Modal>
     </Card>

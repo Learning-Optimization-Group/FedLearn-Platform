@@ -26,9 +26,11 @@ const SIZES = {
 };
 
 /**
- * The single dialog pattern. Backdrop is bg-canvas/70 + backdrop-blur; panel is
- * bg-surface-1 + hairline + rounded-card and enters with a fade + 2px translate
- * over 160ms. Closes on backdrop click and Escape. Renders to document.body.
+ * The single dialog pattern. Backdrop is the scrim token; panel is
+ * bg-surface-1 + hairline + rounded-card + the overlay shadow and enters with a
+ * fade + 2px translate. Closes on backdrop click and Escape. Renders to
+ * document.body. Footer actions are right-aligned, natural width, Cancel
+ * before Primary.
  */
 export function Modal({
     open,
@@ -73,7 +75,7 @@ export function Modal({
             aria-modal="true"
             className={cn(
                 'fixed inset-0 z-50 flex items-center justify-center p-4',
-                'bg-black/75 backdrop-blur-md',
+                'bg-scrim',
                 'transition-opacity duration-[180ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
                 mounted ? 'opacity-100' : 'opacity-0',
             )}
@@ -85,12 +87,10 @@ export function Modal({
                 ref={panelRef}
                 tabIndex={-1}
                 className={cn(
-                    'relative w-full bg-surface-1 border border-line rounded-card',
-                    'shadow-[0_30px_90px_-24px_rgba(0,0,0,0.95)]',
-                    'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px',
-                    'before:bg-gradient-to-r before:from-transparent before:via-accent/30 before:to-transparent before:rounded-t-card',
+                    'relative w-full bg-surface-1 border border-hairline rounded-card',
+                    'shadow-overlay',
                     'transition-[opacity,transform] duration-[180ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
-                    mounted ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-[0.99]',
+                    mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',
                     SIZES[size],
                     className,
                 )}
@@ -99,7 +99,7 @@ export function Modal({
                 {(title || showClose) && (
                     <div className="flex items-center justify-between gap-4 px-6 pt-5 pb-4">
                         {title ? (
-                            <h2 className="text-h4 font-display text-fg">{title}</h2>
+                            <h2 className="text-h4 text-fg">{title}</h2>
                         ) : (
                             <span />
                         )}
@@ -108,7 +108,11 @@ export function Modal({
                                 type="button"
                                 aria-label="Close"
                                 onClick={onClose}
-                                className="text-fg-muted hover:text-fg transition-colors duration-[120ms] -mr-1"
+                                className={cn(
+                                    'flex h-8 w-8 items-center justify-center rounded-md -mr-2 -mt-1',
+                                    'text-fg-muted hover:text-fg hover:bg-surface-2 transition-colors duration-[120ms]',
+                                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                                )}
                             >
                                 <X strokeWidth={1.5} className="h-5 w-5" />
                             </button>

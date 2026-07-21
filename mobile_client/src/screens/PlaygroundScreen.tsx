@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -8,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Send, Square, Sparkles } from 'lucide-react-native';
+import { Play, Send, Square } from 'lucide-react-native';
 
 import {
   listInferableModels,
@@ -20,6 +22,8 @@ import {
   type InferenceResult,
 } from '../lib/inferenceApi';
 import { connectStomp, type StompHandle } from '../lib/stompClient';
+import { readError } from '../lib/errors';
+import { ErrorBanner } from '../components/ErrorBanner';
 import { useThemeTokens } from '../theme/useThemeTokens';
 
 type Mode = 'classify' | 'chat';
@@ -34,9 +38,11 @@ const isClassifyModel = (m: InferableModel) =>
 
 // Server-side model playground — parity with the desktop "Use a Model" tab: pick a trained model and
 // either classify an input (vector/text) or hold a streaming chat with a generative model. Tokens
-// stream over STOMP (/topic/inference/{projectId}); the on-device native-inference path stays on the
-// Testing tab.
+// stream over STOMP (/topic/inference/{projectId}); the on-device native-inference path lives on the
+// ModelTesting push. Pushed over the tabs from the Models hub — the native-stack header owns the
+// title and back affordance, so no h2 self-title and no manual top inset here.
 export function PlaygroundScreen() {
+  const { colors } = useThemeTokens();
   const [mode, setMode] = useState<Mode>('classify');
   const [models, setModels] = useState<InferableModel[]>([]);
   const [selected, setSelected] = useState<InferableModel | null>(null);
@@ -74,16 +80,18 @@ export function PlaygroundScreen() {
   return (
     <ScrollView className="flex-1 bg-canvas" keyboardShouldPersistTaps="handled">
       <View className="px-4 pt-4 pb-2">
-        <Text className="text-h2 font-sans text-fg">Playground</Text>
-        <Text className="text-caption text-fg-muted mt-1">Run a trained model on the server.</Text>
+        <Text className="text-caption font-sans text-fg-muted">Run a trained model on the server.</Text>
       </View>
 
       {/* Mode switch */}
-      <View className="mx-4 flex-row rounded-pill bg-surface-2 p-1">
+      <View className="mx-4 flex-row rounded-pill bg-surface-2 p-1" accessibilityRole="tablist">
         {(['classify', 'chat'] as Mode[]).map((m) => (
           <Pressable
             key={m}
-            className={`flex-1 items-center py-2 rounded-pill ${mode === m ? 'bg-accent' : ''}`}
+            accessibilityRole="tab"
+            accessibilityLabel={m === 'classify' ? 'Classify' : 'Chat'}
+            accessibilityState={{ selected: mode === m }}
+            className={`flex-1 items-center py-2 rounded-pill active:opacity-80 ${mode === m ? 'bg-accent' : ''}`}
             onPress={() => setMode(m)}>
             <Text
               className={`text-label font-sans ${mode === m ? 'text-accent-fg' : 'text-fg-muted'}`}>
@@ -96,7 +104,7 @@ export function PlaygroundScreen() {
       {/* Model picker */}
       {loading && models.length === 0 ? (
         <View className="items-center mt-8">
-          <ActivityIndicator />
+          <ActivityIndicator color={colors.accent} />
         </View>
       ) : pool.length === 0 ? (
         <View className="mx-4 mt-4 p-4 rounded-card bg-surface-1 border border-hairline">
@@ -113,7 +121,10 @@ export function PlaygroundScreen() {
                 return (
                   <Pressable
                     key={m.projectId}
-                    className={`mr-2 px-3 py-2 rounded-pill border ${
+                    accessibilityRole="button"
+                    accessibilityLabel={m.name}
+                    accessibilityState={{ selected: on }}
+                    className={`mr-2 px-3 py-2 rounded-pill border active:opacity-80 ${
                       on ? 'bg-accent border-accent' : 'bg-surface-1 border-hairline'
                     }`}
                     onPress={() => setSelected(m)}>
@@ -137,11 +148,7 @@ export function PlaygroundScreen() {
         </>
       )}
 
-      {error ? (
-        <View className="mx-4 my-3 p-3 rounded-card bg-danger">
-          <Text className="text-accent-fg text-body">{error}</Text>
-        </View>
-      ) : null}
+      {error ? <ErrorBanner message={error} className="mx-4 my-3" /> : null}
       <View className="h-8" />
     </ScrollView>
   );
@@ -183,13 +190,14 @@ function ClassifyPanel({ model }: { model: InferableModel }) {
   return (
     <View className="mx-4 mt-3">
       <View className="p-4 rounded-card bg-surface-1 border border-hairline">
-        <Text className="text-caption text-fg-muted mb-2">
+        <Text className="text-caption font-sans text-fg-muted mb-2">
           {isVector
             ? 'Feature vector — comma, space, or newline separated numbers'
             : 'Text input'}
         </Text>
         <TextInput
           className="rounded-md bg-surface-2 border border-hairline px-3 py-2 text-body font-mono text-fg"
+          accessibilityLabel={isVector ? 'Feature vector' : 'Text input'}
           value={input}
           onChangeText={setInput}
           multiline
@@ -198,14 +206,19 @@ function ClassifyPanel({ model }: { model: InferableModel }) {
           style={{ minHeight: 72, textAlignVertical: 'top' }}
         />
         <Pressable
-          className="mt-3 flex-row items-center justify-center bg-accent rounded-md py-3"
+          accessibilityRole="button"
+          accessibilityLabel="Run inference"
+          accessibilityState={{ disabled: busy }}
+          className={`mt-3 flex-row items-center justify-center bg-accent rounded-md py-3 active:opacity-80 ${
+            busy ? 'opacity-50' : ''
+          }`}
           disabled={busy}
           onPress={onRun}>
           {busy ? (
             <ActivityIndicator color={colors['accent-fg']} />
           ) : (
             <>
-              <Sparkles color={colors['accent-fg']} size={18} strokeWidth={1.5} />
+              <Play color={colors['accent-fg']} size={18} strokeWidth={1.5} />
               <Text className="text-accent-fg text-label font-sans ml-2">Run inference</Text>
             </>
           )}
@@ -240,11 +253,7 @@ function ClassifyPanel({ model }: { model: InferableModel }) {
         </View>
       ) : null}
 
-      {error ? (
-        <View className="mt-3 p-3 rounded-card bg-danger">
-          <Text className="text-accent-fg text-body">{error}</Text>
-        </View>
-      ) : null}
+      {error ? <ErrorBanner message={error} className="mt-3" /> : null}
     </View>
   );
 }
@@ -354,22 +363,26 @@ function ChatPanel({ model }: { model: InferableModel }) {
   }, [model.projectId]);
 
   return (
-    <View className="mx-4 mt-3">
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      className="mx-4 mt-3">
       {/* Generation controls */}
       <View className="flex-row mb-2">
         <View className="flex-1 mr-2">
-          <Text className="text-caption text-fg-muted mb-1">Max tokens</Text>
+          <Text className="text-caption font-sans text-fg-muted mb-1">Max tokens</Text>
           <TextInput
             className="rounded-md bg-surface-2 border border-hairline px-3 py-2 text-body font-mono text-fg"
+            accessibilityLabel="Max tokens"
             value={maxTokens}
             onChangeText={setMaxTokens}
             keyboardType="number-pad"
           />
         </View>
         <View className="flex-1 ml-2">
-          <Text className="text-caption text-fg-muted mb-1">Temperature</Text>
+          <Text className="text-caption font-sans text-fg-muted mb-1">Temperature</Text>
           <TextInput
             className="rounded-md bg-surface-2 border border-hairline px-3 py-2 text-body font-mono text-fg"
+            accessibilityLabel="Temperature"
             value={temperature}
             onChangeText={setTemperature}
             keyboardType="decimal-pad"
@@ -378,9 +391,9 @@ function ChatPanel({ model }: { model: InferableModel }) {
       </View>
 
       {/* Thread */}
-      <View className="p-3 rounded-card bg-surface-1 border border-hairline" style={{ minHeight: 160 }}>
+      <View className="p-4 rounded-card bg-surface-1 border border-hairline" style={{ minHeight: 160 }}>
         {messages.length === 0 ? (
-          <Text className="text-caption text-fg-subtle">
+          <Text className="text-caption font-sans text-fg-subtle">
             Ask {model.name} something to start the conversation.
           </Text>
         ) : (
@@ -391,7 +404,7 @@ function ChatPanel({ model }: { model: InferableModel }) {
                 m.role === 'user' ? 'bg-surface-2 self-end' : 'bg-code-well self-start'
               }`}
               style={{ maxWidth: '88%' }}>
-              <Text className="text-caption text-fg-subtle mb-0.5">
+              <Text className="text-caption font-sans text-fg-subtle mb-0.5">
                 {m.role === 'user' ? 'You' : model.name}
               </Text>
               <Text className="text-body font-sans text-fg">
@@ -406,6 +419,7 @@ function ChatPanel({ model }: { model: InferableModel }) {
       <View className="flex-row items-end mt-2">
         <TextInput
           className="flex-1 rounded-md bg-surface-2 border border-hairline px-3 py-2 text-body font-sans text-fg mr-2"
+          accessibilityLabel="Message"
           value={prompt}
           onChangeText={setPrompt}
           multiline
@@ -415,13 +429,20 @@ function ChatPanel({ model }: { model: InferableModel }) {
         />
         {generating ? (
           <Pressable
-            className="items-center justify-center bg-danger rounded-md px-4 py-3"
+            accessibilityRole="button"
+            accessibilityLabel="Stop generating"
+            className="items-center justify-center bg-danger rounded-md px-4 py-3 active:opacity-80"
             onPress={onStop}>
             <Square color={colors['accent-fg']} size={18} strokeWidth={1.5} />
           </Pressable>
         ) : (
           <Pressable
-            className="items-center justify-center bg-accent rounded-md px-4 py-3"
+            accessibilityRole="button"
+            accessibilityLabel="Send message"
+            accessibilityState={{ disabled: !prompt.trim() }}
+            className={`items-center justify-center bg-accent rounded-md px-4 py-3 active:opacity-80 ${
+              !prompt.trim() ? 'opacity-50' : ''
+            }`}
             disabled={!prompt.trim()}
             onPress={onSend}>
             <Send color={colors['accent-fg']} size={18} strokeWidth={1.5} />
@@ -429,12 +450,8 @@ function ChatPanel({ model }: { model: InferableModel }) {
         )}
       </View>
 
-      {error ? (
-        <View className="mt-3 p-3 rounded-card bg-danger">
-          <Text className="text-accent-fg text-body">{error}</Text>
-        </View>
-      ) : null}
-    </View>
+      {error ? <ErrorBanner message={error} className="mt-3" /> : null}
+    </KeyboardAvoidingView>
   );
 }
 
@@ -463,8 +480,4 @@ function clampInt(s: string, lo: number, hi: number, dflt: number): number {
 function clampFloat(s: string, lo: number, hi: number, dflt: number): number {
   const n = parseFloat(s);
   return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : dflt;
-}
-function readError(e: unknown): string {
-  const err = e as { response?: { data?: { message?: string }; status?: number }; message?: string };
-  return err?.response?.data?.message ?? err?.message ?? String(e);
 }

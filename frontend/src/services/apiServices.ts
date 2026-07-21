@@ -341,6 +341,8 @@ export interface AdminOverview {
     pendingAccessRequests: number;
 }
 
+export type UserStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+
 export interface AdminUser {
     id: number;
     username: string;
@@ -349,6 +351,10 @@ export interface AdminUser {
     projectsOwned: number;
     memberships: number;
     createdAt: string;
+    /** Present on the paginated search endpoint; absent on the legacy list. */
+    status?: UserStatus;
+    displayName?: string;
+    lastLoginAt?: string;
 }
 
 export interface AdminProject {
@@ -406,6 +412,103 @@ export const updateUserRole = (userId: number, role: Role): Promise<AxiosRespons
 /** All projects across the platform (admin all-projects table). */
 export const fetchAdminProjects = (): Promise<AxiosResponse<AdminProject[]>> => {
     return api.get<AdminProject[]>('/admin/projects');
+};
+
+/** Server-paginated envelope for the admin directories and the audit log. */
+export interface Paged<T> {
+    items: T[];
+    page: number;
+    size: number;
+    total: number;
+}
+
+export interface AdminUserSearchParams {
+    q?: string;
+    role?: Role;
+    status?: UserStatus;
+    page?: number;
+    size?: number;
+}
+
+export interface AdminProjectSearchParams {
+    q?: string;
+    status?: string;
+    visibility?: Visibility;
+    page?: number;
+    size?: number;
+}
+
+export interface AuditEventItem {
+    id: string;
+    occurredAt: string;
+    actorUserId?: number;
+    actorUsername?: string;
+    action: string;
+    targetType?: string;
+    targetId?: string;
+    requestIp?: string;
+    metadata?: string;
+}
+
+export interface AuditSearchParams {
+    actor?: string;
+    action?: string;
+    targetType?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    size?: number;
+}
+
+export interface UserProfile {
+    username: string;
+    email: string;
+    displayName?: string;
+    avatarUrl?: string;
+    role: Role;
+    createdAt?: string;
+    lastLoginAt?: string;
+    emailVerified: boolean;
+}
+
+export interface UpdateProfileRequest {
+    displayName?: string;
+    email?: string;
+    currentPassword?: string;
+    newPassword?: string;
+}
+
+/** Search-first paginated users directory (admin). */
+export const searchAdminUsers = (params: AdminUserSearchParams): Promise<AxiosResponse<Paged<AdminUser>>> => {
+    return api.get<Paged<AdminUser>>('/admin/users/search', { params });
+};
+
+/** Search-first paginated projects directory (admin). */
+export const searchAdminProjects = (params: AdminProjectSearchParams): Promise<AxiosResponse<Paged<AdminProject>>> => {
+    return api.get<Paged<AdminProject>>('/admin/projects/search', { params });
+};
+
+/** Suspend or reactivate an account. Backend guards the last active admin. */
+export const updateUserStatus = (userId: number, status: UserStatus): Promise<AxiosResponse<AdminUser>> => {
+    return api.put<AdminUser>(`/admin/users/${userId}/status`, { status });
+};
+
+/** Paginated audit-event explorer (admin). */
+export const fetchAuditEvents = (params: AuditSearchParams): Promise<AxiosResponse<Paged<AuditEventItem>>> => {
+    return api.get<Paged<AuditEventItem>>('/admin/audit-events', { params });
+};
+
+/** The signed-in user's full profile. */
+export const fetchMyProfile = (): Promise<AxiosResponse<UserProfile>> => {
+    return api.get<UserProfile>('/users/me/profile');
+};
+
+/**
+ * Update profile fields. Email change resets verification; password change
+ * requires currentPassword and returns 403 when it doesn't match.
+ */
+export const updateMyProfile = (body: UpdateProfileRequest): Promise<AxiosResponse<UserProfile>> => {
+    return api.patch<UserProfile>('/users/me/profile', body);
 };
 
 /** Owner-promotion requests. Omit `status` for all; pass PENDING for the queue. */

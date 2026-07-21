@@ -17,6 +17,9 @@ module.exports = {
     // which doesn't exist under Jest — stand in with an in-memory Map so
     // AuthService (the only consumer) stays unit-testable with no disk I/O.
     'electron-store': '<rootDir>/src/__mocks__/electron-store.ts',
+    // Renderer components side-effect-import their CSS (webpack concern);
+    // stub stylesheets so node-env tests can import .tsx components.
+    '\\.css$': '<rootDir>/src/__mocks__/styleMock.ts',
   },
   // Instrument only the TS sources the `node`-env suite can actually exercise.
   // The renderer `.tsx` components have no jsdom/RTL harness here, so they are

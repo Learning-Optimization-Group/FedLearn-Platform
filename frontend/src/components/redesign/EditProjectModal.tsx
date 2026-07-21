@@ -3,9 +3,9 @@
 // =============================================================================
 
 import { useState, useEffect } from 'react';
-import { Edit3, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { fetchModelRecipes, errorMessage, type ModelRecipe, type Project } from '../../services/apiServices';
-import { Modal, Input, Select, Button } from '../ui';
+import { Modal, Input, Select, Button, FormField } from '../ui';
 
 // Last-resort fallback if the catalog can't be fetched (e.g. offline). The
 // primary source is GET /api/model-recipes — this only keeps the modal usable.
@@ -35,8 +35,6 @@ interface EditProjectModalProps {
   onClose: () => void;
   isLoading?: boolean;
 }
-
-const labelClass = 'text-label font-medium text-fg';
 
 // Case-insensitively resolve a project's modelType against the catalog,
 // falling back to the first recipe if there's no match.
@@ -121,14 +119,23 @@ export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading
     <Modal
       open={isOpen}
       onClose={onClose}
-      title={
-        <span className="flex items-center gap-2">
-          <Edit3 strokeWidth={1.5} className="h-5 w-5 text-accent" />
-          Edit project
-        </span>
+      title="Edit project"
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="edit-project-form"
+            disabled={isLoading || !name.trim() || !selectedRecipe}
+          >
+            {isLoading ? 'Saving…' : 'Save changes'}
+          </Button>
+        </>
       }
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      <form id="edit-project-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
         {error && (
           <p className="flex items-center gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2.5 text-label text-danger">
             <AlertCircle className="h-4 w-4 flex-shrink-0" strokeWidth={1.5} />
@@ -136,9 +143,7 @@ export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading
           </p>
         )}
 
-        {/* Project Name */}
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>Project name</label>
+        <FormField label="Project name">
           <Input
             type="text"
             value={name}
@@ -147,11 +152,9 @@ export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading
             required
             autoFocus
           />
-        </div>
+        </FormField>
 
-        {/* Model Architecture */}
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>What kind of model?</label>
+        <FormField label="What kind of model?">
           <Select
             value={modelType}
             onChange={(e) => setModelType(e.target.value)}
@@ -162,12 +165,11 @@ export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading
               <option key={r.key} value={r.key}>{r.displayName}</option>
             ))}
           </Select>
-        </div>
+        </FormField>
 
         {/* Model + Optimizer row */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Base model</label>
+          <FormField label="Base model">
             <Select
               value={modelName}
               onChange={(e) => setModelName(e.target.value)}
@@ -177,9 +179,8 @@ export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading
                 <option key={m} value={m}>{m}</option>
               ))}
             </Select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Optimizer</label>
+          </FormField>
+          <FormField label="Optimizer">
             <Select
               value={optimizer}
               onChange={(e) => setOptimizer(e.target.value)}
@@ -189,27 +190,7 @@ export function EditProjectModal({ isOpen, project, onSubmit, onClose, isLoading
                 <option key={o} value={o}>{o}</option>
               ))}
             </Select>
-          </div>
-        </div>
-
-        {/* Buttons */}
-        <div className="flex gap-3 mt-2 pt-4 border-t border-hairline">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={onClose}
-            disabled={isLoading}
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={isLoading || !name.trim() || !selectedRecipe}
-            className="flex-1"
-          >
-            {isLoading ? 'Saving…' : 'Save changes'}
-          </Button>
+          </FormField>
         </div>
       </form>
     </Modal>
