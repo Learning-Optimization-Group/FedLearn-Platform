@@ -287,7 +287,8 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
         return recipes.get_recipe("CNN").load_client_data(partition_id, num_clients, batch_size=BATCH_SIZE)
 
 
-def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=None):
+def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=None,
+          proximal_mu: float = 0.0, global_params=None):
     """
     Train the model with dataset-specific hyperparameters.
 
@@ -445,6 +446,11 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
 
             loss.backward()
 
+            # FR-32 FedProx: add the proximal-term gradient mu*(w - w_global) AFTER backward and
+            # BEFORE optimizer.step(). No-op for FedAvg/FedOpt/Robust (mu=0). global_params is the
+            # round-start snapshot passed by ZOSLClient.fit.
+            _apply_proximal_gradient(net, global_params, proximal_mu)
+
             if current_step % 10 == 0:
                 log_processing_usage(f"batch {current_step}")
 
@@ -521,34 +527,34 @@ def _coerce_local_epochs(config: dict, default) -> int:
         raise ValueError(f"invalid local_epochs in server config: {raw!r} (expected an integer)")
 
 
-def _assert_strategy_honored(config: dict) -> None:
-    """Refuse a server config this first-order client cannot faithfully honor.
-
-    FR-20: FedProx's *entire* difference from FedAvg is the client-side proximal term
-    ``mu * (w - w_global)``. This client trains with plain local Adam and applies no proximal term,
-    so silently running a FedProx round would produce a 'FedProx' result that is bit-identical
-    FedAvg — a fabricated comparison. Fail loud instead. The faithful FedProx client lives in the
-    framework: ``fedlearn.client.local_trainer.LocalTrainer`` (used by the benchmark harness).
-    FedOpt does its adaptive work server-side and ships ``proximal_mu='0.0'`` (FedOpt.get_client_config,
-    strategy.py) — i.e. NO proximal term — so a local run here is a valid configuration and is allowed.
-    The guard therefore triggers only on a POSITIVE proximal_mu: ``mu == 0`` means no term (FedOpt, or a
-    mu=0 FedProx that is FedAvg-equivalent). A blanket ``is not None`` check crashed every FedOpt run at
-    round 1 on the ``'0.0'`` it legitimately ships.
-    """
-    raw = config.get("proximal_mu")
-    if raw is None:
-        return
+def _coerce_proximal_mu(config: dict) -> float:
+    """Return ``proximal_mu`` as a float — the gRPC config is ``map<string,string>``, so it arrives as
+    a string (e.g. ``'0.01'``). 0.0 when absent. FedAvg/FedOpt/Robust ship no positive mu; FedProx
+    ships ``str(mu)`` (FedProx.get_client_config)."""
+    raw = config.get("proximal_mu", 0.0)
     try:
-        mu = float(raw)
+        return float(raw)
     except (TypeError, ValueError):
         raise ValueError(f"invalid proximal_mu in server config: {raw!r} (expected a number)")
-    if mu > 0.0:
-        raise NotImplementedError(
-            "This first-order client does not implement the FedProx proximal term "
-            f"(proximal_mu={raw}); running it would train plain local steps mislabeled as FedProx. "
-            "Use the framework LocalTrainer client "
-            "(fedlearn.client.local_trainer.LocalTrainer) for FedProx runs."
-        )
+
+
+def _apply_proximal_gradient(net, global_params, mu: float) -> None:
+    """FR-32 — FedProx (Li et al. 2020, "Federated Optimization in Heterogeneous Networks").
+
+    Add the proximal term's gradient ``mu * (w - w_global)`` to each trainable parameter's ``.grad``,
+    AFTER ``loss.backward()`` and BEFORE ``optimizer.step()``. This is the ENTIRE client-side
+    difference between FedProx and FedAvg (``d/dw (mu/2)||w - w_global||^2 = mu*(w - w_global)``).
+
+    ``global_params`` is the round-start snapshot of the (global) weights, aligned with
+    ``net.parameters()`` order; ``w0`` is that snapshot, ``p`` the live (locally-advanced) weight.
+    Frozen params (grad is None) are skipped, so the derived frozen-backbone / LoRA models only
+    regularise the trainable head. ``mu <= 0`` is a no-op (FedAvg/FedOpt/Robust). This mirrors the
+    framework's proven ``LocalTrainer.fit`` reference exactly — the two must stay in agreement."""
+    if mu <= 0.0 or global_params is None:
+        return
+    for p, w0 in zip(net.parameters(), global_params):
+        if p.grad is not None:
+            p.grad.add_(p.detach() - w0, alpha=mu)
 
 
 # ==============================================================================
@@ -632,9 +638,9 @@ class ZOSLClient(fl.Client):
 
         server_round = config.get("server_round", 0)
 
-        # FR-20: refuse a server config this first-order client cannot faithfully honor (FedProx's
-        # proximal term) before doing any work, rather than silently training a mislabeled FedAvg.
-        _assert_strategy_honored(config)
+        # FR-32: FedProx's proximal_mu is now HONORED (the proximal term is applied in train() from the
+        # round-start snapshot below), so there is no longer a config this first-order client refuses.
+        proximal_mu = _coerce_proximal_mu(config)
 
         if server_round == 1:
             print(f"\n{'='*60}")
@@ -727,13 +733,22 @@ class ZOSLClient(fl.Client):
         import gc
         gc.collect()
 
+        # FR-32 FedProx: snapshot the round's global weights AFTER loading them (above) and BEFORE
+        # local training, so the proximal term regularises toward w_global, not the live weights.
+        # Only when mu>0 (FedProx) — FedAvg/FedOpt/Robust skip the snapshot entirely.
+        global_params = (
+            [p.detach().clone() for p in self.net.parameters()] if proximal_mu > 0.0 else None
+        )
+
         # Train with progress updates
         train(
             self.net,
             self.trainloader,
             epochs=local_epochs,
             dataset_name=self.dataset_name,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
+            proximal_mu=proximal_mu,
+            global_params=global_params,
         )
 
         # DEBUG: Check if parameters changed (skip for LLM_LORA — adapter key namespaces

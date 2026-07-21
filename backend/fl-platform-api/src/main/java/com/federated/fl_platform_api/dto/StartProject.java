@@ -24,13 +24,13 @@ public class StartProject {
      * Python side.
      * <p>
      * NOTE: FedLoRA is NOT listed here — it is derived server-side for LLM_LORA runs (see
-     * ProjectService.resolveStrategy), never user-submitted. {@code FedProx} is deliberately NOT
-     * listed: the production client cannot honor its proximal term yet (FR-20 makes it refuse a
-     * proximal_mu), so selecting it would fail the run — re-add once FR-32 lands the client support.
+     * ProjectService.resolveStrategy), never user-submitted. {@code FedProx} IS now listed (FR-32):
+     * the production client honors its proximal term ({@code mu*(w - w_global)} in ZOSLClient.train),
+     * so it produces a real FedProx run rather than a mislabeled FedAvg.
      */
     @Pattern(
-            regexp = "FedAvg|DeComFL|FedOpt|Robust|FoT",
-            message = "strategy must be one of: FedAvg, DeComFL, FedOpt, Robust, FoT"
+            regexp = "FedAvg|DeComFL|FedProx|FedOpt|Robust|FoT",
+            message = "strategy must be one of: FedAvg, DeComFL, FedProx, FedOpt, Robust, FoT"
     )
     private String strategy;
 

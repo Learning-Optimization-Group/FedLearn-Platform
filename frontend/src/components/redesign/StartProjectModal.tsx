@@ -16,6 +16,7 @@ interface StartProjectModalProps {
 // Plain-language descriptions for each training method (values stay as-is).
 const STRATEGIES: { value: string; label: string }[] = [
   { value: 'FedAvg', label: 'Standard — averages everyone\'s learning (recommended)' },
+  { value: 'FedProx', label: 'Stable — keeps clients close to the shared model on uneven data' },
   { value: 'DeComFL', label: 'Low-bandwidth — sends tiny updates' },
   { value: 'FedOpt', label: 'Adaptive — faster convergence on varied data' },
   { value: 'Robust', label: 'Robust — resists a few bad or noisy clients' },

@@ -1,15 +1,14 @@
-"""FR-20: the production client (fl-runtime/client.py, ZOSLClient) must (a) not crash on a
-stringified gRPC config, and (b) refuse a FedProx config it cannot honor rather than silently
-training plain local steps mislabeled as FedProx.
+"""FR-32: the production client (fl-runtime/client.py, ZOSLClient) now HONORS FedProx — it applies the
+proximal-term gradient ``mu * (w - w_global)`` during local training (Li et al. 2020, "Federated
+Optimization in Heterogeneous Networks"), instead of REFUSING FedProx as it did under FR-20. FedProx's
+entire client-side difference from FedAvg is that proximal term, added to each trainable param's
+gradient after loss.backward() and before optimizer.step(), with w_global the round-start snapshot.
 
-Root cause (audited 2026-07-17): the gRPC config map is ``map<string,string>``, so
-``config["local_epochs"]`` arrives as a string ('1'); ``train()`` then does ``range(epochs)`` and
-raises ``TypeError`` at round 1 (crashing every FedProx/FedOpt run). And even without the crash the
-client never reads ``proximal_mu`` — it trains with local Adam and applies NO proximal term — so a
-'FedProx' run through this client is bit-identical FedAvg. FedProx's correct implementation lives in
-the framework ``LocalTrainer``; the production client must fail loud instead of fabricating a result.
+This pins (a) the string->int local_epochs coercion (the gRPC config is map<string,string>) and
+(b) the proximal-gradient application — mirroring the framework's proven LocalTrainer reference.
 """
 import pytest
+import torch
 
 import client
 
@@ -29,40 +28,41 @@ def test_local_epochs_rejects_non_numeric():
         client._coerce_local_epochs({"local_epochs": "not-a-number"}, 1)
 
 
-def test_fedprox_config_is_refused_not_silently_run_as_fedavg():
-    # proximal_mu present => FedProx. This client applies no proximal term, so running it would
-    # fabricate a 'FedProx' result identical to FedAvg. It must refuse loudly.
-    with pytest.raises(NotImplementedError, match="proximal"):
-        client._assert_strategy_honored({"proximal_mu": "0.1", "local_epochs": "1"})
+def _seed_grads(model: torch.nn.Module, grad_value: float) -> torch.nn.Module:
+    for p in model.parameters():
+        p.grad = torch.full_like(p, grad_value) if p.requires_grad else None
+    return model
 
 
-def test_plain_fedavg_and_fedopt_configs_are_allowed():
-    client._assert_strategy_honored({})  # plain FedAvg: no raise
-    # FedOpt ships learning_rate/local_epochs but no proximal term — a valid local run, allowed.
-    client._assert_strategy_honored({"local_epochs": "1", "learning_rate": "0.01"})
+def test_proximal_gradient_adds_mu_times_weight_minus_global():
+    # d/dw (mu/2)||w - w0||^2 = mu*(w - w0). With w0 = w - 1 => (w - w0) = 1, so a zero grad becomes
+    # exactly mu. This is the whole FedProx client-side contribution.
+    net = torch.nn.Linear(3, 2)
+    global_params = [p.detach().clone() - 1.0 for p in net.parameters()]
+    _seed_grads(net, 0.0)
+    client._apply_proximal_gradient(net, global_params, mu=0.5)
+    for p in net.parameters():
+        assert torch.allclose(p.grad, torch.full_like(p.grad, 0.5)), "grad must be 0 + mu*(w - w0)"
 
 
-def test_real_fedopt_server_config_is_accepted_by_client():
-    """The client must accept the EXACT config FedOpt.get_client_config() ships. FedOpt does its
-    adaptive step SERVER-side and sends ``proximal_mu='0.0'`` (i.e. NO proximal term) — the client
-    guard must not reject that. Regression: ``'0.0' is not None`` tripped the FedProx refusal and
-    crashed every FedOpt run at round 1. Bind to the real server output so a drift on either side
-    (server stops shipping '0.0', or the guard tightens again) fails here."""
-    from collections import OrderedDict
-
-    import torch
-
-    from fedlearn.server.strategy import FedOpt
-
-    cfg = FedOpt(initial_parameters=OrderedDict([("w", torch.zeros(2))])).get_client_config()
-    assert cfg.get("proximal_mu") == "0.0", "test premise: FedOpt ships proximal_mu='0.0'"
-    client._assert_strategy_honored(cfg)  # must NOT raise
+def test_proximal_gradient_zero_mu_is_noop():
+    # FedAvg / FedOpt: mu == 0 => no proximal term, grads untouched (the client trains plainly).
+    net = torch.nn.Linear(3, 2)
+    global_params = [p.detach().clone() - 1.0 for p in net.parameters()]
+    _seed_grads(net, 1.0)
+    client._apply_proximal_gradient(net, global_params, mu=0.0)
+    for p in net.parameters():
+        assert torch.allclose(p.grad, torch.ones_like(p.grad)), "mu=0 must leave grads unchanged"
 
 
-def test_nonzero_proximal_mu_is_refused_but_zero_is_allowed():
-    """The distinction is mu>0 (a real FedProx proximal term this client cannot honor) vs mu==0
-    (no term). Reject only the former; a literal '0.0'/'0' means FedAvg-equivalent locally."""
-    with pytest.raises(NotImplementedError, match="proximal"):
-        client._assert_strategy_honored({"proximal_mu": "0.5"})
-    client._assert_strategy_honored({"proximal_mu": "0"})    # no raise
-    client._assert_strategy_honored({"proximal_mu": "0.0"})  # no raise
+def test_proximal_gradient_skips_frozen_params_without_grad():
+    # Frozen params (requires_grad=False) have grad None; the term must skip them, never crash — e.g.
+    # the derived frozen-backbone / LoRA models where only the head trains.
+    net = torch.nn.Sequential(torch.nn.Linear(3, 2), torch.nn.Linear(2, 2))
+    for p in net[1].parameters():
+        p.requires_grad_(False)
+    global_params = [p.detach().clone() - 1.0 for p in net.parameters()]
+    _seed_grads(net, 0.0)
+    client._apply_proximal_gradient(net, global_params, mu=0.5)
+    assert net[1].weight.grad is None and net[1].bias.grad is None
+    assert torch.allclose(net[0].weight.grad, torch.full_like(net[0].weight.grad, 0.5))

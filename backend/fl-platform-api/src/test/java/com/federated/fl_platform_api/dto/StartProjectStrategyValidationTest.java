@@ -10,8 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The StartProject strategy allowlist. Exposes the strategies that produce a WORKING run when
  * selected — FedOpt (server-side adaptive) and Robust (Byzantine-robust median) are now accepted
- * alongside FedAvg/DeComFL/FoT. FedProx stays rejected on purpose: the production client refuses a
- * proximal_mu it cannot honor (FR-20), so exposing it would be a broken option until FR-32.
+ * alongside FedAvg/DeComFL/FoT. FR-32: FedProx is now accepted too — the production client honors the
+ * proximal term mu*(w - w_global), so it produces a real FedProx run rather than a mislabeled FedAvg.
  */
 class StartProjectStrategyValidationTest {
     private final Validator v = Validation.buildDefaultValidatorFactory().getValidator();
@@ -31,8 +31,9 @@ class StartProjectStrategyValidationTest {
     // Newly exposed — both run end-to-end when selected.
     @Test void fedOptAccepted()  { assertFalse(strategyRejected("FedOpt")); }
     @Test void robustAccepted()  { assertFalse(strategyRejected("Robust")); }
+    // FR-32: the production client now honors the proximal term, so FedProx is a working option.
+    @Test void fedProxAccepted() { assertFalse(strategyRejected("FedProx")); }
 
     // Deliberately still rejected.
-    @Test void fedProxRejected() { assertTrue(strategyRejected("FedProx")); }  // client refuses it (FR-20)
     @Test void unknownRejected() { assertTrue(strategyRejected("Nonsense")); }
 }

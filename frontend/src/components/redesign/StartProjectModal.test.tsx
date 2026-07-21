@@ -55,16 +55,16 @@ describe('StartProjectModal — start failures stay visible (FE-4)', () => {
 
 // FR-11 / UI exposure: the strategy picker offers the strategies that run end-to-end when selected.
 describe('StartProjectModal — strategy options', () => {
-  it('offers FedOpt and Robust alongside the base strategies, and never FedProx', () => {
+  it('offers every end-to-end strategy including FedProx (FR-32)', () => {
     render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={vi.fn()} />);
     const dialog = screen.getByRole('dialog');
     const values = within(dialog)
       .getAllByRole('option')
       .map((o) => (o as HTMLOptionElement).value);
     expect(values).toEqual(
-      expect.arrayContaining(['FedAvg', 'DeComFL', 'FedOpt', 'Robust', 'FoT']),
+      expect.arrayContaining(['FedAvg', 'FedProx', 'DeComFL', 'FedOpt', 'Robust', 'FoT']),
     );
-    // FedProx is deliberately not exposed — the production client refuses it (FR-20).
-    expect(values).not.toContain('FedProx');
+    // FR-32: FedProx is now exposed — the production client honors its proximal term.
+    expect(values).toContain('FedProx');
   });
 });
