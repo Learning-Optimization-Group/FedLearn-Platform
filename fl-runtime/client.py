@@ -529,14 +529,24 @@ def _assert_strategy_honored(config: dict) -> None:
     so silently running a FedProx round would produce a 'FedProx' result that is bit-identical
     FedAvg — a fabricated comparison. Fail loud instead. The faithful FedProx client lives in the
     framework: ``fedlearn.client.local_trainer.LocalTrainer`` (used by the benchmark harness).
-    FedOpt ships ``learning_rate``/``local_epochs`` but no proximal term and does its adaptive work
-    server-side, so a local run here is a valid (if non-paper-default) configuration and is allowed.
+    FedOpt does its adaptive work server-side and ships ``proximal_mu='0.0'`` (FedOpt.get_client_config,
+    strategy.py) — i.e. NO proximal term — so a local run here is a valid configuration and is allowed.
+    The guard therefore triggers only on a POSITIVE proximal_mu: ``mu == 0`` means no term (FedOpt, or a
+    mu=0 FedProx that is FedAvg-equivalent). A blanket ``is not None`` check crashed every FedOpt run at
+    round 1 on the ``'0.0'`` it legitimately ships.
     """
-    if config.get("proximal_mu") is not None:
+    raw = config.get("proximal_mu")
+    if raw is None:
+        return
+    try:
+        mu = float(raw)
+    except (TypeError, ValueError):
+        raise ValueError(f"invalid proximal_mu in server config: {raw!r} (expected a number)")
+    if mu > 0.0:
         raise NotImplementedError(
             "This first-order client does not implement the FedProx proximal term "
-            f"(proximal_mu={config.get('proximal_mu')}); running it would train plain local steps "
-            "mislabeled as FedProx. Use the framework LocalTrainer client "
+            f"(proximal_mu={raw}); running it would train plain local steps mislabeled as FedProx. "
+            "Use the framework LocalTrainer client "
             "(fedlearn.client.local_trainer.LocalTrainer) for FedProx runs."
         )
 
