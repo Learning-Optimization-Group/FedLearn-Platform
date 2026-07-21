@@ -2,7 +2,13 @@
 # build_executorch_host_macos.sh — build the ExecuTorch runtime for the LOCAL macOS host so the C++
 # core gtests (fedlearn_core_tests) can be built + run on a developer Mac. CI builds ET host on Linux
 # (mobile.yml, the "host parity gate"); this reproduces it on Apple Silicon, which needs two fixes the
-# Linux recipe does not:
+# Linux recipe does not.
+#
+# It also enables EXECUTORCH_BUILD_EXTENSION_TRAINING=ON (additive; the gtest suite doesn't link it)
+# so the on-device forward+backward de-risk in scripts/et_training_smoke/ can build against this same
+# host build. That extension (training_module + optimizer/sgd) is what a native first-order
+# FedAvg/FedProx round needs — the precondition for lifting the mobile client's zeroth-order-only
+# (MO-4) restriction. The two macOS-only fixes the Linux recipe does not need:
 #
 #   1. -DPYTHON_EXECUTABLE=<the python that has torch>. ET's cmake resolves torch's path via
 #      `find_spec('torch')`; if cmake auto-picks a python WITHOUT torch it fails with
@@ -47,6 +53,7 @@ cmake -S . -B cmake-out -G Ninja \
   -DEXECUTORCH_BUILD_EXTENSION_NAMED_DATA_MAP=ON \
   -DEXECUTORCH_BUILD_EXTENSION_TENSOR=ON \
   -DEXECUTORCH_BUILD_EXTENSION_DATA_LOADER=ON \
+  -DEXECUTORCH_BUILD_EXTENSION_TRAINING=ON \
   -DEXECUTORCH_BUILD_KERNELS_OPTIMIZED=OFF
 echo "[4/4] build"
 cmake --build cmake-out -j"$(sysctl -n hw.ncpu)"
