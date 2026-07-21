@@ -169,6 +169,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         ? cfg.connectionToken
         : undefined;
 
+      // The active run's strategy from the connection payload (a trusted backend value, re-validated
+      // defensively against a bounded token pattern). Forwarded to the client as --strategy so a
+      // non-MLP DeComFL project runs the DeComFL client path. Absent/malformed => undefined => the
+      // client defaults to FedAvg (the legacy behaviour), never a rejected start.
+      const strategy =
+        typeof cfg.strategy === 'string' && /^[a-zA-Z0-9_\-.]{1,64}$/.test(cfg.strategy)
+          ? cfg.strategy
+          : undefined;
+
       const validConfig: TrainingConfig = {
         hardwareProfile: cfg.hardwareProfile as HardwareProfile,
         projectId: cfg.projectId as string,
@@ -178,6 +187,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         // Use the canonical resolved path, not the raw string from the renderer.
         datasetPath: safeDatasetPath,
         connectionToken,
+        strategy,
       };
 
       log.info(`[IPC:docker:start-training] Starting training with profile=${validConfig.hardwareProfile}, project=${validConfig.projectId}, model=${validConfig.modelType}`);

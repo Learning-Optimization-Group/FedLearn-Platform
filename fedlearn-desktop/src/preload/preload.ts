@@ -143,6 +143,7 @@ export interface TrainingConfigInput {
   modelType: string;
   datasetPath: string;
   connectionToken?: string;
+  strategy?: string;
 }
 
 interface InferencePayloadInput {
@@ -204,6 +205,11 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
     if (!isValidConnectionToken(config.connectionToken)) {
       return { success: false, error: 'Invalid connection token' };
     }
+    // strategy is optional (a bounded token from the backend connection payload); reject a malformed
+    // one rather than forwarding garbage. Main re-validates with the same pattern (defense in depth).
+    if (config.strategy !== undefined && !/^[a-zA-Z0-9_\-.]{1,64}$/.test(config.strategy)) {
+      return { success: false, error: 'Invalid strategy' };
+    }
 
     return ipcRenderer.invoke('docker:start-training', {
       hardwareProfile: config.hardwareProfile,
@@ -213,6 +219,7 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
       modelType: config.modelType,
       datasetPath: config.datasetPath,
       connectionToken: config.connectionToken,
+      strategy: config.strategy,
     });
   },
 

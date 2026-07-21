@@ -298,6 +298,83 @@ describe('DockerService native dataset-path forwarding (DE-2)', () => {
   });
 });
 
+// Strategy plumbing: the desktop must forward the active run's strategy to the client as --strategy so
+// a non-MLP DeComFL project runs the DeComFL client path instead of the default FedAvg path. Pins the
+// spawn argv on both branches (present when the connection payload carries a strategy, omitted otherwise).
+describe('DockerService native strategy forwarding', () => {
+  const fakeWindow = {
+    isDestroyed: () => false,
+    webContents: { send: jest.fn(), isDestroyed: () => false, isLoading: () => false },
+  } as never;
+
+  const baseConfig = {
+    hardwareProfile: 'cpu' as const,
+    projectId: 'p1',
+    serverAddress: 'localhost:50000',
+    partitionId: '0',
+    modelType: 'CNN',
+    datasetPath: '',
+  };
+
+  type PrivateDockerService = {
+    resolveNativeInvocation: () => {
+      command: string;
+      baseArgs: string[];
+      cwd: string;
+      env: NodeJS.ProcessEnv;
+    } | null;
+  };
+
+  function makeService(): { service: DockerService; spawnMock: jest.Mock } {
+    const spawnMock = spawn as unknown as jest.Mock;
+    spawnMock.mockReset();
+    spawnMock.mockImplementation(() => {
+      const emitter = new EventEmitter() as EventEmitter & {
+        stdout: { on: jest.Mock };
+        stderr: { on: jest.Mock };
+        exitCode: number | null;
+        pid: number;
+        kill: jest.Mock;
+      };
+      emitter.stdout = { on: jest.fn() };
+      emitter.stderr = { on: jest.fn() };
+      emitter.exitCode = null;
+      emitter.pid = 4243;
+      emitter.kill = jest.fn(() => true);
+      return emitter;
+    });
+    (Docker as unknown as jest.Mock).mockImplementation(() => ({
+      ping: jest.fn().mockResolvedValue(undefined),
+      getContainer: jest.fn(),
+    }));
+    const service = new DockerService(fakeWindow);
+    jest
+      .spyOn(service as unknown as PrivateDockerService, 'resolveNativeInvocation')
+      .mockReturnValue({ command: 'python3', baseArgs: [], cwd: '/tmp', env: {} });
+    return { service, spawnMock };
+  }
+
+  it('forwards --strategy <value> when the connection payload carries one', async () => {
+    const { service, spawnMock } = makeService();
+
+    await service.startTraining({ ...baseConfig, strategy: 'DeComFL' } as never);
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    const idx = args.indexOf('--strategy');
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(args[idx + 1]).toBe('DeComFL');
+  });
+
+  it('omits --strategy entirely when no strategy is provided', async () => {
+    const { service, spawnMock } = makeService();
+
+    await service.startTraining({ ...baseConfig } as never);
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).not.toContain('--strategy');
+  });
+});
+
 // DE-11: stop + status LIFECYCLE across the native and Docker execution paths. The routing/drain/
 // dataset tests above pin START; these pin STOP (idempotent no-op, the native-already-exited fast path,
 // Docker stop+remove+clear, and the SIGKILL escalation) and the getStatus() state matrix.

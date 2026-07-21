@@ -124,6 +124,11 @@ public class ClientApiService {
         dto.setPartitionId(enrollment.getPartitionId());
         dto.setStatus(projectStatusService.currentStatus(project).name());   // BA-4
         dto.setConnectionToken(enrollment.getConnectionToken());
+        // The active run's strategy, so the desktop can pass --strategy to the client and pick the
+        // matching path (e.g. DeComFL) rather than always defaulting to FedAvg (finding B: a non-MLP
+        // DeComFL project otherwise runs a FedAvg-path client that silently mismatches the server).
+        runRepository.findById(project.getActiveRunId())
+            .ifPresent(r -> dto.setStrategy(r.getStrategy()));
         return dto;
     }
 

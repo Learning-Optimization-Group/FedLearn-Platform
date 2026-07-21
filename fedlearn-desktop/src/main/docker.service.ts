@@ -34,6 +34,11 @@ export interface TrainingConfig {
   partitionId: string;
   modelType: string;
   datasetPath: string;
+  // The active run's aggregation strategy (from GET /client/projects/{id}/connection). Forwarded to
+  // the client as --strategy so it picks the matching path (e.g. DeComFL) instead of defaulting to
+  // FedAvg; a non-MLP DeComFL project otherwise runs a FedAvg-path client that mismatches the server.
+  // Optional so the legacy flow (no strategy in the payload) still type-checks.
+  strategy?: string;
   // Backend-minted FL connection token (from GET /client/projects/{id}/connection).
   // Optional so the legacy no-auth flow still type-checks; required in practice once
   // the FL server is fail-closed (app.fl.require-client-auth=true).
@@ -55,6 +60,10 @@ export function buildContainerEnv(config: TrainingConfig): string[] {
     `MODEL_TYPE=${config.modelType}`,
     `DATASET_PATH=/data`,
   ];
+  if (config.strategy) {
+    // entrypoint.sh forwards this to the client as --strategy (parity with the native path push).
+    env.push(`STRATEGY=${config.strategy}`);
+  }
   if (config.connectionToken) {
     env.push(`FEDLEARN_CONNECTION_TOKEN=${config.connectionToken}`);
   }
@@ -306,6 +315,14 @@ export class DockerService {
     // TRANSFORMER itself, so --use-llm is no longer passed separately.
     if (config.modelType) {
       args.push('--model-type', config.modelType);
+    }
+
+    // Forward the active run's strategy so the client selects the matching path (DeComFL vs the
+    // default FedAvg-style path). Only DeComFL actually changes client behaviour — the other strategy
+    // strings (FedAvg/FedOpt/Robust/FedLoRA) all use the same first-order client path, so passing them
+    // is a safe no-op. Omitted when absent (the client then defaults to FedAvg, the legacy behaviour).
+    if (config.strategy) {
+      args.push('--strategy', config.strategy);
     }
 
     // DE-2: forward the user-selected local dataset directory to the native

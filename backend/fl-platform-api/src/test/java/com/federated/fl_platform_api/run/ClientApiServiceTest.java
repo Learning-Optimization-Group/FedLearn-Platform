@@ -205,6 +205,31 @@ class ClientApiServiceTest {
     }
 
     @Test
+    void getConnection_includesRunStrategy_forClientStrategyDispatch() {
+        UUID pid = UUID.randomUUID();
+        UUID rid = UUID.randomUUID();
+        Project p = proj(pid, ProjectVisibility.PUBLIC, user(2L));
+        p.setStatus("RUNNING");
+        p.setActiveRunId(rid);
+        when(projectRepository.findById(pid)).thenReturn(Optional.of(p));
+
+        com.federated.fl_platform_api.dto.EnrollmentDto enr = new com.federated.fl_platform_api.dto.EnrollmentDto();
+        enr.setGrpcEndpoint("localhost:50007");
+        enr.setPartitionId(0);
+        enr.setConnectionToken("tok");
+        when(runService.enroll(rid)).thenReturn(enr);
+
+        com.federated.fl_platform_api.model.Run run = new com.federated.fl_platform_api.model.Run();
+        run.setStrategy("DeComFL");
+        when(runRepository.findById(rid)).thenReturn(Optional.of(run));
+
+        var dto = service.getConnection(pid);
+        // the desktop threads this into fl-runtime/client.py --strategy so a non-MLP DeComFL project
+        // runs the DeComFL client path instead of silently defaulting to the FedAvg path.
+        assertEquals("DeComFL", dto.getStrategy());
+    }
+
+    @Test
     void getConnection_noActiveRun_throwsProjectState() {
         UUID pid = UUID.randomUUID();
         Project p = proj(pid, ProjectVisibility.PUBLIC, user(2L));

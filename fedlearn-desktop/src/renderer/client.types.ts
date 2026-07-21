@@ -22,4 +22,7 @@ export interface ProjectConnection {
   partitionId: number;
   status: string;
   connectionToken?: string;
+  // Active run's aggregation strategy; threaded into the training config so the client picks the
+  // matching path (e.g. DeComFL) rather than defaulting to FedAvg.
+  strategy?: string;
 }

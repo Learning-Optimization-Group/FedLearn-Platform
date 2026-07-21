@@ -40,6 +40,7 @@ declare global {
         modelType: string;
         datasetPath: string;
         connectionToken?: string;
+        strategy?: string;
       }) => Promise<{ success: boolean; error?: string }>;
       stopTraining: () => Promise<{ success: boolean; error?: string }>;
       getDockerStatus: () => Promise<{ success: boolean; status?: string }>;
@@ -311,6 +312,7 @@ const App: React.FC = () => {
       modelType: string;
       datasetPath: string;
       connectionToken?: string;
+      strategy?: string;
     }) => {
       // Anchor the elapsed timer at the moment the user pressed Start — never
       // derived from the 3s status poll. Label falls back to the model type

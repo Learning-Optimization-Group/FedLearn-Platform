@@ -28,6 +28,16 @@ describe('buildContainerEnv (docker path)', () => {
     const env = buildContainerEnv(baseConfig);
     expect(env.some((e) => e.startsWith('FEDLEARN_CONNECTION_TOKEN'))).toBe(false);
   });
+
+  test('injects STRATEGY when a strategy is present (entrypoint.sh forwards it as --strategy)', () => {
+    const env = buildContainerEnv({ ...baseConfig, strategy: 'DeComFL' });
+    expect(env).toContain('STRATEGY=DeComFL');
+  });
+
+  test('omits STRATEGY entirely when no strategy is set (client defaults to FedAvg)', () => {
+    const env = buildContainerEnv(baseConfig);
+    expect(env.some((e) => e.startsWith('STRATEGY='))).toBe(false);
+  });
 });
 
 describe('withConnectionTokenEnv (native path)', () => {

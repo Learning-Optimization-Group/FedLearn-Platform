@@ -33,6 +33,9 @@ export interface ProjectConnection {
   status: string;
   // Backend-minted FL connection token (ClientConnectionDto.connectionToken).
   connectionToken?: string;
+  // The active run's aggregation strategy (ClientConnectionDto.strategy); forwarded to the client
+  // as --strategy so a non-MLP DeComFL project runs the DeComFL path, not the default FedAvg path.
+  strategy?: string;
 }
 
 export class ClientProjectService {

@@ -31,6 +31,8 @@ export interface StartTrainingConfig {
   modelType: string;
   datasetPath: string;
   connectionToken?: string;
+  // Active run's aggregation strategy; forwarded to the client as --strategy (DeComFL vs default FedAvg).
+  strategy?: string;
 }
 
 /** Layout phase for the Train section. */

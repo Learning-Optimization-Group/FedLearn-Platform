@@ -10,6 +10,11 @@ public class ClientConnectionDto {
     private Integer partitionId;
     private String status;
     private String connectionToken;
+    // The running aggregation strategy (from the active Run). The desktop client threads this into
+    // fl-runtime/client.py's --strategy so the client picks the matching path (e.g. DeComFL) instead
+    // of always defaulting to the FedAvg path — otherwise a DeComFL project silently mismatches for
+    // any non-MLP model type.
+    private String strategy;
 
     public UUID getProjectId() { return projectId; }
     public void setProjectId(UUID projectId) { this.projectId = projectId; }
@@ -25,4 +30,6 @@ public class ClientConnectionDto {
     public void setStatus(String status) { this.status = status; }
     public String getConnectionToken() { return connectionToken; }
     public void setConnectionToken(String connectionToken) { this.connectionToken = connectionToken; }
+    public String getStrategy() { return strategy; }
+    public void setStrategy(String strategy) { this.strategy = strategy; }
 }
