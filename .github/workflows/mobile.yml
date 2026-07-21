@@ -91,7 +91,8 @@ jobs:
   # The core links the ExecuTorch runtime (no libtorch/ATen). The ET pip package ships headers but
   # NO host libs, so ET MUST be built from source here (cached). torch is pip-installed only to
   # supply the missing torch/headeronly/macros/cmake_macros.h header (TORCH_INCLUDE), not for linking.
-  # This mirrors the host build verified green (32 tests).
+  # This mirrors the host build verified green (45 tests). FEDLEARN_BUILD_TRAINING=ON + the ET
+  # training extension build in the first-order FedAvg parity gtest (fedavg_parity_test.cpp).
   cpp-parity:
     runs-on: ubuntu-latest
     steps:
@@ -111,7 +112,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: "${{ runner.temp }}/executorch"
-          key: et-host-v${{ env.ET_VERSION }}-${{ runner.os }}
+          key: et-host-v${{ env.ET_VERSION }}-train-${{ runner.os }}
       - name: Build host ExecuTorch from source if cache missed
         if: steps.et-cache.outputs.cache-hit != 'true'
         run: |
@@ -126,12 +127,14 @@ jobs:
             -DEXECUTORCH_BUILD_EXTENSION_NAMED_DATA_MAP=ON \
             -DEXECUTORCH_BUILD_EXTENSION_TENSOR=ON \
             -DEXECUTORCH_BUILD_EXTENSION_DATA_LOADER=ON \
+            -DEXECUTORCH_BUILD_EXTENSION_TRAINING=ON \
             -DEXECUTORCH_BUILD_KERNELS_OPTIMIZED=ON
           cmake --build cmake-out -j"$(nproc)"
       - name: Configure + build the C++ core tests
         run: |
           cmake -S mobile_client -B build/shared -G Ninja \
             -DFEDLEARN_BUILD_TESTS=ON \
+            -DFEDLEARN_BUILD_TRAINING=ON \
             -DET_SRC="$RUNNER_TEMP/executorch" \
             -DET_BUILD="$RUNNER_TEMP/executorch/cmake-out" \
             -DTORCH_INCLUDE="$TORCH_INCLUDE" \
