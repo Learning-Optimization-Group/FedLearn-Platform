@@ -109,3 +109,59 @@ def export_functional_infer_pte(model: nn.Module, example_x: torch.Tensor) -> by
     assert sum(p.numel() for p in wrapper.parameters()) == 0, "wrapper must register 0 params"
     ep = export(wrapper, (trainable_flat(model), example_x))
     return to_edge(ep).to_executorch().buffer
+
+
+# --- Trainable (first-order) export -------------------------------------------------------------
+# The functional graphs above are weight-FREE (params enter as a flat input) — the C++ core owns and
+# perturbs the flat vector, which is why the zeroth-order path needs no autograd. First-order FedAvg
+# needs REAL gradients, i.e. the ExecuTorch training extension: params live INSIDE the module and the
+# backward pass is captured AS a graph at export time via ``_export_forward_backward``. The resulting
+# .pte exposes gradients through ``training_module.named_gradients`` at runtime (Phase B M1b).
+
+
+class _TrainingGraph(nn.Module):
+    """forward(x, y) -> (loss, prediction), with the base model's parameters registered INTERNALLY.
+
+    Frozen params (requires_grad=False) receive no gradient in the captured backward graph, so the
+    training module's trainable ``named_parameters`` == the base model's trainable set (same order),
+    matching ``estimators.params`` / ``trainable_flat``. The base model is registered as a submodule
+    named ``base``, so the exported trainable param names carry a ``base.`` prefix — see
+    ``training_trainable_names`` for the exact runtime names + canonical order the C++ side re-maps
+    ET's (alphabetically-keyed) ``named_parameters`` map into.
+    """
+
+    def __init__(self, base: nn.Module):
+        super().__init__()
+        self.base = base
+        self.loss = nn.CrossEntropyLoss()
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor):
+        out = self.base(x)
+        return self.loss(out, y), out.detach().argmax(1)
+
+
+def training_trainable_names(model: nn.Module) -> list[str]:
+    """The trainable parameter names of the training graph, in canonical (base) named_parameters
+    order — i.e. ``base.<name>`` for each trainable ``name`` in ``trainable_names(model)``.
+
+    This is the order the flat vector uses; ET's ``TrainingModule::named_parameters`` returns a map
+    keyed alphabetically, so the C++ ``getFlatParams``/``setFlatParams`` must project ET's map back
+    onto THIS sequence or the flat blocks transpose (the M1 ordering gotcha)."""
+    return [f"base.{n}" for n in trainable_names(model)]
+
+
+def export_trainable_pte(model: nn.Module, example_inputs: tuple[torch.Tensor, torch.Tensor]) -> bytes:
+    """Return .pte bytes for a TRAINABLE graph: forward(x, y) -> (cross_entropy, prediction) with a
+    captured backward pass. Load it with ET's TrainingModule (execute_forward_backward + optimizer).
+
+    Frozen (requires_grad=False) layers are baked as constants and get no gradient, so only the
+    trainable params (``training_trainable_names(model)``) are optimised — matching the framework's
+    FedAvg update, which leaves frozen layers fixed."""
+    from executorch.exir import to_edge
+    from torch.export.experimental import _export_forward_backward
+
+    wrapper = _TrainingGraph(model)
+    x, y = example_inputs
+    ep = export(wrapper, (x, y), strict=True)
+    ep = _export_forward_backward(ep)
+    return to_edge(ep).to_executorch().buffer

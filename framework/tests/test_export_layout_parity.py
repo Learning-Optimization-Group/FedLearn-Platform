@@ -84,6 +84,22 @@ def test_param_layout_names_are_trainable_only_in_named_parameter_order():
         assert not (set(layout_names) & frozen), f"{name}: frozen param leaked into paramLayout"
 
 
+def test_trainable_export_training_names_match_canonical_trainable_order():
+    """Phase B M1b: the TRAINABLE (first-order) export's trainable param names, in canonical order,
+    are exactly the functional export's trainable names with the ``base.`` wrapper prefix — no frozen
+    param, same order. ET's TrainingModule keys named_parameters alphabetically, so the C++ side
+    re-maps that map onto THIS sequence; a drift here is the ordering gotcha that silently breaks
+    first-order parity. Pure torch (the wrapper is inspected, not exported)."""
+    for name, model in _models().items():
+        canonical = pte_export.trainable_names(model)
+        training_names = pte_export.training_trainable_names(model)
+        assert training_names == [f"base.{n}" for n in canonical], f"{name}: training names/order drift"
+        # the wrapper's own requires_grad params must equal that predicted list (frozen excluded).
+        wrapper = pte_export._TrainingGraph(model)
+        wrapper_trainable = [n for n, p in wrapper.named_parameters() if p.requires_grad]
+        assert wrapper_trainable == training_names, f"{name}: wrapper trainable set != predicted names"
+
+
 def test_roundtrip_set_then_get_is_identity_under_shared_order():
     """A vector written by the server's _set_flat_params reads back identically — confirms both sides
     agree on the unflatten order too (not just the flatten)."""
