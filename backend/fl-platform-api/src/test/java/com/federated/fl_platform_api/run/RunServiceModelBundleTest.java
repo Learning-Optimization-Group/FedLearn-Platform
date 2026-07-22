@@ -156,4 +156,98 @@ class RunServiceModelBundleTest {
         ReflectionTestUtils.setField(runService, "bundleDeliveryEnabled", false);
         assertThrows(ProjectStateException.class, () -> runService.getModelBundle(UUID.randomUUID()));
     }
+
+    // ─── first-order (FedAvg) trainable bundle ────────────────────────────────────────────────────
+
+    /** Extend a staged bundle with a first-order trainable.pte + the modelManifest trainable fields. */
+    private String stageWithTrainable(UUID runId) throws Exception {
+        stage(runId);
+        Path dir = modelsDir.resolve(runId.toString());
+        byte[] trainable = "trainable-graph".getBytes(StandardCharsets.UTF_8);
+        Files.write(dir.resolve("trainable.pte"), trainable);
+        String tSha = sha256(trainable);
+        ObjectMapper om = new ObjectMapper();
+        var m = (com.fasterxml.jackson.databind.node.ObjectNode)
+                om.readTree(Files.readString(dir.resolve("manifest.json")));
+        var mm = (com.fasterxml.jackson.databind.node.ObjectNode) m.get("modelManifest");
+        mm.put("trainablePtePath", "trainable.pte");
+        mm.put("trainableSha256", tSha);
+        var names = mm.putArray("trainableParamNames");
+        names.add("base.fc1.weight");
+        names.add("base.fc1.bias");
+        Files.writeString(dir.resolve("manifest.json"), om.writeValueAsString(m));
+        return tSha;
+    }
+
+    /** A run complete enough for getManifest()/toManifest() (partitioningMode etc.), participant-mocked. */
+    private void mockManifestRun(UUID runId, UUID projectId) {
+        Run run = new Run();
+        run.setId(runId);
+        run.setProjectId(projectId);
+        run.setStatus(RunStatus.RUNNING);
+        run.setPartitioningMode(PartitioningMode.SHARDED);
+        Project p = new Project();
+        p.setId(projectId);
+        User caller = new User();
+        caller.setId(7L);
+        ProjectMembership m = mock(ProjectMembership.class);
+        when(m.getRole()).thenReturn(MembershipRole.CLIENT);
+        when(runRepository.findById(runId)).thenReturn(Optional.of(run));
+        when(projectRepository.findById(projectId)).thenReturn(Optional.of(p));
+        when(authz.currentUser()).thenReturn(caller);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(projectId, 7L)).thenReturn(Optional.of(m));
+    }
+
+    @Test
+    void getModelBundle_withTrainable_carriesTrainableUrlShaAndNames() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        String tSha = stageWithTrainable(rid);
+        mockParticipant(rid, pid);
+
+        ModelBundleDto b = runService.getModelBundle(rid);
+
+        assertEquals("/api/runs/" + rid + "/files/trainable.pte", b.trainablePteUrl());
+        assertEquals(tSha, b.trainableSha256());
+        assertEquals(java.util.List.of("base.fc1.weight", "base.fc1.bias"), b.trainableParamNames());
+    }
+
+    @Test
+    void getModelBundle_withoutTrainable_trainableFieldsAreNullAndEmpty() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        stage(rid);  // DeComFL-only bundle
+        mockParticipant(rid, pid);
+
+        ModelBundleDto b = runService.getModelBundle(rid);
+
+        assertNull(b.trainablePteUrl());
+        assertNull(b.trainableSha256());
+        assertTrue(b.trainableParamNames().isEmpty());
+    }
+
+    @Test
+    void getModelFile_servesWhitelistedTrainablePte() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        String tSha = stageWithTrainable(rid);
+        mockParticipant(rid, pid);
+
+        Resource r = runService.getModelFile(rid, "trainable.pte");
+        try (InputStream in = r.getInputStream()) {
+            assertEquals(tSha, sha256(in.readAllBytes()));  // served bytes == staged trainable sha
+        }
+    }
+
+    @Test
+    void getManifest_firstOrderSupported_trueOnlyWhenTrainableStaged() throws Exception {
+        UUID rid = UUID.randomUUID(), pid = UUID.randomUUID();
+        stageWithTrainable(rid);
+        mockManifestRun(rid, pid);
+        assertTrue(runService.getManifest(rid).isFirstOrderSupported(),
+                "a run with a staged trainable.pte advertises on-device first-order");
+
+        UUID rid2 = UUID.randomUUID(), pid2 = UUID.randomUUID();
+        stage(rid2);  // DeComFL-only — no trainable staged
+        mockManifestRun(rid2, pid2);
+        assertFalse(runService.getManifest(rid2).isFirstOrderSupported(),
+                "a DeComFL-only run fail-closes first-order (phone stays on the ZO path)");
+    }
 }

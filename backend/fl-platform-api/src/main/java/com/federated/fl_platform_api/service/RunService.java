@@ -93,7 +93,7 @@ public class RunService {
 
     // The only filenames the bundle file endpoint will serve (blocks path traversal / arbitrary reads).
     private static final Set<String> ALLOWED_BUNDLE_FILES =
-            Set.of("loss.pte", "infer.pte", "inputs.f32", "targets.i64");
+            Set.of("loss.pte", "infer.pte", "inputs.f32", "targets.i64", "trainable.pte");
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -200,7 +200,28 @@ public class RunService {
         m.setPartitioningMode(run.getPartitioningMode().name());
         m.setSeed(run.getSeed());
         m.setTorchVersion(run.getTorchVersion());
+        m.setFirstOrderSupported(hasStagedTrainableBundle(run.getId()));
         return m;
+    }
+
+    /** True iff a trainable .pte was actually staged for this run (the served bundle manifest carries a
+     *  non-blank {@code modelManifest.trainablePtePath}). Tying the mobile first-order capability flag to
+     *  the artifact's real presence — not the recipe alone — means a run whose trainable export failed or
+     *  hasn't staged yet reports false, so the phone fail-closes to DeComFL rather than fetching a 404. */
+    private boolean hasStagedTrainableBundle(UUID runId) {
+        if (!bundleDeliveryEnabled) {
+            return false;
+        }
+        Path manifestPath = Path.of(modelBundleDir, runId.toString(), "manifest.json");
+        if (!Files.isRegularFile(manifestPath)) {
+            return false;
+        }
+        try {
+            JsonNode m = objectMapper.readTree(Files.readString(manifestPath));
+            return !m.path("modelManifest").path("trainablePtePath").asText("").isBlank();
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     String endpoint(Run run) {
@@ -307,12 +328,20 @@ public class RunService {
         List<Integer> inputShape = new ArrayList<>();
         ds.path("inputShape").forEach(s -> inputShape.add(s.asInt()));
         String base = "/api/runs/" + runId + "/files/";
+        // First-order trainable graph — present only when the staged bundle carries a trainablePtePath.
+        // Absent => null url/sha + empty names, which the mobile client reads as "DeComFL-only".
+        String trainablePte = mm.path("trainablePtePath").asText("");
+        String trainablePteUrl = trainablePte.isBlank() ? null : base + "trainable.pte";
+        String trainableSha256 = trainablePte.isBlank() ? null : mm.path("trainableSha256").asText();
+        List<String> trainableParamNames = new ArrayList<>();
+        mm.path("trainableParamNames").forEach(n -> trainableParamNames.add(n.asText()));
         return new ModelBundleDto(
                 runId, layout, mm.path("totalParamCount").asLong(),
                 base + "loss.pte", m.path("lossPte").path("sha256").asText(),
                 base + "infer.pte", mm.path("inferSha256").asText(),
                 base + ds.path("inputsFile").asText("inputs.f32"), ds.path("inputsSha256").asText(), inputShape,
-                base + ds.path("targetsFile").asText("targets.i64"), ds.path("targetsSha256").asText());
+                base + ds.path("targetsFile").asText("targets.i64"), ds.path("targetsSha256").asText(),
+                trainablePteUrl, trainableSha256, trainableParamNames);
     }
 
     /** Stream one whitelisted bundle binary. Same auth gate; the whitelist + a startsWith check block

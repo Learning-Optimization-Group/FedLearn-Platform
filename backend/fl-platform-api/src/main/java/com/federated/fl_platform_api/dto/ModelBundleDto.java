@@ -21,7 +21,13 @@ public record ModelBundleDto(
         String inputsSha256,
         List<Integer> inputShape,
         String targetsUrl,             // int64 labels
-        String targetsSha256) {
+        String targetsSha256,
+        // First-order (FedAvg) trainable graph: forward(x,y) -> (loss, prediction) with a captured backward,
+        // loadable by ET's TrainingModule. null / empty when this run's bundle is DeComFL-only (no on-device
+        // first-order) — the mobile client treats a null trainablePteUrl exactly as "DeComFL-only".
+        String trainablePteUrl,
+        String trainableSha256,
+        List<String> trainableParamNames) {  // canonical base.<name> order the phone re-maps ET's map onto
 
     /** One trainable tensor's layout (mirrors the mobile ModelManifest.ParamSpec). */
     public record ParamSpec(String name, List<Integer> shape) {

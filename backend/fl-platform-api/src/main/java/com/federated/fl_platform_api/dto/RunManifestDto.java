@@ -12,6 +12,10 @@ public class RunManifestDto {
     private String partitioningMode;
     private Long seed;
     private String torchVersion;
+    // MO-4: true when a trainable .pte was staged for this run (real on-device first-order FedAvg is
+    // possible). The mobile client fail-closes on FedAvg when this is false/absent, running the DeComFL
+    // zeroth-order path instead. Tied to the staged bundle's actual trainablePtePath, not the recipe alone.
+    private boolean firstOrderSupported;
 
     public UUID getRunId() { return runId; }
     public void setRunId(UUID runId) { this.runId = runId; }
@@ -31,4 +35,6 @@ public class RunManifestDto {
     public void setSeed(Long seed) { this.seed = seed; }
     public String getTorchVersion() { return torchVersion; }
     public void setTorchVersion(String torchVersion) { this.torchVersion = torchVersion; }
+    public boolean isFirstOrderSupported() { return firstOrderSupported; }
+    public void setFirstOrderSupported(boolean firstOrderSupported) { this.firstOrderSupported = firstOrderSupported; }
 }
