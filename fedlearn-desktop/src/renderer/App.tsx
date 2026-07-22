@@ -60,6 +60,9 @@ declare global {
         opts?: { allowInsecureHttp?: boolean },
       ) => Promise<{ success: boolean; url?: string; error?: string; code?: string; warning?: string }>;
       getServerUrl: () => Promise<{ success: boolean; url?: string }>;
+      saveCredentials: (username: string, password: string) => Promise<{ success: boolean }>;
+      getSavedCredentials: () => Promise<{ success: boolean; username?: string; password?: string }>;
+      clearSavedCredentials: () => Promise<{ success: boolean }>;
       selectDatasetPath: () => Promise<{ success: boolean; path?: string; error?: string }>;
       listModels: () => Promise<{ success: boolean; models?: InferableModel[]; error?: string }>;
       runInference: (

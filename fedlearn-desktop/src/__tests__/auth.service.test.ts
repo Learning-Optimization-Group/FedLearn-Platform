@@ -290,3 +290,49 @@ describe('AuthService.setApiUrl — a server change clears the session', () => {
     expect(send).not.toHaveBeenCalled();
   });
 });
+
+describe('AuthService — saved credentials ("Save password")', () => {
+  beforeEach(() => {
+    (safeStorage.isEncryptionAvailable as jest.Mock).mockReturnValue(true);
+    (safeStorage.encryptString as jest.Mock).mockImplementation((v: string) => Buffer.from(v, 'utf8'));
+    (safeStorage.decryptString as jest.Mock).mockImplementation((b: Buffer) => b.toString('utf8'));
+  });
+
+  it('round-trips encrypted credentials through save/get', () => {
+    const auth = new AuthService();
+    expect(auth.saveCredentials('alice', 's3cret')).toBe(true);
+    expect(auth.getSavedCredentials()).toEqual({ username: 'alice', password: 's3cret' });
+  });
+
+  it('returns null when nothing is saved', () => {
+    const auth = new AuthService();
+    expect(auth.getSavedCredentials()).toBeNull();
+  });
+
+  it('clearSavedCredentials forgets the saved pair', () => {
+    const auth = new AuthService();
+    auth.saveCredentials('alice', 's3cret');
+    auth.clearSavedCredentials();
+    expect(auth.getSavedCredentials()).toBeNull();
+  });
+
+  it('refuses to persist (and returns false) when OS encryption is unavailable', () => {
+    (safeStorage.isEncryptionAvailable as jest.Mock).mockReturnValue(false);
+    const auth = new AuthService();
+    expect(auth.saveCredentials('alice', 's3cret')).toBe(false);
+    // With encryption back on there is still nothing stored — it was never written.
+    (safeStorage.isEncryptionAvailable as jest.Mock).mockReturnValue(true);
+    expect(auth.getSavedCredentials()).toBeNull();
+  });
+
+  it('scrubs and returns null when the stored blob cannot be decrypted', () => {
+    const auth = new AuthService();
+    auth.saveCredentials('alice', 's3cret');
+    (safeStorage.decryptString as jest.Mock).mockImplementationOnce(() => {
+      throw new Error('keychain changed');
+    });
+    expect(auth.getSavedCredentials()).toBeNull();
+    // The stale blob was scrubbed, so a subsequent read is also null.
+    expect(auth.getSavedCredentials()).toBeNull();
+  });
+});

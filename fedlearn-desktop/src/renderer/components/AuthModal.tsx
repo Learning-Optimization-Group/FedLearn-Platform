@@ -7,7 +7,7 @@
 // =============================================================================
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Network, ChevronDown, ChevronRight, Check, AlertTriangle } from 'lucide-react';
+import { Network, ChevronDown, ChevronRight, Check, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { isPlaintextRemoteUrl } from '../../shared/urlSecurity';
 
 interface AuthModalProps {
@@ -27,6 +27,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
   // allowInsecure remembers the acknowledgement for the current URL only.
   const [insecureWarning, setInsecureWarning] = useState('');
   const [allowInsecure, setAllowInsecure] = useState(false);
+  // Show/hide password (eye toggle) and the "Save password" opt-in.
+  const [showPassword, setShowPassword] = useState(false);
+  const [savePassword, setSavePassword] = useState(false);
 
   // Load saved server URL on mount
   useEffect(() => {
@@ -43,6 +46,23 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
       }
     };
     loadUrl();
+  }, []);
+
+  // Pre-fill from saved credentials ("Save password" opt-in) on mount.
+  useEffect(() => {
+    const loadCreds = async () => {
+      try {
+        const result = await window.fedLearnAPI.getSavedCredentials();
+        if (result.success && result.username && result.password) {
+          setUsername(result.username);
+          setPassword(result.password);
+          setSavePassword(true);
+        }
+      } catch {
+        // Nothing saved — leave the form empty.
+      }
+    };
+    loadCreds();
   }, []);
 
   const saveServer = useCallback(
@@ -128,6 +148,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
         const result = await window.fedLearnAPI.login(username, password);
 
         if (result.success) {
+          // Persist or forget the password per the opt-in — only after a successful sign-in.
+          if (savePassword) {
+            await window.fedLearnAPI.saveCredentials(username, password);
+          } else {
+            await window.fedLearnAPI.clearSavedCredentials();
+          }
           onLoginSuccess();
         } else {
           setError('Invalid credentials. Please try again.');
@@ -140,7 +166,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
         setIsLoading(false);
       }
     },
-    [username, password, serverUrl, allowInsecure, onLoginSuccess],
+    [username, password, serverUrl, allowInsecure, savePassword, onLoginSuccess],
   );
 
   return (
@@ -249,17 +275,58 @@ const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
               <label className="form-label" htmlFor="auth-password">
                 Password
               </label>
-              <input
-                id="auth-password"
-                className="form-input"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                autoComplete="current-password"
-                disabled={isLoading}
-                maxLength={256}
-              />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  id="auth-password"
+                  className="form-input"
+                  style={{ paddingRight: 40, width: '100%' }}
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  disabled={isLoading}
+                  maxLength={256}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  disabled={isLoading}
+                  style={{
+                    position: 'absolute',
+                    right: 8,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'none',
+                    border: 'none',
+                    padding: 4,
+                    cursor: isLoading ? 'default' : 'pointer',
+                    color: 'var(--fg-muted, #6b7280)',
+                  }}
+                >
+                  {showPassword ? <EyeOff strokeWidth={1.5} size={16} /> : <Eye strokeWidth={1.5} size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Save password — opt-in, encrypted at rest via the OS keychain (safeStorage). */}
+            <div className="form-group">
+              <label
+                htmlFor="auth-save-password"
+                style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+              >
+                <input
+                  id="auth-save-password"
+                  type="checkbox"
+                  checked={savePassword}
+                  onChange={(e) => setSavePassword(e.target.checked)}
+                  disabled={isLoading}
+                />
+                <span className="form-label" style={{ marginBottom: 0 }}>Save password</span>
+              </label>
             </div>
 
             {error && (

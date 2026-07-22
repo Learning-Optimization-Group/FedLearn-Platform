@@ -330,6 +330,31 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
   },
 
   /**
+   * "Save password" opt-in: persist the login credentials encrypted (OS keychain) in Main.
+   * The renderer only ever passes/reads plaintext; the encrypted blob never leaves Main's store.
+   */
+  saveCredentials: async (username: string, password: string): Promise<{ success: boolean }> => {
+    if (!isValidStringInput(username, 'username') || !isValidStringInput(password, 'password')) {
+      return { success: false };
+    }
+    return ipcRenderer.invoke('auth:save-credentials', { username, password });
+  },
+
+  /**
+   * Load the saved credentials to pre-fill the login form. { success: false } when none stored.
+   */
+  getSavedCredentials: async (): Promise<{ success: boolean; username?: string; password?: string }> => {
+    return ipcRenderer.invoke('auth:get-credentials');
+  },
+
+  /**
+   * Forget any saved credentials (unchecked "Save password").
+   */
+  clearSavedCredentials: async (): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('auth:clear-credentials');
+  },
+
+  /**
    * Trigger native system file dialog to select a dataset path securely.
    */
   selectDatasetPath: async (): Promise<{ success: boolean; path?: string; error?: string }> => {

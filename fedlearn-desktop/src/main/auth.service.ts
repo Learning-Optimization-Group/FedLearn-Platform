@@ -32,6 +32,8 @@ interface AuthStore {
 interface AuthStoreSchema {
   serverUrl: string;
   auth: AuthStore;
+  // "Save password" opt-in: a safeStorage-encrypted, base64 JSON {username,password} blob.
+  savedCredentials: string;
 }
 
 /** Held only in main-process memory when OS-level encryption is unavailable. */
@@ -44,6 +46,7 @@ interface SessionMemory {
 const SERVER_URL_KEY = 'serverUrl';
 
 const AUTH_STORE_KEY = 'auth';
+const CREDENTIALS_KEY = 'savedCredentials';
 const JWT_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours — matches backend's maxAge
 
 // Default backend URL matches the existing frontend's axiosConfig.ts pattern
@@ -207,6 +210,53 @@ export class AuthService {
     this.store.delete(AUTH_STORE_KEY);
     this.sessionMemory = null;
     log.info('[AuthService] JWT cleared from store');
+  }
+
+  /**
+   * Persist the login credentials for the "Save password" opt-in, encrypted with
+   * {@link safeStorage} (OS keychain). When OS encryption is unavailable we refuse to
+   * persist — the same posture as the JWT: never write a reversible secret to disk.
+   *
+   * @returns true if the credentials were stored, false if encryption was unavailable.
+   */
+  saveCredentials(username: string, password: string): boolean {
+    if (!safeStorage.isEncryptionAvailable()) {
+      log.warn('[AuthService] safeStorage unavailable — refusing to persist saved credentials.');
+      this.store.delete(CREDENTIALS_KEY);
+      return false;
+    }
+    const encrypted = safeStorage.encryptString(JSON.stringify({ username, password }));
+    this.store.set(CREDENTIALS_KEY, encrypted.toString('base64'));
+    log.info('[AuthService] Saved credentials encrypted via safeStorage (OS keychain)');
+    return true;
+  }
+
+  /**
+   * Load the saved credentials for pre-filling the login form, decrypting via
+   * {@link safeStorage}. Returns null if none are stored or the blob can no longer be
+   * decrypted (e.g. the OS keychain key changed) — in which case the stale blob is scrubbed.
+   */
+  getSavedCredentials(): { username: string; password: string } | null {
+    try {
+      const blob = this.store.get(CREDENTIALS_KEY) as string | undefined;
+      if (!blob) return null;
+      const decrypted = safeStorage.decryptString(Buffer.from(blob, 'base64'));
+      const parsed = JSON.parse(decrypted) as { username?: unknown; password?: unknown };
+      if (typeof parsed.username === 'string' && typeof parsed.password === 'string') {
+        return { username: parsed.username, password: parsed.password };
+      }
+      this.store.delete(CREDENTIALS_KEY);
+      return null;
+    } catch {
+      log.warn('[AuthService] Could not decrypt saved credentials — scrubbing the stale blob.');
+      this.store.delete(CREDENTIALS_KEY);
+      return null;
+    }
+  }
+
+  /** Forget any saved credentials (unchecked "Save password"). */
+  clearSavedCredentials(): void {
+    this.store.delete(CREDENTIALS_KEY);
   }
 
   /**

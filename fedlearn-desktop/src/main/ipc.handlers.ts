@@ -338,6 +338,52 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  // ===================== Saved Credentials ("Save password") =====================
+
+  ipcMain.handle('auth:save-credentials', async (_event, credentials: unknown) => {
+    try {
+      if (!credentials || typeof credentials !== 'object') {
+        return { success: false };
+      }
+      const creds = credentials as Record<string, unknown>;
+      if (!validateStringInput(creds.username, 256) || !validateStringInput(creds.password, 256)) {
+        log.error('[IPC:auth:save-credentials] Rejected invalid credentials input');
+        return { success: false };
+      }
+      const stored = authService.saveCredentials(creds.username as string, creds.password as string);
+      return { success: stored };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:auth:save-credentials] Failed: ${message}`);
+      return { success: false };
+    }
+  });
+
+  ipcMain.handle('auth:get-credentials', async () => {
+    try {
+      const creds = authService.getSavedCredentials();
+      if (!creds) {
+        return { success: false };
+      }
+      return { success: true, username: creds.username, password: creds.password };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:auth:get-credentials] Failed: ${message}`);
+      return { success: false };
+    }
+  });
+
+  ipcMain.handle('auth:clear-credentials', async () => {
+    try {
+      authService.clearSavedCredentials();
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      log.error(`[IPC:auth:clear-credentials] Failed: ${message}`);
+      return { success: false };
+    }
+  });
+
   // ===================== Inference ("Use a model") =====================
 
   ipcMain.handle('inference:list-models', async () => {
