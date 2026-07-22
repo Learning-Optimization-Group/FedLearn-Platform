@@ -26,6 +26,12 @@ endif()
 set(FEDLEARN_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../..")   # app/src/main/jni -> mobile_client
 set(FEDLEARN_BUILD_TESTS OFF CACHE BOOL "" FORCE)                 # no gtest in the app build
 set(FEDLEARN_BUILD_GRPC ON CACHE BOOL "" FORCE)
+# On-device FIRST-ORDER training (real backprop -> weight-blob upload). Compiles TrainableExecutorchModel
+# + defines FEDLEARN_HAS_TRAINING + links the ET training-extension libs (extension_training/module/
+# named_data_map), which the prebuilt arm64 ET runtime supplies (built with
+# EXECUTORCH_BUILD_EXTENSION_TRAINING=ON). Without this the firstOrderRound/trainableModel_ branches are
+# #ifdef-compiled out and the phone can only ever run DeComFL.
+set(FEDLEARN_BUILD_TRAINING ON CACHE BOOL "" FORCE)
 add_subdirectory("${FEDLEARN_ROOT}/shared" "${CMAKE_BINARY_DIR}/fedlearn_shared")
 
 # OnLoad.cpp is globbed from this dir by ReactNative-application.cmake; add the remaining bridge sources
