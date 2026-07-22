@@ -32,6 +32,11 @@ interface ModelBundleDto {
   inputShape: number[];
   targetsUrl: string;
   targetsSha256: string;
+  // First-order (FedAvg) trainable graph — present only when the backend staged one for this run.
+  // Absent => DeComFL-only: the manifest omits trainablePtePath and the native core runs zeroth-order.
+  trainablePteUrl?: string | null;
+  trainableSha256?: string | null;
+  trainableParamNames?: string[] | null;
 }
 
 /** Thrown when the model/data bundle can't be fetched/staged (distinguished so the UI can show a precise
@@ -97,6 +102,21 @@ export async function provisionTrainingBundle(runId: string): Promise<ModelBundl
     inferPtePath, // rewritten to the staged local path
     inferSha256: dto.inferSha256,
   };
+
+  // First-order (FedAvg) trainable graph, when the run advertises one. Fetch + sha256-verify + stage it
+  // just like the other bundle files, then hand its LOCAL staged path + the canonical trainable-param
+  // names to the native core via the manifest. When absent, trainablePtePath stays undefined and the
+  // native doRunFedAvgRound falls back to the DeComFL zeroth-order path (fail-safe).
+  if (dto.trainablePteUrl && dto.trainableSha256) {
+    manifest.trainablePtePath = await fetchAndStage(
+      dto.trainablePteUrl,
+      'trainable.pte',
+      dto.trainableSha256,
+    );
+    manifest.trainableSha256 = dto.trainableSha256;
+    manifest.trainableParamNames = dto.trainableParamNames ?? [];
+  }
+
   return {
     manifest,
     lossPtePath,

@@ -75,6 +75,46 @@ describe('provisionTrainingBundle (P4 fetch + stage)', () => {
     await expect(p).rejects.toThrow(/inputs\.f32.*sha256 mismatch/);
   });
 
+  test('stages trainable.pte and populates the manifest when the run advertises first-order', async () => {
+    const trainableDto = {
+      ...DTO,
+      trainablePteUrl: '/api/runs/r1/files/trainable.pte',
+      trainableSha256: 'trainsha',
+      trainableParamNames: ['base.fc1.weight', 'base.fc1.bias'],
+    };
+    mApi.get.mockImplementation((url: string) => {
+      if (url === '/api/runs/r1/model-bundle') return Promise.resolve({ data: trainableDto });
+      return Promise.resolve({ data: new Uint8Array([1, 2, 3, 4]).buffer });
+    });
+    mCore.stageBundleFile.mockImplementation((name: string) =>
+      Promise.resolve('/data/app/files/bundle/' + name));
+
+    const b = await provisionTrainingBundle('r1');
+
+    // The trainable graph is fetched + sha256-verified + staged like every other bundle file...
+    expect(mApi.get).toHaveBeenCalledWith('/api/runs/r1/files/trainable.pte', { responseType: 'arraybuffer' });
+    expect(mCore.stageBundleFile).toHaveBeenCalledWith('trainable.pte', 'AQIDBA==', 'trainsha');
+    // ...and its LOCAL staged path + canonical names land on the manifest the native core loads.
+    expect(b.manifest.trainablePtePath).toBe('/data/app/files/bundle/trainable.pte');
+    expect(b.manifest.trainableSha256).toBe('trainsha');
+    expect(b.manifest.trainableParamNames).toEqual(['base.fc1.weight', 'base.fc1.bias']);
+  });
+
+  test('leaves the manifest DeComFL-only (no trainablePtePath) when no trainable bundle is advertised', async () => {
+    mApi.get.mockImplementation((url: string) => {
+      if (url === '/api/runs/r1/model-bundle') return Promise.resolve({ data: DTO });
+      return Promise.resolve({ data: new Uint8Array([1, 2, 3, 4]).buffer });
+    });
+    mCore.stageBundleFile.mockImplementation((name: string) =>
+      Promise.resolve('/data/app/files/bundle/' + name));
+
+    const b = await provisionTrainingBundle('r1');
+
+    expect(b.manifest.trainablePtePath).toBeUndefined();
+    const staged = mCore.stageBundleFile.mock.calls.map((c: unknown[]) => c[0]);
+    expect(staged).not.toContain('trainable.pte'); // nothing trainable staged for a DeComFL-only run
+  });
+
   test.each(['lossSha256', 'inferSha256', 'inputsSha256', 'targetsSha256'] as const)(
     'refuses to stage when the bundle omits %s (no unverified file reaches the native layer)',
     async (missing) => {
