@@ -127,6 +127,21 @@ def export_recipe_bundle(
     loss_pte = pte_export.export_functional_pte(model, (x, y))
     infer_pte = pte_export.export_functional_infer_pte(model, x)
 
+    # First-order (FedAvg) trainable graph: forward(x, y) -> (cross_entropy, prediction) with a CAPTURED
+    # backward pass, loadable by ET's TrainingModule on the phone (execute_forward_backward + SGD). This is
+    # what unblocks real on-device backprop; the native TrainableExecutorchModel re-maps ET's alphabetical
+    # named_parameters onto training_trainable_names() order. Feasible recipes only (small enough to ship +
+    # fit device memory); a heavy recipe still ships loss/infer for DeComFL. Best-effort: if the ET training
+    # export cannot capture this model's backward, we degrade to a DeComFL-only bundle rather than fail.
+    trainable_pte: bytes | None = None
+    trainable_param_names: list[str] = []
+    try:
+        trainable_pte = pte_export.export_trainable_pte(model, (x, y))
+        trainable_param_names = pte_export.training_trainable_names(model)
+    except Exception as e:  # noqa: BLE001 — export is experimental; never let it abort the (DeComFL) bundle
+        print(f"  [trainable-pte] export failed for {key} ({type(e).__name__}: {e}); "
+              f"bundle will be DeComFL-only (no on-device first-order)")
+
     names = pte_export.trainable_names(model)
     param_layout = [
         {"name": n, "shape": list(model.get_parameter(n).shape), "numel": model.get_parameter(n).numel()}
@@ -170,6 +185,14 @@ def export_recipe_bundle(
             "golden_loss": loss,
             "golden_accuracy": acc,
         }
+        # First-order trainable graph (optional): present iff export_trainable_pte succeeded above. Its
+        # sha256 is verified during staging; trainable_param_names carry the canonical base.<name> order
+        # the phone's TrainableExecutorchModel re-maps ET's alphabetical named_parameters onto.
+        if trainable_pte is not None:
+            (fx / "trainable.pte").write_bytes(trainable_pte)
+            manifest["trainable_file"] = "trainable.pte"
+            manifest["trainable_sha256"] = _sha256(fx / "trainable.pte")
+            manifest["trainable_param_names"] = trainable_param_names
         (fx / "zo_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
         dest = stage_model_bundle.stage_bundle(run_id, out_root, fixture=fx)
 

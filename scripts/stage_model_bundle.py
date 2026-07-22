@@ -62,6 +62,23 @@ def stage_bundle(run_id: str, out_root: Path, fixture: Path = DEFAULT_FIXTURE) -
         if expected is not None and got != expected:
             raise SystemExit(f"sha256 mismatch for {dest_name}: expected {expected}, staged {got}")
 
+    # First-order (FedAvg) trainable graph — OPTIONAL. Present only when the exporter captured a backward
+    # graph for this recipe (export_model.py) or the golden fixture ships one. When absent, the bundle is
+    # DeComFL-only (the phone's fail-closed gate refuses FedAvg), exactly as before this change.
+    trainable_src = src.get("trainable_file")
+    trainable_meta = None
+    if trainable_src:
+        shutil.copyfile(fixture / trainable_src, dest / "trainable.pte")
+        got = sha256(dest / "trainable.pte")
+        expected = src.get("trainable_sha256")
+        if expected is not None and got != expected:
+            raise SystemExit(f"sha256 mismatch for trainable.pte: expected {expected}, staged {got}")
+        trainable_meta = {
+            "trainablePtePath": "trainable.pte",  # relative; the mobile client rewrites to the staged path
+            "trainableSha256": got,
+            "trainableParamNames": src.get("trainable_param_names", []),
+        }
+
     manifest = {
         "runId": run_id,
         # Mirrors the mobile ModelManifest (bridge/specs/NativeFedLearnCore.ts): paramLayout order is the
@@ -71,6 +88,10 @@ def stage_bundle(run_id: str, out_root: Path, fixture: Path = DEFAULT_FIXTURE) -
             "totalParamCount": src["total_params"],
             "inferPtePath": "infer.pte",  # relative; the mobile client rewrites to the staged local path
             "inferSha256": src["infer_sha256"],
+            # First-order trainable graph fields (trainablePtePath/trainableSha256/trainableParamNames)
+            # spliced in ONLY when a trainable.pte was staged — mirrors the native ModelManifest, which
+            # treats a missing trainablePtePath as "DeComFL-only".
+            **(trainable_meta or {}),
         },
         "lossPte": {"file": "loss.pte", "sha256": src["pte_sha256"]},
         "dataset": {

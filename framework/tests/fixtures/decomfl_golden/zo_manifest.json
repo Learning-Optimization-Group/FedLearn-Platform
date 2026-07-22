@@ -66,5 +66,11 @@
     2,
     2
   ],
-  "golden_accuracy": 0.375
+  "golden_accuracy": 0.375,
+  "trainable_file": "tinynet_trainable.pte",
+  "trainable_sha256": "ff398410f7339172295386dfc6220c5f46f21eddfb8ea145daf54e6a15dae412",
+  "trainable_param_names": [
+    "base.fc1.weight",
+    "base.fc1.bias"
+  ]
 }
