@@ -252,7 +252,16 @@ public class FlServerManager {
 
             boolean exited = process.waitFor(startupProbeSeconds, TimeUnit.SECONDS);
 
-            if (exited) {
+            // Only a NON-ZERO in-window exit is a startup crash. A ZERO exit is a legitimately fast,
+            // fully-successful run: a tiny model with few rounds and one localhost client can finish
+            // every round, save the model, POST /finished (-> run COMPLETED), and exit 0 all within the
+            // probe window. Throwing on that clean exit drives ProjectService.markFailed and clobbers the
+            // COMPLETED the /finished callback already wrote (the fast-run FAILED-clobbers-COMPLETED
+            // race). A genuine startup death still exits non-zero -> still throws -> still markFailed on a
+            // non-terminal run, so no real failure is masked. On the exit-0 fall-through the child is
+            // already gone; its onExit watcher (below) fires at once, releasing the port and clearing
+            // tracking, so no phantom RUNNING is left.
+            if (exited && process.exitValue() != 0) {
                 // Stdout is buffered: give the reader a generous window to
                 // drain remaining output before we surface the failure.
                 // Truncating here is the difference between "Python crashed"

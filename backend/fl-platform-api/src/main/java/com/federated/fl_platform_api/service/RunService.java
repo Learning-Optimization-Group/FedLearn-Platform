@@ -118,6 +118,11 @@ public class RunService {
     public void markRunning(UUID runId, Integer port) {
         Run run = runRepository.findById(runId)
                 .orElseThrow(() -> ResourceNotFoundException.run(runId));
+        if (isTerminal(run.getStatus())) {
+            // A fast run can reach a terminal state (its /finished callback wrote COMPLETED) before the
+            // start thread's markRunning executes — do not revert a finished run to RUNNING.
+            return;
+        }
         run.setServerHost(advertisedHost());
         run.setServerPort(port);
         run.setStatus(RunStatus.RUNNING);
@@ -144,10 +149,25 @@ public class RunService {
         if (runId == null) return;
         Run run = runRepository.findById(runId).orElse(null);
         if (run == null) return;
+        if (isTerminal(run.getStatus())) {
+            // Terminal status is write-once: a completed run must not be flipped to FAILED by the
+            // start-probe catch or the reconciler sweep (the FAILED-clobbers-COMPLETED race the
+            // StartupReconciler comment flags). The first terminal write wins.
+            return;
+        }
         run.setStatus(status);
         run.setServerPort(null);
         run.setEndedAt(Instant.now());
         runRepository.save(run);
+    }
+
+    /** COMPLETED / FAILED / STOPPED are terminal — the first terminal write wins and no later eager
+     *  writer (a racing markRunning from the start thread, a late markFailed from the start-probe catch
+     *  or the reconciler sweep) may revert it. */
+    private static boolean isTerminal(RunStatus status) {
+        return status == RunStatus.COMPLETED
+                || status == RunStatus.FAILED
+                || status == RunStatus.STOPPED;
     }
 
     @Transactional(readOnly = true)

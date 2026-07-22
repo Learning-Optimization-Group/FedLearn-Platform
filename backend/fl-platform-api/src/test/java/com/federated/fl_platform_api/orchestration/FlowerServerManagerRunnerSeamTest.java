@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -151,6 +152,26 @@ class FlServerManagerRunnerSeamTest {
         // And the child's stdout was broadcast to /topic/logs/{projectId} before the failure surfaced.
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() ->
                 verify(ws, atLeastOnce()).sendLogs(eq(p.getId()), contains("STUB_CRASH boom")));
+    }
+
+    @Test
+    void start_fastCleanExitWithinProbeWindow_isSuccessNotAStartupCrash() {
+        // A tiny/fast run (e.g. TINYNET_GOLDEN with few rounds and one localhost client) can finish
+        // every round, save the model, and exit 0 INSIDE the startup-probe window. A zero exit is a
+        // run that completed, NOT a startup crash: it must not throw. A throw here drives
+        // ProjectService.markFailed and clobbers the COMPLETED that the FL server's own /finished
+        // callback already wrote (the fast-run FAILED-clobbers-COMPLETED race). Only a NON-ZERO
+        // in-window exit is a genuine startup crash — see the exit-1 test above.
+        FakeRunner runner = new FakeRunner(FakeProcess.exitsWith(0, "round 5/5 complete; model saved; exit 0\n"));
+        ReflectionTestUtils.setField(manager, "processRunner", runner);
+        Project p = project();
+
+        Optional<Integer> port = assertDoesNotThrow(
+                () -> manager.startServerForProject(p, "FedAvg", 5, 1),
+                "a clean (exit 0) fast finish must be treated as a successful start, never a crash");
+
+        assertTrue(port.isPresent(), "a successful fast start still reserves and returns its port");
+        assertTrue(port.get() >= 50000 && port.get() <= 50010);
     }
 
     // --- fakes --------------------------------------------------------------

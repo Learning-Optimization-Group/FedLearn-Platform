@@ -102,6 +102,39 @@ class RunServiceTest {
     }
 
     @Test
+    void markFailed_isNoOpOnAnAlreadyCompletedRun() {
+        // Terminal status is write-once. A fast run reaches COMPLETED (its /finished callback fired)
+        // and the start-probe catch — or the reconciler sweep — then calls markFailed; the terminal
+        // guard must keep it COMPLETED, never revert to FAILED (the FAILED-clobbers-COMPLETED race).
+        UUID rid = UUID.randomUUID();
+        Run r = new Run();
+        r.setId(rid);
+        r.setStatus(RunStatus.COMPLETED);
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+
+        runService.markFailed(rid);
+
+        assertEquals(RunStatus.COMPLETED, r.getStatus(), "a completed run must not be reverted to FAILED");
+        verify(runRepository, never()).save(any(Run.class));
+    }
+
+    @Test
+    void markRunning_isNoOpOnAnAlreadyCompletedRun() {
+        // Same race, the other eager writer: a fast run can reach COMPLETED before the start thread's
+        // markRunning executes. markRunning must not revert a terminal run to RUNNING.
+        UUID rid = UUID.randomUUID();
+        Run r = new Run();
+        r.setId(rid);
+        r.setStatus(RunStatus.COMPLETED);
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+
+        runService.markRunning(rid, 50001);
+
+        assertEquals(RunStatus.COMPLETED, r.getStatus(), "a completed run must not be reverted to RUNNING");
+        verify(runRepository, never()).save(any(Run.class));
+    }
+
+    @Test
     void getStatus_runningRunExposesEndpoint() {
         UUID rid = UUID.randomUUID();
         UUID pid = UUID.randomUUID();
