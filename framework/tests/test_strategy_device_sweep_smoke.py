@@ -109,3 +109,56 @@ def test_all_strategies_run_end_to_end_on_cpu():
                            rounds=3, local_epochs=1, lr=0.1, batch_size=16, seed=0,
                            device="cpu", eval_every=3)
         assert r["per_round"], f"{name} produced no evaluations"
+
+
+# ------------------------------------------------- FedProx must actually BE FedProx
+
+def _task(n=128, feat=8, seed=0):
+    g = torch.Generator().manual_seed(seed)
+    x = torch.randn(n, feat, generator=g)
+    return x, (x[:, 0] + 0.5 * x[:, 1] > 0).long()
+
+
+def test_fedprox_with_mu_differs_from_fedavg():
+    """THE TEST WHOSE ABSENCE LET A WRONG RESULT SHIP.
+
+    An earlier version of this harness used a generic SGD client loop and never applied the
+    proximal term, so FedProx and FedAvg produced BIT-IDENTICAL results across three seeds and
+    were reported as two independent strategies agreeing. They were the same strategy run twice.
+
+    FedProx's mu is a CLIENT-side term: mu*(w - w_global) added to each gradient before the step
+    (framework/src/fedlearn/client/local_trainer.py). With mu > 0 the trajectory must differ."""
+    x, y = _task()
+    kw = dict(train_x=x, train_y=y, test_x=x, test_y=y, feat_dim=8, n_classes=2, hidden=0,
+              clients=4, clients_per_round=4, alpha=10.0, rounds=6, local_epochs=2,
+              lr=0.1, batch_size=32, seed=0, device="cpu", eval_every=6)
+    fa = S.run_strategy("FedAvg", **kw)
+    fp = S.run_strategy("FedProx", proximal_mu=0.5, **kw)
+    assert fa["final_auc"] != fp["final_auc"], (
+        "FedProx with mu=0.5 produced an identical result to FedAvg -- the proximal term is "
+        "not being applied by the client loop")
+
+
+def test_fedprox_with_mu_zero_matches_fedavg_exactly():
+    """The other half of the contract: mu=0 must reduce to plain local SGD, so FedProx at mu=0
+    is FedAvg exactly. Without this, 'differs from FedAvg' could be satisfied by any bug."""
+    x, y = _task()
+    kw = dict(train_x=x, train_y=y, test_x=x, test_y=y, feat_dim=8, n_classes=2, hidden=0,
+              clients=4, clients_per_round=4, alpha=10.0, rounds=6, local_epochs=2,
+              lr=0.1, batch_size=32, seed=0, device="cpu", eval_every=6)
+    fa = S.run_strategy("FedAvg", **kw)
+    fp = S.run_strategy("FedProx", proximal_mu=0.0, **kw)
+    assert fa["final_auc"] == fp["final_auc"]
+
+
+def test_larger_mu_pulls_harder_toward_the_global_model():
+    """A behavioural check on direction, not just difference. The proximal term penalises
+    departure from the round's starting weights, so a larger mu must keep local models closer
+    to the global model -- measurable as a smaller mean update norm per round."""
+    x, y = _task()
+    kw = dict(train_x=x, train_y=y, test_x=x, test_y=y, feat_dim=8, n_classes=2, hidden=0,
+              clients=4, clients_per_round=4, alpha=10.0, rounds=8, local_epochs=3,
+              lr=0.1, batch_size=32, seed=0, device="cpu", eval_every=8)
+    lo = S.run_strategy("FedProx", proximal_mu=0.0, **kw)["mean_update_norm"]
+    hi = S.run_strategy("FedProx", proximal_mu=5.0, **kw)["mean_update_norm"]
+    assert hi < lo, f"expected mu=5.0 to restrain local drift; got {hi} vs {lo} at mu=0"

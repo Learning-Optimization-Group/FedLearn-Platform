@@ -48,7 +48,7 @@ import decomfl_vs_fedavg_dim as H                                  # noqa: E402
 STRATEGIES = ("FedAvg", "FedProx", "FedOpt", "Robust", "RobustTrimmed")
 
 
-def build_strategy(name, init_sd, cpr, server_lr, tau):
+def build_strategy(name, init_sd, cpr, server_lr, tau, proximal_mu=0.1):
     """Construct a strategy by name. Kept explicit so an unknown name fails loudly."""
     if name == "FedAvg":
         return FedAvg(initial_parameters=init_sd, min_fit_clients=1, clients_per_round=cpr)
@@ -56,7 +56,7 @@ def build_strategy(name, init_sd, cpr, server_lr, tau):
         # proximal_mu is a CLIENT-side term; server aggregation is identical to FedAvg by design,
         # so any CPU/GPU difference here isolates the client loop rather than the aggregator.
         return FedProx(initial_parameters=init_sd, min_fit_clients=1, clients_per_round=cpr,
-                       proximal_mu=0.1)
+                       proximal_mu=proximal_mu)
     if name == "FedOpt":
         return FedOpt(initial_parameters=init_sd, min_fit_clients=1, clients_per_round=cpr,
                       server_learning_rate=server_lr, tau=tau)
@@ -71,21 +71,33 @@ def build_strategy(name, init_sd, cpr, server_lr, tau):
 
 def run_strategy(name, *, train_x, train_y, test_x, test_y, feat_dim, n_classes, hidden,
                  clients, clients_per_round, alpha, rounds, local_epochs, lr, batch_size,
-                 seed, device, server_lr=0.001, tau=1e-3, eval_every=25):
-    """One federated run. Identical client loop for every strategy; only aggregation differs."""
+                 seed, device, server_lr=0.001, tau=1e-3, proximal_mu=0.1, eval_every=25):
+    """One federated run.
+
+    The client loop is shared by every strategy EXCEPT for FedProx's proximal term, which is a
+    client-side quantity rather than an aggregation rule. An earlier version of this harness
+    omitted it, so FedProx and FedAvg produced bit-identical results and were reported as two
+    strategies agreeing when they were one strategy run twice.
+
+    The term matches fedlearn.client.local_trainer.LocalTrainer.fit exactly: the exact gradient
+    contribution mu*(w - w_global) is added in place to each parameter's .grad before the
+    optimiser step, where w_global is the round's starting global model. mu = 0 skips it
+    entirely, so FedProx at mu=0 is bitwise FedAvg.
+    """
     t0 = time.time()
     torch.manual_seed(seed)
     model = H.head_model(feat_dim=feat_dim, n_classes=n_classes, hidden=hidden, seed=seed).to(device)
     d = H.model_dim(model)
     init_sd = P.trainable_state(model)
-    strategy = build_strategy(name, init_sd, clients_per_round, server_lr, tau)
+    strategy = build_strategy(name, init_sd, clients_per_round, server_lr, tau, proximal_mu)
+    mu = float(proximal_mu) if name == "FedProx" else 0.0
 
     global_state = OrderedDict((k, v.clone()) for k, v in init_sd.items())
     parts = H.partition(train_y.numpy(), clients, alpha, seed)
     loaders = H._make_loaders(train_x, train_y, parts, batch_size, seed)
     rng = np.random.RandomState(seed + 77)
     crit = nn.CrossEntropyLoss()
-    per_round = []
+    per_round, update_norms = [], []
 
     for r in range(1, rounds + 1):
         chosen = rng.choice(clients, size=min(clients_per_round, clients), replace=False)
@@ -94,13 +106,24 @@ def run_strategy(name, *, train_x, train_y, test_x, test_y, feat_dim, n_classes,
             local = H.head_model(feat_dim=feat_dim, n_classes=n_classes, hidden=hidden,
                                  seed=seed).to(device)
             local.load_state_dict(global_state, strict=False)
+            # w_global for this round, captured BEFORE any local step (the proximal anchor).
+            anchor = [p.detach().clone() for p in local.parameters() if p.requires_grad]
             opt = torch.optim.SGD([p for p in local.parameters() if p.requires_grad], lr=lr)
             local.train()
             for _ in range(local_epochs):
                 for xb, yb in loaders[ci]:
                     opt.zero_grad()
                     crit(local(xb.to(device)), yb.to(device)).backward()
+                    if mu > 0.0:
+                        for prm, w0 in zip([q for q in local.parameters() if q.requires_grad],
+                                           anchor):
+                            if prm.grad is not None:
+                                prm.grad.add_(prm.detach() - w0, alpha=mu)
                     opt.step()
+            with torch.no_grad():
+                cur = [p.detach() for p in local.parameters() if p.requires_grad]
+                update_norms.append(float(sum(((c - a) ** 2).sum() for c, a in
+                                              zip(cur, anchor)).sqrt()))
             results.append((P.trainable_state(local), len(loaders[ci].dataset)))
 
         agg = strategy.aggregate_fit(r, results)
@@ -112,7 +135,9 @@ def run_strategy(name, *, train_x, train_y, test_x, test_y, feat_dim, n_classes,
             per_round.append({"round": r, **H._evaluate(model, test_x.to(device), test_y.to(device))})
 
     return {"strategy": name, "device": device, "d": d, "hidden": hidden, "seed": seed,
-            "rounds": rounds, "wall_seconds": round(time.time() - t0, 3),
+            "rounds": rounds, "alpha": alpha, "proximal_mu": mu,
+            "mean_update_norm": round(float(np.mean(update_norms)), 6) if update_norms else None,
+            "wall_seconds": round(time.time() - t0, 3),
             "final_auc": per_round[-1]["auc"] if per_round else float("nan"),
             "best_auc": max((p["auc"] for p in per_round if np.isfinite(p["auc"])),
                             default=float("nan")),
@@ -133,6 +158,10 @@ def main():
     ap.add_argument("--lr", type=float, default=0.05)
     ap.add_argument("--server-lr", type=float, default=0.001)
     ap.add_argument("--tau", type=float, default=1e-3)
+    ap.add_argument("--proximal-mu", type=float, default=0.1,
+                    help="FedProx client-side proximal strength. mu=0 reduces FedProx "
+                         "to FedAvg exactly; it is the parameter that MAKES FedProx "
+                         "FedProx, and was never varied before 2026-07-29.")
     ap.add_argument("--batch-size", type=int, default=32)
     ap.add_argument("--devices", default="cpu,auto")
     ap.add_argument("--eval-every", type=int, default=25)
@@ -159,7 +188,8 @@ def main():
                                      clients=a.clients, clients_per_round=a.clients_per_round,
                                      alpha=a.alpha, rounds=a.rounds, local_epochs=a.local_epochs,
                                      lr=a.lr, batch_size=a.batch_size, seed=s, device=dv,
-                                     server_lr=a.server_lr, tau=a.tau, eval_every=a.eval_every)
+                                     server_lr=a.server_lr, tau=a.tau, proximal_mu=a.proximal_mu,
+                                     eval_every=a.eval_every)
                     runs.append(r)
                     print(f"  {name:<14} d={r['d']:<8} {dv:<5} seed={s} "
                           f"auc={r['final_auc']:.4f} {r['wall_seconds']:>8.2f}s", flush=True)

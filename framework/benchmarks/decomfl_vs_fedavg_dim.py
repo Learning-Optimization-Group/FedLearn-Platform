@@ -122,8 +122,19 @@ def fedavg_bytes_per_round(d: int) -> int:
 
 # ------------------------------------------------------------------------------ partitioning
 
-def partition(labels, num_clients: int, alpha: float, seed: int):
-    """Dirichlet label-skew partition. Every example lands with exactly one client."""
+def partition(labels, num_clients: int, alpha: float, seed: int, min_per_client: int = 1):
+    """Dirichlet label-skew partition. Every example lands with exactly one client.
+
+    At severe skew (alpha <= ~0.1) a Dirichlet draw can leave a client with ZERO examples, which
+    makes DataLoader raise `num_samples should be a positive integer value, but got
+    num_samples=0` and aborts the run. That is a harness failure rather than a meaningful
+    experimental condition -- a federated round has no notion of a client with no data -- so
+    empty clients are topped up to `min_per_client` by moving examples from the largest client.
+
+    The correction is deliberately minimal: it moves the fewest examples needed, takes them from
+    the most over-provisioned client, and leaves the label skew that low alpha is there to
+    produce (pinned by test_partition_still_produces_label_skew_at_low_alpha).
+    """
     labels = np.asarray(labels)
     rng = np.random.RandomState(seed)
     idx_by_class = [np.where(labels == c)[0] for c in np.unique(labels)]
@@ -134,6 +145,16 @@ def partition(labels, num_clients: int, alpha: float, seed: int):
         cuts = (np.cumsum(p) * len(idx)).astype(int)[:-1]
         for c, chunk in enumerate(np.split(idx, cuts)):
             parts[c].extend(chunk.tolist())
+
+    for _ in range(num_clients * min_per_client):
+        short = [c for c in range(num_clients) if len(parts[c]) < min_per_client]
+        if not short:
+            break
+        donor = max(range(num_clients), key=lambda c: len(parts[c]))
+        if len(parts[donor]) <= min_per_client:
+            break                      # nothing left to give; caller has too few examples
+        parts[short[0]].append(parts[donor].pop())
+
     return [np.array(sorted(p), dtype=np.int64) for p in parts]
 
 

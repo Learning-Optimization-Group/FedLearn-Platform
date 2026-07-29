@@ -289,3 +289,34 @@ def test_decomfl_runs_end_to_end_on_mps():
                       hidden=0, clients=2, clients_per_round=2, alpha=10.0, rounds=3,
                       K=1, P_=4, lr=0.01, mu=1e-3, batch_size=16, seed=0, device="mps")
     assert len(r["per_round"]) == 3
+
+
+# ------------------------------------------------- partition robustness at severe non-IID
+
+def test_partition_gives_every_client_at_least_one_example():
+    """At severe non-IID a Dirichlet draw can leave a client with ZERO examples, which makes
+    DataLoader raise `num_samples should be a positive integer value, but got num_samples=0`
+    and kills the run. Found when alpha=0.05 was used for the first time -- the harness had
+    only ever been run at alpha >= 0.3, so the failure had never surfaced."""
+    y = np.array([0] * 700 + [1] * 700)
+    for alpha in (0.01, 0.05, 0.1):
+        parts = H.partition(y, num_clients=20, alpha=alpha, seed=0)
+        sizes = [len(p) for p in parts]
+        assert min(sizes) >= 1, f"alpha={alpha} produced an empty client: {sizes}"
+
+
+def test_partition_still_covers_every_example_exactly_once_at_severe_skew():
+    y = np.array([0] * 700 + [1] * 700)
+    parts = H.partition(y, num_clients=20, alpha=0.05, seed=0)
+    allidx = np.concatenate(parts)
+    assert sorted(allidx.tolist()) == list(range(1400))
+
+
+def test_partition_still_produces_label_skew_at_low_alpha():
+    """The minimum-size guarantee must not silently turn the partition into a uniform split --
+    low alpha must still produce genuinely skewed label distributions."""
+    y = np.array([0] * 700 + [1] * 700)
+    def skew(alpha):
+        parts = H.partition(y, num_clients=20, alpha=alpha, seed=0)
+        return np.mean([abs((y[p] == 0).mean() - 0.5) for p in parts if len(p)])
+    assert skew(0.05) > skew(10.0), "low alpha should be more label-skewed than high alpha"
