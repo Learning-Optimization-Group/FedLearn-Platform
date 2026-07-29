@@ -78,6 +78,20 @@ class FedAvg(Strategy):
         return loss, metrics
 
 
+def _first_tensor_device(updates) -> torch.device:
+    """Device of the first tensor in a normalized update list; CPU if there is none.
+
+    The aggregate belongs wherever the client tensors already are. Choosing by global
+    availability instead (the old `"cuda" if torch.cuda.is_available()` rule) both ignored MPS
+    entirely and overrode a caller's deliberate CPU placement on a GPU host.
+    """
+    for _cid, params, _n in updates:
+        for tensor in params.values():
+            if isinstance(tensor, torch.Tensor):
+                return tensor.device
+    return torch.device("cpu")
+
+
 class FedAvgAggregator:
     MAX_SAMPLES = 100_000  # Cap to prevent model poisoning via inflated num_examples
 
@@ -85,11 +99,22 @@ class FedAvgAggregator:
         if not updates:
             raise ValueError("Cannot aggregate an empty list of updates.")
 
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-
         # Coerce the accepted wire shapes (2-/3-tuples, JSON-encoded params) into a uniform list of
         # (client_id, state_dict, num_examples) via the shared normalizer.
         updates = normalize_updates(updates)
+
+        # Aggregate on the device the DATA is already on. The previous rule picked the device from
+        # global availability -- `"cuda" if torch.cuda.is_available() else "cpu"` -- which was wrong
+        # in two distinct ways:
+        #   1. It never selected MPS at all, so on Apple silicon every client update trained on the
+        #      GPU was silently copied to CPU on EVERY round -- an unrequested per-round transfer.
+        #   2. On a CUDA host it force-migrated aggregates to CUDA regardless of where the run
+        #      actually lived, which is what crashed FedOpt: its `_global` stays on the device
+        #      `initial_parameters` arrived on, so `g = old - x_bar` mixed CPU and CUDA tensors.
+        #      That single fault aborted FOUR cells of the algorithm x device matrix.
+        # Deriving the device from the first incoming tensor is both correct and intent-preserving:
+        # a run the caller placed on CPU stays on CPU even on a CUDA box.
+        device = _first_tensor_device(updates)
 
         # Sanitize num_examples: cap and reject invalid values
         sanitized_updates = [
@@ -500,13 +525,28 @@ class FedOpt(Strategy):
         # x_bar: num-examples-weighted mean of the client models (reuse FedAvg aggregation).
         aggregated = self.aggregator.aggregate(results)
 
+        # Adopt the device the clients trained on. `initial_parameters` may well have been handed
+        # to us on CPU while the run itself lives on CUDA/MPS, and `g = old - x_bar` would then mix
+        # devices and raise. Migrating the server state ONCE (rather than converting x_bar every
+        # round) keeps all subsequent moment arithmetic on-device and costs no per-round transfer.
+        # This is idempotent: after the first round the devices already agree and .to() is a no-op.
+        agg_device = next((t.device for t in aggregated.values()
+                           if isinstance(t, torch.Tensor)), None)
+        if agg_device is not None:
+            first = next(iter(self._global.values()), None)
+            if first is not None and first.device != agg_device:
+                self._global = OrderedDict((k, v.to(agg_device)) for k, v in self._global.items())
+                if self._m is not None:
+                    self._m = OrderedDict((k, v.to(agg_device)) for k, v in self._m.items())
+                    self._v = OrderedDict((k, v.to(agg_device)) for k, v in self._v.items())
+
         if self._m is None:
             self._m = OrderedDict((k, torch.zeros_like(v)) for k, v in self._global.items())
             self._v = OrderedDict((k, torch.zeros_like(v)) for k, v in self._global.items())
 
         new_global = OrderedDict()
         for key, old in self._global.items():
-            x_bar = aggregated[key].to(old.dtype)
+            x_bar = aggregated[key].to(device=old.device, dtype=old.dtype)  # device too, not just dtype
             g = old - x_bar                                    # pseudo-gradient (== -Delta_t)
 
             m = self.beta1 * self._m[key] + (1.0 - self.beta1) * g
