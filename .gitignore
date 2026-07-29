@@ -164,3 +164,20 @@ id_rsa*
 
 # research/ is the paper's local-only working area (results, notes, experiment logs) — not tracked.
 research/
+
+# --- Build outputs and machine-local config (added 2026-07-29) ---
+# Android NDK/CMake externalNativeBuild scratch — ~180 MB of regenerable object files.
+mobile_client/android/app/.cxx/
+# Local host/device CMake build trees for the native core.
+mobile_client/build-host/
+mobile_client/build-train/
+# Machine-local SDK/NDK paths. Never portable, and Gradle regenerates it.
+mobile_client/android/local.properties
+
+# Generated protobuf/gRPC stubs. The contract lives in proto/*.proto; `buf generate`
+# reproduces these, and committing them invites the mirror drift proto.yml exists to prevent.
+proto/gen/
+
+# Stray local artifacts
+report-top.jpeg
+*.log.*.marker
