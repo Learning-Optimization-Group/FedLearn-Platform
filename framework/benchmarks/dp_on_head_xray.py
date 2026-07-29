@@ -510,7 +510,10 @@ def _render_md(sweeps):
         lines += [
             "",
             f"### {m['backbone']} — head d = {m['head_d']}, no-DP acc {m['no_dp_accuracy']:.3f} "
-            f"(AUC {('—' if m['no_dp_auc'] is None else f'{m['no_dp_auc']:.3f}')}), "
+            # NB: the inner f-string must not reuse the outer quote character — nested same-quote
+            # f-strings are PEP 701 (Python 3.12+) and are a SyntaxError on the package's declared
+            # 3.10 floor, which broke this module on a 3.10 runtime.
+            f"(AUC {('—' if m['no_dp_auc'] is None else format(m['no_dp_auc'], '.3f'))}), "
             f"DP runs averaged over {m['n_dp_seeds']} noise seeds",
             "",
             "| setting | target ε | accounted ε | z | SNR | acc (mean±std) | AUC | retain | escape-rate |",
