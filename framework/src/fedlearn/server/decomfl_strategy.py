@@ -22,6 +22,9 @@ from fedlearn.estimators.perturbation import canonical_perturbation
 
 log = logging.getLogger(__name__)
 
+# Rounds a stalled client may pin the history floor before we say so out loud.
+HISTORY_PIN_WARN_LAG = 16
+
 
 class DeComFLRebuildGap(RuntimeError):
     """A client's DeComFL rebuild chain has a missing round: the server lacks the shared
@@ -251,10 +254,46 @@ class DeComFL(Strategy):
         # Update global model
         self.global_params_flat = x_current
 
+        self._prune_history(server_round)
+
         # Convert back to OrderedDict format
         updated_params = self._unflatten_params(x_current, self.initial_parameters)
 
         return updated_params
+
+    def _prune_history(self, server_round: int) -> None:
+        """Drop history no client can still ask for.
+
+        ``get_rebuild_history`` hands a client synced through round L the rounds L+1..current-1,
+        so every round at or below ``min(client_last_round)`` is unreachable and is dead weight.
+        Without this the two histories grow as O(rounds) — 20,000-round runs are routine here —
+        which is a poor look for an algorithm whose whole claim is O(1) communication.
+
+        The floor is derived from what clients actually need rather than a fixed window, so a
+        round a lagging client still requires is NEVER discarded; that is what keeps this from
+        turning a legitimate rejoin into a :class:`DeComFLRebuildGap`. The cost is that one
+        stalled client pins the floor and blocks all pruning — correct, but worth saying out
+        loud, so it warns instead of growing silently.
+        """
+        if not self.client_last_round:
+            return  # nobody has synced yet; nothing is provably unreachable
+
+        floor = min(self.client_last_round.values())
+        for rnd in [r for r in self.seed_history if r <= floor]:
+            del self.seed_history[rnd]
+            self.gradient_history.pop(rnd, None)
+        for rnd in [r for r in self.gradient_history if r <= floor]:
+            del self.gradient_history[rnd]
+
+        lag = server_round - floor
+        if lag >= HISTORY_PIN_WARN_LAG and lag % HISTORY_PIN_WARN_LAG == 0:
+            stalled = sorted(c for c, r in self.client_last_round.items() if r == floor)
+            log.warning(
+                "DeComFL history pinned at round %d by client(s) %s (synced through %d, %d rounds "
+                "behind round %d); %d rounds of seed/gradient history are being retained for their "
+                "rebuild chain and cannot be pruned.",
+                floor, ", ".join(stalled), floor, lag, server_round, len(self.seed_history),
+            )
 
     def _generate_perturbation(self, seed: int) -> torch.Tensor:
         """Generate perturbation vector from seed.
