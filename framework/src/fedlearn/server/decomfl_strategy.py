@@ -12,6 +12,7 @@ are retained here per Apache-2.0 section 4.
 """
 
 import logging
+import math
 import threading
 from typing import Optional, Callable, Tuple, List, Dict
 from collections import OrderedDict
@@ -22,8 +23,43 @@ from fedlearn.estimators.perturbation import canonical_perturbation
 
 log = logging.getLogger(__name__)
 
+
+# --- Learning-rate stability envelope (measured, not assumed) -------------------------------
+# DeComFL's learning rate is NOT dimension-transferable. The zeroth-order estimate has
+# ||g_hat|| ~ sqrt(d/P) * ||grad f||, so it is systematically LONGER than the true gradient as d
+# grows — an eta tuned at one dimension overshoots at a larger one and the run diverges.
+#
+# Measured in research/results/decomfl/:
+#   mu_eta_dimension_scaling.json — at d=103,002 the reference eta diverges to loss ~1e19;
+#       scaling eta by sqrt(d0/d) ALONE restores it (0.9815 AUC). Scaling mu alone does not.
+#   stability_ladder.json — at the reference eta: stable through d=20,602, diverged from
+#       d=30,902. The d=30,902 cell reaches 0.9805 AUC and THEN explodes, so the accuracy column
+#       cannot see it coming; only the shared-seed replay check caught it.
+#
+# The invariant is S = eta * sqrt(d), constant along the scaling law.
+LR_REFERENCE_D = 1026            # the shipped frozen head, Linear(512 -> 2)
+LR_REFERENCE_ETA = 0.01          # measured stable there
+LR_MEASURED_STABLE_D = 20602     # largest d that converged at LR_REFERENCE_ETA
+LR_MEASURED_DIVERGENT_D = 30902  # smallest d that diverged at LR_REFERENCE_ETA
+LR_STABLE_MAX_S = LR_REFERENCE_ETA * math.sqrt(LR_MEASURED_STABLE_D)        # ~1.435
+LR_DIVERGENT_MIN_S = LR_REFERENCE_ETA * math.sqrt(LR_MEASURED_DIVERGENT_D)  # ~1.758
+
 # Rounds a stalled client may pin the history floor before we say so out loud.
 HISTORY_PIN_WARN_LAG = 16
+
+
+def lr_stability_statistic(eta: float, d: int) -> float:
+    """S = eta*sqrt(d) — the quantity held constant by DeComFL's learning-rate scaling law."""
+    return eta * math.sqrt(d)
+
+
+def suggested_eta(d: int) -> float:
+    """The dimension-scaled learning rate: eta0 * sqrt(d0/d).
+
+    Reproduces the value that rescued the diverged d=103,002 cell in
+    `mu_eta_dimension_scaling.json` (0.0009980466738393954) exactly.
+    """
+    return LR_REFERENCE_ETA * math.sqrt(LR_REFERENCE_D / d)
 
 
 class DeComFLRebuildGap(RuntimeError):
@@ -54,7 +90,8 @@ class DeComFL(Strategy):
             num_perturbations: int = 10,
             learning_rate: float = 0.001,
             smoothing_param: float = 0.001,
-            seed: int = 42
+            seed: int = 42,
+            allow_unstable_lr: bool = False
     ):
         """
         Args:
@@ -67,6 +104,9 @@ class DeComFL(Strategy):
             learning_rate: η - learning rate
             smoothing_param: μ - smoothing parameter for ZO estimation
             seed: Random seed
+            allow_unstable_lr: Downgrade the measured-divergent learning-rate check from an error
+                to a warning. Only set this deliberately — the failure it guards is silent
+                (the run learns first, then explodes).
         """
         self.initial_parameters = initial_parameters
         self.evaluate_fn = evaluate_fn
@@ -102,10 +142,58 @@ class DeComFL(Strategy):
         # local CPU generator, so no global torch seeding is needed either.
         self._seed_rng = np.random.default_rng(seed)
 
+        self._validate_learning_rate(allow_unstable_lr)
+
         # One-shot startup banner — INFO so it's captured in normal logs.
         log.info(
             "DeComFL initialised: K=%d, P=%d, eta=%g, mu=%g, model_dim=%d",
             self.K, self.P, self.eta, self.mu, len(self.global_params_flat),
+        )
+
+    def _validate_learning_rate(self, allow_unstable: bool) -> None:
+        """Check eta against the MEASURED dimension-stability envelope (see the module constants).
+
+        The strategy has always known both d and eta at construction and validated neither, and the
+        record shows the same divergence being hit twice — once documented
+        (`decomfl_unscaled_lr_divergence.json`) and then repeated at d=1.6M
+        (`ondevice_large_d_diverged_unscaled_lr.json`). This is that check.
+
+        Deliberately three-tiered rather than a single threshold: below the largest measured-stable
+        S we say nothing, above the smallest measured-DIVERGENT S we refuse, and the band between
+        them is unmeasured, so it warns instead of pretending to know.
+        """
+        d = len(self.global_params_flat)
+        s = lr_stability_statistic(self.eta, d)
+        if s <= LR_STABLE_MAX_S:
+            return
+
+        advice = (
+            f"eta*sqrt(d) = {s:.3f} at eta={self.eta:g}, d={d}. The measured envelope is "
+            f"stable to {LR_STABLE_MAX_S:.3f} (d={LR_MEASURED_STABLE_D}) and divergent from "
+            f"{LR_DIVERGENT_MIN_S:.3f} (d={LR_MEASURED_DIVERGENT_D}) at eta={LR_REFERENCE_ETA:g}. "
+            f"The dimension-scaled rate for d={d} is eta={suggested_eta(d):.3g}."
+        )
+
+        if s < LR_DIVERGENT_MIN_S:
+            log.warning(
+                "DeComFL learning rate is above the largest measured-stable value and inside the "
+                "UNMEASURED band; it may diverge. %s Suggested: eta=%.3g.", advice, suggested_eta(d),
+            )
+            return
+
+        if allow_unstable:
+            log.warning(
+                "DeComFL learning rate is in the measured-DIVERGENT regime and was explicitly "
+                "permitted via allow_unstable_lr. Expect the run to learn and then explode. %s",
+                advice,
+            )
+            return
+
+        raise ValueError(
+            "DeComFL learning rate is in the regime measured to DIVERGE. " + advice + " "
+            "This failure is silent — the diverging cell reached 0.9805 AUC before exploding to "
+            "loss 9.2e18, so an accuracy curve will not warn you. Pass allow_unstable_lr=True to "
+            "proceed anyway."
         )
 
     def initialize_parameters(self) -> Optional[OrderedDict[str, torch.Tensor]]:

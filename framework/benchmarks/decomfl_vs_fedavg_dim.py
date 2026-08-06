@@ -274,9 +274,14 @@ def run_decomfl(*, train_x, train_y, test_x, test_y, feat_dim, n_classes, hidden
     d = model_dim(model)
     sha = init_sha(model)
 
+    # allow_unstable_lr: this harness EXISTS to probe the divergent regime — stability_ladder.json
+    # and mu_eta_dimension_scaling.json are records of runs that blew up on purpose, and the
+    # strategy's learning-rate guard (which those very results calibrate) would otherwise refuse to
+    # reproduce them. The guard still logs, so an unintended sweep into that regime stays visible.
     strategy = DeComFL(initial_parameters=P.trainable_state(model), min_fit_clients=1,
                        clients_per_round=clients_per_round, num_local_steps=K,
-                       num_perturbations=P_, learning_rate=lr, smoothing_param=mu, seed=seed)
+                       num_perturbations=P_, learning_rate=lr, smoothing_param=mu, seed=seed,
+                       allow_unstable_lr=True)
     strategy.device = device
     strategy.global_params_flat = strategy.global_params_flat.to(device)
     strategy.validate_participant_dim(d, "sim")
