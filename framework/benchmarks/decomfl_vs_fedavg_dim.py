@@ -120,6 +120,37 @@ def fedavg_bytes_per_round(d: int) -> int:
     return d * FLOAT_BYTES
 
 
+# --- downlink ------------------------------------------------------------------------------
+# A federated round is not one-directional, and comparing the two arms on uplink alone flatters
+# whichever one downloads more. The three terms below do not cancel: FedAvg re-broadcasts the
+# whole model every round, while DeComFL pays a small per-round seed download PLUS a rebuild
+# chain that scales with how many rounds a client missed. The dimension-free claim covers the
+# per-round UPLOAD; it says nothing about the rebuild path.
+
+def fedavg_downlink_bytes_per_round(d: int) -> int:
+    """Downlink per client-round: the server broadcasts the full model to each selected client,
+    so the payload is the same one it receives back."""
+    return d * FLOAT_BYTES
+
+
+def decomfl_downlink_bytes_per_round(*, K: int, P_: int, missed_rounds: int = 0) -> int:
+    """Downlink per client-round: this round's K*P seeds, plus the rebuild chain.
+
+    Replaying one missed round costs its K*P seeds AND the K*P server-averaged gradient scalars
+    the client needs to reconstruct that round's update. Linear in ``missed_rounds`` — which is
+    why partial participation, not dimension, is what drives DeComFL's downlink.
+    """
+    current = K * P_ * SEED_BYTES
+    rebuild = missed_rounds * K * P_ * (SEED_BYTES + FLOAT_BYTES)
+    return current + rebuild
+
+
+def decomfl_oneshot_download_bytes(d: int) -> int:
+    """The O(d) full-model download each client pays ONCE at join. Reported separately, as the
+    paper does — it amortises toward zero per round, but it is not free."""
+    return d * FLOAT_BYTES
+
+
 # ------------------------------------------------------------------------------ partitioning
 
 def partition(labels, num_clients: int, alpha: float, seed: int, min_per_client: int = 1):
@@ -294,10 +325,23 @@ def run_decomfl(*, train_x, train_y, test_x, test_y, feat_dim, n_classes, hidden
 
     per_round, rebuild_err = [], 0.0
     bpr = decomfl_bytes_per_round(K=K, P_=P_, d=d)
+    # Downlink is accumulated from the ACTUAL selection sequence, not an expected participation
+    # rate: each client's missed-round count is whatever the sampler happened to give it.
+    last_seen, joined, cum_downlink, cum_oneshot = {}, set(), 0, 0
 
     for r in range(1, rounds + 1):
         seeds = strategy.get_or_create_seeds(r)
         chosen = rng.choice(clients, size=min(clients_per_round, clients), replace=False)
+        for _c in chosen:
+            _c = int(_c)
+            if _c not in joined:
+                joined.add(_c)
+                cum_oneshot += decomfl_oneshot_download_bytes(d)
+                missed = 0
+            else:
+                missed = r - last_seen[_c] - 1
+            cum_downlink += decomfl_downlink_bytes_per_round(K=K, P_=P_, missed_rounds=missed)
+            last_seen[_c] = r
         results = []
         x_global = strategy.global_params_flat.clone()
 
@@ -350,7 +394,10 @@ def run_decomfl(*, train_x, train_y, test_x, test_y, feat_dim, n_classes, hidden
         if r % eval_every == 0 or r == rounds:
             P.set_flat_params(model, strategy.global_params_flat)
             m = _evaluate(model, test_x.to(device), test_y.to(device))
-            row = {"round": r, **m, "cum_bytes": bpr * len(results) * r}
+            row = {"round": r, **m, "cum_bytes": bpr * len(results) * r,
+                   "cum_downlink_bytes": cum_downlink,
+                   "cum_oneshot_download_bytes": cum_oneshot,
+                   "cum_bytes_total": bpr * len(results) * r + cum_downlink + cum_oneshot}
             if align_every and (r % align_every == 0):
                 row["cos_alignment"] = gradient_alignment(
                     head_model(feat_dim=feat_dim, n_classes=n_classes, hidden=hidden, seed=seed),
@@ -382,9 +429,12 @@ def run_fedavg(*, train_x, train_y, test_x, test_y, feat_dim, n_classes, hidden,
 
     per_round = []
     bpr = fedavg_bytes_per_round(d)
+    dpr = fedavg_downlink_bytes_per_round(d)  # the server re-broadcasts the model every round
+    cum_downlink = 0
 
     for r in range(1, rounds + 1):
         chosen = rng.choice(clients, size=min(clients_per_round, clients), replace=False)
+        cum_downlink += dpr * len(chosen)
         results = []
         for ci in chosen:
             local = head_model(feat_dim=feat_dim, n_classes=n_classes, hidden=hidden,
@@ -406,7 +456,11 @@ def run_fedavg(*, train_x, train_y, test_x, test_y, feat_dim, n_classes, hidden,
         if r % eval_every == 0 or r == rounds:
             model.load_state_dict(global_state, strict=False)
             m = _evaluate(model, test_x.to(device), test_y.to(device))
-            per_round.append({"round": r, **m, "cum_bytes": bpr * len(results) * r})
+            per_round.append({"round": r, **m, "cum_bytes": bpr * len(results) * r,
+                              "cum_downlink_bytes": cum_downlink,
+                              "cum_oneshot_download_bytes": 0,  # FedAvg has no join-time cost;
+                              # its model arrives in the per-round broadcast already counted above
+                              "cum_bytes_total": bpr * len(results) * r + cum_downlink})
 
     return _summarize("FedAvg", per_round, d=d, sha=sha, bpr=bpr, rounds=rounds, t0=t0,
                       hidden=hidden, seed=seed, rebuild_err=None,
