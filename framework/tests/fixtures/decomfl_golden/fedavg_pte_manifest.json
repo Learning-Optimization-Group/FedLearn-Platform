@@ -1,6 +1,6 @@
 {
   "description": "Trainable (forward+backward) TinyNet .pte for the C++ FedAvg parity gtest. fc2 frozen (baked); only fc1 (25 params) trainable via the ET training extension.",
-  "torch_version": "2.13.0",
+  "torch_version": "2.12.0",
   "pte_file": "tinynet_trainable.pte",
   "pte_sha256": "ff398410f7339172295386dfc6220c5f46f21eddfb8ea145daf54e6a15dae412",
   "param_names_flat_order": [
