@@ -25,6 +25,7 @@ add_executable(fedlearn_core_tests
   flatparam_filter_test.cpp
   serialize_roundtrip_test.cpp
   decomfl_equivalence_test.cpp
+  decomfl_base_loss_cache_test.cpp
   executorch_forward_test.cpp
   et_g_scalar_test.cpp
   et_multiround_test.cpp

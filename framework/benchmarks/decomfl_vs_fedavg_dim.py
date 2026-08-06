@@ -230,10 +230,12 @@ def gradient_alignment(model: nn.Module, x, y, *, P_: int, mu: float, seed: int)
     d = flat.numel()
     g_hat = torch.zeros(d, dtype=torch.float32)
     rng = np.random.default_rng(seed)
+    # Single base point for the whole alignment probe, so f(x) is evaluated once.
+    base_loss = est.compute_base_loss(model, flat, x, y)
     for _ in range(P_):
         s = int(rng.integers(0, 2 ** 31 - 1))
         z = est.generate_perturbation(s, d)
-        g = est.compute_gradient_scalar(model, flat, z, x, y)
+        g = est.compute_gradient_scalar(model, flat, z, x, y, base_loss=base_loss)
         g_hat += g * z
     g_hat /= P_
     P.set_flat_params(model, flat)
@@ -306,9 +308,14 @@ def run_decomfl(*, train_x, train_y, test_x, test_y, feat_dim, n_classes, hidden
                     xb, yb = next(iters[ci])
                 xb, yb = xb.to(device), yb.to(device)
                 k_grads, delta = [], torch.zeros_like(x_cur)
+                # One base loss per local step, reused across the P perturbations — mirrors
+                # DeComFLClient.fit, so the measured cost is P+1 forwards per step, not 2P.
+                base_loss = est.compute_base_loss(model, x_cur, xb, yb)
                 for p in range(P_):
                     z = est.generate_perturbation(seeds[k][p], len(x_cur))
-                    g = est.compute_gradient_scalar(model, x_cur, z, xb, yb)
+                    g = est.compute_gradient_scalar(
+                        model, x_cur, z, xb, yb, base_loss=base_loss
+                    )
                     k_grads.append(g)
                     delta += g * z
                 step = (lr / P_) * delta

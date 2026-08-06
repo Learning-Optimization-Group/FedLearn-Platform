@@ -20,17 +20,34 @@
 
 namespace fedlearn {
 
-// Forward-difference g-scalar. `z` must be flat_randn(seed, flat.size()) (the canonical z).
-inline double etGScalarForward(ExecutorchModel& model,
+// The unperturbed loss L(flat). Within one DeComFL local step this is the SAME number for every
+// perturbation — flat and the batch are both fixed there, only z varies — so evaluate it once
+// per step and pass it to the cached etGScalarForward overload below. That makes a local step
+// cost P+1 forward passes instead of 2P, matching the reference implementation, which hoists the
+// unperturbed loss above the perturbation loop for the forward-difference method.
+// Only valid for THIS (flat, x, y) triple: flat advances between local steps.
+//
+// `Model` is any type exposing ExecutorchModel's loss() signature; templated so the ZO math is
+// decoupled from ExecuTorch and the forward-pass count is observable in tests.
+template <class Model>
+inline double etBaseLoss(Model& model, const std::vector<float>& flat,
+                         const float* x, const std::vector<int64_t>& xShape,
+                         const int64_t* y, int64_t n) {
+  return static_cast<double>(model.loss(flat, x, xShape, y, n));
+}
+
+// Forward-difference g-scalar with a PRE-COMPUTED unperturbed loss (see etBaseLoss).
+// `z` must be flat_randn(seed, flat.size()) (the canonical z). Bit-identical to the overload
+// that recomputes lossRef — caching is a pure cost reduction, not an approximation.
+template <class Model>
+inline double etGScalarForward(Model& model,
                                const std::vector<float>& flat,
                                const std::vector<float>& z, double mu,
                                const float* x, const std::vector<int64_t>& xShape,
-                               const int64_t* y, int64_t n) {
+                               const int64_t* y, int64_t n, double lossRef) {
   if (z.size() != flat.size()) {
     throw std::invalid_argument("etGScalarForward: perturbation size != parameter size");
   }
-  const double lossRef = static_cast<double>(model.loss(flat, x, xShape, y, n));
-
   std::vector<float> perturbed(flat.size());
   const float muf = static_cast<float>(mu);
   for (size_t i = 0; i < flat.size(); ++i) perturbed[i] = flat[i] + muf * z[i];
@@ -39,10 +56,26 @@ inline double etGScalarForward(ExecutorchModel& model,
   return (lossPerturbed - lossRef) / mu;
 }
 
+// Forward-difference g-scalar. `z` must be flat_randn(seed, flat.size()) (the canonical z).
+// Evaluates the unperturbed loss itself — prefer the cached overload inside a perturbation loop.
+template <class Model>
+inline double etGScalarForward(Model& model,
+                               const std::vector<float>& flat,
+                               const std::vector<float>& z, double mu,
+                               const float* x, const std::vector<int64_t>& xShape,
+                               const int64_t* y, int64_t n) {
+  if (z.size() != flat.size()) {
+    throw std::invalid_argument("etGScalarForward: perturbation size != parameter size");
+  }
+  return etGScalarForward(model, flat, z, mu, x, xShape, y, n,
+                          etBaseLoss(model, flat, x, xShape, y, n));
+}
+
 // Central-difference g-scalar: g = (L(flat + mu*z) - L(flat - mu*z)) / (2*mu). Lower O(mu^2)
 // bias than the forward difference; same float32 perturbation discipline. `z` must be
 // flat_randn(seed, flat.size()). Satisfies the identity central(z) = (forward(z) - forward(-z))/2.
-inline double etGScalarCentral(ExecutorchModel& model,
+template <class Model>
+inline double etGScalarCentral(Model& model,
                                const std::vector<float>& flat,
                                const std::vector<float>& z, double mu,
                                const float* x, const std::vector<int64_t>& xShape,

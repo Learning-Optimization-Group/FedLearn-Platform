@@ -302,6 +302,17 @@ class DeComFLClient(Client):
             if self.grpc_client:
                 self.grpc_client.update_status("training", k + 1, total_steps)
 
+            # The unperturbed loss f(x_{i,r}^k; ξ) is the SAME for all P perturbations of this
+            # local step — x and the batch are both fixed here, only z varies. Evaluate it once
+            # and reuse, as the reference implementation does: P+1 forward passes per step
+            # instead of 2P. x advances at the end of every step, so this is re-evaluated per k.
+            base_loss = self.zo_estimator.compute_base_loss(
+                self.model,
+                self.x_current,
+                inputs,
+                targets
+            )
+
             # Algorithm 4, Line 16: Loop over perturbations p = 1, ..., P
             for p in range(P):
                 # Algorithm 4, Line 17: Generate perturbation z^k_r,p
@@ -316,7 +327,8 @@ class DeComFLClient(Client):
                     self.x_current,
                     z,
                     inputs,
-                    targets
+                    targets,
+                    base_loss=base_loss
                 )
                 k_gradient_scalars.append(g)
 

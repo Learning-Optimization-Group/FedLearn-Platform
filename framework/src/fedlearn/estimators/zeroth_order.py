@@ -57,13 +57,53 @@ class ZerothOrderEstimator:
         # regardless of device. Generated on CPU, then moved to the compute device.
         return canonical_perturbation(seed, num_params).to(self.device)
 
+    def _evaluate_loss(
+            self,
+            model: nn.Module,
+            inputs: Union[torch.Tensor, Dict[str, torch.Tensor]],
+            targets: torch.Tensor
+    ) -> torch.Tensor:
+        """One forward pass at the model's CURRENT parameters. Caller owns eval()/no_grad()."""
+        if isinstance(inputs, dict):
+            # LLM: unpack dict as kwargs
+            return model(**inputs, labels=targets).loss
+        # Standard: direct forward pass
+        return self.criterion(model(inputs), targets)
+
+    def compute_base_loss(
+            self,
+            model: nn.Module,
+            flat_params: torch.Tensor,
+            inputs: Union[torch.Tensor, Dict[str, torch.Tensor]],
+            targets: torch.Tensor
+    ) -> float:
+        """Evaluate the UNPERTURBED loss f(x; ξ) once, for reuse across a local step's P
+        perturbations.
+
+        Within one DeComFL local step k both the base point ``flat_params`` and the batch ξ are
+        fixed — only z varies — so f(x; ξ) is the same number for every perturbation. Hoisting it
+        here turns a local step's cost from 2P forward passes into P+1, matching the authors'
+        reference implementation, which computes ``pert_minus_loss`` once above the perturbation
+        loop for the forward-difference method.
+
+        The result is only valid for THIS (flat_params, inputs, targets) triple: x advances
+        between local steps, so re-evaluate once per step. Determinism relies on ``model.eval()``
+        (no dropout, batch-norm on running stats) — pass ``base_loss=None`` for any model whose
+        forward is stochastic at inference.
+        """
+        model.eval()
+        with torch.no_grad():
+            self._set_flat_params(model, flat_params)
+            return self._evaluate_loss(model, inputs, targets).item()
+
     def compute_gradient_scalar(
             self,
             model: nn.Module,
             flat_params: torch.Tensor,
             perturbation: torch.Tensor,
             inputs: Union[torch.Tensor, Dict[str, torch.Tensor]],
-            targets: torch.Tensor
+            targets: torch.Tensor,
+            base_loss: "float | None" = None
     ) -> float:
         """
         Compute zeroth-order gradient scalar g^k_{i,r,p}.
@@ -76,45 +116,33 @@ class ZerothOrderEstimator:
             perturbation: Perturbation vector z
             inputs: Input batch (tensor for CNN/MLP, dict for LLM)
             targets: Target labels
+            base_loss: Pre-computed f(x; ξ) from :meth:`compute_base_loss` for this same
+                (flat_params, inputs, targets). Supplying it skips the redundant unperturbed
+                forward pass — the scalar is bit-identical either way, since the base loss is
+                deterministic under eval()/no_grad(). ``None`` recomputes it (back-compatible).
 
         Returns:
             Gradient scalar (float)
         """
         model.eval()
 
-        # Determine if LLM or standard model
-        is_llm = isinstance(inputs, dict)
-
         with torch.no_grad():
-            # Compute f(x; ξ)
-            self._set_flat_params(model, flat_params)
-
-            if is_llm:
-                # LLM: unpack dict as kwargs
-                outputs = model(**inputs, labels=targets)
-                loss_x = outputs.loss
+            if base_loss is None:
+                # Compute f(x; ξ)
+                self._set_flat_params(model, flat_params)
+                loss_x = self._evaluate_loss(model, inputs, targets).item()
             else:
-                # Standard: direct forward pass
-                outputs = model(inputs)
-                loss_x = self.criterion(outputs, targets)
+                loss_x = base_loss
 
             # Compute f(x + μz; ξ)
             perturbed_params = flat_params + self.mu * perturbation
             self._set_flat_params(model, perturbed_params)
-
-            if is_llm:
-                # LLM: unpack dict as kwargs
-                outputs_perturbed = model(**inputs, labels=targets)
-                loss_x_perturbed = outputs_perturbed.loss
-            else:
-                # Standard: direct forward pass
-                outputs_perturbed = model(inputs)
-                loss_x_perturbed = self.criterion(outputs_perturbed, targets)
+            loss_x_perturbed = self._evaluate_loss(model, inputs, targets).item()
 
             # Compute gradient scalar
             g = (loss_x_perturbed - loss_x) / self.mu
 
-        return g.item()
+        return g
 
     # FR-14: the flat-param layout is owned by the canonical manifest (estimators/params.py) so the
     # client, the estimator, and the mobile export share ONE requires_grad-filtered named_parameters()
