@@ -165,3 +165,40 @@ def test_both_arms_report_the_same_accounting_fields(tmp_path):
               "cum_bytes_total"}
     assert common <= set(frozen["per_round"][0])
     assert common <= set(full["per_round"][0])
+
+
+def test_frozen_cells_do_not_collide_across_backbones():
+    """A REAL incident, found in the committed record on 2026-08-06.
+
+    ``_emit_run`` names frozen cells with the literal ``feat`` instead of the backbone, because
+    ``run_arm``'s meta never carried ``backbone_name``. A resnet50 frozen sweep therefore overwrote
+    the resnet18 frozen cells: ``cells/B_shard70_a1.0_feat_seed0.json`` on disk reports
+    ``feat_dim=2048`` (resnet50) while the arm-B value the correction reports came from the
+    resnet18 run. The two backbones are not comparable and one silently replaced the other.
+
+    Backbone is a factor that varies across sweeps, so it must appear in the cell name — the same
+    rule the harness already applies to alpha after an identical incident.
+    """
+    from benchmarks.frozen_vs_finetune_xray import _emit_run
+    import tempfile
+
+    base = {"arm": "B", "final_auc": 0.9,
+            "meta": {"per_client": 70, "alpha": 1.0, "seed": 0, "mode": "frozen"}}
+    r18 = dict(base, meta=dict(base["meta"], backbone_name="resnet18", feat_dim=512))
+    r50 = dict(base, meta=dict(base["meta"], backbone_name="resnet50", feat_dim=2048))
+
+    with tempfile.TemporaryDirectory() as d:
+        p18 = _emit_run(d, r18)
+        p50 = _emit_run(d, r50)
+
+    assert p18 != p50, "resnet18 and resnet50 frozen cells must not collide on disk"
+
+
+def test_frozen_arm_records_its_backbone():
+    """The root cause: the filename can only carry the backbone if the meta does."""
+    x, y = _separable()
+    out = run_arm("B", train_x=x, train_y=y, test_x=x, test_y=y,
+                  clients=4, clients_per_round=4, alpha=1.0, rounds=2, local_epochs=1,
+                  seed=0, backbone_name="resnet50")
+
+    assert out["meta"]["backbone_name"] == "resnet50"

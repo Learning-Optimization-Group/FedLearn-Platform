@@ -463,6 +463,11 @@ def run_arm(arm, *, train_x, train_y, test_x, test_y, clients, clients_per_round
         "wire_bytes_per_client_round": wire_bytes,
         "wire_codec": "safetensors (production first_order_model_bytes)",
         "total_local_steps": rounds * local_epochs,
+        # Backbone is a factor that VARIES across sweeps and must reach the cell filename, or frozen
+        # cells from different backbones overwrite each other. That is not hypothetical: a resnet50
+        # sweep clobbered the resnet18 arm-B shard-70 cells in this campaign's committed record
+        # (the surviving file reports feat_dim=2048). Same class of incident as the missing alpha.
+        "backbone_name": backbone_name,
     })
 
 
