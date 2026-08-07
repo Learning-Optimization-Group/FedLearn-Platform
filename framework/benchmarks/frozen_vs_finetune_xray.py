@@ -135,13 +135,89 @@ def arm_spec(arm):
     return ARMS[arm]
 
 
-def build_model(arm, *, feat_dim, n_classes, backbone_name="resnet18", seed=0):
+NORMS = ("batch", "group")
+
+# GroupNorm's paper default. Reduced per site when it does not divide the channel count, which never
+# happens for ResNet's 64/128/256/512 stages but does for narrower backbones.
+GN_MAX_GROUPS = 32
+
+
+def convert_bn_to_gn(module, max_groups=GN_MAX_GROUPS):
+    """Replace every ``BatchNorm2d`` with a ``GroupNorm`` over the same channels, in place.
+
+    Two independent reasons, either of which would justify it:
+
+    * **Portability.** ExecuTorch's trainable export rejects BatchNorm —
+      ``_native_batch_norm_legit_functional`` is not in the Core ATen opset — so a BatchNorm arm
+      cannot run on the mobile client at all. GroupNorm exports cleanly and needs only the two
+      backward kernels portable ships.
+    * **Correctness under non-IID.** BatchNorm estimates running statistics per client and then
+      averages them across clients, which is a documented federated failure mode (Hsieh et al. 2020).
+      GroupNorm carries no running statistics.
+
+    Conv weights are untouched, so a pretrained backbone stays pretrained; only the (cheap) norm
+    affine parameters are re-initialised.
+    """
+    for name, child in module.named_children():
+        if isinstance(child, torch.nn.BatchNorm2d):
+            c = child.num_features
+            groups = min(max_groups, c)
+            while c % groups:
+                groups -= 1
+            setattr(module, name, torch.nn.GroupNorm(groups, c))
+        else:
+            convert_bn_to_gn(child, max_groups=max_groups)
+    return module
+
+
+def frozen_backbone_bytes(backbone_name="resnet18"):
+    """One-time server->client delivery of the FROZEN backbone, in production-codec bytes.
+
+    The frozen arms upload only a head (a few KB per round), but a client cannot produce features
+    without the backbone, and the backbone has to reach the device once. Quoting the per-round figure
+    alone flatters the design by hiding that delivery. The DeComFL accounting already separates its
+    one-shot download (`decomfl_oneshot_download_bytes`); this is the same term for this experiment.
+
+    Measured with the same safetensors path the socket uses, so it is directly comparable to the
+    per-round numbers rather than a parameter-count estimate.
+    """
+    from collections import OrderedDict
+
+    from torchvision import models
+
+    from benchmarks.wire_bytes import first_order_model_bytes
+
+    net = getattr(models, backbone_name)(weights=None)
+    net.fc = torch.nn.Identity()
+    return first_order_model_bytes(OrderedDict((n, p.detach()) for n, p in net.named_parameters()))
+
+
+def _peak_rss_mb():
+    """Peak resident set size for this process, in MB. The memory axis that decides whether an arm
+    fits on a client at all — the backward-pass activation spike is what OOMs low-RAM devices."""
+    import resource
+    import sys
+
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    # Linux reports KB, macOS reports bytes.
+    return round(peak / (1024 * 1024 if sys.platform == "darwin" else 1024), 2)
+
+
+def build_model(arm, *, feat_dim, n_classes, backbone_name="resnet18", seed=0, norm="batch"):
     """The trainable surface for one arm.
 
     ``frozen`` arms consume PRE-EXTRACTED features, so the model is just the linear head — the frozen
     backbone is never instantiated here because it never trains and never rides the wire. ``full``
     arms need the real backbone with its classifier resized, every parameter trainable.
+
+    ``norm`` selects the normalisation layer for the ``full`` arms. ``"batch"`` is the default so the
+    committed B-vs-C record stays reproducible; ``"group"`` is the configuration that can actually be
+    exported for on-device training (see :func:`convert_bn_to_gn`). Frozen arms ignore it — a linear
+    head has no norm layer.
     """
+    if norm not in NORMS:
+        raise ValueError(f"unknown norm {norm!r}; expected one of {NORMS}")
+
     spec = arm_spec(arm)
     torch.manual_seed(int(seed))
 
@@ -152,6 +228,8 @@ def build_model(arm, *, feat_dim, n_classes, backbone_name="resnet18", seed=0):
 
     net = getattr(models, backbone_name)(weights="DEFAULT" if spec["pretrained"] else None)
     net.fc = torch.nn.Linear(net.fc.in_features, n_classes)
+    if norm == "group":
+        convert_bn_to_gn(net)
     for p in net.parameters():
         p.requires_grad_(True)
     return net
@@ -278,7 +356,7 @@ DEFAULT_LR_CANDIDATES = (1.0, 0.5, 0.1, 0.05, 0.01, 0.005)
 
 def run_arm(arm, *, train_x, train_y, test_x, test_y, clients, clients_per_round, alpha,
             rounds, local_epochs, per_client=None, seed=0, lr_candidates=DEFAULT_LR_CANDIDATES,
-            weight_decay=0.0, patience=None, min_delta=1e-3):
+            weight_decay=0.0, patience=None, min_delta=1e-3, backbone_name="resnet18"):
     """One federated arm over pre-extracted frozen-backbone features.
 
     Uses the production ``FedAvgAggregator`` and the subset-federation contract, so only the head
@@ -287,6 +365,8 @@ def run_arm(arm, *, train_x, train_y, test_x, test_y, clients, clients_per_round
 
     Returns per-round curves plus a ``meta`` provenance block, per the repo's benchmark-recording rule.
     """
+    import time
+
     from collections import OrderedDict
 
     from fedlearn.server.strategy import FedAvgAggregator
@@ -308,7 +388,10 @@ def run_arm(arm, *, train_x, train_y, test_x, test_y, clients, clients_per_round
 
     g = torch.Generator().manual_seed(int(seed))
     per_round = []
+    cum_up = cum_down = 0
+    t0 = time.time()
     for rnd in range(1, rounds + 1):
+        r0 = time.time()
         chosen = torch.randperm(clients, generator=g)[:clients_per_round].tolist()
         updates = []
         for cid in chosen:
@@ -336,9 +419,19 @@ def run_arm(arm, *, train_x, train_y, test_x, test_y, clients, clients_per_round
         auc = head_auc(server, test_x, test_y)
         with torch.no_grad():
             acc = float((server(test_x).argmax(1) == test_y).float().mean())
+        # Bidirectional and ACCUMULATED (not participants x round_index, which is only correct when
+        # participation never varies — clients with empty shards are skipped, so it does).
+        up_r = wire_bytes * len(updates)
+        down_r = wire_bytes * len(updates)   # the server broadcasts the same head it receives back
+        cum_up += up_r
+        cum_down += down_r
         per_round.append({"round": rnd, "auc": round(auc, 4), "accuracy": round(acc, 4),
                           "participants": len(updates),
-                          "cum_wire_bytes_up": wire_bytes * len(updates) * rnd})
+                          "round_sec": round(time.time() - r0, 2),
+                          "bytes_up_round": up_r, "bytes_down_round": down_r,
+                          "cum_bytes_up": cum_up, "cum_bytes_down": cum_down,
+                          "cum_bytes_total": cum_up + cum_down,
+                          "cum_wire_bytes_up": cum_up})
         # Train to a PLATEAU rather than a fixed count: `rounds` becomes a cap, not the budget.
         if patience and should_stop_early([r["auc"] for r in per_round],
                                           patience=patience, min_delta=min_delta):
@@ -348,6 +441,16 @@ def run_arm(arm, *, train_x, train_y, test_x, test_y, clients, clients_per_round
         "patience": patience, "min_delta": min_delta,
         "rounds_run": len(per_round), "rounds_cap": rounds,
         "stopped_early": bool(patience) and len(per_round) < rounds,
+        # --- communication, both directions + the one-shot term (see frozen_backbone_bytes) ---
+        "wire_bytes_up_per_client_round": wire_bytes,
+        "wire_bytes_down_per_client_round": wire_bytes,
+        "oneshot_backbone_download_bytes": frozen_backbone_bytes(backbone_name),
+        "cum_bytes_up": cum_up, "cum_bytes_down": cum_down,
+        "cum_bytes_total": cum_up + cum_down,
+        # --- compute ---
+        "peak_rss_mb": _peak_rss_mb(),
+        "trainable_params": sum(p.numel() for p in server.parameters() if p.requires_grad),
+        "total_sec": round(time.time() - t0, 1),
         "pretrained": spec["pretrained"], "mode": spec["mode"],
         "clients": clients, "clients_per_round": clients_per_round, "alpha": alpha,
         "rounds": rounds, "local_epochs": local_epochs, "per_client": per_client,
@@ -392,7 +495,7 @@ def _summarize(arm, per_round, meta):
 def run_full_arm(arm, *, data_dir, clients, clients_per_round, alpha, rounds, local_epochs,
                  img_size=224, batch_size=32, lr=0.01, momentum=0.9, weight_decay=1e-4,
                  per_client=None, seed=0, device="cpu", backbone_name="resnet18", num_workers=0,
-                 patience=None, min_delta=1e-3):
+                 patience=None, min_delta=1e-3, norm="batch"):
     """Arms C and D — full federated fine-tune over raw images.
 
     Every parameter trains and the whole model rides the wire each round, which is precisely the cost
@@ -424,7 +527,7 @@ def run_full_arm(arm, *, data_dir, clients, clients_per_round, alpha, rounds, lo
 
     torch.manual_seed(int(seed))
     server = build_model(arm, feat_dim=0, n_classes=len(train_ds.classes),
-                         backbone_name=backbone_name, seed=seed).to(device)
+                         backbone_name=backbone_name, seed=seed, norm=norm).to(device)
     wire_bytes = round_wire_bytes(server)
     backbone0 = server.conv1.weight.detach().clone().cpu()
 
@@ -432,6 +535,7 @@ def run_full_arm(arm, *, data_dir, clients, clients_per_round, alpha, rounds, lo
     loss_fn = torch.nn.CrossEntropyLoss()
     g = torch.Generator().manual_seed(int(seed))
     per_round, t0 = [], time.time()
+    cum_up = cum_down = 0
 
     for rnd in range(1, rounds + 1):
         r0 = time.time()
@@ -440,8 +544,10 @@ def run_full_arm(arm, *, data_dir, clients, clients_per_round, alpha, rounds, lo
         for cid in chosen:
             if not len(parts[cid]):
                 continue
+            # `norm` MUST match the server's — the load below is strict, and a BatchNorm client
+            # cannot accept a GroupNorm server's state_dict (no running_mean/running_var keys).
             local = build_model(arm, feat_dim=0, n_classes=len(train_ds.classes),
-                                backbone_name=backbone_name, seed=seed).to(device)
+                                backbone_name=backbone_name, seed=seed, norm=norm).to(device)
             local.load_state_dict(server.state_dict())
             opt = torch.optim.SGD(local.parameters(), lr=lr, momentum=momentum,
                                   weight_decay=weight_decay)
@@ -472,10 +578,17 @@ def run_full_arm(arm, *, data_dir, clients, clients_per_round, alpha, rounds, lo
         logits, ys = torch.cat(logits), torch.cat(ys)
         auc = auc_from_logits(logits, ys)
         acc = float((logits.argmax(1) == ys).float().mean())
+        up_r = wire_bytes * len(updates)
+        down_r = wire_bytes * len(updates)   # the server broadcasts the full model it gets back
+        cum_up += up_r
+        cum_down += down_r
         per_round.append({"round": rnd, "auc": round(auc, 4), "accuracy": round(acc, 4),
                           "participants": len(updates),
                           "round_sec": round(time.time() - r0, 2),
-                          "cum_wire_bytes_up": wire_bytes * len(updates) * rnd})
+                          "bytes_up_round": up_r, "bytes_down_round": down_r,
+                          "cum_bytes_up": cum_up, "cum_bytes_down": cum_down,
+                          "cum_bytes_total": cum_up + cum_down,
+                          "cum_wire_bytes_up": cum_up})
         if patience and should_stop_early([r["auc"] for r in per_round],
                                           patience=patience, min_delta=min_delta):
             break
@@ -494,9 +607,21 @@ def run_full_arm(arm, *, data_dir, clients, clients_per_round, alpha, rounds, lo
         "feat_dim": 0, "n_classes": len(train_ds.classes),
         "n_train": len(train_ds), "n_test": len(test_ds),
         "wire_bytes_per_client_round": wire_bytes,
+        # --- communication, both directions ---
+        "wire_bytes_up_per_client_round": wire_bytes,
+        "wire_bytes_down_per_client_round": wire_bytes,
+        # The full arm ships the whole model every round, so there is no SEPARATE one-shot delivery
+        # to declare — unlike the frozen arms, whose per-round figure omits the backbone.
+        "oneshot_backbone_download_bytes": 0,
+        "cum_bytes_up": cum_up, "cum_bytes_down": cum_down,
+        "cum_bytes_total": cum_up + cum_down,
+        # --- compute ---
+        "peak_rss_mb": _peak_rss_mb(),
+        "trainable_params": sum(p.numel() for p in server.parameters() if p.requires_grad),
         "wire_codec": "safetensors (production first_order_model_bytes)",
         "total_local_steps": rounds * local_epochs,
-        "backbone_name": backbone_name, "img_size": img_size, "batch_size": batch_size,
+        "backbone_name": backbone_name, "norm": norm,
+        "img_size": img_size, "batch_size": batch_size,
         "device": device, "total_sec": round(time.time() - t0, 1),
         "backbone_changed": not torch.equal(server.conv1.weight.detach().cpu(), backbone0),
     }
@@ -534,6 +659,7 @@ def _emit_run(out_dir, run):
     # data, but the per-cell copies were lost). Include alpha and backbone.
     name = (f"{run['arm']}_shard{m.get('per_client', 'all')}"
             f"_a{m.get('alpha', 'na')}_{m.get('backbone_name', 'feat')}"
+            f"_{m.get('norm', 'batch')}"
             f"_seed{m.get('seed', 0)}.json")
     path = os.path.join(out_dir, name)
     with open(path, "w") as fh:
@@ -572,6 +698,10 @@ def main():
         "FEDLEARN_PNEUMONIA_DIR", os.path.expanduser("~/fedlearn-demo/chest_xray")))
     ap.add_argument("--arms", default="A,B,C,D")
     ap.add_argument("--backbone", default="resnet18")
+    ap.add_argument("--norm", default="batch", choices=list(NORMS),
+                    help="normalisation for the FULL arms (C/D). 'group' is the only variant that can "
+                         "be exported for on-device training (ExecuTorch rejects BatchNorm) and is "
+                         "also the federated-correct choice under non-IID data. Frozen arms ignore it.")
     ap.add_argument("--per-client", default="10,25,70", help="shard-size sweep (the Phase-1 lever)")
     ap.add_argument("--seeds", default="0", help="comma-separated; multi-seed closes the campaign's biggest gap")
     ap.add_argument("--clients", type=int, default=20)
@@ -603,14 +733,15 @@ def main():
     for seed in seeds:
         for per_client in shards:
             for arm in arms:
-                print(f"[*] arm {arm} · shard {per_client} · seed {seed} on {device}", flush=True)
+                tag = f" · norm={args.norm}" if arm_spec(arm)["mode"] == "full" else ""
+                print(f"[*] arm {arm} · shard {per_client} · seed {seed}{tag} on {device}", flush=True)
                 r = _run_one(arm, data_dir=args.data_dir, backbone_name=args.backbone,
                              device=device, feature_cache=cache,
                              clients=args.clients, clients_per_round=args.clients_per_round,
                              alpha=args.alpha, rounds=args.rounds, local_epochs=args.local_epochs,
                              per_client=per_client, seed=seed,
                              img_size=args.img_size, batch_size=args.batch_size,
-                             num_workers=args.num_workers,
+                             num_workers=args.num_workers, norm=args.norm,
                              patience=args.patience, min_delta=args.min_delta)
                 # Persist THIS cell before starting the next one — a multi-hour sweep must not lose
                 # finished work to an interruption (see _emit_run).
