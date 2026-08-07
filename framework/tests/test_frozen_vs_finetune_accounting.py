@@ -235,3 +235,18 @@ def test_full_arm_is_reproducible_at_a_fixed_seed(tmp_path):
     assert [r["auc"] for r in a["per_round"]] == [r["auc"] for r in b["per_round"]], (
         "two identical runs must produce identical AUC curves"
     )
+
+
+def test_cells_from_different_round_budgets_do_not_collide(tmp_path):
+    """Round budget is a swept factor — the campaign ran 20, 150, 400 and 3000 — but it never reached
+    the cell filename. A 400-round re-run would silently overwrite the 150-round cell it is meant to be
+    compared against. Third instance of this class of bug here, after alpha and backbone."""
+    from benchmarks.frozen_vs_finetune_xray import _emit_run
+
+    base = {"arm": "C", "final_auc": 0.9,
+            "meta": {"per_client": 10, "alpha": 1.0, "backbone_name": "resnet18",
+                     "norm": "group", "seed": 0}}
+    r150 = dict(base, meta=dict(base["meta"], rounds=150))
+    r400 = dict(base, meta=dict(base["meta"], rounds=400))
+
+    assert _emit_run(str(tmp_path / "c"), r150) != _emit_run(str(tmp_path / "c"), r400)

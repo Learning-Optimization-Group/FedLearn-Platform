@@ -664,7 +664,7 @@ def _emit_run(out_dir, run):
     # data, but the per-cell copies were lost). Include alpha and backbone.
     name = (f"{run['arm']}_shard{m.get('per_client', 'all')}"
             f"_a{m.get('alpha', 'na')}_{m.get('backbone_name', 'feat')}"
-            f"_{m.get('norm', 'batch')}"
+            f"_{m.get('norm', 'batch')}_r{m.get('rounds', 'na')}"
             f"_seed{m.get('seed', 0)}.json")
     path = os.path.join(out_dir, name)
     with open(path, "w") as fh:
