@@ -202,3 +202,36 @@ def test_frozen_arm_records_its_backbone():
                   seed=0, backbone_name="resnet50")
 
     assert out["meta"]["backbone_name"] == "resnet50"
+
+
+def test_full_arm_is_reproducible_at_a_fixed_seed(tmp_path):
+    """Same seed, same call, same process => identical curve. Passes today; kept as a regression guard.
+
+    Context, and a hypothesis this test REFUTED. Re-running arm C on CUDA at an identical seed drifted
+    +0.0024 mean / +0.0035 max AUC at shard 70 while shard 10 held to 0.0006
+    (`results/frozen-backbone/armC_fixed_seed_reproducibility.json`). The batch count looked like the
+    tell — one batch per client at shard 10, three at shard 70 — so the obvious suspect was
+    ``DataLoader(shuffle=True)`` built without a seeded ``generator``.
+
+    That suspect is wrong: ``build_model`` calls ``torch.manual_seed(seed)`` for every client, which
+    resets the global RNG before each loader is constructed, so batch order is already deterministic —
+    as this test demonstrates. The surviving explanation is cuDNN's nondeterministic backward
+    reductions, which also scale with the number of backward passes and are GPU-only. This test runs on
+    CPU and therefore does NOT cover them; closing that would need
+    ``torch.use_deterministic_algorithms(True)``, which is a separate, slower change.
+    """
+
+    pytest.importorskip("torchvision")
+    from tests.test_frozen_vs_finetune_xray_smoke import _tiny_imagefolder
+
+    # per_client=6 with batch_size=2 => 3 batches per client per epoch, so ordering is live.
+    root = _tiny_imagefolder(str(tmp_path / "ds_det"), per_class_train=12)
+    kw = dict(data_dir=root, clients=2, clients_per_round=2, alpha=1.0, rounds=2,
+              local_epochs=1, img_size=32, batch_size=2, per_client=6, seed=0, device="cpu")
+
+    a = run_full_arm("C", **kw)
+    b = run_full_arm("C", **kw)
+
+    assert [r["auc"] for r in a["per_round"]] == [r["auc"] for r in b["per_round"]], (
+        "two identical runs must produce identical AUC curves"
+    )
