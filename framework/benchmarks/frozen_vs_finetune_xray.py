@@ -137,12 +137,22 @@ def arm_spec(arm):
 
 NORMS = ("batch", "group")
 
+# How GroupNorm's affine parameters are initialised when converting a pretrained BatchNorm model.
+#   "default" — PyTorch's gamma=1, beta=0. Discards whatever the pretrained BatchNorm learned.
+#   "from-bn" — carry the pretrained BatchNorm's gamma/beta across. Same shape, same semantics
+#               (a per-channel scale and shift after normalisation); only the statistics being
+#               normalised against differ.
+# This exists to test the mechanism behind the measured 0.0082 AUC BN->GN penalty: on torchvision's
+# ResNet-18 the pretrained gamma averages 0.258, so the default init applies a ~4x per-channel rescale
+# on top of conv weights tuned for the original scale.
+GN_INITS = ("default", "from-bn")
+
 # GroupNorm's paper default. Reduced per site when it does not divide the channel count, which never
 # happens for ResNet's 64/128/256/512 stages but does for narrower backbones.
 GN_MAX_GROUPS = 32
 
 
-def convert_bn_to_gn(module, max_groups=GN_MAX_GROUPS):
+def convert_bn_to_gn(module, max_groups=GN_MAX_GROUPS, copy_affine=False):
     """Replace every ``BatchNorm2d`` with a ``GroupNorm`` over the same channels, in place.
 
     Two independent reasons, either of which would justify it:
@@ -155,8 +165,10 @@ def convert_bn_to_gn(module, max_groups=GN_MAX_GROUPS):
       averages them across clients, which is a documented federated failure mode (Hsieh et al. 2020).
       GroupNorm carries no running statistics.
 
-    Conv weights are untouched, so a pretrained backbone stays pretrained; only the (cheap) norm
-    affine parameters are re-initialised.
+    Conv weights are untouched, so a pretrained backbone stays pretrained.
+
+    ``copy_affine`` carries the replaced BatchNorm's learned gamma/beta into the new GroupNorm instead
+    of leaving PyTorch's (1, 0) default — see :data:`GN_INITS`.
     """
     for name, child in module.named_children():
         if isinstance(child, torch.nn.BatchNorm2d):
@@ -164,9 +176,14 @@ def convert_bn_to_gn(module, max_groups=GN_MAX_GROUPS):
             groups = min(max_groups, c)
             while c % groups:
                 groups -= 1
-            setattr(module, name, torch.nn.GroupNorm(groups, c))
+            gn = torch.nn.GroupNorm(groups, c)
+            if copy_affine and child.affine:
+                with torch.no_grad():
+                    gn.weight.copy_(child.weight.detach())
+                    gn.bias.copy_(child.bias.detach())
+            setattr(module, name, gn)
         else:
-            convert_bn_to_gn(child, max_groups=max_groups)
+            convert_bn_to_gn(child, max_groups=max_groups, copy_affine=copy_affine)
     return module
 
 
@@ -203,7 +220,8 @@ def _peak_rss_mb():
     return round(peak / (1024 * 1024 if sys.platform == "darwin" else 1024), 2)
 
 
-def build_model(arm, *, feat_dim, n_classes, backbone_name="resnet18", seed=0, norm="batch"):
+def build_model(arm, *, feat_dim, n_classes, backbone_name="resnet18", seed=0, norm="batch",
+                gn_init="default"):
     """The trainable surface for one arm.
 
     ``frozen`` arms consume PRE-EXTRACTED features, so the model is just the linear head — the frozen
@@ -217,6 +235,8 @@ def build_model(arm, *, feat_dim, n_classes, backbone_name="resnet18", seed=0, n
     """
     if norm not in NORMS:
         raise ValueError(f"unknown norm {norm!r}; expected one of {NORMS}")
+    if gn_init not in GN_INITS:
+        raise ValueError(f"unknown gn_init {gn_init!r}; expected one of {GN_INITS}")
 
     spec = arm_spec(arm)
     torch.manual_seed(int(seed))
@@ -229,7 +249,7 @@ def build_model(arm, *, feat_dim, n_classes, backbone_name="resnet18", seed=0, n
     net = getattr(models, backbone_name)(weights="DEFAULT" if spec["pretrained"] else None)
     net.fc = torch.nn.Linear(net.fc.in_features, n_classes)
     if norm == "group":
-        convert_bn_to_gn(net)
+        convert_bn_to_gn(net, copy_affine=(gn_init == "from-bn"))
     for p in net.parameters():
         p.requires_grad_(True)
     return net
@@ -500,7 +520,7 @@ def _summarize(arm, per_round, meta):
 def run_full_arm(arm, *, data_dir, clients, clients_per_round, alpha, rounds, local_epochs,
                  img_size=224, batch_size=32, lr=0.01, momentum=0.9, weight_decay=1e-4,
                  per_client=None, seed=0, device="cpu", backbone_name="resnet18", num_workers=0,
-                 patience=None, min_delta=1e-3, norm="batch"):
+                 patience=None, min_delta=1e-3, norm="batch", gn_init="default"):
     """Arms C and D — full federated fine-tune over raw images.
 
     Every parameter trains and the whole model rides the wire each round, which is precisely the cost
@@ -532,7 +552,8 @@ def run_full_arm(arm, *, data_dir, clients, clients_per_round, alpha, rounds, lo
 
     torch.manual_seed(int(seed))
     server = build_model(arm, feat_dim=0, n_classes=len(train_ds.classes),
-                         backbone_name=backbone_name, seed=seed, norm=norm).to(device)
+                         backbone_name=backbone_name, seed=seed, norm=norm,
+                         gn_init=gn_init).to(device)
     wire_bytes = round_wire_bytes(server)
     backbone0 = server.conv1.weight.detach().clone().cpu()
 
@@ -552,7 +573,8 @@ def run_full_arm(arm, *, data_dir, clients, clients_per_round, alpha, rounds, lo
             # `norm` MUST match the server's — the load below is strict, and a BatchNorm client
             # cannot accept a GroupNorm server's state_dict (no running_mean/running_var keys).
             local = build_model(arm, feat_dim=0, n_classes=len(train_ds.classes),
-                                backbone_name=backbone_name, seed=seed, norm=norm).to(device)
+                                backbone_name=backbone_name, seed=seed, norm=norm,
+                                gn_init=gn_init).to(device)
             local.load_state_dict(server.state_dict())
             opt = torch.optim.SGD(local.parameters(), lr=lr, momentum=momentum,
                                   weight_decay=weight_decay)
@@ -625,7 +647,7 @@ def run_full_arm(arm, *, data_dir, clients, clients_per_round, alpha, rounds, lo
         "trainable_params": sum(p.numel() for p in server.parameters() if p.requires_grad),
         "wire_codec": "safetensors (production first_order_model_bytes)",
         "total_local_steps": rounds * local_epochs,
-        "backbone_name": backbone_name, "norm": norm,
+        "backbone_name": backbone_name, "norm": norm, "gn_init": gn_init,
         "img_size": img_size, "batch_size": batch_size,
         "device": device, "total_sec": round(time.time() - t0, 1),
         "backbone_changed": not torch.equal(server.conv1.weight.detach().cpu(), backbone0),
@@ -664,7 +686,8 @@ def _emit_run(out_dir, run):
     # data, but the per-cell copies were lost). Include alpha and backbone.
     name = (f"{run['arm']}_shard{m.get('per_client', 'all')}"
             f"_a{m.get('alpha', 'na')}_{m.get('backbone_name', 'feat')}"
-            f"_{m.get('norm', 'batch')}_r{m.get('rounds', 'na')}"
+            f"_{m.get('norm', 'batch')}{'-' + m['gn_init'] if m.get('gn_init') and m.get('gn_init') != 'default' else ''}"
+            f"_r{m.get('rounds', 'na')}"
             f"_seed{m.get('seed', 0)}.json")
     path = os.path.join(out_dir, name)
     with open(path, "w") as fh:
@@ -703,6 +726,10 @@ def main():
         "FEDLEARN_PNEUMONIA_DIR", os.path.expanduser("~/fedlearn-demo/chest_xray")))
     ap.add_argument("--arms", default="A,B,C,D")
     ap.add_argument("--backbone", default="resnet18")
+    ap.add_argument("--gn-init", default="default", choices=list(GN_INITS),
+                    help="GroupNorm affine init when converting a pretrained BatchNorm model. "
+                         "'from-bn' carries the pretrained gamma/beta across instead of resetting to "
+                         "(1, 0); tests whether the measured BN->GN penalty is the init, not the norm.")
     ap.add_argument("--norm", default="batch", choices=list(NORMS),
                     help="normalisation for the FULL arms (C/D). 'group' is the only variant that can "
                          "be exported for on-device training (ExecuTorch rejects BatchNorm) and is "
@@ -738,7 +765,9 @@ def main():
     for seed in seeds:
         for per_client in shards:
             for arm in arms:
-                tag = f" · norm={args.norm}" if arm_spec(arm)["mode"] == "full" else ""
+                tag = (f" · norm={args.norm}"
+                       + (f"/{args.gn_init}" if args.norm == "group" else "")) \
+                    if arm_spec(arm)["mode"] == "full" else ""
                 print(f"[*] arm {arm} · shard {per_client} · seed {seed}{tag} on {device}", flush=True)
                 r = _run_one(arm, data_dir=args.data_dir, backbone_name=args.backbone,
                              device=device, feature_cache=cache,
@@ -747,6 +776,7 @@ def main():
                              per_client=per_client, seed=seed,
                              img_size=args.img_size, batch_size=args.batch_size,
                              num_workers=args.num_workers, norm=args.norm,
+                             gn_init=args.gn_init,
                              patience=args.patience, min_delta=args.min_delta)
                 # Persist THIS cell before starting the next one — a multi-hour sweep must not lose
                 # finished work to an interruption (see _emit_run).
