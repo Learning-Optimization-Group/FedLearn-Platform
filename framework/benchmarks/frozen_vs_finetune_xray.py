@@ -135,6 +135,10 @@ def arm_spec(arm):
     return ARMS[arm]
 
 
+# `--backbone timm:<model>` routes to timm; anything else stays on torchvision so every
+# committed result reproduces unchanged.
+TIMM_PREFIX = "timm:"
+
 NORMS = ("batch", "group")
 
 # How GroupNorm's affine parameters are initialised when converting a pretrained BatchNorm model.
@@ -244,11 +248,25 @@ def build_model(arm, *, feat_dim, n_classes, backbone_name="resnet18", seed=0, n
     if spec["mode"] == "frozen":
         return torch.nn.Linear(feat_dim, n_classes)
 
-    from torchvision import models
+    if backbone_name.startswith(TIMM_PREFIX):
+        # torchvision ships no GroupNorm-PRETRAINED model at any depth, and the centralized screen
+        # showed the ~0.008 "GroupNorm penalty" is the cost of CONVERTING a BatchNorm-pretrained
+        # network rather than a property of GroupNorm. Federating that finding needs a genuinely
+        # GN-pretrained backbone, which timm provides (resnet50_gn.a1h_in1k).
+        import timm
 
-    net = getattr(models, backbone_name)(weights="DEFAULT" if spec["pretrained"] else None)
-    net.fc = torch.nn.Linear(net.fc.in_features, n_classes)
+        net = timm.create_model(backbone_name[len(TIMM_PREFIX):],
+                                pretrained=spec["pretrained"], num_classes=n_classes)
+    else:
+        from torchvision import models
+
+        net = getattr(models, backbone_name)(weights="DEFAULT" if spec["pretrained"] else None)
+        net.fc = torch.nn.Linear(net.fc.in_features, n_classes)
+
     if norm == "group":
+        # A no-op on a model that is ALREADY GroupNorm. Re-running the conversion there would replace
+        # the pretrained GroupNorm layers with freshly initialised ones and silently reintroduce the
+        # exact defect this experiment exists to avoid.
         convert_bn_to_gn(net, copy_affine=(gn_init == "from-bn"))
     for p in net.parameters():
         p.requires_grad_(True)
