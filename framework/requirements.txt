@@ -81,7 +81,14 @@ pillow>=12.2.0,<13.0  # PYSEC-2026-165 + CVE-2026-40192/42309/42310/42311 (the <
 PyYAML>=6.0,<7.0
 
 # Data serialization
-protobuf>=4.21.6,<5.0.0
+# The floor tracks the NEWEST gencode among the committed stubs, not a preference: protobuf requires
+# runtime >= gencode, and fot_pb2.py is generated at 5.29.0 (fedlearn_pb2.py at 4.25.1). The previous
+# <5.0.0 cap therefore produced a clean install that could not import fot_pb2 — i.e. the FoT servicer,
+# fot_server, and the fl_fot_server.py entry point the backend spawns. It went unnoticed because the
+# FoT path imports it lazily and the gradient path never does. Pinned by tests/test_protobuf_gencode_pin.py.
+# NOTE: the backend and client-docker lockfiles still cap protobuf <5.0.0 via flwr/flwr-datasets, so the
+# FoT path remains uninstallable THERE — a second flwr-induced residual alongside SE-22 (cryptography).
+protobuf>=5.29.0,<6.0.0
 googleapis-common-protos==1.70.0
 msgpack>=1.0,<2.0
 dill>=0.3.7,<0.4
