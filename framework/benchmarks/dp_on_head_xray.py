@@ -76,11 +76,38 @@ _IMAGENET_STD = (0.229, 0.224, 0.225)
 # --------------------------------------------------------------------------------------------------
 # Frozen backbone feature extraction (the only new machinery; the DP path below is reused verbatim).
 # --------------------------------------------------------------------------------------------------
+TIMM_PREFIX = "timm:"
+
+
 def _build_backbone(name: str, pretrained: bool, seed: int):
-    """A frozen torchvision CNN with its classifier stripped -> a (module, feat_dim) feature extractor.
+    """A frozen CNN with its classifier stripped -> a (module, feat_dim) feature extractor.
     `pretrained=False` seeds the random init so extraction is reproducible offline (used by the test);
-    the real run uses ImageNet weights (BSD-licensed)."""
+    the real run uses ImageNet weights (BSD-licensed).
+
+    Accepts a ``timm:<model>`` name as well as a torchvision one. torchvision ships no
+    GroupNorm-PRETRAINED model at any depth, and the campaign showed the measured "GroupNorm penalty"
+    is the cost of *converting* a BatchNorm-pretrained network rather than a property of GroupNorm.
+    Comparing a frozen head against a full fine-tune **on the same GN-pretrained backbone** therefore
+    requires timm here, exactly as ``frozen_vs_finetune_xray.build_model`` already does for the full
+    arms. Without it the frozen half of that contrast cannot be built at all.
+    """
     import torchvision  # local import: torchvision is a benchmark-only dep
+
+    if name.startswith(TIMM_PREFIX):
+        import timm  # local import: timm is a benchmark-only dep
+
+        torch.manual_seed(seed)
+        # num_classes=0 makes timm return POOLED features directly — the same [B, feat_dim] contract
+        # the torchvision branch gets from `fc = Identity()`. Do not substitute `fc = Identity()`
+        # here: timm classifier attributes are not uniformly named `fc` across architectures.
+        model = timm.create_model(name[len(TIMM_PREFIX):], pretrained=pretrained, num_classes=0)
+        model.eval()
+        for p in model.parameters():
+            p.requires_grad_(False)
+        # Ask the model for its own width rather than hardcoding one per architecture.
+        feat_dim = int(getattr(model, "num_features", 0)) or int(
+            model(torch.zeros(1, 3, 64, 64)).shape[1])
+        return model, feat_dim
 
     if name not in _FEAT_DIMS:
         raise ValueError(f"unsupported backbone {name!r} (have {sorted(_FEAT_DIMS)})")

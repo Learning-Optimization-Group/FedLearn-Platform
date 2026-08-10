@@ -204,12 +204,21 @@ def frozen_backbone_bytes(backbone_name="resnet18"):
     """
     from collections import OrderedDict
 
-    from torchvision import models
-
     from benchmarks.wire_bytes import first_order_model_bytes
 
-    net = getattr(models, backbone_name)(weights=None)
-    net.fc = torch.nn.Identity()
+    if backbone_name.startswith(TIMM_PREFIX):
+        # Must mirror build_model's timm branch. Until the frozen arm actually propagated its
+        # backbone (it did not — see _run_one), this function only ever saw torchvision names, so a
+        # timm frozen sweep silently charged itself resnet18's 44.7 MB one-shot delivery instead of
+        # its own. num_classes=0 gives the feature extractor, matching `fc = Identity()` below.
+        import timm
+
+        net = timm.create_model(backbone_name[len(TIMM_PREFIX):], pretrained=False, num_classes=0)
+    else:
+        from torchvision import models
+
+        net = getattr(models, backbone_name)(weights=None)
+        net.fc = torch.nn.Identity()
     return first_order_model_bytes(OrderedDict((n, p.detach()) for n, p in net.named_parameters()))
 
 
@@ -724,9 +733,15 @@ def _run_one(arm, *, data_dir, backbone_name, device, feature_cache, **kw):
                 data_dir, backbone=backbone_name, pretrained=key[1],
                 img_size=kw.get("img_size", 224), device=device, backbone_seed=kw.get("seed", 0))
         f = feature_cache[key]
+        # backbone_name is a NAMED parameter of this function, so it is absent from **kw and would
+        # otherwise never reach run_arm — which then fell back to its "resnet18" default and stamped
+        # that into the cell's meta AND its filename. Two frozen sweeps on different backbones then
+        # collide on one filename and silently overwrite each other; this campaign has already lost
+        # arm-B cells to exactly that. Pass it explicitly.
         return run_arm(arm,
                        train_x=f["train_x"].cpu(), train_y=f["train_y"].cpu(),
                        test_x=f["test_x"].cpu(), test_y=f["test_y"].cpu(),
+                       backbone_name=backbone_name,
                        **_accepted_kwargs(run_arm, kw))
     return run_full_arm(arm, data_dir=data_dir, backbone_name=backbone_name, device=device,
                         **_accepted_kwargs(run_full_arm, kw))
