@@ -364,6 +364,37 @@ class FedLoRA(Strategy):
                 )
 
 
+# --- FedProx proximal-term stability envelope (derived, then measured) ----------------------
+# The proximal penalty is applied as an explicit gradient term, `mu * (w - w_global)`, added to
+# .grad before the SGD step (LocalTrainer.fit). That makes the penalty's own iteration
+#
+#     w <- w - lr * mu * (w - w_global)
+#
+# a linear map with multiplier (1 - lr*mu), which contracts toward the anchor only while
+#
+#     |1 - lr*mu| < 1   <=>   0 < lr*mu < 2.
+#
+# At lr*mu >= 2 the penalty OSCILLATES OUTWARD: the term whose entire purpose is to bound client
+# drift instead amplifies it, without raising anything. Measured on a 3-class linear task, one
+# local epoch, drift = ||w_local - w_global||:
+#
+#     lr=0.5   mu=3.8  (lr*mu=1.9) -> 0.517      lr=0.5   mu=20  (lr*mu=10) -> 2.4e4
+#     lr=0.1   mu=19   (lr*mu=1.9) -> 0.109      lr=0.1   mu=100 (lr*mu=10) -> 4.8e3
+#     lr=0.01  mu=190  (lr*mu=1.9) -> 0.011      lr=0.01  mu=1000(lr*mu=10) -> 4.8e2
+#
+# The minimum sits at lr*mu ~= 2 in all three, and mu=10/lr is catastrophic in all three. So the
+# boundary is a property of the discretisation, not of the task. Guarded the same way DeComFL's
+# eta is (see decomfl_strategy.lr_stability_statistic): the failure is silent, and a divergent
+# FedProx run looks like an ordinary bad-hyperparameter run rather than an unstable one.
+PROX_STABILITY_LIMIT = 2.0     # lr*mu at which the penalty stops contracting
+PROX_STABILITY_WARN = 1.0      # past here the step is large enough to be worth flagging
+
+
+def prox_stability_statistic(proximal_mu: float, learning_rate: float) -> float:
+    """``lr * mu`` — the multiplier governing whether the proximal term contracts or diverges."""
+    return float(learning_rate) * float(proximal_mu)
+
+
 class FedProx(Strategy):
     """FedProx (Li et al. 2020, "Federated Optimization in Heterogeneous Networks",
     https://arxiv.org/abs/1812.06127).
@@ -391,6 +422,7 @@ class FedProx(Strategy):
             proximal_mu: float = 0.0,
             learning_rate: float = 0.01,
             local_epochs: int = 1,
+            allow_unstable_mu: bool = False,
     ):
         self.initial_parameters = initial_parameters
         self.evaluate_fn = evaluate_fn
@@ -401,6 +433,46 @@ class FedProx(Strategy):
         self.learning_rate = float(learning_rate)
         self.local_epochs = int(local_epochs)
         self.aggregator = FedAvgAggregator()
+        self._check_prox_stability(allow_unstable_mu)
+
+    def _check_prox_stability(self, allow_unstable: bool) -> None:
+        """Reject a (mu, lr) pair for which the proximal term diverges instead of contracting.
+
+        Checked at construction rather than mid-run so a doomed configuration fails before it
+        burns a federation. See PROX_STABILITY_LIMIT for the derivation and the measurements.
+
+        The failure this guards is silent and inverted: past the limit the penalty pushes the
+        client AWAY from the global model, so a run configured to reduce drift produces far
+        more of it and still completes. Nothing in an accuracy curve says "unstable" -- it
+        looks like an ordinary bad-hyperparameter run.
+        """
+        if self.mu <= 0:
+            return  # mu=0 is exactly FedAvg; negative mu is rejected below via the statistic
+        s = prox_stability_statistic(self.mu, self.learning_rate)
+        if s < PROX_STABILITY_WARN:
+            return
+        detail = (
+            f"lr*mu = {s:.3f} at mu={self.mu:g}, lr={self.learning_rate:g}. The proximal term "
+            f"contracts toward the global model only while lr*mu < {PROX_STABILITY_LIMIT:g}"
+        )
+        if s < PROX_STABILITY_LIMIT:
+            log.warning(
+                "FedProx: %s, so this is stable but near the boundary -- the penalty step is "
+                "large and drift-vs-mu is no longer monotone close to the limit.", detail,
+            )
+            return
+        if allow_unstable:
+            log.warning(
+                "FedProx: %s. Running anyway (allow_unstable_mu=True): the penalty will "
+                "AMPLIFY client drift rather than bound it.", detail,
+            )
+            return
+        raise ValueError(
+            f"FedProx: {detail}; at or above it the penalty oscillates outward and amplifies "
+            f"the drift it exists to bound (measured: lr=0.5, mu=20 gives drift 2.4e4 vs 1.5 "
+            f"for plain FedAvg). Lower mu below {PROX_STABILITY_LIMIT / self.learning_rate:g} "
+            f"for this lr, or lower lr. Pass allow_unstable_mu=True to override deliberately."
+        )
 
     def initialize_parameters(self) -> Optional[OrderedDict[str, torch.Tensor]]:
         return self.initial_parameters
@@ -435,6 +507,20 @@ class FedProx(Strategy):
         loss, metrics = self.evaluate_fn(server_round, parameters)
         log.info("FedProx eval round=%d loss=%.4f metrics=%s", server_round, loss, metrics)
         return loss, metrics
+
+
+def fedopt_bias_correction(server_round: int, beta1: float, beta2: float) -> float:
+    """Kingma & Ba's ``alpha_t`` factor: ``sqrt(1 - b2^(t+1)) / (1 - b1^(t+1))``.
+
+    Flower's ``FedAdam`` scales the server learning rate by this; Reddi et al. 2021's
+    Algorithm 2 -- which FedOpt implements -- does not. The factor is NOT a small correction:
+    at b1=0.9, b2=0.99 it is 0.74 at round 1, bottoms near 0.47 around round 12, and is still
+    only 0.93 at round 200, so it is roughly a 2x difference in effective server step for the
+    whole of any realistic run. See FedOpt.bias_correction.
+    """
+    return float(
+        (1.0 - beta2 ** (server_round + 1.0)) ** 0.5 / (1.0 - beta1 ** (server_round + 1.0))
+    )
 
 
 class FedOpt(Strategy):
@@ -473,6 +559,7 @@ class FedOpt(Strategy):
             variant: str = "adam",
             learning_rate: float = 0.01,
             local_epochs: int = 1,
+            bias_correction: bool = False,
     ):
         variant = str(variant).lower()
         if variant not in ("adam", "yogi"):
@@ -489,6 +576,16 @@ class FedOpt(Strategy):
         self.beta2 = float(beta2)
         self.tau = float(tau)
         self.variant = variant
+        # Kingma & Ba bias correction on the SERVER learning rate. Default OFF because this
+        # class implements Reddi et al. 2021 Algorithm 2 literally, and that algorithm has no
+        # such term. Flower's FedAdam applies it (and its FedYogi does not) -- an asymmetry
+        # mirrored here, since it is what makes our FedYogi cross-validate against theirs at
+        # float32 epsilon while FedAdam does not.
+        #
+        # Turn it ON to compare like-for-like against a Flower FedAdam baseline. Leaving it off
+        # while quoting a Flower FedAdam number as the referent compares two optimisers running
+        # at ~2x different effective server learning rates.
+        self.bias_correction = bool(bias_correction)
 
         # Client-side SGD hyperparameters (FedOpt clients train plainly; proximal_mu=0).
         self.learning_rate = float(learning_rate)
@@ -544,6 +641,11 @@ class FedOpt(Strategy):
             self._m = OrderedDict((k, torch.zeros_like(v)) for k, v in self._global.items())
             self._v = OrderedDict((k, torch.zeros_like(v)) for k, v in self._global.items())
 
+        # Adam-only, matching Flower's asymmetry (its FedYogi uses raw eta).
+        eta = self.eta
+        if self.bias_correction and self.variant == "adam":
+            eta = self.eta * fedopt_bias_correction(server_round, self.beta1, self.beta2)
+
         new_global = OrderedDict()
         for key, old in self._global.items():
             x_bar = aggregated[key].to(device=old.device, dtype=old.dtype)  # device too, not just dtype
@@ -556,7 +658,7 @@ class FedOpt(Strategy):
             else:  # yogi
                 v = self._v[key] - (1.0 - self.beta2) * torch.sign(self._v[key] - g2) * g2
 
-            new = old - self.eta * m / (torch.sqrt(v) + self.tau)
+            new = old - eta * m / (torch.sqrt(v) + self.tau)
 
             self._m[key] = m
             self._v[key] = v
