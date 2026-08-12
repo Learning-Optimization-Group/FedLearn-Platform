@@ -143,14 +143,40 @@ class FLCoordinator:
     def _handle_round_timeout(self):
         """Resolve a round that blew its dropout deadline.
 
-        Mirrors the locking discipline of submit_client_update: re-check the
-        received-count and invoke the aggregation trigger while holding
-        self._lock so we don't race a client update that completes the round
-        at the same instant.
+        The wall-clock *policy* lives here (and in wait_for_round_to_complete, which decides
+        when the deadline has passed); the resolution *mechanism* is
+        resolve_round_incomplete(). Splitting them (P0-1c) lets the in-process simulator model
+        dropout deterministically — calling the mechanism directly — without sleeping out a
+        120s deadline per dropped round, while leaving deployed behaviour byte-for-byte the
+        same: this is still the only caller on the server path, and it still phrases the
+        failure as a timeout.
+        """
+        self.resolve_round_incomplete(
+            f"timed out after {self.round_timeout_s:.1f}s"
+        )
+
+    def resolve_round_incomplete(self, reason: str):
+        """Force-resolve the current round without waiting for the remaining clients.
+
+        Called when the cohort will not complete: by _handle_round_timeout on the deployed
+        server (deadline elapsed) and directly by the simulator (dropout was *modelled*, so
+        there is nothing to wait for). Deliberately does NOT consult the clock — the caller
+        owns that decision.
+
+        If at least ``max(1, min_clients)`` updates arrived, the round is force-aggregated with
+        whatever is present. Otherwise the run is stopped rather than aggregating an empty
+        cohort, which would produce a zero-key aggregate and silently wipe the global model.
+
+        Idempotent: a round already resolved inline (the Nth submit fires the trigger itself)
+        is left alone, so a redundant call cannot double-aggregate.
+
+        Mirrors the locking discipline of submit_client_update: re-check the received-count and
+        invoke the aggregation trigger while holding self._lock so we don't race a client
+        update that completes the round at the same instant.
         """
         with self._lock:
-            # A client may have completed the round between the wait() timeout
-            # and acquiring the lock; if so, the trigger already fired.
+            # A client may have completed the round between the caller's decision and our
+            # acquiring the lock; if so, the trigger already fired.
             if self._round_complete_event.is_set():
                 return
 
@@ -161,29 +187,29 @@ class FLCoordinator:
 
             if received >= required:
                 log.warning(
-                    "Round %d timed out after %.1fs; force-aggregating %d of %d clients "
+                    "Round %d %s; force-aggregating %d of %d clients "
                     "that reported (min required=%d)",
-                    self.current_round, self.round_timeout_s, received, total, required,
+                    self.current_round, reason, received, total, required,
                 )
                 self.last_round_failed = True
                 self.last_round_message = (
-                    f"Round {self.current_round} timed out after {self.round_timeout_s:.1f}s; "
+                    f"Round {self.current_round} {reason}; "
                     f"force-aggregated {received}/{total} clients (min required={required})."
                 )
                 # FR-4: dispatch to the strategy-appropriate trigger. The submit paths are protocol-
                 # specific (FedAvg->submit_client_update, DeComFL->submit_decomfl_update) so they call
-                # their trigger directly, but this timeout path is strategy-agnostic and must not
+                # their trigger directly, but this path is strategy-agnostic and must not
                 # hardcode the FedAvg trigger — that would skip DeComFL's gradient_history write.
                 self._trigger_round_completion()
             else:
                 log.error(
-                    "Round %d timed out after %.1fs with only %d of %d clients reported "
+                    "Round %d %s with only %d of %d clients reported "
                     "(min required=%d); stopping server",
-                    self.current_round, self.round_timeout_s, received, total, required,
+                    self.current_round, reason, received, total, required,
                 )
                 self.last_round_failed = True
                 self.last_round_message = (
-                    f"Round {self.current_round} timed out after {self.round_timeout_s:.1f}s "
+                    f"Round {self.current_round} {reason} "
                     f"with only {received}/{total} clients reported (min required={required}); "
                     f"server stopped."
                 )
