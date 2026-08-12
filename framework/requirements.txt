@@ -86,8 +86,11 @@ PyYAML>=6.0,<7.0
 # <5.0.0 cap therefore produced a clean install that could not import fot_pb2 — i.e. the FoT servicer,
 # fot_server, and the fl_fot_server.py entry point the backend spawns. It went unnoticed because the
 # FoT path imports it lazily and the gradient path never does. Pinned by tests/test_protobuf_gencode_pin.py.
-# NOTE: the backend and client-docker lockfiles still cap protobuf <5.0.0 via flwr/flwr-datasets, so the
-# FoT path remains uninstallable THERE — a second flwr-induced residual alongside SE-22 (cryptography).
+# P0-2b: the backend and client-docker lockfiles used to cap protobuf <5.0.0 via flwr/flwr-datasets,
+# which made the FoT path uninstallable THERE — a second flwr-induced residual alongside SE-22
+# (cryptography). Both are now CLEARED: flwr-datasets was only ever used for one CIFAR-10 IID shard
+# (fl-runtime/recipes.py), which is now taken directly from `datasets` and is byte-identical to what
+# flwr produced (verified per-partition: research/benchmarks/verify_flwr_shard_equivalence.py).
 protobuf>=5.29.0,<6.0.0
 googleapis-common-protos==1.70.0
 msgpack>=1.0,<2.0

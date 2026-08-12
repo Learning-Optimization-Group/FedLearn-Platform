@@ -682,15 +682,25 @@ def load_ecg_server_test_data(num_clients, dataset_path=None, **kw):
 
 # ---------------------------------------------------------------------------
 # CNN — CIFAR-10 image classification. Source asymmetry is INTENTIONAL and preserved:
-# the client shard comes from HuggingFace 'cifar10' via flwr_datasets (IID shard of the
-# seed-42-shuffled train split); the server test set comes from torchvision CIFAR10.
+# the client shard comes from HuggingFace 'cifar10' (IID shard of the seed-42-shuffled
+# train split); the server test set comes from torchvision CIFAR10.
 # num_clients is IGNORED for the partitioner — the legacy path shards into a FIXED
-# CNN_NUM_PARTITIONS(=10) regardless of client count (flwr IidPartitioner). Do NOT route
-# through the Dirichlet partitioner (_dirichlet_indices) — that would change every shard.
+# CNN_NUM_PARTITIONS(=10) regardless of client count. Do NOT route through the Dirichlet
+# partitioner (_dirichlet_indices) — that would change every shard.
+#
+# P0-2b: this used to go through flwr_datasets.FederatedDataset. That dependency pulled in
+# flwr 1.20.0, which caps cryptography<45.0.0 and made the framework's own >=46.0.6 security
+# floor unreachable (the SE-22 residual) — a competitor's package governing this platform's
+# security posture, for one function call. The shard is now taken directly and is
+# BYTE-IDENTICAL to what flwr produced, so every CIFAR-10 result recorded before the swap
+# stays comparable to everything after it. That equivalence is verified, not assumed:
+# research/benchmarks/verify_flwr_shard_equivalence.py, recorded under
+# research/results/reproducibility/flwr_shard_equivalence.json.
 # ---------------------------------------------------------------------------
 CNN_NUM_PARTITIONS = 10       # == client.py NUM_PARTITIONS; fixed, NOT num_clients
 CNN_BATCH_SIZE = 32           # == client.py BATCH_SIZE
 CNN_SERVER_TEST_BATCH = 128   # == data.py CNN server test batch
+CNN_SHUFFLE_SEED = 42         # == the flwr FederatedDataset default this replaced
 
 
 def _cnn_transform():
@@ -700,14 +710,26 @@ def _cnn_transform():
     return T.Compose([T.ToTensor(), T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
 
+def _cnn_iid_shard(partition_id, num_shards=CNN_NUM_PARTITIONS, seed=CNN_SHUFFLE_SEED):
+    """One IID shard of the shuffled CIFAR-10 train split.
+
+    Reproduces exactly what flwr_datasets did, which was itself only a thin wrapper over
+    `datasets`: FederatedDataset defaults to shuffle=True/seed=42 and shuffles each split
+    BEFORE partitioning, and IidPartitioner.load_partition(i) is precisely
+    `shard(num_shards=N, index=i, contiguous=True)`. Both facts were read off the installed
+    flwr-datasets 0.5.0 source and then verified empirically per-partition.
+    """
+    import datasets as hf_datasets
+    train = hf_datasets.load_dataset("cifar10")["train"].shuffle(seed=seed)
+    return train.shard(num_shards=num_shards, index=partition_id, contiguous=True)
+
+
 def load_cnn_client_data(partition_id, num_clients, batch_size=CNN_BATCH_SIZE, **kw):
     """(train_loader, val_loader) for one CIFAR-10 client shard — byte-identical to the legacy
     client.py CNN branch. num_clients is accepted but IGNORED: the shard is a fixed
-    CNN_NUM_PARTITIONS(=10) via flwr's IidPartitioner, independent of client count."""
-    from flwr_datasets import FederatedDataset
+    CNN_NUM_PARTITIONS(=10) IID shard, independent of client count."""
     from torch.utils.data import DataLoader
-    fds = FederatedDataset(dataset="cifar10", partitioners={"train": CNN_NUM_PARTITIONS})
-    partition = fds.load_partition(partition_id)
+    partition = _cnn_iid_shard(partition_id)
     parts = partition.train_test_split(test_size=0.2, seed=42)
     tf = _cnn_transform()
 

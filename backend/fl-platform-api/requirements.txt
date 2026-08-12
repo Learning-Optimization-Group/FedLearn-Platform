@@ -13,14 +13,12 @@ click==8.1.8
 colorama==0.4.6
 colorful==0.5.7
 contourpy==1.3.3
-cryptography==44.0.3  # SE-22: the framework floor is >=46.0.6, but this lockfile uses flwr-datasets (FederatedDataset in fl_server.py/client.py) -> flwr 1.20.0, which pins cryptography<45.0.0. The 46.x floor is therefore UNREACHABLE here until flwr-datasets is dropped/updated; 44.0.3 is the newest flwr-compatible pin. Tracked as the SE-22 residual.
+cryptography==46.0.7  # SE-22 CLEARED (P0-2b): flwr-datasets is gone, so its cryptography<45.0.0 cap is gone with it. Now at the framework floor (>=46.0.6,<47.0) — PYSEC-2026-35 (x2) + CVE-2026-26007.
 cycler==0.12.1
 datasets==3.1.0
 dill==0.3.8
 distlib==0.4.0
 filelock==3.13.1
-flwr==1.20.0
-flwr-datasets==0.5.0
 fonttools==4.59.1
 frozenlist==1.7.0
 fsspec==2024.6.1
@@ -63,7 +61,7 @@ platformdirs==4.3.8
 prometheus_client==0.22.1
 propcache==0.3.2
 proto-plus==1.26.1
-protobuf==4.25.8
+protobuf==5.29.5  # P0-2b: the <5.0.0 cap came from flwr and made the FoT path UNINSTALLABLE here (fot_pb2.py is gencode 5.29.0; protobuf requires runtime >= gencode). Dropping flwr clears it. Matches framework/requirements.txt >=5.29.0,<6.0.0.
 psutil==7.0.0
 py-spy==0.4.1
 pyarrow==21.0.0

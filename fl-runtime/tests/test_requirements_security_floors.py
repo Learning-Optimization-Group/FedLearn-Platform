@@ -7,16 +7,18 @@ the backend-scripts pytest job. It was pinning aiohttp/pillow/requests BELOW the
 from `framework/requirements.txt` (single source of truth) and fails if the backend lockfile allows
 an install below any of them, so the two can't drift back apart.
 
-`cryptography` is the ONE exception and is deliberately excluded from the floor check: this lockfile
-uses `flwr-datasets` (`FederatedDataset` in `fl_server.py`/`client.py`) -> `flwr` 1.20.0, which pins
-`cryptography<45.0.0`. The framework's `>=46.0.6` floor is therefore unreachable here without dropping
-flwr-datasets; a separate check pins it to the newest flwr-compatible version instead (SE-22 residual).
+`cryptography` used to be excluded from this check: the lockfile pulled in `flwr-datasets` ->
+`flwr` 1.20.0, which caps `cryptography<45.0.0`, so the framework's `>=46.0.6` floor was
+unreachable here. P0-2b dropped flwr-datasets (its only use was one CIFAR-10 IID shard, now taken
+directly from `datasets` and verified byte-identical), so cryptography is now floor-checked like
+everything else and the exception is gone. `test_flwr_stays_out_of_the_lockfiles` below is the
+regression guard: re-adding flwr silently re-caps BOTH cryptography and protobuf.
 """
 import os
 import re
 
-# Floor-checked packages. cryptography is intentionally NOT here — see the module docstring (flwr cap).
-_FLAGGED = ("aiohttp", "pillow", "requests")
+# Floor-checked packages. cryptography joined the list in P0-2b when the flwr cap was removed.
+_FLAGGED = ("aiohttp", "pillow", "requests", "cryptography")
 
 
 def _repo_root():
@@ -65,17 +67,54 @@ def test_backend_requirements_meet_framework_security_floors():
     assert violations == [], "SE-22: backend pins below the security floor: " + "; ".join(violations)
 
 
-def test_cryptography_stays_flwr_compatible_below_45():
-    """cryptography can't reach the framework's >=46.0.6 floor here: flwr-datasets -> flwr 1.20.0 pins
-    cryptography<45.0.0, so a >=45 bump makes `pip install -r requirements.txt` unresolvable (the
-    backend-scripts CI job fails with ResolutionImpossible). Pin it to the newest flwr-compatible
-    patched version instead, and pin THAT invariant here so a future security bump doesn't silently
-    re-break the install."""
+def test_flwr_stays_out_of_the_lockfiles():
+    """P0-2b regression guard: re-adding flwr silently re-caps two floors at once.
+
+    `flwr` 1.20.0 caps `cryptography<45.0.0` (SE-22) AND `protobuf<5.0.0`. The protobuf cap is
+    the quieter of the two: `fot_pb2.py` is generated at gencode 5.29.0 and protobuf requires
+    runtime >= gencode, so a capped lockfile yields a clean install whose FoT servicer cannot
+    import — and nothing notices, because the FoT path imports it lazily and the gradient path
+    never does.
+
+    flwr was only ever used for one CIFAR-10 IID shard. That shard now comes straight from
+    `datasets` and is byte-identical to what flwr produced, verified per-partition by
+    research/benchmarks/verify_flwr_shard_equivalence.py.
+    """
+    root = _repo_root()
+    offenders = []
+    for rel in (
+        os.path.join("backend", "fl-platform-api", "requirements.txt"),
+        os.path.join("client-docker", "requirements.txt"),
+        os.path.join("client-docker", "packaging", "requirements-client.txt"),
+        os.path.join("framework", "requirements.txt"),
+    ):
+        path = os.path.join(root, rel)
+        if not os.path.isfile(path):
+            continue
+        for i, line in enumerate(open(path), 1):
+            stripped = line.strip()
+            if stripped.startswith("#") or not stripped:
+                continue
+            if re.match(r"^flwr(-[\w]+)?\s*[><=~!]", stripped):
+                offenders.append(f"{rel}:{i}: {stripped}")
+    assert offenders == [], (
+        "flwr is back in a lockfile, which re-caps cryptography<45.0.0 and protobuf<5.0.0: "
+        + "; ".join(offenders)
+    )
+
+
+def test_protobuf_reaches_the_committed_gencode_floor():
+    """The FoT path must be installable from the backend lockfile.
+
+    protobuf requires runtime >= gencode, and the newest committed stub (`fot_pb2.py`) is
+    generated at 5.29.0. A lockfile below that installs cleanly and then fails at import time
+    inside the FoT servicer only.
+    """
     root = _repo_root()
     backend = os.path.join(root, "backend", "fl-platform-api", "requirements.txt")
-    got = _min_version(backend, "cryptography")
-    assert got is not None, "cryptography not pinned in backend/fl-platform-api/requirements.txt"
-    assert (44, 0, 1) <= got < (45, 0, 0), (
-        f"SE-22: cryptography must stay in flwr's >=44.0.1,<45.0.0 range (flwr-datasets caps it); "
-        f"got {got}. A bump to >=45 breaks pip resolution in the backend-scripts CI job."
+    got = _min_version(backend, "protobuf")
+    assert got is not None, "protobuf not pinned in backend/fl-platform-api/requirements.txt"
+    assert got >= (5, 29, 0), (
+        f"backend pins protobuf {got}, below the committed gencode floor 5.29.0; "
+        f"the FoT servicer would not import."
     )

@@ -33,21 +33,33 @@ def _synthetic_cifar_base(n=60):
     return datasets.Dataset.from_dict({"img": imgs, "label": [i % 10 for i in range(n)]}, features=feats)
 
 
-def _install_fake_fds(monkeypatch, base):
-    """Replace flwr_datasets.FederatedDataset with a fake backed by `base`, recording the
-    partitioner count it was constructed with. recipes imports it lazily, so this patch takes."""
+def _install_fake_dataset(monkeypatch, base):
+    """Back `datasets.load_dataset` with `base`, recording the dataset name it was asked for.
+
+    P0-2b: this used to patch `flwr_datasets.FederatedDataset`. Patching one level lower is a
+    strictly stronger test — the old fake stood in for the whole of FederatedDataset and so
+    silently skipped its shuffle(seed=42), leaving that step unpinned. The shard pipeline is
+    now exercised end to end against the real `datasets` API, which is all flwr was wrapping.
+    """
     seen = {}
 
-    class _FakeFDS:
-        def __init__(self, dataset, partitioners):
-            seen["dataset"] = dataset
-            seen["num_partitions"] = partitioners["train"]
+    def _fake_load_dataset(name, *a, **kw):
+        seen["dataset"] = name
+        return {"train": base}
 
-        def load_partition(self, pid):
-            return base.shard(num_shards=seen["num_partitions"], index=pid, contiguous=True)
-
-    monkeypatch.setattr("flwr_datasets.FederatedDataset", _FakeFDS)
+    monkeypatch.setattr("datasets.load_dataset", _fake_load_dataset)
     return seen
+
+
+def _reference_shard(base, pid, num_shards=10, seed=42):
+    """The shard pipeline, written out independently of the implementation.
+
+    Byte-identical to what flwr_datasets produced: FederatedDataset shuffles each split with
+    seed 42 *before* partitioning, and IidPartitioner.load_partition(i) is exactly
+    shard(num_shards=N, index=i, contiguous=True). Verified per-partition against the real
+    flwr by research/benchmarks/verify_flwr_shard_equivalence.py.
+    """
+    return base.shuffle(seed=seed).shard(num_shards=num_shards, index=pid, contiguous=True)
 
 
 def test_cnn_constants_match_legacy_call_sites():
@@ -65,25 +77,47 @@ def test_cnn_constants_match_legacy_call_sites():
 
 def test_cnn_client_uses_fixed_10_partitions_ignoring_num_clients(monkeypatch):
     """THE critical guard: the shard count is a fixed 10, never num_clients."""
-    base = _synthetic_cifar_base()
-    seen = _install_fake_fds(monkeypatch, base)
+    base = _synthetic_cifar_base(n=100)
+    seen = _install_fake_dataset(monkeypatch, base)
     recipes.get_recipe("CNN").load_client_data(partition_id=0, num_clients=7)
     assert seen["dataset"] == "cifar10"
-    assert seen["num_partitions"] == 10  # fixed CNN_NUM_PARTITIONS, NOT num_clients=7
+    assert recipes.CNN_NUM_PARTITIONS == 10  # fixed, NOT num_clients=7
+
+    # The shard must be 1/10th of the base, whatever num_clients said.
+    train, _ = recipes.get_recipe("CNN").load_client_data(partition_id=0, num_clients=7)
+    assert len(train.dataset) + len(_.dataset) == len(base) // 10
+
+
+def test_cnn_client_shard_is_the_shuffled_contiguous_shard(monkeypatch):
+    """Pins the shuffle(seed=42) step that the previous FederatedDataset-level fake hid.
+
+    Without this, dropping flwr could have silently removed the shuffle: every partition would
+    still be a valid 1/10th split, the suite would stay green, and every CIFAR-10 result before
+    and after would quietly stop being comparable.
+    """
+    base = _synthetic_cifar_base(n=100)
+    _install_fake_dataset(monkeypatch, base)
+
+    shard = recipes._cnn_iid_shard(partition_id=3)
+    ref = _reference_shard(base, pid=3)
+    assert list(shard["label"]) == list(ref["label"])
+    # ...and specifically NOT the unshuffled shard, which is what a dropped shuffle would give.
+    unshuffled = base.shard(num_shards=10, index=3, contiguous=True)
+    assert list(shard["label"]) != list(unshuffled["label"])
 
 
 def test_cnn_client_partition_content_matches_reference_pipeline(monkeypatch):
-    """The recipe reproduces shard(10, pid, contiguous) -> split(0.2, seed=42) -> normalize.
-    Compared against an inline reference built from the same synthetic base; the val loader is
-    unshuffled, so the first batch is deterministic."""
-    base = _synthetic_cifar_base()
-    _install_fake_fds(monkeypatch, base)
+    """The recipe reproduces shuffle(42) -> shard(10, pid, contiguous) -> split(0.2, seed=42)
+    -> normalize. Compared against an inline reference built from the same synthetic base; the
+    val loader is unshuffled, so the first batch is deterministic."""
+    base = _synthetic_cifar_base(n=100)
+    _install_fake_dataset(monkeypatch, base)
 
     _, recipe_val = recipes.get_recipe("CNN").load_client_data(partition_id=1, num_clients=99)
 
     # Reference: exactly what the legacy client.py CNN branch does, computed here independently.
     from torch.utils.data import DataLoader
-    ref = base.shard(num_shards=10, index=1, contiguous=True).train_test_split(test_size=0.2, seed=42)
+    ref = _reference_shard(base, pid=1).train_test_split(test_size=0.2, seed=42)
     tf = recipes._cnn_transform()
 
     def _apply(b):
