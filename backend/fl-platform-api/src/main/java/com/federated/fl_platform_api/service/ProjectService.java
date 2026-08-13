@@ -3,6 +3,7 @@ package com.federated.fl_platform_api.service;
 import com.federated.fl_platform_api.audit.Auditable;
 import com.federated.fl_platform_api.dto.*;
 import com.federated.fl_platform_api.exception.ProjectStateException;
+import com.federated.fl_platform_api.model.TrainingArm;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.model.AuditAction;
@@ -157,6 +158,8 @@ public class ProjectService {
         dto.setId(project.getId());
         dto.setName(project.getName());
         dto.setModelType(project.getModelType());
+        dto.setTrainingArm(project.getTrainingArm() != null
+                ? project.getTrainingArm().name() : TrainingArm.FULL.name());
         dto.setModelName(project.getModelName());
         dto.setServerPort(project.getServerPort());
         dto.setOptimizer(project.getOptimizer());
@@ -188,6 +191,12 @@ public class ProjectService {
         project.setModelName(request.getModelName());
         project.setOptimizer(request.getOptimizer());
         project.setTaskType(resolveTaskType(request.getTaskType()));
+        // P1-4: the picker's arm choice. Omitted means FULL — left to the entity default rather
+        // than set here, so pre-P1 clients keep their behaviour through one code path, not two.
+        if (request.getTrainingArm() != null) {
+            project.setTrainingArm(
+                    TrainingArm.valueOf(request.getTrainingArm()));
+        }
         project.setRegulated(Boolean.TRUE.equals(request.getRegulated()));
         project.setDpEnabled(Boolean.TRUE.equals(request.getDpEnabled()));
         project.setDpTargetEpsilon(request.getDpTargetEpsilon());
@@ -264,6 +273,29 @@ public class ProjectService {
                 .orElseThrow(() -> ResourceNotFoundException.project(projectId));
         authz.requireOrgScope(project.getOrgId());
         authz.requireOwnerOrAdmin(project);
+
+        // P1-4: /start may RESTATE the project's arm, but must not silently disagree with it.
+        //
+        // P1-2 added trainingArm to this DTO and nothing ever read it: FlServerManager resolves the
+        // arm from project.getTrainingArm(). A client could send an arm here, have it pass
+        // validation, and be ignored — a contract that looks like it works. Honouring it instead
+        // would be worse: the arm decides which parameters are federated, so changing it between
+        // runs of one project makes those runs incomparable while they share a project identity.
+        // So the arm stays immutable after creation, and a mismatch is refused rather than
+        // silently applied or silently dropped.
+        if (request != null && request.getTrainingArm() != null) {
+            TrainingArm requested = TrainingArm.valueOf(request.getTrainingArm());
+            TrainingArm actual = project.getTrainingArm() != null
+                    ? project.getTrainingArm() : TrainingArm.FULL;
+            if (requested != actual) {
+                throw new ProjectStateException(String.format(
+                        "trainingArm mismatch: this project was created as %s and the arm cannot be "
+                        + "changed at start (requested %s). The arm decides which parameters are "
+                        + "federated, so changing it would make this run incomparable with the "
+                        + "project's earlier runs. Create a separate project for the %s arm.",
+                        actual, requested, requested));
+            }
+        }
 
         String strategyToUse = resolveStrategy(
                 project.getModelType(),

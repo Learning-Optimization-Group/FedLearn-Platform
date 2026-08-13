@@ -210,9 +210,41 @@ RECIPE_METADATA = [
 _METADATA_BY_KEY = {r["key"]: r for r in RECIPE_METADATA}
 
 
+_ARM_TRADEOFF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "arm_tradeoff.json")
+
+
+def arm_tradeoff():
+    """The measured frozen-vs-full trade-off, or None if the artifact is absent.
+
+    Generated from the campaign's verdict record by ``scripts/build_arm_tradeoff.py`` — never
+    hand-written, so what the picker shows is a rendering of the record. Returns None rather than
+    raising: a missing trade-off must cost the user an explanation, not the ability to create a
+    project. Kept torch-free so ``--describe`` stays cheap.
+    """
+    try:
+        with open(_ARM_TRADEOFF_PATH) as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
 def describe():
-    """Return the catalog metadata (list of dicts). Used by --describe."""
-    return RECIPE_METADATA
+    """Return the catalog metadata (list of dicts). Used by --describe.
+
+    Recipes that offer a CHOICE of arms are annotated with the measured trade-off, so the picker
+    can show what the choice costs at the point it is made. Recipes with a single arm are not:
+    there is nothing to trade off, and attaching it would imply the un-offered arm had been
+    evaluated for that recipe.
+    """
+    tradeoff = arm_tradeoff()
+    if not tradeoff:
+        return RECIPE_METADATA
+    out = []
+    for meta in RECIPE_METADATA:
+        if len(meta.get("supported_arms", ())) > 1:
+            meta = dict(meta, arm_tradeoff=tradeoff)
+        out.append(meta)
+    return out
 
 
 def catalog_keys():

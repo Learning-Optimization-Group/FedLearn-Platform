@@ -25,6 +25,41 @@ public record ModelRecipeDto(
         @JsonProperty("classes") List<String> classes,
         @JsonProperty("baseModels") @JsonAlias("base_models") List<String> baseModels,
         @JsonProperty("optimizers") List<String> optimizers,
-        @JsonProperty("requirements") DeviceRequirements requirements
+        @JsonProperty("requirements") DeviceRequirements requirements,
+        /** Training arms this recipe supports; {@code null} for recipes that declare none. */
+        @JsonProperty("supportedArms") @JsonAlias("supported_arms") List<String> supportedArms,
+        /**
+         * The measured frozen-vs-full trade-off, attached only to recipes that offer a CHOICE of
+         * arms. Generated from the campaign's verdict record by {@code scripts/build_arm_tradeoff.py}
+         * — never hand-written — so what the picker shows cannot drift from the measurement.
+         */
+        @JsonProperty("armTradeoff") @JsonAlias("arm_tradeoff") ArmTradeoff armTradeoff
 ) {
+    /**
+     * Pre-P1 arity: a recipe with no declared arms and no trade-off. Kept so the many call sites
+     * that construct a recipe fixture do not each have to restate "no arms" — and so that adding
+     * a future catalog field stays a one-line change here rather than a sweep through the tests.
+     */
+    public ModelRecipeDto(String key, String displayName, String inputKind, List<String> classes,
+                          List<String> baseModels, List<String> optimizers,
+                          DeviceRequirements requirements) {
+        this(key, displayName, inputKind, classes, baseModels, optimizers, requirements, null, null);
+    }
+
+    /**
+     * The subset of the trade-off the picker renders. Deliberately not the whole record: the
+     * caveats are carried because a number shown without them is a claim the measurement does not
+     * support (the communication ratio is round-budget dependent, and accuracy and on-device
+     * latency were measured on different hardware).
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record ArmTradeoff(
+            @JsonProperty("headline") String headline,
+            @JsonProperty("commRatio") @JsonAlias("comm_ratio") Integer commRatio,
+            @JsonProperty("ondeviceRatio") @JsonAlias("ondevice_ratio") Integer ondeviceRatio,
+            @JsonProperty("measuredOn") @JsonAlias("measured_on") java.util.Map<String, String> measuredOn,
+            @JsonProperty("arms") java.util.Map<String, java.util.Map<String, Object>> arms,
+            @JsonProperty("caveats") List<String> caveats
+    ) {
+    }
 }

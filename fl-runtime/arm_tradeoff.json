@@ -1,0 +1,47 @@
+{
+  "$schema_version": 1,
+  "generated_by": "scripts/build_arm_tradeoff.py",
+  "source": "research/results/frozen-backbone/VERDICT_frozen_vs_full.json",
+  "source_sha256": "5f03faa51c3c1867ae3306de690671ad0b0ea1251778854e2e56c906d7949db2",
+  "source_date": "2026-08-10",
+  "headline": "Full fine-tuning buys +0.0224 AUC for 3,321x the communication. Defensible in a datacenter, not on a phone.",
+  "measured_on": {
+    "task": "chest X-ray pneumonia, binary AUC",
+    "backbone": "timm resnet50_gn.a1h_in1k (identical for both arms)",
+    "protocol": "400 rounds, 3 seeds, alpha=1.0, 20 clients, 10/round, 3 local epochs",
+    "accuracy_hardware": "RTX 4060",
+    "ondevice_hardware": "vivo 1805 (SDM845), ExecuTorch portable"
+  },
+  "arms": {
+    "FULL": {
+      "accuracy_auc": 0.9786,
+      "accuracy_delta_vs_frozen": 0.0224,
+      "accuracy_sign_consistent": true,
+      "accuracy_seeds_agreeing": "6/6 (3 at shard 10, 3 at shard 70)",
+      "comm_total_mb_400r": 752502.5,
+      "ondevice_ms_per_step": 44801.5,
+      "ondevice_feasible": false,
+      "summary": "Higher accuracy. Needs a datacenter \u2014 a single on-device step costs 44.8 s, so a federated round is not feasible on a phone."
+    },
+    "FROZEN_HEAD": {
+      "accuracy_auc": 0.9562,
+      "accuracy_delta_vs_frozen": 0.0,
+      "accuracy_sign_consistent": true,
+      "accuracy_seeds_agreeing": "6/6 (3 at shard 10, 3 at shard 70)",
+      "comm_total_mb_400r": 226.6,
+      "ondevice_ms_per_step": 0.1115,
+      "ondevice_feasible": true,
+      "summary": "3,321x less communication and the only arm that runs on-device (0.1115 ms/step). Costs 0.0224 AUC against a full fine-tune."
+    }
+  },
+  "comm_ratio": 3321,
+  "ondevice_ratio": 5988,
+  "ondevice_ratio_basis": "LiteRT Flex on both arms (the record's like-for-like comparison)",
+  "caveats": [
+    "One task (chest X-ray), one alpha (1.0), one architecture family, three seeds per cell.",
+    "The communication ratio is ROUND-BUDGET DEPENDENT: it grows with the number of rounds because the frozen arm's one-shot backbone delivery is amortised over them. Quoted at 400 rounds.",
+    "Accuracy and on-device latency were measured on DIFFERENT hardware (RTX 4060 and an SDM845 handset). The joint claim composes two measurements; no single cell measures both.",
+    "On-device numbers are single-handset.",
+    "No differential privacy evaluated. DP noise scales with parameter count and should favour the frozen arm further, but that is an expectation, not a measurement."
+  ]
+}

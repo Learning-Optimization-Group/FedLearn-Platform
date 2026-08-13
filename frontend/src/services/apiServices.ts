@@ -62,6 +62,8 @@ export interface Project {
     modelType: string;
     modelName: string;
     optimizer: string;
+    /** Which parameters this project federates. Always present from the backend (defaults FULL). */
+    trainingArm?: 'FULL' | 'FROZEN_HEAD';
     // INITIALIZING: the one-time model-init worker is still preparing the weights (BA-1); CREATED: no
     // active run yet. Both were previously absent here though the backend always sent CREATED.
     status: 'INITIALIZING' | 'CREATED' | 'RUNNING' | 'STOPPED' | 'COMPLETED' | 'FAILED';
@@ -121,6 +123,33 @@ export const logoutUser = (): Promise<AxiosResponse<void>> => {
 // their base models and optimizers). The project modals fetch this at open
 // time so the picker stays in sync with what the framework actually supports.
 
+/** One arm's measured column of the trade-off. Values originate in the research record. */
+export interface ArmFacts {
+    accuracyAuc?: number;
+    commTotalMb400r?: number;
+    ondeviceMsPerStep?: number;
+    ondeviceFeasible?: boolean;
+    summary?: string;
+}
+
+/**
+ * The measured frozen-vs-full trade-off, attached by the catalog to recipes that offer a CHOICE
+ * of arms. Generated from the campaign's verdict record by `scripts/build_arm_tradeoff.py`, so
+ * these numbers are a rendering of the measurement and never a hand-written claim.
+ *
+ * `caveats` is not decoration: the communication ratio is round-budget dependent and the accuracy
+ * and on-device figures come from different hardware. Rendering a number without them states
+ * something the record does not support.
+ */
+export interface ArmTradeoff {
+    headline: string;
+    commRatio?: number;
+    ondeviceRatio?: number;
+    measuredOn?: Record<string, string>;
+    arms?: Record<string, ArmFacts>;
+    caveats?: string[];
+}
+
 export interface ModelRecipe {
     key: string;
     displayName: string;
@@ -128,6 +157,10 @@ export interface ModelRecipe {
     classes: string[];
     baseModels: string[];
     optimizers: string[];
+    /** Training arms this recipe supports; absent for recipes that declare none. */
+    supportedArms?: string[];
+    /** Present only when the recipe offers more than one arm. */
+    armTradeoff?: ArmTradeoff;
 }
 
 /** Lists the model recipes the platform can train. */

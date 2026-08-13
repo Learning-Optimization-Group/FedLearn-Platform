@@ -6,6 +6,17 @@ public class ProjectResponseDto {
 
     private UUID id;
     private String name;
+    /**
+     * The training arm this project was created with (FULL / FROZEN_HEAD). Exposed so the UI can
+     * confirm the choice after creation: an arm that can be selected but never seen again leaves a
+     * user unable to verify what they built, and a frozen project looks identical to a full one.
+     */
+    private String trainingArm;
+
+    public String getTrainingArm() { return trainingArm; }
+
+    public void setTrainingArm(String trainingArm) { this.trainingArm = trainingArm; }
+
     private String modelType;
     private String modelName;
     private Integer serverPort;

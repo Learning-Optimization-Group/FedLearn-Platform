@@ -241,6 +241,9 @@ class DashboardListN1Test {
         d.setId(null);
         d.setName(name);
         d.setModelType("CNN-CIFAR10");
+        // P1-4: the payload always states an arm (entity default FULL), never null — a frozen
+        // project must be distinguishable from a full one in every list view.
+        d.setTrainingArm("FULL");
         d.setModelName("resnet8");
         d.setServerPort(null);
         d.setOptimizer("adam");

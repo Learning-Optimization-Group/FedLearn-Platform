@@ -24,6 +24,25 @@ public class CreateProjectRequest {
     public String getTaskType() { return taskType; }
     public void setTaskType(String taskType) { this.taskType = taskType; }
 
+    /**
+     * Frozen-head vs full fine-tune. Null means FULL, so a client that predates P1 — or one that
+     * simply does not care — keeps exactly its previous behaviour via the entity default.
+     *
+     * <p>Set at CREATION rather than at start: the arm decides which parameters are federated, so
+     * changing it between runs of one project would make those runs' results incomparable while
+     * they still share a project identity. That is the product-level form of the cell-overwrite
+     * hazard P1-3 closed for benchmark cells.
+     */
+    @jakarta.validation.constraints.Pattern(
+            regexp = "FULL|FROZEN_HEAD",
+            message = "trainingArm must be one of: FULL, FROZEN_HEAD"
+    )
+    private String trainingArm;
+
+    public String getTrainingArm() { return trainingArm; }
+
+    public void setTrainingArm(String trainingArm) { this.trainingArm = trainingArm; }
+
     @NotNull(message = "pretrainEpochs must be provided")
     @Min(value = 0, message = "pretrainEpochs cannot be negative")
     private Integer pretrainEpochs;

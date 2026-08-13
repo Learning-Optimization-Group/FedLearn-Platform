@@ -44,6 +44,7 @@ interface CreateProjectModalProps {
     optimizer: string;
     pretrainEpochs: number;
     taskType?: string;
+    trainingArm?: string;
   }) => Promise<Project>;
   /** Called once the created project is persisted (ready or failed) so the parent can refresh its list. */
   onCreated: () => void;
@@ -60,6 +61,9 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
   const [optimizer, setOptimizer] = useState('');
   const [pretrainEpochs, setPretrainEpochs] = useState(0);
   const [taskType, setTaskType] = useState('SEQ_CLASSIFICATION');
+  // Frozen-head vs full fine-tune. FULL is the default so a user who does not engage with the
+  // choice gets exactly the pre-P1 behaviour.
+  const [trainingArm, setTrainingArm] = useState('FULL');
   const [error, setError] = useState('');
   // 'form' shows the inputs; 'preparing' shows the spinner while init is polled (BA-1).
   const [phase, setPhase] = useState<'form' | 'preparing'>('form');
@@ -92,12 +96,20 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
   }, [isOpen]);
 
   const selectedRecipe = recipes.find((r) => r.key === modelType);
+  // A choice exists only when the recipe declares more than one arm. A single-arm recipe must not
+  // render a trade-off — that would imply the un-offered arm had been evaluated for it.
+  const offersArmChoice = (selectedRecipe?.supportedArms?.length ?? 0) > 1;
+  const tradeoff = offersArmChoice ? selectedRecipe?.armTradeoff : undefined;
+  const armFacts = tradeoff?.arms?.[trainingArm];
 
   // When the selected type changes, reset base model + optimizer to its first.
   useEffect(() => {
     if (!selectedRecipe) return;
     setModelName(selectedRecipe.baseModels[0] ?? '');
     setOptimizer(selectedRecipe.optimizers[0] ?? '');
+    // Recipes differ in which arms they support; carrying a stale selection across a model change
+    // could submit an arm this recipe never declared.
+    setTrainingArm('FULL');
     setTaskType('SEQ_CLASSIFICATION');
   }, [modelType, selectedRecipe]);
 
@@ -137,7 +149,10 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
     setError('');
     try {
       const created = await onSubmit({ name, modelType, modelName, optimizer, pretrainEpochs,
-                       ...(modelType === 'LLM_LORA' ? { taskType } : {}) });
+                       ...(modelType === 'LLM_LORA' ? { taskType } : {}),
+                       // Sent only when the recipe actually offers a choice — otherwise the field
+                       // would assert an arm the recipe never declared.
+                       ...(offersArmChoice ? { trainingArm } : {}) });
 
       // BA-1: model init runs on an async worker, so the project comes back INITIALIZING. Show a
       // "Preparing" state and poll until it's ready (CREATED) or failed before we close — don't drop
@@ -268,6 +283,68 @@ export function CreateProjectModalV2({ isOpen, onSubmit, onCreated, onClose, isL
             </Select>
           </FormField>
         </div>
+
+        {/* Training arm — only when the recipe offers a choice, with the MEASURED trade-off.
+            The numbers come from the catalog (generated from the research record), never from
+            this component, so the UI cannot drift from the measurement. */}
+        {offersArmChoice && (
+          <div className="flex flex-col gap-3">
+            {/* FormField wires its generated id onto a SINGLE control child, so the trade-off
+                panel is a sibling rather than a second child — otherwise the label stops being
+                programmatically associated with the select. */}
+            <FormField
+              label="Training arm"
+              help="Which parameters each device trains and sends back."
+            >
+              <Select value={trainingArm} onChange={(e) => setTrainingArm(e.target.value)}>
+                {selectedRecipe?.supportedArms?.map((a) => (
+                  <option key={a} value={a}>
+                    {a === 'FROZEN_HEAD' ? 'Frozen backbone — train the head only' : 'Full fine-tune'}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+
+            {/* The MEASURED trade-off. Every number here comes from the catalog, which generates
+                it from the research record — this component never states a figure of its own. */}
+            {tradeoff && (
+              <div className="rounded-lg border border-border bg-surface-muted p-3 text-sm">
+                <p className="font-medium text-ink">{tradeoff.headline}</p>
+
+                {armFacts?.summary && <p className="mt-2 text-muted">{armFacts.summary}</p>}
+                {/* Only the NEGATIVE case gets its own line. The record's summary already states
+                    on-device capability for the arm that has it, and repeating it would be
+                    duplicate text; infeasibility is the actionable half. */}
+                {armFacts?.ondeviceFeasible === false && (
+                  <p className="mt-1 text-muted">
+                    Not feasible on-device — this arm needs a datacenter GPU.
+                  </p>
+                )}
+
+                {tradeoff.measuredOn && (
+                  <p className="mt-2 text-xs text-muted">
+                    Measured on {tradeoff.measuredOn.task}
+                    {tradeoff.measuredOn.protocol ? ` — ${tradeoff.measuredOn.protocol}` : ''}.
+                  </p>
+                )}
+
+                {/* Caveats are not garnish: the communication ratio is round-budget dependent and
+                    the accuracy and latency figures come from different hardware. Showing the
+                    numbers without them would state more than was measured. */}
+                {tradeoff.caveats && tradeoff.caveats.length > 0 && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-xs text-muted">
+                      What this measurement does not establish
+                    </summary>
+                    <ul className="mt-1 list-disc pl-4 text-xs text-muted">
+                      {tradeoff.caveats.map((c) => <li key={c}>{c}</li>)}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Task type — LLM_LORA only */}
         {modelType === 'LLM_LORA' && (
