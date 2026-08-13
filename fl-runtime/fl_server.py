@@ -158,6 +158,9 @@ def build_eval_card(args, history, strategy=None) -> str:
     gate rejects that upload by design — the platform refuses unaccounted DP claims.
     """
     final = history[-1][1] if history else {}
+    _arm = recipes.validate_arm(args.model_type, getattr(args, "training_arm", None))
+    _pre = recipes.trainable_prefixes(args.model_type, _arm)
+    _prefixes = list(_pre) if _pre is not None else None
     card = {
         "recipe_key": args.model_type,
         "strategy": args.strategy,
@@ -167,6 +170,15 @@ def build_eval_card(args, history, strategy=None) -> str:
         "torch_version": torch.__version__,
         "seed": getattr(args, "seed", None),
         "framework": "fedlearn",
+        # P1-3: the arm rides on the card, not only on the project row. A card is attached to a
+        # registered model artifact and travels independently of the project, so a reader must be
+        # able to answer "which arm produced this?" from the card alone. FULL is recorded
+        # EXPLICITLY rather than by absence: otherwise a reader cannot distinguish a full
+        # fine-tune from a card written before the arm existed.
+        "training_arm": _arm,
+        # The prefixes, not just the name — two runs can share an arm name while freezing
+        # different modules, and the name alone is not a checkable provenance claim.
+        "trainable_prefixes": _prefixes,
     }
     if strategy is not None and getattr(strategy, "dp_enabled", False):
         card["dp"] = {

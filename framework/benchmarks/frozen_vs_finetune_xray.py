@@ -696,6 +696,27 @@ def _accepted_kwargs(fn, kw):
     return {k: v for k, v in kw.items() if k in allowed}
 
 
+# Fields in a cell's ``meta`` that are MEASURED (or derived from the run) rather than configured.
+# They differ between two runs of the *same* configuration, so the overwrite guard below must not
+# compare them — ``total_sec`` and ``peak_rss_mb`` alone would make every resumed sweep raise.
+#
+# Everything not listed here is treated as configuration, so a field added to meta later is
+# compared by default. That default is deliberate and the asymmetry is the point: a new *config*
+# axis is then caught, and a new *measured* field halts loudly with a message naming it (add it
+# here) instead of silently destroying a result.
+#
+# Marking a derived quantity as measured is safe because every genuine sweep axis also has a
+# configured field: two backbones differ in ``feat_dim`` and ``wire_bytes_*``, but they differ in
+# ``backbone_name`` too, and that is compared.
+_MEASURED_META = {
+    "total_sec", "peak_rss_mb", "rounds_run", "stopped_early", "converged", "converged_basis",
+    "auc_improvement_last_half", "total_local_steps", "selected_lr", "trainable_params",
+    "backbone_changed", "cum_bytes_up", "cum_bytes_down", "cum_bytes_total",
+    "wire_bytes_per_client_round", "wire_bytes_up_per_client_round",
+    "wire_bytes_down_per_client_round", "oneshot_backbone_download_bytes",
+}
+
+
 def _emit_run(out_dir, run):
     """Persist ONE completed cell immediately and return its path.
 
@@ -717,6 +738,32 @@ def _emit_run(out_dir, run):
             f"_r{m.get('rounds', 'na')}"
             f"_seed{m.get('seed', 0)}.json")
     path = os.path.join(out_dir, name)
+    # The name above enumerates the axes we KNOW vary. Enumeration has failed twice: alpha was
+    # missing (a multi-alpha sweep overwrote its own cells) and backbone_name never propagated
+    # (every frozen cell stamped resnet18, and arm-B cells were lost). Each was fixed by adding a
+    # field, which does nothing for the next axis someone adds to meta and forgets here.
+    #
+    # So refuse structurally instead: if a file for this name already holds a cell whose CONFIG
+    # differs, the name is not distinguishing them and the write would destroy a real result. That
+    # covers axes that do not exist yet. Only meta is compared — a re-run producing a different
+    # final_auc for the same configuration is a legitimate overwrite, and resuming an interrupted
+    # sweep re-runs cells, so identical-config writes must stay idempotent.
+    if os.path.exists(path):
+        try:
+            with open(path) as fh:
+                prior = json.load(fh).get("meta", {})
+        except (ValueError, OSError):
+            prior = None            # unreadable/partial cell: overwriting it loses nothing
+        if prior is not None:
+            differing = sorted(k for k in (set(prior) | set(m)) - _MEASURED_META
+                               if prior.get(k) != m.get(k))
+            if differing:
+                raise ValueError(
+                    f"refusing to write {name}: it would overwrite a DIFFERENT cell. These runs "
+                    f"differ in {differing} but share one filename, so an axis that varies in this "
+                    f"sweep is missing from the filename template in _emit_run. Add it there "
+                    f"(prior={ {k: prior.get(k) for k in differing} }, "
+                    f"incoming={ {k: m.get(k) for k in differing} }).")
     with open(path, "w") as fh:
         json.dump(run, fh, indent=2)
     return path
