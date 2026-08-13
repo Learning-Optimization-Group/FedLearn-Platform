@@ -46,10 +46,20 @@ class TestRecipesDeclareArms:
             for arm in meta["supported_arms"]:
                 assert arm in recipes.TRAINING_ARMS, f"{meta['key']}: unknown arm {arm!r}"
 
-    def test_full_is_always_supported(self):
-        """Every recipe can be trained end-to-end; FROZEN_HEAD is the optional one."""
+    def test_full_is_supported_unless_the_recipe_says_why_not(self):
+        """Written as "every recipe can be trained end-to-end", which CIFAR_RESNET18 disproved: its
+        BatchNorm buffers are int64 and the safetensors wire is float32-only, so a FULL run cannot
+        be serialised at all. The rule is now that FULL is supported unless the recipe states a
+        reason — an opt-out that has to be argued for in the catalog, not merely omitted."""
         for meta in recipes.RECIPE_METADATA:
-            assert "FULL" in meta["supported_arms"], f"{meta['key']} cannot run FULL"
+            if "FULL" in meta["supported_arms"]:
+                continue
+            assert meta.get("full_arm_unsupported_reason"), \
+                f"{meta['key']} cannot run FULL and does not say why"
+
+    def test_every_recipe_supports_at_least_one_arm(self):
+        for meta in recipes.RECIPE_METADATA:
+            assert meta["supported_arms"], f"{meta['key']} supports no arms at all"
 
     def test_a_frozen_capable_recipe_declares_its_trainable_prefixes(self):
         """FROZEN_HEAD is meaningless without saying WHICH module stays trainable."""
@@ -183,10 +193,16 @@ class TestArmValidation:
             for arm in meta["supported_arms"]:
                 assert recipes.validate_arm(meta["key"], arm) == arm
 
-    def test_the_default_arm_is_full(self):
-        """An omitted arm must mean FULL, so existing projects keep their behaviour."""
+    def test_an_omitted_arm_resolves_to_a_runnable_arm(self):
+        """An omitted arm means FULL wherever FULL exists, so existing projects are unchanged. For
+        a recipe that cannot run FULL it resolves to that recipe's only arm — raising instead would
+        turn a capability limit into a failure on every creation that omits the field."""
         for meta in recipes.RECIPE_METADATA:
-            assert recipes.validate_arm(meta["key"], None) == "FULL"
+            resolved = recipes.validate_arm(meta["key"], None)
+            assert resolved in meta["supported_arms"], \
+                f"{meta['key']}: omitted arm resolved to {resolved}, which it cannot run"
+            if "FULL" in meta["supported_arms"]:
+                assert resolved == "FULL", f"{meta['key']} no longer defaults to FULL"
 
     def test_resolving_prefixes_for_an_arm(self):
         """The runtime asks the recipe what to freeze; it does not hard-code a key comparison."""

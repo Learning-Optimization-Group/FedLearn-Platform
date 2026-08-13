@@ -136,8 +136,23 @@ def validate_arm(recipe_key, arm):
     meta = _METADATA_BY_KEY.get(recipe_key)
     if meta is None:
         raise ValueError(f"unknown recipe {recipe_key!r}")
-    resolved = DEFAULT_ARM if arm in (None, "") else str(arm)
     supported = meta.get("supported_arms", (DEFAULT_ARM,))
+    if arm in (None, ""):
+        # FULL when the recipe supports it, so every existing project is unchanged. A recipe that
+        # cannot run FULL (CIFAR_RESNET18: its BatchNorm buffers are int64 and the wire is
+        # float32-only) would otherwise fail EVERY creation that omits the arm, which is a
+        # capability limit turning into an outage. With exactly one supported arm the choice is
+        # unambiguous, so resolve to it rather than raising.
+        if DEFAULT_ARM in supported:
+            resolved = DEFAULT_ARM
+        elif len(supported) == 1:
+            resolved = supported[0]
+        else:
+            raise ValueError(
+                f"recipe {recipe_key!r} does not support {DEFAULT_ARM} and offers several arms "
+                f"{list(supported)}; the arm must be stated explicitly.")
+    else:
+        resolved = str(arm)
     if resolved not in supported:
         raise ValueError(
             f"recipe {recipe_key!r} does not support arm {resolved!r}; supported: {list(supported)}")
@@ -195,7 +210,18 @@ RECIPE_METADATA = [
     },
     {
         "key": "CIFAR_RESNET18",
-        "supported_arms": ["FULL", "FROZEN_HEAD"],
+        # FROZEN_HEAD only. Not a design preference — a measured platform limit: every BatchNorm
+        # module carries an int64 `num_batches_tracked`, and the safetensors wire accepts float32
+        # only (deliberately, so the libtorch-free mobile C++ client can decode it). A FULL run
+        # therefore fails on the FIRST GetGlobalModel with
+        # "Tensor 'bn1.num_batches_tracked' has dtype torch.int64". The frozen arm is unaffected
+        # because it federates just fc.weight/fc.bias, both float32.
+        "supported_arms": ["FROZEN_HEAD"],
+        "full_arm_unsupported_reason":
+            "Full fine-tuning would federate this model's BatchNorm buffers, including an int64 "
+            "num_batches_tracked per layer, which the float32-only safetensors wire rejects. "
+            "Supporting it needs a cross-language decision about integer tensors and whether BN "
+            "buffers should be averaged at all — not a recipe-level change.",
         # torchvision's ResNet head is `fc`; everything else is the ImageNet-pretrained backbone.
         "trainable_spec": {"FULL": None, "FROZEN_HEAD": ["fc."]},
         # Roadmap item (2): a recipe that STARTS from pretrained weights instead of from scratch.

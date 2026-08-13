@@ -48,9 +48,14 @@ class TestTheRecipeDeclaresItsPretrainedSource:
         entry = next(e for e in recipes.describe() if e["key"] == RECIPE)
         assert entry.get("pretrained"), "pretrained provenance is dropped by describe()"
 
-    def test_it_supports_both_arms(self):
+    def test_it_supports_the_frozen_arm_only_and_says_why(self):
+        """FULL was declared first and could not run: BatchNorm's int64 num_batches_tracked is
+        rejected by the float32-only safetensors wire, so a FULL run dies on the first
+        GetGlobalModel. Declaring an arm that always fails is the defect; stating the limit is the
+        fix. See tests/test_declared_arms_are_wire_compatible.py."""
         meta = recipes._METADATA_BY_KEY[RECIPE]
-        assert set(meta["supported_arms"]) == {"FULL", "FROZEN_HEAD"}
+        assert set(meta["supported_arms"]) == {"FROZEN_HEAD"}
+        assert meta.get("full_arm_unsupported_reason")
 
     def test_the_frozen_prefix_is_the_classifier_only(self):
         pre = recipes.trainable_prefixes(RECIPE, "FROZEN_HEAD")
