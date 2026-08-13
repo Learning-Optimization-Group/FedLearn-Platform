@@ -48,7 +48,15 @@ import sys
 # A recipe now declares `supported_arms` and, per arm, `trainable_spec[arm]`: the module-name
 # prefixes that stay trainable (None = everything). The runtime asks the recipe what to freeze
 # rather than comparing keys, which generalises the frozen path to every recipe.
-TRAINING_ARMS = ("FULL", "FROZEN_HEAD")
+# OVA_LP (2026-08-13) is the first arm that differs from another arm in its OBJECTIVE rather than
+# its parameter subset: it trains exactly what FROZEN_HEAD trains, under C independent binary
+# classifiers instead of one softmax. That widened an "arm" from "which parameters train" to
+# "which parameters train, under what objective" — see arm_objective below.
+TRAINING_ARMS = ("FULL", "FROZEN_HEAD", "OVA_LP")
+
+# Per-arm training objective. Everything defaults to softmax cross-entropy, so no pre-existing run
+# changes behaviour; only OVA_LP opts out.
+ARM_OBJECTIVES = {"FULL": "cross_entropy", "FROZEN_HEAD": "cross_entropy", "OVA_LP": "one_vs_all"}
 DEFAULT_ARM = "FULL"        # an omitted arm means FULL, so existing projects are unchanged
 
 
@@ -128,6 +136,53 @@ def freeze_untrained_modules(model, trainable_prefixes):
     return model
 
 
+def arm_objective(recipe_key, arm):
+    """The training objective this (recipe, arm) uses. Raises on an arm the recipe cannot run."""
+    return ARM_OBJECTIVES[validate_arm(recipe_key, arm)]
+
+
+def build_criterion(objective):
+    """The loss for an arm's objective.
+
+    ``one_vs_all`` is C independent binary classifiers over the same logits: BCE-with-logits against
+    a one-hot target. The distinction from softmax is not cosmetic. Cross-entropy normalises across
+    classes, so raising one logit lowers every other class's contribution -- a client holding none
+    of class k still moves class k's weights through that coupling. Under one-vs-all each class is
+    its own binary problem, so a class absent from a client's shard is simply a negative example
+    like any other, which is the recorded argument for suppressing drift at its source under
+    extreme non-IID (arXiv:2511.05028).
+
+    Inference is unchanged: the head still emits per-class scores and argmax remains valid, so
+    accuracy stays comparable across arms.
+    """
+    import torch
+    import torch.nn as nn
+
+    if objective == "cross_entropy":
+        return nn.CrossEntropyLoss()
+    if objective == "one_vs_all":
+        # SUM over classes, MEAN over the batch -- not BCEWithLogitsLoss's default, which means
+        # over batch AND classes. Two reasons the default is wrong here:
+        #
+        #  1. Faithfulness. "C independent binary classifiers" means each classifier gets the
+        #     gradient it would get trained standalone. Averaging over classes scales every one by
+        #     1/C, which makes a class's update depend on how many other classes exist -- a weaker
+        #     form of exactly the coupling this objective removes.
+        #  2. Comparability. Softmax cross-entropy averages over the batch only. Under the default
+        #     the OvA arm would train at 1/C the effective learning rate, so a FROZEN_HEAD-vs-OVA_LP
+        #     contrast would be confounded by a 10x LR difference on CIFAR-10 rather than measuring
+        #     the objective.
+        bce = nn.BCEWithLogitsLoss(reduction="sum")
+
+        def _one_vs_all(logits, targets):
+            onehot = torch.zeros_like(logits)
+            onehot.scatter_(1, targets.view(-1, 1).long(), 1.0)
+            return bce(logits, onehot) / logits.shape[0]
+
+        return _one_vs_all
+    raise ValueError(f"unknown training objective {objective!r}")
+
+
 def validate_arm(recipe_key, arm):
     """Resolve + validate an arm for a recipe. ``None`` -> DEFAULT_ARM. Raises on unsupported.
 
@@ -176,6 +231,10 @@ def arm_stamp(recipe_key, arm):
     arm = validate_arm(recipe_key, arm)
     pre = trainable_prefixes(recipe_key, arm)
     return {"recipe": recipe_key, "arm": arm,
+            # The objective is provenance too: OVA_LP and FROZEN_HEAD train the SAME parameters,
+            # so without it their stamps would be identical and two different experiments would be
+            # indistinguishable -- 21699bc's hazard, one level subtler.
+            "objective": ARM_OBJECTIVES[arm],
             "trainable_prefixes": list(pre) if pre is not None else None}
 
 
@@ -216,9 +275,18 @@ RECIPE_METADATA = [
         # (framework federable_state) -- num_batches_tracked is a batch COUNTER, meaningless to
         # average, and each client keeps its own. running_mean/running_var are float32 and are
         # still federated, so this is a wire fix and not FedBN.
-        "supported_arms": ["FULL", "FROZEN_HEAD"],
+        "supported_arms": ["FULL", "FROZEN_HEAD", "OVA_LP"],
         # torchvision's ResNet head is `fc`; everything else is the ImageNet-pretrained backbone.
-        "trainable_spec": {"FULL": None, "FROZEN_HEAD": ["fc."]},
+        # OVA_LP trains the same parameters as FROZEN_HEAD -- it differs only in the objective, so
+        # the two are a controlled contrast.
+        "trainable_spec": {"FULL": None, "FROZEN_HEAD": ["fc."], "OVA_LP": ["fc."]},
+        "arm_notes": {
+            "OVA_LP": "Implements the frozen encoder + one-vs-all heads of arXiv:2511.05028. The "
+                      "paper's two-stage schedule is NOT implemented: this repo records that a "
+                      "schedule exists but not what it is, so inventing one would misattribute a "
+                      "design to the citation. Read results as OvA heads on a frozen encoder, not "
+                      "as a reproduction of the paper.",
+        },
         # Roadmap item (2): a recipe that STARTS from pretrained weights instead of from scratch.
         # Declared rather than implicit so a result can say which weights produced it — the frozen
         # arm's whole premise is that the backbone is worth keeping, and "which backbone" is then

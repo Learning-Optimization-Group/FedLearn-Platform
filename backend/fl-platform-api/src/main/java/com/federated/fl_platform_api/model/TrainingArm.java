@@ -22,5 +22,14 @@ package com.federated.fl_platform_api.model;
  * asserts every constant is accepted, so the split-brain fails loudly rather than at write time.
  */
 public enum TrainingArm {
+    /**
+     * OvA-LP (arXiv:2511.05028): the same frozen encoder as FROZEN_HEAD, trained under C
+     * independent one-vs-all binary classifiers instead of one softmax. It is a distinct ARM
+     * rather than a strategy because it changes what a client trains and therefore what a result
+     * means -- but note it federates the SAME parameters as FROZEN_HEAD, so only the objective
+     * distinguishes their provenance. The paper's two-stage schedule is not implemented; see
+     * fl-runtime/recipes.py arm_notes.
+     */
+    OVA_LP,
     FULL, FROZEN_HEAD
 }

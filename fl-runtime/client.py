@@ -398,7 +398,20 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
     else:
         optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
         print(f"  Optimizer: Adam")
-    criterion = torch.nn.CrossEntropyLoss()
+    # The loss follows the ARM's objective, not a hardcoded default: OVA_LP trains the same
+    # parameters as FROZEN_HEAD and differs only here, in C independent binary classifiers instead
+    # of one softmax. Defaults to cross-entropy when no recipe is set (tests, legacy callers), so
+    # every pre-existing path is byte-identical.
+    import recipes as _rc
+    _objective = "cross_entropy"
+    if MODEL_TYPE:
+        try:
+            _objective = _rc.arm_objective(MODEL_TYPE, TRAINING_ARM)
+        except (ValueError, KeyError):
+            pass
+    criterion = _rc.build_criterion(_objective)
+    if _objective != "cross_entropy":
+        print(f"  Objective: {_objective} (arm {TRAINING_ARM})")
     net.train()
     if USE_DERIVED:
         # net.train() just re-enabled EVERY module, including the frozen backbone's BatchNorm --
@@ -1069,7 +1082,11 @@ def main():
         if requested is None and mt == "FROZEN_DEMO":
             requested = "FROZEN_HEAD"      # preserve the pre-P1 behaviour of this demo recipe
         TRAINING_ARM = _r.validate_arm(mt, requested)
-        USE_DERIVED = (TRAINING_ARM == "FROZEN_HEAD")
+        # Derived from whether the arm federates a SUBSET, not from an arm-name comparison. The
+        # name test silently excluded OVA_LP, which is also a subset arm -- and comparing arm names
+        # is the pattern behind three defects today (the dataset chosen from the arm, the arm
+        # applied in one build branch, the payload built two ways).
+        USE_DERIVED = _r.trainable_prefixes(mt, TRAINING_ARM) is not None
     elif args.use_llm:
         USE_LLM = True
         USE_MLP = False

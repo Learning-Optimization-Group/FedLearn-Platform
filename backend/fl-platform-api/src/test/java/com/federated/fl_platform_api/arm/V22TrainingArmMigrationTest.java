@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @SpringBootTest
 @ActiveProfiles("dev")
 @TestPropertySource(properties = {
-        "spring.datasource.url=jdbc:tc:postgresql:16.6-alpine:///fedlearn_v22_arm",
+        "spring.datasource.url=jdbc:tc:postgresql:16.6-alpine:///fedlearn_v23_arm",
         "spring.datasource.driver-class-name=org.testcontainers.jdbc.ContainerDatabaseDriver",
         "spring.jpa.hibernate.ddl-auto=validate",
         "spring.flyway.enabled=true",
@@ -92,6 +92,15 @@ class V22TrainingArmMigrationTest {
         UUID id = insertProject("arm-frozen-" + UUID.randomUUID(), "FROZEN_HEAD");
         assertThat(jdbc.queryForObject("SELECT training_arm FROM projects WHERE id = ?",
                 String.class, id)).isEqualTo("FROZEN_HEAD");
+    }
+
+    @Test
+    void theOvaLpArmRoundTrips() {
+        // V23 widened the CHECK for OvA-LP (arXiv:2511.05028). Kept explicit alongside the
+        // enum-driven test below so a reader sees which arms exist without running the loop.
+        UUID id = insertProject("arm-ova-" + UUID.randomUUID(), "OVA_LP");
+        assertThat(jdbc.queryForObject("SELECT training_arm FROM projects WHERE id = ?",
+                String.class, id)).isEqualTo("OVA_LP");
     }
 
     @Test

@@ -41,8 +41,8 @@ public class StartProject {
      * the recipe catalog's business, not the DTO's.
      */
     @Pattern(
-            regexp = "FULL|FROZEN_HEAD",
-            message = "trainingArm must be one of: FULL, FROZEN_HEAD"
+            regexp = "FULL|FROZEN_HEAD|OVA_LP",
+            message = "trainingArm must be one of: FULL, FROZEN_HEAD, OVA_LP"
     )
     private String trainingArm;
 

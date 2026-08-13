@@ -57,7 +57,9 @@ class TestTheRecipeDeclaresItsPretrainedSource:
         meaningless to average, so nothing of value is withheld. This assertion has now been
         inverted twice, and each state was correct when written."""
         meta = recipes._METADATA_BY_KEY[RECIPE]
-        assert set(meta["supported_arms"]) == {"FULL", "FROZEN_HEAD"}
+        # OVA_LP joined on 2026-08-13: same frozen encoder, one-vs-all objective. Asserted as a
+        # superset check on the two arms this test is about, so a fourth arm does not break it.
+        assert {"FULL", "FROZEN_HEAD"}.issubset(set(meta["supported_arms"]))
         assert not meta.get("full_arm_unsupported_reason")
 
     def test_the_frozen_prefix_is_the_classifier_only(self):
