@@ -16,7 +16,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import recipes  # noqa: E402
 
 # The advertised catalog must NOT change — FROZEN_DEMO is dispatchable but not selectable (SE-10).
-CATALOG_KEYS = ["PNEUMONIA_CNN", "CNN", "MLP", "TRANSFORMER", "LLM_LORA", "TINYNET_GOLDEN"]
+# CIFAR_RESNET18 (2026-08-13): the pretrained-backbone recipe. Advertised, unlike FROZEN_DEMO,
+# because it is the first recipe on which the frozen arm is actually useful.
+CATALOG_KEYS = ["PNEUMONIA_CNN", "CNN", "CIFAR_RESNET18", "MLP", "TRANSFORMER", "LLM_LORA",
+                "TINYNET_GOLDEN"]
 
 
 def test_frozen_demo_is_dispatchable_but_not_catalogued():

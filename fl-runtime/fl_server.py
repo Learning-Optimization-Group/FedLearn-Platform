@@ -723,6 +723,12 @@ def main():
         test_loader = recipes.get_recipe("MLP").load_server_test_data(
             num_clients=config.num_clients, dataset_path=dataset_path)
         logging.info("Loaded ECG server test data via recipes.MLP")
+    elif args.model_type == 'CIFAR_RESNET18':
+        # Same CIFAR-10 test split as the CNN recipe, but under the ImageNet transform the frozen
+        # backbone expects. Evaluating pretrained features through CIFAR's [-1,1] normalisation
+        # would silently degrade every feature and understate the arm.
+        test_loader = recipes.get_recipe('CIFAR_RESNET18').load_server_test_data()
+        logging.info("Loaded CIFAR-10 server test data via recipes.CIFAR_RESNET18 (ImageNet transform)")
     else:
         # Load CIFAR-10 or LLM test data
         test_loader = load_server_test_data(is_llm, args.dataset if is_llm else None)

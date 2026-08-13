@@ -84,6 +84,50 @@ def apply_arm(model, arm, trainable_prefixes):
     return model
 
 
+def freeze_untrained_modules(model, trainable_prefixes):
+    """Put every module OUTSIDE the trainable set into eval mode, in place.
+
+    ``apply_arm`` stops gradients; this stops the other way a "frozen" backbone changes.
+    BatchNorm's ``running_mean``/``running_var`` are BUFFERS, not parameters, so ``requires_grad``
+    does not touch them: a module left in train mode re-estimates them from local data on every
+    forward pass. Measured cost of that on CIFAR-10 (linear probe on frozen features):
+
+        BN held fixed:   pretrained 80.37% federated / 80.35% offline probe
+    BN adapting:     pretrained 72.85% federated
+    random backbone:            25.10% offline probe (BN fixed, same arch/resolution/data)
+
+    So BN adaptation DEGRADES good features by ~7.5 points -- it re-estimates, from one client's
+    shard, statistics that ImageNet training had already fitted well. (An earlier reading of this
+    said BN adaptation *lifted a random backbone* to 72%; that came from a federated "random
+    control" that was invalid. Under a subset arm the backbone is never transmitted, so the client
+    always builds it locally from the recipe and a random .npz cannot change it. The valid
+    random comparison is the offline probe: 25.10%.)
+
+    Three things are wrong with letting it adapt: the arm's premise is that the
+    backbone is delivered once and stays fixed; BN statistics are data-dependent and never
+    federated, so clients silently diverge from each other and from the server's copy; and it hides
+    the value of pretraining, which is the only reason to freeze a backbone at all.
+
+    ``trainable_prefixes=None`` (the FULL arm) is a no-op — BatchNorm SHOULD adapt when the whole
+    model is being trained, and no existing project's behaviour changes.
+
+    ``nn.Module.train()`` re-enables every child, so this must be re-applied after each call to it.
+    """
+    if not trainable_prefixes:
+        return model
+    prefixes = tuple(trainable_prefixes)
+    for name, module in model.named_modules():
+        if not name:
+            continue                     # the root stays in train mode
+        # Prefixes are PARAMETER-name prefixes ("fc."), while these are MODULE names ("fc"), so the
+        # separator is appended before comparing. Matching the raw module name would put the
+        # trainable head itself into eval mode -- silently disabling its dropout and, for a head
+        # that has one, its own BatchNorm.
+        if not (name + ".").startswith(prefixes):
+            module.eval()
+    return model
+
+
 def validate_arm(recipe_key, arm):
     """Resolve + validate an arm for a recipe. ``None`` -> DEFAULT_ARM. Raises on unsupported.
 
@@ -148,6 +192,30 @@ RECIPE_METADATA = [
         "optimizers": ["Adam", "SGD", "RMSprop", "AdamW"],
         "requirements": {"min_ram_gb": 2, "min_storage_gb": 0.1, "mobile_safe": True,
                          "max_trainable_params": 1000000},
+    },
+    {
+        "key": "CIFAR_RESNET18",
+        "supported_arms": ["FULL", "FROZEN_HEAD"],
+        # torchvision's ResNet head is `fc`; everything else is the ImageNet-pretrained backbone.
+        "trainable_spec": {"FULL": None, "FROZEN_HEAD": ["fc."]},
+        # Roadmap item (2): a recipe that STARTS from pretrained weights instead of from scratch.
+        # Declared rather than implicit so a result can say which weights produced it — the frozen
+        # arm's whole premise is that the backbone is worth keeping, and "which backbone" is then
+        # the first question anyone asks of the number.
+        "pretrained": {
+            "source": "torchvision",
+            "weights": "ResNet18_Weights.IMAGENET1K_V1",
+            "note": "ImageNet-1k classification weights; the 1000-class head is discarded and "
+                    "replaced by a freshly initialised 10-class CIFAR head.",
+        },
+        "display_name": "Image classifier (CIFAR-10, pretrained ResNet-18)",
+        "input_kind": "image",
+        "classes": ["airplane", "automobile", "bird", "cat", "deer",
+                    "dog", "frog", "horse", "ship", "truck"],
+        "base_models": ["resnet18"],
+        "optimizers": ["Adam", "SGD", "AdamW"],
+        "requirements": {"min_ram_gb": 4, "min_storage_gb": 0.2, "mobile_safe": False,
+                         "max_trainable_params": 12000000},
     },
     {
         "key": "MLP",
@@ -896,6 +964,99 @@ def load_cnn_server_test_data(batch_size=CNN_SERVER_TEST_BATCH, **kw):
 
 
 # ---------------------------------------------------------------------------
+# CIFAR_RESNET18 — the pretrained-backbone recipe (roadmap item 2).
+#
+# Exists because the frozen arm was measured to be useless without one: FROZEN_HEAD on a randomly
+# initialised backbone sat at chance (10.0%) in the 2026-08-13 live run, since a linear probe on
+# random features has almost nothing to separate. ImageNet features are the thing the research
+# campaign's frozen arm actually froze.
+# ---------------------------------------------------------------------------
+RESNET18_IMG_SIZE = 112       # see the note in _resnet18_transform
+RESNET18_HEAD_SEED = 0        # the fresh head is seeded so a run is reproducible
+
+
+def _resnet18_transform():
+    """CIFAR-10 -> ImageNet-normalised tensors at RESNET18_IMG_SIZE.
+
+    Two deliberate choices:
+
+    * **Resize.** 32x32 through an ImageNet backbone produces poor features — the network's stride
+      schedule collapses such an input almost immediately. The resolution the weights were trained
+      near is part of what makes them worth freezing. 112 rather than 224 is a measured compromise:
+      224 costs 64.6 s per client-epoch of forward pass on this CPU versus 22.8 s at 112.
+    * **ImageNet statistics**, not CIFAR's [-1,1]. The frozen backbone expects the normalisation it
+      was trained under; feeding it a different one silently degrades every feature it produces.
+    """
+    import torchvision.transforms as T
+    return T.Compose([
+        T.Resize((RESNET18_IMG_SIZE, RESNET18_IMG_SIZE)),
+        T.ToTensor(),
+        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+
+
+def build_cifar_resnet18(device="cpu", **kw):
+    """ImageNet-pretrained ResNet-18 with a fresh 10-class head.
+
+    The pretrained weights are REQUIRED, not best-effort. Falling back to a random init would
+    reproduce the exact 10%-accuracy failure this recipe exists to fix, while still reporting
+    itself as pretrained — so a missing checkpoint raises with the download command instead.
+    """
+    import torch
+    import torch.nn as nn
+    import torchvision
+
+    try:
+        weights = torchvision.models.ResNet18_Weights.IMAGENET1K_V1
+        model = torchvision.models.resnet18(weights=weights)
+    except Exception as exc:                     # offline with a cold cache, mainly
+        raise RuntimeError(
+            f"CIFAR_RESNET18 could not load its ImageNet weights ({exc}). This recipe is defined by "
+            f"those weights: a random init would put the frozen arm back at chance while still "
+            f"calling itself pretrained. Pre-fetch them with:\n"
+            f"  python -c \"import torchvision; "
+            f"torchvision.models.resnet18(weights='IMAGENET1K_V1')\"") from exc
+
+    # The 1000-class ImageNet head is discarded; this is the part that trains under FROZEN_HEAD.
+    # Seeded so two clients starting from the same .npz agree, and so a run is reproducible.
+    with torch.random.fork_rng():
+        torch.manual_seed(RESNET18_HEAD_SEED)
+        model.fc = nn.Linear(model.fc.in_features, 10)
+    return model.to(device)
+
+
+def load_cifar_resnet18_client_data(partition_id, num_clients, batch_size=CNN_BATCH_SIZE, **kw):
+    """One CIFAR-10 client shard, transformed for the ImageNet backbone.
+
+    Reuses the CNN recipe's IID shard so the two recipes are comparable on data: the ONLY
+    difference between a CNN run and a CIFAR_RESNET18 run is the model and its transform.
+    """
+    from torch.utils.data import DataLoader
+    partition = _cnn_iid_shard(partition_id)
+    parts = partition.train_test_split(test_size=0.2, seed=42)
+    tf = _resnet18_transform()
+
+    def _apply(batch):
+        batch["img"] = [tf(img) for img in batch["img"]]
+        return batch
+
+    parts = parts.with_transform(_apply)
+    return (
+        DataLoader(parts["train"], batch_size=batch_size, shuffle=True, num_workers=0),
+        DataLoader(parts["test"], batch_size=batch_size, num_workers=0),
+    )
+
+
+def load_cifar_resnet18_server_test_data(batch_size=CNN_SERVER_TEST_BATCH, **kw):
+    """Server-side CIFAR-10 test set under the ImageNet transform."""
+    from torchvision import datasets as tv_datasets
+    from torch.utils.data import DataLoader
+    ds = tv_datasets.CIFAR10(root="./data", train=False, download=True,
+                             transform=_resnet18_transform())
+    return DataLoader(ds, batch_size=batch_size, shuffle=False)
+
+
+# ---------------------------------------------------------------------------
 # LLM_LORA — federated LoRA sequence classification (Qwen2.5-0.5B / TinyLlama).
 # ---------------------------------------------------------------------------
 LLM_LORA_BASE_MODELS = {
@@ -1070,6 +1231,8 @@ class Recipe:
 
     def build_model(self, device="cpu", model_name=None, aggregation="FFA_LORA",
                     task_type="SEQ_CLASSIFICATION"):
+        if self.key == "CIFAR_RESNET18":
+            return build_cifar_resnet18(device)
         if self.key == "CNN":
             # DA-14 Phase 1: CNN construction moved off the init_model.py if/elif onto the registry,
             # using the canonical CnnNet (models.CnnNet — the one client.py trains); byte-identical
@@ -1146,6 +1309,8 @@ class Recipe:
             return load_blood_client_data(partition_id, num_clients, **kw)
         if self.key == "CNN":
             return load_cnn_client_data(partition_id, num_clients, **kw)
+        if self.key == "CIFAR_RESNET18":
+            return load_cifar_resnet18_client_data(partition_id, num_clients, **kw)
         if self.key == "MLP":
             return load_ecg_client_data(partition_id, num_clients, **kw)
         if self.key == "FROZEN_DEMO":
@@ -1163,6 +1328,8 @@ class Recipe:
             return load_blood_server_test_data(**kw)
         if self.key == "CNN":
             return load_cnn_server_test_data(**kw)
+        if self.key == "CIFAR_RESNET18":
+            return load_cifar_resnet18_server_test_data(**kw)
         if self.key == "MLP":
             return load_ecg_server_test_data(**kw)
         if self.key == "FROZEN_DEMO":

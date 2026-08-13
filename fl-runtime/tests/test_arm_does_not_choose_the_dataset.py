@@ -58,10 +58,23 @@ def test_batch_handling_does_not_branch_on_the_arm():
     `features, labels = batch`, and a CIFAR batch is a dict, so that unpacked its KEYS.
     Batch shape is a property of the dataset, which follows the recipe.
     """
-    offenders = _guards_mentioning(_fn("train"), "USE_DERIVED")
+    # Narrowed deliberately. USE_DERIVED legitimately governs ARM concerns inside train() -- it is
+    # what re-pins the frozen backbone's BatchNorm after net.train(). What it must never govern is
+    # how a BATCH is unpacked, so only guards whose body touches `batch` are offenders.
+    offenders = []
+    for node in ast.walk(_fn("train")):
+        if not isinstance(node, ast.If):
+            continue
+        if not any(isinstance(s, ast.Name) and s.id == "USE_DERIVED"
+                   for s in ast.walk(node.test)):
+            continue
+        touches_batch = any(isinstance(s, ast.Name) and s.id == "batch"
+                            for stmt in node.body for s in ast.walk(stmt))
+        if touches_batch:
+            offenders.append(node.lineno)
     assert not offenders, (
         f"client.train() branches on USE_DERIVED at line(s) {offenders} to decide how to unpack a "
-        f"batch. That is a dataset property, not an arm property.")
+        f"batch. Batch shape is a dataset property, not an arm property.")
 
 
 def test_dataset_selection_does_not_branch_on_the_arm():

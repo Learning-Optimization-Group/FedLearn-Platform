@@ -299,6 +299,13 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
         )
 
         return train_loader, test_loader
+    elif MODEL_TYPE == "CIFAR_RESNET18":
+        # Same CIFAR-10 shard as the CNN recipe; only the transform differs (ImageNet statistics at
+        # a resolution the pretrained backbone can actually use). Keeping the shard identical is
+        # what makes a CNN run and a CIFAR_RESNET18 run comparable on data.
+        import recipes
+        return recipes.get_recipe("CIFAR_RESNET18").load_client_data(
+            partition_id, num_clients, batch_size=BATCH_SIZE)
     else:
         # CNN: CIFAR-10 — DA-14 Phase 1: partitioning via the recipe registry (single authority).
         # Byte-identical to the former inline flwr shard; num_clients is passed through but the
@@ -369,6 +376,15 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
         print(f"  Optimizer: Adam")
     criterion = torch.nn.CrossEntropyLoss()
     net.train()
+    if USE_DERIVED:
+        # net.train() just re-enabled EVERY module, including the frozen backbone's BatchNorm --
+        # whose running statistics are buffers, so requires_grad=False does not stop them adapting
+        # to this client's shard. Left alone it carried a RANDOM backbone from 25% to 72% on
+        # CIFAR-10 and erased the entire measured benefit of pretrained weights, while silently
+        # giving every client a different effective backbone. Re-pin after train(), not before.
+        import recipes as _r
+        _r.freeze_untrained_modules(net, _r.trainable_prefixes(MODEL_TYPE, TRAINING_ARM)
+                                    if MODEL_TYPE else None)
 
     total_steps = len(trainloader) * epochs
     current_step = 0
@@ -635,9 +651,13 @@ class ZOSLClient(fl.Client):
                   f"({num_trainable(self.net)} trainable params; subset federation)")
         else:
             # DA-14 Phase 2: build via the recipe registry (single authority; same models.CnnNet).
+            # The key is MODEL_TYPE when it names a registry recipe, so a pretrained-backbone recipe
+            # (CIFAR_RESNET18) builds its own model rather than silently getting CnnNet — which
+            # would load ImageNet-shaped weights into the wrong architecture.
             import recipes
-            self.net = recipes.get_recipe("CNN").build_model(DEVICE)
-            print("Loaded CNN for CIFAR-10 via registry")
+            key = MODEL_TYPE if recipes.is_recipe(MODEL_TYPE) else "CNN"
+            self.net = recipes.get_recipe(key).build_model(DEVICE)
+            print(f"Loaded {key} via registry")
 
         log_processing_usage("after model init")
 

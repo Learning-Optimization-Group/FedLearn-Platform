@@ -17,7 +17,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import recipes  # noqa: E402
 
 # The exactly-six advertised catalog keys, in order (the --describe golden).
-CATALOG_KEYS = ["PNEUMONIA_CNN", "CNN", "MLP", "TRANSFORMER", "LLM_LORA", "TINYNET_GOLDEN"]
+# CIFAR_RESNET18 (2026-08-13) is the first PRETRAINED-backbone recipe — roadmap item (2). It sits
+# next to CNN because it is the same CIFAR-10 task and shard, differing only in the model and the
+# transform, which is what makes a frozen-vs-random-backbone comparison clean.
+CATALOG_KEYS = ["PNEUMONIA_CNN", "CNN", "CIFAR_RESNET18", "MLP", "TRANSFORMER", "LLM_LORA",
+                "TINYNET_GOLDEN"]
 
 
 def test_get_recipe_blood_cnn_does_not_raise():
@@ -35,7 +39,7 @@ def test_blood_cnn_is_registered_but_not_advertised():
     assert "BLOOD_CNN" not in [r["key"] for r in recipes.describe()]
 
 
-def test_describe_catalog_golden_is_exactly_the_six_advertised_recipes():
+def test_describe_catalog_golden_is_exactly_the_advertised_recipes():
     """--describe golden: the advertised catalog is exactly these six keys, in this order."""
     assert [r["key"] for r in recipes.describe()] == CATALOG_KEYS
 
