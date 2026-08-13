@@ -226,6 +226,36 @@ def perplexity_from_loss(avg_loss):
     return math.exp(avg_loss) if avg_loss < 30 else float("inf")
 
 
+def merge_non_federated(final_parameters, full_initial_parameters):
+    """Restore the parameters a subset arm withheld from federation, for saving.
+
+    Under FROZEN_HEAD the global model IS the head, so writing it straight to ``--model-path``
+    replaced the only full copy of the model with a 2-key file: the artifact was unusable for
+    inference, and the frozen backbone it was trained against was destroyed in place. A live run on
+    2026-08-13 did exactly that.
+
+    P1-2 already stated this contract on the load side -- "the .npz deliberately keeps the FULL
+    model -- the frozen backbone has to stay recoverable" -- but nothing implemented it on the save
+    side. This is that half.
+
+    The backbone merged back is the one the run ACTUALLY used, not a fresh init: the head was
+    trained against those exact frozen weights, so any other pairing describes a model that never
+    existed. Key order follows the original state_dict, because ordering is load-bearing for the
+    safetensors wire and for the sha256 an artifact is addressed by.
+
+    Never raises: losing a trained head to protect a backbone would be worse than the bug.
+    """
+    if not full_initial_parameters:
+        return final_parameters
+    merged = OrderedDict()
+    for key, value in full_initial_parameters.items():
+        merged[key] = final_parameters.get(key, value)
+    for key, value in final_parameters.items():        # defensive: keys the original lacked
+        if key not in merged:
+            merged[key] = value
+    return merged
+
+
 def evaluation_load_is_strict(model_type, training_arm):
     """Should server-side evaluation load the global model with ``strict=True``?
 
@@ -581,6 +611,9 @@ def main():
     # stays the WRITE target either way, so the immutable content-addressed registry blob is never clobbered.
     init_path = args.init_model_path if args.init_model_path else args.model_path
     initial_parameters = OrderedDict()
+    # Bound before the try so the save-time merge can never hit an unbound local on an early-exit
+    # or exception path. merge_non_federated treats None as "nothing withheld" and is the identity.
+    full_initial_parameters = None
     try:
         if not os.path.exists(init_path):
             logging.error(f"Init model path not found: {init_path}")
@@ -611,6 +644,10 @@ def main():
         # Clients load the aggregated subset non-strict onto their local full model, which is what
         # keeps the frozen backbone local and off the wire.
         args.training_arm = recipes.validate_arm(args.model_type, args.training_arm)
+        # Keep the FULL set so the non-federated parameters can be merged back at save time.
+        # Without this the frozen backbone exists nowhere after the filter, and writing the global
+        # model to --model-path destroys the only copy (see merge_non_federated).
+        full_initial_parameters = OrderedDict(initial_parameters)
         _prefixes = recipes.trainable_prefixes(args.model_type, args.training_arm)
         if _prefixes is not None:
             _pre = tuple(_prefixes)
@@ -1046,9 +1083,20 @@ def main():
         logging.info("--- Saving final global model to .npz format... ---")
         save_path = args.model_path
 
+        # Restore whatever the arm withheld from federation, so what lands on disk is a COMPLETE
+        # model -- the aggregated head over the frozen backbone the run actually trained against.
+        # A subset arm's global model is the head alone; saving that directly overwrote the only
+        # full copy with a 2-key file and destroyed the backbone. Identity for the FULL arm.
+        model_to_save = merge_non_federated(final_parameters, full_initial_parameters)
+        if len(model_to_save) != len(final_parameters):
+            logging.info(
+                f"Arm {getattr(args, 'training_arm', 'FULL')}: merged "
+                f"{len(model_to_save) - len(final_parameters)} non-federated parameter(s) back for "
+                f"saving; the .npz keeps the complete model ({len(model_to_save)} keys).")
+
         params_to_save = {
             key.replace('.', '__DOT__'): tensor.cpu().numpy()
-            for key, tensor in final_parameters.items()
+            for key, tensor in model_to_save.items()
         }
 
         try:
