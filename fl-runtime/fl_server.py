@@ -226,6 +226,30 @@ def perplexity_from_loss(avg_loss):
     return math.exp(avg_loss) if avg_loss < 30 else float("inf")
 
 
+def evaluation_load_is_strict(model_type, training_arm):
+    """Should server-side evaluation load the global model with ``strict=True``?
+
+    No whenever the run federates a SUBSET of the model: the global state_dict then legitimately
+    lacks the non-federated keys, and a strict load raises on them. Derived from the arm rather
+    than from a list of recipe names, so a recipe that gains FROZEN_HEAD support later is covered
+    without another special case.
+
+    This was previously ``model_type.upper() != 'TINYNET_GOLDEN'`` — correct while that was the
+    only subset-federating recipe, and wrong the moment any recipe could run FROZEN_HEAD. It let a
+    completed frozen round fail evaluation with "Missing key(s) in state_dict: conv1.weight, ...".
+
+    Strictness is kept for the FULL arm on purpose: there it is a real guard against a malformed
+    payload, and relaxing it globally to accommodate the frozen arm would discard that.
+    """
+    if str(model_type).upper() == "TINYNET_GOLDEN":
+        # Syncs only its 25 trainable fc1 params; the frozen fc2 exists only in the fresh net.
+        return False
+    try:
+        return recipes.trainable_prefixes(model_type, training_arm) is None
+    except ValueError:
+        return True        # unknown recipe/arm: keep the stricter behaviour
+
+
 def select_strategy(args, initial_parameters, evaluate_fn):
     """Map ``--strategy`` to a constructed framework Strategy instance.
 
@@ -646,18 +670,19 @@ def main():
     is_llm_lora = args.model_type == 'LLM_LORA'
     is_causal = is_llm_lora and args.task_type.upper() == "CAUSAL_LM"
     if is_llm_lora:
-        import recipes
+        # NOTE: `recipes` and `json` are imported at MODULE scope. Re-importing either here
+        # would make the name local to all of main(), turning the arm filter's earlier
+        # use of `recipes` into an UnboundLocalError — which is exactly what stopped a
+        # FROZEN_HEAD server from ever starting. Guarded by tests/test_fl_server_arm_scope.py.
         test_loader = recipes.get_recipe('LLM_LORA').load_server_test_data(model_name=args.model_name, task_type=args.task_type)
         logging.info("Loaded LLM_LORA server test data via recipes.LLM_LORA")
     elif is_pneumonia:
-        import recipes
         test_loader = recipes.get_recipe('PNEUMONIA_CNN').load_server_test_data(batch_size=32)
         logging.info("Loaded chest X-ray test data via recipes.PNEUMONIA_CNN (NORMAL/PNEUMONIA)")
     elif is_mlp and args.dataset == "ecg":
         # DA-14 Phase 1: server ECG test set via the recipe registry (byte-identical). The recipe
         # sources batch/alpha/frac/test_size/seed from the ecg config; num_clients is passed through
         # (config.num_clients) so the split-cache key matches the legacy call site exactly.
-        import recipes
         test_loader = recipes.get_recipe("MLP").load_server_test_data(
             num_clients=config.num_clients, dataset_path=dataset_path)
         logging.info("Loaded ECG server test data via recipes.MLP")
@@ -721,10 +746,11 @@ def main():
             eval_net.to(DEVICE)
             eval_net.eval()
         else:
-            # TINYNET_GOLDEN (DeComFL demo) syncs ONLY the 25 trainable fc1 params; fc2 is frozen and
-            # lives only in the freshly-built net, so a strict load fails on the missing fc2 keys.
-            # Load non-strict for it (fc2 keeps the build-time init); every other type stays strict.
-            _strict = args.model_type.upper() != 'TINYNET_GOLDEN'
+            # Non-strict whenever the run federates a SUBSET (the frozen arm, or the golden demo):
+            # the global state_dict then legitimately lacks the non-federated keys, which keep their
+            # build-time init locally. See evaluation_load_is_strict for why this is derived from
+            # the arm rather than special-cased per recipe.
+            _strict = evaluation_load_is_strict(args.model_type, getattr(args, "training_arm", None))
             net.load_state_dict(parameters, strict=_strict)
             net.to(DEVICE)
             net.eval()
@@ -885,7 +911,6 @@ def main():
         print(f"  Accuracy: {accuracy:.2f}% ({correct}/{total})")
 
         # Emit JSON structure for frontend LogViewer.tsx telemetry over WebSocket
-        import json
         print(json.dumps({
             "level": "INFO",
             "serverRound": server_round,

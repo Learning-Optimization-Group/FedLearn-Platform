@@ -21,6 +21,11 @@ def test_derived_client_uploads_head_only(monkeypatch):
     monkeypatch.setattr(client, "USE_MLP", False, raising=False)
     monkeypatch.setattr(client, "USE_PNEUMONIA", False, raising=False)
     monkeypatch.setattr(client, "USE_DERIVED", True, raising=False)
+    # The recipe must be named explicitly. USE_DERIVED used to imply FROZEN_DEMO, and the client
+    # selected that recipe's synthetic vector shard from it — the conflation that handed a frozen
+    # CIFAR run a 256-dim vector batch. Data now follows the RECIPE, so a test exercising the
+    # FROZEN_DEMO path has to say so.
+    monkeypatch.setattr(client, "MODEL_TYPE", "FROZEN_DEMO", raising=False)
 
     net = recipes.get_recipe("FROZEN_DEMO").build_model("cpu")
     params = client.ZOSLClient.get_parameters(types.SimpleNamespace(net=net))
@@ -42,6 +47,11 @@ def test_derived_client_runs_fit_end_to_end_head_only(monkeypatch):
     monkeypatch.setattr(client, "USE_PNEUMONIA", False, raising=False)
     monkeypatch.setattr(client, "USE_LLM_LORA", False, raising=False)
     monkeypatch.setattr(client, "USE_DERIVED", True, raising=False)
+    # The recipe must be named explicitly. USE_DERIVED used to imply FROZEN_DEMO, and the client
+    # selected that recipe's synthetic vector shard from it — the conflation that handed a frozen
+    # CIFAR run a 256-dim vector batch. Data now follows the RECIPE, so a test exercising the
+    # FROZEN_DEMO path has to say so.
+    monkeypatch.setattr(client, "MODEL_TYPE", "FROZEN_DEMO", raising=False)
 
     c = client.ZOSLClient(partition_id=0, dataset_name="frozen_demo", num_clients=2)
     backbone_before = c.net.backbone.weight.detach().clone()

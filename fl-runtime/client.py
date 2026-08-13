@@ -186,8 +186,21 @@ def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, nu
             partition_id=partition_id, num_clients=num_clients, batch_size=BATCH_SIZE,
             model_name=LLM_LORA_MODEL_NAME, task_type=LLM_LORA_TASK_TYPE)
         return train, train   # reuse the shard as the (unused) eval loader, matching the CNN return shape
-    if USE_DERIVED:
-        # DA-14 Ph3.3c: self-contained synthetic vector shard for the frozen-backbone derived recipe.
+    if MODEL_TYPE == "FROZEN_DEMO":
+        # DA-14 Ph3.3c: self-contained synthetic vector shard for the FROZEN_DEMO recipe.
+        #
+        # Keyed on the RECIPE, not on USE_DERIVED. Those were the same thing before P1-1b, when
+        # USE_DERIVED meant "this is FROZEN_DEMO". P1-1b redefined it as "this arm federates a
+        # trainable subset", which is true of FROZEN_HEAD on ANY recipe — so branching on it here
+        # handed this synthetic 256-dim vector shard to whatever model the selected recipe had
+        # built, and a frozen CNN run died on `conv2d ... got input of size: [32, 256]`.
+        #
+        # The dataset is a property of the recipe; the arm only decides which parameters are
+        # trainable and federated. Freezing a backbone does not change what you train on.
+        #
+        # `recipes` is imported here and not relied on from an earlier branch: client.py has no
+        # module-scope recipes import, and the earlier branches' `import recipes` only binds the
+        # name if those branches actually run.
         import recipes
         return recipes.get_recipe("FROZEN_DEMO").load_client_data(
             partition_id=partition_id, num_clients=num_clients, batch_size=BATCH_SIZE)
@@ -423,9 +436,15 @@ def train(net, trainloader, epochs: int, dataset_name: str, progress_callback=No
                 labels = labels.to(DEVICE)
                 outputs = net(features)
                 loss = criterion(outputs, labels)
-            elif USE_DERIVED:
-                # DA-14 Ph3.3c: derived frozen-backbone recipe — (features, labels) vector tuple; the
-                # frozen backbone gets no grad, so this trains ONLY the head (mirrors the MLP path).
+            elif MODEL_TYPE == "FROZEN_DEMO":
+                # FROZEN_DEMO's synthetic shard is a (features, labels) VECTOR tuple.
+                #
+                # Keyed on the recipe, not USE_DERIVED, for the same reason load_data is: the batch
+                # SHAPE is a property of the dataset, and the dataset follows the recipe. Branching
+                # on the arm sent a CIFAR batch (a dict of {"img","label"}) down this tuple path,
+                # where `features, labels = batch` unpacked the dict KEYS and produced
+                # `'str' object has no attribute 'to'`. The frozen backbone still gets no grad —
+                # that is the arm's job, applied at model build, not here.
                 features, labels = batch
                 features = features.to(DEVICE)
                 labels = labels.to(DEVICE)
