@@ -55,8 +55,16 @@ public record ModelRecipeDto(
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record ArmTradeoff(
             @JsonProperty("headline") String headline,
-            @JsonProperty("commRatio") @JsonAlias("comm_ratio") Integer commRatio,
-            @JsonProperty("ondeviceRatio") @JsonAlias("ondevice_ratio") Integer ondeviceRatio,
+            /**
+             * Communication saving from freezing, as a ratio. {@code Double}, not {@code Integer}:
+             * these were all large whole numbers (3,321x) until PNEUMONIA_CNN was measured on the
+             * product path at <b>1.004x</b> — that recipe's classifier is 99.6% of its parameters,
+             * so freezing saves almost nothing. Jackson coerces a JSON float into an Integer by
+             * TRUNCATING, which would have rounded an honest 1.004 to 1 on its way to the picker.
+             * {@code null} means not measured, and must never become 0.
+             */
+            @JsonProperty("commRatio") @JsonAlias("comm_ratio") Double commRatio,
+            @JsonProperty("ondeviceRatio") @JsonAlias("ondevice_ratio") Double ondeviceRatio,
             @JsonProperty("measuredOn") @JsonAlias("measured_on") java.util.Map<String, String> measuredOn,
             @JsonProperty("arms") java.util.Map<String, java.util.Map<String, Object>> arms,
             @JsonProperty("caveats") List<String> caveats

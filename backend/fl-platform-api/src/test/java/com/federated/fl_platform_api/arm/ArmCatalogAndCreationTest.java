@@ -138,6 +138,44 @@ class ArmCatalogAndCreationTest {
                 .isEqualTo(TrainingArm.FULL);
     }
 
+    @Test
+    void aFractionalCommRatioIsNotTruncated() throws Exception {
+        // The ratio was Integer while every measurement happened to be a large whole number
+        // (3,321x). Measuring PNEUMONIA_CNN on the product path produced 1.004x — freezing that
+        // recipe saves almost nothing, because its classifier is 99.6% of the model. Jackson
+        // coerces a JSON float into an Integer by TRUNCATING, so the honest 1.004 would reach the
+        // picker as 1, silently rounding a measured value toward a rounder-looking claim.
+        String json = """
+                {"key":"PNEUMONIA_CNN","supported_arms":["FULL","FROZEN_HEAD"],
+                 "arm_tradeoff":{"headline":"h","comm_ratio":1.004,"caveats":["c"]}}
+                """;
+        ModelRecipeDto dto = MAPPER.readValue(json, ModelRecipeDto.class);
+        assertThat(dto.armTradeoff().commRatio())
+                .as("a fractional communication ratio must survive the wire intact")
+                .isEqualTo(1.004);
+    }
+
+    @Test
+    void aLargeWholeRatioStillParses() throws Exception {
+        String json = """
+                {"key":"PNEUMONIA_CNN","arm_tradeoff":{"headline":"h","comm_ratio":3321}}
+                """;
+        ModelRecipeDto dto = MAPPER.readValue(json, ModelRecipeDto.class);
+        assertThat(dto.armTradeoff().commRatio()).isEqualTo(3321.0);
+    }
+
+    @Test
+    void anUnmeasuredRatioStaysNull() throws Exception {
+        // null means NOT MEASURED. It must not become 0, which would read as "no saving measured"
+        // rather than "no measurement taken".
+        String json = """
+                {"key":"CNN","arm_tradeoff":{"headline":"h","comm_ratio":null,"ondevice_ratio":null}}
+                """;
+        ModelRecipeDto dto = MAPPER.readValue(json, ModelRecipeDto.class);
+        assertThat(dto.armTradeoff().commRatio()).isNull();
+        assertThat(dto.armTradeoff().ondeviceRatio()).isNull();
+    }
+
     // ------------------------------------------------- the arm reaches the client (P1-5)
 
     @Test
