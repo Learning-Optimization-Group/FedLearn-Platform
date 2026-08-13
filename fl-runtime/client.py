@@ -41,7 +41,14 @@ USE_LLM = True
 USE_MLP = False  # NEW: Flag for MLP/ECG
 USE_PNEUMONIA = False  # Flag for PneumoniaCNN (chest X-ray) recipe
 USE_LLM_LORA = False          # federated LoRA SEQ_CLS recipe
-USE_DERIVED = False           # DA-14 Ph3.3b: frozen-backbone derived recipe (head-only FedAvg subset)
+# P1: TRAINING_ARM is the declared arm for this run ("FULL" or "FROZEN_HEAD"), resolved from the
+# recipe's supported_arms. USE_DERIVED is now DERIVED FROM IT rather than from a recipe-key
+# comparison — it means "this arm federates only a trainable subset", which is what all seven of
+# its use sites actually ask. Before P1 it was `USE_DERIVED = (mt == "FROZEN_DEMO")`, which gave
+# every recipe exactly one hard-coded arm and left results unable to say which arm produced them.
+TRAINING_ARM = "FULL"
+MODEL_TYPE = None             # the selected recipe key, for arm resolution
+USE_DERIVED = False           # arm federates a trainable SUBSET (head-only / adapter-only)
 LLM_LORA_AGGREGATION = "FFA_LORA"
 LLM_LORA_MODEL_NAME = "qwen2.5-0.5b"
 LLM_LORA_TASK_TYPE = "SEQ_CLASSIFICATION"
@@ -592,10 +599,21 @@ class ZOSLClient(fl.Client):
             self._adapter_keys = recipe.adapter_keys(self.net, LLM_LORA_AGGREGATION)
             print(f"Loaded LLM_LORA adapter (agg={LLM_LORA_AGGREGATION}, {len(self._adapter_keys)} keys)")
         elif USE_DERIVED:
-            # DA-14 Ph3.3c: frozen-backbone derived recipe — head-only FedAvg federation.
+            # P1: build the SELECTED recipe and apply the selected arm, rather than hard-coding
+            # FROZEN_DEMO. This is what generalises the frozen path from one demo recipe to every
+            # recipe that declares FROZEN_HEAD support.
             import recipes
-            self.net = recipes.get_recipe("FROZEN_DEMO").build_model(DEVICE)
-            print("Loaded FROZEN_DEMO (frozen backbone + trainable head; head-only federation)")
+            key = MODEL_TYPE or "FROZEN_DEMO"
+            self.net = recipes.get_recipe(key).build_model(DEVICE)
+            # Inside this branch USE_DERIVED is true by definition, so the arm IS a subset arm.
+            # Deriving it here rather than trusting the module global keeps the two consistent by
+            # construction: a caller that sets only USE_DERIVED (tests do) cannot end up applying
+            # FULL and silently unfreezing the backbone it asked to freeze.
+            arm = TRAINING_ARM if TRAINING_ARM != "FULL" else "FROZEN_HEAD"
+            recipes.apply_arm(self.net, arm, recipes.trainable_prefixes(key, arm))
+            from fedlearn.estimators.params import num_trainable
+            print(f"Loaded {key} arm={arm} "
+                  f"({num_trainable(self.net)} trainable params; subset federation)")
         else:
             # DA-14 Phase 2: build via the recipe registry (single authority; same models.CnnNet).
             import recipes
@@ -903,7 +921,7 @@ def create_decomfl_compatible_loader(original_loader, is_llm=False):
 # --- Main Execution Block ---
 # ==============================================================================
 def main():
-    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, USE_DERIVED, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, LLM_LORA_TASK_TYPE, DATASET_NAME, BATCH_SIZE, DEVICE
+    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, USE_DERIVED, TRAINING_ARM, MODEL_TYPE, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, LLM_LORA_TASK_TYPE, DATASET_NAME, BATCH_SIZE, DEVICE
 
     print(f"\n{'='*60}")
     print(f"DEVICE DETECTION")
@@ -925,6 +943,10 @@ def main():
     parser.add_argument("--task-type", type=str, default="SEQ_CLASSIFICATION", choices=["SEQ_CLASSIFICATION", "CAUSAL_LM"], help="LLM_LORA task type (generative vs classification)")
     parser.add_argument("--dataset", type=str, default="cb", choices=["cb", "sst2", "ecg"], help="Dataset")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="FL strategy (FedAvg or DeComFL)")
+    parser.add_argument("--training-arm", type=str, default=None,
+                        help="Training arm: FULL (default) or FROZEN_HEAD. Must be one the "
+                             "recipe declares in supported_arms; rejected at startup otherwise. "
+                             "Omitted means FULL, so existing invocations are unchanged.")
     parser.add_argument("--use-llm", action="store_true", help="Use LLM (deprecated, use --model-type TRANSFORMER)")
     parser.add_argument("--device", default=os.environ.get("FEDLEARN_DEVICE", "auto"),
                         choices=["auto", "cpu", "cuda", "mps"],
@@ -942,7 +964,16 @@ def main():
         USE_MLP = (mt == "MLP")
         USE_PNEUMONIA = (mt == "PNEUMONIA_CNN")
         USE_LLM_LORA = (mt == "LLM_LORA")
-        USE_DERIVED = (mt == "FROZEN_DEMO")   # DA-14 Ph3.3b: frozen-backbone derived recipe (head-only FedAvg)
+        # P1: the arm is SELECTED, not inferred from the key. FROZEN_DEMO keeps its historical
+        # behaviour because its declared default resolves to FROZEN_HEAD when asked for; every
+        # other recipe defaults to FULL, so existing projects are unchanged.
+        import recipes as _r
+        MODEL_TYPE = mt
+        requested = getattr(args, "training_arm", None)
+        if requested is None and mt == "FROZEN_DEMO":
+            requested = "FROZEN_HEAD"      # preserve the pre-P1 behaviour of this demo recipe
+        TRAINING_ARM = _r.validate_arm(mt, requested)
+        USE_DERIVED = (TRAINING_ARM == "FROZEN_HEAD")
     elif args.use_llm:
         USE_LLM = True
         USE_MLP = False

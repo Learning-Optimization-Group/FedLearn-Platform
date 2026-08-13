@@ -34,9 +34,97 @@ import sys
 # ---------------------------------------------------------------------------
 # Catalog metadata — the ONLY thing --describe needs (no torch import).
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Training arm (P1) — frozen-head vs full fine-tune as a DECLARED property.
+#
+# Before this, the arm was inferred from the recipe KEY: client.py held a module-global
+# `USE_DERIVED = False` set by `USE_DERIVED = (mt == "FROZEN_DEMO")`. That gave every recipe
+# exactly one hard-coded arm, so PNEUMONIA_CNN could not be run frozen and full as two arms of
+# one comparison through the product path — which is the comparison research/results/
+# frozen-backbone/ (177 result files) is built on. It also meant a result could not say which
+# arm produced it, which is the bug class behind commit 21699bc ("frozen arm silently
+# mislabelled its backbone, risking cell overwrites").
+#
+# A recipe now declares `supported_arms` and, per arm, `trainable_spec[arm]`: the module-name
+# prefixes that stay trainable (None = everything). The runtime asks the recipe what to freeze
+# rather than comparing keys, which generalises the frozen path to every recipe.
+TRAINING_ARMS = ("FULL", "FROZEN_HEAD")
+DEFAULT_ARM = "FULL"        # an omitted arm means FULL, so existing projects are unchanged
+
+
+def apply_arm(model, arm, trainable_prefixes):
+    """Set ``requires_grad`` across ``model`` according to the arm, in place.
+
+    ``trainable_prefixes=None`` (the FULL arm) makes everything trainable. Otherwise only
+    parameters whose name starts with one of the prefixes stay trainable.
+
+    Always writes EVERY parameter's flag rather than only clearing some, so applying an arm is
+    idempotent and a process that ran a frozen arm cannot leak frozen state into a later FULL
+    run in the same interpreter.
+
+    Raises if the prefixes match nothing: a typo'd prefix would otherwise freeze the entire model
+    and train nothing, which looks like a converged-but-terrible run rather than an error.
+    """
+    if arm not in TRAINING_ARMS:
+        raise ValueError(f"unknown arm {arm!r}; expected one of {TRAINING_ARMS}")
+    if trainable_prefixes is None:
+        for _n, p in model.named_parameters():
+            p.requires_grad_(True)
+        return model
+    prefixes = tuple(trainable_prefixes)
+    hit = 0
+    for name, p in model.named_parameters():
+        on = name.startswith(prefixes)
+        p.requires_grad_(on)
+        hit += int(on)
+    if hit == 0:
+        raise ValueError(
+            f"arm {arm!r}: no parameter matches prefixes {list(prefixes)} — the whole model would "
+            f"be frozen and nothing would train")
+    return model
+
+
+def validate_arm(recipe_key, arm):
+    """Resolve + validate an arm for a recipe. ``None`` -> DEFAULT_ARM. Raises on unsupported.
+
+    Called at project creation so a bad arm fails there rather than at FL-server spawn.
+    """
+    meta = _METADATA_BY_KEY.get(recipe_key)
+    if meta is None:
+        raise ValueError(f"unknown recipe {recipe_key!r}")
+    resolved = DEFAULT_ARM if arm in (None, "") else str(arm)
+    supported = meta.get("supported_arms", (DEFAULT_ARM,))
+    if resolved not in supported:
+        raise ValueError(
+            f"recipe {recipe_key!r} does not support arm {resolved!r}; supported: {list(supported)}")
+    return resolved
+
+
+def trainable_prefixes(recipe_key, arm):
+    """The module-name prefixes that stay trainable for this (recipe, arm). None = all."""
+    arm = validate_arm(recipe_key, arm)
+    spec = _METADATA_BY_KEY[recipe_key].get("trainable_spec", {})
+    return spec.get(arm, None)
+
+
+def arm_stamp(recipe_key, arm):
+    """JSON-serializable provenance for a result's ``meta`` block.
+
+    Carries the PREFIXES as well as the arm name deliberately: two runs can share an arm name
+    while freezing different modules, and a stamp that recorded only the name would let those be
+    compared as if identical — the failure commit 21699bc describes.
+    """
+    arm = validate_arm(recipe_key, arm)
+    pre = trainable_prefixes(recipe_key, arm)
+    return {"recipe": recipe_key, "arm": arm,
+            "trainable_prefixes": list(pre) if pre is not None else None}
+
+
 RECIPE_METADATA = [
     {
         "key": "PNEUMONIA_CNN",
+        "supported_arms": ["FULL", "FROZEN_HEAD"],
+        "trainable_spec": {"FULL": None, "FROZEN_HEAD": ["classifier."]},
         "display_name": "Pneumonia Chest X-ray",
         "input_kind": "image",
         "classes": ["NORMAL", "PNEUMONIA"],
@@ -47,6 +135,8 @@ RECIPE_METADATA = [
     },
     {
         "key": "CNN",
+        "supported_arms": ["FULL", "FROZEN_HEAD"],
+        "trainable_spec": {"FULL": None, "FROZEN_HEAD": ["classifier."]},
         "display_name": "Image classifier (CIFAR-10)",
         "input_kind": "image",
         "classes": ["airplane", "automobile", "bird", "cat", "deer",
@@ -58,6 +148,8 @@ RECIPE_METADATA = [
     },
     {
         "key": "MLP",
+        "supported_arms": ["FULL"],
+        "trainable_spec": {"FULL": None},
         "display_name": "ECG heartbeat (Normal/Abnormal)",
         "input_kind": "vector",
         "classes": ["Normal", "Abnormal"],
@@ -68,6 +160,8 @@ RECIPE_METADATA = [
     },
     {
         "key": "TRANSFORMER",
+        "supported_arms": ["FULL"],
+        "trainable_spec": {"FULL": None},
         "display_name": "Text classifier (OPT-125M)",
         "input_kind": "text",
         "classes": ["entailment", "contradiction", "neutral"],
@@ -78,6 +172,8 @@ RECIPE_METADATA = [
     },
     {
         "key": "LLM_LORA",
+        "supported_arms": ["FULL"],
+        "trainable_spec": {"FULL": None},
         "display_name": "Text LLM (LoRA fine-tune)",
         "input_kind": "text",
         "task_type": "SEQ_CLASSIFICATION",
@@ -95,6 +191,12 @@ RECIPE_METADATA = [
         # 25 trainable). Exists so fl_server can build + eval the SAME model the mobile ExecuTorch
         # golden .pte encodes, enabling an on-device DeComFL round-trip end to end. See MO-15.
         "key": "TINYNET_GOLDEN",
+        # fc2 is frozen BY CONSTRUCTION in this recipe (25 trainable = fc1), so its frozen
+        # behaviour is baked into build_model rather than selectable. FULL-only keeps the golden
+        # .pte parity contract intact: an arm switch would change the trainable layout the
+        # on-device golden encodes.
+        "supported_arms": ["FULL"],
+        "trainable_spec": {"FULL": None},
         "display_name": "On-device DeComFL demo (TinyNet)",
         "input_kind": "vector",
         "classes": ["c0", "c1", "c2"],
@@ -512,6 +614,8 @@ def load_frozen_demo_server_test_data(batch_size=64, **kw):
 _NONCATALOG_METADATA = [
     {
         "key": "BLOOD_CNN",
+        "supported_arms": ["FULL", "FROZEN_HEAD"],
+        "trainable_spec": {"FULL": None, "FROZEN_HEAD": ["classifier."]},
         "display_name": "Blood cell classifier (BloodMNIST)",
         "input_kind": "image",
         "classes": BLOOD_CLASSES,
@@ -522,6 +626,8 @@ _NONCATALOG_METADATA = [
     },
     {
         "key": "FROZEN_DEMO",
+        "supported_arms": ["FULL", "FROZEN_HEAD"],
+        "trainable_spec": {"FULL": None, "FROZEN_HEAD": ["head."]},
         "display_name": "Frozen-backbone demo (head-only federation)",
         "input_kind": "vector",
         "classes": ["c0", "c1", "c2"],
