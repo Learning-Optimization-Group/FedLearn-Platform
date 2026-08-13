@@ -49,6 +49,13 @@ class TestEvaluationLoadStrictness:
     def test_an_omitted_arm_means_full(self):
         assert fl_server.evaluation_load_is_strict("CNN", None) is True
 
+    def test_wire_withheld_tensors_force_a_non_strict_load(self):
+        """Unblocking BatchNorm models for the FULL arm means the global model legitimately lacks
+        their int64 num_batches_tracked. A strict load would then fail on exactly the keys the wire
+        was told not to carry, so strictness has to know about the wire filter as well as the arm."""
+        assert fl_server.evaluation_load_is_strict("CNN", "FULL", withheld=0) is True
+        assert fl_server.evaluation_load_is_strict("CNN", "FULL", withheld=20) is False
+
     @pytest.mark.parametrize(
         "recipe_key", [m["key"] for m in recipes.RECIPE_METADATA
                        if len(m.get("supported_arms", ())) > 1])

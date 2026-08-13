@@ -63,17 +63,25 @@ def test_every_declared_arm_can_be_serialised(recipe_key):
 
 
 @pytest.mark.slow
-def test_the_resnet_recipe_does_not_claim_an_arm_it_cannot_run():
-    """Pins the specific consequence, so a future re-declaration of FULL fails loudly here with the
-    reason attached rather than at spawn time in a user's federation."""
+def test_the_resnet_recipe_can_now_run_full():
+    """CIFAR_RESNET18's FULL arm was blocked and is now unblocked.
+
+    This test previously asserted the OPPOSITE — that FULL must not be declared, because int64
+    num_batches_tracked made the payload unserialisable. Excluding non-float32 tensors from the
+    federated set removed that limit, so the assertion inverts rather than being deleted: the
+    recipe must offer FULL, and the withheld tensors must be exactly the int64 counters.
+    """
     meta = recipes._METADATA_BY_KEY["CIFAR_RESNET18"]
-    assert "FULL" not in meta["supported_arms"], (
-        "CIFAR_RESNET18 re-declares FULL. Its BatchNorm buffers include int64 "
-        "num_batches_tracked, which state_dict_to_safetensors rejects, so a FULL run fails on the "
-        "first GetGlobalModel. If the wire gains integer support, re-declare it here AND remove "
-        "this test.")
-    assert meta.get("full_arm_unsupported_reason"), \
-        "a recipe that cannot run FULL must say why, in the catalog the picker reads"
+    assert "FULL" in meta["supported_arms"]
+    assert not meta.get("full_arm_unsupported_reason"), \
+        "the recipe still carries a reason it cannot run FULL, but it can"
+
+    from fedlearn.estimators.params import non_federable_names
+    net = recipes.get_recipe("CIFAR_RESNET18").build_model("cpu")
+    withheld = non_federable_names(net.state_dict())
+    assert withheld, "expected the int64 BatchNorm counters to be withheld"
+    assert all(n.endswith("num_batches_tracked") for n in withheld), \
+        f"something other than a batch counter is being withheld: {withheld[:5]}"
 
 
 def test_recipes_that_support_full_still_do():

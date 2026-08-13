@@ -54,6 +54,42 @@ def _configure(monkeypatch, model_type, arm):
     monkeypatch.setattr(client, "USE_DERIVED", arm == "FROZEN_HEAD", raising=False)
 
 
+class TestThereIsOneUploadPath:
+    """What a client federates must be decided in ONE place.
+
+    `fit()` forked: subset arms returned `get_parameters()` and the FULL arm returned
+    `self.net.state_dict()` raw. That second path bypassed the wire filter, so a BatchNorm model's
+    int64 `num_batches_tracked` re-entered through the round-1 aggregate and the round-2 download
+    failed to serialise — after round 1 had reported success, which is the worst shape for a bug.
+
+    Third time this session that a second path around a rule caused a defect: the arm applied in
+    one build branch, the dataset chosen from the arm, and now the payload built two ways.
+    """
+
+    def test_fit_returns_the_payload_only_via_get_parameters(self):
+        import ast
+
+        src = ast.parse(open(os.path.join(HERE, "..", "client.py")).read())
+        fits = [n for n in ast.walk(src)
+                if isinstance(n, ast.FunctionDef) and n.name == "fit"]
+        assert fits, "client.fit() not found"
+
+        offenders = []
+        for fn in fits:
+            for node in ast.walk(fn):
+                if not isinstance(node, ast.Return) or not isinstance(node.value, ast.Tuple):
+                    continue
+                payload = node.value.elts[0] if node.value.elts else None
+                unparsed = ast.unparse(payload) if payload is not None else ""
+                if "get_parameters" not in unparsed:
+                    offenders.append(f"line {node.lineno}: returns {unparsed[:60]}")
+        assert not offenders, (
+            "client.fit() builds its upload payload somewhere other than get_parameters():\n  "
+            + "\n  ".join(offenders)
+            + "\nget_parameters() owns what this client federates for every arm; a second path "
+              "around it bypasses the wire filter.")
+
+
 class TestTheArmSurvivesTheBuildChain:
     @pytest.mark.slow
     def test_pneumonia_frozen_head_freezes_its_backbone(self, monkeypatch, restore_globals):

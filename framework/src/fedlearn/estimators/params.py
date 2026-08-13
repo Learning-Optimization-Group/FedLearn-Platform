@@ -80,3 +80,38 @@ def frozen_state(model: nn.Module) -> "OrderedDict[str, torch.Tensor]":
         if b is not None and b.is_floating_point():
             out[name] = b.detach().clone()
     return out
+
+
+def federable_state(state: "OrderedDict[str, torch.Tensor]") -> "OrderedDict[str, torch.Tensor]":
+    """The subset of ``state`` that can cross the safetensors wire: the float32 tensors.
+
+    The wire is float32-only by design — it must decode in the libtorch-free mobile C++ core, so
+    other dtypes raise rather than being silently coerced. Every BatchNorm module carries an int64
+    ``num_batches_tracked``, so a FULL-arm run on ANY BatchNorm model failed on the first
+    GetGlobalModel. That excluded ResNets, the most common architecture in the FL literature, from
+    the FULL arm entirely.
+
+    WHAT IS DROPPED: non-float32 tensors. In practice ``num_batches_tracked``, a batch COUNTER —
+    averaging it across clients is meaningless, so nothing of value is lost and each client keeps
+    its own.
+
+    WHAT IS NOT DROPPED: ``running_mean``/``running_var``. They are float32 and continue to be
+    averaged. Excluding those too would be FedBN — a different algorithm with different convergence
+    behaviour — rather than a fix for what the wire can carry.
+
+    Use this on BOTH sides. Client and server must federate an identical key set, and two
+    independent filters would drift; that divergence is how the frozen arm broke twice.
+
+    Identity for a float32-only model: same keys, same order, same tensor objects, so no existing
+    recipe changes behaviour.
+    """
+    return OrderedDict((k, v) for k, v in state.items() if v.dtype == torch.float32)
+
+
+def non_federable_names(state: "OrderedDict[str, torch.Tensor]") -> "List[str]":
+    """Names ``federable_state`` would withhold, so a caller can LOG what it excluded.
+
+    Silently dropping tensors is what would make this dangerous; a run has to be able to say what
+    it withheld and a reader has to be able to audit it.
+    """
+    return [k for k, v in state.items() if v.dtype != torch.float32]

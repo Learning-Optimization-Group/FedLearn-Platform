@@ -82,6 +82,47 @@
         "Communication and on-device cost were not measured for this recipe.",
         "This is CIFAR-10 with a small custom CNN; it says nothing about other tasks."
       ]
+    },
+    "CIFAR_RESNET18": {
+      "$schema_version": 2,
+      "generated_by": "scripts/build_arm_tradeoff.py",
+      "source": "research/results/pretrained-backbone/frozen_vs_full_resnet18_2026-08-13.json",
+      "source_sha256": "336b35730e105b0801bf921a5c7347ab97ff86278d67372cdfe4190f6994839c",
+      "source_date": "2026-08-13",
+      "headline": "This recipe starts from ImageNet weights, so freezing keeps a backbone worth keeping: the frozen arm reaches 80.4% while moving 2,135x less data than a full fine-tune.",
+      "measured_on": {
+        "recipe": "CIFAR_RESNET18",
+        "task": "CIFAR-10, 10-class accuracy",
+        "backbone": "ImageNet-pretrained ResNet-18 (identical for both arms)",
+        "protocol": "3 rounds, 2 clients, 112px, seed 0, live federation on the product path",
+        "accuracy_hardware": "cpu",
+        "ondevice_hardware": "not measured for this recipe"
+      },
+      "arms": {
+        "FULL": {
+          "accuracy_pct": 77.94,
+          "accuracy_delta_vs_frozen": -2.43,
+          "comm_mb_per_download": 42.7,
+          "ondevice_feasible": null,
+          "summary": "Reaches 77.9% at this budget and had NOT converged \u2014 it was still oscillating at round 3. Moves 42.7 MB per download."
+        },
+        "FROZEN_HEAD": {
+          "accuracy_pct": 80.37,
+          "accuracy_delta_vs_frozen": 0.0,
+          "comm_mb_per_download": 0.02,
+          "ondevice_feasible": null,
+          "summary": "Reaches 80.4% for 0.02 MB per download \u2014 2,135x less than a full fine-tune. Trains 5,130 parameters on ImageNet features."
+        }
+      },
+      "comm_ratio": 2135.0,
+      "ondevice_ratio": null,
+      "ondevice_ratio_basis": "not measured for this recipe",
+      "caveats": [
+        "3 rounds, 2 clients, one seed. The FULL arm had NOT converged (79.95 then down to 77.94), so do not read this as 'frozen beats full' \u2014 it measures convergence rate at a short budget, not final quality.",
+        "Fine-tuning 11.2M parameters on two clients needs far more rounds to settle; whether FULL overtakes the frozen arm given that budget is UNMEASURED.",
+        "One backbone, one resolution (112px), one dataset.",
+        "BatchNorm running statistics are federated and averaged as usual; the int64 batch counters are withheld from the wire and kept local (160 bytes total)."
+      ]
     }
   }
 }

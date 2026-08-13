@@ -256,7 +256,7 @@ def merge_non_federated(final_parameters, full_initial_parameters):
     return merged
 
 
-def evaluation_load_is_strict(model_type, training_arm):
+def evaluation_load_is_strict(model_type, training_arm, withheld=0):
     """Should server-side evaluation load the global model with ``strict=True``?
 
     No whenever the run federates a SUBSET of the model: the global state_dict then legitimately
@@ -271,6 +271,12 @@ def evaluation_load_is_strict(model_type, training_arm):
     Strictness is kept for the FULL arm on purpose: there it is a real guard against a malformed
     payload, and relaxing it globally to accommodate the frozen arm would discard that.
     """
+    if withheld:
+        # The wire withheld non-float32 tensors (BatchNorm's int64 num_batches_tracked), so the
+        # global model legitimately lacks them even under the FULL arm. Without this, unblocking
+        # BatchNorm models for FULL would immediately fail evaluation on the very keys the wire
+        # was told not to carry.
+        return False
     if str(model_type).upper() == "TINYNET_GOLDEN":
         # Syncs only its 25 trainable fc1 params; the frozen fc2 exists only in the fresh net.
         return False
@@ -611,6 +617,7 @@ def main():
     # stays the WRITE target either way, so the immutable content-addressed registry blob is never clobbered.
     init_path = args.init_model_path if args.init_model_path else args.model_path
     initial_parameters = OrderedDict()
+    _n_withheld = 0          # bound before the try: the eval closure reads it on every path
     # Bound before the try so the save-time merge can never hit an unbound local on an early-exit
     # or exception path. merge_non_federated treats None as "nothing withheld" and is the identity.
     full_initial_parameters = None
@@ -643,11 +650,26 @@ def main():
         # shared-seed perturbation z would silently misalign (see estimators.params.trainable_state).
         # Clients load the aggregated subset non-strict onto their local full model, which is what
         # keeps the frozen backbone local and off the wire.
+        # Drop what the wire cannot carry, BEFORE the arm filter, so the server's federated set
+        # matches the client's exactly. Same helper on both sides -- two filters would drift, and
+        # a server/client disagreement about which tensors are federated is this codebase's most
+        # repeated failure. The withheld tensors stay in full_initial_parameters and are merged
+        # back at save time, so the saved model is still complete.
+        from fedlearn.estimators.params import federable_state, non_federable_names
+        _withheld = non_federable_names(initial_parameters)
+        _n_withheld = len(_withheld)
+        if _withheld:
+            logging.info(
+                f"Withholding {len(_withheld)} non-float32 tensor(s) from the federated set "
+                f"(kept local, restored at save): {_withheld[:4]}"
+                f"{' ...' if len(_withheld) > 4 else ''}")
+
         args.training_arm = recipes.validate_arm(args.model_type, args.training_arm)
         # Keep the FULL set so the non-federated parameters can be merged back at save time.
         # Without this the frozen backbone exists nowhere after the filter, and writing the global
         # model to --model-path destroys the only copy (see merge_non_federated).
         full_initial_parameters = OrderedDict(initial_parameters)
+        initial_parameters = federable_state(initial_parameters)
         _prefixes = recipes.trainable_prefixes(args.model_type, args.training_arm)
         if _prefixes is not None:
             _pre = tuple(_prefixes)
@@ -793,7 +815,9 @@ def main():
             # the global state_dict then legitimately lacks the non-federated keys, which keep their
             # build-time init locally. See evaluation_load_is_strict for why this is derived from
             # the arm rather than special-cased per recipe.
-            _strict = evaluation_load_is_strict(args.model_type, getattr(args, "training_arm", None))
+            _strict = evaluation_load_is_strict(args.model_type,
+                                                getattr(args, "training_arm", None),
+                                                withheld=_n_withheld)
             net.load_state_dict(parameters, strict=_strict)
             net.to(DEVICE)
             net.eval()

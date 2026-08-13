@@ -708,7 +708,19 @@ class ZOSLClient(fl.Client):
             # never rides the wire. Mirrors the LLM_LORA adapter-only upload above.
             from fedlearn.estimators.params import trainable_state
             return trainable_state(self.net)
-        return self.net.state_dict()
+        # FULL arm: the whole state_dict MINUS anything the wire cannot carry. BatchNorm's int64
+        # num_batches_tracked is a batch COUNTER; averaging it across clients is meaningless, and
+        # including it failed the run outright on the float32-only safetensors wire. running_mean
+        # and running_var are float32 and are still federated -- this is a wire fix, not FedBN.
+        # The server applies the SAME filter, so both sides agree by construction.
+        from fedlearn.estimators.params import federable_state, non_federable_names
+        full = self.net.state_dict()
+        withheld = non_federable_names(full)
+        if withheld and not getattr(self, "_logged_withheld", False):
+            print(f"[Client] Withholding {len(withheld)} non-float32 tensor(s) from the federated "
+                  f"set (kept local): {withheld[:4]}{' ...' if len(withheld) > 4 else ''}")
+            self._logged_withheld = True
+        return federable_state(full)
 
     def fit(
             self,
@@ -882,10 +894,14 @@ class ZOSLClient(fl.Client):
             self.net.train()
         # === END ADD ===
 
-        if USE_LLM_LORA or USE_DERIVED:
-            # Both federate a subset only — return via get_parameters (adapter / head), not full state.
-            return self.get_parameters(), len(self.trainloader.dataset)
-        return self.net.state_dict(), len(self.trainloader.dataset)
+        # ONE upload path. get_parameters() owns what this client federates for every arm: the
+        # LoRA adapter, the frozen head, or the FULL state_dict minus what the wire cannot carry.
+        #
+        # This used to fork, with the FULL arm returning self.net.state_dict() raw. That bypassed
+        # the wire filter, so a BatchNorm model's int64 num_batches_tracked re-entered the global
+        # model through the round-1 aggregate and the round-2 download then failed to serialise.
+        # A second path around a filter is how the arm broke too; there is now only one.
+        return self.get_parameters(), len(self.trainloader.dataset)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ECG_DATASET_PATH = os.path.join(SCRIPT_DIR, "ecg_data", "ecg.csv")  # Hardcoded ECG dataset path

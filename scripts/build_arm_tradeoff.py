@@ -43,6 +43,8 @@ CNN_RECORD = os.path.join(REPO, "research", "results", "frozen-e2e",
                           "live_frozen_e2e_2026-08-13.json")
 PNEUMONIA_RECORD = os.path.join(REPO, "research", "results", "pneumonia-e2e",
                                 "pneumonia_product_path_2026-08-13.json")
+RESNET_RECORD = os.path.join(REPO, "research", "results", "pretrained-backbone",
+                             "frozen_vs_full_resnet18_2026-08-13.json")
 
 
 def build_xray(record_path=RECORD):
@@ -272,6 +274,75 @@ def build_pneumonia(record_path=PNEUMONIA_RECORD):
     }
 
 
+def build_resnet(record_path=RESNET_RECORD):
+    """CIFAR_RESNET18: the one recipe where the frozen arm is the better choice on both axes.
+
+    Deliberately does NOT say "frozen beats full". Three rounds is a short budget and the FULL arm
+    was still oscillating (79.95 then down to 77.94), so this measures convergence RATE at a fixed
+    small budget where a 5,130-parameter head is trivially easier to fit — not final quality.
+    """
+    with open(record_path, "rb") as fh:
+        raw = fh.read()
+    rec = json.loads(raw)
+    full, frozen = rec["results"]["FULL"], rec["results"]["FROZEN_HEAD"]
+    m = rec["meta"]
+    ratio = rec["comm_ratio"]
+
+    return {
+        "$schema_version": 2,
+        "generated_by": "scripts/build_arm_tradeoff.py",
+        "source": "research/results/pretrained-backbone/frozen_vs_full_resnet18_2026-08-13.json",
+        "source_sha256": hashlib.sha256(raw).hexdigest(),
+        "source_date": m["date"],
+        "headline": (
+            f"This recipe starts from ImageNet weights, so freezing keeps a backbone worth "
+            f"keeping: the frozen arm reaches {frozen['final_acc']:.1f}% while moving "
+            f"{ratio:,}x less data than a full fine-tune."),
+        "measured_on": {
+            "recipe": "CIFAR_RESNET18",
+            "task": "CIFAR-10, 10-class accuracy",
+            "backbone": "ImageNet-pretrained ResNet-18 (identical for both arms)",
+            "protocol": f"{m['rounds']} rounds, {m['clients']} clients, {m['img_size']}px, "
+                        f"seed {m['seed']}, live federation on the product path",
+            "accuracy_hardware": m["device"],
+            "ondevice_hardware": "not measured for this recipe",
+        },
+        "arms": {
+            "FULL": {
+                "accuracy_pct": full["final_acc"],
+                "accuracy_delta_vs_frozen": round(full["final_acc"] - frozen["final_acc"], 2),
+                "comm_mb_per_download": full["wire_mb_per_download"],
+                "ondevice_feasible": None,
+                "summary": f"Reaches {full['final_acc']:.1f}% at this budget and had NOT converged "
+                           f"— it was still oscillating at round {m['rounds']}. Moves "
+                           f"{full['wire_mb_per_download']:.1f} MB per download.",
+            },
+            "FROZEN_HEAD": {
+                "accuracy_pct": frozen["final_acc"],
+                "accuracy_delta_vs_frozen": 0.0,
+                "comm_mb_per_download": frozen["wire_mb_per_download"],
+                "ondevice_feasible": None,
+                "summary": f"Reaches {frozen['final_acc']:.1f}% for {frozen['wire_mb_per_download']}"
+                           f" MB per download — {ratio:,}x less than a full fine-tune. Trains "
+                           f"5,130 parameters on ImageNet features.",
+            },
+        },
+        "comm_ratio": float(ratio),
+        "ondevice_ratio": None,
+        "ondevice_ratio_basis": "not measured for this recipe",
+        "caveats": [
+            f"{m['rounds']} rounds, {m['clients']} clients, one seed. The FULL arm had NOT "
+            f"converged (79.95 then down to 77.94), so do not read this as 'frozen beats full' — "
+            f"it measures convergence rate at a short budget, not final quality.",
+            "Fine-tuning 11.2M parameters on two clients needs far more rounds to settle; whether "
+            "FULL overtakes the frozen arm given that budget is UNMEASURED.",
+            "One backbone, one resolution (112px), one dataset.",
+            "BatchNorm running statistics are federated and averaged as usual; the int64 batch "
+            "counters are withheld from the wire and kept local (160 bytes total).",
+        ],
+    }
+
+
 def build(record_path=RECORD, cnn_record_path=CNN_RECORD):
     """Every recipe's trade-off, keyed by the recipe it was MEASURED on."""
     # PNEUMONIA_CNN uses its own PRODUCT-PATH measurement, not the research campaign's: the
@@ -282,6 +353,8 @@ def build(record_path=RECORD, cnn_record_path=CNN_RECORD):
         by_recipe["PNEUMONIA_CNN"] = build_pneumonia(PNEUMONIA_RECORD)
     if os.path.exists(cnn_record_path):
         by_recipe["CNN"] = build_cnn(cnn_record_path)
+    if os.path.exists(RESNET_RECORD):
+        by_recipe["CIFAR_RESNET18"] = build_resnet(RESNET_RECORD)
     return {
         "$schema_version": 2,
         "generated_by": "scripts/build_arm_tradeoff.py",

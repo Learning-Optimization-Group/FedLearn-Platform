@@ -64,8 +64,11 @@ class TestTheArtifactIsGenerated:
         PNEUMONIA_CNN is a custom CNN whose classifier is 99.6% of the model, and the campaign's
         conclusions invert on it. Same-provenance numbers are the point."""
         for key, tr in artifact["by_recipe"].items():
-            assert "e2e" in tr["source"], \
-                f"{key} still cites a non-product-path record: {tr['source']}"
+            # Asserted on the recorded PROTOCOL, not on the source filename. The first version
+            # checked for "e2e" in the path, which is a naming convention rather than a property —
+            # it passed only because the first two records happened to live in *-e2e directories.
+            assert "product path" in tr["measured_on"]["protocol"], \
+                f"{key} does not record a product-path protocol: {tr['measured_on']['protocol']}"
 
     def test_the_artifact_is_current_with_the_record(self):
         """The drift guard. Conditional on the untracked record, and reported when it cannot run

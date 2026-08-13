@@ -210,18 +210,13 @@ RECIPE_METADATA = [
     },
     {
         "key": "CIFAR_RESNET18",
-        # FROZEN_HEAD only. Not a design preference — a measured platform limit: every BatchNorm
-        # module carries an int64 `num_batches_tracked`, and the safetensors wire accepts float32
-        # only (deliberately, so the libtorch-free mobile C++ client can decode it). A FULL run
-        # therefore fails on the FIRST GetGlobalModel with
-        # "Tensor 'bn1.num_batches_tracked' has dtype torch.int64". The frozen arm is unaffected
-        # because it federates just fc.weight/fc.bias, both float32.
-        "supported_arms": ["FROZEN_HEAD"],
-        "full_arm_unsupported_reason":
-            "Full fine-tuning would federate this model's BatchNorm buffers, including an int64 "
-            "num_batches_tracked per layer, which the float32-only safetensors wire rejects. "
-            "Supporting it needs a cross-language decision about integer tensors and whether BN "
-            "buffers should be averaged at all — not a recipe-level change.",
+        # Both arms. FULL was blocked until 2026-08-13: every BatchNorm module carries an int64
+        # num_batches_tracked and the safetensors wire is float32-only, so a FULL run died on the
+        # first GetGlobalModel. Non-float32 tensors are now excluded from the federated set
+        # (framework federable_state) -- num_batches_tracked is a batch COUNTER, meaningless to
+        # average, and each client keeps its own. running_mean/running_var are float32 and are
+        # still federated, so this is a wire fix and not FedBN.
+        "supported_arms": ["FULL", "FROZEN_HEAD"],
         # torchvision's ResNet head is `fc`; everything else is the ImageNet-pretrained backbone.
         "trainable_spec": {"FULL": None, "FROZEN_HEAD": ["fc."]},
         # Roadmap item (2): a recipe that STARTS from pretrained weights instead of from scratch.
