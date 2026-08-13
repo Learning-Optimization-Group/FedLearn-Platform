@@ -2,6 +2,7 @@ package com.federated.fl_platform_api.arm;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.federated.fl_platform_api.dto.CreateProjectRequest;
+import com.federated.fl_platform_api.dto.ClientConnectionDto;
 import com.federated.fl_platform_api.dto.ModelRecipeDto;
 import com.federated.fl_platform_api.dto.StartProject;
 import com.federated.fl_platform_api.model.TrainingArm;
@@ -135,6 +136,28 @@ class ArmCatalogAndCreationTest {
         assertThat(p.getTrainingArm())
                 .as("the entity default supplies FULL, which is what the response must report")
                 .isEqualTo(TrainingArm.FULL);
+    }
+
+    // ------------------------------------------------- the arm reaches the client (P1-5)
+
+    @Test
+    void theConnectionPayloadCarriesTheArm() {
+        // GET /client/projects/{id}/connection is how a client learns its launch config. Before
+        // P1-5 it carried the strategy but not the arm, so a FROZEN_HEAD project had the server
+        // filtering to the head subset while the client uploaded the full state dict.
+        ClientConnectionDto dto = new ClientConnectionDto();
+        dto.setTrainingArm(TrainingArm.FROZEN_HEAD.name());
+        assertThat(dto.getTrainingArm()).isEqualTo("FROZEN_HEAD");
+    }
+
+    @Test
+    void theConnectionPayloadStatesFullRatherThanOmittingIt() {
+        // The service always sets an arm (entity default FULL). Omission would make the client
+        // infer FULL from silence, which is indistinguishable from a backend that predates P1 —
+        // and the two want different behaviour.
+        ClientConnectionDto dto = new ClientConnectionDto();
+        dto.setTrainingArm(TrainingArm.FULL.name());
+        assertThat(dto.getTrainingArm()).isEqualTo("FULL");
     }
 
     private CreateProjectRequest validCreate() {

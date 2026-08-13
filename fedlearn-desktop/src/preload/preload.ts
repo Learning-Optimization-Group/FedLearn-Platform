@@ -144,6 +144,7 @@ export interface TrainingConfigInput {
   datasetPath: string;
   connectionToken?: string;
   strategy?: string;
+  trainingArm?: string;
 }
 
 interface InferencePayloadInput {

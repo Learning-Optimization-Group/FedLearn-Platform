@@ -36,6 +36,9 @@ export interface ProjectConnection {
   // The active run's aggregation strategy (ClientConnectionDto.strategy); forwarded to the client
   // as --strategy so a non-MLP DeComFL project runs the DeComFL path, not the default FedAvg path.
   strategy?: string;
+  // The project's training arm; forwarded to the client as --training-arm so a FROZEN_HEAD project
+  // federates the head subset the server expects instead of the full state dict.
+  trainingArm?: string;
 }
 
 export class ClientProjectService {

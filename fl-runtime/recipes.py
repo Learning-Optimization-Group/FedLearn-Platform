@@ -136,7 +136,10 @@ RECIPE_METADATA = [
     {
         "key": "CNN",
         "supported_arms": ["FULL", "FROZEN_HEAD"],
-        "trainable_spec": {"FULL": None, "FROZEN_HEAD": ["classifier."]},
+        # CnnNet is conv1/conv2/fc1/fc2/fc3 — it has NO "classifier." module, so the prefix this
+        # entry originally declared matched nothing and FROZEN_HEAD raised at model build. fc3 is
+        # the final classification layer, i.e. the actual head.
+        "trainable_spec": {"FULL": None, "FROZEN_HEAD": ["fc3."]},
         "display_name": "Image classifier (CIFAR-10)",
         "input_kind": "image",
         "classes": ["airplane", "automobile", "bird", "cat", "deer",

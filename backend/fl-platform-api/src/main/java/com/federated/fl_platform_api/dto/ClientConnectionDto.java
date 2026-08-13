@@ -15,6 +15,11 @@ public class ClientConnectionDto {
     // of always defaulting to the FedAvg path — otherwise a DeComFL project silently mismatches for
     // any non-MLP model type.
     private String strategy;
+    // The project's training arm (FULL / FROZEN_HEAD). Same rationale as `strategy` above: the
+    // server filters its parameters to the arm's trainable subset, so a client that does not know
+    // the arm uploads the FULL state dict against a server expecting the head only. Carried here
+    // rather than inferred, because the arm is a project property the client cannot derive.
+    private String trainingArm;
 
     public UUID getProjectId() { return projectId; }
     public void setProjectId(UUID projectId) { this.projectId = projectId; }
@@ -32,4 +37,6 @@ public class ClientConnectionDto {
     public void setConnectionToken(String connectionToken) { this.connectionToken = connectionToken; }
     public String getStrategy() { return strategy; }
     public void setStrategy(String strategy) { this.strategy = strategy; }
+    public String getTrainingArm() { return trainingArm; }
+    public void setTrainingArm(String trainingArm) { this.trainingArm = trainingArm; }
 }

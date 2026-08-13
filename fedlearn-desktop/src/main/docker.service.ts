@@ -39,6 +39,11 @@ export interface TrainingConfig {
   // FedAvg; a non-MLP DeComFL project otherwise runs a FedAvg-path client that mismatches the server.
   // Optional so the legacy flow (no strategy in the payload) still type-checks.
   strategy?: string;
+  // The project's training arm (from GET /client/projects/{id}/connection). Forwarded to the client
+  // so it federates the same parameter subset the server expects; without it a FROZEN_HEAD project
+  // has the client upload the full state dict against a head-only server.
+  // Optional so a payload from a backend predating P1 still type-checks.
+  trainingArm?: string;
   // Backend-minted FL connection token (from GET /client/projects/{id}/connection).
   // Optional so the legacy no-auth flow still type-checks; required in practice once
   // the FL server is fail-closed (app.fl.require-client-auth=true).
@@ -63,6 +68,10 @@ export function buildContainerEnv(config: TrainingConfig): string[] {
   if (config.strategy) {
     // entrypoint.sh forwards this to the client as --strategy (parity with the native path push).
     env.push(`STRATEGY=${config.strategy}`);
+  }
+  if (config.trainingArm) {
+    // entrypoint.sh forwards this to the client as --training-arm (parity with the native path).
+    env.push(`TRAINING_ARM=${config.trainingArm}`);
   }
   if (config.connectionToken) {
     env.push(`FEDLEARN_CONNECTION_TOKEN=${config.connectionToken}`);
@@ -321,6 +330,13 @@ export class DockerService {
     // default FedAvg-style path). Only DeComFL actually changes client behaviour — the other strategy
     // strings (FedAvg/FedOpt/Robust/FedLoRA) all use the same first-order client path, so passing them
     // is a safe no-op. Omitted when absent (the client then defaults to FedAvg, the legacy behaviour).
+    // Forward the training arm so the client freezes the same modules the server filtered its
+    // parameters to. Omitted when absent, which reproduces the pre-P1 behaviour (client defaults
+    // to FULL) rather than sending an empty value.
+    if (config.trainingArm) {
+      args.push('--training-arm', config.trainingArm);
+    }
+
     if (config.strategy) {
       args.push('--strategy', config.strategy);
     }

@@ -25,4 +25,7 @@ export interface ProjectConnection {
   // Active run's aggregation strategy; threaded into the training config so the client picks the
   // matching path (e.g. DeComFL) rather than defaulting to FedAvg.
   strategy?: string;
+  // The project's training arm; forwarded to the client as --training-arm so it federates the same
+  // parameter subset the server expects (a FROZEN_HEAD server receives head-only updates).
+  trainingArm?: string;
 }

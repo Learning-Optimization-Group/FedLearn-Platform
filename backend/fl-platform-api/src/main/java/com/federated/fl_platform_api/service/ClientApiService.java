@@ -124,6 +124,11 @@ public class ClientApiService {
         dto.setPartitionId(enrollment.getPartitionId());
         dto.setStatus(projectStatusService.currentStatus(project).name());   // BA-4
         dto.setConnectionToken(enrollment.getConnectionToken());
+        // P1-5: the arm the FL server was spawned with, so the client federates the same parameter
+        // subset. Always stated (never null) — the client must not have to read FULL out of silence.
+        dto.setTrainingArm(project.getTrainingArm() != null
+            ? project.getTrainingArm().name()
+            : com.federated.fl_platform_api.model.TrainingArm.FULL.name());
         // The active run's strategy, so the desktop can pass --strategy to the client and pick the
         // matching path (e.g. DeComFL) rather than always defaulting to FedAvg (finding B: a non-MLP
         // DeComFL project otherwise runs a FedAvg-path client that silently mismatches the server).

@@ -31,6 +31,12 @@ if [ -n "$STRATEGY" ]; then
     echo "[entrypoint] STRATEGY=$STRATEGY"
     EXTRA_ARGS+=(--strategy "$STRATEGY")
 fi
+if [ -n "$TRAINING_ARM" ]; then
+    # The arm the FL server was spawned with. Without it the client trains and uploads every
+    # parameter while a FROZEN_HEAD server expects only the head.
+    echo "[entrypoint] TRAINING_ARM=$TRAINING_ARM"
+    EXTRA_ARGS+=(--training-arm "$TRAINING_ARM")
+fi
 
 echo "[entrypoint] Launching python3 client.py ..."
 exec python3 -u client.py \

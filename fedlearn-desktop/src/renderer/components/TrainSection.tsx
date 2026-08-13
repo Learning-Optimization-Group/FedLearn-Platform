@@ -260,6 +260,7 @@ export const TrainSection: React.FC<TrainSectionProps> = ({
         datasetPath: datasetPath.trim(),
         connectionToken: c.connectionToken,
         strategy: c.strategy,
+        trainingArm: c.trainingArm,
       });
     } catch (err: unknown) {
       setValidationError(err instanceof Error ? err.message : 'Failed to start training.');

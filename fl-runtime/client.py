@@ -920,18 +920,14 @@ def create_decomfl_compatible_loader(original_loader, is_llm=False):
 # ==============================================================================
 # --- Main Execution Block ---
 # ==============================================================================
-def main():
-    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, USE_DERIVED, TRAINING_ARM, MODEL_TYPE, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, LLM_LORA_TASK_TYPE, DATASET_NAME, BATCH_SIZE, DEVICE
+def build_arg_parser():
+    """The client's CLI surface, as a function so it can be exercised without running a federation.
 
-    print(f"\n{'='*60}")
-    print(f"DEVICE DETECTION")
-    print(f"{'='*60}")
-    print(f"torch.cuda.is_available(): {torch.cuda.is_available()}")
-    if torch.cuda.is_available():
-        print(f"CUDA device: {torch.cuda.get_device_name(0)}")
-        print(f"CUDA version: {torch.version.cuda}")
-    print(f"Selected device: {DEVICE}")
-    print(f"{'='*60}\n")
+    Extracted from main() for P1-5: --training-arm has existed since P1-1b, but nothing passed it
+    and nothing could test it, because the parser was built inside main() alongside device
+    detection and a live gRPC connection. A flag that cannot be tested is a flag that can silently
+    stop being honoured.
+    """
     import recipes  # DA-14 Ph3.1: --model-type choices are data-driven (the recipe catalog)
     parser = argparse.ArgumentParser(description="FedLearn gRPC Client with Heartbeat")
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
@@ -952,7 +948,28 @@ def main():
                         choices=["auto", "cpu", "cuda", "mps"],
                         help="Compute device (default: auto — cuda>mps>cpu; FEDLEARN_DEVICE env fallback)")
 
-    args = parser.parse_args()
+
+    return parser
+
+
+def parse_args(argv=None):
+    """Parse client arguments. ``argv=None`` reads sys.argv, as argparse does."""
+    return build_arg_parser().parse_args(argv)
+
+
+def main():
+    global USE_LLM, USE_MLP, USE_PNEUMONIA, USE_LLM_LORA, USE_DERIVED, TRAINING_ARM, MODEL_TYPE, LLM_LORA_AGGREGATION, LLM_LORA_MODEL_NAME, LLM_LORA_TASK_TYPE, DATASET_NAME, BATCH_SIZE, DEVICE
+
+    print(f"\n{'='*60}")
+    print(f"DEVICE DETECTION")
+    print(f"{'='*60}")
+    print(f"torch.cuda.is_available(): {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"CUDA device: {torch.cuda.get_device_name(0)}")
+        print(f"CUDA version: {torch.version.cuda}")
+    print(f"Selected device: {DEVICE}")
+    print(f"{'='*60}\n")
+    args = parse_args()
 
     DEVICE = resolve_device(args.device)
     print(f"[device] resolved --device={args.device!r} -> {DEVICE}")

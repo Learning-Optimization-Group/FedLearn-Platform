@@ -33,6 +33,8 @@ export interface StartTrainingConfig {
   connectionToken?: string;
   // Active run's aggregation strategy; forwarded to the client as --strategy (DeComFL vs default FedAvg).
   strategy?: string;
+  // Forwarded to the client as --training-arm so a FROZEN_HEAD project federates head-only.
+  trainingArm?: string;
 }
 
 /** Layout phase for the Train section. */

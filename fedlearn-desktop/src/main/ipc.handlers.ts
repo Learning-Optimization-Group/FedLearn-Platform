@@ -178,6 +178,23 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
           ? cfg.strategy
           : undefined;
 
+      // The arm is validated STRICTLY, unlike strategy above. Strategy falls back to undefined
+      // because the strategy strings are mostly no-ops on the client, so a bad one costs nothing.
+      // The arm is different: silently falling back to FULL against a FROZEN_HEAD server is
+      // exactly the mismatch this field exists to prevent — the client would upload every
+      // parameter while the server expects the head only. So an unrecognised arm fails the start
+      // with a clear message instead of being quietly downgraded.
+      let trainingArm: string | undefined;
+      if (cfg.trainingArm !== undefined && cfg.trainingArm !== null && cfg.trainingArm !== '') {
+        if (cfg.trainingArm !== 'FULL' && cfg.trainingArm !== 'FROZEN_HEAD') {
+          throw new Error(
+            `Unrecognised trainingArm "${String(cfg.trainingArm)}". Expected FULL or FROZEN_HEAD. ` +
+            'Refusing to start rather than defaulting to FULL, which would upload every parameter ' +
+            'to a server that may expect only the head.');
+        }
+        trainingArm = cfg.trainingArm;
+      }
+
       const validConfig: TrainingConfig = {
         hardwareProfile: cfg.hardwareProfile as HardwareProfile,
         projectId: cfg.projectId as string,
@@ -188,6 +205,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         datasetPath: safeDatasetPath,
         connectionToken,
         strategy,
+        trainingArm,
       };
 
       log.info(`[IPC:docker:start-training] Starting training with profile=${validConfig.hardwareProfile}, project=${validConfig.projectId}, model=${validConfig.modelType}`);
