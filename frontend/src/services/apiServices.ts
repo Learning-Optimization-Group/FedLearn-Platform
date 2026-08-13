@@ -125,10 +125,17 @@ export const logoutUser = (): Promise<AxiosResponse<void>> => {
 
 /** One arm's measured column of the trade-off. Values originate in the research record. */
 export interface ArmFacts {
+    /** Present on recipes measured by AUC (binary tasks); mutually exclusive with accuracyPct. */
     accuracyAuc?: number;
+    /** Present on recipes measured by top-1 accuracy (multi-class tasks). */
+    accuracyPct?: number;
     commTotalMb400r?: number;
     ondeviceMsPerStep?: number;
-    ondeviceFeasible?: boolean;
+    /**
+     * `null` means NOT MEASURED for this recipe — distinct from `false`, which is a measured
+     * "infeasible". The UI must render null as absence rather than as a claim either way.
+     */
+    ondeviceFeasible?: boolean | null;
     summary?: string;
 }
 

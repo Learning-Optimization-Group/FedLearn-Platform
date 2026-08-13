@@ -158,6 +158,34 @@ describe('CreateProjectModal — training arm', () => {
     expect(onSubmit.mock.calls[0][0].trainingArm).toBeUndefined();
   });
 
+  it('makes no on-device claim when the recipe has no such measurement', async () => {
+    // null means NOT MEASURED, which is different from a measured "infeasible". Rendering the
+    // warning here would state something no measurement supports; rendering the positive line
+    // would be worse. Both must be absent.
+    const unmeasured = {
+      ...DUAL_ARM,
+      armTradeoff: {
+        ...TRADEOFF,
+        arms: {
+          FULL: { accuracyPct: 38.03, ondeviceFeasible: null, summary: 'Reaches 38.0%.' },
+          FROZEN_HEAD: { accuracyPct: 10.0, ondeviceFeasible: null,
+                         summary: 'Reaches 10.0%, chance for ten classes.' },
+        },
+      },
+    } as api.ModelRecipe;
+    await open([unmeasured]);
+    fireEvent.change(screen.getByLabelText(/what kind of model/i), { target: { value: 'PNEUMONIA_CNN' } });
+    expect(await screen.findByLabelText(/training arm/i)).toBeInTheDocument();
+    expect(screen.queryByText(/not feasible on-device/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/runs on-device/i)).not.toBeInTheDocument();
+    // Selecting the frozen arm still surfaces its measured summary — the guidance that matters
+    // here is "this arm reaches chance on this recipe", and it must not be lost with the
+    // on-device claim.
+    fireEvent.change(screen.getByLabelText(/training arm/i), { target: { value: 'FROZEN_HEAD' } });
+    expect(await screen.findByText(/chance for ten classes/i)).toBeInTheDocument();
+    expect(screen.queryByText(/not feasible on-device/i)).not.toBeInTheDocument();
+  });
+
   it('still renders the choice when the catalog carries no trade-off', async () => {
     // The measurement is untracked and generated; its absence must cost the user an explanation,
     // not the ability to pick an arm.

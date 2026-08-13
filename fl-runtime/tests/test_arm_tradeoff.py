@@ -31,9 +31,15 @@ GENERATOR = os.path.join(REPO, "scripts", "build_arm_tradeoff.py")
 
 
 @pytest.fixture(scope="module")
-def tradeoff():
+def artifact():
     with open(ARTIFACT) as fh:
         return json.load(fh)
+
+
+@pytest.fixture(scope="module")
+def tradeoff(artifact):
+    """The chest X-ray measurement, which is PNEUMONIA_CNN's — the recipe it was measured on."""
+    return artifact["by_recipe"]["PNEUMONIA_CNN"]
 
 
 class TestTheArtifactIsGenerated:
@@ -113,8 +119,28 @@ class TestTheCaveatsSurvive:
             "the contrast must state that the backbone is held fixed — that is what makes it clean"
 
 
-class TestTheCatalogServesIt:
-    def test_a_dual_arm_recipe_carries_the_tradeoff(self):
+class TestEachRecipeShowsItsOwnMeasurement:
+    """A trade-off measured on chest X-rays says nothing about CIFAR-10.
+
+    The first version attached ONE measurement to every dual-arm recipe, so a user picking `CNN`
+    saw a figure derived from a pneumonia campaign. That was flagged as the weakest link in the
+    surface when it shipped, and it is now fixed rather than merely disclosed: each recipe carries
+    the measurement taken ON that recipe, or none at all.
+    """
+
+    def test_every_measurement_names_the_recipe_it_was_taken_on(self, artifact):
+        for key, tr in artifact["by_recipe"].items():
+            assert tr["measured_on"].get("recipe") == key, (
+                f"{key}'s trade-off was measured on {tr['measured_on'].get('recipe')!r}; a "
+                f"measurement from another recipe must not be shown here")
+
+    def test_the_xray_measurement_is_only_on_the_xray_recipe(self, artifact):
+        for key, tr in artifact["by_recipe"].items():
+            task = tr["measured_on"]["task"].lower()
+            if "x-ray" in task or "pneumonia" in task:
+                assert key == "PNEUMONIA_CNN", f"{key} shows a chest X-ray measurement"
+
+    def test_a_dual_arm_recipe_carries_its_own_tradeoff(self):
         """The picker reads GET /api/model-recipes; a trade-off the catalog does not carry cannot
         be shown next to the choice it informs."""
         sys.path.insert(0, os.path.join(HERE, ".."))
@@ -125,6 +151,27 @@ class TestTheCatalogServesIt:
         for e in dual:
             assert e.get("arm_tradeoff"), f"{e['key']} offers two arms but no measured trade-off"
             assert e["arm_tradeoff"]["headline"].strip()
+            assert e["arm_tradeoff"]["measured_on"]["recipe"] == e["key"]
+
+    def test_the_cnn_recipe_reports_its_frozen_arm_as_chance_level(self):
+        """The honest half. On CNN the frozen arm was MEASURED at chance (10.0% on ten classes)
+        because CnnNet's backbone is randomly initialised. A picker that hid that — or worse, showed
+        an X-ray result implying frozen is competitive — would be recommending a configuration this
+        platform has measured to be useless."""
+        sys.path.insert(0, os.path.join(HERE, ".."))
+        import recipes
+
+        tr = next(e for e in recipes.describe() if e["key"] == "CNN")["arm_tradeoff"]
+        frozen = tr["arms"]["FROZEN_HEAD"]
+        assert frozen["accuracy_pct"] <= 12.0, "CNN's frozen arm is reported as better than measured"
+        # On-device was NOT measured for this recipe, so the field is null and the artifact says so.
+        # Inventing a boolean would be a fabricated measurement; the null plus a stated basis is the
+        # honest encoding, and the UI can render "not measured" rather than a confident claim.
+        assert frozen["ondevice_feasible"] is None
+        assert "not measured" in tr["ondevice_ratio_basis"].lower()
+        blob = (tr["headline"] + " " + frozen["summary"]).lower()
+        assert "chance" in blob or "random" in blob, \
+            "the CNN trade-off does not say WHY its frozen arm fails"
 
     def test_a_single_arm_recipe_does_not_claim_a_tradeoff(self):
         """There is no trade-off to present when there is no choice, and showing one would imply

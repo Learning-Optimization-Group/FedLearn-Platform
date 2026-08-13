@@ -38,9 +38,12 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RECORD = os.path.join(REPO, "research", "results", "frozen-backbone", "VERDICT_frozen_vs_full.json")
 OUT = os.path.join(REPO, "fl-runtime", "arm_tradeoff.json")
+# The CNN recipe's own measurement: a live 3-round federation on the product path, both arms.
+CNN_RECORD = os.path.join(REPO, "research", "results", "frozen-e2e",
+                          "live_frozen_e2e_2026-08-13.json")
 
 
-def build(record_path=RECORD):
+def build_xray(record_path=RECORD):
     with open(record_path, "rb") as fh:
         raw = fh.read()
     v = json.loads(raw)
@@ -66,6 +69,9 @@ def build(record_path=RECORD):
             f"{comm['ratio']:,}x the communication. Defensible in a datacenter, not on a phone."),
 
         "measured_on": {
+            # The recipe this was measured ON. A trade-off shown next to a different recipe is a
+            # claim no measurement supports, so the key travels with the numbers.
+            "recipe": "PNEUMONIA_CNN",
             "task": "chest X-ray pneumonia, binary AUC",
             "backbone": "timm resnet50_gn.a1h_in1k (identical for both arms)",
             "protocol": "400 rounds, 3 seeds, alpha=1.0, 20 clients, 10/round, 3 local epochs",
@@ -125,6 +131,87 @@ def build(record_path=RECORD):
     }
 
 
+def build_cnn(record_path=CNN_RECORD):
+    """CNN's OWN trade-off, from the live product-path federation rather than the X-ray campaign.
+
+    This one is unflattering and that is the point: on CNN the frozen arm was measured at CHANCE.
+    CnnNet's backbone is randomly initialised, so freezing it trains a linear head on random
+    features. Showing the chest X-ray result here instead — where frozen ties a full fine-tune —
+    would recommend a configuration this platform has measured to be useless.
+    """
+    with open(record_path, "rb") as fh:
+        raw = fh.read()
+    rec = json.loads(raw)
+    lf = rec["learning_finding"]
+    frozen = lf["frozen_accuracy_per_round"][-1]
+    full = lf["full_accuracy_per_round"][-1]
+    chance = lf["chance_level"]
+
+    return {
+        "$schema_version": 2,
+        "generated_by": "scripts/build_arm_tradeoff.py",
+        "source": "research/results/frozen-e2e/live_frozen_e2e_2026-08-13.json",
+        "source_sha256": hashlib.sha256(raw).hexdigest(),
+        "source_date": rec["meta"]["date"],
+        "headline": (
+            f"On this recipe the frozen arm reaches {frozen:.1f}% — chance level for ten classes. "
+            f"A full fine-tune reaches {full:.1f}%."),
+        "measured_on": {
+            "recipe": "CNN",
+            "task": "CIFAR-10, 10-class accuracy",
+            "backbone": "CnnNet, randomly initialised (identical for both arms)",
+            "protocol": f"{rec['meta']['rounds']} rounds, {rec['meta']['clients']} clients, "
+                        f"seed {rec['meta']['seed']}, live federation on the product path",
+            "accuracy_hardware": rec["meta"]["device"],
+            "ondevice_hardware": "not measured for this recipe",
+        },
+        "arms": {
+            "FULL": {
+                "accuracy_pct": full,
+                "accuracy_delta_vs_frozen": round(full - frozen, 2),
+                "ondevice_feasible": None,
+                "summary": f"Reaches {full:.1f}% and is still improving at round "
+                           f"{rec['meta']['rounds']}. The only arm that learns on this recipe.",
+            },
+            "FROZEN_HEAD": {
+                "accuracy_pct": frozen,
+                "accuracy_delta_vs_frozen": 0.0,
+                "ondevice_feasible": None,
+                "summary": f"Reaches {frozen:.1f}%, which is chance for ten classes. This recipe's "
+                           f"backbone is randomly initialised, so freezing it trains a head on "
+                           f"random features. Pick a pretrained recipe if you want a frozen "
+                           f"backbone.",
+            },
+        },
+        "comm_ratio": None,
+        "ondevice_ratio": None,
+        "ondevice_ratio_basis": "not measured for this recipe",
+        "caveats": [
+            f"Chance for ten classes is {chance:.1f}%; the frozen arm is AT it, so its accuracy "
+            f"carries no signal rather than being merely low.",
+            f"Only {rec['meta']['rounds']} rounds with {rec['meta']['clients']} clients and one "
+            f"seed — the FULL arm had not converged and its number is a floor, not a ceiling.",
+            "Communication and on-device cost were not measured for this recipe.",
+            "This is CIFAR-10 with a small custom CNN; it says nothing about other tasks.",
+        ],
+    }
+
+
+def build(record_path=RECORD, cnn_record_path=CNN_RECORD):
+    """Every recipe's trade-off, keyed by the recipe it was MEASURED on."""
+    by_recipe = {"PNEUMONIA_CNN": build_xray(record_path)}
+    if os.path.exists(cnn_record_path):
+        by_recipe["CNN"] = build_cnn(cnn_record_path)
+    return {
+        "$schema_version": 2,
+        "generated_by": "scripts/build_arm_tradeoff.py",
+        "note": "Keyed by recipe. A measurement is shown ONLY on the recipe it was taken on — the "
+                "first version attached one chest X-ray result to every dual-arm recipe, which "
+                "stated something no measurement supported for CIFAR-10.",
+        "by_recipe": by_recipe,
+    }
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--check", action="store_true",
@@ -146,14 +233,15 @@ def main():
         if have != built:
             sys.exit(f"{args.out} is STALE relative to the record. "
                      f"Regenerate: python scripts/build_arm_tradeoff.py")
-        print(f"{args.out} is current (source sha256 {built['source_sha256'][:12]})")
+        print(f"{args.out} is current ({len(built['by_recipe'])} recipe measurements)")
         return
 
     with open(args.out, "w") as fh:
         json.dump(built, fh, indent=2)
         fh.write("\n")
-    print(f"wrote {args.out}  (source sha256 {built['source_sha256'][:12]})")
-    print(f"  {built['headline']}")
+    print(f"wrote {args.out}")
+    for key, tr in built["by_recipe"].items():
+        print(f"  {key}: {tr['headline']}")
 
 
 if __name__ == "__main__":
