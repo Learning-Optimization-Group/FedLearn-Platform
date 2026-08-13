@@ -50,10 +50,22 @@ class TestTheArtifactIsGenerated:
                               cwd=REPO, capture_output=True).returncode == 0, \
             "scripts/build_arm_tradeoff.py is not tracked by git"
 
-    def test_the_artifact_names_its_source_and_producer(self, tradeoff):
-        assert tradeoff["generated_by"] == "scripts/build_arm_tradeoff.py"
-        assert tradeoff["source"].endswith("VERDICT_frozen_vs_full.json")
-        assert len(tradeoff["source_sha256"]) == 64, "no source digest — drift undetectable"
+    def test_every_measurement_names_its_source_and_producer(self, artifact):
+        """Each recipe's numbers cite the record they came from, so any one of them can be audited
+        back to raw results independently of the others."""
+        for key, tr in artifact["by_recipe"].items():
+            assert tr["generated_by"] == "scripts/build_arm_tradeoff.py"
+            assert tr["source"].endswith(".json"), f"{key} does not name a source record"
+            assert len(tr["source_sha256"]) == 64, f"{key}: no source digest — drift undetectable"
+
+    def test_the_shown_measurements_come_from_the_product_path(self, artifact):
+        """Both shipped measurements are now live product-path federations rather than research
+        campaign results. The campaign froze a pretrained ResNet-18 with a 1,026-parameter head;
+        PNEUMONIA_CNN is a custom CNN whose classifier is 99.6% of the model, and the campaign's
+        conclusions invert on it. Same-provenance numbers are the point."""
+        for key, tr in artifact["by_recipe"].items():
+            assert "e2e" in tr["source"], \
+                f"{key} still cites a non-product-path record: {tr['source']}"
 
     def test_the_artifact_is_current_with_the_record(self):
         """The drift guard. Conditional on the untracked record, and reported when it cannot run
@@ -66,57 +78,79 @@ class TestTheArtifactIsGenerated:
         assert r.returncode == 0, f"arm_tradeoff.json is stale:\n{r.stdout}{r.stderr}"
 
 
-class TestTheNumbersMatchTheMeasuredContrast:
-    def test_full_is_recorded_as_more_accurate(self, tradeoff):
-        """The controlled same-backbone contrast has FULL winning. A picker that implied otherwise
-        would be advertising the confounded cross-backbone comparison the verdict warns against."""
-        arms = tradeoff["arms"]
-        assert arms["FULL"]["accuracy_auc"] > arms["FROZEN_HEAD"]["accuracy_auc"]
-        assert arms["FULL"]["accuracy_delta_vs_frozen"] > 0
+class TestEveryMeasurementIsSelfConsistent:
+    """Field-shape-agnostic, deliberately.
 
-    def test_frozen_is_recorded_as_far_cheaper_to_communicate(self, tradeoff):
-        arms = tradeoff["arms"]
-        assert arms["FROZEN_HEAD"]["comm_total_mb_400r"] < arms["FULL"]["comm_total_mb_400r"]
-        assert tradeoff["comm_ratio"] > 1000
+    These originally asserted the chest X-ray campaign's shape — accuracy_auc, comm_total_mb_400r,
+    boolean on-device feasibility. Each recipe now carries its OWN measurement, and different
+    measurements record different things: a binary task reports AUC, a multi-class one reports
+    top-1, and a recipe with no on-device run reports null rather than inventing a boolean. So the
+    contract worth pinning is internal consistency, not a fixed field list.
+    """
 
-    def test_only_the_frozen_arm_is_marked_on_device_feasible(self, tradeoff):
-        """44.8 s/step is the finding that decides the on-device question; it must reach the UI as
-        a feasibility flag and not merely as a large number a user has to interpret."""
-        assert tradeoff["arms"]["FROZEN_HEAD"]["ondevice_feasible"] is True
-        assert tradeoff["arms"]["FULL"]["ondevice_feasible"] is False
+    def _all(self, artifact):
+        return artifact["by_recipe"].items()
 
-    def test_the_ondevice_ratio_states_its_basis(self, tradeoff):
-        """Several like-for-like ratios exist and differ by ~70x. One without its basis is not a
-        checkable claim."""
-        assert "ondevice_ratio_basis" in tradeoff
-        assert tradeoff["ondevice_ratio_basis"].strip()
+    def test_each_arm_reports_an_accuracy_in_some_form(self, artifact):
+        for key, tr in self._all(artifact):
+            for arm, facts in tr["arms"].items():
+                assert ("accuracy_auc" in facts) or ("accuracy_pct" in facts), \
+                    f"{key}/{arm} reports no accuracy at all"
 
-    def test_every_supported_arm_has_a_summary_the_ui_can_show(self, tradeoff):
-        for arm, v in tradeoff["arms"].items():
-            assert v["summary"].strip(), f"{arm} has no summary"
+    def test_the_headline_agrees_with_the_arms_on_who_wins(self, artifact):
+        """A headline that contradicted its own numbers would be the worst failure here — the
+        headline is the one line most users read."""
+        for key, tr in self._all(artifact):
+            arms = tr["arms"]
+            def acc(a):
+                return arms[a].get("accuracy_auc", arms[a].get("accuracy_pct"))
+            if acc("FULL") is None or acc("FROZEN_HEAD") is None:
+                continue
+            delta = arms["FULL"]["accuracy_delta_vs_frozen"]
+            assert (delta > 0) == (acc("FULL") > acc("FROZEN_HEAD")), \
+                f"{key}: delta_vs_frozen={delta} contradicts the reported accuracies"
+
+    def test_a_comm_ratio_is_either_measured_or_null(self, artifact):
+        """Never a placeholder number. A ratio of 1.004 is a real, unflattering measurement; a
+        missing one must be null, not 1 or 0."""
+        for key, tr in self._all(artifact):
+            r = tr["comm_ratio"]
+            assert r is None or r > 0, f"{key}: comm_ratio={r!r}"
+
+    def test_ondevice_claims_are_null_unless_measured(self, artifact):
+        for key, tr in self._all(artifact):
+            basis = tr["ondevice_ratio_basis"]
+            if "not measured" in basis.lower():
+                assert tr["ondevice_ratio"] is None, f"{key} has a ratio but says it was not measured"
+                for arm, facts in tr["arms"].items():
+                    assert facts["ondevice_feasible"] is None, \
+                        f"{key}/{arm} claims on-device feasibility that was never measured"
+
+    def test_every_arm_has_a_summary_the_ui_can_show(self, artifact):
+        for key, tr in self._all(artifact):
+            for arm, facts in tr["arms"].items():
+                assert facts["summary"].strip(), f"{key}/{arm} has no summary"
 
 
 class TestTheCaveatsSurvive:
-    def test_caveats_are_present(self, tradeoff):
-        assert len(tradeoff["caveats"]) >= 4
+    def test_every_recipe_carries_caveats(self, artifact):
+        for key, tr in artifact["by_recipe"].items():
+            assert len(tr["caveats"]) >= 3, f"{key} ships numbers with fewer than 3 caveats"
 
-    def test_the_round_budget_dependence_is_stated(self, tradeoff):
-        """The comm ratio is 2331x at 150 rounds and 4533x at 400. Quoting one number without the
-        budget it belongs to is the single most misleading thing this artifact could do."""
-        joined = " ".join(tradeoff["caveats"]).lower()
-        assert "round" in joined and ("budget" in joined or "400" in joined)
+    def test_the_measurement_context_is_carried(self, artifact):
+        for key, tr in artifact["by_recipe"].items():
+            m = tr["measured_on"]
+            for k in ("recipe", "task", "backbone", "protocol"):
+                assert m.get(k, "").strip(), f"{key}: measured_on.{k} is empty"
+            assert "identical for both arms" in m["backbone"], \
+                f"{key}: the contrast must state the backbone is held fixed across arms"
 
-    def test_the_split_hardware_caveat_is_stated(self, tradeoff):
-        """Accuracy is an RTX 4060 number and latency is a handset number; no cell measured both."""
-        joined = " ".join(tradeoff["caveats"]).lower()
-        assert "hardware" in joined
-
-    def test_the_measurement_context_is_carried(self, tradeoff):
-        m = tradeoff["measured_on"]
-        for k in ("task", "backbone", "protocol"):
-            assert m.get(k, "").strip(), f"measured_on.{k} is empty"
-        assert "identical for both arms" in m["backbone"], \
-            "the contrast must state that the backbone is held fixed — that is what makes it clean"
+    def test_the_seed_and_round_count_are_stated(self, artifact):
+        """Every one of these is a small-N result; a number without its budget invites over-reading."""
+        for key, tr in artifact["by_recipe"].items():
+            blob = (tr["measured_on"]["protocol"] + " " + " ".join(tr["caveats"])).lower()
+            assert "seed" in blob, f"{key} does not state its seed"
+            assert "round" in blob, f"{key} does not state its round budget"
 
 
 class TestEachRecipeShowsItsOwnMeasurement:

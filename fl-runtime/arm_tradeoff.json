@@ -4,51 +4,44 @@
   "note": "Keyed by recipe. A measurement is shown ONLY on the recipe it was taken on \u2014 the first version attached one chest X-ray result to every dual-arm recipe, which stated something no measurement supported for CIFAR-10.",
   "by_recipe": {
     "PNEUMONIA_CNN": {
-      "$schema_version": 1,
+      "$schema_version": 2,
       "generated_by": "scripts/build_arm_tradeoff.py",
-      "source": "research/results/frozen-backbone/VERDICT_frozen_vs_full.json",
-      "source_sha256": "5f03faa51c3c1867ae3306de690671ad0b0ea1251778854e2e56c906d7949db2",
-      "source_date": "2026-08-10",
-      "headline": "Full fine-tuning buys +0.0224 AUC for 3,321x the communication. Defensible in a datacenter, not on a phone.",
+      "source": "research/results/pneumonia-e2e/pneumonia_product_path_2026-08-13.json",
+      "source_sha256": "d26c8c2ecad697fae9b8cec266aaef2200ea3edffae2fd52a275c313a2fe4a0e",
+      "source_date": "2026-08-13",
+      "headline": "On this recipe freezing costs 21.8 accuracy points and saves only 1.004x the communication \u2014 its classifier is 99.6% of the model, so there is almost nothing to freeze.",
       "measured_on": {
         "recipe": "PNEUMONIA_CNN",
-        "task": "chest X-ray pneumonia, binary AUC",
-        "backbone": "timm resnet50_gn.a1h_in1k (identical for both arms)",
-        "protocol": "400 rounds, 3 seeds, alpha=1.0, 20 clients, 10/round, 3 local epochs",
-        "accuracy_hardware": "RTX 4060",
-        "ondevice_hardware": "vivo 1805 (SDM845), ExecuTorch portable"
+        "task": "chest X-ray (NORMAL/PNEUMONIA), top-1 accuracy",
+        "backbone": "PneumoniaCNN features.*, randomly initialised (identical for both arms)",
+        "protocol": "3 rounds, 2 clients, alpha 0.5, 800 samples/split, seed 0, live federation on the product path",
+        "accuracy_hardware": "cpu",
+        "ondevice_hardware": "not measured for this recipe"
       },
       "arms": {
         "FULL": {
-          "accuracy_auc": 0.9786,
-          "accuracy_delta_vs_frozen": 0.0224,
-          "accuracy_sign_consistent": true,
-          "accuracy_seeds_agreeing": "6/6 (3 at shard 10, 3 at shard 70)",
-          "comm_total_mb_400r": 752502.5,
-          "ondevice_ms_per_step": 44801.5,
-          "ondevice_feasible": false,
-          "summary": "Higher accuracy. Needs a datacenter \u2014 a single on-device step costs 44.8 s, so a federated round is not feasible on a phone."
+          "accuracy_pct": 92.44,
+          "accuracy_delta_vs_frozen": 21.82,
+          "comm_mb_per_download": 98.36,
+          "ondevice_feasible": null,
+          "summary": "Reaches 92.4% and was still improving at round 3. The only arm that learns on this recipe."
         },
         "FROZEN_HEAD": {
-          "accuracy_auc": 0.9562,
+          "accuracy_pct": 70.62,
           "accuracy_delta_vs_frozen": 0.0,
-          "accuracy_sign_consistent": true,
-          "accuracy_seeds_agreeing": "6/6 (3 at shard 10, 3 at shard 70)",
-          "comm_total_mb_400r": 226.6,
-          "ondevice_ms_per_step": 0.1115,
-          "ondevice_feasible": true,
-          "summary": "3,321x less communication and the only arm that runs on-device (0.1115 ms/step). Costs 0.0224 AUC against a full fine-tune."
+          "comm_mb_per_download": 98.0,
+          "ondevice_feasible": null,
+          "summary": "Reaches 70.6%, identical in every round \u2014 the majority-class rate, so it never learns. This recipe's classifier is 99.6% of its parameters, so freezing the rest saves almost no communication either."
         }
       },
-      "comm_ratio": 3321,
-      "ondevice_ratio": 5988,
-      "ondevice_ratio_basis": "LiteRT Flex on both arms (the record's like-for-like comparison)",
+      "comm_ratio": 1.004,
+      "ondevice_ratio": null,
+      "ondevice_ratio_basis": "not measured for this recipe",
       "caveats": [
-        "One task (chest X-ray), one alpha (1.0), one architecture family, three seeds per cell.",
-        "The communication ratio is ROUND-BUDGET DEPENDENT: it grows with the number of rounds because the frozen arm's one-shot backbone delivery is amortised over them. Quoted at 400 rounds.",
-        "Accuracy and on-device latency were measured on DIFFERENT hardware (RTX 4060 and an SDM845 handset). The joint claim composes two measurements; no single cell measures both.",
-        "On-device numbers are single-handset.",
-        "No differential privacy evaluated. DP noise scales with parameter count and should favour the frozen arm further, but that is an expectation, not a measurement."
+        "3 rounds, 2 clients, one seed, 800 samples per split. The FULL arm had not converged, so its number is a floor.",
+        "The frozen arm's accuracy equals the majority-class rate and is identical across all three rounds \u2014 that is no learning, not merely weak learning.",
+        "Communication is the server's per-download payload, not a full round-trip budget.",
+        "The research campaign's frozen arm on this task used a pretrained ResNet-18 feature extractor with a 1,026-parameter head and reached very different conclusions. It is a different architecture and its results are not shown here."
       ]
     },
     "CNN": {

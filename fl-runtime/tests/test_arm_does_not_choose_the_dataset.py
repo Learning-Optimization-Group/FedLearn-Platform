@@ -96,9 +96,23 @@ def test_the_frozen_demo_dataset_is_reached_by_recipe_not_by_arm():
 
 
 def test_the_model_build_site_still_honours_the_arm():
-    """The arm SHOULD drive model construction — that half of P1-1b was right, and must stay."""
+    """The arm SHOULD drive which parameters train — that half of P1-1b was right and must stay.
+
+    Asserted through the cross-cutting entry point rather than by looking for `apply_arm` inside
+    __init__. Applying it inline in a build branch is precisely what let a FROZEN_HEAD pneumonia
+    run train its whole backbone: USE_PNEUMONIA is tested before USE_DERIVED, so the branch that
+    applied the arm was never reached. The property that matters is that the arm is applied
+    UNCONDITIONALLY after the chain, not that any particular function mentions it.
+    """
     tree = ast.parse(open(CLIENT).read())
-    cls_fns = [n for n in ast.walk(tree)
-               if isinstance(n, ast.FunctionDef) and n.name in ("__init__", "_build_model")]
-    src = "\n".join(ast.unparse(f) for f in cls_fns)
-    assert "apply_arm" in src, "the client no longer applies the arm when building its model"
+    init = [n for n in ast.walk(tree)
+            if isinstance(n, ast.FunctionDef) and n.name == "__init__"]
+    src = "\n".join(ast.unparse(f) for f in init)
+    assert "apply_declared_arm" in src, \
+        "the client no longer applies the declared arm after building its model"
+
+    helper = [n for n in ast.walk(tree)
+              if isinstance(n, ast.FunctionDef) and n.name == "apply_declared_arm"]
+    assert helper, "apply_declared_arm is gone"
+    assert "apply_arm" in ast.unparse(helper[0]), \
+        "apply_declared_arm no longer actually applies the arm"

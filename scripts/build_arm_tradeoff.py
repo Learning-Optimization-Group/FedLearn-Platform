@@ -41,6 +41,8 @@ OUT = os.path.join(REPO, "fl-runtime", "arm_tradeoff.json")
 # The CNN recipe's own measurement: a live 3-round federation on the product path, both arms.
 CNN_RECORD = os.path.join(REPO, "research", "results", "frozen-e2e",
                           "live_frozen_e2e_2026-08-13.json")
+PNEUMONIA_RECORD = os.path.join(REPO, "research", "results", "pneumonia-e2e",
+                                "pneumonia_product_path_2026-08-13.json")
 
 
 def build_xray(record_path=RECORD):
@@ -197,9 +199,87 @@ def build_cnn(record_path=CNN_RECORD):
     }
 
 
+def build_pneumonia(record_path=PNEUMONIA_RECORD):
+    """PNEUMONIA_CNN's own product-path measurement, replacing the research campaign's.
+
+    The campaign measured a frozen ImageNet ResNet-18 feature extractor with a 1,026-parameter
+    head. THIS recipe is a small custom CNN whose classifier block is 99.6% of its parameters, so
+    the two share a task and nothing else. Showing the campaign numbers here told a user that
+    freezing costs ~0.02 AUC and saves 3,321x the bytes; on the actual recipe it costs 21.8 points
+    of accuracy and saves 1.004x. Same task, opposite conclusion.
+    """
+    with open(record_path, "rb") as fh:
+        raw = fh.read()
+    rec = json.loads(raw)
+    full, frozen = rec["results"]["FULL"], rec["results"]["FROZEN_HEAD"]
+    m = rec["meta"]
+    ratio = full["wire_mb_per_download"] / frozen["wire_mb_per_download"]
+
+    return {
+        "$schema_version": 2,
+        "generated_by": "scripts/build_arm_tradeoff.py",
+        "source": "research/results/pneumonia-e2e/pneumonia_product_path_2026-08-13.json",
+        "source_sha256": hashlib.sha256(raw).hexdigest(),
+        "source_date": m["date"],
+        "headline": (
+            f"On this recipe freezing costs {full['final_acc'] - frozen['final_acc']:.1f} accuracy "
+            f"points and saves only {ratio:.3f}x the communication — its classifier is 99.6% of "
+            f"the model, so there is almost nothing to freeze."),
+        "measured_on": {
+            "recipe": "PNEUMONIA_CNN",
+            "task": "chest X-ray (NORMAL/PNEUMONIA), top-1 accuracy",
+            "backbone": "PneumoniaCNN features.*, randomly initialised (identical for both arms)",
+            "protocol": f"{m['rounds']} rounds, {m['clients']} clients, alpha {m['alpha']}, "
+                        f"{m['subset_per_split']} samples/split, seed {m['seed']}, "
+                        f"live federation on the product path",
+            "accuracy_hardware": m["device"],
+            "ondevice_hardware": "not measured for this recipe",
+        },
+        "arms": {
+            "FULL": {
+                "accuracy_pct": full["final_acc"],
+                "accuracy_delta_vs_frozen": round(full["final_acc"] - frozen["final_acc"], 2),
+                "comm_mb_per_download": full["wire_mb_per_download"],
+                "ondevice_feasible": None,
+                "summary": f"Reaches {full['final_acc']:.1f}% and was still improving at round "
+                           f"{m['rounds']}. The only arm that learns on this recipe.",
+            },
+            "FROZEN_HEAD": {
+                "accuracy_pct": frozen["final_acc"],
+                "accuracy_delta_vs_frozen": 0.0,
+                "comm_mb_per_download": frozen["wire_mb_per_download"],
+                "ondevice_feasible": None,
+                "summary": f"Reaches {frozen['final_acc']:.1f}%, identical in every round — the "
+                           f"majority-class rate, so it never learns. This recipe's classifier is "
+                           f"99.6% of its parameters, so freezing the rest saves almost no "
+                           f"communication either.",
+            },
+        },
+        "comm_ratio": round(ratio, 3),
+        "ondevice_ratio": None,
+        "ondevice_ratio_basis": "not measured for this recipe",
+        "caveats": [
+            f"{m['rounds']} rounds, {m['clients']} clients, one seed, "
+            f"{m['subset_per_split']} samples per split. The FULL arm had not converged, so its "
+            f"number is a floor.",
+            "The frozen arm's accuracy equals the majority-class rate and is identical across all "
+            "three rounds — that is no learning, not merely weak learning.",
+            "Communication is the server's per-download payload, not a full round-trip budget.",
+            "The research campaign's frozen arm on this task used a pretrained ResNet-18 feature "
+            "extractor with a 1,026-parameter head and reached very different conclusions. It is a "
+            "different architecture and its results are not shown here.",
+        ],
+    }
+
+
 def build(record_path=RECORD, cnn_record_path=CNN_RECORD):
     """Every recipe's trade-off, keyed by the recipe it was MEASURED on."""
-    by_recipe = {"PNEUMONIA_CNN": build_xray(record_path)}
+    # PNEUMONIA_CNN uses its own PRODUCT-PATH measurement, not the research campaign's: the
+    # campaign froze a pretrained ResNet-18 and this recipe is a custom CNN whose classifier is
+    # 99.6% of the model, so the campaign's conclusions invert on the actual recipe.
+    by_recipe = {}
+    if os.path.exists(PNEUMONIA_RECORD):
+        by_recipe["PNEUMONIA_CNN"] = build_pneumonia(PNEUMONIA_RECORD)
     if os.path.exists(cnn_record_path):
         by_recipe["CNN"] = build_cnn(cnn_record_path)
     return {

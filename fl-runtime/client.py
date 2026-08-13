@@ -170,6 +170,30 @@ def dirichlet_split(labels, num_clients, alpha=1.0, seed=42):
     return client_indices
 
 
+def apply_declared_arm(net):
+    """Apply this run's training arm to ``net``, whichever branch built it.
+
+    The arm says WHICH PARAMETERS TRAIN. That is orthogonal to which recipe built the model, so it
+    must not live inside one branch of the build chain — which is exactly where it was, in the
+    USE_DERIVED branch. USE_PNEUMONIA is tested first, so a live FROZEN_HEAD run on PNEUMONIA_CNN
+    built its model, skipped the arm entirely, and fine-tuned the whole network while reporting
+    itself as frozen. The saved backbone had moved by 0.65 — a full fine-tune wearing the frozen
+    label, with the eval card and project row both saying FROZEN_HEAD.
+
+    Returns the number of trainable parameters, or None when the arm is FULL (nothing to do).
+    """
+    if not USE_DERIVED:
+        return None
+    key = MODEL_TYPE or "FROZEN_DEMO"
+    # Derived rather than trusted: a caller that sets only USE_DERIVED (tests do) must not end up
+    # applying FULL and silently unfreezing the backbone it asked to freeze.
+    arm = TRAINING_ARM if TRAINING_ARM != "FULL" else "FROZEN_HEAD"
+    import recipes
+    recipes.apply_arm(net, arm, recipes.trainable_prefixes(key, arm))
+    from fedlearn.estimators.params import num_trainable
+    return num_trainable(net)
+
+
 def load_data(partition_id: int, dataset_name: str, dataset_path: str = None, num_clients: int = 10):
     """Load data with Dirichlet split."""
     if USE_PNEUMONIA:
@@ -640,15 +664,7 @@ class ZOSLClient(fl.Client):
             import recipes
             key = MODEL_TYPE or "FROZEN_DEMO"
             self.net = recipes.get_recipe(key).build_model(DEVICE)
-            # Inside this branch USE_DERIVED is true by definition, so the arm IS a subset arm.
-            # Deriving it here rather than trusting the module global keeps the two consistent by
-            # construction: a caller that sets only USE_DERIVED (tests do) cannot end up applying
-            # FULL and silently unfreezing the backbone it asked to freeze.
-            arm = TRAINING_ARM if TRAINING_ARM != "FULL" else "FROZEN_HEAD"
-            recipes.apply_arm(self.net, arm, recipes.trainable_prefixes(key, arm))
-            from fedlearn.estimators.params import num_trainable
-            print(f"Loaded {key} arm={arm} "
-                  f"({num_trainable(self.net)} trainable params; subset federation)")
+            print(f"Loaded {key} via registry")
         else:
             # DA-14 Phase 2: build via the recipe registry (single authority; same models.CnnNet).
             # The key is MODEL_TYPE when it names a registry recipe, so a pretrained-backbone recipe
@@ -658,6 +674,14 @@ class ZOSLClient(fl.Client):
             key = MODEL_TYPE if recipes.is_recipe(MODEL_TYPE) else "CNN"
             self.net = recipes.get_recipe(key).build_model(DEVICE)
             print(f"Loaded {key} via registry")
+
+        # CROSS-CUTTING: apply the arm AFTER the build chain, so it holds whichever branch built
+        # the model. It used to live inside the USE_DERIVED branch, and USE_PNEUMONIA is tested
+        # first -- so a FROZEN_HEAD pneumonia run trained its whole backbone while reporting itself
+        # as frozen. Correctness must not depend on the order of a build chain.
+        _n_trainable = apply_declared_arm(self.net)
+        if _n_trainable is not None:
+            print(f"Arm {TRAINING_ARM}: {_n_trainable} trainable params (subset federation)")
 
         log_processing_usage("after model init")
 
