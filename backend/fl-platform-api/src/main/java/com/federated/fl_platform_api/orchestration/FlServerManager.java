@@ -3,6 +3,7 @@ package com.federated.fl_platform_api.orchestration;
 import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.model.Project;
+import com.federated.fl_platform_api.model.TrainingArm;
 import com.federated.fl_platform_api.service.WebSocketService;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -514,6 +515,16 @@ public class FlServerManager {
             command.add(project.getModelName());
             command.add("--min-clients");
             command.add(String.valueOf(minClients));
+            // P1: pass the project's training arm through to the runtime. Emitted only when it is
+            // not FULL, so every existing spawn's argv is byte-identical to before -- fl_server.py
+            // and client.py both resolve an omitted arm to FULL. Whether the RECIPE supports the
+            // arm is validated in recipes.validate_arm() on the Python side (the catalog is the
+            // authority); the enum and the V22 CHECK bound the vocabulary on this side.
+            TrainingArm arm = project.getTrainingArm();
+            if (arm != null && arm != TrainingArm.FULL) {
+                command.add("--training-arm");
+                command.add(arm.name());
+            }
             if ("LLM_LORA".equalsIgnoreCase(project.getModelType())) {
                 command.add("--aggregation");
                 command.add("FFA_LORA");

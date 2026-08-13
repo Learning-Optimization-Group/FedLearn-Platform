@@ -34,6 +34,18 @@ public class StartProject {
     )
     private String strategy;
 
+    /**
+     * P1: the training arm for this run. Omitted means {@code FULL}, so existing callers are
+     * unchanged. Validated against the RECIPE's declared {@code supported_arms} downstream — this
+     * pattern only bounds the vocabulary, because whether a given recipe supports FROZEN_HEAD is
+     * the recipe catalog's business, not the DTO's.
+     */
+    @Pattern(
+            regexp = "FULL|FROZEN_HEAD",
+            message = "trainingArm must be one of: FULL, FROZEN_HEAD"
+    )
+    private String trainingArm;
+
     @Min(value = 1, message = "numRounds must be at least 1")
     @Max(value = 100, message = "numRounds must be at most 100")
     private Integer numRounds;
@@ -86,5 +98,13 @@ public class StartProject {
                 ", minClients=" + minClients +
                 ", clientsPerRound=" + clientsPerRound +
                 '}';
+    }
+
+    public String getTrainingArm() {
+        return trainingArm;
+    }
+
+    public void setTrainingArm(String trainingArm) {
+        this.trainingArm = trainingArm;
     }
 }

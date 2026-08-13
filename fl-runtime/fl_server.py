@@ -417,6 +417,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-name", type=str, required=True, help="Model name")
     parser.add_argument("--port", type=int, default=50051, help="gRPC server port")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="Aggregation strategy")
+    parser.add_argument("--training-arm", type=str, default=None,
+                        help="Training arm: FULL (default) or FROZEN_HEAD. Must be declared in the "
+                             "recipe's supported_arms. Omitted resolves to FULL, so existing "
+                             "invocations are unchanged.")
     parser.add_argument("--seed", type=int, default=None, help="Global run seed for torch/numpy/random; omitted => a fresh seed is generated at startup and recorded on the eval card")
     parser.add_argument("--aggregation", type=str, default="FFA_LORA", choices=["FFA_LORA", "FEDIT"], help="LoRA aggregation sub-mode (LLM_LORA only)")
     # FR-13 + SE-11: central differential privacy for FedLoRA (default OFF). Noise is calibrated
@@ -560,6 +564,32 @@ def main():
             exit(1)
 
         logging.info(f"Initial model parameters loaded from {init_path}.")
+
+        # P1: restrict the FEDERATED set to the arm's trainable subset.
+        #
+        # The .npz deliberately keeps the FULL model -- the frozen backbone has to stay recoverable
+        # -- so the arm is applied here rather than at save time. The server must federate exactly
+        # what the clients send: client.py returns trainable_state(net) for a subset arm, so a
+        # server holding the full state_dict would have d_server > d_client and, for DeComFL, the
+        # shared-seed perturbation z would silently misalign (see estimators.params.trainable_state).
+        # Clients load the aggregated subset non-strict onto their local full model, which is what
+        # keeps the frozen backbone local and off the wire.
+        args.training_arm = recipes.validate_arm(args.model_type, args.training_arm)
+        _prefixes = recipes.trainable_prefixes(args.model_type, args.training_arm)
+        if _prefixes is not None:
+            _pre = tuple(_prefixes)
+            _kept = OrderedDict((k, v) for k, v in initial_parameters.items()
+                                if k.startswith(_pre))
+            if not _kept:
+                logging.error(
+                    f"Training arm {args.training_arm} with prefixes {list(_pre)} matched NO key in "
+                    f"{init_path}; the federated set would be empty. Keys: "
+                    f"{list(initial_parameters)[:8]}")
+                exit(1)
+            logging.info(
+                f"Arm {args.training_arm}: federating {len(_kept)}/{len(initial_parameters)} keys "
+                f"(prefixes={list(_pre)}); the rest stays local as the frozen backbone.")
+            initial_parameters = _kept
 
         logging.info(f"\n{'='*60}")
         logging.info(f"LOADED PARAMETERS FROM .NPZ FILE")

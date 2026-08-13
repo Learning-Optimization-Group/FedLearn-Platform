@@ -63,6 +63,15 @@ public class Project {
     @Column(nullable = false, length = 32)
     private ProjectVisibility visibility = ProjectVisibility.PRIVATE;
 
+    /**
+     * P1: which parameters this project's runs train and federate. Defaults to {@link
+     * TrainingArm#FULL} so a project created before P1 — or by a client that omits the arm —
+     * behaves exactly as it did. Backed by {@code V22__project_training_arm.sql}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "training_arm", nullable = false, length = 32)
+    private TrainingArm trainingArm = TrainingArm.FULL;
+
     @Column(name = "model_published", nullable = false)
     private boolean modelPublished = false;
 
@@ -139,6 +148,14 @@ public class Project {
     public ProjectInitStatus getInitStatus() { return initStatus; }
 
     public void setInitStatus(ProjectInitStatus initStatus) { this.initStatus = initStatus; }
+
+    public TrainingArm getTrainingArm() {
+        return trainingArm;
+    }
+
+    public void setTrainingArm(TrainingArm trainingArm) {
+        this.trainingArm = trainingArm;
+    }
 
     public ProjectVisibility getVisibility() {
         return visibility;
