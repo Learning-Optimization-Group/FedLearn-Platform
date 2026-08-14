@@ -82,12 +82,15 @@ public void sendLogs(UUID projectId, String logMessage) {
 
 `WebSocketService` carries sibling broadcasters on the same pattern: `sendStatusUpdate(...)`
 → `/topic/status/{projectId}`, `sendResultUpdate(...)` → `/topic/results/{projectId}`, and
-`sendInferenceToken(...)` → `/topic/inference/{projectId}`.
+`sendInferenceToken(...)` → `/topic/inference/{projectId}`. One is *not* a broadcast:
+`sendUserNotification(userId, NotificationDto)` resolves the user's username and sends to
+`/queue/notifications`, which Spring delivers as `/user/{username}/queue/notifications` — the
+user-destination path the `/queue` broker prefix exists for.
 
 When the React frontend opens the dashboard for project `1234`, it sends a STOMP `SUBSCRIBE` frame to `/topic/logs/1234`. It then passively receives all strings sent to that destination.
 
 ### JSON Parsing and Persistence
-The backend attempts to parse the incoming log line. If the Python server successfully emitted valid JSON, the backend extracts the `level`, `message`, and optional `stackTrace`. If the line isn't JSON (e.g., raw error output from a crash), it falls back to saving the entire line as a plain `INFO` string.
+The backend attempts to parse the incoming log line. If the Python server emitted valid JSON, the backend extracts the `level`, `message`, and optional `stackTrace`. If the line isn't JSON (e.g. raw error output from a crash), it falls back to saving the entire line as a plain `INFO` string. The `save` is separately guarded: a DB failure is logged at WARN and swallowed, because losing a log row must never break the live log stream that a running federation is being watched through.
 
 ```java
 private void persistLog(UUID projectId, String rawLine) {
@@ -96,17 +99,26 @@ private void persistLog(UUID projectId, String rawLine) {
     log.setTimestamp(Instant.now());
 
     try {
-        // Attempt to parse FL server JSON: {"timestamp":"...","level":"INFO","message":"..."}
+        // FL server emits JSON: {"timestamp":"...","level":"INFO","message":"..."}
         JsonNode node = objectMapper.readTree(rawLine);
         log.setLevel(node.has("level") ? node.get("level").asText() : "INFO");
         log.setMessage(node.has("message") ? node.get("message").asText() : rawLine);
+        if (node.has("stackTrace")) {
+            log.setStackTrace(node.get("stackTrace").asText());
+        }
     } catch (Exception e) {
-        // Fallback: Not JSON — store as a plain INFO message.
+        // Not JSON — store as a plain INFO message.
         log.setLevel("INFO");
         log.setMessage(rawLine);
     }
 
-    serverLogRepository.save(log);
+    try {
+        serverLogRepository.save(log);
+    } catch (RuntimeException e) {
+        // Don't let a DB failure break the log stream — but make it visible to operators.
+        WebSocketService.log.warn("Failed to persist FL log for project {}: {}",
+                projectId, e.getClass().getSimpleName());
+    }
 }
 ```
 
@@ -114,6 +126,16 @@ private void persistLog(UUID projectId, String rawLine) {
 
 Once a project has finished, the user can download a complete text file of all logs generated during the training session. 
 
-Because ML processes can generate enormous amounts of logging data, the export is capped server-side at `ProjectService.MAX_LOGS_EXPORT_SIZE = 10_000` — applied as a `PageRequest` bound on the query — to prevent memory exhaustion on the JVM.
+Because ML processes can generate enormous amounts of logging data, both read paths are bounded
+server-side, and the sort is server-controlled so a caller cannot reverse the order or sort by an
+unindexed column:
 
-The export builds a downloadable `.txt` file constructed from the persisted `server_logs` table rows, mapping the `ServerLog` entities to formatted strings.
+| Path | Bound |
+|---|---|
+| `GET /api/projects/{id}/logs` (live, paged) | `?size=` is clamped to `MAX_LOGS_PAGE_SIZE = 500`; the default is `DEFAULT_LOGS_PAGE_SIZE = 200` |
+| `GET /api/projects/{id}/logs/export` | a single `PageRequest.of(0, MAX_LOGS_EXPORT_SIZE = 10_000, …)` |
+
+Both go through `requireProjectAndOwnership`, so org-scope and ownership apply before a single row is
+read. The export builds a downloadable `.txt` attachment from the persisted `server_logs` rows —
+a small header (project id, export timestamp, entry count) followed by `[timestamp] [level] message`
+lines, with an indented `STACKTRACE:` line where one was captured.

@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group" open>
 <summary>Desktop</summary><ul>
@@ -91,9 +100,14 @@
 <ol>
 <li><a href="#entry-point-maints">Entry Point: <code>main.ts</code></a></li>
 <li><a href="#ipc-handler-registry-ipchandlersts">IPC Handler Registry: <code>ipc.handlers.ts</code></a></li>
+<li><a href="#validators-validatorsts">Validators: <code>validators.ts</code></a></li>
 <li><a href="#training-orchestration-dockerservicets">Training Orchestration: <code>docker.service.ts</code></a></li>
 <li><a href="#authentication-service-authservicets">Authentication Service: <code>auth.service.ts</code></a></li>
+<li><a href="#shared-http-client-httpts">Shared HTTP Client: <code>http.ts</code></a></li>
+<li><a href="#backend-facing-services">Backend-Facing Services</a></li>
 <li><a href="#hardware-probe-hardwareprobets">Hardware Probe: <code>hardware.probe.ts</code></a></li>
+<li><a href="#device-capabilities-devicecapabilitiescollectorts">Device Capabilities: <code>deviceCapabilities.collector.ts</code></a></li>
+<li><a href="#auto-updater-updaterts">Auto-Updater: <code>updater.ts</code></a></li>
 <li><a href="#ipc-channel-reference">IPC Channel Reference</a></li>
 </ol>
 <hr />
@@ -103,12 +117,15 @@
 <div class="codehilite"><pre><span></span><code><span class="c1">// src/main/main.ts</span>
 <span class="kd">function</span><span class="w"> </span><span class="nx">createWindow</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="nx">mainWindow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">BrowserWindow</span><span class="p">({</span>
-<span class="w">    </span><span class="nx">width</span><span class="o">:</span><span class="w"> </span><span class="kt">1280</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">height</span><span class="o">:</span><span class="w"> </span><span class="kt">820</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">minWidth</span><span class="o">:</span><span class="w"> </span><span class="kt">960</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">minHeight</span><span class="o">:</span><span class="w"> </span><span class="kt">640</span><span class="p">,</span>
+<span class="w">    </span><span class="c1">// Shell layout budget: 64px rail + ~380px setup column + usable log pane</span>
+<span class="w">    </span><span class="c1">// needs &gt;= 1024 wide; drag strip + checklist + logs + status bar needs</span>
+<span class="w">    </span><span class="c1">// &gt;= 700 tall.</span>
+<span class="w">    </span><span class="nx">width</span><span class="o">:</span><span class="w"> </span><span class="kt">1360</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">height</span><span class="o">:</span><span class="w"> </span><span class="kt">860</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">minWidth</span><span class="o">:</span><span class="w"> </span><span class="kt">1024</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">minHeight</span><span class="o">:</span><span class="w"> </span><span class="kt">700</span><span class="p">,</span>
 <span class="w">    </span><span class="nx">title</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;FedLearn Desktop&#39;</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">backgroundColor</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;#0a0a0f&#39;</span><span class="p">,</span><span class="w">   </span><span class="c1">// Dark background, prevents flash on load</span>
+<span class="w">    </span><span class="nx">backgroundColor</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;#F6F3EE&#39;</span><span class="p">,</span><span class="w">   </span><span class="c1">// Ledger light canvas — see note below</span>
 <span class="w">    </span><span class="nx">titleBarStyle</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;hiddenInset&#39;</span><span class="p">,</span><span class="w"> </span><span class="c1">// macOS native traffic lights inset into app</span>
 <span class="w">    </span><span class="nx">trafficLightPosition</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">x</span><span class="o">:</span><span class="w"> </span><span class="kt">16</span><span class="p">,</span><span class="w"> </span><span class="nx">y</span><span class="o">:</span><span class="w"> </span><span class="kt">16</span><span class="w"> </span><span class="p">},</span>
 <span class="w">    </span><span class="nx">webPreferences</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
@@ -126,9 +143,12 @@
 </code></pre></div>
 
 <p><strong>Notable choices:</strong>
-- <code>backgroundColor: '#0a0a0f'</code> — Sets the window background to the app's dark theme color <em>before</em> the renderer loads. This prevents the white flash that would otherwise appear while HTML/CSS is being parsed.
-- <code>titleBarStyle: 'hiddenInset'</code> — macOS only. Hides the title bar chrome but keeps the traffic-light buttons (close/minimize/maximize) in the window, positioned at the specified offsets.
-- <code>minWidth: 960, minHeight: 640</code> — Enforces a minimum usable window size, preventing layout breakage on very small displays.</p>
+- <code>backgroundColor: '#F6F3EE'</code> — the Ledger light canvas, painted <em>before</em> the renderer loads so there is no flash while HTML/CSS is parsed. This literal mirrors <code>--canvas</code> in <code>design/tokens.json</code>; the main process cannot read CSS variables, so <strong>it must be updated by hand on any palette swap</strong> (the code says so in a comment). It was <code>#0a0a0f</code> under the older dark-first systems.
+- <code>titleBarStyle: 'hiddenInset'</code> — macOS only. Hides the title bar chrome but keeps the traffic-light buttons in the window, positioned at the specified offsets. <code>App.tsx</code> renders its own drag strip and keys the inset off <code>navigator.userAgent</code>.
+- <code>minWidth: 1024, minHeight: 700</code> — sized from the actual shell layout budget (icon rail + setup column + log pane), not a round number.</p>
+<h3 id="application-menu">Application Menu<a class="headerlink" href="#application-menu" title="Permanent link">&para;</a></h3>
+<p><code>setApplicationMenu()</code> installs a template of <strong>standard roles only</strong> — <code>appMenu</code> (macOS), <code>editMenu</code>, a View submenu of zoom/fullscreen roles, and <code>windowMenu</code>. That restores the system copy/paste, zoom and window shortcuts without introducing any custom item.</p>
+<p>The omission is deliberate: the section-switching shortcuts (<code>Cmd/Ctrl+1..3</code>) live in a renderer <code>keydown</code> listener instead, because a menu item that reached the renderer would require a new IPC channel — a new hole in the bridge for a keyboard shortcut.</p>
 <h3 id="dev-vs-production-loading">Dev vs. Production Loading<a class="headerlink" href="#dev-vs-production-loading" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">isDev</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="c1">// Dev: Load from webpack-dev-server (supports HMR)</span>
@@ -181,18 +201,46 @@
 <span class="nx">app</span><span class="p">.</span><span class="nx">disableHardwareAcceleration</span><span class="p">();</span>
 </code></pre></div>
 
+<h3 id="draining-training-on-quit">Draining Training on Quit<a class="headerlink" href="#draining-training-on-quit" title="Permanent link">&para;</a></h3>
+<p><code>before-quit</code> intercepts the <strong>first</strong> quit and best-effort drains any running training before exiting:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">let</span><span class="w"> </span><span class="nx">isDraining</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+<span class="nx">app</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;before-quit&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">isDraining</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w">              </span><span class="c1">// drain in progress; let app.exit(0) proceed</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">docker</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">getDockerService</span><span class="p">();</span><span class="w">   </span><span class="c1">// undefined only if IPC registration threw</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">docker</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">isDraining</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">event</span><span class="p">.</span><span class="nx">preventDefault</span><span class="p">();</span>
+
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">exited</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">exit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">exited</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">exited</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span><span class="w"> </span><span class="nx">app</span><span class="p">.</span><span class="nx">exit</span><span class="p">(</span><span class="mf">0</span><span class="p">);</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">hardTimeout</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">setTimeout</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">log</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="cm">/* … */</span><span class="p">);</span><span class="w"> </span><span class="nx">exit</span><span class="p">();</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="mf">15000</span><span class="p">);</span>
+
+<span class="w">  </span><span class="nb">Promise</span><span class="p">.</span><span class="nx">resolve</span><span class="p">(</span><span class="nx">docker</span><span class="p">.</span><span class="nx">stopTraining</span><span class="p">())</span>
+<span class="w">    </span><span class="p">.</span><span class="k">catch</span><span class="p">((</span><span class="nx">err</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">log</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;[Main] before-quit: stopTraining failed&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="p">))</span>
+<span class="w">    </span><span class="p">.</span><span class="k">finally</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">clearTimeout</span><span class="p">(</span><span class="nx">hardTimeout</span><span class="p">);</span><span class="w"> </span><span class="nx">exit</span><span class="p">();</span><span class="w"> </span><span class="p">});</span>
+<span class="p">});</span>
+</code></pre></div>
+
+<p>Why it exists: containers are created with <code>AutoRemove: false</code> and the native client is spawned non-detached, so quitting mid-run would otherwise orphan a Jetson container until the next run lazily cleaned it up.</p>
+<p>Why <strong>15 s</strong> specifically: <code>stopDockerContainer()</code> does <code>container.stop({ t: 10 })</code> — up to ~10 s for a SIGTERM-ignoring container — and <em>then</em> <code>container.remove()</code>. An 8 s cap would force-exit between the two and orphan exactly the container it was meant to clean up. 15 s covers the slow-but-responsive path; only a genuinely wedged daemon (where cleanup is impossible anyway) hits the backstop, and the cap guarantees a hung daemon can never make the app unquittable.</p>
+<p>On macOS, closing the window does <strong>not</strong> quit the app, so training simply keeps running under the still-live app — nothing is orphaned. On other platforms <code>window-all-closed</code> → <code>app.quit()</code> fires <code>before-quit</code>, so the drain covers that path too.</p>
+<p><code>getDockerService()</code> is exported from <code>ipc.handlers.ts</code> purely as the accessor for this handler.</p>
 <hr />
 <h2 id="ipc-handler-registry-ipchandlersts">IPC Handler Registry: <code>ipc.handlers.ts</code><a class="headerlink" href="#ipc-handler-registry-ipchandlersts" title="Permanent link">&para;</a></h2>
 <p>All <code>ipcMain.handle</code> registrations are centralized in <code>registerIpcHandlers()</code>. This is called once from <code>main.ts</code> after the window is created.</p>
 <div class="codehilite"><pre><span></span><code><span class="c1">// src/main/ipc.handlers.ts</span>
 <span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">registerIpcHandlers</span><span class="p">(</span><span class="nx">mainWindow</span><span class="o">:</span><span class="w"> </span><span class="kt">BrowserWindow</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="nx">dockerService</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">DockerService</span><span class="p">(</span><span class="nx">mainWindow</span><span class="p">);</span>
-<span class="w">  </span><span class="nx">authService</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">AuthService</span><span class="p">();</span>
+<span class="w">  </span><span class="nx">authService</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">AuthService</span><span class="p">(</span><span class="nx">mainWindow</span><span class="p">);</span><span class="w">            </span><span class="c1">// window needed to push auth:session-expired</span>
+<span class="w">  </span><span class="nx">inferenceService</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">InferenceService</span><span class="p">(</span><span class="nx">authService</span><span class="p">);</span>
+<span class="w">  </span><span class="nx">clientProjectService</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">ClientProjectService</span><span class="p">(</span><span class="nx">authService</span><span class="p">);</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">inferenceStreamService</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">InferenceStreamService</span><span class="p">(</span><span class="nx">authService</span><span class="p">,</span><span class="w"> </span><span class="nx">mainWindow</span><span class="p">);</span>
 
 <span class="w">  </span><span class="c1">// Register each IPC channel...</span>
 <span class="p">}</span>
 </code></pre></div>
 
+<p>Every backend-facing service is constructed with the <code>AuthService</code> instance rather than reaching for the token itself — that is what keeps <code>getAuthHeader()</code> a single, Main-only call site per request.</p>
 <p>The function is wrapped in a try/catch in <code>main.ts</code> so that a registration failure (e.g., a crash in <code>DockerService</code> constructor) <strong>does not prevent the renderer from loading</strong>:</p>
 <div class="codehilite"><pre><span></span><code><span class="c1">// main.ts</span>
 <span class="k">try</span><span class="w"> </span><span class="p">{</span>
@@ -203,17 +251,8 @@
 </code></pre></div>
 
 <p>This is important because if the window stays black (no renderer), the user has no way to recover — they can't even log out or change the server URL.</p>
-<h3 id="validation-constants">Validation Constants<a class="headerlink" href="#validation-constants" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">ALLOWED_HARDWARE_PROFILES</span><span class="o">:</span><span class="w"> </span><span class="kt">ReadonlySet</span><span class="o">&lt;</span><span class="kt">string</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Set</span><span class="p">([</span><span class="s1">&#39;discrete&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="p">]);</span>
-<span class="kd">const</span><span class="w"> </span><span class="nx">PROJECT_ID_PATTERN</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[a-zA-Z0-9_-]{1,128}$/</span><span class="p">;</span>
-<span class="kd">const</span><span class="w"> </span><span class="nx">PARTITION_ID_PATTERN</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[0-9]{1,10}$/</span><span class="p">;</span>
-<span class="kd">const</span><span class="w"> </span><span class="nx">SERVER_ADDRESS_PATTERN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[a-zA-Z0-9._:/-]{1,256}$/</span><span class="p">;</span>
-<span class="kd">const</span><span class="w"> </span><span class="nx">MAX_DATASET_PATH_LEN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">2048</span><span class="p">;</span>
-</code></pre></div>
-
-<p>These mirror the constants in <code>preload.ts</code>. Keeping them in sync is important; they're the second line of defense.</p>
 <h3 id="channel-dialogopen-directory">Channel: <code>dialog:open-directory</code><a class="headerlink" href="#channel-dialogopen-directory" title="Permanent link">&para;</a></h3>
-<p>Opens a native OS directory picker dialog:</p>
+<p>Opens a native OS directory picker dialog — and records the result as consented:</p>
 <div class="codehilite"><pre><span></span><code><span class="nx">ipcMain</span><span class="p">.</span><span class="nx">handle</span><span class="p">(</span><span class="s1">&#39;dialog:open-directory&#39;</span><span class="p">,</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">dialog</span><span class="p">.</span><span class="nx">showOpenDialog</span><span class="p">(</span><span class="nx">mainWindow</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nx">properties</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;openDirectory&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;createDirectory&#39;</span><span class="p">],</span>
@@ -222,11 +261,57 @@
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">canceled</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">result</span><span class="p">.</span><span class="nx">filePaths</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;User canceled.&#39;</span><span class="w"> </span><span class="p">};</span>
 <span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="c1">// Only a path the user physically picked here may later be bind-mounted.</span>
+<span class="w">  </span><span class="nx">recordConsentedDatasetPath</span><span class="p">(</span><span class="nx">result</span><span class="p">.</span><span class="nx">filePaths</span><span class="p">[</span><span class="mf">0</span><span class="p">]);</span>
 <span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w"> </span><span class="nx">path</span><span class="o">:</span><span class="w"> </span><span class="kt">result.filePaths</span><span class="p">[</span><span class="mf">0</span><span class="p">]</span><span class="w"> </span><span class="p">};</span>
 <span class="p">});</span>
 </code></pre></div>
 
-<p>Using the <strong>native dialog</strong> for path selection (rather than a text input) is a security choice — paths chosen through the OS dialog are guaranteed to be valid, existing paths that the user intentionally selected. The raw path is still sanitized by <code>sanitizeDatasetPath</code> in the <code>docker:start-training</code> handler before use.</p>
+<p>Using the <strong>native dialog</strong> for path selection (rather than a text input) is a security choice — paths chosen through the OS dialog are real, existing paths the user intentionally selected. The raw path is still sanitized by <code>sanitizeDatasetPath</code> in the <code>docker:start-training</code> handler, <em>and</em> checked against the consent allowlist, before use. See <a href="02-security-model.html#dataset-path-consent-dataset-consentts">02 → Dataset-Path Consent</a>.</p>
+<hr />
+<h2 id="validators-validatorsts">Validators: <code>validators.ts</code><a class="headerlink" href="#validators-validatorsts" title="Permanent link">&para;</a></h2>
+<p>The main-side validation predicates live in their own module, not inline in <code>ipc.handlers.ts</code>. The module's own header states the contract: <em>"Pure validation utilities extracted for testability. Do not import <code>electron</code> or <code>electron-log</code> here."</em> Its only non-type import from <code>docker.service</code> is <code>type { HardwareProfile }</code>, which is erased at compile time — so the module stays free of the Electron runtime and <code>src/__tests__/validators.test.ts</code> exercises the <strong>shipped</strong> predicates rather than a copy.</p>
+<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">ALLOWED_HARDWARE_PROFILES</span><span class="o">:</span><span class="w"> </span><span class="kt">ReadonlySet</span><span class="o">&lt;</span><span class="kt">string</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span>
+<span class="w">  </span><span class="ow">new</span><span class="w"> </span><span class="nb">Set</span><span class="p">([</span><span class="s1">&#39;discrete&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="p">]);</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">PROJECT_ID_PATTERN</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[a-zA-Z0-9_-]{1,128}$/</span><span class="p">;</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">PARTITION_ID_PATTERN</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[0-9]{1,10}$/</span><span class="p">;</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">SERVER_ADDRESS_PATTERN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[a-zA-Z0-9._:/-]{1,256}$/</span><span class="p">;</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">MAX_DATASET_PATH_LEN</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="mf">2048</span><span class="p">;</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">MAX_SERVER_URL_LEN</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mf">512</span><span class="p">;</span>
+</code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>Export</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sanitizeDatasetPath(raw)</code></td>
+<td><code>'' \| absolutePath \| null</code>. Empty/whitespace normalizes to <code>''</code> ("use the built-in dataset"); otherwise resolve → no <code>..</code> → absolute → <code>statSync</code> is a directory.</td>
+</tr>
+<tr>
+<td><code>validateHardwareProfile(p)</code></td>
+<td>Type guard narrowing to the <code>HardwareProfile</code> union.</td>
+</tr>
+<tr>
+<td><code>validateProjectId(id)</code> / <code>validatePartitionId(id)</code> / <code>validateServerAddress(a)</code></td>
+<td>Anchored-regex type guards.</td>
+</tr>
+<tr>
+<td><code>validateStringInput(v, maxLength)</code></td>
+<td>Non-empty bounded string.</td>
+</tr>
+<tr>
+<td><code>evaluateServerUrl(raw, allowInsecureHttp)</code></td>
+<td>The whole <code>auth:set-server-url</code> decision — shape, protocol, DE-13 plaintext policy, and <code>/api</code> normalization. Returns <code>{ ok, url?, warning?, error?, code? }</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>These mirror the constants in <code>preload.ts</code>. Keeping the two in sync matters; Main is the second line of defense, and a profile added to one but not the other is silently rejected at whichever layer was missed.</p>
 <hr />
 <h2 id="training-orchestration-dockerservicets">Training Orchestration: <code>docker.service.ts</code><a class="headerlink" href="#training-orchestration-dockerservicets" title="Permanent link">&para;</a></h2>
 <p><code>DockerService</code> is the core of the desktop application. It manages the full lifecycle of a training session, routing between two execution backends based on the hardware profile.</p>
@@ -246,17 +331,28 @@
 <span class="w">      </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;//./pipe/docker_engine&#39;</span>
 <span class="w">      </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/var/run/docker.sock&#39;</span><span class="p">;</span>
 
+<span class="w">    </span><span class="c1">// dockerode opens the socket lazily — constructing the client does NOT connect.</span>
+<span class="w">    </span><span class="c1">// The daemon is deliberately NOT probed here; see below.</span>
 <span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">docker</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Docker</span><span class="p">({</span><span class="w"> </span><span class="nx">socketPath</span><span class="w"> </span><span class="p">});</span>
-
-<span class="w">    </span><span class="c1">// Non-blocking probe — logged but not surfaced to renderer unless needed</span>
-<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">docker</span><span class="p">.</span><span class="nx">ping</span><span class="p">()</span>
-<span class="w">      </span><span class="p">.</span><span class="nx">then</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">log</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="s1">&#39;[DockerService] Docker daemon is reachable&#39;</span><span class="p">))</span>
-<span class="w">      </span><span class="p">.</span><span class="k">catch</span><span class="p">((</span><span class="nx">err</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">log</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="sb">`[DockerService] Docker daemon unreachable: </span><span class="si">${</span><span class="nx">err</span><span class="p">.</span><span class="nx">message</span><span class="si">}</span><span class="sb">`</span><span class="p">));</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">info</span><span class="p">(</span><span class="sb">`[DockerService] Initialized with socket: </span><span class="si">${</span><span class="nx">socketPath</span><span class="si">}</span><span class="sb"> (daemon probed lazily — Jetson path only)`</span><span class="p">);</span>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 
-<p>The daemon ping is <strong>non-blocking</strong> — it doesn't wait for a response before creating the window. The result is logged so developers can see connectivity status, but native-path users (MPS/CPU) should never see a Docker-related warning unless they click the Jetson profile.</p>
+<p><strong>There is no startup ping.</strong> An earlier build fired a non-blocking <code>docker.ping()</code> in the constructor and pushed a <code>docker:daemon-unavailable</code> event to the renderer on failure. That produced a spurious <em>"Docker is not running: connect ENOENT \\.\pipe\docker_engine"</em> banner for the overwhelming majority of users — Windows and macOS on CPU/CUDA/MPS, who run the bundled native client and never touch Docker at all. <code>4d7d3a4</code> removed the eager probe, the banner, and the push channel.</p>
+<p>Docker is now probed exactly where it is needed: at the top of <code>startDockerTraining()</code>, which is only reachable from the Jetson profile, and which surfaces an actionable, platform-specific error at the moment it matters:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">docker</span><span class="p">.</span><span class="nx">ping</span><span class="p">();</span>
+<span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">err</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">hint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">platform</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;win32&#39;</span>
+<span class="w">    </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;Start Docker Desktop and wait for the whale icon to say &quot;Engine running.&quot;&#39;</span>
+<span class="w">    </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Start the Docker daemon.&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">full</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sb">`Docker daemon unreachable: </span><span class="si">${</span><span class="nx">message</span><span class="si">}</span><span class="sb">. </span><span class="si">${</span><span class="nx">hint</span><span class="si">}</span><span class="sb">`</span><span class="p">;</span>
+<span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">sendLog</span><span class="p">(</span><span class="sb">`[System] </span><span class="si">${</span><span class="nx">full</span><span class="si">}</span><span class="sb">\n`</span><span class="p">);</span>
+<span class="w">  </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="nx">full</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
 <h3 id="execution-routing">Execution Routing<a class="headerlink" href="#execution-routing" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="k">async</span><span class="w"> </span><span class="nx">startTraining</span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">TrainingConfig</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="ow">void</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
@@ -267,7 +363,7 @@
 <span class="p">}</span>
 </code></pre></div>
 
-<p>Simple: <code>jetson</code> → Docker, everything else → native binary.</p>
+<p>Simple: <code>jetson</code> → Docker, everything else → native binary. <code>hardwareProfile</code> is the <strong>sole</strong> dispatcher.</p>
 <h3 id="native-process-resolution">Native Process Resolution<a class="headerlink" href="#native-process-resolution" title="Permanent link">&para;</a></h3>
 <p>The native client can be in two locations depending on runtime context:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">private</span><span class="w"> </span><span class="nx">resolveNativeInvocation</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
@@ -275,12 +371,12 @@
 
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">app</span><span class="p">.</span><span class="nx">isPackaged</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="c1">// PRODUCTION: Use the PyInstaller bundle shipped in extraResources</span>
-<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">bundleDir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">resourcesPath</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;fedlearn-client&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">bundleDir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">resourcesPath</span><span class="p">,</span><span class="w"> </span><span class="nx">NATIVE_BUNDLE_DIR</span><span class="p">);</span><span class="w">  </span><span class="c1">// &#39;fedlearn-client&#39;</span>
 <span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">binary</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">bundleDir</span><span class="p">,</span><span class="w"> </span><span class="nx">binaryName</span><span class="p">);</span>
 
 <span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">fs</span><span class="p">.</span><span class="nx">existsSync</span><span class="p">(</span><span class="nx">binary</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
 <span class="w">      </span><span class="nx">log</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="sb">`[Native] Packaged bundle missing at </span><span class="si">${</span><span class="nx">binary</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
-<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span><span class="w">  </span><span class="c1">// Caller surfaces a clear error</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span><span class="w">  </span><span class="c1">// Caller surfaces a clear error — never a silent dev fallback</span>
 <span class="w">    </span><span class="p">}</span>
 
 <span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span>
@@ -291,10 +387,18 @@
 <span class="w">    </span><span class="p">};</span>
 <span class="w">  </span><span class="p">}</span>
 
-<span class="w">  </span><span class="c1">// DEVELOPMENT: Use system python3 + source tree</span>
+<span class="w">  </span><span class="c1">// DEVELOPMENT: system python3 + the repo&#39;s fl-runtime client</span>
 <span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">repoRoot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">resolve</span><span class="p">(</span><span class="nx">__dirname</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;..&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;..&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;..&#39;</span><span class="p">);</span>
-<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">clientScript</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">repoRoot</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;client-docker&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;scripts&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;client.py&#39;</span><span class="p">);</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">clientScript</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">repoRoot</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;fl-runtime&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;client.py&#39;</span><span class="p">);</span>
 <span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">frameworkSrc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">repoRoot</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;framework&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;src&#39;</span><span class="p">);</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">fs</span><span class="p">.</span><span class="nx">existsSync</span><span class="p">(</span><span class="nx">clientScript</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">log</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="sb">`[Native] Dev-mode script missing at </span><span class="si">${</span><span class="nx">clientScript</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">pythonPathSep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">platform</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;win32&#39;</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;;&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;:&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">existingPythonPath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">PYTHONPATH</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
 
 <span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nx">command</span><span class="o">:</span><span class="w"> </span><span class="kt">process.platform</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;win32&#39;</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;python&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;python3&#39;</span><span class="p">,</span>
@@ -302,25 +406,28 @@
 <span class="w">    </span><span class="nx">cwd</span><span class="o">:</span><span class="w"> </span><span class="kt">path.dirname</span><span class="p">(</span><span class="nx">clientScript</span><span class="p">),</span>
 <span class="w">    </span><span class="nx">env</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">      </span><span class="p">...</span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">,</span>
-<span class="w">      </span><span class="nx">PYTHONPATH</span><span class="o">:</span><span class="w"> </span><span class="kt">frameworkSrc</span><span class="p">,</span>
+<span class="w">      </span><span class="c1">// PREPEND rather than replace — never clobber a developer&#39;s own PYTHONPATH</span>
+<span class="w">      </span><span class="nx">PYTHONPATH</span><span class="o">:</span><span class="w"> </span><span class="kt">existingPythonPath</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">frameworkSrc</span><span class="si">}${</span><span class="nx">pythonPathSep</span><span class="si">}${</span><span class="nx">existingPythonPath</span><span class="si">}</span><span class="sb">`</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="nx">frameworkSrc</span><span class="p">,</span>
 <span class="w">      </span><span class="nx">PYTHONUNBUFFERED</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;1&#39;</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">  </span><span class="p">};</span>
 <span class="p">}</span>
 </code></pre></div>
 
+<blockquote>
+<p>The dev-mode script is <strong><code>fl-runtime/client.py</code></strong>. <code>client-docker/scripts/client.py</code> no longer exists — DA-5 (<code>d2cc757</code>) consolidated onto <code>fl-runtime/</code> as the single client source of truth, consumed by the Docker image, the PyInstaller bundle, and this dev fallback alike.</p>
+</blockquote>
 <h3 id="starting-a-native-process">Starting a Native Process<a class="headerlink" href="#starting-a-native-process" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="k">private</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="nx">startNativeProcess</span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">TrainingConfig</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="ow">void</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="c1">// Kill any previous process</span>
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="p">.</span><span class="nx">kill</span><span class="p">(</span><span class="s1">&#39;SIGTERM&#39;</span><span class="p">);</span>
-<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">// Fully DRAIN the previous client before respawning — see stopTraining below.</span>
+<span class="w">    </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">stopTraining</span><span class="p">();</span>
 <span class="w">  </span><span class="p">}</span>
 
 <span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">invocation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">resolveNativeInvocation</span><span class="p">();</span>
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">invocation</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">app</span><span class="p">.</span><span class="nx">isPackaged</span>
-<span class="w">      </span><span class="o">?</span><span class="w"> </span><span class="sb">`Native training bundle not found at &lt;resources&gt;/fedlearn-client.`</span>
+<span class="w">      </span><span class="o">?</span><span class="w"> </span><span class="sb">`Native training bundle not found at &lt;resources&gt;/</span><span class="si">${</span><span class="nx">NATIVE_BUNDLE_DIR</span><span class="si">}</span><span class="sb">. Reinstall the app or rebuild with the client bundle.`</span>
 <span class="w">      </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Dev-mode client.py not found. Run the app from the repo root.&#39;</span><span class="p">;</span>
 <span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">sendLog</span><span class="p">(</span><span class="sb">`[System] </span><span class="si">${</span><span class="nx">msg</span><span class="si">}</span><span class="sb">\n`</span><span class="p">);</span>
 <span class="w">    </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="nx">msg</span><span class="p">);</span>
@@ -333,52 +440,72 @@
 <span class="w">    </span><span class="s1">&#39;--partition-id&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">partitionId</span><span class="p">,</span>
 <span class="w">  </span><span class="p">];</span>
 
-<span class="w">  </span><span class="c1">// LLM flag for large model architectures</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;OPT-125M&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;Transformer&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s1">&#39;--use-llm&#39;</span><span class="p">);</span>
-<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="p">)</span><span class="w">   </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s1">&#39;--model-type&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">trainingArm</span><span class="p">)</span><span class="w"> </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s1">&#39;--training-arm&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">trainingArm</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">strategy</span><span class="p">)</span><span class="w">    </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s1">&#39;--strategy&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">strategy</span><span class="p">);</span>
+
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">datasetPath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">datasetPath</span><span class="o">?</span><span class="p">.</span><span class="nx">trim</span><span class="p">();</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">datasetPath</span><span class="p">)</span><span class="w">        </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s1">&#39;--dataset-path&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">datasetPath</span><span class="p">);</span>
 
 <span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">child</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">spawn</span><span class="p">(</span><span class="nx">invocation</span><span class="p">.</span><span class="nx">command</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nx">env</span><span class="o">:</span><span class="w"> </span><span class="kt">invocation.env</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">env</span><span class="o">:</span><span class="w"> </span><span class="kt">withConnectionTokenEnv</span><span class="p">(</span><span class="nx">invocation</span><span class="p">.</span><span class="nx">env</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">),</span><span class="w">  </span><span class="c1">// FEDLEARN_CONNECTION_TOKEN</span>
 <span class="w">    </span><span class="nx">cwd</span><span class="o">:</span><span class="w"> </span><span class="kt">invocation.cwd</span><span class="p">,</span>
 <span class="w">  </span><span class="p">});</span>
 
 <span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">child</span><span class="p">;</span>
 
-<span class="w">  </span><span class="c1">// Pipe stdout/stderr to renderer log panel</span>
 <span class="w">  </span><span class="nx">child</span><span class="p">.</span><span class="nx">stdout</span><span class="o">?</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">data</span><span class="o">:</span><span class="w"> </span><span class="kt">Buffer</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">sendLog</span><span class="p">(</span><span class="nx">data</span><span class="p">.</span><span class="nx">toString</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)));</span>
 <span class="w">  </span><span class="nx">child</span><span class="p">.</span><span class="nx">stderr</span><span class="o">?</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">data</span><span class="o">:</span><span class="w"> </span><span class="kt">Buffer</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">sendLog</span><span class="p">(</span><span class="sb">`[stderr] </span><span class="si">${</span><span class="nx">data</span><span class="p">.</span><span class="nx">toString</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span><span class="si">}</span><span class="sb">`</span><span class="p">));</span>
-
-<span class="w">  </span><span class="nx">child</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">err</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">sendLog</span><span class="p">(</span><span class="sb">`[System] Native process error: </span><span class="si">${</span><span class="nx">err</span><span class="p">.</span><span class="nx">message</span><span class="si">}</span><span class="sb">\n`</span><span class="p">);</span>
-<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
-<span class="w">  </span><span class="p">});</span>
-
-<span class="w">  </span><span class="nx">child</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;exit&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">code</span><span class="p">,</span><span class="w"> </span><span class="nx">signal</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">sendLog</span><span class="p">(</span><span class="sb">`[System] Native process exited (code=</span><span class="si">${</span><span class="nx">code</span><span class="si">}</span><span class="sb">, signal=</span><span class="si">${</span><span class="nx">signal</span><span class="si">}</span><span class="sb">)\n`</span><span class="p">);</span>
-<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
-<span class="w">  </span><span class="p">});</span>
+<span class="w">  </span><span class="nx">child</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;error&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">err</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* log + sendLog, clear nativeProcess */</span><span class="w"> </span><span class="p">});</span>
+<span class="w">  </span><span class="nx">child</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;exit&#39;</span><span class="p">,</span><span class="w">  </span><span class="p">(</span><span class="nx">code</span><span class="p">,</span><span class="w"> </span><span class="nx">signal</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* log + sendLog, clear nativeProcess */</span><span class="w"> </span><span class="p">});</span>
 <span class="p">}</span>
 </code></pre></div>
 
-<p><strong>Why <code>PYTHONUNBUFFERED=1</code>?</strong> Python buffers its output by default when stdout is not a TTY (which it isn't when spawned by Node). Without unbuffered mode, log lines would only appear after the buffer fills up (typically 8KB), making real-time logging useless.</p>
-<h3 id="stopping-training-sigterm-sigkill-fallback">Stopping Training (SIGTERM + SIGKILL Fallback)<a class="headerlink" href="#stopping-training-sigterm-sigkill-fallback" title="Permanent link">&para;</a></h3>
+<p>Each optional flag is <strong>omitted entirely</strong> when absent rather than passed empty, so the client's own defaults apply (<code>--strategy</code> absent ⇒ FedAvg; <code>--training-arm</code> absent ⇒ <code>FULL</code>).</p>
+<blockquote>
+<p><strong><code>--dataset-path</code> currently has no receiver.</strong> <code>fl-runtime/client.py</code> — the dev-mode target <em>and</em> the entry point of the PyInstaller bundle (<code>client-docker/packaging/fedlearn-client.spec</code> sets <code>CLIENT_ENTRY</code> to it) — declares no <code>--dataset-path</code> argument and parses with strict <code>parse_args()</code>, so the flag is an <em>unrecognised argument</em> and the client exits 2 before training starts. DE-2 (<code>d8f1b60</code>) added the argument to <code>client-docker/scripts/client.py</code>; DA-5 (<code>d2cc757</code>) deleted that fork and consolidated onto <code>fl-runtime/client.py</code>, which never carried it. Choosing a dataset folder on a native profile therefore fails today; leaving it blank (or ticking "skip") omits the flag and works. The Docker path is unaffected — the directory travels as the <code>${datasetPath}:/data</code> bind and <code>entrypoint.sh</code> never turns it into a flag.</p>
+</blockquote>
+<p><code>--use-llm</code> is no longer passed by the desktop (it survives in <code>fl-runtime/client.py</code> only as a deprecated alias). The client derives <code>USE_LLM</code> from <code>--model-type TRANSFORMER</code> itself, and <code>modelType</code> is now a recipe key coming from the backend's connection payload rather than a hardcoded dropdown value.</p>
+<p>The FL connection token travels as an <strong>environment variable</strong>, not an argument, on both paths — the framework reads <code>FEDLEARN_CONNECTION_TOKEN</code> straight from <code>os.environ</code> (<code>fedlearn/security/client_interceptor.maybe_wrap_channel</code>). <code>withConnectionTokenEnv()</code> returns the base env unchanged when no token is set, so a gate-off server still accepts the legacy no-token flow.</p>
+<p><strong>Why <code>PYTHONUNBUFFERED=1</code>?</strong> Python buffers its output when stdout is not a TTY (which it isn't when spawned by Node). Without unbuffered mode, log lines only appear once the buffer fills (typically 8KB), making real-time logging useless.</p>
+<h3 id="stopping-training-await-the-drain">Stopping Training — Await the Drain<a class="headerlink" href="#stopping-training-await-the-drain" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="k">async</span><span class="w"> </span><span class="nx">stopTraining</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="ow">void</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="p">.</span><span class="nx">kill</span><span class="p">(</span><span class="s1">&#39;SIGTERM&#39;</span><span class="p">);</span><span class="w">         </span><span class="c1">// Graceful shutdown first</span>
 <span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">proc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="p">;</span>
-<span class="w">    </span><span class="nx">setTimeout</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">proc</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="nx">proc</span><span class="p">.</span><span class="nx">killed</span><span class="p">)</span><span class="w"> </span><span class="nx">proc</span><span class="p">.</span><span class="nx">kill</span><span class="p">(</span><span class="s1">&#39;SIGKILL&#39;</span><span class="p">);</span><span class="w"> </span><span class="c1">// Force kill after 5s</span>
-<span class="w">    </span><span class="p">},</span><span class="w"> </span><span class="mf">5000</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">// exitCode is set on normal exit; signalCode when killed by a signal.</span>
+<span class="w">    </span><span class="c1">// proc.killed is NOT an &quot;exited&quot; signal — it is true the instant .kill()</span>
+<span class="w">    </span><span class="c1">// DELIVERS a signal — so it must not be used to detect liveness.</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">proc</span><span class="p">.</span><span class="nx">exitCode</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">proc</span><span class="p">.</span><span class="nx">signalCode</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">      </span><span class="k">return</span><span class="p">;</span><span class="w">                      </span><span class="c1">// nothing to wait for; avoids a spurious 5s grace on quit</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nx">proc</span><span class="p">.</span><span class="nx">kill</span><span class="p">(</span><span class="s1">&#39;SIGTERM&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">await</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="ow">void</span><span class="o">&gt;</span><span class="p">((</span><span class="nx">resolve</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">timer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">setTimeout</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Gate escalation on EXIT status, not proc.killed (already true from the</span>
+<span class="w">        </span><span class="c1">// SIGTERM above) — otherwise SIGKILL would never reach a SIGTERM-ignoring child.</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">proc</span><span class="p">.</span><span class="nx">exitCode</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">proc</span><span class="p">.</span><span class="nx">signalCode</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">try</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">proc</span><span class="p">.</span><span class="nx">kill</span><span class="p">(</span><span class="s1">&#39;SIGKILL&#39;</span><span class="p">);</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* already gone */</span><span class="w"> </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="nx">resolve</span><span class="p">();</span>
+<span class="w">      </span><span class="p">},</span><span class="w"> </span><span class="mf">5000</span><span class="p">);</span>
+<span class="w">      </span><span class="nx">proc</span><span class="p">.</span><span class="nx">once</span><span class="p">(</span><span class="s1">&#39;exit&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">clearTimeout</span><span class="p">(</span><span class="nx">timer</span><span class="p">);</span><span class="w"> </span><span class="nx">resolve</span><span class="p">();</span><span class="w"> </span><span class="p">});</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">nativeProcess</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span><span class="w">     </span><span class="c1">// cleared only AFTER the drain completes</span>
 <span class="w">    </span><span class="k">return</span><span class="p">;</span>
 <span class="w">  </span><span class="p">}</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">activeContainerId</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">stopDockerContainer</span><span class="p">();</span>
-<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">activeContainerId</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">stopDockerContainer</span><span class="p">();</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="nx">log</span><span class="p">.</span><span class="nx">warn</span><span class="p">(</span><span class="s1">&#39;[DockerService] No active training process to stop&#39;</span><span class="p">);</span>
 <span class="p">}</span>
 </code></pre></div>
 
-<p>A 5-second grace period allows the Python client to checkpoint its model state and perform clean shutdown before being forcefully terminated.</p>
+<p>Three details here are load-bearing, and all three were bugs at some point (<code>9a74e17</code>):</p>
+<ol>
+<li><strong>It awaits.</strong> A fire-and-forget kill let a respawn connect to the FL server on the same partition while the old client was still alive — a double-client race on one partition. <code>startNativeProcess</code> awaiting <code>stopTraining</code> guarantees at most one live native process per partition across a respawn.</li>
+<li><strong><code>this.nativeProcess</code> stays set during the drain.</strong> Clearing it early would let a concurrent <code>docker:get-status</code> poll observe <code>idle</code>, re-enable the Start button, and allow that second spawn.</li>
+<li><strong>Liveness is <code>exitCode</code>/<code>signalCode</code>, never <code>proc.killed</code>.</strong> <code>killed</code> is true the moment a signal is delivered, so gating on it would both skip the SIGKILL escalation and impose a pointless 5 s wait on an already-dead child at quit time.</li>
+</ol>
 <h3 id="docker-container-lifecycle">Docker Container Lifecycle<a class="headerlink" href="#docker-container-lifecycle" title="Permanent link">&para;</a></h3>
 <h4 id="creating-and-starting">Creating and Starting<a class="headerlink" href="#creating-and-starting" title="Permanent link">&para;</a></h4>
 <div class="codehilite"><pre><span></span><code><span class="k">private</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="nx">startDockerTraining</span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">TrainingConfig</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="ow">void</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
@@ -396,32 +523,26 @@
 
 <span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="o">:</span>
-<span class="w">      </span><span class="c1">// Direct device mounts — DO NOT use --runtime nvidia on Jetson</span>
 <span class="w">      </span><span class="nx">hostConfig</span><span class="p">.</span><span class="nx">Devices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">JETSON_DEVICE_MOUNTS</span><span class="p">;</span>
 <span class="w">      </span><span class="k">break</span><span class="p">;</span>
-<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;discrete&#39;</span><span class="o">:</span>
-<span class="w">      </span><span class="c1">// PCIe GPU — standard DeviceRequests (equivalent to --gpus all)</span>
-<span class="w">      </span><span class="nx">hostConfig</span><span class="p">.</span><span class="nx">DeviceRequests</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nx">Count</span><span class="o">:</span><span class="w"> </span><span class="o">-</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="nx">Capabilities</span><span class="o">:</span><span class="w"> </span><span class="p">[[</span><span class="s1">&#39;gpu&#39;</span><span class="p">]]</span><span class="w"> </span><span class="p">}];</span>
-<span class="w">      </span><span class="k">break</span><span class="p">;</span>
-<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="o">:</span>
-<span class="w">      </span><span class="k">break</span><span class="p">;</span><span class="w"> </span><span class="c1">// No GPU config</span>
 <span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="o">:</span>
 <span class="w">      </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="s1">&#39;MPS profile cannot run under Docker&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">default</span><span class="o">:</span>
+<span class="w">      </span><span class="c1">// Jetson is the ONLY profile that uses the Docker path — startTraining()</span>
+<span class="w">      </span><span class="c1">// routes discrete/cpu/mps to the bundled native client. Reaching here with</span>
+<span class="w">      </span><span class="c1">// a non-jetson profile means a routing regression, so fail loudly.</span>
+<span class="w">      </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span>
+<span class="w">        </span><span class="sb">`Profile &#39;</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="si">}</span><span class="sb">&#39; does not use the Docker path — only &#39;jetson&#39; runs under Docker`</span><span class="p">,</span>
+<span class="w">      </span><span class="p">);</span>
 <span class="w">  </span><span class="p">}</span>
 
-<span class="w">  </span><span class="c1">// 4. Pass config as environment variables</span>
-<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">env</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
-<span class="w">    </span><span class="sb">`PROJECT_ID=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">projectId</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
-<span class="w">    </span><span class="sb">`SERVER_ADDRESS=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">serverAddress</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
-<span class="w">    </span><span class="sb">`PARTITION_ID=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">partitionId</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
-<span class="w">    </span><span class="sb">`MODEL_TYPE=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
-<span class="w">    </span><span class="sb">`DATASET_PATH=/data`</span><span class="p">,</span>
-<span class="w">  </span><span class="p">];</span>
+<span class="w">  </span><span class="c1">// 4. Pass config as environment variables (buildContainerEnv)</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">env</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">buildContainerEnv</span><span class="p">(</span><span class="nx">config</span><span class="p">);</span>
 
 <span class="w">  </span><span class="c1">// 5. Create + start container</span>
 <span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">container</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">docker</span><span class="p">.</span><span class="nx">createContainer</span><span class="p">({</span>
-<span class="w">    </span><span class="nx">Image</span><span class="o">:</span><span class="w"> </span><span class="kt">DOCKER_IMAGE</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="kt">CONTAINER_NAME</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">Image</span><span class="o">:</span><span class="w"> </span><span class="kt">DOCKER_IMAGE</span><span class="p">,</span><span class="w">           </span><span class="c1">// FEDLEARN_CLIENT_IMAGE ?? &#39;fedlearn-client:latest&#39;</span>
+<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="kt">CONTAINER_NAME</span><span class="p">,</span><span class="w">          </span><span class="c1">// &#39;fedlearn-training-client&#39;</span>
 <span class="w">    </span><span class="nx">Env</span><span class="o">:</span><span class="w"> </span><span class="kt">env</span><span class="p">,</span>
 <span class="w">    </span><span class="nx">HostConfig</span><span class="o">:</span><span class="w"> </span><span class="kt">hostConfig</span><span class="p">,</span>
 <span class="w">    </span><span class="nx">Tty</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span>
@@ -435,9 +556,29 @@
 <span class="p">}</span>
 </code></pre></div>
 
-<p><strong>Why <code>AutoRemove: false</code>?</strong> If set to <code>true</code>, Docker removes the container immediately on exit — before the log stream has fully drained. With <code>false</code>, the container stays around until explicitly removed in <code>stopDockerContainer()</code>, giving the log stream time to deliver the final bytes.</p>
+<blockquote>
+<p><strong>The <code>discrete</code> case is gone from this switch.</strong> <code>DeviceRequests: [{ Count: -1, Capabilities: [['gpu']] }]</code> (the <code>--gpus all</code> equivalent) is no longer here, because <code>discrete</code> never reaches the Docker path — it runs the bundled native client with CUDA torch. <code>2b02173</code> made the profile routing truthful in both the switch and the profile-card copy; a <code>discrete</code> value arriving here now throws rather than quietly building a container for a native profile.</p>
+</blockquote>
+<p><strong>Why <code>AutoRemove: false</code>?</strong> If set to <code>true</code>, Docker removes the container immediately on exit — before the log stream has fully drained. With <code>false</code>, the container stays until explicitly removed in <code>stopDockerContainer()</code>, giving the log stream time to deliver the final bytes.</p>
+<h4 id="container-environment-buildcontainerenv">Container Environment (<code>buildContainerEnv</code>)<a class="headerlink" href="#container-environment-buildcontainerenv" title="Permanent link">&para;</a></h4>
+<p>Exported separately from the class so it can be unit-tested (<code>src/__tests__/trainingArmPropagation.test.ts</code>, <code>clientAuthEnv.test.ts</code>):</p>
+<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">buildContainerEnv</span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">TrainingConfig</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">env</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="sb">`PROJECT_ID=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">projectId</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
+<span class="w">    </span><span class="sb">`SERVER_ADDRESS=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">serverAddress</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
+<span class="w">    </span><span class="sb">`PARTITION_ID=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">partitionId</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
+<span class="w">    </span><span class="sb">`MODEL_TYPE=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
+<span class="w">    </span><span class="sb">`DATASET_PATH=/data`</span><span class="p">,</span>
+<span class="w">  </span><span class="p">];</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">strategy</span><span class="p">)</span><span class="w">        </span><span class="nx">env</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="sb">`STRATEGY=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">strategy</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">trainingArm</span><span class="p">)</span><span class="w">     </span><span class="nx">env</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="sb">`TRAINING_ARM=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">trainingArm</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">connectionToken</span><span class="p">)</span><span class="w"> </span><span class="nx">env</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="sb">`FEDLEARN_CONNECTION_TOKEN=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">connectionToken</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">env</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><code>client-docker/entrypoint.sh</code> turns <code>MODEL_TYPE</code>, <code>STRATEGY</code> and <code>TRAINING_ARM</code> back into <code>--model-type</code> / <code>--strategy</code> / <code>--training-arm</code> flags, and omits each one entirely when its variable is unset — giving the Docker path argv parity with the native path. <code>FEDLEARN_CONNECTION_TOKEN</code> is read directly from the environment by the framework and needs no flag.</p>
 <h4 id="jetson-specific-device-mounts">Jetson-Specific Device Mounts<a class="headerlink" href="#jetson-specific-device-mounts" title="Permanent link">&para;</a></h4>
-<p>NVIDIA Jetson SoCs use a Tegra GPU that does not present as a standard PCIe device. The <code>--runtime nvidia</code> Docker flag (used for discrete GPUs) searches for PCIe device metadata in the kernel device tree and <strong>hangs indefinitely</strong> on Jetson. The correct approach is direct device node mapping:</p>
 <div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">JETSON_DEVICE_MOUNTS</span><span class="o">:</span><span class="w"> </span><span class="kt">Docker.DeviceMapping</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
 <span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">PathOnHost</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-ctrl&#39;</span><span class="p">,</span><span class="w">     </span><span class="nx">PathInContainer</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-ctrl&#39;</span><span class="p">,</span><span class="w">     </span><span class="nx">CgroupPermissions</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;rwm&#39;</span><span class="w"> </span><span class="p">},</span>
 <span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">PathOnHost</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-ctrl-gpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">PathInContainer</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-ctrl-gpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">CgroupPermissions</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;rwm&#39;</span><span class="w"> </span><span class="p">},</span>
@@ -448,7 +589,9 @@
 <span class="p">];</span>
 </code></pre></div>
 
-<p>All six device nodes must be mounted. Missing any one of them causes the container to hang or crash silently.</p>
+<p>The source comment beside the <code>case 'jetson'</code> branch states that <code>--runtime nvidia</code> is <em>"PROHIBITED on Jetson — it searches for PCIe discrete-GPU metadata in the kernel device tree and hangs indefinitely"</em>.</p>
+<p><strong>That prohibition was measured to be wrong on JetPack 6, and this device list does not work there either.</strong> On an AGX Orin running L4T R36.5.0 / JetPack 6.2 with <code>nvidia-container-toolkit 1.19.0-1</code>, <code>docker run --runtime nvidia</code> succeeded (7.9 s, <code>torch.cuda.is_available()</code> True, device reported as "Orin") while the device-mount path <em>without</em> <code>--runtime nvidia</code> failed with <code>cuInit → 801</code> (<code>CUDA_ERROR_NOT_SUPPORTED</code>) and then segfaulted — the in-container <code>libcuda.so.1</code> is a stub. Separately, <code>/dev/nvhost-ctrl</code> — the first entry above — <strong>does not exist on L4T R36.5</strong>, and Docker hard-errors (<code>no such file or directory</code>) if you pass it. That node set is JetPack-5-era.</p>
+<p>The full measurement, including the honest scope of what was and was not re-tested, is in <a href="07-hardware-profiles.html#nvidia-jetson-soc-docker">07 → NVIDIA Jetson SoC</a>. Read it before trusting either recipe on a specific device.</p>
 <h3 id="docker-multiplexed-log-stream-demultiplexing">Docker Multiplexed Log Stream Demultiplexing<a class="headerlink" href="#docker-multiplexed-log-stream-demultiplexing" title="Permanent link">&para;</a></h3>
 <p>Docker's attach/log stream uses a <strong>multiplexed binary protocol</strong> where each chunk is prefixed with an 8-byte header:</p>
 <div class="codehilite"><pre><span></span><code>[stream_type: 1 byte][padding: 3 bytes][payload_size: 4 bytes][payload: payload_size bytes]
@@ -499,19 +642,28 @@
 
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">activeContainerId</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;idle&#39;</span><span class="p">;</span>
 
-<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">container</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">docker</span><span class="p">.</span><span class="nx">getContainer</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">activeContainerId</span><span class="p">);</span>
-<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">info</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">container</span><span class="p">.</span><span class="nx">inspect</span><span class="p">();</span>
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">container</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">docker</span><span class="p">.</span><span class="nx">getContainer</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">activeContainerId</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">info</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">container</span><span class="p">.</span><span class="nx">inspect</span><span class="p">();</span>
 
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">Running</span><span class="p">)</span><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;running&#39;</span><span class="p">;</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">Restarting</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;restarting&#39;</span><span class="p">;</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">Paused</span><span class="p">)</span><span class="w">     </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;paused&#39;</span><span class="p">;</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">Dead</span><span class="p">)</span><span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;error&#39;</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">Running</span><span class="p">)</span><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;running&#39;</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">Restarting</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;restarting&#39;</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">Paused</span><span class="p">)</span><span class="w">     </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;paused&#39;</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">Dead</span><span class="p">)</span><span class="w">       </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;error&#39;</span><span class="p">;</span>
 
-<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">ExitCode</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;completed&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;error&#39;</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">info</span><span class="p">.</span><span class="nx">State</span><span class="p">.</span><span class="nx">ExitCode</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;completed&#39;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;error&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">err</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// A container removed out from under us is not an error — it is &#39;idle&#39;.</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">message</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="s1">&#39;No such container&#39;</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">message</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="s1">&#39;404&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">this</span><span class="p">.</span><span class="nx">activeContainerId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;idle&#39;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;error&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 
-<p>The renderer polls this every 3 seconds via <code>getDockerStatus()</code> IPC call.</p>
+<p>The renderer polls this every 3 seconds via the <code>getDockerStatus()</code> IPC call. Note that a container removed externally clears <code>activeContainerId</code> and reports <code>idle</code> rather than leaving the UI wedged in <code>error</code>.</p>
 <hr />
 <h2 id="authentication-service-authservicets">Authentication Service: <code>auth.service.ts</code><a class="headerlink" href="#authentication-service-authservicets" title="Permanent link">&para;</a></h2>
 <h3 id="state-machine">State Machine<a class="headerlink" href="#state-machine" title="Permanent link">&para;</a></h3>
@@ -519,7 +671,9 @@
 <div class="codehilite"><pre><span></span><code>Login attempt
     │
     ▼
-axios.post(&#39;/api/auth/login&#39;, { username, password })
+http.post(`${apiBaseUrl}/auth/login`, { username, password })
+    │   (the shared instance — carries X-FedLearn-Client; validateStatus &lt; 500
+    │    so a 401 is a returned response, not a throw)
     │
     ├── status !== 200 → return false
     │
@@ -564,39 +718,105 @@ axios.post(&#39;/api/auth/login&#39;, { username, password })
 <p>The backend URL is persisted to <code>electron-store</code> across restarts:</p>
 <div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">DEFAULT_API_BASE_URL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;http://localhost:8081/api&#39;</span><span class="p">;</span>
 
-<span class="kr">constructor</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">store</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Store</span><span class="p">({</span>
+<span class="kr">constructor</span><span class="p">(</span><span class="nx">mainWindow</span><span class="o">:</span><span class="w"> </span><span class="kt">BrowserWindow</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">mainWindow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">mainWindow</span><span class="p">;</span><span class="w">                 </span><span class="c1">// used to push auth:session-expired</span>
+
+<span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">store</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">Store</span><span class="o">&lt;</span><span class="nx">AuthStoreSchema</span><span class="o">&gt;</span><span class="p">({</span>
 <span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;fedlearn-auth&#39;</span><span class="p">,</span>
 <span class="w">    </span><span class="nx">clearInvalidConfig</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w">  </span><span class="c1">// Recover from corrupt store (e.g., schema changes)</span>
 <span class="w">  </span><span class="p">});</span>
 
-<span class="w">  </span><span class="c1">// Priority: saved URL &gt; env var &gt; localhost default</span>
+<span class="w">  </span><span class="c1">// Priority: saved URL &gt; env var &gt; localhost default.</span>
+<span class="w">  </span><span class="c1">// Read DIRECTLY, not via setApiUrl — see the session note below.</span>
 <span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">savedUrl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">store</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="nx">SERVER_URL_KEY</span><span class="p">)</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">undefined</span><span class="p">;</span>
 <span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">apiBaseUrl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">savedUrl</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">FEDLEARN_API_URL</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">DEFAULT_API_BASE_URL</span><span class="p">;</span>
+
+<span class="w">  </span><span class="nx">installUnauthorizedHandler</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">handleSessionExpired</span><span class="p">());</span>
 <span class="p">}</span>
 </code></pre></div>
 
 <p><code>clearInvalidConfig: true</code> is important — without it, a <code>SyntaxError</code> reading a corrupt store file would crash the IPC handler registration chain, leaving a black window.</p>
-<h3 id="url-normalization-in-ipc-handler">URL Normalization in IPC Handler<a class="headerlink" href="#url-normalization-in-ipc-handler" title="Permanent link">&para;</a></h3>
+<p>The <code>mainWindow</code> parameter defaults to <code>null</code> so <code>AuthService</code> stays constructible in isolation (unit tests, any future headless use) without a real <code>BrowserWindow</code>.</p>
+<p>The store schema holds three keys: <code>serverUrl</code>, <code>auth</code> (<code>{ encryptedJwt, expiresAt, username }</code>), and <code>savedCredentials</code> (the "Save password" blob).</p>
+<h3 id="changing-the-url-invalidates-the-session">Changing the URL Invalidates the Session<a class="headerlink" href="#changing-the-url-invalidates-the-session" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nx">setApiUrl</span><span class="p">(</span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">changed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">url</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">apiBaseUrl</span><span class="p">;</span>
+<span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">apiBaseUrl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">url</span><span class="p">;</span>
+<span class="w">  </span><span class="k">this</span><span class="p">.</span><span class="nx">store</span><span class="p">.</span><span class="nx">set</span><span class="p">(</span><span class="nx">SERVER_URL_KEY</span><span class="p">,</span><span class="w"> </span><span class="nx">url</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">changed</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">this</span><span class="p">.</span><span class="nx">handleSessionExpired</span><span class="p">();</span><span class="w">   </span><span class="c1">// clear JWT + credentials, signal the renderer</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>A JWT is minted by one backend and must never be sent to another. This covers both a legitimate server switch and a compromised renderer calling <code>setServerUrl('https://attacker…')</code>. The constructor reads <code>apiBaseUrl</code> directly rather than calling <code>setApiUrl</code>, so a persisted session survives a normal relaunch (<code>77cb95e</code>).</p>
+<h3 id="url-validation-in-the-ipc-handler">URL Validation in the IPC Handler<a class="headerlink" href="#url-validation-in-the-ipc-handler" title="Permanent link">&para;</a></h3>
+<p>The handler no longer contains the policy — it delegates to <code>evaluateServerUrl</code> in <code>validators.ts</code> and forwards the machine-readable outcome:</p>
 <div class="codehilite"><pre><span></span><code><span class="c1">// ipc.handlers.ts</span>
-<span class="nx">ipcMain</span><span class="p">.</span><span class="nx">handle</span><span class="p">(</span><span class="s1">&#39;auth:set-server-url&#39;</span><span class="p">,</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">_event</span><span class="p">,</span><span class="w"> </span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="c1">// Require http(s):// protocol</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="sr">/^https?:\/\//i</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">url</span><span class="p">.</span><span class="nx">trim</span><span class="p">()))</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;URL must start with http:// or https://&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="nx">ipcMain</span><span class="p">.</span><span class="nx">handle</span><span class="p">(</span><span class="s1">&#39;auth:set-server-url&#39;</span><span class="p">,</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">_event</span><span class="p">,</span><span class="w"> </span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">,</span><span class="w"> </span><span class="nx">opts?</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">allowInsecureHttp</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="o">!!</span><span class="nx">opts</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="ow">typeof</span><span class="w"> </span><span class="nx">opts</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;object&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="p">(</span><span class="nx">opts</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="nx">Record</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">unknown</span><span class="o">&gt;</span><span class="p">).</span><span class="nx">allowInsecureHttp</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">evaluation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">evaluateServerUrl</span><span class="p">(</span><span class="nx">url</span><span class="p">,</span><span class="w"> </span><span class="nx">allowInsecureHttp</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">evaluation</span><span class="p">.</span><span class="nx">ok</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// DE-13: &#39;INSECURE_HTTP&#39; is the code the renderer keys its override UI off</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="kt">evaluation.error</span><span class="p">,</span><span class="w"> </span><span class="nx">code</span><span class="o">:</span><span class="w"> </span><span class="kt">evaluation.code</span><span class="w"> </span><span class="p">};</span>
 <span class="w">  </span><span class="p">}</span>
 
-<span class="w">  </span><span class="c1">// Normalize: strip trailing slashes, ensure /api suffix</span>
-<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">normalized</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">url</span><span class="p">.</span><span class="nx">trim</span><span class="p">().</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/\/+$/</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">);</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">normalized</span><span class="p">.</span><span class="nx">endsWith</span><span class="p">(</span><span class="s1">&#39;/api&#39;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nx">normalized</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="s1">&#39;/api&#39;</span><span class="p">;</span>
-<span class="w">  </span><span class="p">}</span>
-
-<span class="w">  </span><span class="nx">authService</span><span class="p">.</span><span class="nx">setApiUrl</span><span class="p">(</span><span class="nx">normalized</span><span class="p">);</span>
-<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w"> </span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="kt">normalized</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="nx">authService</span><span class="p">.</span><span class="nx">setApiUrl</span><span class="p">(</span><span class="nx">evaluation</span><span class="p">.</span><span class="nx">url</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kt">string</span><span class="p">);</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">evaluation</span><span class="p">.</span><span class="nx">warning</span>
+<span class="w">    </span><span class="o">?</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w"> </span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="kt">evaluation.url</span><span class="p">,</span><span class="w"> </span><span class="nx">warning</span><span class="o">:</span><span class="w"> </span><span class="kt">evaluation.warning</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w"> </span><span class="nx">url</span><span class="o">:</span><span class="w"> </span><span class="kt">evaluation.url</span><span class="w"> </span><span class="p">};</span>
 <span class="p">});</span>
 </code></pre></div>
 
-<p>This means a user entering <code>http://192.168.1.100:8081</code> automatically becomes <code>http://192.168.1.100:8081/api</code>.</p>
+<p>Normalization is unchanged in effect: <code>http://192.168.1.100:8081</code> becomes <code>http://192.168.1.100:8081/api</code>. What is new is that a <strong>remote plaintext <code>http://</code></strong> URL is now <em>refused</em> unless the caller passes <code>{ allowInsecureHttp: true }</code>, and is accepted with a persistent <code>warning</code> even then. See <a href="02-security-model.html#transport-policy--refusing-remote-plaintext-http">02 → Transport Policy</a>.</p>
+<h3 id="saved-credentials">Saved Credentials<a class="headerlink" href="#saved-credentials" title="Permanent link">&para;</a></h3>
+<p><code>saveCredentials</code> / <code>getSavedCredentials</code> / <code>clearSavedCredentials</code> back the "Save password" checkbox. They mirror the JWT posture exactly — <code>safeStorage</code>-encrypted or not persisted at all — and a blob that can no longer be decrypted is scrubbed rather than surfaced as an error.</p>
+<hr />
+<h2 id="shared-http-client-httpts">Shared HTTP Client: <code>http.ts</code><a class="headerlink" href="#shared-http-client-httpts" title="Permanent link">&para;</a></h2>
+<p>Every main-process backend call goes through <strong>one</strong> axios instance:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">NATIVE_CLIENT_HEADER</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;X-FedLearn-Client&#39;</span><span class="p">;</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">NATIVE_CLIENT_VALUE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;fedlearn-desktop&#39;</span><span class="p">;</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">http</span><span class="o">:</span><span class="w"> </span><span class="kt">AxiosInstance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">axios</span><span class="p">.</span><span class="nx">create</span><span class="p">();</span>
+<span class="nx">http</span><span class="p">.</span><span class="nx">defaults</span><span class="p">.</span><span class="nx">headers</span><span class="p">.</span><span class="nx">common</span><span class="p">[</span><span class="nx">NATIVE_CLIENT_HEADER</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">NATIVE_CLIENT_VALUE</span><span class="p">;</span>
+</code></pre></div>
+
+<p>Two reasons it is centralized:</p>
+<ol>
+<li><strong>SE-9 marker.</strong> The backend honours <code>Authorization: Bearer</code> only when the request also carries the <code>X-FedLearn-Client</code> marker; browsers stay cookie-only. Setting it as an instance default means it rides on every request rather than being remembered per call site. (<code>src/__tests__/nativeClientHeader.test.ts</code> pins this.)</li>
+<li><strong>One 401 handler.</strong> <code>installUnauthorizedHandler(cb)</code> installs the single active response interceptor, ejecting any previous one so handlers can never stack. It fires on a 401 from any request <em>except</em> the auth handshake (<code>isAuthHandshakeRequest</code> matches <code>/auth/(login|me)</code>), and works whether the 401 arrives as a resolved response or a rejected promise.</li>
+</ol>
+<hr />
+<h2 id="backend-facing-services">Backend-Facing Services<a class="headerlink" href="#backend-facing-services" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Endpoints</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ClientProjectService</code></td>
+<td><code>GET /client/projects</code>, <code>POST /client/projects/{id}/join</code>, <code>GET /client/projects/{id}/connection</code></td>
+<td>Drives "models I can train". <code>getConnection</code> <strong>joins first</strong> (idempotent) — the <code>/connection</code> endpoint enrolls only owner-or-CLIENT members, so a merely-<em>discovered</em> PUBLIC project would otherwise 403 "Access denied" (<code>43f4d7e</code>). The connection payload carries <code>serverAddress</code>, <code>partitionId</code>, <code>modelType</code>, <code>status</code>, <code>connectionToken</code>, <code>strategy</code> and <code>trainingArm</code>.</td>
+</tr>
+<tr>
+<td><code>InferenceService</code></td>
+<td><code>GET /inference/models</code>, <code>POST /inference/{projectId}</code></td>
+<td>One-shot inference. Uses a permissive <code>validateStatus</code> so the backend's own 4xx message can be surfaced verbatim instead of thrown away.</td>
+</tr>
+<tr>
+<td><code>InferenceStreamService</code></td>
+<td>STOMP <code>/ws-logs</code> → <code>/topic/inference/{projectId}</code>, <code>POST /inference/{id}/generate</code>, <code>POST /inference/{id}/generate/stop</code></td>
+<td>Main-process STOMP bridge. Subscribes <strong>before</strong> firing the generate POST so no tokens are missed, forwards each token to the renderer as an <code>inference:token</code> push, and resolves with the full result. The WS upgrade carries both the Bearer header and the SE-9 marker. Connection wait is capped at 8 s and <code>onStompError</code>/<code>onWebSocketError</code> both resolve, so a transport stall degrades to "HTTP result only" rather than hanging.</td>
+</tr>
+</tbody>
+</table>
+<p>The broker URL is derived from the API URL, not configured separately: <code>getApiUrl()</code> → <code>http(s)://host:port/api</code> becomes <code>ws(s)://host:port/ws-logs</code>.</p>
 <hr />
 <h2 id="hardware-probe-hardwareprobets">Hardware Probe: <code>hardware.probe.ts</code><a class="headerlink" href="#hardware-probe-hardwareprobets" title="Permanent link">&para;</a></h2>
 <p>The hardware probe runs once on startup to detect the local GPU environment and pre-select the appropriate training profile.</p>
@@ -649,10 +869,44 @@ axios.post(&#39;/api/auth/login&#39;, { username, password })
 <span class="p">}</span>
 </code></pre></div>
 
-<p>If <code>nativeBundleAvailable</code> is <code>false</code> in a packaged build, the <code>HardwareSelector</code> shows a warning label and the Docker path may be required.</p>
+<p>If <code>nativeBundleAvailable</code> is <code>false</code> in a packaged build, <code>TrainSection</code> raises a <strong>warning</strong> readiness row ("Native client bundle missing — reinstall to enable training"). There is no Docker fallback for the non-Jetson profiles: they run the bundled client or nothing.</p>
+<hr />
+<h2 id="device-capabilities-devicecapabilitiescollectorts">Device Capabilities: <code>deviceCapabilities.collector.ts</code><a class="headerlink" href="#device-capabilities-devicecapabilitiescollectorts" title="Permanent link">&para;</a></h2>
+<p>A second, separate probe backing the advisory eligibility self-gate. Node stdlib only — no Electron import — so it stays unit-testable:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">collectDeviceCapabilities</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nx">DeviceCapabilities</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">ramGb</span><span class="o">:</span><span class="w"> </span><span class="kt">os.totalmem</span><span class="p">()</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1024</span><span class="w"> </span><span class="o">**</span><span class="w"> </span><span class="mf">3</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">freeStorageGb</span><span class="o">:</span><span class="w"> </span><span class="kt">freeStorageGb</span><span class="p">(),</span><span class="w">   </span><span class="c1">// fs.statfsSync on the home volume (drive root on Windows)</span>
+<span class="w">    </span><span class="nx">osName</span><span class="o">:</span><span class="w"> </span><span class="kt">osName</span><span class="p">(),</span><span class="w">                 </span><span class="c1">// &#39;macos&#39; | &#39;windows&#39; | &#39;linux&#39;</span>
+<span class="w">    </span><span class="nx">osVersion</span><span class="o">:</span><span class="w"> </span><span class="kt">os.release</span><span class="p">(),</span>
+<span class="w">    </span><span class="nx">npuTops</span><span class="o">:</span><span class="w"> </span><span class="kt">undefined</span><span class="p">,</span><span class="w">               </span><span class="c1">// not probed on desktop</span>
+<span class="w">    </span><span class="nx">batteryPct</span><span class="o">:</span><span class="w"> </span><span class="kt">undefined</span><span class="p">,</span><span class="w">            </span><span class="c1">// not probed on desktop</span>
+<span class="w">    </span><span class="nx">onWifi</span><span class="o">:</span><span class="w"> </span><span class="kt">undefined</span><span class="p">,</span><span class="w">                </span><span class="c1">// not probed on desktop</span>
+<span class="w">  </span><span class="p">};</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>The three <code>undefined</code> fields are treated as "unknown" by <code>evaluateEligibility</code> (<code>src/shared/</code>), which makes them soft warnings and never a hard failure. The rule's hard failures are RAM, free storage, and the phone-only checks; the result is advisory and never blocks Start.</p>
+<hr />
+<h2 id="auto-updater-updaterts">Auto-Updater: <code>updater.ts</code><a class="headerlink" href="#auto-updater-updaterts" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="kd">let</span><span class="w"> </span><span class="nx">updaterInitialized</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">initializeUpdater</span><span class="p">(</span><span class="nx">mainWindow</span><span class="o">:</span><span class="w"> </span><span class="kt">BrowserWindow</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">updaterInitialized</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w">    </span><span class="c1">// autoUpdater is a PROCESS-WIDE singleton</span>
+<span class="w">  </span><span class="nx">updaterInitialized</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+<span class="w">  </span><span class="p">...</span>
+<span class="w">  </span><span class="nx">autoUpdater</span><span class="p">.</span><span class="nx">autoDownload</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">autoUpdater</span><span class="p">.</span><span class="nx">autoInstallOnAppQuit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">autoUpdater</span><span class="p">.</span><span class="nx">forceDevUpdateConfig</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">NODE_ENV</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;development&#39;</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">autoUpdater</span><span class="p">.</span><span class="nx">checkForUpdatesAndNotify</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>The <code>updaterInitialized</code> guard is load-bearing: <code>createWindow()</code> can run more than once per process (macOS <code>activate</code> re-creates the window after all windows are closed), and <code>autoUpdater</code> is a singleton — without the guard every listener would stack and each IPC message would fire N times (<code>2b02173</code>).</p>
+<p>Updates download in the background, so there is no separate download prompt; <code>UpdateBanner</code> surfaces "downloading → progress → restart to install", and <code>autoInstallOnAppQuit</code> applies an already-downloaded update on the next quit. The <code>updater:check</code> IPC handler additionally attaches one-shot <code>update-not-available</code> / <code>error</code> relays so a <em>manual</em> check gets feedback, which the passive event set does not provide.</p>
 <hr />
 <h2 id="ipc-channel-reference">IPC Channel Reference<a class="headerlink" href="#ipc-channel-reference" title="Permanent link">&para;</a></h2>
-<p>A complete reference of all registered IPC channels:</p>
+<p>Every registered channel, as of <code>3.2.0-beta</code>:</p>
 <table>
 <thead>
 <tr>
@@ -667,55 +921,55 @@ axios.post(&#39;/api/auth/login&#39;, { username, password })
 <td><code>dialog:open-directory</code></td>
 <td>invoke → handle</td>
 <td><code>ipc.handlers.ts</code></td>
-<td>Opens native directory picker; returns <code>{ success, path }</code></td>
+<td>Native directory picker; records the result as a consented dataset path; returns <code>{ success, path }</code></td>
 </tr>
 <tr>
 <td><code>docker:start-training</code></td>
 <td>invoke → handle</td>
 <td><code>DockerService.startTraining()</code></td>
-<td>Starts Docker container or native process</td>
+<td>Validates + canonicalizes, then starts the container or native process</td>
 </tr>
 <tr>
 <td><code>docker:stop-training</code></td>
 <td>invoke → handle</td>
 <td><code>DockerService.stopTraining()</code></td>
-<td>Stops active container or native process</td>
+<td>Stops (and drains) the active container or native process</td>
 </tr>
 <tr>
 <td><code>docker:get-status</code></td>
 <td>invoke → handle</td>
 <td><code>DockerService.getStatus()</code></td>
-<td>Returns current training state</td>
+<td>Returns the current training state</td>
 </tr>
 <tr>
 <td><code>docker:training-log</code></td>
-<td><strong>push</strong> (Main → Renderer)</td>
+<td><strong>push</strong></td>
 <td><code>DockerService.sendLog()</code></td>
-<td>Streams training output to renderer</td>
-</tr>
-<tr>
-<td><code>docker:daemon-unavailable</code></td>
-<td><strong>push</strong> (Main → Renderer)</td>
-<td><em>(planned)</em></td>
-<td>Notifies renderer if Docker is not running</td>
+<td>Streams training output to the renderer</td>
 </tr>
 <tr>
 <td><code>hardware:detect</code></td>
 <td>invoke → handle</td>
 <td><code>detectHardware()</code></td>
-<td>Returns platform, GPU, recommended profile</td>
+<td>Platform, arch, CUDA, bundle presence, recommended profile</td>
+</tr>
+<tr>
+<td><code>device:capabilities</code></td>
+<td>invoke → handle</td>
+<td><code>collectDeviceCapabilities()</code></td>
+<td>RAM / free storage / OS for the eligibility self-gate</td>
 </tr>
 <tr>
 <td><code>auth:login</code></td>
 <td>invoke → handle</td>
 <td><code>AuthService.login()</code></td>
-<td>Authenticates and stores JWT</td>
+<td>Authenticates and stores the JWT; returns <code>{ success }</code> only</td>
 </tr>
 <tr>
 <td><code>auth:logout</code></td>
 <td>invoke → handle</td>
 <td><code>AuthService.logout()</code></td>
-<td>Clears JWT from store and memory</td>
+<td>Clears the JWT from store and memory</td>
 </tr>
 <tr>
 <td><code>auth:check</code></td>
@@ -726,19 +980,105 @@ axios.post(&#39;/api/auth/login&#39;, { username, password })
 <tr>
 <td><code>auth:set-server-url</code></td>
 <td>invoke → handle</td>
-<td><code>AuthService.setApiUrl()</code></td>
-<td>Saves backend URL with normalization</td>
+<td><code>evaluateServerUrl()</code> → <code>AuthService.setApiUrl()</code></td>
+<td>Validates + normalizes; may return <code>code: 'INSECURE_HTTP'</code> or a <code>warning</code></td>
 </tr>
 <tr>
 <td><code>auth:get-server-url</code></td>
 <td>invoke → handle</td>
 <td><code>AuthService.getApiUrl()</code></td>
-<td>Returns current backend URL</td>
+<td>Returns the current backend URL</td>
+</tr>
+<tr>
+<td><code>auth:save-credentials</code></td>
+<td>invoke → handle</td>
+<td><code>AuthService.saveCredentials()</code></td>
+<td>"Save password" opt-in; <code>{ success: false }</code> when <code>safeStorage</code> is unavailable</td>
+</tr>
+<tr>
+<td><code>auth:get-credentials</code></td>
+<td>invoke → handle</td>
+<td><code>AuthService.getSavedCredentials()</code></td>
+<td>Pre-fills the login form; <code>{ success: false }</code> when none stored</td>
+</tr>
+<tr>
+<td><code>auth:clear-credentials</code></td>
+<td>invoke → handle</td>
+<td><code>AuthService.clearSavedCredentials()</code></td>
+<td>Forgets saved credentials</td>
+</tr>
+<tr>
+<td><code>auth:session-expired</code></td>
+<td><strong>push</strong></td>
+<td><code>AuthService.emitSessionExpired()</code></td>
+<td>Session went valid → invalid (401 or proactive expiry)</td>
+</tr>
+<tr>
+<td><code>client:list-projects</code></td>
+<td>invoke → handle</td>
+<td><code>ClientProjectService.listProjects()</code></td>
+<td>Projects the user may train</td>
+</tr>
+<tr>
+<td><code>client:get-connection</code></td>
+<td>invoke → handle</td>
+<td><code>ClientProjectService.getConnection()</code></td>
+<td>Joins, then resolves the live gRPC connection payload</td>
+</tr>
+<tr>
+<td><code>inference:list-models</code></td>
+<td>invoke → handle</td>
+<td><code>InferenceService.listModels()</code></td>
+<td>The user's runnable trained models</td>
+</tr>
+<tr>
+<td><code>inference:run</code></td>
+<td>invoke → handle</td>
+<td><code>InferenceService.runInference()</code></td>
+<td>One-shot inference (image / vector / text)</td>
+</tr>
+<tr>
+<td><code>inference:run-generation</code></td>
+<td>invoke → handle</td>
+<td><code>InferenceStreamService.runGeneration()</code></td>
+<td>Streaming text generation; resolves with the full result</td>
+</tr>
+<tr>
+<td><code>inference:stop-generation</code></td>
+<td>invoke → handle</td>
+<td><code>InferenceStreamService.stopGeneration()</code></td>
+<td>Cancels an in-flight generation (best-effort)</td>
+</tr>
+<tr>
+<td><code>inference:token</code></td>
+<td><strong>push</strong></td>
+<td><code>InferenceStreamService</code></td>
+<td>One streamed generation token</td>
+</tr>
+<tr>
+<td><code>updater:install</code></td>
+<td>invoke → handle</td>
+<td><code>autoUpdater.quitAndInstall()</code></td>
+<td>Restart to install a downloaded update</td>
+</tr>
+<tr>
+<td><code>updater:check</code></td>
+<td>invoke → handle</td>
+<td><code>autoUpdater.checkForUpdates()</code></td>
+<td>Manual check; relays not-available/error back</td>
+</tr>
+<tr>
+<td><code>updater:update-available</code> / <code>updater:download-progress</code> / <code>updater:update-downloaded</code> / <code>updater:not-available</code> / <code>updater:error</code></td>
+<td><strong>push</strong></td>
+<td><code>updater.ts</code> + the <code>updater:check</code> handler</td>
+<td>Auto-update lifecycle events</td>
 </tr>
 </tbody>
 </table>
 <blockquote>
-<p><strong>Push channels</strong> (<code>docker:training-log</code>, <code>docker:daemon-unavailable</code>) are unidirectional — Main pushes to Renderer via <code>mainWindow.webContents.send()</code>. The renderer registers listeners via the preload bridge's <code>onTrainingLog()</code> and <code>onDockerUnavailable()</code> callbacks.</p>
+<p><strong>Push channels</strong> are unidirectional — Main sends via <code>mainWindow.webContents.send()</code>. The renderer subscribes through the preload bridge (<code>onTrainingLog</code>, <code>onInferenceToken</code>, <code>onSessionExpired</code>, <code>onUpdate*</code>).</p>
+<p><code>docker:daemon-unavailable</code> <strong>no longer exists.</strong> It was removed with the eager startup ping in <code>4d7d3a4</code>; the preload exposes no <code>onDockerUnavailable</code>, and Docker errors now surface in the log panel at the moment the Jetson path needs the daemon.</p>
+<p>The <code>[IPC] All handlers registered: …</code> log line at the bottom of <code>registerIpcHandlers</code> lists only a subset of the channels above — it has not been kept current and is not a reliable inventory.</p>
 </blockquote>
 <hr />
 <p><em>Next: <a href="04-preload-ipc-bridge.html">04 — Preload &amp; IPC Bridge</a></em><br />

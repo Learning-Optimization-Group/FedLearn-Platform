@@ -10,7 +10,7 @@ backend's authorization story; the JWT/cookie/WebSocket mechanics that establish
 > ✅ **Branch reality (read this first).** This entire subsystem **IS present and
 > committed on this branch.** Authorization layers the original single-user model:
 > `users.id` is `BIGINT`, `projects.id` is `UUID`, and the **highest committed Flyway
-> migration is `V19`**. The identity foundations landed in **`V4`–`V7`**
+> migration is `V23`**. The identity foundations landed in **`V4`–`V7`**
 > (`V5__identity_foundations.sql`, `V6__identity_hardening.sql`,
 > `V7__owner_role_and_approval_workflows.sql`): the three-layer platform/org/project
 > role model, `organization_memberships` / `project_memberships`,
@@ -25,8 +25,12 @@ backend's authorization story; the JWT/cookie/WebSocket mechanics that establish
 > access-request / user-search / client endpoints) AND surfaced in the **frontend**:
 > role-gated routes (`RoleRoute allow={['PLATFORM_ADMIN']}` / `['PROJECT_OWNER', …]`),
 > the `AdminDashboard` / `OwnerDashboard` / `ClientDashboard`, and the
-> owner-promotion / deletion-request approval flows. The clients ship the **Ember**
-> design system.
+> owner-promotion / deletion-request approval flows. The clients ship the **Ledger**
+> design system — navy structural ink on quiet paper surfaces, light-first (canvas
+> `#F6F3EE`, surface `#FFFFFF`, ink `#191A1C`, accent `#1C314D`), generated from
+> `design/tokens.json` by `design/build-tokens.mjs`. *Ledger superseded Ember, which
+> superseded Instrument*: if you find the burnt-orange-on-warm-paper Ember palette in
+> a doc or a token set, it is two cycles stale.
 
 ---
 
@@ -132,7 +136,13 @@ All of the following live in `model/`:
 | `OrganizationMembership` (+ `OrganizationMembershipId`) | `(org_id, user_id)` | `org_role`, `created_at`; `@Check` on `org_role` |
 | `ProjectMembership` (+ `ProjectMembershipId`) | `(project_id, user_id)` | `role`, `partition_id`, `joined_via`, `added_by`, `added_at` |
 | `ProjectAccessRequest` | `id BIGSERIAL` | `requested_role`, `status`, `message`, `requested_at`, `decided_at`, `decided_by`; `UNIQUE(project_id, user_id)` |
+| `OwnerPromotionRequest` (V7) | `id BIGSERIAL` | `user`, `status` (`AccessRequestStatus`), `message`, `requested_at`, `decided_at`, `decided_by` — a `USER` asking to become a `PROJECT_OWNER` |
+| `ProjectDeletionRequest` (V7) | `id BIGSERIAL` | `project`, `requested_by`, `status` (`AccessRequestStatus`), `reason`, `requested_at`, `decided_at`, `decided_by` — an owner asking an admin to delete a project |
 | `AuditEvent` | `id UUID` | `action`, `actor_user_id`, `org_id`, `target_type`/`target_id`, JSONB `metadata`, `request_ip`, `user_agent` |
+
+All three request types share the one `AccessRequestStatus` vocabulary
+(`PENDING`/`APPROVED`/`DENIED`), which is why an admin decision endpoint for any of
+them takes the same `DecideAccessRequestRequest` body.
 
 The two pre-existing core entities gained columns:
 
@@ -172,6 +182,10 @@ private UUID orgId;                              // V5 pinned every project to a
 @Column(nullable = false, length = 32)
 private ProjectVisibility visibility = ProjectVisibility.PRIVATE;
 
+@Enumerated(EnumType.STRING)                     // V22/V23: which parameters a run federates
+@Column(name = "training_arm", nullable = false, length = 32)
+private TrainingArm trainingArm = TrainingArm.FULL;
+
 // Model-Hub columns (publish toggle)
 private boolean modelPublished = false;
 private String  modelDescription;
@@ -180,7 +194,9 @@ private Instant modelPublishedAt;
 ```
 
 `org_id` is `NOT NULL` (see §6). New projects are pinned to the owner's first org
-membership, falling back to the single Default org for membership-less users.
+membership, falling back to the single Default org for membership-less users. The
+`trainingArm` default is the mechanism by which every pre-`V22` project keeps its
+exact behaviour — see [03 - Project Management Lifecycle](03_project_management.md).
 
 ---
 
@@ -351,13 +367,25 @@ supplies `org_id`.
 system/unauthenticated events), `org_id UUID`, `action` (enum), `target_type`/
 `target_id`, JSONB `metadata`, `request_ip`, `user_agent`.
 
-`AuditAction` is the enum vocabulary. The values actually instrumented today
-include: `USER_REGISTERED`, `USER_LOGIN_SUCCEEDED`, `USER_LOGIN_FAILED`,
-`USER_LOGGED_OUT`, `BOOTSTRAP_ADMIN_CREATED`, `BOOTSTRAP_ORG_CREATED`,
-`PROJECT_CREATED`, `PROJECT_DELETED`, `RUN_STARTED`, `RUN_STOPPED`,
-`PROJECT_MEMBER_ADDED`, `PROJECT_MEMBER_REMOVED`, `PLATFORM_ADMIN_ORG_BYPASS`. The
-`ORG_*` and remaining `USER_*` values are reserved in the enum for instrumentation
-in later sub-specs.
+`AuditAction` is the enum vocabulary, and it is deliberately wider than what is
+wired. The values **actually emitted today** — verified by walking every `@Auditable`
+annotation and every direct `AuditEvent.builder()` call in `src/main/java` — are:
+
+| Emitted via | Actions |
+|---|---|
+| `@Auditable` + `AuditAspect` | `USER_REGISTERED`, `USER_LOGGED_OUT` (`AuthController`); `PROJECT_CREATED`, `PROJECT_DELETED`, `RUN_STARTED`, `RUN_STOPPED` (`ProjectService`); `PROJECT_MEMBER_ADDED`, `PROJECT_MEMBER_REMOVED` (`MembershipService`); `USER_SUSPENDED`, `USER_REACTIVATED` (`AdminService`); `USER_PROFILE_UPDATED` (`ProfileService`) |
+| Written directly (outside the aspect) | `USER_LOGIN_SUCCEEDED`, `USER_LOGIN_FAILED` (the auditing auth handlers); `BOOTSTRAP_ORG_CREATED`, `BOOTSTRAP_ADMIN_CREATED` (`BootstrapRunner`); `USER_PASSWORD_CHANGED` (`ProfileService`) |
+
+Everything else in the enum is **reserved, not wired** — the whole `ORG_*` block,
+`USER_EMAIL_VERIFIED`, `USER_DELETED`, `USER_PLATFORM_ROLE_CHANGED`, and
+`PLATFORM_ADMIN_ORG_BYPASS`. That last one is worth calling out because earlier
+revisions of this page listed it as instrumented: it is declared and never emitted
+anywhere in the source, so **an admin's org-scope bypass currently leaves no audit
+row**. Treat it as a known gap rather than a working control.
+
+Note also that `AdminService.searchAuditEvents` parses an `action` query parameter
+with `AuditAction.valueOf(...)`, so the admin explorer can filter on any name in the
+enum — including the reserved ones, which will simply match nothing.
 
 ### 4.3 Login auditing (outside the aspect)
 
@@ -388,41 +416,138 @@ org-scope-gated:
   `OWNER` memberships are not user-creatable. `add`/`remove` are `@Auditable`
   (`PROJECT_MEMBER_ADDED` / `PROJECT_MEMBER_REMOVED`).
 - **`AccessRequestService`** (`submit` / `listForProject` / `decide` / `listMine`) —
-  behaviour branches on the visibility tier: joining a **PUBLIC** project creates a
-  `CLIENT` membership immediately (`JoinedVia.PUBLIC_JOIN`); a **PRIVATE** project is
-  invite-only and self-requests are rejected with **403** ("Ask the owner to add
-  you") — the owner adds participants directly via `MembershipController`; a
-  **RESTRICTED** project upserts a `PENDING` `ProjectAccessRequest` and notifies the
-  owner/members. `decide` approves (→ `CLIENT` membership,
-  `JoinedVia.REQUEST_APPROVED`) or denies.
-- **`ClientApiService`** (`listForCurrentUser` / `getConnection`) — the FL-client
-  view. `getConnection` takes a pessimistic write lock on the project row
-  (`ProjectRepository.lockById`) and assigns a **sticky `partition_id`** to the
-  membership, serialising concurrent client connections so partitions never
-  collide.
+  `submit` rejects the owner (**400**) and an existing `MEMBER`/`CLIENT` (**409**)
+  first, then branches on the visibility tier:
+  - **PUBLIC** → a `CLIENT` membership immediately (`JoinedVia.PUBLIC_JOIN`).
+  - **RESTRICTED** → upsert a `PENDING` `ProjectAccessRequest` (explicitly resetting
+    `status`/`requestedAt`/`decidedAt`/`decidedBy`, because `@PrePersist` does not
+    fire on an UPDATE) and notify the owner and members.
+  - **PRIVATE** → the **same 404 a nonexistent project id would produce**. Not a 403:
+    a distinct 403 here would be an existence oracle (404 for a missing id vs 403 for
+    a real private one), and PRIVATE is hidden as well as invite-only. The owner adds
+    participants directly through `MembershipController`. (The owner and
+    existing-participant branches have already returned by this point, so only
+    outsiders reach it.)
+
+  `decide` approves (→ `CLIENT` membership, `JoinedVia.REQUEST_APPROVED`) or denies.
+- **`ClientApiService`** (`listForCurrentUser` / `getOne` / `join` / `getConnection`)
+  — the FL-client view. `join` is the desktop/mobile counterpart of `submit`: PUBLIC
+  joins outright, RESTRICTED is refused with "request access from the web app", and
+  PRIVATE 404s. `getConnection` requires an **active run** (otherwise
+  `ProjectStateException`) and delegates to `RunService.enroll(activeRunId)`, which is
+  where partition assignment now lives:
+  - it takes a pessimistic write lock on the **run** row (`RunRepository.lockById`),
+    so concurrent enrollments serialise;
+  - it re-checks org scope and owner-or-`CLIENT` membership, and that the run is
+    `RUNNING` with a port;
+  - an existing enrollment is reused; otherwise the next `partitionId` is
+    `max + 1`, refused with "Run is full (K=…)" once a `SHARDED` run reaches
+    `clientsPerRound`. `UNIQUE(run_id, partition_id)` (`V8`) makes the invariant the
+    database's, not the service's;
+  - it mints a **connection token sized to the whole run** (`ttlForRun(numRounds)`,
+    SE-14) rather than a fixed TTL — a long run would otherwise outlive its token and
+    have its clients rejected mid-training once `require-client-auth` is on;
+  - if client-cert issuance is enabled (SE-12, off by default) it also mints a
+    short-lived mTLS client cert bound to this user and run.
+
+  The returned `ClientConnectionDto` carries the gRPC endpoint, partition id,
+  connection token, the run's **strategy**, and the project's **training arm** — the
+  last two so the client picks the matching code path instead of defaulting to FedAvg
+  and uploading a full state dict against a server expecting a head. Both are always
+  stated, never inferred from silence.
 
 ---
 
-## 6. Flyway Migrations (V4–V7)
+## 6. Flyway Migrations
 
-The schema for this subsystem lands across four migrations
-(`src/main/resources/db/migration/`). Every profile runs PostgreSQL and JPA in
-`validate` mode, so these migrations are the source of truth — except the `test`
-profile, which disables Flyway and builds from JPA `create-drop` against
-Testcontainers Postgres (`jdbc:tc:postgresql:16.6-alpine`) for the bulk suite, so
-these files don't run there. The dedicated `V*MigrationTest` classes flip Flyway
-back on to exercise the real migrations against real Postgres.
+The identity subsystem's own schema lands across four migrations (`V4`–`V7`), but
+this page is also the wiki's index of the **whole** migration history, because the
+later ones interlock with it. `src/main/resources/db/migration/` currently holds
+`V1`–**`V23`**. `ls` sorts lexicographically, so `V5`–`V9` list *after* `V21` — the
+last line of an `ls` is not the highest version.
+
+Every profile runs PostgreSQL and JPA in `validate` mode, so these migrations are
+the source of truth — except the `test` profile, which disables Flyway and builds
+from JPA `create-drop` against Testcontainers Postgres
+(`jdbc:tc:postgresql:16.6-alpine`) for the bulk suite, so these files don't run
+there. The dedicated `V*MigrationTest` classes flip Flyway back on (§6.1).
+
+### 6.1 The identity migrations (V4–V7)
 
 | Migration | Adds |
 |---|---|
-| **V4** `__project_membership_and_model_hub.sql` | `projects.visibility` (default `PRIVATE`), Model-Hub columns; `project_memberships` and `project_access_requests` tables with their indexes. Written as one `ALTER` per column — a legacy constraint from when `dev` ran on H2, which rejects multi-clause `ALTER TABLE`. |
-| **V5** `__identity_foundations.sql` | `organizations`, `organization_memberships`; renames `users.role` → `platform_role` and adds the lifecycle/profile columns; `audit_events` (metadata initially `CLOB`); `projects.org_id`. Backfills a single **Default** org (`...0001`), enrolls every existing user, marks project owners as org `OWNER`, then sets `projects.org_id NOT NULL`. |
-| **V6** `__identity_hardening.sql` | Normalises legacy `platform_role = 'ADMIN'` → `'PLATFORM_ADMIN'`; adds `chk_users_platform_role` — `CHECK (platform_role IN ('USER','PLATFORM_ADMIN'))`; promotes `audit_events.metadata` from `CLOB` to native **JSONB**. |
+| **V4** `__project_membership_and_model_hub.sql` | `projects.visibility` (default `PRIVATE`), Model-Hub columns; `project_memberships` and `project_access_requests` tables with their indexes. Written as one `ALTER` per column — a legacy constraint from when `dev` ran on H2, which rejects multi-clause `ALTER TABLE`. Later migrations (e.g. `V17`, `V20`) use the multi-clause form freely, because Postgres is now the only target. |
+| **V5** `__identity_foundations.sql` | `organizations`, `organization_memberships`; renames `users.role` → `platform_role` and adds the lifecycle/profile columns; `audit_events` (metadata initially a plain `TEXT` column); `projects.org_id`. Backfills a single **Default** org (`...0001`), enrolls every existing user, marks project owners as org `OWNER`, then sets `projects.org_id NOT NULL`. |
+| **V6** `__identity_hardening.sql` | Normalises legacy `platform_role = 'ADMIN'` → `'PLATFORM_ADMIN'`; adds `chk_users_platform_role` — `CHECK (platform_role IN ('USER','PLATFORM_ADMIN'))`; promotes `audit_events.metadata` from `TEXT` to native **JSONB**. |
 | **V7** `__owner_role_and_approval_workflows.sql` | Widens `chk_users_platform_role` to include **`PROJECT_OWNER`** (drops and re-adds the constraint); creates `owner_promotion_requests` (`USER` → `PROJECT_OWNER`, admin-approved) and `project_deletion_requests` (owner-requested, admin-approved) with their status indexes. The `RESTRICTED` visibility tier needs no DDL — `projects.visibility` carries no CHECK constraint. |
+
+### 6.2 The rest of the history (V1–V3, V8–V23)
+
+| Migration | Adds |
+|---|---|
+| **V1** `__init.sql` | The original schema. Establishes the `TIMESTAMP WITH TIME ZONE` convention for every point-in-time column. |
+| **V2** `__add_user_role.sql` | The original coarse `users.role IN ('USER','ADMIN')` — superseded by `V5`/`V6`. |
+| **V3** `__server_logs_fk_projects.sql` | `server_logs → projects` FK. |
+| **V8** `__run_lifecycle_and_enrollment.sql` | The **`Run` aggregate** — one training execution of a project, and the source of truth for live FL-server state — plus `run_enrollments` with run-scoped partition assignment under `UNIQUE(run_id, partition_id)`. Additive: `projects.status`/`server_port` stay as a mirror so existing readers keep working. |
+| **V9** `__project_requirements_override.sql` | `projects.requirements_override` (JSON text) — the owner may tighten the recipe's device requirements; merged most-restrictive-wins at read time. |
+| **V10** `__project_task_type.sql` | `projects.task_type` for `LLM_LORA` (generative vs classification). NULL is read as `SEQ_CLASSIFICATION`. |
+| **V11** `__benchmarks.sql` | `benchmark_rounds` (the rich per-round metric vector) + `benchmark_runs` (a denormalized one-row-per-project rollup for the admin dashboard). Deliberately decoupled from `round_result`, which stays the lightweight live-telemetry path. |
+| **V12** `__model_artifact_registry.sql` | The content-addressed registry keystone: `artifact_blobs`, `model_artifacts`, `artifact_lineage`. See [07](07_artifact_registry.md). |
+| **V13** `__timestamptz_convention.sql` | Retypes the raw `TIMESTAMP` columns `V8` introduced to `timestamptz` (`AT TIME ZONE 'UTC'` — lossless and order-preserving, since JPA already mapped them to `Instant`). Restates the convention: **every future timestamp column must be `timestamptz`**. Pre-`V8` raw-`TIMESTAMP` columns from `V5` are explicitly out of scope. |
+| **V14** `__project_init_status.sql` | `projects.init_status` (NOT NULL, default `DONE`) — the one-time model-init phase (BA-1), which needs its own column because status is otherwise derived from the active run and a project mid-init has none. |
+| **V15** `__run_process_tracking.sql` | `runs.server_pid` + `runs.process_started_at` — the OS identity a `StartupReconciler` needs to tell a survivor from a dead run, and to defend against PID reuse (BA-3). |
+| **V16** `__run_internal_token_hash.sql` | `runs.internal_token_hash` — the SHA-256 (never the plaintext) of the per-run internal token, so the reconciler can rehydrate `RunTokenRegistry` for exactly the runs it re-adopts. |
+| **V17** `__project_dp_policy.sql` | `projects.regulated` / `dp_enabled` (NOT NULL, default `FALSE`) + the nullable `dp_target_epsilon` / `dp_delta` / `dp_clip_norm` (SE-11). Completeness is validated in Java at creation and again at the run-start gate — deliberately no CHECK constraints, matching the `V14` convention. |
+| **V18** `__artifact_marketplace_publish.sql` | `model_artifacts.published` / `published_at` + a `(org_id, kind, published)` index. Discovery stays strictly inside `OrgScope`; a cross-org marketplace is a separate, threat-model-sensitive effort and deliberately not enabled. |
+| **V19** `__cascade_delete_run_subtree.sql` | `ON DELETE CASCADE` on `runs.project_id` and `run_enrollments.run_id`. Before this, **any project that had ever been started could not be deleted** — `V8` created those two FKs with no `ON DELETE` action, so Postgres raised `23503`, surfaced as an opaque 409. Registry rows are deliberately left alone (`SET NULL` / untouched / `RESTRICT`). |
+| **V20** `__project_derivation.sql` | `projects.init_from_pretrained` (NOT NULL, default `FALSE`), `base_ref_sha256`, `derivation_spec` — the opt-in record of a project deriving from a pretrained/frozen base instead of training from scratch. `chk_projects_base_ref_sha256_hex` pins a present ref to lowercase-hex sha256, matching `V12`'s content-address convention. A NULL derivation behaves exactly as before. |
+| **V21** `__base_ref_unique_index.sql` | The partial unique index `uq_base_ref_org_model ON model_artifacts (org_id, base_model_ref) WHERE kind = 'BASE_REF'`. `findOrCreateBaseRef` was a non-atomic read-then-insert with no backing constraint, so two concurrent adapter registrations in one org over the same base could each insert a `BASE_REF` and fork their `ADAPTER_OF` edges. The index makes one-per-`(org, base)` a DB invariant *and* backs the `ON CONFLICT DO NOTHING` the service now uses. It fails loudly if a deployed DB already holds duplicates. |
+| **V22** `__project_training_arm.sql` | `projects.training_arm VARCHAR(32) NOT NULL DEFAULT 'FULL'` + `chk_projects_training_arm CHECK (training_arm IN ('FULL','FROZEN_HEAD'))`. The `DEFAULT` is load-bearing for backward compatibility: every pre-existing project trained every parameter, so backfilling them to `FULL` preserves their behaviour exactly. |
+| **V23** `__training_arm_ova_lp.sql` | Drops and re-adds that CHECK widened to `('FULL','FROZEN_HEAD','OVA_LP')` for the OvA-LP arm (arXiv:2511.05028). |
+
+The arm's full contract — DTO pattern, entity default, immutability after creation,
+and why the CHECK is the last line of defence — is in
+[03 - Project Management Lifecycle](03_project_management.md).
+
+### 6.3 The `V*MigrationTest` classes bypass the `test` profile — deliberately
+
+There are **twelve** of them, and they all share one unusual shape that is easy to
+break by copying an ordinary test instead:
+
+```java
+@SpringBootTest
+@ActiveProfiles("dev")                       // NOT "test" — that profile disables Flyway
+@TestPropertySource(properties = {
+        "spring.datasource.url=jdbc:tc:postgresql:16.6-alpine:///fedlearn_v23_arm",  // per-test DB
+        "spring.datasource.driver-class-name=org.testcontainers.jdbc.ContainerDatabaseDriver",
+        "spring.jpa.hibernate.ddl-auto=validate",   // or "none"
+        "spring.flyway.enabled=true",               // the point of the whole exercise
+        "app.jwt.secret=…", "app.internal.api-key=…", "app.cors.allowed-origins=…"
+})
+```
+
+The reason is that the bulk suite's `test` profile builds its schema from the JPA
+entities (`create-drop`, Flyway off). A column generated from an entity proves
+nothing about the migration that is supposed to create it, and a **backfill of
+existing rows cannot be exercised at all** without the real migration running. So
+each of these classes runs every migration in order against a real Postgres in its
+own Testcontainers database, then asserts against `information_schema` and real
+inserts.
+
+Current classes and the database name each claims:
+`V5MigrationTest`, `V6MigrationTest` (identity) · `V8MigrationTest`,
+`V9MigrationTest`, `V13TimestamptzMigrationTest` (runs) · `V11BenchmarkMigrationTest`
+· `V12ModelRegistryMigrationTest`, `V21BaseRefUniqueMigrationTest` (registry) ·
+`V17MigrationTest` (DP) · `V19ProjectDeletionCascadeMigrationTest` ·
+`V20DerivationMigrationTest` · `V22TrainingArmMigrationTest`.
+
+Copy that shape for a new migration test; do **not** reach for
+`@ActiveProfiles("test")`. And keep Flyway disabled for the `test` profile itself —
+migrations must validate against `dev`/`ec2demo`/`production` only.
 
 ```sql
 -- V5: rename the single role column and pin projects to an org
-ALTER TABLE users ALTER COLUMN role RENAME TO platform_role;
+ALTER TABLE users RENAME COLUMN role TO platform_role;
 ALTER TABLE projects ADD COLUMN org_id UUID REFERENCES organizations(id);
 -- ... backfill Default org, enroll users ...
 ALTER TABLE projects ALTER COLUMN org_id SET NOT NULL;
@@ -495,8 +620,26 @@ note at the top: `App.tsx` wraps the owner routes in
 | `GET/POST /api/projects/{id}/memberships`, `DELETE .../{userId}` | `MembershipController` | List / add / remove project members |
 | `POST/GET /api/projects/{id}/access-requests`, `PUT .../{requestId}` | `AccessRequestController` | Submit / list / decide join requests |
 | `GET /api/my/access-requests` | `MyRequestsController` | The caller's own outstanding requests |
-| `GET /api/projects/discover`, `GET /api/projects/{id}`, `PATCH /api/projects/{id}` | `ProjectController` | Discover feed, single-project read (404-on-out-of-scope), update name/description/visibility |
-| `GET /api/admin/users`, `GET /api/admin/users/{id}`, `PUT /api/admin/users/{id}/role`, `GET /api/admin/projects` | `AdminController` (`@PreAuthorize PLATFORM_ADMIN`) | Platform admin console (via `AdminService`); role update refuses to demote the last admin |
+| `POST /api/owner-requests`, `GET /api/owner-requests/mine` | `OwnerRequestController` | A `USER` asks to be promoted to `PROJECT_OWNER`, and tracks that request |
+| `GET /api/projects/discover`, `GET /api/projects/{id}`, `PATCH /api/projects/{id}` | `ProjectController` | Discover feed, single-project read (404-on-out-of-scope), update name/description/visibility/requirements. Full route table in [03](03_project_management.md) |
+| `POST /api/projects/{id}/deletion-request`, `GET .../deletion-request` | `ProjectController` (`ProjectDeletionService`) | Owner files / inspects a deletion request (**204** when there is none) |
 | `GET /api/users/search?q=` | `UserSearchController` | Username prefix search; per-caller rate-limited (`UserSearchService`) |
-| `GET /api/client/projects`, `GET /api/client/projects/{id}/connection` | `ClientApiController` (`ClientApiService`) | FL-client project list + sticky partition assignment |
+| `GET/PATCH /api/users/me/profile` | `ProfileController` | Self-service profile. `permitAll` at the chain level so the controller can 401 anonymously; `USER_PROFILE_UPDATED` / `USER_PASSWORD_CHANGED` are audited |
+| `GET /api/users`, `POST /api/users`, `DELETE /api/users/{id}` | `UserController` | Legacy user-management surface; the `GET`/`DELETE` are `@PreAuthorize PLATFORM_ADMIN` |
+| `GET /api/client/projects`, `GET /api/client/projects/{id}`, `POST .../join`, `GET .../connection` | `ClientApiController` (`ClientApiService`) | FL-client project list, single read, join, and per-run enrollment + connection token |
 | `POST /api/admin/test-email?to=` | `TestEmailController` (flag-gated, `PLATFORM_ADMIN`) | Email delivery smoke test |
+
+`AdminController` is class-level `@PreAuthorize("hasRole('PLATFORM_ADMIN')")` and is
+big enough to warrant its own table:
+
+| Method & path | Purpose |
+|---|---|
+| `GET /api/admin/overview` | The admin console landing summary |
+| `GET /api/admin/users`, `GET /api/admin/users/{id}` | User directory and detail |
+| `GET /api/admin/users/search?q=&role=&status=&page=&size=` | Search-first user directory, server-side paged (`PagedResponseDto`) |
+| `PUT /api/admin/users/{id}/role` | Change a platform role; refuses to demote the last admin |
+| `PUT /api/admin/users/{id}/status` | Suspend / reactivate. Dispatched to a **separate service method per transition** so each carries its own `@Auditable` action and the aspect fires through the Spring proxy — a self-invocation would bypass it |
+| `GET /api/admin/projects`, `GET /api/admin/projects/search?q=&status=&visibility=&page=&size=` | Project directory, flat and search-first |
+| `GET /api/admin/audit-events?actor=&action=&targetType=&from=&to=&page=&size=` | The audit-event explorer |
+| `GET /api/admin/owner-requests?status=`, `PUT /api/admin/owner-requests/{id}` | The owner-promotion queue (`OwnerPromotionService`) |
+| `GET /api/admin/deletion-requests?status=`, `PUT /api/admin/deletion-requests/{id}` | The project-deletion queue; an `APPROVED` decision calls `ProjectService.deleteProject` in the admin's own security context (`ProjectDeletionService`) |

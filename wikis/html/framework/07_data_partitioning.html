@@ -50,8 +50,17 @@
 <li><a href="05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a class="active" href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -87,9 +96,15 @@
 <ul>
 <li><a href="#why-non-iid-data-matters">Why Non-IID Data Matters</a></li>
 <li><a href="#iid-vs-non-iid-illustrated">IID vs. Non-IID Illustrated</a></li>
+<li><a href="#the-four-shipped-partitioners">The Four Shipped Partitioners</a></li>
+<li><a href="#the-shared-contract">The Shared Contract</a></li>
+<li><a href="#iid_partition">iid_partition</a></li>
+<li><a href="#dirichlet_partition">dirichlet_partition</a></li>
+<li><a href="#shard_partition">shard_partition</a></li>
+<li><a href="#pathological_partition">pathological_partition</a></li>
+<li><a href="#partition_report">partition_report</a></li>
 <li><a href="#dirichlet-distribution-for-non-iid-partitioning">Dirichlet Distribution for Non-IID Partitioning</a></li>
 <li><a href="#mathematical-intuition">Mathematical Intuition</a></li>
-<li><a href="#implementation">Implementation</a></li>
 <li><a href="#visualising-partitions">Visualising Partitions</a></li>
 <li><a href="#practical-data-setup-patterns">Practical Data Setup Patterns</a></li>
 <li><a href="#mnist-with-non-iid-split">MNIST with Non-IID Split</a></li>
@@ -127,6 +142,162 @@ Client 1:  ░░░░░░░░░░░░░░░░███████
 Client 2:  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░███████████  (mostly class 4)
 </code></pre></div>
 
+<hr />
+<h2 id="the-four-shipped-partitioners">The Four Shipped Partitioners<a class="headerlink" href="#the-four-shipped-partitioners" title="Permanent link">&para;</a></h2>
+<p><strong>Do not hand-roll a partitioner.</strong> <code>fedlearn.simulation.partition</code> ships four, all seeded and all
+tested against the same contract. They are the native replacement for <code>flwr_datasets.FederatedDataset</code>
+partitioning, and they land the simulator's side of that removal.</p>
+<blockquote>
+<p><strong>Credit the unblocking correctly.</strong> Dropping <code>flwr</code> is what freed the platform's <code>cryptography</code>
+and <code>protobuf</code> floors (see
+<a href="01_architecture_overview.html#technology-stack">01 — Technology Stack</a>), but the change that
+actually did it was the native CIFAR-10 IID shard in <code>fl-runtime/recipes.py</code> — <code>flwr-datasets</code>'
+only remaining consumer. These four partitioners are used by the simulator and its tests, not by
+<code>fl-runtime</code>; <code>simulation/partition.py</code>'s own module docstring still describes the cap as a live
+residual, which is stale. Both pieces belong to the same effort; only the <code>recipes.py</code> one was
+load-bearing for the dependency floors.</p>
+</blockquote>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.simulation.partition</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">iid_partition</span><span class="p">,</span> <span class="n">dirichlet_partition</span><span class="p">,</span> <span class="n">shard_partition</span><span class="p">,</span> <span class="n">pathological_partition</span><span class="p">,</span>
+    <span class="n">partition_report</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+
+<p>The heterogeneity knobs are deliberately <strong>different shapes</strong>, because the literature uses all of
+them and a result is only comparable to a paper that used the same one:</p>
+<table>
+<thead>
+<tr>
+<th>Partitioner</th>
+<th>How heterogeneity is controlled</th>
+<th>Use it when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>iid_partition</code></td>
+<td>none — the IID <strong>control arm</strong></td>
+<td>you need a baseline that isolates federation from heterogeneity</td>
+</tr>
+<tr>
+<td><code>dirichlet_partition</code></td>
+<td><code>alpha</code> — smaller is more skewed</td>
+<td>the common modern default</td>
+</tr>
+<tr>
+<td><code>shard_partition</code></td>
+<td>sort-and-shard; <code>shards_per_client</code> <strong>bounds</strong> classes per client</td>
+<td>reproducing the original FedAvg (McMahan et al.) construction</td>
+</tr>
+<tr>
+<td><code>pathological_partition</code></td>
+<td><strong>exactly</strong> <code>classes_per_client</code> classes per client</td>
+<td>worst-case heterogeneity; cleanly separates methods that depend on local label coverage (e.g. linear probing on a frozen encoder) from methods that do not</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-shared-contract">The Shared Contract<a class="headerlink" href="#the-shared-contract" title="Permanent link">&para;</a></h3>
+<p>Every partitioner returns <code>List[np.ndarray]</code> of <strong>index arrays into the dataset</strong> — not data. That
+makes a partitioner independent of how the dataset is stored, cheap to hold for thousands of
+clients, and recordable verbatim in a result's <code>meta</code> block.</p>
+<p>All four satisfy the same three-part contract, enforced by <code>tests/test_simulation_partition.py</code>:</p>
+<ul>
+<li><strong>complete</strong> — the union of client index sets is exactly <code>range(n_samples)</code></li>
+<li><strong>disjoint</strong> — no index is held by two clients</li>
+<li><strong>deterministic in <code>seed</code></strong> — and <em>genuinely dependent on it</em></li>
+</ul>
+<h3 id="iid_partition">iid_partition<a class="headerlink" href="#iid_partition" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">iid_partition</span><span class="p">(</span><span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_clients</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+</code></pre></div>
+
+<p>Shuffle and deal into near-equal parts (sizes differ by at most 1). Note it takes <code>n_samples</code>, not
+labels — it does not need them.</p>
+<blockquote>
+<p>Any non-IID effect must be measured against <strong>this</strong>, not against a centralized baseline, or the
+comparison confounds federation with heterogeneity.</p>
+</blockquote>
+<h3 id="dirichlet_partition">dirichlet_partition<a class="headerlink" href="#dirichlet_partition" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">dirichlet_partition</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">num_clients</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">seed</span><span class="p">,</span> <span class="n">min_partition_size</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+</code></pre></div>
+
+<p>For each class, draw client proportions from <code>Dir(alpha)</code> and cut the class's shuffled indices at
+the cumulative proportions. Using a <strong>single cumulative cut</strong> (rather than per-client rounding) is
+what guarantees completeness and disjointness: every index lands in exactly one slice, whatever the
+proportions are.</p>
+<p><code>min_partition_size</code> is the parameter that matters operationally. Low <code>alpha</code> naturally produces
+<strong>empty clients</strong>, and an empty client is not a benign edge case — <code>num_examples == 0</code> is rejected at
+coordinator ingress, so it silently shrinks the effective cohort.</p>
+<p>The repair is deterministic — move samples from the largest donor to the most-deficient client,
+tie-breaking by lowest index — rather than the usual "redraw until it fits" loop. Two reasons, and
+the second is the important one:</p>
+<ol>
+<li>It always terminates (feasibility, <code>num_clients * min_partition_size &lt;= n_samples</code>, is checked up
+   front and raises otherwise).</li>
+<li>It consumes a <strong>fixed</strong> number of RNG draws. A redraw loop would make the <em>rest</em> of a run's
+   randomness depend on how many redraws happened, quietly breaking reproducibility across <code>alpha</code>
+   values — the kind of bug that is invisible in a passing test suite and fatal in an experiments
+   table.</li>
+</ol>
+<h3 id="shard_partition">shard_partition<a class="headerlink" href="#shard_partition" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">shard_partition</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">num_clients</span><span class="p">,</span> <span class="n">shards_per_client</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+</code></pre></div>
+
+<p>Sort by label, cut into <code>num_clients * shards_per_client</code> contiguous shards, deal them from a seeded
+permutation. The original FedAvg non-IID construction; <code>shards_per_client=2</code> is the canonical
+setting.</p>
+<p>Because shards are label-contiguous, a client holding <code>s</code> shards sees <strong>at most <code>s + 1</code></strong> distinct
+classes — one more than <code>s</code> only when a shard straddles a class boundary. The sort is <code>kind="stable"</code>
+so ties within a class are ordered by index and the sort itself contributes no randomness, keeping
+the seed the only source of variation.</p>
+<h3 id="pathological_partition">pathological_partition<a class="headerlink" href="#pathological_partition" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">pathological_partition</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">num_clients</span><span class="p">,</span> <span class="n">classes_per_client</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+</code></pre></div>
+
+<p>Every client gets <strong>exactly</strong> <code>classes_per_client</code> distinct classes — unlike <code>shard_partition</code>, where
+the count is only bounded. Classes are dealt from a seeded permutation using a rotating stride
+(<code>perm[(i*k + j) % n_classes]</code>), which guarantees distinctness within a client and even coverage
+across classes.</p>
+<p>Two <code>ValueError</code>s guard the degenerate cases: <code>classes_per_client</code> exceeding the number of distinct
+classes, and <code>num_clients * classes_per_client &lt; n_classes</code> — the latter because some class would
+then have no holder and its samples would be <strong>dropped</strong>, violating completeness.</p>
+<h3 id="partition_report">partition_report<a class="headerlink" href="#partition_report" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">partition_report</span><span class="p">(</span><span class="n">parts</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span>
+</code></pre></div>
+
+<p>Summarises a partition into a JSON-serializable block for a result's <code>meta</code>. A result that records
+only <code>alpha=0.5</code> cannot be checked later; one that records the <em>realised</em> sizes and skew can.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>num_clients</code>, <code>total_samples</code>, <code>num_classes</code></td>
+<td>shape of the split</td>
+</tr>
+<tr>
+<td><code>client_sizes</code>, <code>min_client_size</code>, <code>max_client_size</code></td>
+<td>realised per-client sizes</td>
+</tr>
+<tr>
+<td><code>empty_clients</code></td>
+<td>count of zero-sample clients — should be 0 for a usable run</td>
+</tr>
+<tr>
+<td><strong><code>mean_max_class_share</code></strong></td>
+<td>the headline statistic: <strong>1.0</strong> = every client holds a single class</td>
+</tr>
+<tr>
+<td><code>iid_reference_share</code></td>
+<td><code>1 / num_classes</code> — the value <code>mean_max_class_share</code> takes under a perfect IID split</td>
+</tr>
+</tbody>
+</table>
+<p>Comparing those last two is the honest way to state "how non-IID was this run" — an <code>alpha</code> value
+alone is a request, not a measurement.</p>
 <hr />
 <h2 id="dirichlet-distribution-for-non-iid-partitioning">Dirichlet Distribution for Non-IID Partitioning<a class="headerlink" href="#dirichlet-distribution-for-non-iid-partitioning" title="Permanent link">&para;</a></h2>
 <p>The Dirichlet distribution <code>Dir(α)</code> over a k-simplex is the standard way to generate heterogeneous data partitions in federated learning research.</p>
@@ -175,154 +346,49 @@ Client 2:  ░░░░░░░░░░░░░░░░░░░░░░░
 </tr>
 </tbody>
 </table>
-<h3 id="implementation">Implementation<a class="headerlink" href="#implementation" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span><span class="p">,</span> <span class="n">Subset</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
-
-<span class="k">def</span><span class="w"> </span><span class="nf">dirichlet_partition</span><span class="p">(</span>
-    <span class="n">dataset</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
-    <span class="n">num_clients</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
-    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
-    <span class="n">min_samples_per_client</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Subset</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Partition a dataset using Dirichlet distribution for non-IID splits.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        dataset:                 Full training dataset</span>
-<span class="sd">        num_clients:             Number of federated clients</span>
-<span class="sd">        alpha:                   Dirichlet concentration parameter</span>
-<span class="sd">                                 (lower = more heterogeneous)</span>
-<span class="sd">        seed:                    Random seed for reproducibility</span>
-<span class="sd">        min_samples_per_client:  Minimum samples to guarantee per client</span>
-<span class="sd">                                 (prevents degenerate partitions)</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        List of Subset objects, one per client</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-
-    <span class="c1"># Extract all labels efficiently</span>
-    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s1">&#39;targets&#39;</span><span class="p">):</span>
-        <span class="c1"># torchvision datasets expose targets directly</span>
-        <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">targets</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">dataset</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">))])</span>
-
-    <span class="n">num_classes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">labels</span><span class="p">))</span>
-    <span class="n">num_samples</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span>
-
-    <span class="c1"># Build index list per class</span>
-    <span class="n">class_indices</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">labels</span> <span class="o">==</span> <span class="n">c</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_classes</span><span class="p">)}</span>
-    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">class_indices</span><span class="p">:</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">class_indices</span><span class="p">[</span><span class="n">c</span><span class="p">])</span>
-
-    <span class="n">client_indices</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_clients</span><span class="p">)]</span>
-
-    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_classes</span><span class="p">):</span>
-        <span class="c1"># Sample proportions from Dirichlet</span>
-        <span class="n">proportions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">dirichlet</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">num_clients</span><span class="p">,</span> <span class="n">alpha</span><span class="p">))</span>
-
-        <span class="c1"># Convert proportions to integer counts (ensure no client gets 0)</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="n">class_indices</span><span class="p">[</span><span class="n">c</span><span class="p">]</span>
-        <span class="n">n_class</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
-
-        <span class="c1"># Compute cumulative split points</span>
-        <span class="n">splits</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">proportions</span><span class="p">)</span> <span class="o">*</span> <span class="n">n_class</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
-        <span class="n">splits</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_class</span>  <span class="c1"># ensure last split covers all</span>
-
-        <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">end</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">splits</span><span class="p">):</span>
-            <span class="n">client_indices</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">])</span>
-            <span class="n">start</span> <span class="o">=</span> <span class="n">end</span>
-
-    <span class="c1"># Validate: ensure minimum samples per client</span>
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">indices</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">client_indices</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">min_samples_per_client</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Client </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> has only </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span><span class="si">}</span><span class="s2"> samples with alpha=</span><span class="si">{</span><span class="n">alpha</span><span class="si">}</span><span class="s2">. &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;Increase alpha or reduce num_clients.&quot;</span>
-            <span class="p">)</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>  <span class="c1"># shuffle within each client&#39;s partition</span>
-
-    <span class="k">return</span> <span class="p">[</span><span class="n">Subset</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span> <span class="k">for</span> <span class="n">indices</span> <span class="ow">in</span> <span class="n">client_indices</span><span class="p">]</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">stratified_partition</span><span class="p">(</span>
-    <span class="n">dataset</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
-    <span class="n">num_clients</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Subset</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Perfect IID partition: each client gets an equal, stratified sample of all classes.</span>
-<span class="sd">    Use as a baseline to isolate the effect of non-IID data distribution.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s1">&#39;targets&#39;</span><span class="p">):</span>
-        <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">targets</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">dataset</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">))])</span>
-
-    <span class="n">num_classes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">labels</span><span class="p">))</span>
-    <span class="n">client_indices</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_clients</span><span class="p">)]</span>
-
-    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_classes</span><span class="p">):</span>
-        <span class="n">class_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">labels</span> <span class="o">==</span> <span class="n">c</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">class_idx</span><span class="p">)</span>
-        <span class="c1"># Round-robin assignment</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">class_idx</span><span class="p">):</span>
-            <span class="n">client_indices</span><span class="p">[</span><span class="n">i</span> <span class="o">%</span> <span class="n">num_clients</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="p">[</span><span class="n">Subset</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span> <span class="k">for</span> <span class="n">indices</span> <span class="ow">in</span> <span class="n">client_indices</span><span class="p">]</span>
-</code></pre></div>
-
 <h3 id="visualising-partitions">Visualising Partitions<a class="headerlink" href="#visualising-partitions" title="Permanent link">&para;</a></h3>
+<p><code>partition_report</code> gives you the numbers; this gives you the picture. It takes <strong>index arrays</strong>
+straight from any of the four partitioners.</p>
 <div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">plot_data_distribution</span><span class="p">(</span><span class="n">client_subsets</span><span class="p">,</span> <span class="n">dataset</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_data_distribution</span><span class="p">(</span><span class="n">parts</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="s2">&quot;data_distribution.png&quot;</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Visualise the class distribution across clients.</span>
 <span class="sd">    Each row = one client, each column = one class.</span>
+
+<span class="sd">    parts:  List[np.ndarray] from any fedlearn.simulation.partition function</span>
+<span class="sd">    labels: the same 1-D label array passed to the partitioner</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s1">&#39;targets&#39;</span><span class="p">):</span>
-        <span class="n">all_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">targets</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">all_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">dataset</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">))])</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span>
+    <span class="n">num_classes</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+    <span class="n">distribution</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">),</span> <span class="n">num_classes</span><span class="p">))</span>
 
-    <span class="n">num_clients</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">client_subsets</span><span class="p">)</span>
-    <span class="n">distribution</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_clients</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">parts</span><span class="p">):</span>
+        <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">labels</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)],</span> <span class="n">minlength</span><span class="o">=</span><span class="n">num_classes</span><span class="p">)</span>
+        <span class="n">distribution</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">counts</span>
 
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">subset</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">client_subsets</span><span class="p">):</span>
-        <span class="n">client_labels</span> <span class="o">=</span> <span class="n">all_labels</span><span class="p">[</span><span class="n">subset</span><span class="o">.</span><span class="n">indices</span><span class="p">]</span>
-        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_classes</span><span class="p">):</span>
-            <span class="n">distribution</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">client_labels</span> <span class="o">==</span> <span class="n">c</span><span class="p">)</span>
-
-    <span class="c1"># Normalise rows</span>
     <span class="n">row_sums</span> <span class="o">=</span> <span class="n">distribution</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">row_sums</span><span class="p">[</span><span class="n">row_sums</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>          <span class="c1"># an empty client would divide by zero</span>
     <span class="n">distribution_pct</span> <span class="o">=</span> <span class="n">distribution</span> <span class="o">/</span> <span class="n">row_sums</span> <span class="o">*</span> <span class="mi">100</span>
 
-    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="n">num_clients</span> <span class="o">*</span> <span class="mf">0.4</span> <span class="o">+</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.4</span> <span class="o">+</span> <span class="mi">2</span><span class="p">))</span>
     <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">distribution_pct</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;YlOrRd&#39;</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Class&#39;</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Client&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Class&#39;</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Client&#39;</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Data Distribution Across Clients (%)&#39;</span><span class="p">)</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">% o</span><span class="s1">f client data&#39;</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s1">&#39;data_distribution.png&#39;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">();</span> <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">distribution</span>
 </code></pre></div>
 
 <hr />
 <h2 id="practical-data-setup-patterns">Practical Data Setup Patterns<a class="headerlink" href="#practical-data-setup-patterns" title="Permanent link">&para;</a></h2>
 <h3 id="mnist-with-non-iid-split">MNIST with Non-IID Split<a class="headerlink" href="#mnist-with-non-iid-split" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code><span class="c1"># examples/simple_federation/run_client.py pattern</span>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">fedlearn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torchvision</span><span class="w"> </span><span class="kn">import</span> <span class="n">datasets</span><span class="p">,</span> <span class="n">transforms</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span><span class="p">,</span> <span class="n">Subset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.simulation.partition</span><span class="w"> </span><span class="kn">import</span> <span class="n">dirichlet_partition</span><span class="p">,</span> <span class="n">partition_report</span>
 
 <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
 <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--id&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
@@ -336,28 +402,33 @@ Client 2:  ░░░░░░░░░░░░░░░░░░░░░░░
     <span class="n">transforms</span><span class="o">.</span><span class="n">Normalize</span><span class="p">((</span><span class="mf">0.1307</span><span class="p">,),</span> <span class="p">(</span><span class="mf">0.3081</span><span class="p">,))</span>
 <span class="p">])</span>
 
-<span class="n">full_dataset</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">MNIST</span><span class="p">(</span>
-    <span class="n">root</span><span class="o">=</span><span class="s2">&quot;./data&quot;</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">transform</span>
-<span class="p">)</span>
+<span class="n">full_dataset</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">MNIST</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="s2">&quot;./data&quot;</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">)</span>
+<span class="n">labels</span> <span class="o">=</span> <span class="n">full_dataset</span><span class="o">.</span><span class="n">targets</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
 
-<span class="c1"># Partition according to Dirichlet distribution</span>
-<span class="n">client_subsets</span> <span class="o">=</span> <span class="n">dirichlet_partition</span><span class="p">(</span>
-    <span class="n">full_dataset</span><span class="p">,</span>
+<span class="c1"># Every client MUST pass the same (labels, num_clients, alpha, seed) to get the same split.</span>
+<span class="n">parts</span> <span class="o">=</span> <span class="n">dirichlet_partition</span><span class="p">(</span>
+    <span class="n">labels</span><span class="o">=</span><span class="n">labels</span><span class="p">,</span>
     <span class="n">num_clients</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">num_clients</span><span class="p">,</span>
-    <span class="n">alpha</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span>  <span class="c1"># 0.5 = moderately non-IID</span>
+    <span class="n">alpha</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span>          <span class="c1"># 0.5 = moderately non-IID</span>
     <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+    <span class="n">min_partition_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>     <span class="c1"># never hand a client 0 samples — ingress rejects it</span>
 <span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">partition_report</span><span class="p">(</span><span class="n">parts</span><span class="p">,</span> <span class="n">labels</span><span class="p">))</span>     <span class="c1"># record this in the run&#39;s meta block</span>
 
-<span class="c1"># This client gets its assigned partition</span>
-<span class="n">my_dataset</span> <span class="o">=</span> <span class="n">client_subsets</span><span class="p">[</span><span class="n">args</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+<span class="n">my_dataset</span> <span class="o">=</span> <span class="n">Subset</span><span class="p">(</span><span class="n">full_dataset</span><span class="p">,</span> <span class="n">parts</span><span class="p">[</span><span class="n">args</span><span class="o">.</span><span class="n">id</span><span class="p">])</span>
 <span class="n">train_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">my_dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Client </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">my_dataset</span><span class="p">)</span><span class="si">}</span><span class="s2"> samples&quot;</span><span class="p">)</span>
 
-<span class="n">client</span> <span class="o">=</span> <span class="n">MNISTClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">CNN</span><span class="p">(),</span> <span class="n">train_loader</span><span class="o">=</span><span class="n">train_loader</span><span class="p">)</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">LocalTrainer</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">CNN</span><span class="p">(),</span> <span class="n">train_loader</span><span class="o">=</span><span class="n">train_loader</span><span class="p">)</span>
 <span class="n">fl</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">start_client</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">server_address</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;client_</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
 
+<blockquote>
+<p><strong>The partition is reproduced independently on each client, not distributed by the server.</strong> Every
+client must be given the identical <code>(labels, num_clients, alpha, seed)</code> tuple, or the split is not
+a partition at all — clients will overlap and some samples will be trained on twice while others
+are never seen. The seed is the contract.</p>
+</blockquote>
 <h3 id="ecg-classification-data">ECG Classification Data<a class="headerlink" href="#ecg-classification-data" title="Permanent link">&para;</a></h3>
 <p>The ECG dataset requires custom loading (CSV format) with binary labels (Normal=0, Abnormal=1):</p>
 <div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
@@ -472,6 +543,20 @@ Client 2:  ░░░░░░░░░░░░░░░░░░░░░░░
 <hr />
 <h2 id="simulating-real-world-heterogeneity">Simulating Real-World Heterogeneity<a class="headerlink" href="#simulating-real-world-heterogeneity" title="Permanent link">&para;</a></h2>
 <p>Beyond class distribution, real federated settings have additional sources of heterogeneity:</p>
+<blockquote>
+<p>The patterns below are <strong>illustrative sketches</strong>, not shipped API — unlike the partitioners above,
+which are. Two of them have first-class support you should prefer:</p>
+<ul>
+<li><strong>Dropout / stragglers</strong> — <code>SimulatedFederation(dropout_rate=…)</code> models dropout deterministically
+  from the run seed, and resolves the round <em>immediately</em> instead of sleeping out the deployed
+  120-second deadline. Each <code>RoundRecord</code> carries <code>selected</code> / <code>reported</code> / <code>dropped</code> / <code>forced</code>,
+  so a forced (partial-cohort) round can never be mistaken for a clean one. See
+  <a href="01_architecture_overview.html#the-in-process-simulator">01 — The In-Process Simulator</a>.</li>
+<li><strong>Per-client randomness</strong> — <code>ClientRng</code> / <code>RunRng</code> give each client an isolated stream keyed on
+  <code>(seed, client_id[, round])</code>, so a straggler or a dropped client cannot perturb anyone else's
+  draws.</li>
+</ul>
+</blockquote>
 <h3 id="system-heterogeneity-stragglers">System Heterogeneity (Stragglers)<a class="headerlink" href="#system-heterogeneity-stragglers" title="Permanent link">&para;</a></h3>
 <p>Some clients are faster than others. Simulate with throttled training:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SlowClient</span><span class="p">(</span><span class="n">MNISTClient</span><span class="p">):</span>
@@ -530,47 +615,49 @@ Client 2:  ░░░░░░░░░░░░░░░░░░░░░░░
 
 <hr />
 <h2 id="impact-on-convergence">Impact on Convergence<a class="headerlink" href="#impact-on-convergence" title="Permanent link">&para;</a></h2>
-<p>Experimental observations from the FedLearn examples:</p>
+<blockquote>
+<p><strong>No numbers are quoted here, deliberately.</strong> Earlier revisions of this page carried a
+FedAvg-vs-FedProx accuracy table across α. <strong>Those figures are not reproducible from anything in
+this repository</strong> — no committed harness produces them and no result file backs them — so they
+have been removed rather than restated. Treat any α-vs-accuracy figure you find in an old copy of
+this page as unverified.</p>
+</blockquote>
+<p>What <em>is</em> committed, and re-runnable, is the harness that would produce such a table honestly:</p>
 <table>
 <thead>
 <tr>
-<th>Setting</th>
-<th>FedAvg Accuracy (10 rounds)</th>
-<th>FedProx Accuracy (10 rounds)</th>
-<th>Notes</th>
+<th>Harness (<code>framework/benchmarks/</code>)</th>
+<th>Measures</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>IID (α=100)</td>
-<td>95.2%</td>
-<td>95.1%</td>
-<td>FedProx overhead not needed</td>
+<td><code>algo_comparison.py</code></td>
+<td>one task, one <strong>fixed</strong> non-IID partition, one seed, run through each algorithm's <strong>real</strong> <code>aggregate_fit</code>; records per-round accuracy, loss, wall-clock and truthful cumulative wire bytes</td>
 </tr>
 <tr>
-<td>α = 0.5</td>
-<td>91.3%</td>
-<td>93.7%</td>
-<td>FedProx noticeably better</td>
+<td><code>comms_regimes.py</code></td>
+<td>per-round communication cost across three regimes: full-model FedAvg, head-only (frozen-backbone) FedAvg, and DeComFL</td>
 </tr>
 <tr>
-<td>α = 0.1</td>
-<td>84.1%</td>
-<td>89.2%</td>
-<td>Significant drift with FedAvg</td>
-</tr>
-<tr>
-<td>α = 0.01</td>
-<td>71.5%</td>
-<td>81.8%</td>
-<td>Extreme drift; FedProx helps a lot</td>
+<td><code>zeroth_vs_first_order.py</code></td>
+<td>zeroth-order vs first-order convergence <strong>and</strong> bytes side by side</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Key takeaways:</strong>
-1. The more non-IID the data (lower α), the worse FedAvg performs relative to centralised training.
-2. FedProx's proximal term limits how far each client's model can drift from the global model, mitigating the effect.
-3. DeComFL is less affected by non-IID data because zeroth-order estimates are inherently noisy — the noise from non-IID is less dominant compared to the ZO estimation variance.</p>
+<p>Run one and read its own <code>results/*.md</code>; those files are generated from the JSON record, not
+hand-written. See <a href="08_examples.html#the-committed-benchmark-harnesses">08 — The Committed Benchmark Harnesses</a>.</p>
+<p>The qualitative statements below are standard results from the FL literature (McMahan et al. 2017;
+Li et al. 2020), not measurements from this codebase:</p>
+<ol>
+<li>The more non-IID the data (lower α), the worse FedAvg performs relative to centralised training.</li>
+<li>FedProx's proximal term limits how far each client's model can drift from the global model,
+   mitigating the effect — <strong>within its stability envelope</strong>; past <code>lr·mu ≥ 2</code> the same term
+   amplifies drift instead. See <a href="05_strategies.html#fedprox--proximal-regularisation-shipped">05 — FedProx</a>.</li>
+<li>Whether DeComFL is <em>less</em> affected by non-IID data than first-order methods is an open question
+   here, not an established result. The plausible argument — that zeroth-order estimation variance
+   dominates the heterogeneity noise — is untested on this platform. Do not cite it as a finding.</li>
+</ol>
 <h3 id="choosing-for-experiments">Choosing α for Experiments<a class="headerlink" href="#choosing-for-experiments" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -582,7 +669,7 @@ Client 2:  ░░░░░░░░░░░░░░░░░░░░░░░
 <tbody>
 <tr>
 <td>Baseline (mimic IID)</td>
-<td>α = 10.0</td>
+<td>α = 10.0 — or better, use <code>iid_partition</code> as the true control arm</td>
 </tr>
 <tr>
 <td>Standard FL benchmark</td>
@@ -593,15 +680,17 @@ Client 2:  ░░░░░░░░░░░░░░░░░░░░░░░
 <td>α = 0.1</td>
 </tr>
 <tr>
-<td>Worst-case (1 class per client)</td>
-<td>α = 0.01</td>
+<td>Worst-case</td>
+<td>prefer <code>pathological_partition(classes_per_client=1)</code> — <strong>exact</strong>, where a small α is only <em>probably</em> near-degenerate</td>
 </tr>
 <tr>
 <td>Exact replication of prior work</td>
-<td>Check the paper's α value</td>
+<td>Check the paper's α — <strong>and which partitioner it used</strong>; a Dirichlet result is not comparable to a sort-and-shard result at any α</td>
 </tr>
 </tbody>
-</table></article>
+</table>
+<p>Whatever you choose, record <code>partition_report(parts, labels)</code> alongside it. <code>mean_max_class_share</code>
+versus <code>iid_reference_share</code> is the measured skew; α alone is only the request.</p></article>
     <nav class="toc"></nav>
   </div>
 </div>

@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -90,17 +99,58 @@
 <h3 id="process-lifecycle">Process Lifecycle<a class="headerlink" href="#process-lifecycle" title="Permanent link">&para;</a></h3>
 <ol>
 <li><strong>Port Allocation:</strong> The manager scans the configured port range — <code>fl.server.port-range.start</code>/<code>.end</code>, defaulting to <strong>50000–50010</strong> — and reserves the first port it can actually bind with a probe <code>ServerSocket</code>. Reserved ports are tracked in a set guarded by a lock, so two concurrent project starts cannot pick the same port between probe-close and the Python child's bind.</li>
-<li><strong>Command Construction:</strong> It builds a command array around the FL-server shell wrapper, resolved from <code>python.script.fl-server.path</code> (default <code>../../fl-runtime/run_fl_server.sh</code>; <code>.bat</code> on Windows). Federation over Text (FoT) selects its own wrapper, <code>python.script.fot-server.path</code>. The wrapper indirection is what lets the same Java code work on macOS, Linux, and Windows.</li>
-<li><strong>Environment Construction:</strong> The child environment is <strong>rebuilt from an allowlist</strong> rather than inherited (SE-17), so no backend secret — DB password, web-auth JWT secret, CORS config — reaches the FL server. Only OS/runtime essentials plus the <code>FEDLEARN_*</code> namespace survive; the manager then sets the explicit per-run variables:
+<li><strong>Command Construction:</strong> It builds a command array around the FL-server shell wrapper, resolved from <code>python.script.fl-server.path</code> (default <code>../../fl-runtime/run_fl_server.sh</code>; <code>.bat</code> on Windows). Federation over Text (FoT) selects its own wrapper, <code>python.script.fot-server.path</code> (a <code>@Value</code> default in the manager — it is not declared in <code>application.properties</code>). The wrapper indirection is what lets the same Java code work on macOS, Linux, and Windows.</li>
+</ol>
+<p>Three conditional flag groups hang off the project's own configuration:
+   - <strong><code>--training-arm &lt;ARM&gt;</code></strong>, emitted <strong>only when the project's arm is not <code>FULL</code></strong>. That
+     asymmetry is deliberate: every pre-arm spawn's argv stays byte-identical to what it was, and
+     both <code>fl_server.py</code> and <code>client.py</code> resolve an omitted arm to <code>FULL</code>. Whether the <em>recipe</em>
+     supports the arm is validated by <code>recipes.validate_arm()</code> on the Python side — the catalog is
+     the authority; the <code>TrainingArm</code> enum and the <code>V22</code>/<code>V23</code> CHECK only bound the vocabulary on
+     this side. See <a href="03_project_management.html">03 - Project Management Lifecycle</a>.
+   - <strong><code>--aggregation FFA_LORA --task-type &lt;…&gt;</code></strong> for <code>LLM_LORA</code> projects.
+   - <strong>the <code>--dp-*</code> group</strong> when DP is enabled (SE-11). The flag names are a pinned contract with
+     <code>fl_server.py</code>'s argparse. Creation already validated completeness, but the spawn seam
+     re-checks so a null knob can never reach the argv as the literal string <code>"null"</code>
+     (SE-10 fail-closed); every value is a typed number formatted with <code>String.valueOf</code>, never a
+     raw string.
+3. <strong>Environment Construction:</strong> The child environment is <strong>rebuilt from an allowlist</strong> rather than inherited (SE-17), so no backend secret — DB password, web-auth JWT secret, CORS config — reaches the FL server. Only OS/runtime essentials plus the <code>FEDLEARN_*</code> namespace survive; the manager then sets the explicit per-run variables:
    <code>java
    env.keySet().removeIf(key -&gt; !isAllowedChildEnvKey(key));
    env.put("FEDLEARN_INTERNAL_API_KEY", internalApiKey);
    env.put("FEDLEARN_INTERNAL_RUN_TOKEN", internalRunToken);  // SE-7: scoped to (projectId, runId)
    env.put("FEDLEARN_BACKEND_URL", backendInternalUrl);</code>
-   The per-run token (SE-7) is minted fresh for each start and is the only credential the child can present on <code>/api/internal/**</code> — a leaked run token can mutate only its own project. TLS enforcement (SE-2) and client-auth enforcement (SE-1/SE-7) are passed as explicit toggles, both off by default.</li>
-<li><strong>Execution and Tracking:</strong> The runner starts the process and returns a <code>SpawnedFlProcess</code>. The manager stores <code>process.toHandle()</code> in a <code>ConcurrentHashMap&lt;UUID, ProcessHandle&gt;</code> keyed by the <code>projectId</code> — a <code>ProcessHandle</code> rather than a <code>Process</code> because a restarted JVM can only ever re-adopt a <em>handle</em> to a child that outlived a backend crash (BA-3).</li>
-<li><strong>Identity Persistence:</strong> The child's PID, start instant, reserved port, and run-token hash are recorded on the active <code>Run</code> (BA-3), so a startup reconciler can distinguish a still-live FL server from a dead — or PID-reused — one. If that persistence fails, the spawn <strong>fails closed</strong>: the child is killed rather than left as an unreconcilable orphan.</li>
-</ol>
+   The per-run token (SE-7) is minted fresh for each start and is the only credential the child can present on <code>/api/internal/**</code> — a leaked run token can mutate only its own project. TLS enforcement (SE-2) and client-auth enforcement (SE-1/SE-7) are passed as explicit toggles, both off by default.
+4. <strong>Execution and Tracking:</strong> The runner starts the process and returns a <code>SpawnedFlProcess</code>. The manager stores <code>process.toHandle()</code> in a <code>ConcurrentHashMap&lt;UUID, ProcessHandle&gt;</code> keyed by the <code>projectId</code> — a <code>ProcessHandle</code> rather than a <code>Process</code> because a restarted JVM can only ever re-adopt a <em>handle</em> to a child that outlived a backend crash (BA-3).
+5. <strong>Identity Persistence:</strong> The child's PID, start instant, reserved port, and run-token hash are recorded on the active <code>Run</code> (BA-3, migrations <code>V15</code>/<code>V16</code>), so a startup reconciler can distinguish a still-live FL server from a dead — or PID-reused — one. If that persistence fails, the spawn <strong>fails closed</strong>: the child is killed rather than left as an unreconcilable orphan.</p>
+<h3 id="crash-recovery-startupreconciler-ba-3">Crash recovery: <code>StartupReconciler</code> (BA-3)<a class="headerlink" href="#crash-recovery-startupreconciler-ba-3" title="Permanent link">&para;</a></h3>
+<p>The in-memory <code>ConcurrentHashMap</code> is lost when the JVM dies, so a backend crash would otherwise orphan
+every FL server: the children keep running and holding gRPC ports while their runs sit forever in a
+non-terminal state with no handle to stop them. <code>bootstrap/StartupReconciler</code> closes that on boot. For
+each still-in-flight run it compares the recorded PID <strong>and</strong> the recorded OS start instant against
+the live process table (<code>ProcessProbe</code>), then either:</p>
+<ul>
+<li><strong>re-adopts</strong> the run — PID live <em>and</em> start instant matches, so the server genuinely survived the
+  restart. It is tracked again (a later <code>/stop</code> can terminate it) and its internal token is rehydrated
+  into <code>RunTokenRegistry</code> from <code>runs.internal_token_hash</code> so its result callbacks keep authenticating;
+  or</li>
+<li><strong>reaps</strong> it — the process is dead, the PID was never recorded, or the live PID belongs to a
+  <em>different</em> process (PID reuse). The run is reset to <code>FAILED</code> and the project returns to idle. A
+  PID-reused process is never killed: it is not ours, and our own server is already gone with its port
+  already free.</li>
+</ul>
+<p>Pairing the start instant with the PID is what makes PID reuse safe to detect; a recycled PID on an
+unrelated process cannot share the original's start time. Reconciliation never throws out of its
+runner — a failure here must not stop the application booting — and the last pass's summary is
+exposed as an actuator health-indicator detail.</p>
+<p>Boot reconciliation only fires once, so the same class carries a <strong>periodic stuck-run sweep</strong>
+(<code>app.fl.stuck-run-sweep.interval-ms</code>, default 60 s, flag-gated and fail-soft) for the other half of
+the problem: an FL server that dies while the <em>backend</em> stays up skips the terminal callback and
+leaves its run <code>RUNNING</code> forever. The sweep uses a <strong>two-pass debounce</strong> — a <code>RUNNING</code> run whose child
+is no longer tracked is reaped only if it was also untracked on the previous pass — so a run that is
+merely mid-completion or mid-stop settles to its terminal status first and a <code>FAILED</code> verdict cannot
+clobber a <code>COMPLETED</code> one. Only <code>RUNNING</code> is swept; <code>PENDING</code>/<code>STARTING</code> runs are legitimately
+mid-launch (a slow LLM start can sit in <code>STARTING</code> for minutes).</p>
 <h3 id="output-redirection">Output Redirection<a class="headerlink" href="#output-redirection" title="Permanent link">&para;</a></h3>
 <p>Because a spawned local process does not automatically print to the parent's console, the manager creates a dedicated daemon thread <code>fl-server-stdout-{id}</code>. This thread continuously reads from the child's <code>InputStream</code>.</p>
 <p>Every line read is passed to the <code>WebSocketService</code> to be broadcast to the UI. If the process crashes during startup — the probe window is <code>fl.server.startup-probe-seconds</code>, default <strong>3 seconds</strong> — an exception is thrown containing the captured <code>stdout</code> to help developers debug.</p>

@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -187,10 +196,26 @@ connect).</p>
 <p>A <code>BASE_REF</code>'s "content" is a small JSON reference manifest (<code>{"base_model_ref": ..., "license": ...}</code>),
 <strong>not</strong> the base model's weights, which live upstream — it exists purely so an adapter has something
 content-addressed to point <code>ADAPTER_OF</code> at, and so the same base dedups across orgs at the blob layer
-(<code>backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/ArtifactRegistryService.java:142-160</code>).
+(<code>backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/ArtifactRegistryService.java:162-183</code>).
 <code>findOrCreateBaseRef</code> is a <strong>private</strong> helper of <code>ArtifactRegistryService</code>, not a standalone public API —
 it is invoked only from inside <code>register()</code> when a <code>LORA_ADAPTER</code> is registered
-(<code>ArtifactRegistryService.java:97-98</code>).</p>
+(<code>ArtifactRegistryService.java:109-111</code>).</p>
+<p><strong>It is race-safe now, and was not originally (V21).</strong> The first implementation was a non-atomic
+read-then-insert with <em>no</em> backing constraint, so two concurrent adapter registrations in one org over
+the same base could each see "absent", each <code>save()</code> a <code>BASE_REF</code>, and leave their adapters'
+<code>ADAPTER_OF</code> edges forked across two rows that were supposed to be one. The current shape is:</p>
+<ol>
+<li>a read-first fast path (<code>findFirstByOrgIdAndBaseModelRefAndKind</code>) that avoids the manifest blob
+   write on the common hit;</li>
+<li>otherwise <code>ModelArtifactRepository.insertBaseRefIfAbsent(...)</code> — an atomic
+   <code>INSERT … ON CONFLICT DO NOTHING</code> — where the loser of the race is a silent no-op;</li>
+<li>a re-read of the single surviving row, which throws <code>IllegalStateException</code> if it is somehow still
+   missing.</li>
+</ol>
+<p>What makes (2) work is the <strong>partial unique index</strong> <code>uq_base_ref_org_model ON model_artifacts (org_id,
+base_model_ref) WHERE kind = 'BASE_REF'</code> from <code>V21</code> — partial, so <code>LORA_ADAPTER</code> / <code>FULL_CHECKPOINT</code>
+rows (which legitimately share those columns) stay unconstrained. <code>V21</code> assumes no pre-existing
+duplicates and fails loudly if a deployed database already holds some.</p>
 <h2 id="2-storage-artifactblobstore">2. Storage: <code>ArtifactBlobStore</code><a class="headerlink" href="#2-storage-artifactblobstore" title="Permanent link">&para;</a></h2>
 <p>The blob store is a small interface (<code>put</code>/<code>get</code>/<code>exists</code>/<code>backendId</code>,
 <code>backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/ArtifactBlobStore.java:11-24</code>)
@@ -213,20 +238,22 @@ with one implementation, <code>LocalFsArtifactBlobStore</code>
   (<code>LocalFsArtifactBlobStore.java:70-78</code>).</li>
 </ul>
 <p>Configured root: <code>app.artifact-store.root</code> (default <code>artifact-store</code>,
-<code>backend/fl-platform-api/src/main/resources/application.properties:190</code>).</p>
+<code>backend/fl-platform-api/src/main/resources/application.properties:207</code>).</p>
 <h2 id="3-write-path-registering-a-runs-final-model">3. Write path — registering a run's final model<a class="headerlink" href="#3-write-path-registering-a-runs-final-model" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code>fl_server.py (run completes)
     │  _register_model_artifact()  /  _emit_and_register_lora_bundle()
     │  POST /api/internal/projects/{projectId}/artifacts
     │  multipart: model bytes + kind + recipeKey + baseModelRef? + licenseTag? + evalCard?
     ▼
-InternalArtifactController                  (X-Internal-Key gated, backend/.../controller/InternalArtifactController.java:34)
+InternalArtifactController      (X-Internal-Key + X-Internal-Run-Token gated — see 02; controller/InternalArtifactController.java:34)
     │  registry.registerForProject(projectId, bytes, kind, ...)
     ▼
 ArtifactRegistryService.registerForProject  (resolves project -&gt; orgId, activeRunId)
     │
     ├─ ArtifactRegistryService.register()
+    │     ├─ LORA_ADAPTER without a baseModelRef                             [400]
     │     ├─ SE-11 gate: requireAccountantTraceForDpClaim(evalCardJson)      [may throw 400]
+    │     ├─ idempotency: findByRunIdAndKind(runId, kind) -&gt; return the existing row, done
     │     ├─ look up the project&#39;s PRIOR head of this kind (pre-insert)
     │     ├─ blobStore.put(bytes) -&gt; sha256           ──▶  artifact_blobs (ArtifactBlobStore)
     │     ├─ INSERT model_artifacts row                ──▶  model_artifacts
@@ -236,30 +263,56 @@ ArtifactRegistryService.registerForProject  (resolves project -&gt; orgId, activ
 201 { &quot;id&quot;: &lt;artifact uuid&gt;, &quot;sha256&quot;: &lt;content address&gt; }
 </code></pre></div>
 
-<p>(<code>ArtifactRegistryService.java:65-105</code>; the internal endpoint itself is
+<p>(<code>ArtifactRegistryService.java:67-118</code>; the internal endpoint itself is
 <code>backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/controller/InternalArtifactController.java:34-50</code>.)</p>
+<p><strong>The idempotency short-circuit is not incidental.</strong> <code>V12</code> declares
+<code>uq_model_artifact_run_kind UNIQUE (run_id, kind)</code> — a run produces at most one artifact of each kind.
+Without the pre-check, a retried completion callback (the first POST committed, then the network timed
+out) would 500 on that constraint rather than returning the artifact it already created. <code>run_id</code> is
+NULL for <code>BASE_REF</code> and imported artifacts, and Postgres treats NULLs as distinct, so the constraint
+does not bind them.</p>
 <p>Two Python-side call sites feed this endpoint (<code>fl-runtime/fl_server.py</code>):</p>
 <ul>
 <li><strong>Non-LoRA recipes</strong> (<code>FULL_CHECKPOINT</code>): <code>_register_model_artifact</code> posts the run's <code>--model-path</code>
-  <code>.npz</code> bytes directly (<code>fl_server.py:85-119</code>, called from the final-save block at <code>fl_server.py:1007-1012</code>)
-  — a full checkpoint's wire format <em>is</em> the imaging air-gap <code>.npz</code> by design (see
-  <code>framework/src/fedlearn/bundle/BUNDLE_FORMAT.md</code>, "Serialization"), so registering those exact bytes
-  is correct, not a gap.</li>
+  <code>.npz</code> bytes directly (<code>fl_server.py:82-116</code>, called from the final-save block at
+  <code>fl_server.py:1147-1152</code>) — a full checkpoint's wire format <em>is</em> the imaging air-gap <code>.npz</code> by
+  design (see <code>framework/src/fedlearn/bundle/BUNDLE_FORMAT.md</code>, "Serialization"), so registering those
+  exact bytes is correct, not a gap.</li>
 <li><strong><code>LLM_LORA</code> recipes</strong>: <code>_emit_and_register_lora_bundle</code> serializes the adapter as safetensors
   (<code>adapter_to_safetensors</code>), builds a versioned bundle manifest whose <code>artifact_sha256</code> is the hash of
   those exact bytes, and registers <strong>the safetensors bytes</strong> — not the <code>.npz</code>
-  (<code>fl_server.py:122-147</code>; DA-9 bullet 3, see <code>framework/src/fedlearn/bundle/BUNDLE_FORMAT.md</code>). On any
+  (<code>fl_server.py:119-144</code>; DA-9 bullet 3, see <code>framework/src/fedlearn/bundle/BUNDLE_FORMAT.md</code>). On any
   failure building the bundle it falls back to registering the <code>.npz</code> so the run is still recorded
-  (<code>fl_server.py:143-146</code>).</li>
+  (<code>fl_server.py:140-143</code>).</li>
 </ul>
 <p>Registration is <strong>additive and non-fatal</strong>: the legacy <code>projects.model_path</code> <code>.npz</code> write happens
 first and is unconditional; the registry POST is wrapped in a broad <code>try/except</code> that only logs on
-failure (<code>fl_server.py:105-119</code>) — a registry outage can never abort a real federated run.</p>
+failure (<code>fl_server.py:102-116</code>) — a registry outage can never abort a real federated run. Building
+the eval card is separately guarded too: a card that cannot be built degrades to <code>None</code> rather than
+failing the registration.</p>
 <p>An eval card is attached at registration time, built from the run's own history/strategy
-(<code>build_eval_card</code>, <code>fl_server.py:150-185</code>). If the strategy ran differential privacy, <code>SE-11</code> requires
-the card's <code>dp.accounted_epsilon</code>/<code>dp.delta</code> to be present and numeric before the registry will accept a
+(<code>build_eval_card</code>, <code>fl_server.py:147-194</code>). It carries <code>recipe_key</code>, <code>strategy</code>, <code>rounds</code>,
+<code>final_loss</code>, <code>final_accuracy</code>, <code>torch_version</code>, <code>seed</code>, <code>framework</code> — and, since the training arm
+landed, two provenance fields worth calling out:</p>
+<ul>
+<li><strong><code>training_arm</code></strong>, resolved through <code>recipes.validate_arm(...)</code> and recorded <strong>explicitly even when
+  it is <code>FULL</code></strong>. The card travels independently of the project row (it is attached to a registered
+  artifact, which outlives its producer), so a reader must be able to answer "which arm produced
+  this?" from the card alone. Recording <code>FULL</code> by <em>absence</em> would make a full fine-tune
+  indistinguishable from a card written before arms existed.</li>
+<li><strong><code>trainable_prefixes</code></strong> — the actual module-name prefixes, not just the arm's name. Two runs can
+  share an arm name while freezing different modules, so the name alone is not a checkable provenance
+  claim.</li>
+</ul>
+<p>If the strategy ran differential privacy, <code>SE-11</code> requires the card's
+<code>dp.accounted_epsilon</code>/<code>dp.delta</code> to be present and numeric before the registry will accept a
 <code>dp.enabled: true</code> claim — an unaccounted DP claim is rejected with <code>IllegalArgumentException</code> → 400
-(<code>ArtifactRegistryService.java:162-198</code>).</p>
+(<code>ArtifactRegistryService.java:188-224</code>). Three deliberate non-behaviours in that gate: a card with no
+<code>dp</code> section, a card with <code>dp.enabled != true</code>, and a card that is not parseable JSON all pass through
+untouched — the last because an unparseable card cannot carry a machine-readable DP claim to police,
+and the card is stored opaque by pre-existing contract. When DP is off, <code>build_eval_card</code> emits no
+<code>dp</code> key at all. On the raw-z path (<code>accounted_epsilon</code> null) the backend rejects the upload <strong>by
+design</strong>: the platform refuses unaccounted DP claims.</p>
 <h2 id="4-read-path-inference-and-fl-server-warm-start-ba-11">4. Read path — inference and FL-server warm-start (BA-11)<a class="headerlink" href="#4-read-path-inference-and-fl-server-warm-start-ba-11" title="Permanent link">&para;</a></h2>
 <p><code>RegistryModelResolver</code> (<code>backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/RegistryModelResolver.java:32</code>)
 is the shared bean two otherwise-unrelated callers both depend on — it exists as a separate bean
@@ -286,21 +339,23 @@ resulting circular reference; <code>RegistryModelResolver.java:20-24</code>):</p
 </code></pre></div>
 
 <p>(<code>RegistryModelResolver.java:47-105</code>; call sites at
-<code>backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/ProjectService.java:733</code>
-and <code>backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/orchestration/FlServerManager.java:165</code>.)</p>
+<code>backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/service/ProjectService.java:792</code>
+— plus the cheaper <code>hasModel(...)</code> probe at <code>:753</code>, which drives "is this project inferable?" —
+and <code>backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/orchestration/FlServerManager.java:177</code>.)</p>
 <p>Both callers fall back to the legacy <code>.npz</code> path (<code>project.getModelPath()</code>) when the resolver returns
 <code>Optional.empty()</code> — a project with no registry artifact yet (pre-registry data, or a project that
 never finished a run) or a LoRA project. Critically, <strong>a fallback only fires on "no artifact"</strong>, never
 on "artifact unreadable": if a registry blob exists but fails to read or fails its integrity check,
-<code>ArtifactBlobStore.get</code> throws unchecked and that exception is allowed to propagate out of
-<code>resolveModelPath</code>'s caller in <code>ProjectService</code> (inference), while <code>FlServerManager</code>'s warm-start
-call site catches only the narrower <code>IOException</code> from the local cache write and logs+falls back for
-that specific failure (<code>RegistryModelResolver.java:65-71</code>). The intent, stated directly in the code, is
+<code>ArtifactBlobStore.get</code> throws unchecked and that exception propagates out of <code>resolveModelPath</code>
+through <strong>both</strong> call sites — neither <code>ProjectService</code> (inference) nor <code>FlServerManager</code> (warm-start)
+catches it. The only failure <code>resolveModelPath</code> itself absorbs is the narrower <code>IOException</code> from the
+local cache write, which it logs and degrades to <code>Optional.empty()</code> — and only then does a caller fall
+back (<code>RegistryModelResolver.java:65-71</code>). The intent, stated directly in the code, is
 fail-loud: a corrupt or unreadable registry head must never be silently masked by the <code>.npz</code> fallback,
 because that fallback is supposed to mean "no artifact", not "artifact unreadable"
 (<code>RegistryModelResolver.java:56-58</code>).</p>
 <p>Cache config: <code>app.model-blob-cache.dir</code> (default <code>models/blob-cache</code>,
-<code>application.properties:194</code>). The materialized file is always named <code>&lt;sha256&gt;.npz</code> regardless of the
+<code>application.properties:211</code>). The materialized file is always named <code>&lt;sha256&gt;.npz</code> regardless of the
 artifact's original bytes' internal format — accurate for <code>FULL_CHECKPOINT</code> (whose registered bytes
 already are a <code>.npz</code>), and moot for <code>LLM_LORA</code> (which this resolver never returns a path for at all,
 per step 1 above).</p>
@@ -348,7 +403,7 @@ per step 1 above).</p>
 <tr>
 <td><code>POST /api/internal/projects/{id}/artifacts</code></td>
 <td><code>InternalArtifactController.registerArtifact</code></td>
-<td><code>X-Internal-Key</code> (service-to-service only)</td>
+<td><code>X-Internal-Key</code> <strong>and</strong> the per-run <code>X-Internal-Run-Token</code>, whose scope must match the <code>{id}</code> in the path (SE-7)</td>
 <td><code>fl_server.py</code>'s registration callback</td>
 </tr>
 <tr>
@@ -376,15 +431,22 @@ per step 1 above).</p>
 <code>.../controller/InternalArtifactController.java:24-51</code>,
 <code>.../controller/MarketplaceController.java:28-52</code>.</p>
 <p>The read-side controllers share one rule: a cross-org id is always a <strong>404</strong>, never a 403, so existence
-never leaks (<code>ArtifactController.java:33-35</code>, <code>ArtifactLineageController.java:42-43</code>). The internal
-endpoint sits behind <code>InternalApiKeyFilter</code>, which gates all of <code>/api/internal/**</code> on the shared
-<code>X-Internal-Key</code> header and rejects with 401 if it's absent, mismatched, or unconfigured
-(<code>backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/security/InternalApiKeyFilter.java:20-29</code>).</p>
+never leaks (<code>ArtifactController.java:112-129</code>, <code>ArtifactLineageController.java:52</code>, <code>:73</code>). The marketplace
+splits along the same line: <code>browse</code> is org-scoped at the query (unrestricted admins see everything, a
+caller with no visible orgs sees nothing), while <code>publish</code>/<code>unpublish</code> resolve the artifact, check
+<code>orgScope.allows(...)</code> — 404 if not — and then <code>requireOwnerOrAdmin(project)</code>, so an in-org
+non-owner gets a 403.</p>
+<p>The internal endpoint sits behind <code>InternalApiKeyFilter</code>, which gates all of <code>/api/internal/**</code> on the
+shared <code>X-Internal-Key</code> header (constant-time compared, 401 if absent, mismatched, or unconfigured)
+<strong>and</strong> on the per-run <code>X-Internal-Run-Token</code>, which must be scoped to the same project id the path
+names — otherwise 401/403. Full detail in
+<a href="02_security_and_auth.html">02 - Security and Authentication</a>
+(<code>backend/fl-platform-api/src/main/java/com/federated/fl_platform_api/security/InternalApiKeyFilter.java:46-92</code>).</p>
 <h2 id="6-lineage-traversal">6. Lineage traversal<a class="headerlink" href="#6-lineage-traversal" title="Permanent link">&para;</a></h2>
 <p><code>ArtifactRegistryService.getLineageChain(artifactId)</code> walks <code>ArtifactLineage.findByChildId</code> recursively
 toward parents, then returns the visited set in post-order (parents before children) using a
 <code>LinkedHashMap</code> for stable ordering and a <code>seen</code> set for cycle-safety
-(<code>ArtifactRegistryService.java:125-140</code>). <code>ArtifactLineageController</code> exposes this at
+(<code>ArtifactRegistryService.java:138-152</code>). <code>ArtifactLineageController</code> exposes this at
 <code>GET /api/artifacts/{id}/lineage</code> as a flat list of <code>{id, kind, sha256, baseModelRef, licenseTag,
 createdAt}</code> (<code>ArtifactLineageController.java:39-60</code>) — e.g. for a continued LoRA run, the chain would
 read <code>BASE_REF → LORA_ADAPTER(round 1) → LORA_ADAPTER(round 2)</code>.</p>
@@ -399,11 +461,19 @@ read <code>BASE_REF → LORA_ADAPTER(round 1) → LORA_ADAPTER(round 2)</code>.<
 <tbody>
 <tr>
 <td><code>V12__model_artifact_registry.sql</code></td>
-<td><code>artifact_blobs</code>, <code>model_artifacts</code>, <code>artifact_lineage</code> — the keystone (<code>DA-1</code>)</td>
+<td><code>artifact_blobs</code>, <code>model_artifacts</code>, <code>artifact_lineage</code> — the keystone (<code>DA-1</code>). Also <code>uq_model_artifact_run_kind UNIQUE (run_id, kind)</code>, <code>uq_artifact_lineage UNIQUE (child_id, parent_id, relationship)</code> and <code>CHECK (child_id &lt;&gt; parent_id)</code></td>
 </tr>
 <tr>
 <td><code>V18__artifact_marketplace_publish.sql</code></td>
 <td><code>model_artifacts.published</code> / <code>published_at</code> + a <code>(org_id, kind, published)</code> index for the marketplace feed (<code>FE-12</code>)</td>
+</tr>
+<tr>
+<td><code>V19__cascade_delete_run_subtree.sql</code></td>
+<td>Not a registry migration, but it states the registry's deletion policy explicitly: <code>model_artifacts.project_id</code>/<code>run_id</code> stay <code>ON DELETE SET NULL</code>, <code>artifact_blobs</code> are untouched (globally deduplicated — a blob another project still references must survive), and <code>artifact_lineage</code> stays <code>ON DELETE RESTRICT</code>. Refcount-safe blob GC is deferred to BA-11 Chunk C</td>
+</tr>
+<tr>
+<td><code>V21__base_ref_unique_index.sql</code></td>
+<td>The partial unique index <code>uq_base_ref_org_model ON model_artifacts (org_id, base_model_ref) WHERE kind = 'BASE_REF'</code> — makes one <code>BASE_REF</code> per <code>(org, base model)</code> a DB invariant and backs the race-safe insert-if-absent in <code>findOrCreateBaseRef</code> (<code>DA-3</code> hardening; see §1)</td>
 </tr>
 </tbody>
 </table>
@@ -426,7 +496,7 @@ above. Concretely, in this pass:</p>
 <li><strong><code>framework/src/fedlearn/bundle/BUNDLE_FORMAT.md</code></strong> ("Fixture-MVP boundary" section) stated, as a
   present-tense fact, that "<code>fl_server.py</code> currently registers the legacy <code>.npz</code> bytes" and listed
   "register the safetensors artifact bytes" as an open follow-on. That is now <strong>stale for the LoRA
-  path</strong>: <code>_emit_and_register_lora_bundle</code> (landed after that doc was written; see <code>fl_server.py:122-147</code>)
+  path</strong>: <code>_emit_and_register_lora_bundle</code> (landed after that doc was written; see <code>fl_server.py:119-144</code>)
   already serializes the adapter to safetensors and registers <em>those</em> bytes, not the <code>.npz</code>. It remains
   <strong>accurate</strong> that the mobile bundle-<em>provisioning</em> path (<code>scripts/stage_model_bundle.py</code>) still stages
   a hardcoded <code>TINYNET_GOLDEN</code> fixture rather than a project's real recipe — that half of the boundary is
@@ -454,9 +524,10 @@ above. Concretely, in this pass:</p>
    <code>&lt;sha256&gt;.npz</code> (<code>RegistryModelResolver.java:89</code>) because, for the only kind this resolver ever
    materializes (<code>FULL_CHECKPOINT</code>), the bytes really are an <code>.npz</code> archive — this is a real, current
    mechanic, not the retired vision.</li>
-<li><strong><code>projects.model_path</code> itself.</strong> Still written every round by <code>fl_server.py</code> as the training loop's
-   working file (<code>fl_server.py:982-996</code>) and still the fallback read path when no registry artifact
-   exists. The registry is additive, not a replacement of the column.</li>
+<li><strong><code>projects.model_path</code> itself.</strong> Still written by <code>fl_server.py</code> as the training loop's working
+   file — the final <code>np.savez(save_path, …)</code> at <code>fl_server.py:1132-1136</code> runs <em>before</em> and
+   independently of registration — and still the fallback read path when no registry artifact exists.
+   The registry is additive, not a replacement of the column.</li>
 </ol></article>
     <nav class="toc"></nav>
   </div>

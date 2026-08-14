@@ -25,11 +25,13 @@
 
 | Tool | Version | Purpose |
 |---|---|---|
-| Node.js | 20.x LTS | Runtime for Electron and webpack |
-| npm | 10.x | Package management |
-| TypeScript | 5.7.x (pinned in devDeps) | Type checking |
-| Docker Desktop | Latest | Jetson profile testing |
-| Python | 3.10+ | Dev-mode native client fallback |
+| Node.js | **24** (`.nvmrc` → `24`; `.tool-versions` → `nodejs 24.4.0`; CI runs 24) | Runtime for Electron and webpack |
+| npm | ships with Node 24 | Package management |
+| TypeScript | 5.7.3 (pinned in devDeps) | Type checking |
+| Docker Engine / Desktop | Latest | **Jetson profile only** |
+| Python | 3.10+ floor; the repo pins **3.12.9** | Dev-mode native client fallback |
+
+> The repo-wide pins are `.tool-versions` + `.nvmrc`, and `ci.yml`'s desktop job matches them (Node 24). Note `release-desktop.yml` currently sets `NODE_VERSION: '22'` and `PYTHON_VERSION: '3.11'` — the release path does not match the test path. Any doc claiming "Node.js 18+" or "Node 20" for this unit is stale.
 
 ### Platform-Specific Prerequisites
 
@@ -110,12 +112,19 @@ npm run build:main      # Main Process only
 npm run build:preload   # Preload only
 npm run build:renderer  # Renderer only
 
-# Package distributable
+# Quality gates (what CI runs)
+npm run lint            # ESLint 9 flat config — CI-gated
+npm test                # jest
+npm run test:coverage   # jest --coverage; coverageThreshold from jest.config.js — CI-gated
+npx tsc --noEmit        # NOT gated in CI for this unit — run it yourself
+
+# Package distributable (each runs the native-bundle preflight, then build, then electron-builder)
+npm run check:bundle    # Preflight on its own
 npm run package         # Current platform, auto-detected
-npm run package:mac     # macOS DMG (arm64 + x64)
-npm run package:linux   # Linux AppImage + deb
-npm run package:win:cpu   # Windows NSIS (CPU variant)
-npm run package:win:cuda  # Windows NSIS (CUDA variant)
+npm run package:mac     # macOS DMG + zip (arm64 only)
+npm run package:linux   # Linux AppImage + deb (x64 + arm64)
+npm run package:win:cpu   # Windows NSIS (CPU client bundle)
+npm run package:win:cuda  # Windows NSIS (CUDA client bundle)
 ```
 
 ---
@@ -127,17 +136,36 @@ npm run package:win:cuda  # Windows NSIS (CUDA variant)
 ```
 src/main/      → Main Process only. Node.js APIs allowed.
                → No React, no DOM.
-               → All Docker, auth, and hardware logic lives here.
+               → All Docker, auth, backend HTTP and hardware logic lives here.
+               → validators.ts must stay electron-free (it is imported by jest).
 
 src/preload/   → Security boundary. One file only.
                → No Node.js APIs (sandbox mode).
                → Validation + contextBridge only.
                → No business logic.
 
+src/shared/    → Imported by BOTH processes AND by jest.
+               → No electron, no node-only APIs that the renderer lacks.
+               → urlSecurity, evaluateEligibility, deviceCapabilities.types,
+                 bundleVariants (the last is also loaded by a plain-node script).
+
 src/renderer/  → Renderer only. No Node.js.
-               → Only access backend via window.fedLearnAPI.
+               → Only reach the backend via window.fedLearnAPI.
                → All UI components and React state here.
+               → tokens.css is GENERATED — never hand-edit it.
 ```
+
+### Keep renderer logic pure where you can
+
+The jest suite runs in a **`node` environment with no jsdom/RTL harness**, so `.tsx` components are effectively untestable here (`jest.config.js` says so explicitly, and excludes them from coverage). The established pattern is to extract the logic:
+
+| Component | Pure module | What moved out |
+|---|---|---|
+| `TrainSection.tsx` | `trainFlow.ts` | phase derivation, readiness rules, formatters |
+| `LogPanel.tsx` | `logView.ts` | incremental line cache, filtering, time formatting |
+| `TrainSection.tsx` | `runNotifications.ts` | run-transition classification + notification |
+
+New renderer logic that can be a pure function should be one.
 
 ### Naming Conventions
 
@@ -339,9 +367,10 @@ To add a new hardware profile (e.g., `amd-rocm`):
 const ALLOWED_HARDWARE_PROFILES = ['discrete', 'jetson', 'cpu', 'mps', 'amd-rocm'] as const;
 ```
 
-**`ipc.handlers.ts`:**
+**`validators.ts`** (this moved out of `ipc.handlers.ts`):
 ```typescript
-const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> = new Set(['discrete', 'jetson', 'cpu', 'mps', 'amd-rocm']);
+export const ALLOWED_HARDWARE_PROFILES: ReadonlySet<string> =
+  new Set(['discrete', 'jetson', 'cpu', 'mps', 'amd-rocm']);
 ```
 
 **`docker.service.ts`:**
@@ -367,6 +396,8 @@ async startTraining(config: TrainingConfig): Promise<void> {
 
 ### 3. Add the HostConfig case in `startDockerTraining()`
 
+Only if the profile actually uses Docker. The switch's `default` branch now **throws** for any non-`jetson` profile, so a Docker-path profile that isn't handled fails loudly instead of silently building a container.
+
 ```typescript
 switch (config.hardwareProfile) {
   case 'amd-rocm':
@@ -383,17 +414,19 @@ switch (config.hardwareProfile) {
 ### 4. Add the profile card to `HardwareSelector.tsx`
 
 ```typescript
-const HARDWARE_PROFILES: HardwareProfileOption[] = [
+export const HARDWARE_PROFILES: HardwareProfileOption[] = [
   // ... existing profiles
   {
     id: 'amd-rocm',
     label: 'AMD GPU (ROCm)',
-    description: 'AMD Radeon GPU with ROCm compute stack.',
-    icon: '🔴',
-    dockerConfig: 'Devices: /dev/kfd, /dev/dri',
+    description: 'AMD Radeon GPU with ROCm compute stack. Runs in a Docker container.',
+    icon: Cpu,                                    // a lucide component, NOT an emoji string
+    dockerConfig: 'Docker container (/dev/kfd, /dev/dri)',
   },
 ];
 ```
+
+`dockerConfig` must state how the profile **actually** executes — the `discrete` card claimed `--gpus all` for a long time while the code ran the native client, and `2b02173` had to correct both together. `icon` is a lucide component reference since `74cda60` replaced the emoji set.
 
 ### 5. Update hardware detection if applicable
 
@@ -470,18 +503,72 @@ docker exec -it fedlearn-training-client /bin/bash
 
 ## Testing Strategy
 
-FedLearn Desktop does not currently have an automated test suite. The following manual testing checklist should be verified before each release:
+FedLearn Desktop **does** have an automated test suite, and it is CI-gated. Any claim that it doesn't is stale.
+
+### The jest suite
+
+```bash
+npm test               # jest
+npm run test:coverage  # jest --coverage — what CI runs
+```
+
+`jest.config.js`: `ts-jest` preset, **`testEnvironment: 'node'`**, `testMatch: **/__tests__/**/*.test.ts`, using `tsconfig.test.json`. Electron and its friends are stubbed by `moduleNameMapper` → `src/__mocks__/` (`electron`, `electron-log`, `electron-store` — an in-memory `Map` so `AuthService` needs no disk I/O — plus a CSS stub so `.tsx` files can at least be imported).
+
+22 suites live in `src/__tests__/`, covering: `validators`, `serverUrl`, `docker-service` (Jetson mounts, `getStatus`, native argv), `auth.service`, `httpAuthInterceptor`, `nativeClientHeader`, `clientAuthEnv`, `trainingArmPropagation`, `client-projects.service`, `datasetConsent`, `deviceCapabilities.collector`, `evaluateEligibility`, `bundleVariants`, `generateChecksums`, `updater`, `renderer-csp`, `webpack-app-version`, `trainFlow`, `logView`, `runNotifications`, `sectionsRender`, `appTrainWiring`.
+
+Two structural limits worth knowing before you rely on a green run:
+
+- **No jsdom/RTL harness.** `.tsx` components are excluded from coverage by design and are only exercised indirectly. A component-level regression will not be caught here.
+- **The suite tests functions, not wiring.** `trainingArmPropagation.test.ts` calls `buildContainerEnv` and the argv builder directly and passes — while the value never reaches them in the running app, because it is dropped at the preload bridge. If you are adding a field that crosses IPC, a unit test on the receiving function is not evidence that it arrives.
+
+### Coverage gate (TE-11)
+
+`jest.config.js` sets a **modest regression floor**, a few points under the measured baseline (stmts 36.7 / branch 35.0 / funcs 28.9 / lines 36.7):
+
+```javascript
+coverageThreshold: { global: { statements: 33, branches: 31, functions: 25, lines: 33 } },
+```
+
+It guards against regressions rather than demanding a target. `collectCoverageFrom` is `src/**/*.ts` only — `.tsx` excluded for the reason above.
+
+### Anti-rot gate (TE-10)
+
+CI runs `scripts/check_no_skipped_tests.sh fedlearn-desktop` **before** installing. Jest has no forbid-skip switch, so the script statically rejects `.skip` / `.only` / `xit` / `fit` and friends — a skipped test cannot ride a green run.
+
+### What CI actually runs
+
+```yaml
+- run: bash scripts/check_no_skipped_tests.sh fedlearn-desktop
+- run: npm ci && npm run lint && npm run test:coverage
+```
+
+That's the whole gate. In particular:
+
+- **No `tsc --noEmit`.** `frontend/` and `mobile_client/` both have one; this unit does not. Types are checked only incidentally by `ts-loader` (at build time, which CI never runs for this unit) and by `ts-jest` on test-reachable sources. Run `npx tsc --noEmit` yourself.
+- **No `npm run build`.** A webpack-level breakage lands green.
+- **No `npm audit`.** See [02 → Dependency Vulnerability Posture](./02-security-model.md#dependency-vulnerability-posture).
+
+A separate, **unfiltered** job runs `scripts/check_design_tokens.sh`, so a hand-edit of the generated `src/renderer/tokens.css` fails the build no matter which unit changed.
+
+### Manual checklist
+
+The suite does not cover the end-to-end flows, so verify these by hand before each release:
 
 ### Authentication Tests
 
 ```
-[ ] Login with valid credentials → dashboard appears
+[ ] Login with valid credentials → shell appears
 [ ] Login with invalid credentials → error message shown
 [ ] Login with unreachable server → connection failed error
 [ ] Logout → auth modal reappears
 [ ] App restart → auto-login via saved JWT (if keychain available)
 [ ] JWT expiry (24h) → re-auth required on next launch
 [ ] Settings: change server URL → new URL persisted after restart
+[ ] Settings: change server URL → CURRENT SESSION IS CLEARED and the login screen returns
+[ ] Remote http:// URL → refused with the plaintext warning; "Use HTTP anyway" accepts it and keeps the warning
+[ ] Loopback http://localhost URL → accepted with no warning
+[ ] "Save password" ticked → credentials pre-filled on next launch; unticked → form empty
+[ ] Force a 401 mid-session (revoke server-side) → app returns to the login screen, not an opaque error
 ```
 
 ### Training Tests (Native Path)
@@ -501,11 +588,14 @@ FedLearn Desktop does not currently have an automated test suite. The following 
 ### Training Tests (Docker Path — Jetson)
 
 ```
-[ ] Docker not running → warning banner appears
+[ ] Docker not running + Jetson profile → actionable error in the log panel
+    (NOT a startup banner — the eager ping was removed)
+[ ] Non-Jetson profile + Docker not running → no Docker mention anywhere
 [ ] Jetson profile + Docker running + image exists → container starts
-[ ] Jetson profile + image missing → helpful error in log panel
+[ ] Jetson profile + image missing → helpful error naming the build command
 [ ] Stop training → container removed
-[ ] Start training twice → old container cleaned up before new one starts
+[ ] Start training twice → old container cleaned up before the new one starts
+[ ] Quit mid-run → container is stopped and removed, not orphaned (before-quit drain)
 ```
 
 ### Security Tests
@@ -513,20 +603,27 @@ FedLearn Desktop does not currently have an automated test suite. The following 
 ```
 [ ] Renderer cannot access Node.js: typeof require === 'undefined' in DevTools
 [ ] window.fedLearnAPI is the only bridge: no other Node APIs on window
-[ ] Dataset path with ../.. → rejected by ipc.handlers.ts
-[ ] Hardware profile 'invalid' → rejected at preload + ipc.handlers
+[ ] Dataset path with ../.. → rejected by sanitizeDatasetPath
+[ ] A valid directory NOT chosen via the dialog → rejected by the consent allowlist
+[ ] Hardware profile 'invalid' → rejected at preload AND at ipc.handlers
+[ ] trainingArm 'BOGUS' → start FAILS with a message (never silently downgraded to FULL)
 [ ] Log output containing <script> tags → rendered as plain text, not executed
+[ ] Packaged build: no 'unsafe-eval' and no 'unsafe-inline' style-src in the shipped <meta> CSP
+[ ] Packaged build: console.* stripped from the renderer and preload bundles
 ```
 
 ### Packaging Tests
 
 ```
+[ ] Preflight fails loudly when the native bundle is absent: npm run check:bundle
+[ ] Type check is clean (CI will NOT do this for you): npx tsc --noEmit
 [ ] Build completes without errors: npm run build
 [ ] Package completes: npm run package:mac (or platform equivalent)
 [ ] Produced DMG/EXE can be installed and launched
-[ ] App loads from packaged file:// origin (not localhost)
+[ ] App loads from the packaged file:// origin (not localhost)
 [ ] JWT auth works in packaged mode
 [ ] Native bundle is found at <resources>/fedlearn-client/
+[ ] release/SHA256SUMS.txt exists and covers every installer artifact
 ```
 
 ---
@@ -567,22 +664,40 @@ useEffect(() => {
 
 ### 3. Modifying `ALLOWED_HARDWARE_PROFILES` in Only One Place
 
-The allowlist is defined separately in `preload.ts` and `ipc.handlers.ts`. If you add a new profile to one but not the other, calls will be rejected at the second validation layer with no obvious error message.
+The allowlist is defined separately in `preload.ts` and `validators.ts`. If you add a new profile to one but not the other, calls are rejected at the second validation layer with no obvious error message. The `HardwareProfile` union in `docker.service.ts` is a third copy.
+
+### 3a. Adding a Field to `TrainingConfigInput` Without Adding It to the Invoke Payload
+
+The single most repeatable bug in this codebase's IPC layer, and it type-checks perfectly at every layer.
+
+`preload.ts`'s `startTraining` deliberately **reconstructs** the object it forwards rather than spreading `config`, so an unexpected renderer property cannot ride along. The cost is that a *new* field must be added in two places, not one:
+
+```typescript
+export interface TrainingConfigInput {
+  …
+  trainingArm?: string;        // ← added here…
+}
+
+return ipcRenderer.invoke('docker:start-training', {
+  …
+  strategy: config.strategy,
+  // …and NOT added here ⇒ silently dropped at the bridge.
+});
+```
+
+`trainingArm` is in this state today: declared on the interface, typed in `App.tsx`, populated by `TrainSection`, validated and consumed in Main — and never forwarded, so `--training-arm` / `TRAINING_ARM` is never emitted. A green suite proves nothing here, because the tests call the receiving functions directly. **Grep the invoke object, not the interface.**
 
 ### 4. Forgetting `PYTHONUNBUFFERED=1`
 
 Without this env var, Python buffers stdout when not connected to a TTY. Real-time logs will appear only after the buffer fills (8KB by default) or the process ends. The app sets this automatically, but if you spawn a Python process manually for testing, remember to add it.
 
-### 5. Using `--runtime nvidia` on Jetson
+### 5. Trusting the Jetson `--runtime nvidia` Comment
 
-This is explicitly documented in the code but still a common mistake when working with Docker + NVIDIA:
-```typescript
-// ❌ WRONG for Jetson — hangs indefinitely
-hostConfig.Runtime = 'nvidia';
+`docker.service.ts` states that `--runtime nvidia` is "PROHIBITED on Jetson" because it hangs. **That was measured wrong on JetPack 6 and the ban is withdrawn.** On an AGX Orin at L4T R36.5.0 / JetPack 6.2, `docker run --runtime nvidia` worked (7.9 s, `torch.cuda.is_available()` True) while the device-mount path without it failed with `cuInit → 801` and a segfault — and `/dev/nvhost-ctrl`, the first entry in `JETSON_DEVICE_MOUNTS`, does not even exist on that L4T, which makes Docker hard-error.
 
-// ✅ CORRECT for Jetson
-hostConfig.Devices = JETSON_DEVICE_MOUNTS;
-```
+The original hang was plausibly real on the JetPack 5 / `nvidia-container-runtime` the comment was written against, but that was **not** re-tested (no JetPack 5 hardware available) — treat it as inference. What is measured is that the ban does not hold on JetPack 6.
+
+Do not "fix" either the code or the comment from memory. Read [07 → the correction](./07-hardware-profiles.md#the---runtime-nvidia-prohibition-was-measured-wrong-on-jetpack-6), then verify on the L4T version the target device actually runs.
 
 ### 6. Electron Reload Doesn't Reload Main Process
 
@@ -593,6 +708,20 @@ When you modify a Main Process file (`main.ts`, `docker.service.ts`, etc.) and w
 If you change the schema of data stored in `electron-store` between versions, the old stored data will fail to parse. The `clearInvalidConfig: true` option handles this gracefully by resetting the store, but users will lose their saved server URL and will need to re-authenticate.
 
 If you make breaking schema changes, consider implementing a migration in the `AuthService` constructor.
+
+### 8. Hand-Editing `src/renderer/tokens.css`
+
+It carries a `GENERATED by design/build-tokens.mjs — DO NOT EDIT` header, and a **CI job that runs on every change to any unit** (`scripts/check_design_tokens.sh`) compares it against `design/tokens.json`. Edit the JSON and regenerate. The same applies to the frontend and mobile token outputs.
+
+The one literal that legitimately lives outside the token system is `backgroundColor: '#F6F3EE'` in `main.ts` — the main process cannot read CSS variables, so that value must be updated by hand on a palette swap.
+
+### 9. Assuming CI Type-Checks This Unit
+
+It does not. There is no `tsc --noEmit` step in the desktop job and CI never runs `npm run build`, so a type error outside test-reachable code, or a webpack-level breakage, can land green. Run `npx tsc --noEmit` and `npm run build` locally before pushing anything structural.
+
+### 10. Re-Mounting `UpdateBanner`
+
+`onUpdateAvailable`, `onUpdateProgress`, `onUpdateDownloaded`, `onUpdateNotAvailable` and `onUpdateError` have **no removal API** in the preload. `UpdateBanner` is therefore mounted once at shell level and never unmounted; moving it inside a section (or anything else that can unmount) stacks listeners with no way to clear them, and each update event then fires N times. The same reasoning is why `updater.ts` guards its registration with a module-level `updaterInitialized` flag — `createWindow()` can run more than once per process on macOS.
 
 ---
 

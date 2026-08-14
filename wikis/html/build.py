@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate a self-contained, Ember-themed HTML rendering of the FedLearn wikis.
+Generate a self-contained, Ledger-themed HTML rendering of the FedLearn wikis.
 
 Walks every Markdown file under ``wikis/`` (excluding this ``html/`` output
 directory), renders each to a styled HTML page, and mirrors the directory tree
@@ -29,24 +29,25 @@ WIKI_DIR = HTML_DIR.parent                           # wikis/
 # Ember design tokens (mirrored from frontend/src/styles/tokens.css)
 # ---------------------------------------------------------------------------
 LIGHT = {
-    "canvas": "#FBF9F6", "surface-1": "#FFFFFF", "surface-2": "#F4F1EC",
-    "surface-3": "#ECE7DF", "code-well": "#F6F3EE", "hairline": "#E7E1D8",
-    "line": "#D8D1C5", "fg": "#1A1714", "fg-muted": "#6B6358",
-    "fg-subtle": "#938A7D", "accent": "#C56A1E", "accent-hover": "#A9591A",
-    "accent-fg": "#FFFFFF", "success": "#1F9D57", "warning": "#B07D0A",
-    "danger": "#CE3F38",
+    "canvas": "#F6F3EE", "surface-1": "#FFFFFF", "surface-2": "#F1EDE4",
+    "surface-3": "#EAE5DC", "code-well": "#F1EDE4", "hairline": "#E7E2D9",
+    "line": "#D6D0C4", "fg": "#191A1C", "fg-muted": "#6B6760",
+    "fg-subtle": "#736E66", "accent": "#1C314D", "accent-hover": "#14243A",
+    "accent-fg": "#FFFFFF", "success": "#2E6B4E", "warning": "#9A5B12",
+    "danger": "#8F3C37",
 }
 DARK = {
-    "canvas": "#000000", "surface-1": "#0B0A09", "surface-2": "#141210",
-    "surface-3": "#1E1B17", "code-well": "#050504", "hairline": "#2A2520",
-    "line": "#352F27", "fg": "#F5F1EA", "fg-muted": "#A8A096",
-    "fg-subtle": "#6E665C", "accent": "#F7A35C", "accent-hover": "#FFB877",
-    "accent-fg": "#1C0F03", "success": "#5FD39B", "warning": "#EBC152",
-    "danger": "#FF6B5E",
+    "canvas": "#0B1622", "surface-1": "#121F2E", "surface-2": "#18283A",
+    "surface-3": "#1B2C40", "code-well": "#0E1926", "hairline": "#25374A",
+    "line": "#2F445A", "fg": "#EAF0F6", "fg-muted": "#B4C0CE",
+    "fg-subtle": "#8FA0B2", "accent": "#4F8AC9", "accent-hover": "#82AFE0",
+    "accent-fg": "#08111B", "success": "#5FB87A", "warning": "#D8B878",
+    "danger": "#E0584A",
 }
 
+# Ledger uses ONE type family for sans and display (Bricolage Grotesque was Ember-era).
 FONT_SANS = "'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
-FONT_DISPLAY = "'Bricolage Grotesque', 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif"
+FONT_DISPLAY = "'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
 FONT_MONO = "'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace"
 
 # Section dir -> display title, in sidebar order. "." holds the top-level pages.
@@ -55,6 +56,7 @@ GROUPS = [
     ("backend", "Backend"),
     ("frontend", "Frontend"),
     ("framework", "Framework"),
+    ("fl-runtime", "FL Runtime"),
     ("desktop", "Desktop"),
     ("mobile", "Mobile"),
     ("client-docker", "Client (Docker)"),
@@ -164,8 +166,7 @@ def tag_callouts(html_str: str) -> str:
 # ---------------------------------------------------------------------------
 GFONTS_URL = (
     "https://fonts.googleapis.com/css2?"
-    "family=Bricolage+Grotesque:opsz,wght@12..96,200..800"
-    "&family=Hanken+Grotesk:wght@400;500;600;700;800"
+    "family=Hanken+Grotesk:wght@400;500;600;700;800"
     "&family=JetBrains+Mono:wght@400;500;700"
     "&display=swap"
 )

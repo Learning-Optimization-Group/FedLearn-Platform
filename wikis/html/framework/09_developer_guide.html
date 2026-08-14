@@ -50,8 +50,17 @@
 <li><a href="05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a class="active" href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -94,28 +103,56 @@
 <li><a href="#common-pitfalls">Common Pitfalls</a></li>
 <li><a href="#contributing-checklist">Contributing Checklist</a></li>
 </ul>
+<blockquote>
+<p><strong>Before extending anything, read <a href="05_strategies.html">05 — Strategies</a> and
+<a href="01_architecture_overview.html#module-inventory--all-57-modules">01 — Module Inventory</a>.</strong> A large
+share of what people set out to add here — FedProx, FedOpt, trimmed-mean aggregation, a Dirichlet
+partitioner, a differential-privacy accountant, a multi-thousand-client simulator — is already
+implemented and registered.</p>
+</blockquote>
 <hr />
 <h2 id="installation-for-development">Installation for Development<a class="headerlink" href="#installation-for-development" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>FedLearn-Platform/framework
 
-<span class="c1"># Create a virtual environment</span>
+<span class="c1"># Create a virtual environment. Python 3.12 is what CI tests; setup.py declares a 3.10 floor.</span>
 python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>venv
 <span class="nb">source</span><span class="w"> </span>venv/bin/activate<span class="w">   </span><span class="c1"># Windows: venv\Scripts\activate</span>
 
 <span class="c1"># Install in editable mode so changes take effect immediately</span>
 pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 
-<span class="c1"># Install dev extras</span>
-pip<span class="w"> </span>install<span class="w"> </span>grpcio-tools<span class="w"> </span>pytest<span class="w"> </span>pytest-timeout
+<span class="c1"># Dev extras are declared in setup.py&#39;s extras_require</span>
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span><span class="w">    </span><span class="c1"># pytest, pytest-asyncio, pytest-cov, ruff</span>
+pip<span class="w"> </span>install<span class="w"> </span>grpcio-tools<span class="w">   </span><span class="c1"># only needed if you regenerate proto stubs</span>
 </code></pre></div>
 
+<blockquote>
+<p><strong><code>setup.py</code> filters <code>torch*</code> and <code>torchvision*</code> out of <code>install_requires</code></strong> — PyTorch is installed
+separately so a consumer can pick a CUDA/CPU build. <code>requirements.txt</code> still pins
+<code>torch==2.12.0</code>, and that pin is load-bearing: the DeComFL golden fixtures and the ExecuTorch
+native extension were built against it, and <code>test_torch_version_matches_manifest</code> gates on it.
+<code>torchvision</code>/<code>torchaudio</code> are deliberately <strong>absent</strong> from <code>requirements.txt</code> — the framework does
+not import them, and pulling <code>torchvision</code> from PyPI against a pytorch-index <code>torch</code> build causes
+an ABI mismatch (<code>operator torchvision::nms does not exist</code>) that breaks the transformers-importing
+tests. Install them from the matched pytorch index alongside <code>torch</code> only where a consumer needs
+them.</p>
+</blockquote>
 <p>Verify installation:</p>
 <div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">fedlearn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">fl</span><span class="o">.</span><span class="vm">__file__</span><span class="p">)</span>   <span class="c1"># should point to src/fedlearn/__init__.py</span>
 </code></pre></div>
 
+<p>Note the two paths that both work and mean different things: <code>pip install -e .</code> puts <code>fedlearn</code> on
+the path permanently; <code>PYTHONPATH=src</code> (what CI and <code>fl-runtime</code> use) resolves it per-invocation
+without installing.</p>
 <hr />
 <h2 id="adding-a-custom-strategy">Adding a Custom Strategy<a class="headerlink" href="#adding-a-custom-strategy" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>First check the <a href="05_strategies.html#the-strategy-registry">registry</a>.</strong> Six strategies already
+ship — <code>fedavg</code>, <code>fedprox</code>, <code>fedopt</code>, <code>fedlora</code>, <code>decomfl</code>, <code>robust</code>. FedProx, FedOpt and
+Byzantine-robust aggregation are <strong>not</strong> things you need to write; earlier revisions of the
+strategies page presented them as examples, and that was wrong.</p>
+</blockquote>
 <p><strong>1. Create the strategy file:</strong></p>
 <div class="codehilite"><pre><span></span><code><span class="c1"># src/fedlearn/server/my_strategy.py</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Strategy</span>
@@ -130,13 +167,15 @@ pip<span class="w"> </span>install<span class="w"> </span>grpcio-tools<span clas
         <span class="n">initial_parameters</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
         <span class="n">evaluate_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">min_fit_clients</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-        <span class="n">clients_per_round</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">clients_per_round</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>   <span class="c1"># match the shipped convention, NOT a literal default</span>
         <span class="c1"># add your custom hyperparameters here</span>
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span> <span class="o">=</span> <span class="n">initial_parameters</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="o">=</span> <span class="n">evaluate_fn</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">min_fit_clients</span> <span class="o">=</span> <span class="n">min_fit_clients</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">clients_per_round</span> <span class="o">=</span> <span class="n">clients_per_round</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clients_per_round</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">clients_per_round</span> <span class="k">if</span> <span class="n">clients_per_round</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">min_fit_clients</span>
+        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">initialize_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span>
@@ -148,34 +187,70 @@ pip<span class="w"> </span>install<span class="w"> </span>grpcio-tools<span clas
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OrderedDict</span><span class="p">]:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
-        <span class="c1"># --- your aggregation logic here ---</span>
-        <span class="c1"># results = [(params_dict, num_examples), ...]</span>
-        <span class="c1"># must return an OrderedDict[str, torch.Tensor]</span>
+        <span class="c1"># Accept every wire shape the other strategies do (2-/3-tuples, JSON params).</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.server._update_normalize</span><span class="w"> </span><span class="kn">import</span> <span class="n">normalize_updates</span>
+        <span class="n">updates</span> <span class="o">=</span> <span class="n">normalize_updates</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>   <span class="c1"># [(client_id, state_dict, num_examples), ...]</span>
+        <span class="c1"># --- your aggregation logic here; must return an OrderedDict[str, torch.Tensor] ---</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">parameters</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="kc">None</span>                       <span class="c1"># MUST be None, not a (0.0, {}) placeholder</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span><span class="p">(</span><span class="n">server_round</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+
+    <span class="c1"># OPTIONAL: push client-side hyperparameters. Values must be strings — the proto</span>
+    <span class="c1"># config is map&lt;string,string&gt; and the client trainer coerces them back.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_client_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;learning_rate&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">learning_rate</span><span class="p">)}</span>
 </code></pre></div>
 
-<p><strong>2. Export it from the package:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># src/fedlearn/__init__.py  — add this line</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">.server.my_strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyStrategy</span>
+<p><strong>2. Register it so it is selectable by name:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># src/fedlearn/server/strategy_factory.py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.my_strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyStrategy</span>
+
+<span class="n">STRATEGY_REGISTRY</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="o">...</span><span class="p">,</span>
+    <span class="s2">&quot;mystrategy&quot;</span><span class="p">:</span> <span class="n">MyStrategy</span><span class="p">,</span>      <span class="c1"># matched case-insensitively, - and _ ignored</span>
+<span class="p">}</span>
 </code></pre></div>
 
-<p><strong>3. Use it:</strong></p>
+<p><strong>3. Export it (optional but conventional):</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># src/fedlearn/server/__init__.py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.my_strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyStrategy</span>
+</code></pre></div>
+
+<p>Top-level <code>fedlearn/__init__.py</code> is deliberately minimal — <code>FedLoRA</code> and <code>RobustAggregator</code> are only
+on <code>fedlearn.server</code>, so a new strategy belongs there too unless it is core to the public API.</p>
+<p><strong>4. Use it:</strong></p>
 <div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">fedlearn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_strategy</span>
 
-<span class="n">strategy</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">MyStrategy</span><span class="p">(</span>
-    <span class="n">initial_parameters</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
-    <span class="n">clients_per_round</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="n">strategy</span> <span class="o">=</span> <span class="n">create_strategy</span><span class="p">(</span><span class="s2">&quot;my-strategy&quot;</span><span class="p">,</span> <span class="n">initial_parameters</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span> <span class="n">clients_per_round</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 <span class="n">fl</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">start_server</span><span class="p">(</span><span class="s2">&quot;0.0.0.0:50051&quot;</span><span class="p">,</span> <span class="n">fl</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">ServerConfig</span><span class="p">(</span><span class="n">num_rounds</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span> <span class="n">strategy</span><span class="p">)</span>
 </code></pre></div>
 
+<h3 id="four-rules-the-coordinator-relies-on">Four rules the coordinator relies on<a class="headerlink" href="#four-rules-the-coordinator-relies-on" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong><code>aggregate_fit</code> runs while the coordinator's lock is held</strong>, on the gRPC thread that submitted
+   the last update. No blocking I/O, no network calls. The same applies to <code>evaluate_fn</code>.</li>
+<li><strong>Return <code>None</code> from <code>aggregate_fit</code> to fail a round non-fatally</strong> — the coordinator keeps the
+   prior global model, logs a warning, and continues. That is the contract
+   <code>RobustAggregator</code>'s Byzantine guard uses.</li>
+<li><strong>Free client buffers</strong> (<code>params.clear()</code>) after folding each one in; for large models the peak
+   is otherwise <code>num_clients × model_size</code>.</li>
+<li><strong>Expose <code>min_fit_clients</code> and <code>clients_per_round</code> as attributes</strong> — <code>server.start_server</code> reads
+   them off the strategy object to construct the coordinator, and reads <code>initial_parameters</code> too.</li>
+</ol>
 <hr />
 <h2 id="adding-a-custom-client">Adding a Custom Client<a class="headerlink" href="#adding-a-custom-client" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>For the first-order family you probably do not need one.</strong> <code>fl.LocalTrainer</code> is a shipped,
+concrete <code>Client</code> that runs minibatch SGD, applies the FedProx proximal gradient when the server
+sends <code>proximal_mu &gt; 0</code>, reads <code>learning_rate</code> / <code>local_epochs</code> out of the round config, and polls
+the FR-10 stop latch. Write a custom client when your training loop genuinely differs — a
+HuggingFace <code>Trainer</code>, a custom loss, quantisation-aware training, meta-learning. See
+<a href="04_client_internals.html#localtrainer--the-shipped-first-order-client">04 — LocalTrainer</a>.</p>
+</blockquote>
 <p><strong>1. Subclass <code>Client</code>:</strong></p>
 <div class="codehilite"><pre><span></span><code><span class="c1"># my_client.py</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">fedlearn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
@@ -236,28 +311,131 @@ pip<span class="w"> </span>install<span class="w"> </span>grpcio-tools<span clas
 
 <hr />
 <h2 id="modifying-the-proto-contract">Modifying the Proto Contract<a class="headerlink" href="#modifying-the-proto-contract" title="Permanent link">&para;</a></h2>
-<p>If you add a new RPC or message type:</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># 1. Edit the source proto</span>
-vim<span class="w"> </span>src/fedlearn/communication/protos/fedlearn.proto
+<blockquote>
+<p><strong>STOP — <code>src/fedlearn/communication/protos/fedlearn.proto</code> is a MIRROR, not a source.</strong> Editing it
+directly fails CI. <code>scripts/check_proto_mirror.sh</code> byte-compares three in-tree mirrors against the
+canonical contract and prints the exact <code>cp</code> that fixes a drift.</p>
+</blockquote>
+<p>The canonical contracts live in <code>proto/</code> and are governed by <code>buf</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Canonical</th>
+<th>Mirrors gated by <code>check_proto_mirror.sh</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>proto/fedlearn/v2/fedlearn.proto</code></td>
+<td><code>framework/src/fedlearn/communication/protos/fedlearn.proto</code><br><code>mobile_client/proto/fedlearn/v2/fedlearn.proto</code></td>
+</tr>
+<tr>
+<td><code>proto/fedlearn/fot/v1/fot.proto</code></td>
+<td><code>framework/src/fedlearn/communication/protos/fot.proto</code></td>
+</tr>
+</tbody>
+</table>
+<p>The flow is <strong>edit canonical → buf → sync mirrors → regenerate stubs</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 1. Edit proto/fedlearn/v2/fedlearn.proto (the single source of truth), then:</span>
+<span class="nb">cd</span><span class="w"> </span>proto
+buf<span class="w"> </span>lint
+buf<span class="w"> </span>breaking<span class="w"> </span>--against<span class="w"> </span><span class="s1">&#39;.git#branch=main&#39;</span><span class="w">   </span><span class="c1"># a wire-breaking change fails the PR</span>
+buf<span class="w"> </span>generate
 
-<span class="c1"># 2. Regenerate Python stubs</span>
+<span class="c1"># 2. Sync the in-tree mirrors back out from canonical</span>
+<span class="nb">cd</span><span class="w"> </span>..
+cp<span class="w"> </span>proto/fedlearn/v2/fedlearn.proto<span class="w"> </span>framework/src/fedlearn/communication/protos/fedlearn.proto
+cp<span class="w"> </span>proto/fedlearn/v2/fedlearn.proto<span class="w"> </span>mobile_client/proto/fedlearn/v2/fedlearn.proto
+cp<span class="w"> </span>proto/fedlearn/fot/v1/fot.proto<span class="w">  </span>framework/src/fedlearn/communication/protos/fot.proto
+
+<span class="c1"># 3. Regenerate the framework&#39;s committed Python stubs</span>
+<span class="nb">cd</span><span class="w"> </span>framework
 python<span class="w"> </span>-m<span class="w"> </span>grpc_tools.protoc<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>-I<span class="w"> </span>src/fedlearn/communication/protos<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--python_out<span class="o">=</span>src/fedlearn/communication/generated<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--pyi_out<span class="o">=</span>src/fedlearn/communication/generated<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--grpc_python_out<span class="o">=</span>src/fedlearn/communication/generated<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>src/fedlearn/communication/protos/fedlearn.proto
 
-<span class="c1"># 3. Fix relative import in generated grpc file</span>
+<span class="c1"># 4. Fix the absolute import protoc emits in the _grpc file</span>
 sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="s1">&#39;s/^import fedlearn_pb2/from . import fedlearn_pb2/&#39;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>src/fedlearn/communication/generated/fedlearn_pb2_grpc.py
 
-<span class="c1"># 4. Implement the handler in grpc_servicer.py</span>
-<span class="c1"># 5. Add coordinator method if needed</span>
-<span class="c1"># 6. Add GrpcClient method if clients need to call the new RPC</span>
+<span class="c1"># 5. Verify no mirror has drifted (this is the CI gate)</span>
+<span class="nb">cd</span><span class="w"> </span>..<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>./scripts/check_proto_mirror.sh
 </code></pre></div>
 
+<p>Then implement it: handler in <code>grpc_servicer.py</code> → coordinator method if it touches round state →
+<code>GrpcClient</code> method if clients call it. If the RPC should require authentication, <strong>add its method
+name to <code>security/interceptor.PROTECTED_METHODS</code></strong> — the interceptor matches by name and silently
+exempts anything not listed.</p>
+<p>CI enforces all of this as <code>proto.yml</code>: <code>buf lint</code>, <code>buf breaking</code> against <code>main</code>, a <code>buf generate</code>
+<strong>freshness</strong> check (regeneration must be a no-op, so committed stubs cannot silently rot), and the
+mirror check.</p>
+<blockquote>
+<p><strong>The protobuf floor is pinned to the newest gencode, not to a preference.</strong> <code>fot_pb2.py</code> is
+generated at 5.29.0 and <code>fedlearn_pb2.py</code> at 4.25.1; protobuf requires runtime ≥ gencode, so
+<code>requirements.txt</code> pins <code>protobuf&gt;=5.29.0,&lt;6.0.0</code>. <code>tests/test_protobuf_gencode_pin.py</code> guards it.
+Regenerating with a newer protoc raises that floor — check that test before committing new stubs.</p>
+</blockquote>
 <hr />
 <h2 id="testing-guidelines">Testing Guidelines<a class="headerlink" href="#testing-guidelines" title="Permanent link">&para;</a></h2>
+<h3 id="how-the-suite-is-actually-run">How the suite is actually run<a class="headerlink" href="#how-the-suite-is-actually-run" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>framework
+<span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w">          </span><span class="c1"># exactly how CI runs it</span>
+</code></pre></div>
+
+<p><code>pytest.ini</code> is authoritative and does two things beyond a bare pytest:</p>
+<div class="codehilite"><pre><span></span><code><span class="na">addopts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">-m &quot;not slow&quot; --cov=fedlearn --cov-report=term-missing --cov-fail-under=73</span>
+<span class="na">markers</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="na">slow</span><span class="o">:</span><span class="w"> </span><span class="s">tests that download models or run full training (deselect with -m &quot;not slow&quot;)</span>
+</code></pre></div>
+
+<ul>
+<li><strong><code>-m "not slow"</code></strong> — the default run deselects tests that download models or run full training.
+  Mark anything in that category <code>@pytest.mark.slow</code>.</li>
+<li><strong>Coverage is enforced at 73%.</strong> Measured line coverage is ~77%, so the floor guards against
+  regression rather than being an aspirational target. <strong>Running a hand-picked subset will report
+  low coverage and trip the floor by design — pass <code>--no-cov</code> for a subset run.</strong></li>
+</ul>
+<p>Tests live in <code>framework/tests/</code> (~100 modules), with frozen fixtures under <code>tests/fixtures/</code>
+— including <code>decomfl_golden/</code>, the Python↔C++ RNG parity contract. Do not regenerate those
+casually; see <a href="06_decomfl.html#cross-architecture-determinism-golden-vector-parity">06 — Cross-Architecture Determinism</a>.</p>
+<p>Useful existing tests to copy the shape of:</p>
+<table>
+<thead>
+<tr>
+<th>If you are touching…</th>
+<th>Read first</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>aggregation</td>
+<td><code>test_fedavg_aggregator.py</code>, <code>test_strategy_adversarial_audit.py</code></td>
+</tr>
+<tr>
+<td>the wire / codec</td>
+<td><code>test_safetensors_codec.py</code>, <code>test_wire_adversarial_hardening.py</code>, <code>test_serializer_safetensors_sniff.py</code></td>
+</tr>
+<tr>
+<td>the coordinator</td>
+<td><code>test_coordinator.py</code>, <code>test_round_timeout.py</code>, <code>test_coordinator_failed_round.py</code></td>
+</tr>
+<tr>
+<td>DeComFL</td>
+<td><code>test_decomfl_correctness.py</code>, <code>test_decomfl_lr_guard.py</code>, <code>test_decomfl_seed_lifecycle.py</code></td>
+</tr>
+<tr>
+<td>security</td>
+<td><code>test_token_interceptor_e2e.py</code>, <code>test_tls_policy.py</code>, <code>test_client_identity_binding.py</code></td>
+</tr>
+<tr>
+<td>the simulator</td>
+<td><code>test_simulation_federation.py</code>, <code>test_simulation_rng.py</code>, <code>test_simulation_partition.py</code></td>
+</tr>
+</tbody>
+</table>
 <h3 id="unit-test-pattern">Unit test pattern<a class="headerlink" href="#unit-test-pattern" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="c1"># tests/test_aggregation.py</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
@@ -294,10 +472,20 @@ sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;&#39;
     <span class="n">output</span> <span class="o">=</span> <span class="n">agg</span><span class="o">.</span><span class="n">aggregate</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
     <span class="c1"># Both capped to 100,000 → equal weights → average = 2.0</span>
     <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="s2">&quot;w&quot;</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">2.0</span><span class="p">]))</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_fedavg_renormalises_a_subset_held_key</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;FR-18: a key only some clients carry is weighted over THOSE clients, not all.&quot;&quot;&quot;</span>
+    <span class="n">agg</span> <span class="o">=</span> <span class="n">FedAvgAggregator</span><span class="p">()</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">agg</span><span class="o">.</span><span class="n">aggregate</span><span class="p">([</span>
+        <span class="p">(</span><span class="n">make_params</span><span class="p">({</span><span class="s2">&quot;shared&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">]}),</span> <span class="mi">100</span><span class="p">),</span>                   <span class="c1"># no &quot;extra&quot;</span>
+        <span class="p">(</span><span class="n">make_params</span><span class="p">({</span><span class="s2">&quot;shared&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">3.0</span><span class="p">],</span> <span class="s2">&quot;extra&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">4.0</span><span class="p">]}),</span> <span class="mi">100</span><span class="p">),</span>
+    <span class="p">])</span>
+    <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="s2">&quot;shared&quot;</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">2.0</span><span class="p">]))</span>  <span class="c1"># 0.5/0.5 over both</span>
+    <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="s2">&quot;extra&quot;</span><span class="p">],</span>  <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">4.0</span><span class="p">]))</span>  <span class="c1"># 1.0 over the ONE holder</span>
 </code></pre></div>
 
-<p>Run tests:</p>
-<div class="codehilite"><pre><span></span><code>pytest<span class="w"> </span>tests/<span class="w"> </span>-v<span class="w"> </span>--timeout<span class="o">=</span><span class="m">60</span>
+<p>Run a focused subset (remember to disable the coverage floor):</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>pytest<span class="w"> </span>tests/test_fedavg_aggregator.py<span class="w"> </span>-v<span class="w"> </span>--no-cov
 </code></pre></div>
 
 <h3 id="integration-test-pattern">Integration test pattern<a class="headerlink" href="#integration-test-pattern" title="Permanent link">&para;</a></h3>
@@ -387,6 +575,11 @@ sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;&#39;
 </thead>
 <tbody>
 <tr>
+<td><strong>Editing <code>communication/protos/*.proto</code> directly</strong></td>
+<td>CI fails on <code>check_proto_mirror.sh</code></td>
+<td>Edit <code>proto/…</code> and <code>cp</code> out — the script prints the exact command</td>
+</tr>
+<tr>
 <td>Forgetting <code>params.clear()</code> after aggregation</td>
 <td>OOM on large models</td>
 <td>Always clear client param dicts after use</td>
@@ -394,7 +587,7 @@ sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;&#39;
 <tr>
 <td>Using <code>torch.load</code> without <code>weights_only=True</code></td>
 <td>Security warning / pickle execution</td>
-<td>Always pass <code>weights_only=True</code></td>
+<td>Always pass <code>weights_only=True</code>. Better: don't reintroduce a pickle path at all</td>
 </tr>
 <tr>
 <td>Calling <code>_trigger_aggregation_and_evaluation()</code> outside the lock</td>
@@ -402,14 +595,19 @@ sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;&#39;
 <td>Only call while <code>self._lock</code> is held</td>
 </tr>
 <tr>
+<td>Calling <code>_trigger_aggregation_and_evaluation()</code> on a <strong>DeComFL</strong> run</td>
+<td>Clients silently desync — <code>gradient_history[round]</code> is never written</td>
+<td>Use <code>_trigger_round_completion()</code>, which dispatches on strategy type (FR-4)</td>
+</tr>
+<tr>
 <td>Shared heartbeat and data channel</td>
-<td>Heartbeats queue behind model uploads</td>
-<td>Use <code>GrpcClient</code>'s dual-channel design</td>
+<td>Heartbeats queue behind model uploads; the server's <code>should_stop</code> can never reach a busy client</td>
+<td>Keep <code>GrpcClient</code>'s dual-channel design <strong>and</strong> the <code>_stop_training</code> latch</td>
 </tr>
 <tr>
 <td>Not implementing <code>set_grpc_client</code></td>
-<td>No progress in UI</td>
-<td>Implement the hook; framework calls it automatically</td>
+<td>No progress in UI, and <code>fit()</code> cannot see a server stop</td>
+<td>Implement the hook; the framework calls it automatically</td>
 </tr>
 <tr>
 <td>Training on GPU but submitting CPU tensors</td>
@@ -417,9 +615,39 @@ sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;&#39;
 <td>Call <code>.cpu().detach()</code> before <code>state_dict()</code> if using GPU</td>
 </tr>
 <tr>
-<td>α too low in Dirichlet partition</td>
-<td>Some clients get 0 samples</td>
-<td>Set <code>min_samples_per_client=10</code> guard</td>
+<td>Choosing the aggregation device by <code>torch.cuda.is_available()</code></td>
+<td>Never selects MPS; force-migrates a CPU run on a CUDA box and crashes FedOpt</td>
+<td>Derive it from the incoming tensors (<code>_first_tensor_device</code>)</td>
+</tr>
+<tr>
+<td>Templating an aggregate on <code>results[0]</code>'s keys</td>
+<td>Keys only later clients carry are dropped; subset-held keys decay toward zero</td>
+<td>Template on the <strong>union</strong> with per-key totals (FR-18)</td>
+</tr>
+<tr>
+<td>α too low in a Dirichlet partition</td>
+<td>Some clients get 0 samples; <code>num_examples == 0</code> is rejected at ingress, silently shrinking the cohort</td>
+<td>Pass <code>min_partition_size</code> to <code>dirichlet_partition</code></td>
+</tr>
+<tr>
+<td>Passing <code>model.state_dict()</code> as a DeComFL server's <code>initial_parameters</code></td>
+<td><code>d_server &gt; d_client</code>; the shared-seed <code>z</code> misaligns and the model diverges</td>
+<td>Use <code>estimators.params.trainable_state(model)</code> (FR-14)</td>
+</tr>
+<tr>
+<td>Reusing a DeComFL <code>eta</code> at a larger model dimension</td>
+<td>The run learns, then explodes to ~1e19 loss</td>
+<td>The constructor now refuses the measured-divergent regime; use <code>suggested_eta(d)</code></td>
+</tr>
+<tr>
+<td>Adding a new RPC without listing it in <code>PROTECTED_METHODS</code></td>
+<td>The RPC is silently exempt from connection-token auth</td>
+<td>Add the method <strong>name</strong> to <code>security/interceptor.PROTECTED_METHODS</code></td>
+</tr>
+<tr>
+<td>Configuring root logging at import time</td>
+<td>Hijacks a host application's logger</td>
+<td>Do it in the entry point (<code>configure_logging()</code>), as <code>start_server</code> does (FR-9)</td>
 </tr>
 </tbody>
 </table>
@@ -427,14 +655,24 @@ sed<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;&#39;
 <h2 id="contributing-checklist">Contributing Checklist<a class="headerlink" href="#contributing-checklist" title="Permanent link">&para;</a></h2>
 <p>Before submitting a pull request:</p>
 <ul>
-<li>[ ] All three abstract methods implemented (<code>initialize_parameters</code>, <code>aggregate_fit</code>, <code>evaluate</code>)</li>
+<li>[ ] All three abstract methods implemented (<code>initialize_parameters</code>, <code>aggregate_fit</code>, <code>evaluate</code>),
+      with <code>evaluate</code> returning <code>None</code> when <code>evaluate_fn</code> is <code>None</code></li>
 <li>[ ] <code>params.clear()</code> called after using client updates in aggregation</li>
-<li>[ ] New RPC handlers added to both <code>grpc_servicer.py</code> and <code>GrpcClient</code></li>
-<li>[ ] Proto stubs regenerated and relative import fix applied</li>
-<li>[ ] Module-level logger used (<code>log = logging.getLogger(__name__)</code>)</li>
-<li>[ ] Unit tests added under <code>tests/</code></li>
+<li>[ ] Incoming updates routed through <code>_update_normalize.normalize_updates</code></li>
+<li>[ ] New strategies added to <code>STRATEGY_REGISTRY</code> (not just exported)</li>
+<li>[ ] New RPC handlers added to <code>grpc_servicer.py</code> <strong>and</strong> <code>GrpcClient</code> <strong>and</strong>
+      <code>security/interceptor.PROTECTED_METHODS</code></li>
+<li>[ ] Proto edited at <code>proto/</code> (never a mirror), <code>buf lint</code> + <code>buf breaking</code> clean, mirrors <code>cp</code>-ed,
+      stubs regenerated, <code>./scripts/check_proto_mirror.sh</code> green</li>
+<li>[ ] Module-level logger used (<code>log = logging.getLogger(__name__)</code>), <code>%</code>-style formatting</li>
+<li>[ ] Unit tests added under <code>framework/tests/</code>; anything that downloads a model or trains for real
+      is marked <code>@pytest.mark.slow</code></li>
+<li>[ ] <code>PYTHONPATH=src python -m pytest -q</code> passes, including the coverage floor</li>
+<li>[ ] Anything measurable has a <strong>seeded harness</strong> under <code>benchmarks/</code> that writes a JSON record —
+      a number without a re-runnable harness is not a result</li>
 <li>[ ] Example added or updated in <code>examples/</code> if adding a major feature</li>
-<li>[ ] Public symbols exported from <code>src/fedlearn/__init__.py</code></li>
+<li>[ ] Public symbols exported from <code>src/fedlearn/server/__init__.py</code> (or the top-level
+      <code>__init__.py</code> only if genuinely core)</li>
 <li>[ ] <code>CONTRIBUTING.md</code> reviewed for code style requirements</li>
 </ul></article>
     <nav class="toc"></nav>

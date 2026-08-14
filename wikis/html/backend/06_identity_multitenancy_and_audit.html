@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -93,7 +102,7 @@ backend's authorization story; the JWT/cookie/WebSocket mechanics that establish
 <p>✅ <strong>Branch reality (read this first).</strong> This entire subsystem <strong>IS present and
 committed on this branch.</strong> Authorization layers the original single-user model:
 <code>users.id</code> is <code>BIGINT</code>, <code>projects.id</code> is <code>UUID</code>, and the <strong>highest committed Flyway
-migration is <code>V19</code></strong>. The identity foundations landed in <strong><code>V4</code>–<code>V7</code></strong>
+migration is <code>V23</code></strong>. The identity foundations landed in <strong><code>V4</code>–<code>V7</code></strong>
 (<code>V5__identity_foundations.sql</code>, <code>V6__identity_hardening.sql</code>,
 <code>V7__owner_role_and_approval_workflows.sql</code>): the three-layer platform/org/project
 role model, <code>organization_memberships</code> / <code>project_memberships</code>,
@@ -107,8 +116,12 @@ ADMIN)</code> column from <code>V2</code> was the original model and has since b
 access-request / user-search / client endpoints) AND surfaced in the <strong>frontend</strong>:
 role-gated routes (<code>RoleRoute allow={['PLATFORM_ADMIN']}</code> / <code>['PROJECT_OWNER', …]</code>),
 the <code>AdminDashboard</code> / <code>OwnerDashboard</code> / <code>ClientDashboard</code>, and the
-owner-promotion / deletion-request approval flows. The clients ship the <strong>Ember</strong>
-design system.</p>
+owner-promotion / deletion-request approval flows. The clients ship the <strong>Ledger</strong>
+design system — navy structural ink on quiet paper surfaces, light-first (canvas
+<code>#F6F3EE</code>, surface <code>#FFFFFF</code>, ink <code>#191A1C</code>, accent <code>#1C314D</code>), generated from
+<code>design/tokens.json</code> by <code>design/build-tokens.mjs</code>. <em>Ledger superseded Ember, which
+superseded Instrument</em>: if you find the burnt-orange-on-warm-paper Ember palette in
+a doc or a token set, it is two cycles stale.</p>
 </blockquote>
 <hr />
 <h2 id="1-the-three-role-layers">1. The Three Role Layers<a class="headerlink" href="#1-the-three-role-layers" title="Permanent link">&para;</a></h2>
@@ -247,12 +260,25 @@ listings.</p>
 <td><code>requested_role</code>, <code>status</code>, <code>message</code>, <code>requested_at</code>, <code>decided_at</code>, <code>decided_by</code>; <code>UNIQUE(project_id, user_id)</code></td>
 </tr>
 <tr>
+<td><code>OwnerPromotionRequest</code> (V7)</td>
+<td><code>id BIGSERIAL</code></td>
+<td><code>user</code>, <code>status</code> (<code>AccessRequestStatus</code>), <code>message</code>, <code>requested_at</code>, <code>decided_at</code>, <code>decided_by</code> — a <code>USER</code> asking to become a <code>PROJECT_OWNER</code></td>
+</tr>
+<tr>
+<td><code>ProjectDeletionRequest</code> (V7)</td>
+<td><code>id BIGSERIAL</code></td>
+<td><code>project</code>, <code>requested_by</code>, <code>status</code> (<code>AccessRequestStatus</code>), <code>reason</code>, <code>requested_at</code>, <code>decided_at</code>, <code>decided_by</code> — an owner asking an admin to delete a project</td>
+</tr>
+<tr>
 <td><code>AuditEvent</code></td>
 <td><code>id UUID</code></td>
 <td><code>action</code>, <code>actor_user_id</code>, <code>org_id</code>, <code>target_type</code>/<code>target_id</code>, JSONB <code>metadata</code>, <code>request_ip</code>, <code>user_agent</code></td>
 </tr>
 </tbody>
 </table>
+<p>All three request types share the one <code>AccessRequestStatus</code> vocabulary
+(<code>PENDING</code>/<code>APPROVED</code>/<code>DENIED</code>), which is why an admin decision endpoint for any of
+them takes the same <code>DecideAccessRequestRequest</code> body.</p>
 <p>The two pre-existing core entities gained columns:</p>
 <h3 id="user-extended"><code>User</code> (extended)<a class="headerlink" href="#user-extended" title="Permanent link">&para;</a></h3>
 <p>The single <code>role</code> column became <code>platformRole</code> (a <code>PlatformRole</code> enum), plus a
@@ -284,6 +310,10 @@ cannot log in and account existence is not leaked.</p>
 <span class="nd">@Column</span><span class="p">(</span><span class="n">nullable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">length</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">32</span><span class="p">)</span>
 <span class="kd">private</span><span class="w"> </span><span class="n">ProjectVisibility</span><span class="w"> </span><span class="n">visibility</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ProjectVisibility</span><span class="p">.</span><span class="na">PRIVATE</span><span class="p">;</span>
 
+<span class="nd">@Enumerated</span><span class="p">(</span><span class="n">EnumType</span><span class="p">.</span><span class="na">STRING</span><span class="p">)</span><span class="w">                     </span><span class="c1">// V22/V23: which parameters a run federates</span>
+<span class="nd">@Column</span><span class="p">(</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;training_arm&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">nullable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">length</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">32</span><span class="p">)</span>
+<span class="kd">private</span><span class="w"> </span><span class="n">TrainingArm</span><span class="w"> </span><span class="n">trainingArm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TrainingArm</span><span class="p">.</span><span class="na">FULL</span><span class="p">;</span>
+
 <span class="c1">// Model-Hub columns (publish toggle)</span>
 <span class="kd">private</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="n">modelPublished</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
 <span class="kd">private</span><span class="w"> </span><span class="n">String</span><span class="w">  </span><span class="n">modelDescription</span><span class="p">;</span>
@@ -292,7 +322,9 @@ cannot log in and account existence is not leaked.</p>
 </code></pre></div>
 
 <p><code>org_id</code> is <code>NOT NULL</code> (see §6). New projects are pinned to the owner's first org
-membership, falling back to the single Default org for membership-less users.</p>
+membership, falling back to the single Default org for membership-less users. The
+<code>trainingArm</code> default is the mechanism by which every pre-<code>V22</code> project keeps its
+exact behaviour — see <a href="03_project_management.html">03 - Project Management Lifecycle</a>.</p>
 <hr />
 <h2 id="3-organization-scoped-multi-tenant-isolation">3. Organization-Scoped Multi-Tenant Isolation<a class="headerlink" href="#3-organization-scoped-multi-tenant-isolation" title="Permanent link">&para;</a></h2>
 <p>This is the <strong>P0 data-isolation mechanism</strong>: it guarantees that a caller can only
@@ -437,13 +469,36 @@ supplies <code>org_id</code>.</p>
 <p><code>AuditEvent</code> columns: <code>id UUID</code>, <code>occurred_at</code>, <code>actor_user_id BIGINT</code> (nullable —
 system/unauthenticated events), <code>org_id UUID</code>, <code>action</code> (enum), <code>target_type</code>/
 <code>target_id</code>, JSONB <code>metadata</code>, <code>request_ip</code>, <code>user_agent</code>.</p>
-<p><code>AuditAction</code> is the enum vocabulary. The values actually instrumented today
-include: <code>USER_REGISTERED</code>, <code>USER_LOGIN_SUCCEEDED</code>, <code>USER_LOGIN_FAILED</code>,
-<code>USER_LOGGED_OUT</code>, <code>BOOTSTRAP_ADMIN_CREATED</code>, <code>BOOTSTRAP_ORG_CREATED</code>,
-<code>PROJECT_CREATED</code>, <code>PROJECT_DELETED</code>, <code>RUN_STARTED</code>, <code>RUN_STOPPED</code>,
-<code>PROJECT_MEMBER_ADDED</code>, <code>PROJECT_MEMBER_REMOVED</code>, <code>PLATFORM_ADMIN_ORG_BYPASS</code>. The
-<code>ORG_*</code> and remaining <code>USER_*</code> values are reserved in the enum for instrumentation
-in later sub-specs.</p>
+<p><code>AuditAction</code> is the enum vocabulary, and it is deliberately wider than what is
+wired. The values <strong>actually emitted today</strong> — verified by walking every <code>@Auditable</code>
+annotation and every direct <code>AuditEvent.builder()</code> call in <code>src/main/java</code> — are:</p>
+<table>
+<thead>
+<tr>
+<th>Emitted via</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>@Auditable</code> + <code>AuditAspect</code></td>
+<td><code>USER_REGISTERED</code>, <code>USER_LOGGED_OUT</code> (<code>AuthController</code>); <code>PROJECT_CREATED</code>, <code>PROJECT_DELETED</code>, <code>RUN_STARTED</code>, <code>RUN_STOPPED</code> (<code>ProjectService</code>); <code>PROJECT_MEMBER_ADDED</code>, <code>PROJECT_MEMBER_REMOVED</code> (<code>MembershipService</code>); <code>USER_SUSPENDED</code>, <code>USER_REACTIVATED</code> (<code>AdminService</code>); <code>USER_PROFILE_UPDATED</code> (<code>ProfileService</code>)</td>
+</tr>
+<tr>
+<td>Written directly (outside the aspect)</td>
+<td><code>USER_LOGIN_SUCCEEDED</code>, <code>USER_LOGIN_FAILED</code> (the auditing auth handlers); <code>BOOTSTRAP_ORG_CREATED</code>, <code>BOOTSTRAP_ADMIN_CREATED</code> (<code>BootstrapRunner</code>); <code>USER_PASSWORD_CHANGED</code> (<code>ProfileService</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Everything else in the enum is <strong>reserved, not wired</strong> — the whole <code>ORG_*</code> block,
+<code>USER_EMAIL_VERIFIED</code>, <code>USER_DELETED</code>, <code>USER_PLATFORM_ROLE_CHANGED</code>, and
+<code>PLATFORM_ADMIN_ORG_BYPASS</code>. That last one is worth calling out because earlier
+revisions of this page listed it as instrumented: it is declared and never emitted
+anywhere in the source, so <strong>an admin's org-scope bypass currently leaves no audit
+row</strong>. Treat it as a known gap rather than a working control.</p>
+<p>Note also that <code>AdminService.searchAuditEvents</code> parses an <code>action</code> query parameter
+with <code>AuditAction.valueOf(...)</code>, so the admin explorer can filter on any name in the
+enum — including the reserved ones, which will simply match nothing.</p>
 <h3 id="43-login-auditing-outside-the-aspect">4.3 Login auditing (outside the aspect)<a class="headerlink" href="#43-login-auditing-outside-the-aspect" title="Permanent link">&para;</a></h3>
 <p>Login can't ride the aspect because credential failures throw before any
 <code>@Auditable</code> body runs. Instead two plain collaborators do it:</p>
@@ -469,28 +524,57 @@ org-scope-gated:</p>
   <code>OWNER</code> memberships are not user-creatable. <code>add</code>/<code>remove</code> are <code>@Auditable</code>
   (<code>PROJECT_MEMBER_ADDED</code> / <code>PROJECT_MEMBER_REMOVED</code>).</li>
 <li><strong><code>AccessRequestService</code></strong> (<code>submit</code> / <code>listForProject</code> / <code>decide</code> / <code>listMine</code>) —
-  behaviour branches on the visibility tier: joining a <strong>PUBLIC</strong> project creates a
-  <code>CLIENT</code> membership immediately (<code>JoinedVia.PUBLIC_JOIN</code>); a <strong>PRIVATE</strong> project is
-  invite-only and self-requests are rejected with <strong>403</strong> ("Ask the owner to add
-  you") — the owner adds participants directly via <code>MembershipController</code>; a
-  <strong>RESTRICTED</strong> project upserts a <code>PENDING</code> <code>ProjectAccessRequest</code> and notifies the
-  owner/members. <code>decide</code> approves (→ <code>CLIENT</code> membership,
-  <code>JoinedVia.REQUEST_APPROVED</code>) or denies.</li>
-<li><strong><code>ClientApiService</code></strong> (<code>listForCurrentUser</code> / <code>getConnection</code>) — the FL-client
-  view. <code>getConnection</code> takes a pessimistic write lock on the project row
-  (<code>ProjectRepository.lockById</code>) and assigns a <strong>sticky <code>partition_id</code></strong> to the
-  membership, serialising concurrent client connections so partitions never
-  collide.</li>
+  <code>submit</code> rejects the owner (<strong>400</strong>) and an existing <code>MEMBER</code>/<code>CLIENT</code> (<strong>409</strong>)
+  first, then branches on the visibility tier:</li>
+<li><strong>PUBLIC</strong> → a <code>CLIENT</code> membership immediately (<code>JoinedVia.PUBLIC_JOIN</code>).</li>
+<li><strong>RESTRICTED</strong> → upsert a <code>PENDING</code> <code>ProjectAccessRequest</code> (explicitly resetting
+    <code>status</code>/<code>requestedAt</code>/<code>decidedAt</code>/<code>decidedBy</code>, because <code>@PrePersist</code> does not
+    fire on an UPDATE) and notify the owner and members.</li>
+<li><strong>PRIVATE</strong> → the <strong>same 404 a nonexistent project id would produce</strong>. Not a 403:
+    a distinct 403 here would be an existence oracle (404 for a missing id vs 403 for
+    a real private one), and PRIVATE is hidden as well as invite-only. The owner adds
+    participants directly through <code>MembershipController</code>. (The owner and
+    existing-participant branches have already returned by this point, so only
+    outsiders reach it.)</li>
 </ul>
+<p><code>decide</code> approves (→ <code>CLIENT</code> membership, <code>JoinedVia.REQUEST_APPROVED</code>) or denies.
+- <strong><code>ClientApiService</code></strong> (<code>listForCurrentUser</code> / <code>getOne</code> / <code>join</code> / <code>getConnection</code>)
+  — the FL-client view. <code>join</code> is the desktop/mobile counterpart of <code>submit</code>: PUBLIC
+  joins outright, RESTRICTED is refused with "request access from the web app", and
+  PRIVATE 404s. <code>getConnection</code> requires an <strong>active run</strong> (otherwise
+  <code>ProjectStateException</code>) and delegates to <code>RunService.enroll(activeRunId)</code>, which is
+  where partition assignment now lives:
+  - it takes a pessimistic write lock on the <strong>run</strong> row (<code>RunRepository.lockById</code>),
+    so concurrent enrollments serialise;
+  - it re-checks org scope and owner-or-<code>CLIENT</code> membership, and that the run is
+    <code>RUNNING</code> with a port;
+  - an existing enrollment is reused; otherwise the next <code>partitionId</code> is
+    <code>max + 1</code>, refused with "Run is full (K=…)" once a <code>SHARDED</code> run reaches
+    <code>clientsPerRound</code>. <code>UNIQUE(run_id, partition_id)</code> (<code>V8</code>) makes the invariant the
+    database's, not the service's;
+  - it mints a <strong>connection token sized to the whole run</strong> (<code>ttlForRun(numRounds)</code>,
+    SE-14) rather than a fixed TTL — a long run would otherwise outlive its token and
+    have its clients rejected mid-training once <code>require-client-auth</code> is on;
+  - if client-cert issuance is enabled (SE-12, off by default) it also mints a
+    short-lived mTLS client cert bound to this user and run.</p>
+<p>The returned <code>ClientConnectionDto</code> carries the gRPC endpoint, partition id,
+  connection token, the run's <strong>strategy</strong>, and the project's <strong>training arm</strong> — the
+  last two so the client picks the matching code path instead of defaulting to FedAvg
+  and uploading a full state dict against a server expecting a head. Both are always
+  stated, never inferred from silence.</p>
 <hr />
-<h2 id="6-flyway-migrations-v4v7">6. Flyway Migrations (V4–V7)<a class="headerlink" href="#6-flyway-migrations-v4v7" title="Permanent link">&para;</a></h2>
-<p>The schema for this subsystem lands across four migrations
-(<code>src/main/resources/db/migration/</code>). Every profile runs PostgreSQL and JPA in
-<code>validate</code> mode, so these migrations are the source of truth — except the <code>test</code>
-profile, which disables Flyway and builds from JPA <code>create-drop</code> against
-Testcontainers Postgres (<code>jdbc:tc:postgresql:16.6-alpine</code>) for the bulk suite, so
-these files don't run there. The dedicated <code>V*MigrationTest</code> classes flip Flyway
-back on to exercise the real migrations against real Postgres.</p>
+<h2 id="6-flyway-migrations">6. Flyway Migrations<a class="headerlink" href="#6-flyway-migrations" title="Permanent link">&para;</a></h2>
+<p>The identity subsystem's own schema lands across four migrations (<code>V4</code>–<code>V7</code>), but
+this page is also the wiki's index of the <strong>whole</strong> migration history, because the
+later ones interlock with it. <code>src/main/resources/db/migration/</code> currently holds
+<code>V1</code>–<strong><code>V23</code></strong>. <code>ls</code> sorts lexicographically, so <code>V5</code>–<code>V9</code> list <em>after</em> <code>V21</code> — the
+last line of an <code>ls</code> is not the highest version.</p>
+<p>Every profile runs PostgreSQL and JPA in <code>validate</code> mode, so these migrations are
+the source of truth — except the <code>test</code> profile, which disables Flyway and builds
+from JPA <code>create-drop</code> against Testcontainers Postgres
+(<code>jdbc:tc:postgresql:16.6-alpine</code>) for the bulk suite, so these files don't run
+there. The dedicated <code>V*MigrationTest</code> classes flip Flyway back on (§6.1).</p>
+<h3 id="61-the-identity-migrations-v4v7">6.1 The identity migrations (V4–V7)<a class="headerlink" href="#61-the-identity-migrations-v4v7" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -501,15 +585,15 @@ back on to exercise the real migrations against real Postgres.</p>
 <tbody>
 <tr>
 <td><strong>V4</strong> <code>__project_membership_and_model_hub.sql</code></td>
-<td><code>projects.visibility</code> (default <code>PRIVATE</code>), Model-Hub columns; <code>project_memberships</code> and <code>project_access_requests</code> tables with their indexes. Written as one <code>ALTER</code> per column — a legacy constraint from when <code>dev</code> ran on H2, which rejects multi-clause <code>ALTER TABLE</code>.</td>
+<td><code>projects.visibility</code> (default <code>PRIVATE</code>), Model-Hub columns; <code>project_memberships</code> and <code>project_access_requests</code> tables with their indexes. Written as one <code>ALTER</code> per column — a legacy constraint from when <code>dev</code> ran on H2, which rejects multi-clause <code>ALTER TABLE</code>. Later migrations (e.g. <code>V17</code>, <code>V20</code>) use the multi-clause form freely, because Postgres is now the only target.</td>
 </tr>
 <tr>
 <td><strong>V5</strong> <code>__identity_foundations.sql</code></td>
-<td><code>organizations</code>, <code>organization_memberships</code>; renames <code>users.role</code> → <code>platform_role</code> and adds the lifecycle/profile columns; <code>audit_events</code> (metadata initially <code>CLOB</code>); <code>projects.org_id</code>. Backfills a single <strong>Default</strong> org (<code>...0001</code>), enrolls every existing user, marks project owners as org <code>OWNER</code>, then sets <code>projects.org_id NOT NULL</code>.</td>
+<td><code>organizations</code>, <code>organization_memberships</code>; renames <code>users.role</code> → <code>platform_role</code> and adds the lifecycle/profile columns; <code>audit_events</code> (metadata initially a plain <code>TEXT</code> column); <code>projects.org_id</code>. Backfills a single <strong>Default</strong> org (<code>...0001</code>), enrolls every existing user, marks project owners as org <code>OWNER</code>, then sets <code>projects.org_id NOT NULL</code>.</td>
 </tr>
 <tr>
 <td><strong>V6</strong> <code>__identity_hardening.sql</code></td>
-<td>Normalises legacy <code>platform_role = 'ADMIN'</code> → <code>'PLATFORM_ADMIN'</code>; adds <code>chk_users_platform_role</code> — <code>CHECK (platform_role IN ('USER','PLATFORM_ADMIN'))</code>; promotes <code>audit_events.metadata</code> from <code>CLOB</code> to native <strong>JSONB</strong>.</td>
+<td>Normalises legacy <code>platform_role = 'ADMIN'</code> → <code>'PLATFORM_ADMIN'</code>; adds <code>chk_users_platform_role</code> — <code>CHECK (platform_role IN ('USER','PLATFORM_ADMIN'))</code>; promotes <code>audit_events.metadata</code> from <code>TEXT</code> to native <strong>JSONB</strong>.</td>
 </tr>
 <tr>
 <td><strong>V7</strong> <code>__owner_role_and_approval_workflows.sql</code></td>
@@ -517,8 +601,128 @@ back on to exercise the real migrations against real Postgres.</p>
 </tr>
 </tbody>
 </table>
+<h3 id="62-the-rest-of-the-history-v1v3-v8v23">6.2 The rest of the history (V1–V3, V8–V23)<a class="headerlink" href="#62-the-rest-of-the-history-v1v3-v8v23" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Migration</th>
+<th>Adds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>V1</strong> <code>__init.sql</code></td>
+<td>The original schema. Establishes the <code>TIMESTAMP WITH TIME ZONE</code> convention for every point-in-time column.</td>
+</tr>
+<tr>
+<td><strong>V2</strong> <code>__add_user_role.sql</code></td>
+<td>The original coarse <code>users.role IN ('USER','ADMIN')</code> — superseded by <code>V5</code>/<code>V6</code>.</td>
+</tr>
+<tr>
+<td><strong>V3</strong> <code>__server_logs_fk_projects.sql</code></td>
+<td><code>server_logs → projects</code> FK.</td>
+</tr>
+<tr>
+<td><strong>V8</strong> <code>__run_lifecycle_and_enrollment.sql</code></td>
+<td>The <strong><code>Run</code> aggregate</strong> — one training execution of a project, and the source of truth for live FL-server state — plus <code>run_enrollments</code> with run-scoped partition assignment under <code>UNIQUE(run_id, partition_id)</code>. Additive: <code>projects.status</code>/<code>server_port</code> stay as a mirror so existing readers keep working.</td>
+</tr>
+<tr>
+<td><strong>V9</strong> <code>__project_requirements_override.sql</code></td>
+<td><code>projects.requirements_override</code> (JSON text) — the owner may tighten the recipe's device requirements; merged most-restrictive-wins at read time.</td>
+</tr>
+<tr>
+<td><strong>V10</strong> <code>__project_task_type.sql</code></td>
+<td><code>projects.task_type</code> for <code>LLM_LORA</code> (generative vs classification). NULL is read as <code>SEQ_CLASSIFICATION</code>.</td>
+</tr>
+<tr>
+<td><strong>V11</strong> <code>__benchmarks.sql</code></td>
+<td><code>benchmark_rounds</code> (the rich per-round metric vector) + <code>benchmark_runs</code> (a denormalized one-row-per-project rollup for the admin dashboard). Deliberately decoupled from <code>round_result</code>, which stays the lightweight live-telemetry path.</td>
+</tr>
+<tr>
+<td><strong>V12</strong> <code>__model_artifact_registry.sql</code></td>
+<td>The content-addressed registry keystone: <code>artifact_blobs</code>, <code>model_artifacts</code>, <code>artifact_lineage</code>. See <a href="07_artifact_registry.html">07</a>.</td>
+</tr>
+<tr>
+<td><strong>V13</strong> <code>__timestamptz_convention.sql</code></td>
+<td>Retypes the raw <code>TIMESTAMP</code> columns <code>V8</code> introduced to <code>timestamptz</code> (<code>AT TIME ZONE 'UTC'</code> — lossless and order-preserving, since JPA already mapped them to <code>Instant</code>). Restates the convention: <strong>every future timestamp column must be <code>timestamptz</code></strong>. Pre-<code>V8</code> raw-<code>TIMESTAMP</code> columns from <code>V5</code> are explicitly out of scope.</td>
+</tr>
+<tr>
+<td><strong>V14</strong> <code>__project_init_status.sql</code></td>
+<td><code>projects.init_status</code> (NOT NULL, default <code>DONE</code>) — the one-time model-init phase (BA-1), which needs its own column because status is otherwise derived from the active run and a project mid-init has none.</td>
+</tr>
+<tr>
+<td><strong>V15</strong> <code>__run_process_tracking.sql</code></td>
+<td><code>runs.server_pid</code> + <code>runs.process_started_at</code> — the OS identity a <code>StartupReconciler</code> needs to tell a survivor from a dead run, and to defend against PID reuse (BA-3).</td>
+</tr>
+<tr>
+<td><strong>V16</strong> <code>__run_internal_token_hash.sql</code></td>
+<td><code>runs.internal_token_hash</code> — the SHA-256 (never the plaintext) of the per-run internal token, so the reconciler can rehydrate <code>RunTokenRegistry</code> for exactly the runs it re-adopts.</td>
+</tr>
+<tr>
+<td><strong>V17</strong> <code>__project_dp_policy.sql</code></td>
+<td><code>projects.regulated</code> / <code>dp_enabled</code> (NOT NULL, default <code>FALSE</code>) + the nullable <code>dp_target_epsilon</code> / <code>dp_delta</code> / <code>dp_clip_norm</code> (SE-11). Completeness is validated in Java at creation and again at the run-start gate — deliberately no CHECK constraints, matching the <code>V14</code> convention.</td>
+</tr>
+<tr>
+<td><strong>V18</strong> <code>__artifact_marketplace_publish.sql</code></td>
+<td><code>model_artifacts.published</code> / <code>published_at</code> + a <code>(org_id, kind, published)</code> index. Discovery stays strictly inside <code>OrgScope</code>; a cross-org marketplace is a separate, threat-model-sensitive effort and deliberately not enabled.</td>
+</tr>
+<tr>
+<td><strong>V19</strong> <code>__cascade_delete_run_subtree.sql</code></td>
+<td><code>ON DELETE CASCADE</code> on <code>runs.project_id</code> and <code>run_enrollments.run_id</code>. Before this, <strong>any project that had ever been started could not be deleted</strong> — <code>V8</code> created those two FKs with no <code>ON DELETE</code> action, so Postgres raised <code>23503</code>, surfaced as an opaque 409. Registry rows are deliberately left alone (<code>SET NULL</code> / untouched / <code>RESTRICT</code>).</td>
+</tr>
+<tr>
+<td><strong>V20</strong> <code>__project_derivation.sql</code></td>
+<td><code>projects.init_from_pretrained</code> (NOT NULL, default <code>FALSE</code>), <code>base_ref_sha256</code>, <code>derivation_spec</code> — the opt-in record of a project deriving from a pretrained/frozen base instead of training from scratch. <code>chk_projects_base_ref_sha256_hex</code> pins a present ref to lowercase-hex sha256, matching <code>V12</code>'s content-address convention. A NULL derivation behaves exactly as before.</td>
+</tr>
+<tr>
+<td><strong>V21</strong> <code>__base_ref_unique_index.sql</code></td>
+<td>The partial unique index <code>uq_base_ref_org_model ON model_artifacts (org_id, base_model_ref) WHERE kind = 'BASE_REF'</code>. <code>findOrCreateBaseRef</code> was a non-atomic read-then-insert with no backing constraint, so two concurrent adapter registrations in one org over the same base could each insert a <code>BASE_REF</code> and fork their <code>ADAPTER_OF</code> edges. The index makes one-per-<code>(org, base)</code> a DB invariant <em>and</em> backs the <code>ON CONFLICT DO NOTHING</code> the service now uses. It fails loudly if a deployed DB already holds duplicates.</td>
+</tr>
+<tr>
+<td><strong>V22</strong> <code>__project_training_arm.sql</code></td>
+<td><code>projects.training_arm VARCHAR(32) NOT NULL DEFAULT 'FULL'</code> + <code>chk_projects_training_arm CHECK (training_arm IN ('FULL','FROZEN_HEAD'))</code>. The <code>DEFAULT</code> is load-bearing for backward compatibility: every pre-existing project trained every parameter, so backfilling them to <code>FULL</code> preserves their behaviour exactly.</td>
+</tr>
+<tr>
+<td><strong>V23</strong> <code>__training_arm_ova_lp.sql</code></td>
+<td>Drops and re-adds that CHECK widened to <code>('FULL','FROZEN_HEAD','OVA_LP')</code> for the OvA-LP arm (arXiv:2511.05028).</td>
+</tr>
+</tbody>
+</table>
+<p>The arm's full contract — DTO pattern, entity default, immutability after creation,
+and why the CHECK is the last line of defence — is in
+<a href="03_project_management.html">03 - Project Management Lifecycle</a>.</p>
+<h3 id="63-the-vmigrationtest-classes-bypass-the-test-profile-deliberately">6.3 The <code>V*MigrationTest</code> classes bypass the <code>test</code> profile — deliberately<a class="headerlink" href="#63-the-vmigrationtest-classes-bypass-the-test-profile-deliberately" title="Permanent link">&para;</a></h3>
+<p>There are <strong>twelve</strong> of them, and they all share one unusual shape that is easy to
+break by copying an ordinary test instead:</p>
+<div class="codehilite"><pre><span></span><code><span class="nd">@SpringBootTest</span>
+<span class="nd">@ActiveProfiles</span><span class="p">(</span><span class="s">&quot;dev&quot;</span><span class="p">)</span><span class="w">                       </span><span class="c1">// NOT &quot;test&quot; — that profile disables Flyway</span>
+<span class="nd">@TestPropertySource</span><span class="p">(</span><span class="n">properties</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="s">&quot;spring.datasource.url=jdbc:tc:postgresql:16.6-alpine:///fedlearn_v23_arm&quot;</span><span class="p">,</span><span class="w">  </span><span class="c1">// per-test DB</span>
+<span class="w">        </span><span class="s">&quot;spring.datasource.driver-class-name=org.testcontainers.jdbc.ContainerDatabaseDriver&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="s">&quot;spring.jpa.hibernate.ddl-auto=validate&quot;</span><span class="p">,</span><span class="w">   </span><span class="c1">// or &quot;none&quot;</span>
+<span class="w">        </span><span class="s">&quot;spring.flyway.enabled=true&quot;</span><span class="p">,</span><span class="w">               </span><span class="c1">// the point of the whole exercise</span>
+<span class="w">        </span><span class="s">&quot;app.jwt.secret=…&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;app.internal.api-key=…&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;app.cors.allowed-origins=…&quot;</span>
+<span class="p">})</span>
+</code></pre></div>
+
+<p>The reason is that the bulk suite's <code>test</code> profile builds its schema from the JPA
+entities (<code>create-drop</code>, Flyway off). A column generated from an entity proves
+nothing about the migration that is supposed to create it, and a <strong>backfill of
+existing rows cannot be exercised at all</strong> without the real migration running. So
+each of these classes runs every migration in order against a real Postgres in its
+own Testcontainers database, then asserts against <code>information_schema</code> and real
+inserts.</p>
+<p>Current classes and the database name each claims:
+<code>V5MigrationTest</code>, <code>V6MigrationTest</code> (identity) · <code>V8MigrationTest</code>,
+<code>V9MigrationTest</code>, <code>V13TimestamptzMigrationTest</code> (runs) · <code>V11BenchmarkMigrationTest</code>
+· <code>V12ModelRegistryMigrationTest</code>, <code>V21BaseRefUniqueMigrationTest</code> (registry) ·
+<code>V17MigrationTest</code> (DP) · <code>V19ProjectDeletionCascadeMigrationTest</code> ·
+<code>V20DerivationMigrationTest</code> · <code>V22TrainingArmMigrationTest</code>.</p>
+<p>Copy that shape for a new migration test; do <strong>not</strong> reach for
+<code>@ActiveProfiles("test")</code>. And keep Flyway disabled for the <code>test</code> profile itself —
+migrations must validate against <code>dev</code>/<code>ec2demo</code>/<code>production</code> only.</p>
 <div class="codehilite"><pre><span></span><code><span class="c1">-- V5: rename the single role column and pin projects to an org</span>
-<span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="k">ALTER</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="k">role</span><span class="w"> </span><span class="k">RENAME</span><span class="w"> </span><span class="k">TO</span><span class="w"> </span><span class="n">platform_role</span><span class="p">;</span>
+<span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="k">RENAME</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="k">role</span><span class="w"> </span><span class="k">TO</span><span class="w"> </span><span class="n">platform_role</span><span class="p">;</span>
 <span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">projects</span><span class="w"> </span><span class="k">ADD</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="n">org_id</span><span class="w"> </span><span class="n">UUID</span><span class="w"> </span><span class="k">REFERENCES</span><span class="w"> </span><span class="n">organizations</span><span class="p">(</span><span class="n">id</span><span class="p">);</span>
 <span class="c1">-- ... backfill Default org, enroll users ...</span>
 <span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="n">projects</span><span class="w"> </span><span class="k">ALTER</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="n">org_id</span><span class="w"> </span><span class="k">SET</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">;</span>
@@ -601,14 +805,19 @@ note at the top: <code>App.tsx</code> wraps the owner routes in
 <td>The caller's own outstanding requests</td>
 </tr>
 <tr>
-<td><code>GET /api/projects/discover</code>, <code>GET /api/projects/{id}</code>, <code>PATCH /api/projects/{id}</code></td>
-<td><code>ProjectController</code></td>
-<td>Discover feed, single-project read (404-on-out-of-scope), update name/description/visibility</td>
+<td><code>POST /api/owner-requests</code>, <code>GET /api/owner-requests/mine</code></td>
+<td><code>OwnerRequestController</code></td>
+<td>A <code>USER</code> asks to be promoted to <code>PROJECT_OWNER</code>, and tracks that request</td>
 </tr>
 <tr>
-<td><code>GET /api/admin/users</code>, <code>GET /api/admin/users/{id}</code>, <code>PUT /api/admin/users/{id}/role</code>, <code>GET /api/admin/projects</code></td>
-<td><code>AdminController</code> (<code>@PreAuthorize PLATFORM_ADMIN</code>)</td>
-<td>Platform admin console (via <code>AdminService</code>); role update refuses to demote the last admin</td>
+<td><code>GET /api/projects/discover</code>, <code>GET /api/projects/{id}</code>, <code>PATCH /api/projects/{id}</code></td>
+<td><code>ProjectController</code></td>
+<td>Discover feed, single-project read (404-on-out-of-scope), update name/description/visibility/requirements. Full route table in <a href="03_project_management.html">03</a></td>
+</tr>
+<tr>
+<td><code>POST /api/projects/{id}/deletion-request</code>, <code>GET .../deletion-request</code></td>
+<td><code>ProjectController</code> (<code>ProjectDeletionService</code>)</td>
+<td>Owner files / inspects a deletion request (<strong>204</strong> when there is none)</td>
 </tr>
 <tr>
 <td><code>GET /api/users/search?q=</code></td>
@@ -616,14 +825,72 @@ note at the top: <code>App.tsx</code> wraps the owner routes in
 <td>Username prefix search; per-caller rate-limited (<code>UserSearchService</code>)</td>
 </tr>
 <tr>
-<td><code>GET /api/client/projects</code>, <code>GET /api/client/projects/{id}/connection</code></td>
+<td><code>GET/PATCH /api/users/me/profile</code></td>
+<td><code>ProfileController</code></td>
+<td>Self-service profile. <code>permitAll</code> at the chain level so the controller can 401 anonymously; <code>USER_PROFILE_UPDATED</code> / <code>USER_PASSWORD_CHANGED</code> are audited</td>
+</tr>
+<tr>
+<td><code>GET /api/users</code>, <code>POST /api/users</code>, <code>DELETE /api/users/{id}</code></td>
+<td><code>UserController</code></td>
+<td>Legacy user-management surface; the <code>GET</code>/<code>DELETE</code> are <code>@PreAuthorize PLATFORM_ADMIN</code></td>
+</tr>
+<tr>
+<td><code>GET /api/client/projects</code>, <code>GET /api/client/projects/{id}</code>, <code>POST .../join</code>, <code>GET .../connection</code></td>
 <td><code>ClientApiController</code> (<code>ClientApiService</code>)</td>
-<td>FL-client project list + sticky partition assignment</td>
+<td>FL-client project list, single read, join, and per-run enrollment + connection token</td>
 </tr>
 <tr>
 <td><code>POST /api/admin/test-email?to=</code></td>
 <td><code>TestEmailController</code> (flag-gated, <code>PLATFORM_ADMIN</code>)</td>
 <td>Email delivery smoke test</td>
+</tr>
+</tbody>
+</table>
+<p><code>AdminController</code> is class-level <code>@PreAuthorize("hasRole('PLATFORM_ADMIN')")</code> and is
+big enough to warrant its own table:</p>
+<table>
+<thead>
+<tr>
+<th>Method &amp; path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /api/admin/overview</code></td>
+<td>The admin console landing summary</td>
+</tr>
+<tr>
+<td><code>GET /api/admin/users</code>, <code>GET /api/admin/users/{id}</code></td>
+<td>User directory and detail</td>
+</tr>
+<tr>
+<td><code>GET /api/admin/users/search?q=&amp;role=&amp;status=&amp;page=&amp;size=</code></td>
+<td>Search-first user directory, server-side paged (<code>PagedResponseDto</code>)</td>
+</tr>
+<tr>
+<td><code>PUT /api/admin/users/{id}/role</code></td>
+<td>Change a platform role; refuses to demote the last admin</td>
+</tr>
+<tr>
+<td><code>PUT /api/admin/users/{id}/status</code></td>
+<td>Suspend / reactivate. Dispatched to a <strong>separate service method per transition</strong> so each carries its own <code>@Auditable</code> action and the aspect fires through the Spring proxy — a self-invocation would bypass it</td>
+</tr>
+<tr>
+<td><code>GET /api/admin/projects</code>, <code>GET /api/admin/projects/search?q=&amp;status=&amp;visibility=&amp;page=&amp;size=</code></td>
+<td>Project directory, flat and search-first</td>
+</tr>
+<tr>
+<td><code>GET /api/admin/audit-events?actor=&amp;action=&amp;targetType=&amp;from=&amp;to=&amp;page=&amp;size=</code></td>
+<td>The audit-event explorer</td>
+</tr>
+<tr>
+<td><code>GET /api/admin/owner-requests?status=</code>, <code>PUT /api/admin/owner-requests/{id}</code></td>
+<td>The owner-promotion queue (<code>OwnerPromotionService</code>)</td>
+</tr>
+<tr>
+<td><code>GET /api/admin/deletion-requests?status=</code>, <code>PUT /api/admin/deletion-requests/{id}</code></td>
+<td>The project-deletion queue; an <code>APPROVED</code> decision calls <code>ProjectService.deleteProject</code> in the admin's own security context (<code>ProjectDeletionService</code>)</td>
 </tr>
 </tbody>
 </table></article>

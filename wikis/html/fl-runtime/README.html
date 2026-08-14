@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FL Runtime Wiki · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>FL Runtime</summary><ul>
+<li><a class="active" href="README.html">FL Runtime Wiki</a></li>
+<li><a href="01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>FL Runtime</b> &nbsp;·&nbsp; FL Runtime Wiki</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="fl-runtime-wiki">FL Runtime Wiki<a class="headerlink" href="#fl-runtime-wiki" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a></p>
+</blockquote>
+<p>Welcome to the internal documentation for the <strong>FL runtime</strong> (<code>fl-runtime/</code>) — the <strong>executable layer</strong> of the platform, and the one the Spring Boot backend actually runs.</p>
+<p>This is the unit most easily missed. It is not the FL library, it is not a helper directory, and it is not packaged inside the backend JAR. It is a first-class deployable unit with its own entry points, its own CLI contracts, its own pytest suite and its own CI job.</p>
+<hr />
+<h2 id="the-split-that-trips-people-up">The split that trips people up<a class="headerlink" href="#the-split-that-trips-people-up" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>framework/</code></th>
+<th><code>fl-runtime/</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What it is</td>
+<td>An installable Python <strong>library</strong></td>
+<td>An <strong>executable layer</strong> of scripts</td>
+</tr>
+<tr>
+<td>How you consume it</td>
+<td><code>pip install -e .</code> → <code>import fedlearn</code></td>
+<td><code>python fl_server.py …</code>, <code>bash run_fl_server.sh …</code></td>
+</tr>
+<tr>
+<td>Entry points</td>
+<td>none — it is imported</td>
+<td><code>client.py</code>, <code>fl_server.py</code>, <code>fl_fot_server.py</code>, <code>init_model.py</code>, <code>infer.py</code>, <code>recipes.py</code>, <code>benchmarks.py</code></td>
+</tr>
+<tr>
+<td>Depends on the other?</td>
+<td>No</td>
+<td><strong>Yes</strong> — <code>fl-runtime/client.py:19</code> is literally <code>import fedlearn as fl</code></td>
+</tr>
+<tr>
+<td>Own test suite</td>
+<td><code>framework/tests/</code> (<code>PYTHONPATH=src pytest</code>)</td>
+<td><code>fl-runtime/tests/</code> (<code>cd fl-runtime &amp;&amp; pytest</code>)</td>
+</tr>
+<tr>
+<td>Own CI job</td>
+<td><code>framework</code> in <code>.github/workflows/ci.yml</code></td>
+<td><code>backend-scripts</code> in the same file</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The backend never runs <code>framework/</code> directly.</strong> It shells out to <code>fl-runtime/</code>'s shell wrappers, which in turn run the Python entry points, which in turn <code>import fedlearn</code>. Every FL server the platform has ever started went through this layer.</p>
+<div class="codehilite"><pre><span></span><code>Spring Boot (FlServerManager)
+   └── bash fl-runtime/run_fl_server.sh --project-id … --port … --model-type …
+          └── python3 fl_server.py &quot;$@&quot;
+                 └── import fedlearn as fl   →   fl.server.start_server(...)
+</code></pre></div>
+
+<p>The same relationship holds on the client side: the desktop app and the Docker image both launch <code>fl-runtime/client.py</code>, which imports the framework. See <a href="01_entry_points.html">01 — Entry Points &amp; the Backend Contract</a>.</p>
+<hr />
+<h2 id="documentation-index">Documentation Index<a class="headerlink" href="#documentation-index" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Document</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><a href="01_entry_points.html">Entry Points &amp; the Backend Contract</a></td>
+<td>Every script and wrapper, its real CLI surface, and how <code>application.properties</code> resolves them</td>
+</tr>
+<tr>
+<td>2</td>
+<td><a href="02_recipe_catalog.html">The Model-Recipe Catalog</a></td>
+<td>What a recipe bundles, <code>RECIPE_METADATA</code>, torch-free <code>--describe</code>, the two out-of-catalog recipes, and how far registry dispatch actually got</td>
+</tr>
+<tr>
+<td>3</td>
+<td><a href="03_training_arms.html">Training Arms</a></td>
+<td><code>FULL</code> / <code>FROZEN_HEAD</code> / <code>OVA_LP</code> end to end — objectives, <code>supported_arms</code>, <code>arm_tradeoff.json</code>, provenance</td>
+</tr>
+<tr>
+<td>4</td>
+<td><a href="04_the_federated_set.html">The Federated Set</a></td>
+<td>Which tensors cross the wire: the non-float32 exclusion, subset federation, save-time merge, and eval strictness</td>
+</tr>
+<tr>
+<td>5</td>
+<td><a href="05_testing.html">Testing &amp; CI</a></td>
+<td>The suite, <code>pytest.ini</code>'s slow deselection, TE-10's skip-integrity guard, and what each test file pins</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="quick-navigation">Quick Navigation<a class="headerlink" href="#quick-navigation" title="Permanent link">&para;</a></h2>
+<p><strong>"The backend says it can't find the script."</strong> → <a href="01_entry_points.html#how-the-backend-resolves-this-directory">01 — Entry Points</a>.</p>
+<p><strong>"I added a recipe and the model type is broken."</strong> → <a href="02_recipe_catalog.html#adding-a-model-type-what-you-actually-have-to-wire">02 — Recipe Catalog</a>.</p>
+<p><strong>"The frozen arm trained the whole model."</strong> → <a href="03_training_arms.html#four-defects-only-a-live-federation-found">03 — Training Arms</a>.</p>
+<p><strong>"A BatchNorm model dies on the first <code>GetGlobalModel</code>."</strong> → <a href="04_the_federated_set.html#the-non-float32-exclusion">04 — The Federated Set</a>.</p>
+<p><strong>"CI failed on a skipped test."</strong> → <a href="05_testing.html#te-10-a-skipped-test-fails-the-job">05 — Testing &amp; CI</a>.</p>
+<hr />
+<h2 id="directory-at-a-glance">Directory At A Glance<a class="headerlink" href="#directory-at-a-glance" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>fl-runtime/
+├── client.py               ← THE canonical FL client (DA-5). 1328 lines.
+├── fl_server.py            ← FL aggregation-server entry point. 1219 lines.
+├── fl_fot_server.py        ← Federation-over-Text server entry point (separate path)
+├── init_model.py           ← Builds + saves the run&#39;s initial .npz weights
+├── infer.py                ← Single-input inference on a trained .npz
+├── recipes.py              ← THE recipe catalog + training-arm authority. 1491 lines.
+├── benchmarks.py           ← Metric-computation core (shared online + offline)
+├── data.py                 ← Server-side test-data loading (LLM path + CNN delegate)
+├── config.py               ← Dataset / DeComFL hyperparameter dataclasses
+├── device.py               ← --device resolution (auto → cuda &gt; mps &gt; cpu)
+├── models.py               ← CnnNet (the canonical CIFAR-10 CNN)
+├── arm_tradeoff.json       ← Generated per-recipe measured arm trade-off (picker copy)
+│
+├── run_fl_server.sh/.bat   ← Cross-platform wrappers. The backend invokes THESE,
+├── run_init_model.sh/.bat     not the .py files, so one Java code path works on
+├── run_recipes.sh             macOS / Linux / Windows.
+├── run_infer.sh
+├── run_fot_server.sh
+├── run_benchmark.sh
+├── run_clients.sh          ← Developer convenience: spawn N clients in terminals
+│
+├── models/                 ← ecg_mlp.py (ECGModel)
+├── data_loaders/           ← ecg_loader.py
+├── architecture/           ← legacy cnn/ package (superseded by models.CnnNet)
+├── ecg_data/               ← ecg.csv (the hardcoded MLP dataset path)
+│
+├── pytest.ini              ← addopts = -m &quot;not slow&quot;
+└── tests/                  ← 40 test files, 287 tests (259 selected, 28 slow)
+</code></pre></div>
+
+<hr />
+<h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Run the suite exactly as CI does (pytest.ini deselects -m slow)</span>
+<span class="nb">cd</span><span class="w"> </span>fl-runtime<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q
+
+<span class="c1"># Reproduce CI&#39;s skip-integrity gate locally (TE-10)</span>
+<span class="nb">cd</span><span class="w"> </span>fl-runtime<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">FEDLEARN_FAIL_ON_UNEXPECTED_SKIP</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q
+
+<span class="c1"># Print the recipe catalog the backend serves at GET /api/model-recipes</span>
+bash<span class="w"> </span>fl-runtime/run_recipes.sh<span class="w"> </span>--describe<span class="w"> </span><span class="p">|</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>json.tool
+
+<span class="c1"># Start an FL server by hand (what the backend does, minus the env plumbing)</span>
+bash<span class="w"> </span>fl-runtime/run_fl_server.sh<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--project-id<span class="w"> </span>&lt;uuid&gt;<span class="w"> </span>--model-path<span class="w"> </span>/tmp/run.npz<span class="w"> </span>--port<span class="w"> </span><span class="m">50051</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--model-type<span class="w"> </span>CIFAR_RESNET18<span class="w"> </span>--model-name<span class="w"> </span>resnet18<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--strategy<span class="w"> </span>FedAvg<span class="w"> </span>--num-rounds<span class="w"> </span><span class="m">3</span><span class="w"> </span>--min-clients<span class="w"> </span><span class="m">2</span><span class="w"> </span>--training-arm<span class="w"> </span>FROZEN_HEAD
+
+<span class="c1"># Join it as a client</span>
+python<span class="w"> </span>fl-runtime/client.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--project-id<span class="w"> </span>&lt;uuid&gt;<span class="w"> </span>--server-address<span class="w"> </span>localhost:50051<span class="w"> </span>--partition-id<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--model-type<span class="w"> </span>CIFAR_RESNET18<span class="w"> </span>--training-arm<span class="w"> </span>FROZEN_HEAD
+</code></pre></div>
+
+<p><code>FEDLEARN_PYTHON</code> overrides the interpreter every <code>run_*.sh</code> wrapper uses (default <code>python3</code>) — except the dev-only <code>run_clients.sh</code>, which calls a bare <code>python</code> from a sourced venv.</p>
+<hr />
+<h2 id="related-wikis">Related Wikis<a class="headerlink" href="#related-wikis" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../framework/README.html">Framework Wiki</a> — the <code>fedlearn</code> library this layer imports; coordinator, strategies, the safetensors wire</li>
+<li><a href="../backend/04_federated_orchestration.html">Backend: Federated Orchestration</a> — the Java side of the spawn contract described in <a href="01_entry_points.html">01</a></li>
+<li><a href="../backend/07_artifact_registry.html">Backend: Artifact Registry</a> — where <code>fl_server.py</code>'s final model and eval card land</li>
+<li><a href="../client-docker/README.html">Client (Docker) Wiki</a> — packages this directory alongside <code>framework/</code></li>
+<li><a href="../desktop/README.html">Desktop Wiki</a> — launches <code>client.py</code>, natively or in a container</li>
+<li><a href="../VERSIONS.html"><code>VERSIONS.md</code></a> — per-unit release versions</li>
+</ul></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

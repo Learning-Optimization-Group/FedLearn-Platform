@@ -10,7 +10,21 @@ The application has **one** supported execution path: the FL server runs as a **
 
 ### Process Lifecycle
 1. **Port Allocation:** The manager scans the configured port range — `fl.server.port-range.start`/`.end`, defaulting to **50000–50010** — and reserves the first port it can actually bind with a probe `ServerSocket`. Reserved ports are tracked in a set guarded by a lock, so two concurrent project starts cannot pick the same port between probe-close and the Python child's bind.
-2. **Command Construction:** It builds a command array around the FL-server shell wrapper, resolved from `python.script.fl-server.path` (default `../../fl-runtime/run_fl_server.sh`; `.bat` on Windows). Federation over Text (FoT) selects its own wrapper, `python.script.fot-server.path`. The wrapper indirection is what lets the same Java code work on macOS, Linux, and Windows.
+2. **Command Construction:** It builds a command array around the FL-server shell wrapper, resolved from `python.script.fl-server.path` (default `../../fl-runtime/run_fl_server.sh`; `.bat` on Windows). Federation over Text (FoT) selects its own wrapper, `python.script.fot-server.path` (a `@Value` default in the manager — it is not declared in `application.properties`). The wrapper indirection is what lets the same Java code work on macOS, Linux, and Windows.
+
+   Three conditional flag groups hang off the project's own configuration:
+   - **`--training-arm <ARM>`**, emitted **only when the project's arm is not `FULL`**. That
+     asymmetry is deliberate: every pre-arm spawn's argv stays byte-identical to what it was, and
+     both `fl_server.py` and `client.py` resolve an omitted arm to `FULL`. Whether the *recipe*
+     supports the arm is validated by `recipes.validate_arm()` on the Python side — the catalog is
+     the authority; the `TrainingArm` enum and the `V22`/`V23` CHECK only bound the vocabulary on
+     this side. See [03 - Project Management Lifecycle](03_project_management.md).
+   - **`--aggregation FFA_LORA --task-type <…>`** for `LLM_LORA` projects.
+   - **the `--dp-*` group** when DP is enabled (SE-11). The flag names are a pinned contract with
+     `fl_server.py`'s argparse. Creation already validated completeness, but the spawn seam
+     re-checks so a null knob can never reach the argv as the literal string `"null"`
+     (SE-10 fail-closed); every value is a typed number formatted with `String.valueOf`, never a
+     raw string.
 3. **Environment Construction:** The child environment is **rebuilt from an allowlist** rather than inherited (SE-17), so no backend secret — DB password, web-auth JWT secret, CORS config — reaches the FL server. Only OS/runtime essentials plus the `FEDLEARN_*` namespace survive; the manager then sets the explicit per-run variables:
    ```java
    env.keySet().removeIf(key -> !isAllowedChildEnvKey(key));
@@ -20,7 +34,38 @@ The application has **one** supported execution path: the FL server runs as a **
    ```
    The per-run token (SE-7) is minted fresh for each start and is the only credential the child can present on `/api/internal/**` — a leaked run token can mutate only its own project. TLS enforcement (SE-2) and client-auth enforcement (SE-1/SE-7) are passed as explicit toggles, both off by default.
 4. **Execution and Tracking:** The runner starts the process and returns a `SpawnedFlProcess`. The manager stores `process.toHandle()` in a `ConcurrentHashMap<UUID, ProcessHandle>` keyed by the `projectId` — a `ProcessHandle` rather than a `Process` because a restarted JVM can only ever re-adopt a *handle* to a child that outlived a backend crash (BA-3).
-5. **Identity Persistence:** The child's PID, start instant, reserved port, and run-token hash are recorded on the active `Run` (BA-3), so a startup reconciler can distinguish a still-live FL server from a dead — or PID-reused — one. If that persistence fails, the spawn **fails closed**: the child is killed rather than left as an unreconcilable orphan.
+5. **Identity Persistence:** The child's PID, start instant, reserved port, and run-token hash are recorded on the active `Run` (BA-3, migrations `V15`/`V16`), so a startup reconciler can distinguish a still-live FL server from a dead — or PID-reused — one. If that persistence fails, the spawn **fails closed**: the child is killed rather than left as an unreconcilable orphan.
+
+### Crash recovery: `StartupReconciler` (BA-3)
+
+The in-memory `ConcurrentHashMap` is lost when the JVM dies, so a backend crash would otherwise orphan
+every FL server: the children keep running and holding gRPC ports while their runs sit forever in a
+non-terminal state with no handle to stop them. `bootstrap/StartupReconciler` closes that on boot. For
+each still-in-flight run it compares the recorded PID **and** the recorded OS start instant against
+the live process table (`ProcessProbe`), then either:
+
+- **re-adopts** the run — PID live *and* start instant matches, so the server genuinely survived the
+  restart. It is tracked again (a later `/stop` can terminate it) and its internal token is rehydrated
+  into `RunTokenRegistry` from `runs.internal_token_hash` so its result callbacks keep authenticating;
+  or
+- **reaps** it — the process is dead, the PID was never recorded, or the live PID belongs to a
+  *different* process (PID reuse). The run is reset to `FAILED` and the project returns to idle. A
+  PID-reused process is never killed: it is not ours, and our own server is already gone with its port
+  already free.
+
+Pairing the start instant with the PID is what makes PID reuse safe to detect; a recycled PID on an
+unrelated process cannot share the original's start time. Reconciliation never throws out of its
+runner — a failure here must not stop the application booting — and the last pass's summary is
+exposed as an actuator health-indicator detail.
+
+Boot reconciliation only fires once, so the same class carries a **periodic stuck-run sweep**
+(`app.fl.stuck-run-sweep.interval-ms`, default 60 s, flag-gated and fail-soft) for the other half of
+the problem: an FL server that dies while the *backend* stays up skips the terminal callback and
+leaves its run `RUNNING` forever. The sweep uses a **two-pass debounce** — a `RUNNING` run whose child
+is no longer tracked is reaped only if it was also untracked on the previous pass — so a run that is
+merely mid-completion or mid-stop settles to its terminal status first and a `FAILED` verdict cannot
+clobber a `COMPLETED` one. Only `RUNNING` is swept; `PENDING`/`STARTING` runs are legitimately
+mid-launch (a slow LLM start can sit in `STARTING` for minutes).
 
 ### Output Redirection
 Because a spawned local process does not automatically print to the parent's console, the manager creates a dedicated daemon thread `fl-server-stdout-{id}`. This thread continuously reads from the child's `InputStream`.

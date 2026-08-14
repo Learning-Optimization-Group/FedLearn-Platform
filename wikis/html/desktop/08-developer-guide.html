@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group" open>
 <summary>Desktop</summary><ul>
@@ -114,31 +123,34 @@
 <tbody>
 <tr>
 <td>Node.js</td>
-<td>20.x LTS</td>
+<td><strong>24</strong> (<code>.nvmrc</code> → <code>24</code>; <code>.tool-versions</code> → <code>nodejs 24.4.0</code>; CI runs 24)</td>
 <td>Runtime for Electron and webpack</td>
 </tr>
 <tr>
 <td>npm</td>
-<td>10.x</td>
+<td>ships with Node 24</td>
 <td>Package management</td>
 </tr>
 <tr>
 <td>TypeScript</td>
-<td>5.7.x (pinned in devDeps)</td>
+<td>5.7.3 (pinned in devDeps)</td>
 <td>Type checking</td>
 </tr>
 <tr>
-<td>Docker Desktop</td>
+<td>Docker Engine / Desktop</td>
 <td>Latest</td>
-<td>Jetson profile testing</td>
+<td><strong>Jetson profile only</strong></td>
 </tr>
 <tr>
 <td>Python</td>
-<td>3.10+</td>
+<td>3.10+ floor; the repo pins <strong>3.12.9</strong></td>
 <td>Dev-mode native client fallback</td>
 </tr>
 </tbody>
 </table>
+<blockquote>
+<p>The repo-wide pins are <code>.tool-versions</code> + <code>.nvmrc</code>, and <code>ci.yml</code>'s desktop job matches them (Node 24). Note <code>release-desktop.yml</code> currently sets <code>NODE_VERSION: '22'</code> and <code>PYTHON_VERSION: '3.11'</code> — the release path does not match the test path. Any doc claiming "Node.js 18+" or "Node 20" for this unit is stale.</p>
+</blockquote>
 <h3 id="platform-specific-prerequisites">Platform-Specific Prerequisites<a class="headerlink" href="#platform-specific-prerequisites" title="Permanent link">&para;</a></h3>
 <p><strong>macOS:</strong></p>
 <div class="codehilite"><pre><span></span><code><span class="c1"># Xcode Command Line Tools (for native module compilation)</span>
@@ -204,12 +216,19 @@ npm<span class="w"> </span>run<span class="w"> </span>build:main<span class="w">
 npm<span class="w"> </span>run<span class="w"> </span>build:preload<span class="w">   </span><span class="c1"># Preload only</span>
 npm<span class="w"> </span>run<span class="w"> </span>build:renderer<span class="w">  </span><span class="c1"># Renderer only</span>
 
-<span class="c1"># Package distributable</span>
+<span class="c1"># Quality gates (what CI runs)</span>
+npm<span class="w"> </span>run<span class="w"> </span>lint<span class="w">            </span><span class="c1"># ESLint 9 flat config — CI-gated</span>
+npm<span class="w"> </span><span class="nb">test</span><span class="w">                </span><span class="c1"># jest</span>
+npm<span class="w"> </span>run<span class="w"> </span>test:coverage<span class="w">   </span><span class="c1"># jest --coverage; coverageThreshold from jest.config.js — CI-gated</span>
+npx<span class="w"> </span>tsc<span class="w"> </span>--noEmit<span class="w">        </span><span class="c1"># NOT gated in CI for this unit — run it yourself</span>
+
+<span class="c1"># Package distributable (each runs the native-bundle preflight, then build, then electron-builder)</span>
+npm<span class="w"> </span>run<span class="w"> </span>check:bundle<span class="w">    </span><span class="c1"># Preflight on its own</span>
 npm<span class="w"> </span>run<span class="w"> </span>package<span class="w">         </span><span class="c1"># Current platform, auto-detected</span>
-npm<span class="w"> </span>run<span class="w"> </span>package:mac<span class="w">     </span><span class="c1"># macOS DMG (arm64 + x64)</span>
-npm<span class="w"> </span>run<span class="w"> </span>package:linux<span class="w">   </span><span class="c1"># Linux AppImage + deb</span>
-npm<span class="w"> </span>run<span class="w"> </span>package:win:cpu<span class="w">   </span><span class="c1"># Windows NSIS (CPU variant)</span>
-npm<span class="w"> </span>run<span class="w"> </span>package:win:cuda<span class="w">  </span><span class="c1"># Windows NSIS (CUDA variant)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:mac<span class="w">     </span><span class="c1"># macOS DMG + zip (arm64 only)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:linux<span class="w">   </span><span class="c1"># Linux AppImage + deb (x64 + arm64)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:win:cpu<span class="w">   </span><span class="c1"># Windows NSIS (CPU client bundle)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:win:cuda<span class="w">  </span><span class="c1"># Windows NSIS (CUDA client bundle)</span>
 </code></pre></div>
 
 <hr />
@@ -217,18 +236,54 @@ npm<span class="w"> </span>run<span class="w"> </span>package:win:cuda<span clas
 <h3 id="file-organization">File Organization<a class="headerlink" href="#file-organization" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code>src/main/      → Main Process only. Node.js APIs allowed.
                → No React, no DOM.
-               → All Docker, auth, and hardware logic lives here.
+               → All Docker, auth, backend HTTP and hardware logic lives here.
+               → validators.ts must stay electron-free (it is imported by jest).
 
 src/preload/   → Security boundary. One file only.
                → No Node.js APIs (sandbox mode).
                → Validation + contextBridge only.
                → No business logic.
 
+src/shared/    → Imported by BOTH processes AND by jest.
+               → No electron, no node-only APIs that the renderer lacks.
+               → urlSecurity, evaluateEligibility, deviceCapabilities.types,
+                 bundleVariants (the last is also loaded by a plain-node script).
+
 src/renderer/  → Renderer only. No Node.js.
-               → Only access backend via window.fedLearnAPI.
+               → Only reach the backend via window.fedLearnAPI.
                → All UI components and React state here.
+               → tokens.css is GENERATED — never hand-edit it.
 </code></pre></div>
 
+<h3 id="keep-renderer-logic-pure-where-you-can">Keep renderer logic pure where you can<a class="headerlink" href="#keep-renderer-logic-pure-where-you-can" title="Permanent link">&para;</a></h3>
+<p>The jest suite runs in a <strong><code>node</code> environment with no jsdom/RTL harness</strong>, so <code>.tsx</code> components are effectively untestable here (<code>jest.config.js</code> says so explicitly, and excludes them from coverage). The established pattern is to extract the logic:</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Pure module</th>
+<th>What moved out</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TrainSection.tsx</code></td>
+<td><code>trainFlow.ts</code></td>
+<td>phase derivation, readiness rules, formatters</td>
+</tr>
+<tr>
+<td><code>LogPanel.tsx</code></td>
+<td><code>logView.ts</code></td>
+<td>incremental line cache, filtering, time formatting</td>
+</tr>
+<tr>
+<td><code>TrainSection.tsx</code></td>
+<td><code>runNotifications.ts</code></td>
+<td>run-transition classification + notification</td>
+</tr>
+</tbody>
+</table>
+<p>New renderer logic that can be a pure function should be one.</p>
 <h3 id="naming-conventions">Naming Conventions<a class="headerlink" href="#naming-conventions" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -434,8 +489,9 @@ src/renderer/  → Renderer only. No Node.js.
 <div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">ALLOWED_HARDWARE_PROFILES</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;discrete&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;amd-rocm&#39;</span><span class="p">]</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kd">const</span><span class="p">;</span>
 </code></pre></div>
 
-<p><strong><code>ipc.handlers.ts</code>:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">ALLOWED_HARDWARE_PROFILES</span><span class="o">:</span><span class="w"> </span><span class="kt">ReadonlySet</span><span class="o">&lt;</span><span class="kt">string</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Set</span><span class="p">([</span><span class="s1">&#39;discrete&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;amd-rocm&#39;</span><span class="p">]);</span>
+<p><strong><code>validators.ts</code></strong> (this moved out of <code>ipc.handlers.ts</code>):</p>
+<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">ALLOWED_HARDWARE_PROFILES</span><span class="o">:</span><span class="w"> </span><span class="kt">ReadonlySet</span><span class="o">&lt;</span><span class="kt">string</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span>
+<span class="w">  </span><span class="ow">new</span><span class="w"> </span><span class="nb">Set</span><span class="p">([</span><span class="s1">&#39;discrete&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;amd-rocm&#39;</span><span class="p">]);</span>
 </code></pre></div>
 
 <p><strong><code>docker.service.ts</code>:</strong></p>
@@ -457,6 +513,7 @@ src/renderer/  → Renderer only. No Node.js.
 </code></pre></div>
 
 <h3 id="3-add-the-hostconfig-case-in-startdockertraining">3. Add the HostConfig case in <code>startDockerTraining()</code><a class="headerlink" href="#3-add-the-hostconfig-case-in-startdockertraining" title="Permanent link">&para;</a></h3>
+<p>Only if the profile actually uses Docker. The switch's <code>default</code> branch now <strong>throws</strong> for any non-<code>jetson</code> profile, so a Docker-path profile that isn't handled fails loudly instead of silently building a container.</p>
 <div class="codehilite"><pre><span></span><code><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="s1">&#39;amd-rocm&#39;</span><span class="o">:</span>
 <span class="w">    </span><span class="c1">// ROCm requires /dev/kfd and /dev/dri</span>
@@ -470,18 +527,19 @@ src/renderer/  → Renderer only. No Node.js.
 </code></pre></div>
 
 <h3 id="4-add-the-profile-card-to-hardwareselectortsx">4. Add the profile card to <code>HardwareSelector.tsx</code><a class="headerlink" href="#4-add-the-profile-card-to-hardwareselectortsx" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">HARDWARE_PROFILES</span><span class="o">:</span><span class="w"> </span><span class="kt">HardwareProfileOption</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">HARDWARE_PROFILES</span><span class="o">:</span><span class="w"> </span><span class="kt">HardwareProfileOption</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
 <span class="w">  </span><span class="c1">// ... existing profiles</span>
 <span class="w">  </span><span class="p">{</span>
 <span class="w">    </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;amd-rocm&#39;</span><span class="p">,</span>
 <span class="w">    </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;AMD GPU (ROCm)&#39;</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">description</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;AMD Radeon GPU with ROCm compute stack.&#39;</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">icon</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;🔴&#39;</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">dockerConfig</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Devices: /dev/kfd, /dev/dri&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">description</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;AMD Radeon GPU with ROCm compute stack. Runs in a Docker container.&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">icon</span><span class="o">:</span><span class="w"> </span><span class="kt">Cpu</span><span class="p">,</span><span class="w">                                    </span><span class="c1">// a lucide component, NOT an emoji string</span>
+<span class="w">    </span><span class="nx">dockerConfig</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Docker container (/dev/kfd, /dev/dri)&#39;</span><span class="p">,</span>
 <span class="w">  </span><span class="p">},</span>
 <span class="p">];</span>
 </code></pre></div>
 
+<p><code>dockerConfig</code> must state how the profile <strong>actually</strong> executes — the <code>discrete</code> card claimed <code>--gpus all</code> for a long time while the code ran the native client, and <code>2b02173</code> had to correct both together. <code>icon</code> is a lucide component reference since <code>74cda60</code> replaced the emoji set.</p>
 <h3 id="5-update-hardware-detection-if-applicable">5. Update hardware detection if applicable<a class="headerlink" href="#5-update-hardware-detection-if-applicable" title="Permanent link">&para;</a></h3>
 <p>Update <code>hardware.probe.ts</code> to detect AMD GPUs and set <code>recommendedProfile = 'amd-rocm'</code> when appropriate.</p>
 <hr />
@@ -537,15 +595,54 @@ docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </spa
 
 <hr />
 <h2 id="testing-strategy">Testing Strategy<a class="headerlink" href="#testing-strategy" title="Permanent link">&para;</a></h2>
-<p>FedLearn Desktop does not currently have an automated test suite. The following manual testing checklist should be verified before each release:</p>
+<p>FedLearn Desktop <strong>does</strong> have an automated test suite, and it is CI-gated. Any claim that it doesn't is stale.</p>
+<h3 id="the-jest-suite">The jest suite<a class="headerlink" href="#the-jest-suite" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>npm<span class="w"> </span><span class="nb">test</span><span class="w">               </span><span class="c1"># jest</span>
+npm<span class="w"> </span>run<span class="w"> </span>test:coverage<span class="w">  </span><span class="c1"># jest --coverage — what CI runs</span>
+</code></pre></div>
+
+<p><code>jest.config.js</code>: <code>ts-jest</code> preset, <strong><code>testEnvironment: 'node'</code></strong>, <code>testMatch: **/__tests__/**/*.test.ts</code>, using <code>tsconfig.test.json</code>. Electron and its friends are stubbed by <code>moduleNameMapper</code> → <code>src/__mocks__/</code> (<code>electron</code>, <code>electron-log</code>, <code>electron-store</code> — an in-memory <code>Map</code> so <code>AuthService</code> needs no disk I/O — plus a CSS stub so <code>.tsx</code> files can at least be imported).</p>
+<p>22 suites live in <code>src/__tests__/</code>, covering: <code>validators</code>, <code>serverUrl</code>, <code>docker-service</code> (Jetson mounts, <code>getStatus</code>, native argv), <code>auth.service</code>, <code>httpAuthInterceptor</code>, <code>nativeClientHeader</code>, <code>clientAuthEnv</code>, <code>trainingArmPropagation</code>, <code>client-projects.service</code>, <code>datasetConsent</code>, <code>deviceCapabilities.collector</code>, <code>evaluateEligibility</code>, <code>bundleVariants</code>, <code>generateChecksums</code>, <code>updater</code>, <code>renderer-csp</code>, <code>webpack-app-version</code>, <code>trainFlow</code>, <code>logView</code>, <code>runNotifications</code>, <code>sectionsRender</code>, <code>appTrainWiring</code>.</p>
+<p>Two structural limits worth knowing before you rely on a green run:</p>
+<ul>
+<li><strong>No jsdom/RTL harness.</strong> <code>.tsx</code> components are excluded from coverage by design and are only exercised indirectly. A component-level regression will not be caught here.</li>
+<li><strong>The suite tests functions, not wiring.</strong> <code>trainingArmPropagation.test.ts</code> calls <code>buildContainerEnv</code> and the argv builder directly and passes — while the value never reaches them in the running app, because it is dropped at the preload bridge. If you are adding a field that crosses IPC, a unit test on the receiving function is not evidence that it arrives.</li>
+</ul>
+<h3 id="coverage-gate-te-11">Coverage gate (TE-11)<a class="headerlink" href="#coverage-gate-te-11" title="Permanent link">&para;</a></h3>
+<p><code>jest.config.js</code> sets a <strong>modest regression floor</strong>, a few points under the measured baseline (stmts 36.7 / branch 35.0 / funcs 28.9 / lines 36.7):</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">coverageThreshold</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nb">global</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">statements</span><span class="o">:</span><span class="w"> </span><span class="mf">33</span><span class="p">,</span><span class="w"> </span><span class="nx">branches</span><span class="o">:</span><span class="w"> </span><span class="mf">31</span><span class="p">,</span><span class="w"> </span><span class="nx">functions</span><span class="o">:</span><span class="w"> </span><span class="mf">25</span><span class="p">,</span><span class="w"> </span><span class="nx">lines</span><span class="o">:</span><span class="w"> </span><span class="mf">33</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span>
+</code></pre></div>
+
+<p>It guards against regressions rather than demanding a target. <code>collectCoverageFrom</code> is <code>src/**/*.ts</code> only — <code>.tsx</code> excluded for the reason above.</p>
+<h3 id="anti-rot-gate-te-10">Anti-rot gate (TE-10)<a class="headerlink" href="#anti-rot-gate-te-10" title="Permanent link">&para;</a></h3>
+<p>CI runs <code>scripts/check_no_skipped_tests.sh fedlearn-desktop</code> <strong>before</strong> installing. Jest has no forbid-skip switch, so the script statically rejects <code>.skip</code> / <code>.only</code> / <code>xit</code> / <code>fit</code> and friends — a skipped test cannot ride a green run.</p>
+<h3 id="what-ci-actually-runs">What CI actually runs<a class="headerlink" href="#what-ci-actually-runs" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bash scripts/check_no_skipped_tests.sh fedlearn-desktop</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">npm ci &amp;&amp; npm run lint &amp;&amp; npm run test:coverage</span>
+</code></pre></div>
+
+<p>That's the whole gate. In particular:</p>
+<ul>
+<li><strong>No <code>tsc --noEmit</code>.</strong> <code>frontend/</code> and <code>mobile_client/</code> both have one; this unit does not. Types are checked only incidentally by <code>ts-loader</code> (at build time, which CI never runs for this unit) and by <code>ts-jest</code> on test-reachable sources. Run <code>npx tsc --noEmit</code> yourself.</li>
+<li><strong>No <code>npm run build</code>.</strong> A webpack-level breakage lands green.</li>
+<li><strong>No <code>npm audit</code>.</strong> See <a href="02-security-model.html#dependency-vulnerability-posture">02 → Dependency Vulnerability Posture</a>.</li>
+</ul>
+<p>A separate, <strong>unfiltered</strong> job runs <code>scripts/check_design_tokens.sh</code>, so a hand-edit of the generated <code>src/renderer/tokens.css</code> fails the build no matter which unit changed.</p>
+<h3 id="manual-checklist">Manual checklist<a class="headerlink" href="#manual-checklist" title="Permanent link">&para;</a></h3>
+<p>The suite does not cover the end-to-end flows, so verify these by hand before each release:</p>
 <h3 id="authentication-tests">Authentication Tests<a class="headerlink" href="#authentication-tests" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code>[ ] Login with valid credentials → dashboard appears
+<div class="codehilite"><pre><span></span><code>[ ] Login with valid credentials → shell appears
 [ ] Login with invalid credentials → error message shown
 [ ] Login with unreachable server → connection failed error
 [ ] Logout → auth modal reappears
 [ ] App restart → auto-login via saved JWT (if keychain available)
 [ ] JWT expiry (24h) → re-auth required on next launch
 [ ] Settings: change server URL → new URL persisted after restart
+[ ] Settings: change server URL → CURRENT SESSION IS CLEARED and the login screen returns
+[ ] Remote http:// URL → refused with the plaintext warning; &quot;Use HTTP anyway&quot; accepts it and keeps the warning
+[ ] Loopback http://localhost URL → accepted with no warning
+[ ] &quot;Save password&quot; ticked → credentials pre-filled on next launch; unticked → form empty
+[ ] Force a 401 mid-session (revoke server-side) → app returns to the login screen, not an opaque error
 </code></pre></div>
 
 <h3 id="training-tests-native-path">Training Tests (Native Path)<a class="headerlink" href="#training-tests-native-path" title="Permanent link">&para;</a></h3>
@@ -561,28 +658,38 @@ docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </spa
 </code></pre></div>
 
 <h3 id="training-tests-docker-path-jetson">Training Tests (Docker Path — Jetson)<a class="headerlink" href="#training-tests-docker-path-jetson" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code>[ ] Docker not running → warning banner appears
+<div class="codehilite"><pre><span></span><code>[ ] Docker not running + Jetson profile → actionable error in the log panel
+    (NOT a startup banner — the eager ping was removed)
+[ ] Non-Jetson profile + Docker not running → no Docker mention anywhere
 [ ] Jetson profile + Docker running + image exists → container starts
-[ ] Jetson profile + image missing → helpful error in log panel
+[ ] Jetson profile + image missing → helpful error naming the build command
 [ ] Stop training → container removed
-[ ] Start training twice → old container cleaned up before new one starts
+[ ] Start training twice → old container cleaned up before the new one starts
+[ ] Quit mid-run → container is stopped and removed, not orphaned (before-quit drain)
 </code></pre></div>
 
 <h3 id="security-tests">Security Tests<a class="headerlink" href="#security-tests" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code>[ ] Renderer cannot access Node.js: typeof require === &#39;undefined&#39; in DevTools
 [ ] window.fedLearnAPI is the only bridge: no other Node APIs on window
-[ ] Dataset path with ../.. → rejected by ipc.handlers.ts
-[ ] Hardware profile &#39;invalid&#39; → rejected at preload + ipc.handlers
+[ ] Dataset path with ../.. → rejected by sanitizeDatasetPath
+[ ] A valid directory NOT chosen via the dialog → rejected by the consent allowlist
+[ ] Hardware profile &#39;invalid&#39; → rejected at preload AND at ipc.handlers
+[ ] trainingArm &#39;BOGUS&#39; → start FAILS with a message (never silently downgraded to FULL)
 [ ] Log output containing &lt;script&gt; tags → rendered as plain text, not executed
+[ ] Packaged build: no &#39;unsafe-eval&#39; and no &#39;unsafe-inline&#39; style-src in the shipped &lt;meta&gt; CSP
+[ ] Packaged build: console.* stripped from the renderer and preload bundles
 </code></pre></div>
 
 <h3 id="packaging-tests">Packaging Tests<a class="headerlink" href="#packaging-tests" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code>[ ] Build completes without errors: npm run build
+<div class="codehilite"><pre><span></span><code>[ ] Preflight fails loudly when the native bundle is absent: npm run check:bundle
+[ ] Type check is clean (CI will NOT do this for you): npx tsc --noEmit
+[ ] Build completes without errors: npm run build
 [ ] Package completes: npm run package:mac (or platform equivalent)
 [ ] Produced DMG/EXE can be installed and launched
-[ ] App loads from packaged file:// origin (not localhost)
+[ ] App loads from the packaged file:// origin (not localhost)
 [ ] JWT auth works in packaged mode
 [ ] Native bundle is found at &lt;resources&gt;/fedlearn-client/
+[ ] release/SHA256SUMS.txt exists and covers every installer artifact
 </code></pre></div>
 
 <hr />
@@ -614,23 +721,41 @@ docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </spa
 </code></pre></div>
 
 <h3 id="3-modifying-allowed_hardware_profiles-in-only-one-place">3. Modifying <code>ALLOWED_HARDWARE_PROFILES</code> in Only One Place<a class="headerlink" href="#3-modifying-allowed_hardware_profiles-in-only-one-place" title="Permanent link">&para;</a></h3>
-<p>The allowlist is defined separately in <code>preload.ts</code> and <code>ipc.handlers.ts</code>. If you add a new profile to one but not the other, calls will be rejected at the second validation layer with no obvious error message.</p>
-<h3 id="4-forgetting-pythonunbuffered1">4. Forgetting <code>PYTHONUNBUFFERED=1</code><a class="headerlink" href="#4-forgetting-pythonunbuffered1" title="Permanent link">&para;</a></h3>
-<p>Without this env var, Python buffers stdout when not connected to a TTY. Real-time logs will appear only after the buffer fills (8KB by default) or the process ends. The app sets this automatically, but if you spawn a Python process manually for testing, remember to add it.</p>
-<h3 id="5-using-runtime-nvidia-on-jetson">5. Using <code>--runtime nvidia</code> on Jetson<a class="headerlink" href="#5-using-runtime-nvidia-on-jetson" title="Permanent link">&para;</a></h3>
-<p>This is explicitly documented in the code but still a common mistake when working with Docker + NVIDIA:</p>
-<div class="codehilite"><pre><span></span><code><span class="c1">// ❌ WRONG for Jetson — hangs indefinitely</span>
-<span class="nx">hostConfig</span><span class="p">.</span><span class="nx">Runtime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;nvidia&#39;</span><span class="p">;</span>
+<p>The allowlist is defined separately in <code>preload.ts</code> and <code>validators.ts</code>. If you add a new profile to one but not the other, calls are rejected at the second validation layer with no obvious error message. The <code>HardwareProfile</code> union in <code>docker.service.ts</code> is a third copy.</p>
+<h3 id="3a-adding-a-field-to-trainingconfiginput-without-adding-it-to-the-invoke-payload">3a. Adding a Field to <code>TrainingConfigInput</code> Without Adding It to the Invoke Payload<a class="headerlink" href="#3a-adding-a-field-to-trainingconfiginput-without-adding-it-to-the-invoke-payload" title="Permanent link">&para;</a></h3>
+<p>The single most repeatable bug in this codebase's IPC layer, and it type-checks perfectly at every layer.</p>
+<p><code>preload.ts</code>'s <code>startTraining</code> deliberately <strong>reconstructs</strong> the object it forwards rather than spreading <code>config</code>, so an unexpected renderer property cannot ride along. The cost is that a <em>new</em> field must be added in two places, not one:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">TrainingConfigInput</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="err">…</span>
+<span class="w">  </span><span class="nx">trainingArm?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">        </span><span class="c1">// ← added here…</span>
+<span class="p">}</span>
 
-<span class="c1">// ✅ CORRECT for Jetson</span>
-<span class="nx">hostConfig</span><span class="p">.</span><span class="nx">Devices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">JETSON_DEVICE_MOUNTS</span><span class="p">;</span>
+<span class="k">return</span><span class="w"> </span><span class="nx">ipcRenderer</span><span class="p">.</span><span class="nx">invoke</span><span class="p">(</span><span class="s1">&#39;docker:start-training&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="err">…</span>
+<span class="w">  </span><span class="nx">strategy</span><span class="o">:</span><span class="w"> </span><span class="kt">config.strategy</span><span class="p">,</span>
+<span class="w">  </span><span class="c1">// …and NOT added here ⇒ silently dropped at the bridge.</span>
+<span class="p">});</span>
 </code></pre></div>
 
+<p><code>trainingArm</code> is in this state today: declared on the interface, typed in <code>App.tsx</code>, populated by <code>TrainSection</code>, validated and consumed in Main — and never forwarded, so <code>--training-arm</code> / <code>TRAINING_ARM</code> is never emitted. A green suite proves nothing here, because the tests call the receiving functions directly. <strong>Grep the invoke object, not the interface.</strong></p>
+<h3 id="4-forgetting-pythonunbuffered1">4. Forgetting <code>PYTHONUNBUFFERED=1</code><a class="headerlink" href="#4-forgetting-pythonunbuffered1" title="Permanent link">&para;</a></h3>
+<p>Without this env var, Python buffers stdout when not connected to a TTY. Real-time logs will appear only after the buffer fills (8KB by default) or the process ends. The app sets this automatically, but if you spawn a Python process manually for testing, remember to add it.</p>
+<h3 id="5-trusting-the-jetson-runtime-nvidia-comment">5. Trusting the Jetson <code>--runtime nvidia</code> Comment<a class="headerlink" href="#5-trusting-the-jetson-runtime-nvidia-comment" title="Permanent link">&para;</a></h3>
+<p><code>docker.service.ts</code> states that <code>--runtime nvidia</code> is "PROHIBITED on Jetson" because it hangs. <strong>That was measured wrong on JetPack 6 and the ban is withdrawn.</strong> On an AGX Orin at L4T R36.5.0 / JetPack 6.2, <code>docker run --runtime nvidia</code> worked (7.9 s, <code>torch.cuda.is_available()</code> True) while the device-mount path without it failed with <code>cuInit → 801</code> and a segfault — and <code>/dev/nvhost-ctrl</code>, the first entry in <code>JETSON_DEVICE_MOUNTS</code>, does not even exist on that L4T, which makes Docker hard-error.</p>
+<p>The original hang was plausibly real on the JetPack 5 / <code>nvidia-container-runtime</code> the comment was written against, but that was <strong>not</strong> re-tested (no JetPack 5 hardware available) — treat it as inference. What is measured is that the ban does not hold on JetPack 6.</p>
+<p>Do not "fix" either the code or the comment from memory. Read <a href="07-hardware-profiles.html#the---runtime-nvidia-prohibition-was-measured-wrong-on-jetpack-6">07 → the correction</a>, then verify on the L4T version the target device actually runs.</p>
 <h3 id="6-electron-reload-doesnt-reload-main-process">6. Electron Reload Doesn't Reload Main Process<a class="headerlink" href="#6-electron-reload-doesnt-reload-main-process" title="Permanent link">&para;</a></h3>
 <p>When you modify a Main Process file (<code>main.ts</code>, <code>docker.service.ts</code>, etc.) and webpack rebuilds it, <strong>Electron does not automatically reload</strong>. You must quit and restart Electron to pick up Main Process changes. Only renderer changes are hot-reloaded.</p>
 <h3 id="7-electron-store-schema-mismatch-after-upgrades">7. <code>electron-store</code> Schema Mismatch After Upgrades<a class="headerlink" href="#7-electron-store-schema-mismatch-after-upgrades" title="Permanent link">&para;</a></h3>
 <p>If you change the schema of data stored in <code>electron-store</code> between versions, the old stored data will fail to parse. The <code>clearInvalidConfig: true</code> option handles this gracefully by resetting the store, but users will lose their saved server URL and will need to re-authenticate.</p>
 <p>If you make breaking schema changes, consider implementing a migration in the <code>AuthService</code> constructor.</p>
+<h3 id="8-hand-editing-srcrenderertokenscss">8. Hand-Editing <code>src/renderer/tokens.css</code><a class="headerlink" href="#8-hand-editing-srcrenderertokenscss" title="Permanent link">&para;</a></h3>
+<p>It carries a <code>GENERATED by design/build-tokens.mjs — DO NOT EDIT</code> header, and a <strong>CI job that runs on every change to any unit</strong> (<code>scripts/check_design_tokens.sh</code>) compares it against <code>design/tokens.json</code>. Edit the JSON and regenerate. The same applies to the frontend and mobile token outputs.</p>
+<p>The one literal that legitimately lives outside the token system is <code>backgroundColor: '#F6F3EE'</code> in <code>main.ts</code> — the main process cannot read CSS variables, so that value must be updated by hand on a palette swap.</p>
+<h3 id="9-assuming-ci-type-checks-this-unit">9. Assuming CI Type-Checks This Unit<a class="headerlink" href="#9-assuming-ci-type-checks-this-unit" title="Permanent link">&para;</a></h3>
+<p>It does not. There is no <code>tsc --noEmit</code> step in the desktop job and CI never runs <code>npm run build</code>, so a type error outside test-reachable code, or a webpack-level breakage, can land green. Run <code>npx tsc --noEmit</code> and <code>npm run build</code> locally before pushing anything structural.</p>
+<h3 id="10-re-mounting-updatebanner">10. Re-Mounting <code>UpdateBanner</code><a class="headerlink" href="#10-re-mounting-updatebanner" title="Permanent link">&para;</a></h3>
+<p><code>onUpdateAvailable</code>, <code>onUpdateProgress</code>, <code>onUpdateDownloaded</code>, <code>onUpdateNotAvailable</code> and <code>onUpdateError</code> have <strong>no removal API</strong> in the preload. <code>UpdateBanner</code> is therefore mounted once at shell level and never unmounted; moving it inside a section (or anything else that can unmount) stacks listeners with no way to clear them, and each update event then fires N times. The same reasoning is why <code>updater.ts</code> guards its registration with a module-level <code>updaterInitialized</code> flag — <code>createWindow()</code> can run more than once per process on macOS.</p>
 <hr />
 <p><em>Previous: <a href="07-hardware-profiles.html">07 — Hardware Profiles &amp; Training Execution</a></em><br />
 <em>Back to: <a href="README.html">Desktop Wiki Index</a></em></p></article>

@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group" open>
 <summary>Desktop</summary><ul>
@@ -86,10 +95,12 @@
 <blockquote>
 <p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a></p>
 </blockquote>
-<p>The <code>fedlearn-desktop</code> module is the cross-platform Electron application that serves as the local training orchestrator for FedLearn participants. It provides a secure graphical interface to configure, launch, and monitor federated learning training sessions — either through a PyInstaller native binary (macOS MPS, Windows CUDA/CPU) or a Docker container (NVIDIA Jetson SoC).</p>
+<p>The <code>fedlearn-desktop</code> module is the cross-platform Electron application that serves as the local training orchestrator for FedLearn participants. It provides a secure graphical interface to configure, launch, and monitor federated learning training sessions — either through a PyInstaller native binary (macOS MPS, Windows CUDA/CPU) or a Docker container (NVIDIA Jetson SoC) — and to run inference against already-trained models.</p>
 <blockquote>
-<p><strong>Ember rebrand (<code>3.1.0-beta</code>).</strong> The renderer migrated to the <strong>Ember</strong> design system and ships rebranded icons. The three-process security model, IPC contract, and execution paths below are unchanged.</p>
+<p><strong>Design-system history.</strong> The renderer moved to the <strong>Ember</strong> system in <code>3.1.0-beta</code> (<code>0da835b</code>), which had itself superseded <strong>Instrument</strong> (<code>74cda60</code>). Both are now history: <code>2c50672</code> replaced Ember with <strong>Ledger</strong> — navy structural ink on quiet paper surfaces, light-first — and <code>3d54484</code> rolled Ledger across web, desktop and mobile. <code>src/renderer/tokens.css</code> is generated from <code>design/tokens.json</code> by <code>design/build-tokens.mjs</code> and carries a <code>DO NOT EDIT</code> header; a CI job (<code>scripts/check_design_tokens.sh</code>) fails the build if it drifts from the source of truth. Bricolage Grotesque was retired with Ember — the font stack is Hanken Grotesk (sans <strong>and</strong> display) plus JetBrains Mono, both self-hosted via <code>@fontsource</code>.</p>
+<p>The three-process security model, the contextBridge IPC contract, and the two execution paths below are unaffected by any of those cycles.</p>
 </blockquote>
+<p><strong>Current version: <code>3.2.0-beta</code></strong> (<code>fedlearn-desktop/package.json</code>, mirrored in <a href="../VERSIONS.html"><code>wikis/VERSIONS.md</code></a>).</p>
 <hr />
 <h2 id="document-index">Document Index<a class="headerlink" href="#document-index" title="Permanent link">&para;</a></h2>
 <table>
@@ -109,12 +120,12 @@
 <tr>
 <td>02</td>
 <td><a href="02-security-model.html">Security Model</a></td>
-<td>BrowserWindow hardening, CSP, contextBridge, double-validation, JWT confinement, safeStorage, XSS prevention</td>
+<td>BrowserWindow hardening, CSP, contextBridge, double-validation, dataset-path consent, JWT confinement, safeStorage, XSS prevention, dependency posture</td>
 </tr>
 <tr>
 <td>03</td>
 <td><a href="03-main-process.html">Main Process Deep Dive</a></td>
-<td><code>main.ts</code>, <code>ipc.handlers.ts</code>, <code>docker.service.ts</code>, <code>auth.service.ts</code>, <code>hardware.probe.ts</code>, IPC channel reference</td>
+<td><code>main.ts</code>, <code>ipc.handlers.ts</code>, <code>validators.ts</code>, <code>docker.service.ts</code>, <code>auth.service.ts</code>, <code>http.ts</code>, <code>hardware.probe.ts</code>, the inference/client-project services, IPC channel reference</td>
 </tr>
 <tr>
 <td>04</td>
@@ -124,41 +135,43 @@
 <tr>
 <td>05</td>
 <td><a href="05-renderer-components.html">Renderer &amp; React Components</a></td>
-<td><code>App.tsx</code> state machine, <code>AuthModal</code>, <code>HardwareSelector</code>, <code>LogPanel</code>, <code>StatusIndicator</code>, <code>SettingsModal</code>, styles, performance patterns</td>
+<td>Shell layout, <code>App.tsx</code> state, <code>TrainSection</code>, <code>ModelPlayground</code>, <code>SettingsSection</code>, <code>AuthModal</code>, <code>LogPanel</code>, <code>StatusBar</code>, <code>UpdateBanner</code>, styles, performance patterns</td>
 </tr>
 <tr>
 <td>06</td>
 <td><a href="06-build-and-packaging.html">Build, Packaging &amp; Distribution</a></td>
-<td>Webpack configs, dev workflow, production build, electron-builder, PyInstaller bundle, platform details, code signing, release artifacts</td>
+<td>Webpack configs, dev workflow, production build, electron-builder, PyInstaller bundle, platform details, code signing, release artifacts, CI gates</td>
 </tr>
 <tr>
 <td>07</td>
 <td><a href="07-hardware-profiles.html">Hardware Profiles &amp; Training Execution</a></td>
-<td>MPS, CUDA, CPU, Jetson profiles; execution flows; Docker device mounts; model architecture; lifecycle state machine; troubleshooting</td>
+<td>MPS, CUDA, CPU, Jetson profiles; execution flows; Jetson GPU access (the <code>--runtime nvidia</code> correction); launch arguments; lifecycle state machine; troubleshooting</td>
 </tr>
 <tr>
 <td>08</td>
 <td><a href="08-developer-guide.html">Developer Guide &amp; Contributing</a></td>
-<td>Prerequisites, setup, script reference, conventions, adding IPC channels/components/profiles, debugging, testing checklist, gotchas</td>
+<td>Prerequisites, setup, script reference, conventions, adding IPC channels/components/profiles, debugging, the jest suite, gotchas</td>
 </tr>
 </tbody>
 </table>
 <hr />
 <h2 id="quick-reference">Quick Reference<a class="headerlink" href="#quick-reference" title="Permanent link">&para;</a></h2>
 <h3 id="technology-stack">Technology Stack<a class="headerlink" href="#technology-stack" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code>Electron 42.x  ←→  React 18 + TypeScript 5.7
+<div class="codehilite"><pre><span></span><code>Electron 42.x  ←→  React 18.3 + TypeScript 5.7
      │
      ├── Main Process (Node.js)
-     │   ├── dockerode  — Docker Engine API
-     │   ├── electron-store + safeStorage — encrypted JWT
-     │   ├── axios — backend HTTP auth
-     │   └── electron-log — structured logging
+     │   ├── dockerode          — Docker Engine API (Jetson path only)
+     │   ├── electron-store + safeStorage — encrypted JWT + saved credentials
+     │   ├── axios (shared `http` instance) — backend REST
+     │   ├── @stomp/stompjs + ws — STOMP bridge for streaming inference tokens
+     │   ├── electron-updater   — background auto-update
+     │   └── electron-log       — structured logging
      │
      ├── Preload (contextBridge)
      │   └── Input validation + ipcRenderer
      │
      └── Renderer (Chromium sandbox)
-         └── React SPA (no Node.js access)
+         └── React SPA + lucide-react icons (no Node.js access)
 </code></pre></div>
 
 <h3 id="execution-paths">Execution Paths<a class="headerlink" href="#execution-paths" title="Permanent link">&para;</a></h3>
@@ -189,37 +202,44 @@
 <tr>
 <td><code>jetson</code></td>
 <td>Docker container</td>
-<td>NVIDIA Tegra (direct <code>/dev/nvhost-*</code> mounts)</td>
+<td>NVIDIA Tegra — see <a href="07-hardware-profiles.html#nvidia-jetson-soc-docker">07</a> before trusting the device-mount recipe on JetPack 6+</td>
 </tr>
 </tbody>
 </table>
+<p><code>DockerService.startTraining()</code> dispatches on <code>hardwareProfile</code> alone: <code>jetson</code> → Docker, everything else → the bundled native client.</p>
 <h3 id="development-quick-start">Development Quick Start<a class="headerlink" href="#development-quick-start" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>fedlearn-desktop
 npm<span class="w"> </span>install
-npm<span class="w"> </span>run<span class="w"> </span>dev<span class="w">       </span><span class="c1"># Starts all 4 processes (webpack + Electron)</span>
+npm<span class="w"> </span>run<span class="w"> </span>dev<span class="w">       </span><span class="c1"># Starts 4 processes (webpack main + preload + renderer dev server + Electron)</span>
 </code></pre></div>
 
 <h3 id="build-package">Build &amp; Package<a class="headerlink" href="#build-package" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code>npm<span class="w"> </span>run<span class="w"> </span>build<span class="w">                </span><span class="c1"># Production webpack compile</span>
-npm<span class="w"> </span>run<span class="w"> </span>package:mac<span class="w">          </span><span class="c1"># macOS DMG (arm64 + x64)</span>
-npm<span class="w"> </span>run<span class="w"> </span>package:win:cuda<span class="w">     </span><span class="c1"># Windows NSIS (CUDA variant)</span>
-npm<span class="w"> </span>run<span class="w"> </span>package:linux<span class="w">        </span><span class="c1"># Linux AppImage + deb</span>
+<div class="codehilite"><pre><span></span><code>npm<span class="w"> </span>run<span class="w"> </span>build<span class="w">                </span><span class="c1"># Production webpack compile (all three targets)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:mac<span class="w">          </span><span class="c1"># macOS DMG + zip (arm64 only)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:win:cpu<span class="w">      </span><span class="c1"># Windows NSIS (CPU client bundle)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:win:cuda<span class="w">     </span><span class="c1"># Windows NSIS (CUDA client bundle)</span>
+npm<span class="w"> </span>run<span class="w"> </span>package:linux<span class="w">        </span><span class="c1"># Linux AppImage + deb (x64 + arm64)</span>
 </code></pre></div>
 
+<p>Every <code>package:*</code> script runs <code>scripts/check-native-bundle.js</code> <strong>first</strong> — packaging aborts loudly if the PyInstaller client bundle is missing rather than shipping an installer that fails on "Start training".</p>
 <h3 id="key-security-invariants">Key Security Invariants<a class="headerlink" href="#key-security-invariants" title="Permanent link">&para;</a></h3>
 <ol>
-<li><strong>JWT stays in Main.</strong> Renderer only receives <code>{ success: boolean }</code>.</li>
-<li><strong>All inputs validated twice.</strong> Preload + Main process IPC handlers.</li>
-<li><strong>Docker socket never mounted into containers.</strong> Only <code>DockerService</code> accesses it.</li>
+<li><strong>JWT stays in Main.</strong> The renderer only receives <code>{ success: boolean }</code>; the token is encrypted with <code>safeStorage</code> (OS keychain) and never crosses the bridge.</li>
+<li><strong>All inputs validated twice.</strong> Preload (<code>preload.ts</code>) and again in Main (<code>validators.ts</code>, called from <code>ipc.handlers.ts</code>).</li>
+<li><strong>Only a user-chosen dataset directory can be bind-mounted.</strong> <code>dataset-consent.ts</code> records paths returned by the native directory dialog; <code>docker:start-training</code> refuses any other path.</li>
+<li><strong>Docker socket never mounted into containers.</strong> Only <code>DockerService</code> in Main touches it — and it is not even probed until the Jetson path needs it.</li>
 <li><strong>Log output rendered as plain text.</strong> No <code>innerHTML</code>, no <code>dangerouslySetInnerHTML</code>.</li>
-<li><strong>No new window creation from renderer.</strong> <code>setWindowOpenHandler</code> blocks all opens.</li>
+<li><strong>No new window creation from the renderer.</strong> <code>setWindowOpenHandler</code> denies every open; <code>will-navigate</code> blocks off-app navigation.</li>
+<li><strong>Remote plaintext <code>http://</code> server URLs are refused</strong> unless the user explicitly acknowledges the risk (DE-13).</li>
 </ol>
 <hr />
 <h2 id="related-documentation">Related Documentation<a class="headerlink" href="#related-documentation" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../backend/README.html">Backend Wiki</a> — Spring Boot API that coordinates federated learning rounds</li>
 <li><a href="../frontend/README.html">Frontend Wiki</a> — Web dashboard for project management</li>
-<li><a href="../framework/README.html">Framework Wiki</a> — Python federated learning framework (custom; <strong>no Flower FL semantics</strong> — own server/client/strategies and protobuf)</li>
+<li><a href="../framework/README.html">Framework Wiki</a> — Python federated learning framework. It is <strong>entirely custom</strong> — its own server, client, strategies and protobuf, with no Flower FL semantics. <code>flwr</code>/<code>flwr-datasets</code> are no longer dependencies of any unit either (dropped in <code>65048b6</code>); the desktop app never depended on them.</li>
+<li><a href="../client-docker/README.html">Client Docker Wiki</a> — the container image the Jetson profile runs, and the PyInstaller packaging scripts the desktop installers embed</li>
+<li><a href="../mobile/README.html">Mobile Wiki</a> — the on-device mobile FL client</li>
 </ul></article>
     <nav class="toc"></nav>
   </div>

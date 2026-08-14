@@ -96,7 +96,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-      - name: 'Gradle test (test profile: in-memory H2, Flyway disabled)'
+      - name: 'Gradle test (test profile: Testcontainers Postgres, Flyway disabled)'
         working-directory: backend/fl-platform-api
         env:
           SPRING_PROFILES_ACTIVE: test

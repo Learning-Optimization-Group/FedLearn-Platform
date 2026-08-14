@@ -50,8 +50,17 @@
 <li><a href="framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -85,30 +94,36 @@
     <article class="article"><h1 id="fedlearn-platform-master-wiki">FedLearn Platform — Master Wiki<a class="headerlink" href="#fedlearn-platform-master-wiki" title="Permanent link">&para;</a></h1>
 <blockquote>
 <p><strong>Repository:</strong> <code>FedLearn-Platform</code><br />
-<strong>Last Updated:</strong> 2026-06-10</p>
+<strong>Last Updated:</strong> 2026-08-13</p>
 </blockquote>
 <p>This is the top-level technical wiki for the <strong>FedLearn Platform</strong> — a privacy-preserving, distributed machine learning system that enables federated learning across heterogeneous hardware. Use this page as your starting point and navigate into any subsection for in-depth documentation.</p>
 <blockquote>
-<p><strong>Recent hardening (2026-06):</strong> dependency/security pass — npm and pip audits cleared, Electron upgraded 34 → 42, gitleaks secret scanning added via the free CLI, and the unused <code>flwr</code> dependency dropped from the <strong>framework</strong> (<code>framework/pyproject.toml</code>). Note that <code>flwr</code> / <code>flwr-datasets</code> are still pinned in <code>backend/fl-platform-api/requirements.txt</code> and <code>client-docker/requirements.txt</code> — they are used for <strong>dataset partitioning only</strong> (<code>FederatedDataset</code>), never for FL semantics.</p>
-<p><strong>Ember design-system rebrand (2026-06-10):</strong> the frontend, the desktop renderer, and the mobile client adopted the <strong>Ember</strong> design system — warm canvas (<code>#FBF9F6</code>), burnt-orange accent (<code>#C56A1E</code>), and the Bricolage Grotesque / Hanken Grotesk / JetBrains Mono type family — along with rebranded icons. "Ember" is the name of the <strong>design system / theme</strong>; the platform itself is still <strong>FedLearn</strong> (a product-domain rename is a separate, in-progress effort). This wiki ships an Ember-themed HTML rendering under <a href="index.html"><code>html/</code></a>.</p>
+<p><strong><code>flwr</code> is gone from the whole repo (2026-08-12, <code>65048b6</code>).</strong> It was never used for FL semantics — only to cut one CIFAR-10 IID shard — but <code>flwr-datasets</code> pulled in <code>flwr</code> 1.20.0, which capped <code>cryptography&lt;45.0.0</code> (the <strong>SE-22</strong> residual, blocking the framework's own <code>&gt;=46.0.6</code> security floor) and <code>protobuf&lt;5.0.0</code> (which made the FoT path uninstallable in the backend/client lockfiles, since <code>fot_pb2.py</code> is 5.29.0 gencode). Dropping it cleared both caps: <code>backend/fl-platform-api/requirements.txt</code> now pins <code>cryptography==46.0.7</code> and <code>protobuf==5.29.5</code>. The shard is now implemented natively in <a href="#fl-runtime"><code>fl-runtime/recipes.py</code></a> (<code>_cnn_iid_shard</code>, <code>CNN_SHUFFLE_SEED = 42</code> — the <code>FederatedDataset</code> default it replaced), and the replacement was verified <strong>byte-identical per partition</strong> before the swap, so CIFAR-10 results recorded before and after remain comparable. <code>fl-runtime/tests/test_requirements_security_floors.py::test_flwr_stays_out_of_the_lockfiles</code> is the regression guard. Residual <code>flwr</code> <em>mentions</em> survive as comments and as a <code>flwr_datasets</code> hidden-import in <code>client-docker/packaging/fedlearn-client.spec</code> — neither is an installed dependency. (A dead <code>framework/requirements.txt.bak</code> still carrying the old <code>flwr==1.20.0</code> pin was deleted on 2026-08-13; the guard scans the four live lockfiles only.)</p>
+<p><strong>Ledger design-system redesign (2026-07-17, <code>2c50672</code> + <code>fdd8a79</code>):</strong> the frontend, the desktop renderer, and the mobile client adopted the <strong>Ledger</strong> design system — navy structural ink (<code>#1C314D</code>, hover <code>#14243A</code>) on quiet paper surfaces (<code>#F6F3EE</code> canvas, <code>#FFFFFF</code> cards, <code>#191A1C</code> ink, <code>#6B6760</code> muted), with a single Hanken Grotesk type family for both sans and display (JetBrains Mono for logs/ids), light-first; the dark family is navy-dark (<code>#0B1622</code> canvas, <code>#4F8AC9</code> accent) and stays wired. Ledger superseded <strong>Ember</strong> (warm canvas + burnt orange + Bricolage Grotesque, 2026-06), which had superseded "Instrument" — see <a href="frontend/UI_and_Components.html"><code>frontend/UI_and_Components.md</code></a>. <code>design/tokens.json</code> is the single source of truth; <code>design/build-tokens.mjs</code> generates the per-platform outputs (web CSS vars, desktop <code>tokens.css</code>, <code>mobile_client/src/theme/tokens.generated.ts</code>) and CI has a "Design tokens in sync with source of truth" step. Bricolage Grotesque is Ember-era and survives only in <code>design/brand/*.html</code> comparison assets. "Ledger" is the name of the <strong>design system / theme</strong>; the platform itself is still <strong>FedLearn</strong> (a product-domain rename is a separate, in-progress effort). This wiki ships an HTML rendering under <a href="index.html"><code>html/</code></a>, <strong>regenerated on 2026-08-13 from the current Markdown and rethemed onto Ledger</strong> (<code>wikis/html/build.py</code> — its palette is mirrored from <code>design/tokens.json</code>, Bricolage is dropped, and the <code>fl-runtime/</code> section is in the nav). It is generated output: re-run <code>python3 wikis/html/build.py</code> after editing any page here rather than hand-editing the HTML.</p>
 </blockquote>
 <hr />
 <h2 id="platform-overview">Platform Overview<a class="headerlink" href="#platform-overview" title="Permanent link">&para;</a></h2>
-<p>FedLearn is built around four core components — backend, frontend, framework, desktop — plus a <strong>mobile client</strong> and a <strong>containerised client</strong>, for <strong>six deployable units</strong> in total. They work together to provide an end-to-end federated learning experience:</p>
-<div class="codehilite"><pre><span></span><code>┌─────────────────────────────────────────────────────────────────────────┐
-│                        FedLearn Platform                                │
-│                                                                         │
-│  ┌──────────────┐    REST / WebSocket    ┌──────────────────────────┐   │
-│  │   Frontend   │◄──────────────────────►│      Backend (API)       │   │
-│  │  React SPA   │                        │  Spring Boot 3 / Postgres│   │
-│  └──────────────┘                        └──────────┬───────────────┘   │
-│                                                     │ spawns FL server  │
-│  ┌──────────────┐    gRPC (Python)                  │ as local process  │
-│  │   Desktop    │◄──────────────────────►┌──────────▼───────────────┐   │
-│  │  Electron 42 │   PyInstaller / Docker │  Framework (Python FL)   │   │
-│  └──────────────┘                        │  fedlearn + PyTorch gRPC │   │
-│                                          └──────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────┘
+<p>FedLearn is built around four core components — backend, frontend, framework, desktop — plus the <strong>FL runtime</strong>, a <strong>mobile client</strong> and a <strong>containerised client</strong>, for <strong>seven deployable units</strong> in total. They work together to provide an end-to-end federated learning experience:</p>
+<div class="codehilite"><pre><span></span><code>┌──────────────────────────────────────────────────────────────────────────┐
+│                        FedLearn Platform                                 │
+│                                                                          │
+│  ┌──────────────┐    REST / WebSocket    ┌───────────────────────────┐   │
+│  │   Frontend   │◄──────────────────────►│      Backend (API)        │   │
+│  │  React SPA   │                        │  Spring Boot 3 / Postgres │   │
+│  └──────────────┘                        └──────────┬────────────────┘   │
+│                                                     │ shells out to      │
+│  ┌──────────────┐    gRPC (Python)                  │ run_fl_server.sh   │
+│  │   Desktop    │◄──────────────────────►┌──────────▼────────────────┐   │
+│  │  Electron 42 │   PyInstaller / Docker │  fl-runtime (executables) │   │
+│  └──────────────┘                        │  fl_server.py / client.py │   │
+│                                          │  recipes.py / init_model  │   │
+│                                          └──────────┬────────────────┘   │
+│                                                     │ import fedlearn    │
+│                                          ┌──────────▼────────────────┐   │
+│                                          │  Framework (Python lib)   │   │
+│                                          │  fedlearn + PyTorch gRPC  │   │
+│                                          └───────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────────┘
 </code></pre></div>
 
 <table>
@@ -133,7 +148,12 @@
 <tr>
 <td><a href="#framework"><strong>Framework</strong></a></td>
 <td>Python (PyTorch + gRPC)</td>
-<td>Core FL engine — FedAvg, DeComFL, data partitioning, gRPC client/server</td>
+<td>Core FL <strong>library</strong> (<code>import fedlearn</code>) — coordinator, strategies (FedAvg / FedProx / FedOpt / FedLoRA / DeComFL / robust), the safetensors wire, the in-process simulator</td>
+</tr>
+<tr>
+<td><a href="#fl-runtime"><strong>FL runtime</strong></a></td>
+<td>Python (scripts)</td>
+<td>The <strong>executable layer</strong> the backend actually runs — <code>fl_server.py</code>, <code>client.py</code>, <code>init_model.py</code>, <code>infer.py</code>, <code>recipes.py</code>, <code>data.py</code> + their <code>run_*.sh</code> wrappers. Owns the model-recipe catalog and the training arms.</td>
 </tr>
 <tr>
 <td><a href="#desktop"><strong>Desktop</strong></a></td>
@@ -143,15 +163,18 @@
 <tr>
 <td><a href="#mobile"><strong>Mobile</strong></a></td>
 <td>React Native 0.80 + native C++ (ExecuTorch)</td>
-<td>On-device FL client; runs the DeComFL zeroth-order path natively in C++ via a TurboModule bridge (iOS + Android)</td>
+<td>On-device FL client; runs the DeComFL zeroth-order path natively in C++ via a TurboModule bridge. <strong>Android only today</strong> — the iOS native wiring is still a libtorch scaffold (MO-14)</td>
 </tr>
 <tr>
 <td><a href="#client-docker"><strong>Client (Docker)</strong></a></td>
 <td>Docker (multi-arch)</td>
-<td>Containerised FL client; thin wrapper around the framework for Jetson / CUDA / CPU deployments</td>
+<td>Containerised FL client; packages the framework <strong>and</strong> the FL runtime for Jetson / CUDA / CPU deployments</td>
 </tr>
 </tbody>
 </table>
+<blockquote>
+<p><strong>The split that trips people up:</strong> <code>framework/</code> is the pip-installable <em>library</em>; <code>fl-runtime/</code> is the <em>executable layer</em> that imports it (<code>import fedlearn as fl</code>) and is what the backend shells out to. The backend never runs <code>framework/</code> directly. Each has its own pytest suite and its own CI job.</p>
+</blockquote>
 <hr />
 <h2 id="how-the-components-connect">How the Components Connect<a class="headerlink" href="#how-the-components-connect" title="Permanent link">&para;</a></h2>
 <h3 id="training-round-end-to-end-flow">Training Round — End-to-End Flow<a class="headerlink" href="#training-round-end-to-end-flow" title="Permanent link">&para;</a></h3>
@@ -161,21 +184,23 @@
    ▼
 Backend (Spring Boot API)
    │
-   │  2. Persist project config to the database (PostgreSQL)
+   │  2. Persist project config (recipe, strategy, training arm) to PostgreSQL
    │  3. Spawn the Python FL server as a local process (`fl-runtime/run_fl_server.sh`)
    ▼
-Framework — FL Server (Python / gRPC)
+fl-runtime — `fl_server.py` (drives the framework&#39;s coordinator over gRPC)
    │
    │  4. Broadcast global model parameters to all connected clients
+   │     (only the arm&#39;s federated subset; non-float32 buffers are withheld)
    ▼
-Framework — FL Client (Python / gRPC)   ◄── invoked by Desktop or client-docker
+fl-runtime — `client.py` (Python / gRPC)   ◄── invoked by Desktop or client-docker
    │
-   │  5. Train locally on private data; compute gradients / updates
-   │  6. Upload aggregated gradient or delta to server
+   │  5. Train locally on private data under the project&#39;s training arm
+   │  6. Upload the update — safetensors-encoded, chunked when streaming
    ▼
-Framework — FL Server (aggregation)
+fl-runtime — `fl_server.py` → framework `FLCoordinator` + `Strategy`
    │
-   │  7. Aggregate updates (FedAvg / DeComFL) → new global model
+   │  7. Aggregate updates (FedAvg / FedProx / FedOpt / FedLoRA / DeComFL /
+   │     robust) → new global model
    │  8. Emit training logs to stdout
    ▼
 Backend (WebSocket bridge)
@@ -191,15 +216,28 @@ Backend
 </code></pre></div>
 
 <h3 id="authentication-flow">Authentication Flow<a class="headerlink" href="#authentication-flow" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code>Browser / Desktop
+<div class="codehilite"><pre><span></span><code>Browser / Desktop / Mobile
    │  POST /api/auth/login  (username + password)
    ▼
-Backend  →  validates credentials  →  issues JWT (HttpOnly cookie or JSON)
+Backend  →  validates credentials  →  issues an audience-scoped JWT (SE-20)
    │
-   ├── Frontend: stores JWT in HttpOnly cookie; axios interceptor attaches on every request
-   └── Desktop: stores JWT via Electron safeStorage (OS keychain); never exposed to renderer
+   ├── Frontend: set as the HttpOnly `jwtToken` cookie. The browser sends it; Axios only
+   │             sets withCredentials: true. NO Bearer header, NO localStorage, no
+   │             JS-readable token
+   ├── Desktop:  JWT stored via Electron safeStorage (OS keychain); never exposed to the renderer
+   └── Mobile:   Authorization: Bearer, accepted only alongside X-FedLearn-Client (SE-9)
 </code></pre></div>
 
+<p>The cookie's flags are profile-driven, not fixed: <code>app.auth.cookie.secure</code> defaults to <code>false</code>
+(<code>dev</code>, <code>ec2demo</code>, and the base profile — the demo runs plain HTTP) and to <code>true</code> under
+<code>production</code>, and <code>app.auth.cookie.same-site</code> is <code>Lax</code> everywhere <strong>except <code>production</code>, which
+defaults to <code>Strict</code></strong>.</p>
+<p><code>GET /api/auth/me</code> is a deliberate silent 401 probe — <code>axiosConfig.ts</code> lists it in
+<code>SILENT_401_ENDPOINTS</code> so bootstrap does not redirect-loop; a 401 anywhere else dispatches an
+<code>authError</code> window event and sends the user to <code>/login</code>. The STOMP WebSocket at <code>/ws-logs</code> reuses
+the same cookie through <code>JwtHandshakeInterceptor</code>. Authorities are reloaded from the database on
+every request (<code>JwtAuthenticationFilter</code> → <code>CustomUserDetailsService</code>), so a role change takes
+effect immediately without re-login.</p>
 <h3 id="fl-server-provisioning-local-process">FL Server Provisioning — Local Process<a class="headerlink" href="#fl-server-provisioning-local-process" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code>Backend (FlServerManager)
    │
@@ -218,6 +256,57 @@ carries no AWS dependency and no task-orchestration code. The single remaining s
 throws at boot, in <strong>every</strong> profile, if it is set to a non-blank value. Managed-task orchestration
 is deferred to <strong>OP-12</strong>. The only supported deployed architecture — including under the
 <code>production</code> profile — is the hardened single VM running FL servers as local processes.</p>
+</blockquote>
+<h3 id="in-process-simulation-the-experiment-path-that-has-no-ports">In-Process Simulation — the experiment path that has no ports<a class="headerlink" href="#in-process-simulation-the-experiment-path-that-has-no-ports" title="Permanent link">&para;</a></h3>
+<p>The port pool above caps the deployed platform at <strong>11 concurrent federations</strong>, which makes a
+thousand-client experiment inexpressible — a deployment constraint leaking into the science.
+<code>framework/src/fedlearn/simulation/</code> (<code>federation.py</code>, <code>partition.py</code>, <code>rng.py</code>, landed
+2026-08-12 in <code>d4e91f3</code>) is the answer: <code>SimulatedFederation</code> drives the <strong>production</strong>
+<code>FLCoordinator</code> and the <strong>production</strong> <code>Strategy</code> objects by direct method call — no gRPC
+channel, no TCP port, no subprocess.</p>
+<div class="codehilite"><pre><span></span><code>SimulatedFederation(strategy, client_factory, num_clients, clients_per_round, seed,
+                    wire_in_the_loop=0.0, dropout_rate=0.0, device=&quot;cpu&quot;, …)
+   │
+   ├── partition.py   iid_partition / dirichlet_partition / shard_partition /
+   │                  pathological_partition  (+ partition_report)
+   ├── rng.py         ClientRng / RunRng, derived from (seed, client_id, round)
+   └── direct calls → FLCoordinator.start_round / get_global_model_for_client /
+                      submit_client_update / resolve_round_incomplete  ← production code, unmodified
+</code></pre></div>
+
+<p>What it buys, and what it costs:</p>
+<ul>
+<li><strong>Same aggregation, same defenses.</strong> Only the transport is elided; nothing here re-derives
+  FedAvg. The coordinator was already transport-free (gRPC lives entirely in the servicer that
+  wraps it), so this module is a driver loop.</li>
+<li><strong>The wire can be put back.</strong> <code>wire_in_the_loop</code> routes a configurable fraction of client
+  updates through the real deterministic safetensors encode/decode. Running with it off is only
+  defensible because the suite asserts off and on agree bit-for-bit.</li>
+<li><strong>Determinism is a property, not an accident.</strong> Client selection, dropout, wire routing and
+  local training all derive from <code>(seed, client_id, round)</code> alone, and torch's global RNG is
+  scoped and restored around every client — so a client's trajectory does not depend on how many
+  peers exist.</li>
+<li><strong>No wall-clock dependence.</strong> A round with modelled dropout resolves immediately via
+  <code>FLCoordinator.resolve_round_incomplete</code> rather than sleeping out the deployed server's
+  120-second deadline.</li>
+<li><strong>Memory scales with <code>clients_per_round</code>, not <code>num_clients</code></strong> — clients are built per round and
+  released. The corollary is that <code>client_factory</code> is called once per participation, so it must
+  close over pre-partitioned indices rather than re-reading a dataset.</li>
+<li><strong>Measured to 5,000 clients.</strong> <code>research/results/simulation/scale_m4max.json</code> records the grid
+  10 / 50 / 100 / 500 / 1,000 / 2,000 / 5,000 clients × seeds 0, 1, 2 — 21 cells, all run, none
+  skipped — at 20 rounds, 10% participation, on macOS arm64 (14 CPUs, torch 2.9.1, CPU device).
+  The run's own recorded caveat is the honest reading: it measures <strong>simulator</strong> scaling on a
+  deliberately tiny model (linear 8 → 4, synthetic data), so a cell's wall-clock is a <strong>floor</strong>
+  on what a real architecture would cost, never an estimate of it.</li>
+</ul>
+<p>This is an experiment/research path. It does not replace the deployed gRPC server, and no backend
+orchestration path uses it.</p>
+<blockquote>
+<p><strong>A note on the <code>research/</code> paths cited in this wiki.</strong> <code>research/</code> is <strong>gitignored and
+untracked</strong> (<code>.gitignore:166</code>), so it exists only in a working copy where those runs were
+executed — a fresh clone will not have it. The citations are kept because they name the exact
+file that backs a number and the harness that regenerates it; treat them as provenance, not as
+paths you can expect to <code>ls</code> after cloning.</p>
 </blockquote>
 <hr />
 <h2 id="component-wikis">Component Wikis<a class="headerlink" href="#component-wikis" title="Permanent link">&para;</a></h2>
@@ -266,10 +355,11 @@ is deferred to <strong>OP-12</strong>. The only supported deployed architecture 
 </tbody>
 </table>
 <p><strong>Key cross-component interfaces:</strong>
-- Exposes <code>POST /api/projects/{id}/start</code> → triggers Framework server spawn.
+- Exposes <code>POST /api/projects/{id}/start</code> → spawns <code>fl-runtime/run_fl_server.sh</code> as a local process.
 - Streams logs to Frontend via STOMP topic <code>/topic/logs/{projectId}</code>.
 - Desktop authenticates against <code>POST /api/auth/login</code> before initiating training.
-- Authorization is the layered identity model — <code>PlatformRole</code> (platform), <code>OrgRole</code> (organization), <code>MembershipRole</code> (project) — committed in the <code>V4</code>–<code>V7</code> migrations (highest committed migration is <code>V19</code>). Organizations, org/project memberships, org-scoped isolation, and the <code>@Auditable</code> audit trail are all present; see <a href="backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy &amp; Audit</a>. The original coarse <code>users.role IN (USER, ADMIN)</code> column (<code>V2</code>) has been superseded.</p>
+- Authorization is the layered identity model — <code>PlatformRole</code> (platform), <code>OrgRole</code> (organization), <code>MembershipRole</code> (project) — committed in the <code>V4</code>–<code>V7</code> migrations. Organizations, org/project memberships, org-scoped isolation, and the <code>@Auditable</code> audit trail are all present; see <a href="backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy &amp; Audit</a>. The original coarse <code>users.role IN (USER, ADMIN)</code> column (<code>V2</code>) has been superseded.
+- The schema is owned by <strong>Flyway</strong>, not JPA (<code>ddl-auto=validate</code> in every profile but <code>test</code>). The <strong>highest committed migration is <code>V23</code></strong> — <code>V22__project_training_arm.sql</code> adds <code>projects.training_arm VARCHAR(32) NOT NULL DEFAULT 'FULL'</code> plus the <code>chk_projects_training_arm</code> CHECK, and <code>V23__training_arm_ova_lp.sql</code> widens that CHECK to <code>('FULL','FROZEN_HEAD','OVA_LP')</code>. Note <code>ls</code> sorts the migration directory lexicographically, so <code>V5</code>–<code>V9</code> appear <em>after</em> <code>V21</code> — the last line is not the highest version.</p>
 <hr />
 <h3 id="frontend">Frontend<a class="headerlink" href="#frontend" title="Permanent link">&para;</a></h3>
 <blockquote>
@@ -305,15 +395,68 @@ is deferred to <strong>OP-12</strong>. The only supported deployed architecture 
 </table>
 <p><strong>Key cross-component interfaces:</strong>
 - Connects to Backend REST API via Axios (<code>/api/**</code>).
-- Subscribes to <code>STOMP /topic/logs/{projectId}</code> for live Framework training output.
-- No direct connection to Framework or Desktop — all routing via Backend.</p>
+- Subscribes to <code>STOMP /topic/logs/{projectId}</code> for the FL server's live stdout.
+- Renders the project-creation picker from <code>GET /api/model-recipes</code> — including the training-arm choice and its measured trade-off, where a recipe offers one.
+- No direct connection to the FL processes or Desktop — all routing via Backend.</p>
 <hr />
 <h3 id="framework">Framework<a class="headerlink" href="#framework" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Path:</strong> <a href="framework/README.html"><code>wikis/framework/</code></a><br />
-<strong>Stack:</strong> Python 3.10+, PyTorch, gRPC / Protocol Buffers — <strong>custom FL engine (no Flower runtime)</strong></p>
+<strong>Stack:</strong> Python (declared floor 3.10+, CI tests 3.12), PyTorch, gRPC / Protocol Buffers — <strong>custom FL engine, no Flower anywhere</strong></p>
 </blockquote>
-<p>The framework is the heart of the platform — a standalone Python library (<code>fedlearn</code>) that implements the full federated learning lifecycle using gRPC for communication and PyTorch for model training. The Java-side orchestration package (<code>orchestration/</code>, class <code>FlServerManager</code>) was renamed from the legacy <code>flower</code> / <code>FlowerServerManager</code> name (DA-12). No Flower server, client, or strategy semantics are used anywhere, and <code>framework/pyproject.toml</code> declares no <code>flwr</code> dependency — the protobuf contract is entirely custom. The one remaining touchpoint is <code>flwr-datasets</code>, pinned in <code>backend/fl-platform-api/requirements.txt</code> and <code>client-docker/requirements.txt</code> purely to partition datasets (<code>from flwr_datasets import FederatedDataset</code> in <code>fl-runtime/client.py</code>).</p>
+<p>The framework is the heart of the platform — a standalone Python library (<code>fedlearn</code>) that implements the full federated learning lifecycle using gRPC for communication and PyTorch for model training. It is a <em>library</em>: the backend does not run it directly, it runs <a href="#fl-runtime"><code>fl-runtime/</code></a>, which imports it. The Java-side orchestration package (<code>orchestration/</code>, class <code>FlServerManager</code>) was renamed from the legacy <code>flower</code> / <code>FlowerServerManager</code> name (DA-12).</p>
+<p><strong>No Flower, in any sense, anywhere.</strong> No Flower server/client/strategy semantics are used — the protobuf contract is entirely custom — and as of <code>65048b6</code> (2026-08-12) <code>flwr</code> / <code>flwr-datasets</code> are not dependencies of <em>any</em> unit either. The last touchpoint was one CIFAR-10 IID shard, which now lives natively in <code>fl-runtime/recipes.py</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">CNN_SHUFFLE_SEED</span> <span class="o">=</span> <span class="mi">42</span>     <span class="c1"># == the flwr FederatedDataset default this replaced</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_cnn_iid_shard</span><span class="p">(</span><span class="n">partition_id</span><span class="p">,</span> <span class="n">num_shards</span><span class="o">=</span><span class="n">CNN_NUM_PARTITIONS</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">CNN_SHUFFLE_SEED</span><span class="p">):</span>
+    <span class="n">train</span> <span class="o">=</span> <span class="n">hf_datasets</span><span class="o">.</span><span class="n">load_dataset</span><span class="p">(</span><span class="s2">&quot;cifar10&quot;</span><span class="p">)[</span><span class="s2">&quot;train&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">train</span><span class="o">.</span><span class="n">shard</span><span class="p">(</span><span class="n">num_shards</span><span class="o">=</span><span class="n">num_shards</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">partition_id</span><span class="p">,</span> <span class="n">contiguous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+
+<p>That is not a re-implementation by guesswork: <code>FederatedDataset</code> defaults to <code>shuffle=True, seed=42</code> and shuffles each split <em>before</em> partitioning, and <code>IidPartitioner.load_partition(i)</code> is precisely <code>shard(num_shards=N, index=i, contiguous=True)</code> — both read off the installed <code>flwr-datasets</code> 0.5.0 source, then verified empirically. The equivalence check ran the two partitioners side by side and compared <strong>per partition</strong>, verdict <code>EQUIVALENT</code>, recorded at <code>research/results/reproducibility/flwr_shard_equivalence.json</code> from the committed harness <code>research/benchmarks/verify_flwr_shard_equivalence.py</code>. Honest scope: the recorded run covers the <em>mechanism</em> level (synthetic 1,000-row dataset, 10 partitions, seed 42, all identical); the end-to-end CIFAR-10 level is marked <strong>not run</strong> in that file (<code>--full</code> was not requested; it needs the ~170MB download). So the shard logic is proven identical and the full-dataset instantiation of it is argued, not measured.</p>
+<p><strong>Registered aggregation strategies</strong> (<code>framework/src/fedlearn/server/strategy_factory.py</code>; names matched case-insensitively with hyphens/underscores ignored, so <code>"fed_avg" == "FedAvg"</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Class</th>
+<th>Module</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fedavg</code></td>
+<td><code>FedAvg</code></td>
+<td><code>server/strategy.py</code></td>
+</tr>
+<tr>
+<td><code>fedprox</code></td>
+<td><code>FedProx</code></td>
+<td><code>server/strategy.py</code></td>
+</tr>
+<tr>
+<td><code>fedopt</code></td>
+<td><code>FedOpt</code></td>
+<td><code>server/strategy.py</code></td>
+</tr>
+<tr>
+<td><code>fedlora</code></td>
+<td><code>FedLoRA</code></td>
+<td><code>server/strategy.py</code></td>
+</tr>
+<tr>
+<td><code>decomfl</code></td>
+<td><code>DeComFL</code></td>
+<td><code>server/decomfl_strategy.py</code></td>
+</tr>
+<tr>
+<td><code>robust</code></td>
+<td><code>RobustAggregator</code></td>
+<td><code>server/robust_aggregation.py</code></td>
+</tr>
+</tbody>
+</table>
+<p>Adding a strategy is a one-line registry entry, not another <code>if</code>/<code>elif</code> branch. The factory lives in its own module to break a circular import (<code>strategy.py</code> must not import <code>decomfl_strategy</code>).</p>
 <table>
 <thead>
 <tr>
@@ -361,9 +504,188 @@ is deferred to <strong>OP-12</strong>. The only supported deployed architecture 
 </tbody>
 </table>
 <p><strong>Key cross-component interfaces:</strong>
-- Consumed by <strong>Backend</strong> as a local process — <code>FlServerManager</code> shells out to <code>fl-runtime/run_fl_server.sh</code> through the <code>FlServerProcessRunner</code> seam.
+- Consumed by <strong><code>fl-runtime/</code></strong> as a library (<code>import fedlearn as fl</code>); the <strong>Backend</strong> reaches it only through that layer — <code>FlServerManager</code> shells out to <code>fl-runtime/run_fl_server.sh</code> via the <code>FlServerProcessRunner</code> seam.
 - Consumed by <strong>Desktop</strong> as a PyInstaller-bundled native client (entry binary <code>fedlearn-client</code> / <code>fedlearn-client.exe</code>, per <code>fedlearn-desktop/src/shared/bundleVariants.ts</code>); in dev mode the desktop falls back to system <code>python3</code> running <code>fl-runtime/client.py</code>.
-- Consumed by <strong><code>client-docker</code></strong> image for containerised Jetson / CUDA deployments.</p>
+- Consumed by <strong><code>client-docker</code></strong> image for containerised Jetson / CUDA deployments.
+- Ships <code>fedlearn.simulation</code> (see <a href="#in-process-simulation--the-experiment-path-that-has-no-ports">In-Process Simulation</a>) — it reuses the production coordinator and strategies and has <strong>no dedicated wiki page yet</strong>; the module docstrings in <code>framework/src/fedlearn/simulation/</code> are currently the reference.</p>
+<hr />
+<h3 id="fl-runtime">fl-runtime<a class="headerlink" href="#fl-runtime" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Path:</strong> <a href="fl-runtime/README.html"><code>wikis/fl-runtime/</code></a><br />
+<strong>Stack:</strong> Python scripts + <code>run_*.sh</code> / <code>.bat</code> wrappers; imports <code>framework/</code> as a library</p>
+</blockquote>
+<p><code>fl-runtime/</code> is <strong>the executable FL layer</strong> — the unit the backend actually shells out to, and the one most easily missed because it is neither the Java control plane nor the pip-installable library. <code>fl-runtime/client.py</code> does <code>import fedlearn as fl</code>; the backend never invokes <code>framework/</code> directly.</p>
+<table>
+<thead>
+<tr>
+<th>Document</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="fl-runtime/README.html">FL Runtime Overview</a></td>
+<td>What the unit is, how it relates to <code>framework/</code>, how the backend resolves it</td>
+</tr>
+<tr>
+<td><a href="fl-runtime/01_entry_points.html">Entry Points</a></td>
+<td><code>fl_server.py</code>, <code>client.py</code>, <code>init_model.py</code>, <code>infer.py</code> and the <code>run_*.sh</code> wrappers</td>
+</tr>
+<tr>
+<td><a href="fl-runtime/02_recipe_catalog.html">Recipe Catalog</a></td>
+<td><code>recipes.py</code> — the seven catalog recipes, the training arms, <code>--describe</code></td>
+</tr>
+<tr>
+<td><a href="fl-runtime/03_training_arms.html">Training Arms</a></td>
+<td><code>FULL</code> / <code>FROZEN_HEAD</code> / <code>OVA_LP</code> end to end — objectives, <code>supported_arms</code>, <code>arm_tradeoff.json</code>, provenance</td>
+</tr>
+<tr>
+<td><a href="fl-runtime/04_the_federated_set.html">The Federated Set</a></td>
+<td>Which tensors cross the wire: the non-float32 exclusion, subset federation, save-time merge, eval strictness</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fl_server.py</code> / <code>run_fl_server.sh</code> (<code>.bat</code>)</td>
+<td>FL server entry point — resolves the strategy and the training arm, builds the initial model, runs the round loop, prints the eval card</td>
+</tr>
+<tr>
+<td><code>client.py</code> / <code>run_clients.sh</code></td>
+<td>The <strong>one canonical FL client</strong> (DA-5) — used by the Docker image, the desktop PyInstaller bundle, and dev/local runs alike. Takes <code>--project-id</code> / <code>--server-address</code> / <code>--partition-id</code> (there is no <code>--client-id</code>)</td>
+</tr>
+<tr>
+<td><code>recipes.py</code> / <code>run_recipes.sh</code></td>
+<td>The model-recipe catalog and the training arms; <code>--describe</code> is deliberately torch-free so the backend can serve <code>GET /api/model-recipes</code> cheaply</td>
+</tr>
+<tr>
+<td><code>init_model.py</code> / <code>run_init_model.sh</code></td>
+<td>Builds and persists the initial global model for a project</td>
+</tr>
+<tr>
+<td><code>infer.py</code> / <code>run_infer.sh</code></td>
+<td>Inference entry point behind the Model Playground</td>
+</tr>
+<tr>
+<td><code>data.py</code>, <code>config.py</code>, <code>device.py</code>, <code>models.py</code></td>
+<td>Dataset loaders, per-type config, device selection, model definitions</td>
+</tr>
+<tr>
+<td><code>fl_fot_server.py</code> / <code>run_fot_server.sh</code></td>
+<td>The FoT (Federation over Text) server — additive and orthogonal to the gradient path</td>
+</tr>
+</tbody>
+</table>
+<p>The backend resolves these paths from <code>application.properties</code> (<code>python.script.fl-server.path</code>, <code>python.script.recipes.path</code>, <code>python.script.init-model.path</code>, <code>python.script.infer.path</code>, <code>python.executable.path</code>); the relative defaults resolve from the backend's working directory, which is why the backend is normally launched from <code>backend/fl-platform-api/</code>.</p>
+<p><code>fl-runtime/</code> has its <strong>own</strong> pytest suite (<code>cd fl-runtime &amp;&amp; python -m pytest -q</code>) and its own CI job, run with <code>FEDLEARN_FAIL_ON_UNEXPECTED_SKIP=1</code> — a <em>skipped</em> test fails that job (TE-10). Its <code>pytest.ini</code> deselects <code>-m slow</code>, which is a deselection and not a skip.</p>
+<h4 id="training-arms">Training arms<a class="headerlink" href="#training-arms" title="Permanent link">&para;</a></h4>
+<p>An <strong>arm</strong> is a first-class, persisted property of a project: it says which parameters a run trains and federates <strong>and under which objective</strong>.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">TRAINING_ARMS</span>  <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;FULL&quot;</span><span class="p">,</span> <span class="s2">&quot;FROZEN_HEAD&quot;</span><span class="p">,</span> <span class="s2">&quot;OVA_LP&quot;</span><span class="p">)</span>
+<span class="n">ARM_OBJECTIVES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;FULL&quot;</span><span class="p">:</span> <span class="s2">&quot;cross_entropy&quot;</span><span class="p">,</span> <span class="s2">&quot;FROZEN_HEAD&quot;</span><span class="p">:</span> <span class="s2">&quot;cross_entropy&quot;</span><span class="p">,</span> <span class="s2">&quot;OVA_LP&quot;</span><span class="p">:</span> <span class="s2">&quot;one_vs_all&quot;</span><span class="p">}</span>
+<span class="n">DEFAULT_ARM</span>    <span class="o">=</span> <span class="s2">&quot;FULL&quot;</span>     <span class="c1"># an omitted arm resolves to FULL, so existing projects are unchanged</span>
+</code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>Arm</th>
+<th>Trains</th>
+<th>Objective</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FULL</code></td>
+<td>every parameter; the whole model rides the wire</td>
+<td>cross-entropy</td>
+</tr>
+<tr>
+<td><code>FROZEN_HEAD</code></td>
+<td>the head only (per-recipe module prefixes); the backbone is frozen, so the wire carries the head alone</td>
+<td>cross-entropy</td>
+</tr>
+<tr>
+<td><code>OVA_LP</code></td>
+<td>the <em>same</em> parameters as <code>FROZEN_HEAD</code></td>
+<td>one-vs-all — C independent binary classifiers instead of one softmax (arXiv:2511.05028)</td>
+</tr>
+</tbody>
+</table>
+<p><code>OVA_LP</code> is the first arm that differs from another arm in its <strong>objective</strong> rather than in its parameter subset, which is why the objective is part of the arm and part of the provenance stamp: without it, an <code>OVA_LP</code> and a <code>FROZEN_HEAD</code> result would be indistinguishable. <code>recipes.arm_stamp()</code> records <code>{recipe, arm, objective, trainable_prefixes}</code> on every eval card — carrying the prefixes as well as the name, because two runs can share an arm name while freezing different modules. Honest caveat recorded in the recipe's <code>arm_notes</code>: the OvA-LP paper's two-stage schedule is <strong>not</strong> implemented, so results read as OvA heads on a frozen encoder, not as a reproduction.</p>
+<p>Each recipe declares <code>supported_arms</code> and, per arm, <code>trainable_spec[arm]</code> (the module-name prefixes that stay trainable; <code>None</code> means all). The flow is end-to-end: frontend picker → Java <code>TrainingArm</code> enum + DTO validation → <code>projects.training_arm</code> (migrations <code>V22</code>/<code>V23</code>, CHECK-constrained) → <code>--training-arm</code> on <code>fl_server.py</code> and <code>client.py</code>. The two sides of that flow validate different things, and it is worth knowing which: the Java layer bounds only the <em>vocabulary</em> — a <code>@Pattern(regexp = "FULL|FROZEN_HEAD|OVA_LP")</code> on <code>CreateProjectRequest</code>/<code>StartProject</code>, the <code>TrainingArm</code> enum, and the <code>chk_projects_training_arm</code> CHECK — while <strong>whether the selected recipe actually supports that arm is checked by <code>recipes.validate_arm()</code> on the Python side, at FL-server spawn</strong> (<code>fl_server.py</code>) and again in <code>client.py</code>. The recipe catalog is the authority (<code>TrainingArm.java</code> and <code>FlServerManager</code> both say so); project creation does not consult it. <code>V22TrainingArmMigrationTest</code> asserts every Java enum constant is accepted by the CHECK so the enum and the constraint cannot drift. <code>fl-runtime/arm_tradeoff.json</code> carries the per-recipe measured trade-off the picker displays — keyed <strong>by recipe</strong>, because an earlier version attached one chest X-ray measurement to every dual-arm recipe and so advertised a pneumonia figure on a CIFAR-10 recipe.</p>
+<h4 id="model-recipe-catalog">Model-recipe catalog<a class="headerlink" href="#model-recipe-catalog" title="Permanent link">&para;</a></h4>
+<p>A recipe bundles <code>{architecture + dataset loader + input transform + class labels + input kind + supported arms}</code> under a <code>key</code>. <code>RECIPE_METADATA</code> holds <strong>seven</strong> catalog entries, served to the frontend picker via <code>recipes.py --describe</code> → <code>GET /api/model-recipes</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Display name</th>
+<th>Input</th>
+<th>Supported arms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PNEUMONIA_CNN</code></td>
+<td>Pneumonia Chest X-ray</td>
+<td>image</td>
+<td><code>FULL</code>, <code>FROZEN_HEAD</code></td>
+</tr>
+<tr>
+<td><code>CNN</code></td>
+<td>Image classifier (CIFAR-10)</td>
+<td>image</td>
+<td><code>FULL</code>, <code>FROZEN_HEAD</code></td>
+</tr>
+<tr>
+<td><code>CIFAR_RESNET18</code></td>
+<td>Image classifier (CIFAR-10, pretrained ResNet-18)</td>
+<td>image</td>
+<td><code>FULL</code>, <code>FROZEN_HEAD</code>, <code>OVA_LP</code></td>
+</tr>
+<tr>
+<td><code>MLP</code></td>
+<td>ECG heartbeat (Normal/Abnormal)</td>
+<td>vector</td>
+<td><code>FULL</code></td>
+</tr>
+<tr>
+<td><code>TRANSFORMER</code></td>
+<td>Text classifier (OPT-125M)</td>
+<td>text</td>
+<td><code>FULL</code></td>
+</tr>
+<tr>
+<td><code>LLM_LORA</code></td>
+<td>Text LLM (LoRA fine-tune)</td>
+<td>text</td>
+<td><code>FULL</code></td>
+</tr>
+<tr>
+<td><code>TINYNET_GOLDEN</code></td>
+<td>On-device DeComFL demo (TinyNet)</td>
+<td>vector</td>
+<td><code>FULL</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>CIFAR_RESNET18</code> is the first recipe to declare <code>pretrained</code> weights explicitly (<code>torchvision</code>, <code>ResNet18_Weights.IMAGENET1K_V1</code>, 1000-class head discarded) — declared rather than implicit so a result can say <em>which</em> backbone produced it, which is the first question anyone asks of a frozen-arm number.</p>
+<p>Two further recipes exist in <code>recipes.py</code> but are deliberately <strong>outside</strong> the catalog and <code>--describe</code>: <code>BLOOD_CNN</code> and <code>FROZEN_DEMO</code>. They stay dispatchable-but-not-selectable.</p>
+<blockquote>
+<p><strong>The registry is now the dispatch path, not only the catalog</strong> (DA-14 Ph3.1). <code>init_model.py</code>'s model builder is fully data-driven — it upper-cases the key and returns <code>recipes.get_recipe(model_type).build_model(device, ...)</code> with no per-type branch at all — and <code>infer.py</code> does the same through <code>build_for_inference</code>. <code>catalog_keys()</code> derives the accepted <code>--model-type</code> values from <code>RECIPE_METADATA</code>, so a new catalog recipe is automatically an accepted model type with no argparse edit. Older documentation describing an <code>if</code>/<code>elif</code> chain in <code>init_model.py</code> that falls through to <code>raise ValueError("Unsupported model architecture")</code> is stale.</p>
+<p>The residue is in <strong><code>client.py</code></strong>, which still has a <code>USE_MLP</code> / <code>USE_LLM</code> / <code>USE_PNEUMONIA</code> / <code>USE_LLM_LORA</code> / <code>USE_DERIVED</code> / else chain — but every branch of it already calls <code>recipes.get_recipe(...)</code>; the chain selects <em>which</em> key and <em>which</em> loader kwargs, not how the model is built, and the else branch honours <code>MODEL_TYPE</code> whenever it names a registry recipe. The training arm is applied <strong>after</strong> the whole chain (<code>apply_declared_arm</code>), deliberately: it used to live inside one branch, so a <code>FROZEN_HEAD</code> pneumonia run trained its entire backbone while reporting itself as frozen. Correctness must not depend on the order of a build chain.</p>
+</blockquote>
+<p><strong>Key cross-component interfaces:</strong>
+- Executed by <strong>Backend</strong> through <code>FlServerProcessRunner</code> → <code>run_fl_server.sh</code> / <code>run_recipes.sh</code> / <code>run_init_model.sh</code> / <code>run_infer.sh</code>.
+- Imports <strong>Framework</strong> as a library; packaged together with it into the <strong>client-docker</strong> image and the <strong>Desktop</strong> PyInstaller bundle.
+- Serves the recipe catalog and the arm trade-offs that the <strong>Frontend</strong> project-creation picker renders.</p>
 <hr />
 <h3 id="desktop">Desktop<a class="headerlink" href="#desktop" title="Permanent link">&para;</a></h3>
 <blockquote>
@@ -415,15 +737,15 @@ is deferred to <strong>OP-12</strong>. The only supported deployed architecture 
 </table>
 <p><strong>Key cross-component interfaces:</strong>
 - Authenticates against <strong>Backend</strong> <code>POST /api/auth/login</code>; JWT stored via Electron <code>safeStorage</code>.
-- Spawns the <strong>Framework</strong> FL client as a child process — the PyInstaller <code>fedlearn-client</code> binary, <code>fl-runtime/client.py</code> under dev mode, or a Docker container. It orchestrates <em>clients</em> only; FL servers are spawned by the Backend.
+- Spawns the FL client as a child process — the PyInstaller <code>fedlearn-client</code> binary, <code>fl-runtime/client.py</code> under dev mode, or a Docker container. All three are the same canonical client (DA-5). It orchestrates <em>clients</em> only; FL servers are spawned by the Backend.
 - Does not connect to the <strong>Frontend</strong> — both are independent clients of the Backend API.</p>
 <hr />
 <h3 id="mobile">Mobile<a class="headerlink" href="#mobile" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Path:</strong> <a href="mobile/README.html"><code>wikis/mobile/</code></a><br />
-<strong>Stack:</strong> React Native 0.80, TypeScript, native C++ (ExecuTorch) via a TurboModule bridge, Android + iOS</p>
+<strong>Stack:</strong> React Native 0.80, TypeScript, native C++ (ExecuTorch on the shared core + Android; the iOS native wiring is still a <strong>libtorch</strong> scaffold pending its ExecuTorch migration — MO-14) via a TurboModule bridge, Android + iOS</p>
 </blockquote>
-<p>The mobile client is an on-device FL participant for phones and tablets. The JS/TS layer handles UI, auth, and orchestration; the heavy lifting — the <strong>DeComFL zeroth-order training path</strong> — runs natively in C++ on ExecuTorch through a TurboModule (JSI) bridge, keeping training data on-device. It adopted the <strong>Ember</strong> design system and brand fonts in <code>2.1.0</code>.</p>
+<p>The mobile client is an on-device FL participant for phones and tablets. The JS/TS layer handles UI, auth, and orchestration; the heavy lifting — the <strong>DeComFL zeroth-order training path</strong> — runs natively in C++ on ExecuTorch through a TurboModule (JSI) bridge, keeping training data on-device. <strong>That native path is Android-only today.</strong> <code>ios/FedLearnCore.podspec</code> vendors a libtorch xcframework while <code>shared/</code> targets ExecuTorch — incompatible runtimes, so the podspec's own guard says not to enable <code>FEDLEARN_NATIVE_IOS</code>; iOS builds the JS shell, <code>isNativeCoreAvailable()</code> returns false, and the training entry point is disabled rather than crashing. See <a href="mobile/README.html"><code>mobile/README.md</code></a> for the full status. It picked up the <strong>Ember</strong> design system and brand fonts in <code>2.1.0</code> (2026-06-10), and was moved onto <strong>Ledger</strong> with the rest of the platform on 2026-07-17 (<code>2c50672</code>, which regenerated <code>mobile_client/src/theme/tokens.generated.ts</code> and <code>global.css</code> from <code>design/tokens.json</code> — they now carry the Ledger canvas <code>#F6F3EE</code>, accent <code>#1C314D</code>, and Hanken Grotesk for both sans and display). That re-theme shipped without a mobile version bump, so <code>2.1.0</code> is still the current version and no longer implies Ember.</p>
 <table>
 <thead>
 <tr>
@@ -439,16 +761,16 @@ is deferred to <strong>OP-12</strong>. The only supported deployed architecture 
 </tbody>
 </table>
 <p><strong>Key cross-component interfaces:</strong>
-- Authenticates against <strong>Backend</strong> <code>POST /api/auth/login</code> (same cookie/JWT contract as the web client).
-- Connects to a <strong>Framework</strong> FL server over gRPC and runs the native DeComFL client path.
-- Shares the canonical <code>proto/</code> contract (byte-mirrored into <code>mobile_client/proto/</code>).</p>
+- Authenticates against <strong>Backend</strong> <code>POST /api/auth/login</code> — but <strong>not</strong> on the web client's cookie contract. Mobile uses <code>Authorization: Bearer</code> (<code>mobile_client/src/lib/restClient.ts</code>), which the backend accepts <strong>only</strong> when the request also carries the native-client marker header <code>X-FedLearn-Client</code> (mobile sends <code>fedlearn-mobile</code>; <code>JwtAuthenticationFilter.isNativeClient</code> gates on the header being present and non-blank, not on its value — SE-9); browsers never set it, so they stay strictly cookie-only. The marker is an intent signal, not a secret. As with the web JWT, the token is audience-scoped (SE-20) so it cannot be replayed against another surface.
+- Connects to an FL server (<code>fl-runtime/fl_server.py</code>) over gRPC and runs the native DeComFL client path — on Android; on iOS the native core is unavailable and the entry point is disabled (MO-14).
+- Shares the canonical <code>proto/</code> contract (byte-mirrored into <code>mobile_client/proto/fedlearn/v2/fedlearn.proto</code>, CI-enforced byte-identical).</p>
 <hr />
 <h3 id="client-docker">Client (Docker)<a class="headerlink" href="#client-docker" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Path:</strong> <a href="client-docker/README.html"><code>wikis/client-docker/</code></a><br />
-<strong>Stack:</strong> Docker, multi-arch base images, thin wrapper around <code>framework/</code></p>
+<strong>Stack:</strong> Docker, multi-arch base images; packages <code>framework/</code> + <code>fl-runtime/</code></p>
 </blockquote>
-<p><code>client-docker</code> is the containerised FL client — a thin wrapper that <code>pip install -e</code>'s the framework and, via <code>entrypoint.sh</code>, execs <code>python3 -u client.py</code> (the canonical <code>fl-runtime/client.py</code>). It exists so a client can be deployed without a local Python toolchain, and it is the execution path the desktop app uses for the <strong>Jetson</strong> profile.</p>
+<p><code>client-docker</code> is the containerised FL client — it packages <strong>both</strong> <code>framework/</code> and <code>fl-runtime/</code> (the build context is the <strong>repo root</strong>, not <code>client-docker/</code>) and, via <code>entrypoint.sh</code>, execs <code>python3 -u client.py</code> (the canonical <code>fl-runtime/client.py</code>). It exists so a client can be deployed without a local Python toolchain, and it is the execution path the desktop app uses for the <strong>Jetson</strong> profile. The container is configured by <strong>environment variables</strong>, not CLI flags: <code>entrypoint.sh</code> hard-fails if <code>PROJECT_ID</code> / <code>SERVER_ADDRESS</code> / <code>PARTITION_ID</code> are unset, builds the matching <code>--project-id</code> / <code>--server-address</code> / <code>--partition-id</code> flags itself, and forwards <code>"$@"</code> for extras.</p>
 <table>
 <thead>
 <tr>
@@ -464,9 +786,9 @@ is deferred to <strong>OP-12</strong>. The only supported deployed architecture 
 </tbody>
 </table>
 <p><strong>Key cross-component interfaces:</strong>
-- Bundles the <strong>Framework</strong> (<code>pip install -e framework</code>) — no duplicated FL logic.
-- Connects to a <strong>Framework</strong> FL server over gRPC like any other client.
-- On <strong>Jetson</strong>, must use the L4T base image and direct <code>/dev/nvhost-*</code> device mounts (never <code>--runtime nvidia</code>).</p>
+- Bundles the <strong>Framework</strong> (<code>pip install -e framework</code>) and the <strong>FL runtime</strong> — no duplicated FL logic, and no client fork (DA-5).
+- Connects to an FL server over gRPC like any other client.
+- On <strong>Jetson</strong>, build with an L4T base image (<code>--build-arg BASE_IMAGE=...</code>). <strong>The old blanket "never <code>--runtime nvidia</code>" rule is withdrawn.</strong> On a JetPack 6.2 / L4T R36.5 AGX Orin, <code>docker run --runtime nvidia</code> is what <em>works</em> (<code>torch.cuda.is_available()</code> True, device "Orin"), while the hand-rolled device-mount path fails with <code>cuInit → 801</code> because the in-container <code>libcuda.so.1</code> is a stub. Two related snags on that generation: <code>docker.service.ts</code>'s device list includes <code>/dev/nvhost-ctrl</code>, which does not exist on R36.5 (Docker hard-errors on a missing device node), and the <code>r35.2.1-pth2.0-py3</code> base tag documented in the Dockerfile is JetPack-5-era, two L4T generations behind. <strong>Scope of this correction:</strong> the failure the old rule described was plausibly real on the JetPack 5 / <code>nvidia-container-runtime</code> it was written against — that is an inference, not a re-test, since no JetPack 5 hardware was available. Treat <code>--runtime nvidia</code> as the default to try on JetPack 6+, keep device mounts as the fallback, and re-verify on whatever L4T the target device actually runs. The desktop <code>DockerService</code> Jetson flow itself has not been re-run end to end against this finding.</p>
 <hr />
 <h2 id="developer-quick-start">Developer Quick Start<a class="headerlink" href="#developer-quick-start" title="Permanent link">&para;</a></h2>
 <h3 id="run-the-full-stack-locally">Run the Full Stack Locally<a class="headerlink" href="#run-the-full-stack-locally" title="Permanent link">&para;</a></h3>
@@ -490,10 +812,33 @@ npm<span class="w"> </span>install<span class="w"> </span><span class="o">&amp;&
 
 <span class="c1"># 5. (Optional) Run a standalone FL training round manually</span>
 <span class="nb">cd</span><span class="w"> </span>framework
-pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.<span class="w">            </span><span class="c1"># installs the `fedlearn` library that fl-runtime imports</span>
 python<span class="w"> </span>run_local_test.py
+
+<span class="c1"># 6. (Optional) Inspect the recipe catalog the picker is built from — torch-free, so it&#39;s cheap</span>
+<span class="nb">cd</span><span class="w"> </span>fl-runtime
+python<span class="w"> </span>recipes.py<span class="w"> </span>--describe
 </code></pre></div>
 
+<blockquote>
+<p><strong>Pinned toolchain — don't guess versions.</strong> <code>.tool-versions</code> (asdf/mise) and <code>.nvmrc</code> are the
+pins and CI matches them: <strong>Node 24</strong> (<code>nodejs 24.4.0</code>, <code>.nvmrc</code> → <code>24</code>), <strong>Python 3.12.9</strong> (the
+framework's <code>setup.py</code> declares a <code>python_requires='&gt;=3.10'</code> floor, but 3.12 is what CI tests),
+<strong>Java 21</strong> (<code>temurin-21.0.7+6</code>). <code>rust 1.87.0</code> is pinned but unused — there is no crate in this
+repo. <code>.editorconfig</code> is authoritative for formatting: 2 spaces by default, <strong>4 for Python and
+Java</strong>.</p>
+</blockquote>
+<h3 id="per-unit-test-commands">Per-Unit Test Commands<a class="headerlink" href="#per-unit-test-commands" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>framework<span class="w">    </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w">   </span><span class="c1"># coverage-enforced (--cov=fedlearn)</span>
+<span class="nb">cd</span><span class="w"> </span>fl-runtime<span class="w">   </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w">                  </span><span class="c1"># its own suite; pytest.ini deselects -m slow</span>
+<span class="nb">cd</span><span class="w"> </span>backend/fl-platform-api<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">SPRING_PROFILES_ACTIVE</span><span class="o">=</span><span class="nb">test</span><span class="w"> </span>./gradlew<span class="w"> </span><span class="nb">test</span><span class="w">   </span><span class="c1"># needs a live Docker daemon</span>
+<span class="nb">cd</span><span class="w"> </span>frontend<span class="w">     </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>lint<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npx<span class="w"> </span>tsc<span class="w"> </span>--noEmit<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>test:coverage
+<span class="nb">cd</span><span class="w"> </span>fedlearn-desktop<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>lint<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span><span class="nb">test</span>
+<span class="nb">cd</span><span class="w"> </span>mobile_client<span class="w">    </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>lint<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npx<span class="w"> </span>tsc<span class="w"> </span>--noEmit<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span><span class="nb">test</span>
+./scripts/check_proto_mirror.sh<span class="w">                         </span><span class="c1"># proto mirrors must stay byte-identical</span>
+</code></pre></div>
+
+<p>CI (<code>.github/workflows/</code>: <code>ci.yml</code>, <code>mobile.yml</code>, <code>proto.yml</code>, <code>security.yml</code>, <code>release-desktop.yml</code>, <code>release-mobile.yml</code>) is <strong>path-filtered</strong> — a unit's job runs only when that unit changes. Three gates are easy to trip over: <code>framework/</code> enforces coverage, so a bare pytest pass is not enough; <code>fl-runtime/</code> runs with <code>FEDLEARN_FAIL_ON_UNEXPECTED_SKIP=1</code>, so a <em>skipped</em> test fails the job (TE-10; <code>-m "not slow"</code> deselection is not a skip); and the backend gate is <code>./gradlew test jacocoTestCoverageVerification</code> with a 0.70 bundle line-coverage floor (TE-11), not <code>test</code> alone. Unlike <code>frontend/</code> and <code>mobile_client/</code>, <code>fedlearn-desktop/</code> has <strong>no</strong> standalone <code>tsc --noEmit</code> gate — its types are checked only incidentally by ts-jest on test-reachable sources. The proto-mirror check lives in <code>proto.yml</code> / <code>mobile.yml</code>, not <code>ci.yml</code>.</p>
 <h3 id="useful-cross-component-entry-points">Useful Cross-Component Entry Points<a class="headerlink" href="#useful-cross-component-entry-points" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -505,7 +850,19 @@ python<span class="w"> </span>run_local_test.py
 <tbody>
 <tr>
 <td>Add a new FL aggregation strategy</td>
-<td><a href="framework/05_strategies.html">Framework: Strategies</a> + <a href="framework/09_developer_guide.html">Developer Guide</a></td>
+<td><a href="framework/05_strategies.html">Framework: Strategies</a> + <a href="framework/09_developer_guide.html">Developer Guide</a> — then register it in <code>framework/src/fedlearn/server/strategy_factory.py</code></td>
+</tr>
+<tr>
+<td>Add a new model type</td>
+<td><a href="#fl-runtime"><code>fl-runtime</code></a> — a <code>RECIPE_METADATA</code> entry in <code>fl-runtime/recipes.py</code>, with <code>supported_arms</code> + <code>trainable_spec</code>. No Java or TypeScript edit</td>
+</tr>
+<tr>
+<td>Add a training arm</td>
+<td><code>fl-runtime/recipes.py</code> (<code>TRAINING_ARMS</code> + <code>ARM_OBJECTIVES</code>), the Java <code>TrainingArm</code> enum, <strong>and</strong> a new migration widening <code>chk_projects_training_arm</code></td>
+</tr>
+<tr>
+<td>Run a large-scale (100–5,000 client) experiment</td>
+<td><code>framework/src/fedlearn/simulation/</code> — <a href="#in-process-simulation--the-experiment-path-that-has-no-ports">In-Process Simulation</a></td>
 </tr>
 <tr>
 <td>Secure a new API endpoint</td>
@@ -531,16 +888,49 @@ python<span class="w"> </span>run_local_test.py
 <td>Implement a custom FL client</td>
 <td><a href="framework/04_client_internals.html">Framework: Client Internals</a> + <a href="framework/09_developer_guide.html">Developer Guide</a></td>
 </tr>
+<tr>
+<td>Change the gRPC contract</td>
+<td>Edit <code>proto/fedlearn/v2/fedlearn.proto</code> (or <code>proto/fedlearn/fot/v1/fot.proto</code>), then <code>cp</code> to the three mirrors — never hand-edit a mirror; <code>scripts/check_proto_mirror.sh</code> prints the exact command</td>
+</tr>
 </tbody>
 </table>
 <hr />
 <h2 id="directory-structure">Directory Structure<a class="headerlink" href="#directory-structure" title="Permanent link">&para;</a></h2>
+<h3 id="the-seven-deployable-units-at-the-repo-root">The seven deployable units, at the repo root<a class="headerlink" href="#the-seven-deployable-units-at-the-repo-root" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>FedLearn-Platform/
+├── backend/fl-platform-api/     ← Spring Boot 3 / Java 21 / Gradle — REST + STOMP control plane
+├── framework/                   ← the pip-installable `fedlearn` library (server, client,
+│                                  strategies, safetensors wire, simulation, FoT)
+├── fl-runtime/                  ← THE EXECUTABLE LAYER — fl_server.py, client.py, init_model.py,
+│                                  infer.py, recipes.py, data.py + run_*.sh wrappers
+├── frontend/                    ← React 19 / Vite 6 / TS / Tailwind v4 dashboard SPA
+├── fedlearn-desktop/            ← Electron + dockerode end-user orchestrator
+├── client-docker/               ← containerised FL client (build context is the REPO ROOT)
+├── mobile_client/               ← React Native 0.80 + native C++ (ExecuTorch) via a TurboModule
+│
+├── proto/                       ← THE canonical gRPC contract, governed by buf
+│   ├── fedlearn/v2/fedlearn.proto        package fedlearn.v2       (the gradient path)
+│   └── fedlearn/fot/v1/fot.proto         package fedlearn.fot.v1   (the FoT path)
+├── design/                      ← tokens.json (single source of truth) + build-tokens.mjs
+├── scripts/                     ← check_proto_mirror.sh, check_no_skipped_tests.sh, deploy, …
+└── wikis/                       ← this wiki
+</code></pre></div>
+
+<p>The canonical contract has <strong>one</strong> home (<code>proto/</code>) and <strong>three</strong> byte-identical in-tree mirrors,
+enforced by <code>scripts/check_proto_mirror.sh</code> (the failure message prints the exact <code>cp</code> to fix it):
+<code>framework/src/fedlearn/communication/protos/fedlearn.proto</code>,
+<code>mobile_client/proto/fedlearn/v2/fedlearn.proto</code>, and
+<code>framework/src/fedlearn/communication/protos/fot.proto</code>. There is no <code>fedlearn.v1</code> anywhere —
+the framework is on v2 and byte-identical to canonical.</p>
+<h3 id="this-wiki">This wiki<a class="headerlink" href="#this-wiki" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code>wikis/                              ← repo-root docs (promoted out of docs/)
 ├── README.md                       ← You are here (master wiki)
 ├── VERSIONS.md                     ← per-unit release versions (source of truth)
 ├── assets/                         ← shared diagrams (architecture*.png)
-├── html/                           ← Ember-themed HTML rendering (generated)
-│   └── index.html
+├── html/                           ← generated HTML rendering of this wiki (Ledger-themed).
+│   ├── index.html                    Regenerate with `python3 wikis/html/build.py` after editing
+│   └── build.py                      any page here — never hand-edit the HTML. The generator&#39;s
+│                                     palette mirrors design/tokens.json.
 │
 ├── backend/                        ← Spring Boot 3 API
 │   ├── README.md
@@ -559,7 +949,7 @@ python<span class="w"> </span>run_local_test.py
 │   ├── API_and_Services.md
 │   └── UI_and_Components.md
 │
-├── framework/                      ← Python FL engine (gRPC + PyTorch)
+├── framework/                      ← Python FL library (gRPC + PyTorch)
 │   ├── README.md
 │   ├── 01_architecture_overview.md
 │   ├── 02_grpc_communication.md
@@ -570,6 +960,13 @@ python<span class="w"> </span>run_local_test.py
 │   ├── 07_data_partitioning.md
 │   ├── 08_examples.md
 │   └── 09_developer_guide.md
+│
+├── fl-runtime/                     ← the executable FL layer the backend shells out to
+│   ├── README.md
+│   ├── 01_entry_points.md
+│   ├── 02_recipe_catalog.md
+│   ├── 03_training_arms.md
+│   └── 04_the_federated_set.md
 │
 ├── desktop/                        ← Electron 42 local training client
 │   ├── README.md

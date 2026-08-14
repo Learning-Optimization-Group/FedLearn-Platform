@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -84,43 +93,396 @@
   <div class="content-wrap">
     <article class="article"><h1 id="ui-and-components">UI and Components<a class="headerlink" href="#ui-and-components" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p><strong>Current design system: Ember.</strong> As of the <code>1.4.1-beta</code> Ember rollout, the redesign track described below now uses the <strong>Ember</strong> design system — warm canvas (<code>#FBF9F6</code>), burnt-orange accent (<code>#C56A1E</code>), Bricolage Grotesque / Hanken Grotesk / JetBrains Mono — driven by CSS variables in <code>src/styles/tokens.css</code>. Ember superseded the earlier "Instrument" tokens; the glassmorphic dark "V2" styling discussed here was the design language that preceded it.</p>
+<p><strong>Current design system: Ledger</strong> — navy structural ink (<code>#1C314D</code>) on quiet paper
+surfaces (<code>#F6F3EE</code> canvas, white cards), one type family (Hanken Grotesk; JetBrains
+Mono for logs/ids), 4px-grid spacing, quiet card shadows, and a light-first theme.
+Ledger landed in <code>2c50672</code> (2026-07-17) and superseded <strong>Ember</strong>, which had superseded
+<strong>Instrument</strong>. Tokens are generated — see below — and the dark palette (a navy-dark
+family, not pure black) stays wired for a future deliberate dark mode.</p>
 </blockquote>
-<p>The FedLearn frontend is transitioning from a traditional custom-CSS layout to a modern, utility-first (Tailwind CSS) approach. </p>
-<h2 id="two-ui-paradigms">Two UI Paradigms<a class="headerlink" href="#two-ui-paradigms" title="Permanent link">&para;</a></h2>
-<p>The application currently supports two distinct visual languages side-by-side:</p>
-<h3 id="1-legacy-ui-standard-routes">1. Legacy UI (Standard Routes)<a class="headerlink" href="#1-legacy-ui-standard-routes" title="Permanent link">&para;</a></h3>
-<p>Located in <code>src/components/</code> and <code>src/pages/</code>, the legacy UI relies on standard CSS files located in <code>src/styles/</code>. Components like <code>ProjectCard</code>, <code>ModelCard</code>, and standard forms utilize classes defined in files like <code>Dashboard.css</code> and <code>Layout.css</code>.</p>
-<h3 id="2-redesign-v2-now-the-ember-design-system">2. Redesign V2 (now the Ember design system)<a class="headerlink" href="#2-redesign-v2-now-the-ember-design-system" title="Permanent link">&para;</a></h3>
-<p>Located in <code>src/components/redesign/</code>, this is the current direction of the platform — now themed by the <strong>Ember</strong> design system. The V2 interface leverages <strong>Tailwind CSS 4.x</strong> to construct a dynamic UI from design-token CSS variables rather than custom CSS files.
-These components are accessed via the <code>/v2</code> routes.</p>
-<h2 id="the-v2-design-system">The V2 Design System<a class="headerlink" href="#the-v2-design-system" title="Permanent link">&para;</a></h2>
-<p>The V2 redesign strictly adheres to modern web aesthetics.</p>
-<ul>
-<li><strong>Layout</strong>: Uses a permanent Sidebar (<code>Sidebar.tsx</code>) and a flexible main content area (<code>LayoutV2.tsx</code>).</li>
-<li><strong>Cards</strong>: Elements like <code>ProjectCard.tsx</code> in V2 use soft gradients, semi-transparent backgrounds (<code>bg-gray-800/50</code>), and subtle borders (<code>border-white/10</code>) to simulate glass.</li>
-<li><strong>Icons</strong>: <code>lucide-react</code> provides a consistent, crisp icon set.</li>
-</ul>
-<h3 id="example-tailwind-card-component">Example: Tailwind Card Component<a class="headerlink" href="#example-tailwind-card-component" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">Card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">({</span><span class="w"> </span><span class="nx">children</span><span class="p">,</span><span class="w"> </span><span class="nx">className</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">(</span>
-<span class="w">    </span><span class="p">&lt;</span><span class="nt">div</span><span class="w"> </span><span class="na">className</span><span class="o">=</span><span class="p">{</span><span class="sb">`bg-gray-900/40 border border-white/5 rounded-2xl p-6 backdrop-blur-xl </span><span class="si">${</span><span class="nx">className</span><span class="si">}</span><span class="sb">`</span><span class="p">}&gt;</span>
-<span class="w">        </span><span class="p">{</span><span class="nx">children</span><span class="p">}</span>
-<span class="w">    </span><span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
-<span class="p">);</span>
+<h2 id="design-tokens-are-generated-not-hand-written">Design tokens are generated, not hand-written<a class="headerlink" href="#design-tokens-are-generated-not-hand-written" title="Permanent link">&para;</a></h2>
+<p><code>design/tokens.json</code> is the single source of truth — its own <code>$description</code> field says so.
+<code>node design/build-tokens.mjs</code> (dependency-free, plain Node) regenerates every per-platform
+artifact:</p>
+<table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>Consumer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>frontend/src/styles/tokens.css</code></td>
+<td>Tailwind v4 <code>@theme inline</code> (semantic utilities: <code>bg-canvas</code>, <code>text-fg</code>, <code>border-hairline</code>, <code>bg-accent</code>, <code>shadow-card</code>, <code>text-h3</code>, …)</td>
+</tr>
+<tr>
+<td><code>fedlearn-desktop/src/renderer/tokens.css</code></td>
+<td>plain CSS custom properties incl. a <code>--text-*-size</code> / <code>-line</code> / <code>-tracking</code> / <code>-weight</code> ramp</td>
+</tr>
+<tr>
+<td><code>mobile_client/src/theme/tokens.generated.ts</code></td>
+<td>typed token object (<code>px</code> values stripped to numbers, durations to ms)</td>
+</tr>
+<tr>
+<td><code>mobile_client/src/theme/global.css</code></td>
+<td>NativeWind semantic color variables (<code>:root</code> light, <code>.dark</code> dark)</td>
+</tr>
+</tbody>
+</table>
+<p>Every generated file carries the header
+<code>GENERATED by design/build-tokens.mjs — DO NOT EDIT. Edit design/tokens.json and re-run.</code></p>
+<p><strong>This is CI-enforced.</strong> <code>.github/workflows/ci.yml</code> has a <code>design-tokens</code> job that runs
+<code>scripts/check_design_tokens.sh</code> on <strong>every</strong> push — deliberately <em>not</em> path-filtered, unlike the
+per-unit jobs. The script regenerates from <code>tokens.json</code> and fails if any committed output has
+drifted, printing the literal fix (<code>node design/build-tokens.mjs</code>). It is the design-system
+analogue of <code>check_proto_mirror.sh</code>.</p>
+<p>Never hardcode a color, radius, shadow, or font in a component — consume the semantic tokens.
+Palette changes are made once in <code>tokens.json</code> and propagate to all surfaces.</p>
+<h3 id="the-ledger-palette">The Ledger palette<a class="headerlink" href="#the-ledger-palette" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Light</th>
+<th>Dark (navy-dark)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>canvas</code></td>
+<td><code>#F6F3EE</code></td>
+<td><code>#0B1622</code></td>
+</tr>
+<tr>
+<td><code>surface-1</code> / <code>-2</code> / <code>-3</code></td>
+<td><code>#FFFFFF</code> / <code>#F1EDE4</code> / <code>#EAE5DC</code></td>
+<td><code>#121F2E</code> / <code>#18283A</code> / <code>#1B2C40</code></td>
+</tr>
+<tr>
+<td><code>code-well</code> / <code>code-fg</code></td>
+<td><code>#EFEBE2</code> / <code>#191A1C</code></td>
+<td><code>#0A131D</code> / <code>#C9D6E4</code></td>
+</tr>
+<tr>
+<td><code>hairline</code> / <code>line</code></td>
+<td><code>#E7E2D9</code> / <code>#D6D0C4</code></td>
+<td><code>#25374A</code> / <code>#2F445A</code></td>
+</tr>
+<tr>
+<td><code>fg</code> / <code>fg-muted</code> / <code>fg-subtle</code></td>
+<td><code>#191A1C</code> / <code>#6B6760</code> / <code>#736E66</code></td>
+<td><code>#EAF0F6</code> / <code>#B4C0CE</code> / <code>#8FA0B2</code></td>
+</tr>
+<tr>
+<td><code>accent</code> / <code>accent-hover</code> / <code>accent-fg</code></td>
+<td><code>#1C314D</code> / <code>#14243A</code> / <code>#FFFFFF</code></td>
+<td><code>#4F8AC9</code> / <code>#82AFE0</code> / <code>#08111B</code></td>
+</tr>
+<tr>
+<td><code>success</code> / <code>warning</code> / <code>danger</code> / <code>running</code></td>
+<td><code>#2E6B4E</code> / <code>#9A5B12</code> / <code>#8F3C37</code> / <code>#3A5A76</code></td>
+<td><code>#5FB87A</code> / <code>#D8B878</code> / <code>#E0584A</code> / <code>#82AFE0</code></td>
+</tr>
+<tr>
+<td><code>scrim</code></td>
+<td><code>rgba(25,26,28,0.45)</code></td>
+<td><code>rgba(0,0,0,0.6)</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>--series-1…8</code> is a fixed-order categorical ramp (<code>#3565B0</code>, <code>#008300</code>, <code>#E87BA4</code>, <code>#EDA100</code>,
+<code>#1BAF7A</code>, <code>#EB6834</code>, <code>#4A3AA7</code>, <code>#E34948</code>), identical in both themes and validated for
+colour-vision deficiency in that slot order. Do not re-order it to "match" a palette change.</p>
+<p>Radii <code>sm 4 / md 6 / lg 10 / card 12 / pill 9999</code>; spacing on a 4px grid (<code>0.5</code>→2px through
+<code>16</code>→64px); shadows <code>card</code>, <code>card-hover</code>, <code>overlay</code>; durations <code>fast 120ms / base 180ms / slow 280ms</code>
+with <code>ease-out</code> and <code>ease-in-out</code> curves.</p>
+<h3 id="type">Type<a class="headerlink" href="#type" title="Permanent link">&para;</a></h3>
+<p>One family for sans <em>and</em> display: <code>'Hanken Grotesk'</code> with a system fallback stack; <code>'JetBrains Mono'</code>
+for logs, ids and numerics; <code>font-feature-settings: 'calt' 1, 'tnum' 1</code> (tabular numerals, so a
+streaming metric does not jitter). Fonts are loaded by a <code>&lt;link&gt;</code> tag in <code>frontend/index.html</code>
+(Google Fonts) rather than being self-hosted — <code>src/styles/fonts.css</code> exists only to record that,
+and is otherwise empty. That is the one external asset host the SPA depends on.</p>
+<p>The ramp is eight steps, each carrying size, line-height, tracking <strong>and</strong> weight:</p>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Size / line</th>
+<th>Tracking</th>
+<th>Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>caption</code></td>
+<td>12 / 16</td>
+<td>+0.1</td>
+<td>500</td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td>13 / 18</td>
+<td>0</td>
+<td>500</td>
+</tr>
+<tr>
+<td><code>body</code></td>
+<td>14 / 20</td>
+<td>0</td>
+<td>400</td>
+</tr>
+<tr>
+<td><code>body-lg</code></td>
+<td>16 / 24</td>
+<td>−0.05</td>
+<td>400</td>
+</tr>
+<tr>
+<td><code>h4</code></td>
+<td>18 / 24</td>
+<td>−0.2</td>
+<td>600</td>
+</tr>
+<tr>
+<td><code>h3</code></td>
+<td>22 / 28</td>
+<td>−0.4</td>
+<td>600</td>
+</tr>
+<tr>
+<td><code>h2</code></td>
+<td>30 / 36</td>
+<td>−0.6</td>
+<td>600</td>
+</tr>
+<tr>
+<td><code>h1</code></td>
+<td>40 / 44</td>
+<td>−1</td>
+<td>700</td>
+</tr>
+</tbody>
+</table>
+<h3 id="stylesheet-layering">Stylesheet layering<a class="headerlink" href="#stylesheet-layering" title="Permanent link">&para;</a></h3>
+<p><code>src/styles/tailwind.css</code> is the entry point and the import order is load-bearing:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">@</span><span class="k">import</span><span class="w"> </span><span class="s2">&quot;tailwindcss&quot;</span><span class="p">;</span>
+<span class="p">@</span><span class="k">import</span><span class="w"> </span><span class="s2">&quot;./theme.css&quot;</span><span class="p">;</span><span class="w">   </span><span class="c">/* base layer + legacy shadcn aliases */</span>
+<span class="p">@</span><span class="k">import</span><span class="w"> </span><span class="s2">&quot;./tokens.css&quot;</span><span class="p">;</span><span class="w">  </span><span class="c">/* GENERATED — semantic tokens win */</span>
+<span class="p">@</span><span class="k">import</span><span class="w"> </span><span class="s2">&quot;./brand.css&quot;</span><span class="p">;</span><span class="w">   </span><span class="c">/* small expressive layer (eyebrow, legacy class shims) */</span>
+<span class="p">@</span><span class="k">import</span><span class="w"> </span><span class="s2">&quot;./fonts.css&quot;</span><span class="p">;</span>
 </code></pre></div>
 
-<h2 id="shared-components-and-utilities">Shared Components and Utilities<a class="headerlink" href="#shared-components-and-utilities" title="Permanent link">&para;</a></h2>
-<p>Regardless of the UI version, some components are universally applied to handle complex logic gracefully:</p>
+<p><code>theme.css</code> does three jobs: it wires the <code>dark</code> variant for Tailwind v4
+(<code>@custom-variant dark (&amp;:is(.dark *))</code>), it <strong>aliases the legacy shadcn-style names</strong> to the
+semantic tokens (<code>--card → var(--surface-1)</code>, <code>--muted-foreground → var(--fg-muted)</code>,
+<code>--border → var(--hairline)</code>, …) so stray <code>bg-card</code> / <code>text-muted-foreground</code> / <code>border-border</code>
+utilities in older components still resolve, and it sets the base layer (paper body background,
+heading weight/tracking, selection colour, a slim themed scrollbar).</p>
+<p>Those aliases are a <strong>compatibility shim, not a second vocabulary</strong> — new UI should use the semantic
+tokens directly.</p>
+<blockquote>
+<p><strong>Dark mode is wired but not reachable from the web app.</strong> <code>tokens.css</code> emits a full <code>.dark</code>
+block and <code>theme.css</code> defines the variant, but nothing in <code>frontend/src/</code> ever adds the <code>dark</code>
+class to the document, and there is no theme toggle in <code>SettingsView</code>. The web client is
+effectively light-only today; the dark family exists so a deliberate dark mode is a UI change
+rather than a palette project.</p>
+</blockquote>
+<p><strong>Gotcha — custom class merging:</strong> <code>src/lib/utils.ts</code> extends <code>tailwind-merge</code> with the token
+scales so custom text <em>sizes</em> (<code>text-body</code>) and text <em>colors</em> (<code>text-accent-fg</code>) merge
+independently. Without that config, stock tailwind-merge treats them as one group and silently
+drops one. The <code>COLORS</code>, <code>TEXT_SIZES</code>, radius and shadow lists in that file are a hand-maintained
+mirror of the token names — keep them in sync when adding a token.</p>
+<h2 id="design-system-history-three-cycles-only-ledger-is-current">Design-system history (three cycles; only Ledger is current)<a class="headerlink" href="#design-system-history-three-cycles-only-ledger-is-current" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Landed</th>
+<th>Canvas / accent</th>
+<th>Display face</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Instrument</strong></td>
+<td><code>1dea18f</code></td>
+<td><code>#FCFCFD</code> / cyan <code>#0E8FB8</code></td>
+<td>Inter (no separate display family)</td>
+</tr>
+<tr>
+<td><strong>Ember</strong></td>
+<td><code>40a6008</code> (2026-06)</td>
+<td>light <code>#FBF9F6</code> / burnt orange <code>#C56A1E</code>; dark family was AMOLED <code>#000000</code> with <code>#F7A35C</code></td>
+<td>Bricolage Grotesque over Hanken Grotesk</td>
+</tr>
+<tr>
+<td><strong>Ledger</strong></td>
+<td><code>2c50672</code> + <code>fdd8a79</code> (2026-07-17)</td>
+<td><code>#F6F3EE</code> / navy <code>#1C314D</code>; dark family navy-dark <code>#0B1622</code></td>
+<td>Hanken Grotesk (same family as sans)</td>
+</tr>
+</tbody>
+</table>
+<p>If you find the Ember palette in a doc, a generator or a token set, it is <strong>two cycles stale</strong>.
+Bricolage Grotesque survives only in <code>design/brand/*.html</code> comparison assets and the desktop
+renderer's <code>fonts.css</code> — it is not in the Ledger token font stack. A number of component banner
+comments (<code>CreateProjectModal.tsx</code>, <code>Sidebar.tsx</code>, <code>ProjectCard.tsx</code>, <code>EditProjectModal.tsx</code>,
+<code>tailwind.css</code>) still say "Ember design system"; the code under them is on Ledger tokens.</p>
+<p><code>wikis/VERSIONS.md</code> now carries a <em>"2026-07-17 — Ledger design system — no version bump"</em> section:
+the rebrand touched frontend, desktop and mobile but shipped no tagged release, so no version row
+moved. Its older <code>2.1.0</code> / <code>3.1.0-beta</code> rows still read "Ember", which is correct <strong>as history</strong>.
+<code>design/tokens.json</code> remains the source of truth for what is current.</p>
+<p>"Ledger" names the <em>design system</em>, not the product; the platform is still FedLearn.</p>
+<h2 id="component-conventions-the-rules-the-ui-follows">Component conventions (the rules the UI follows)<a class="headerlink" href="#component-conventions-the-rules-the-ui-follows" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong><code>LogViewer.tsx</code></strong>: Renders real-time log outputs. The V2 equivalent is highly stylized to look like an integrated terminal window.</li>
-<li><strong><code>ErrorBoundary.tsx</code></strong>: Wraps the entire application to catch rendering errors and prevent white screens of death, providing a fallback UI instead.</li>
-<li><strong><code>DiskLoader.tsx</code></strong>: A standardized loading spinner used across the app during asynchronous transitions or bootups.</li>
-<li><strong>Modals</strong>: E.g., <code>CreateProjectModal.tsx</code> / <code>ResultsModal.tsx</code> rely on React Portals or absolute positioning to render overlays above the main interface.</li>
+<li><strong>One primary action per view</strong> — the navy fill. Secondary = white surface +
+  hairline border; ghost = borderless; danger = solid destructive fill (a destructive
+  confirm must never read weaker than Cancel; low-emphasis destructive entry points use
+  ghost + a danger text class instead of the <code>danger</code> variant).</li>
+<li><strong>Dialogs</strong> — everything goes through <code>ui/Modal</code>: portalled to <code>document.body</code>, scrim
+  backdrop, overlay shadow, closes on backdrop click <strong>and</strong> Escape, focus trapped by
+  <code>useFocusTrap</code> and returned to the trigger, footer slot with right-aligned natural-width
+  <code>[Cancel] [Primary]</code>, sizes <code>sm</code>/<code>md</code>/<code>lg</code>. <code>ConfirmDialog</code> wraps it for confirmations, with a
+  <code>danger</code> prop that switches the confirm button to the destructive variant.</li>
+<li><strong>Forms</strong> — every control sits in <code>ui/FormField</code>, which generates an id with <code>useId()</code> and
+  <code>cloneElement</code>s it onto its <strong>single</strong> control child so the <code>&lt;label htmlFor&gt;</code> pair is always
+  programmatically linked. Passing two children breaks that association — put anything extra
+  beside the <code>FormField</code>, not inside it. Specific verb labels ("Create project", not "Submit");
+  loading state renders inside the submit button; an <code>error</code> slot replaces <code>help</code> while present.</li>
+<li><strong>Page shell</strong> — every routed view renders <code>PageHeader</code> (a sticky <code>h-16</code> bar: <code>text-h3</code> title,
+  truncated <code>text-label</code> subtitle, right-aligned action slot) over a
+  <code>mx-auto max-w-[1400px] px-6 py-6 md:px-10</code> content container. Live-connection state is a quiet
+  dot+caption chip in the header actions, never part of the title.</li>
+<li><strong>Status</strong> — <code>ui/StatusPill</code> is the only status vocabulary (no emoji, no unicode glyphs, never
+  repurposed for non-status data). Its five kinds map to tokens as
+  <code>running → accent · completed → success · error → danger · pending → warning · idle → fg-muted</code>,
+  and the exported <code>toStatusKind()</code> is the one domain mapper
+  (<code>INITIALIZING → pending</code>, <code>RUNNING → running</code>, <code>COMPLETED → completed</code>, <code>FAILED → error</code>,
+  everything else → <code>idle</code>).</li>
+<li><strong>Stats</strong> — <code>ui/StatGroup</code> (one card, hairline-divided) instead of card-per-number grids.</li>
+<li><strong>Micro-labels</strong> — <code>ui/SectionLabel</code> is the one uppercase label style.</li>
+<li><strong>Empty states</strong> — neutral lucide icon in a muted circle + title + one-line body.
+  The brand mark is a logo, not illustration.</li>
+<li><strong>Icons</strong> — <code>lucide-react</code> only.</li>
+<li><strong>Charts</strong> — Recharts, with series colors from the <code>--color-series-N</code> tokens in fixed assignment
+  order; one axis per chart (no dual-axis), legend for ≥2 series.</li>
+<li><strong>Focus</strong> — every interactive element has a visible <code>focus-visible</code> ring (2px accent, offset 2).</li>
 </ul>
-<h2 id="responsive-design">Responsive Design<a class="headerlink" href="#responsive-design" title="Permanent link">&para;</a></h2>
-<p>Both UI versions are designed to be responsive.
-- The legacy UI uses media queries inside CSS.
-- The V2 UI uses Tailwind's built-in breakpoint prefixes (e.g., <code>md:flex</code>, <code>lg:grid-cols-3</code>) to reflow layouts fluidly from mobile to desktop sizes.</p></article>
+<h2 id="primitives-srccomponentsui">Primitives (<code>src/components/ui/</code>)<a class="headerlink" href="#primitives-srccomponentsui" title="Permanent link">&para;</a></h2>
+<p><code>Button</code> (primary/secondary/ghost/danger × sm/md/lg) · <code>Card</code> · <code>Modal</code> ·
+<code>ConfirmDialog</code> · <code>Input</code> · <code>Select</code> · <code>StatusPill</code> (+ <code>toStatusKind</code>) · <code>MetricTile</code> ·
+<code>StatGroup</code> · <code>SectionLabel</code> · <code>FormField</code> · <code>LogConsole</code> (recessed mono well) · <code>Skeleton</code>.
+All are re-exported from <code>src/components/ui/index.ts</code> together with their prop types — import from
+the barrel, not the file.</p>
+<p><code>src/components/brand/</code> holds <code>BrandMark</code>, <code>Wordmark</code> and <code>HeroNetwork</code>.</p>
+<h2 id="the-project-creation-picker-and-the-training-arm">The project-creation picker and the training arm<a class="headerlink" href="#the-project-creation-picker-and-the-training-arm" title="Permanent link">&para;</a></h2>
+<p>Creating a project and starting a run are <strong>two different decisions in two different modals</strong>, and
+the training arm belongs to the first:</p>
+<table>
+<thead>
+<tr>
+<th>Modal</th>
+<th>Opened from</th>
+<th>Decides</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CreateProjectModalV2</code> (<code>redesign/CreateProjectModal.tsx</code>)</td>
+<td><code>OwnerDashboard</code> → <em>New project</em></td>
+<td>name, model recipe, base model, optimizer, warm-up rounds, LoRA task type, and — where offered — the <strong>training arm</strong></td>
+</tr>
+<tr>
+<td><code>StartProjectModal</code> (<code>redesign/StartProjectModal.tsx</code>)</td>
+<td>a project card's <em>Start</em> action</td>
+<td>aggregation strategy, number of rounds, minimum clients</td>
+</tr>
+</tbody>
+</table>
+<p>The arm is a <strong>project</strong> property, not a per-run one: it is persisted on
+<code>projects.training_arm VARCHAR(32) NOT NULL DEFAULT 'FULL'</code> (Flyway <code>V22__project_training_arm.sql</code>,
+its CHECK widened to include <code>OVA_LP</code> by <code>V23__training_arm_ova_lp.sql</code>), so it is chosen once at
+creation and every run of that project inherits it.</p>
+<p><code>StartProjectModal</code> offers six training methods — FedAvg, FedProx, DeComFL, FedOpt, Robust and
+FoT — each with a plain-language label, except for an <code>LLM_LORA</code> project, where the method is not a
+choice at all: the modal renders a read-only "FedLoRA (automatic for LoRA fine-tuning)" field.</p>
+<h3 id="how-the-picker-works">How the picker works<a class="headerlink" href="#how-the-picker-works" title="Permanent link">&para;</a></h3>
+<ol>
+<li>On open, the modal fetches <code>GET /api/model-recipes</code> (<code>fetchModelRecipes</code>). If that fails it falls
+   back to a two-entry local list (<code>CNN</code>, <code>TRANSFORMER</code>) purely so the modal stays usable offline —
+   the catalog is always the primary source.</li>
+<li>Changing the model type resets base model, optimizer, task type, and the arm back to <code>FULL</code>.
+   Recipes differ in which arms they declare, so carrying a stale selection across a model change
+   could submit an arm the new recipe never offered.</li>
+<li>The arm control renders <strong>only when the recipe declares more than one arm</strong>:
+   <code>offersArmChoice = (selectedRecipe?.supportedArms?.length ?? 0) &gt; 1</code>. A single-arm recipe shows
+   no control <em>and no trade-off</em> — rendering one would imply the un-offered arm had been evaluated
+   for that recipe.</li>
+<li><code>trainingArm</code> is included in the create payload <strong>only</strong> when <code>offersArmChoice</code> is true, so the
+   request never asserts an arm the recipe did not declare. The default is <code>FULL</code>, which reproduces
+   the behaviour that existed before arms were a concept.</li>
+</ol>
+<h3 id="where-the-numbers-come-from">Where the numbers come from<a class="headerlink" href="#where-the-numbers-come-from" title="Permanent link">&para;</a></h3>
+<p>The trade-off panel beside the control is a <em>rendering of a measurement</em>, and the chain is
+deliberate at every hop:</p>
+<div class="codehilite"><pre><span></span><code>research/results/…/&lt;run&gt;.json          the raw measured record
+   └─ scripts/build_arm_tradeoff.py    generator (records source path + source_sha256 + date)
+        └─ fl-runtime/arm_tradeoff.json     keyed BY RECIPE under &quot;by_recipe&quot;
+             └─ recipes.py describe()       attaches arm_tradeoff only when len(supported_arms) &gt; 1
+                  └─ GET /api/model-recipes (ModelRecipeDto.ArmTradeoff)
+                       └─ CreateProjectModal  headline · per-arm summary · measuredOn · caveats
+</code></pre></div>
+
+<p><code>arm_tradeoff.json</code> currently carries entries for <code>PNEUMONIA_CNN</code>, <code>CNN</code> and <code>CIFAR_RESNET18</code>. The
+lookup is strictly keyed — an earlier version attached one chest-X-ray result to <em>every</em> dual-arm
+recipe, which made a CIFAR-10 recipe advertise a pneumonia figure. A missing entry returns nothing
+rather than raising, so an absent measurement costs the user an explanation, not the ability to
+create a project.</p>
+<p>The component states no figure of its own. It renders, in order: the record's <code>headline</code>, the
+selected arm's <code>summary</code>, a "Not feasible on-device" line <strong>only</strong> when <code>ondeviceFeasible === false</code>
+(a measured <code>null</code> means <em>not measured</em> and must render as absence, not as a claim either way), the
+<code>measuredOn</code> task and protocol, and the <code>caveats</code> list inside a collapsed
+<em>"What this measurement does not establish"</em> disclosure. The caveats are not garnish — the
+communication ratio is round-budget dependent and the accuracy and latency figures can come from
+different hardware, so a number shown without them would state more than was measured.
+<code>CreateProjectModalArm.test.tsx</code> pins each of those properties, including that the choice still
+renders when the catalog carries no trade-off at all.</p>
+<p>One backend detail that protects this display: <code>ModelRecipeDto.ArmTradeoff.commRatio</code> is a <code>Double</code>,
+not an <code>Integer</code>. Every measured ratio was a large whole number until <code>PNEUMONIA_CNN</code> came in at
+<strong>1.004×</strong> (its classifier is 99.6% of the model, so freezing saves almost nothing) — and Jackson
+coerces a JSON float into an <code>Integer</code> by <em>truncating</em>, which would have rounded an honest 1.004
+down to 1 on its way to the picker.</p>
+<h3 id="known-gap-the-third-arm-is-not-in-the-ui-yet">Known gap — the third arm is not in the UI yet<a class="headerlink" href="#known-gap-the-third-arm-is-not-in-the-ui-yet" title="Permanent link">&para;</a></h3>
+<p><code>fl-runtime/recipes.py</code> and the backend <code>TrainingArm</code> enum both define <strong>three</strong> arms —
+<code>FULL</code>, <code>FROZEN_HEAD</code> and <code>OVA_LP</code> (one-vs-all linear probing on a frozen encoder, which differs
+from <code>FROZEN_HEAD</code> in its <em>objective</em> rather than its parameter subset) — and <code>CIFAR_RESNET18</code>
+declares all three. The frontend has not caught up:</p>
+<ul>
+<li>The <code>&lt;option&gt;</code> list is built from <code>supportedArms</code>, so <code>CIFAR_RESNET18</code> <strong>does</strong> render three
+  options — but the label is a binary ternary
+  (<code>a === 'FROZEN_HEAD' ? 'Frozen backbone — train the head only' : 'Full fine-tune'</code>), so <code>FULL</code>
+  and <code>OVA_LP</code> both read as "Full fine-tune". Two identically-labelled options is the visible
+  symptom.</li>
+<li><code>arm_tradeoff.json</code>'s <code>CIFAR_RESNET18</code> entry has only <code>FULL</code> and <code>FROZEN_HEAD</code> arms, so selecting
+  <code>OVA_LP</code> shows the headline and caveats with no per-arm summary.</li>
+<li><code>Project.trainingArm</code> in <code>apiServices.ts</code> is typed <code>'FULL' | 'FROZEN_HEAD'</code>, so a project created
+  on <code>OVA_LP</code> is mistyped on read.</li>
+</ul>
+<p>The label map, the trade-off generator and that union type are the three places to update when
+<code>OVA_LP</code> is surfaced. Nothing here is a data-loss bug — the value round-trips correctly through
+the API, the DB CHECK and the FL runtime; it is the <em>presentation</em> that has not caught up.</p>
+<h2 id="app-structure">App structure<a class="headerlink" href="#app-structure" title="Permanent link">&para;</a></h2>
+<p>Views live in <code>src/components/redesign/</code> (the <code>redesign/</code> path is historical — it is
+the only UI; the old <code>/v2</code> routes redirect to the canonical paths). <code>LayoutV2</code>
+composes <code>Sidebar</code> + routed view; auth pages live in <code>src/pages/</code>. <code>ErrorBoundary</code>
+wraps the app; <code>DiskLoader</code> is the standard async spinner. Brand assets
+(<code>favicon.svg</code>, <code>favicon.png</code>, <code>apple-touch-icon.png</code>, <code>icon-192/512.png</code>, <code>og-image.png</code> in
+<code>frontend/public/</code>) carry the flat navy network mark and are regenerated alongside palette changes;
+<code>index.html</code> pins <code>&lt;meta name="theme-color" content="#F6F3EE"&gt;</code> to the Ledger canvas.</p>
+<h2 id="responsive-design">Responsive design<a class="headerlink" href="#responsive-design" title="Permanent link">&para;</a></h2>
+<p>Layouts reflow with Tailwind breakpoint prefixes (<code>md:flex</code>, <code>lg:grid-cols-3</code>);
+tables scroll horizontally inside their cards on narrow viewports.</p></article>
     <nav class="toc"></nav>
   </div>
 </div>

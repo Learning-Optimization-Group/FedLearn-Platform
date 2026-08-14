@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -85,55 +94,208 @@
     <article class="article"><h1 id="fedlearn-mobile-wiki">FedLearn Mobile — Wiki<a class="headerlink" href="#fedlearn-mobile-wiki" title="Permanent link">&para;</a></h1>
 <blockquote>
 <p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a><br />
-<strong>Stack:</strong> React Native 0.80, TypeScript, native C++ (ExecuTorch on the shared core + Android; iOS libtorch xcframework build glue migration still pending) via a TurboModule (JSI) bridge, Android + iOS<br />
-<strong>Version:</strong> <code>2.1.0</code> (adopted the <strong>Ember</strong> design system + brand fonts this cycle)</p>
+<strong>Stack:</strong> React Native 0.80, TypeScript, native C++ (ExecuTorch on the shared core + Android; the iOS native wiring is still a <strong>libtorch</strong> scaffold and its ExecuTorch migration is pending — MO-14) via a TurboModule (JSI) bridge, Android + iOS<br />
+<strong>Version:</strong> <code>2.1.0</code> (<code>mobile_client/package.json</code>) — the UI renders the <strong>Ledger</strong> design system</p>
 </blockquote>
-<p>The mobile client (<code>mobile_client/</code>) is an <strong>on-device</strong> federated-learning participant for phones and tablets. The React Native / TypeScript layer owns the UI, authentication, and round orchestration; the heavy lifting — the <strong>DeComFL zeroth-order (ZO) training path</strong> — runs <strong>natively in C++ on the ExecuTorch runtime</strong> (the shared C++ core and the Android build link ExecuTorch, not libtorch/ATen; the iOS libtorch xcframework glue is a pending, incompatible scaffold), reached through a TurboModule bridge. Training data never leaves the device.</p>
-<p>The single product name is <strong>FedLearn</strong> (the v1 <code>FedMob</code> / <code>com.mobileclientnew</code> names are retired). "Ember" is the design system/theme adopted in <code>2.1.0</code>, not a product rename.</p>
+<p>The mobile client (<code>mobile_client/</code>) is an <strong>on-device</strong> federated-learning participant for phones and tablets. The React Native / TypeScript layer owns the UI, authentication, join/enrol flow and round orchestration; the heavy lifting — the <strong>DeComFL zeroth-order (ZO) training path</strong> and, where the backend provisions a trainable graph, a <strong>first-order (backprop) path</strong> — runs <strong>natively in C++ on the ExecuTorch runtime</strong>, reached through a TurboModule bridge. Training data never leaves the device.</p>
+<p>The single product name is <strong>FedLearn</strong> (the v1 <code>FedMob</code> / <code>com.mobileclientnew</code> names are retired).</p>
+<blockquote>
+<p><strong>Design system: Ledger, not Ember.</strong> <code>src/theme/tokens.generated.ts</code> and <code>src/theme/global.css</code> are <strong>generated</strong> by <code>design/build-tokens.mjs</code> from <code>design/tokens.json</code> and both carry the Ledger palette (canvas <code>#F6F3EE</code>, surface <code>#FFFFFF</code>, ink <code>#191A1C</code>, muted <code>#6B6760</code>, navy accent <code>#1C314D</code> / hover <code>#14243A</code>; dark family <code>#0B1622</code> / <code>#4F8AC9</code>). Ledger landed in <code>2c50672</code> and rolled onto mobile in <code>3d54484</code>, superseding <strong>Ember</strong>, which had superseded <em>Instrument</em>. <code>src/theme/tokens.ts</code> is now a thin re-export kept only so older import paths resolve — do not hand-edit either generated file; CI's "Design tokens in sync with source of truth" step (<code>scripts/check_design_tokens.sh</code>, unconditional in <code>ci.yml</code>) fails on drift. The shipped brand fonts are <strong>Hanken Grotesk</strong> (sans <em>and</em> display) + <strong>JetBrains Mono</strong> (<code>src/assets/fonts/</code>); Bricolage Grotesque was Ember-era and is gone.</p>
+</blockquote>
 <hr />
 <h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
-<div class="codehilite"><pre><span></span><code>React Native app (TS)         bridge/                 shared/ (C++ FL core)
-┌──────────────────┐   JSI   ┌──────────────────┐   ┌──────────────────────────┐
-│ screens / nav     │◄──────►│ NativeFedLearnCore │──►│ Perturbation (canonical RNG)│
-│ runJoin (§6.1)    │ Turbo  │  (codegen spec +   │   │ ModelManager / ZerothOrder  │
-│ nativeCore wrapper│ Module │   thin JSI layer)  │   │ DeComFLClient / FederatedLoop│
-│ device guard      │        │ Android JNI / iOS  │   │ FedLearnClient (gRPC, opt-in)│
-└──────────────────┘        │  .mm registration  │   └──────────────────────────┘
-                             └──────────────────┘
+<div class="codehilite"><pre><span></span><code>React Native app (TS)          bridge/                  shared/ (C++ FL core)
+┌──────────────────────┐  JSI  ┌────────────────────┐  ┌────────────────────────────────┐
+│ screens / navigation │◄─────►│ NativeFedLearnCore │─►│ RandnEngine  (canonical RNG)   │
+│ TrainingContext      │ Turbo │  (codegen spec +   │  │ DtypeMap / Sha256 / Safetensors│
+│ runJoin / training   │ Module│   thin JSI layer)  │  │ ModelManager / ExecutorchModel │
+│ modelProvisioning    │       │ Android JNI /      │  │ EtZeroOrder / DeComFLClient    │
+│ deviceClass guard    │       │  iOS .mm + podspec │  │ FederatedLoop / DataLoader     │
+└──────────────────────┘       └────────────────────┘  │ FedLearnClient (gRPC, opt-in)  │
+                                                       └────────────────────────────────┘
 </code></pre></div>
 
 <ul>
-<li><strong>JS/TS layer</strong> (<code>src/</code>) — <code>TrainingScreen</code> (join + DeComFL round loop + live metrics + device-class guard), <code>ModelLibraryScreen</code>, <code>ModelTestingScreen</code> (real softmax). NativeWind + token theme, lucide icons, a 3-tab navigator.</li>
-<li><strong>TurboModule bridge</strong> (<code>bridge/</code>) — <code>specs/NativeFedLearnCore.ts</code> is the typed codegen source of truth; <code>bridge/common/FedLearnCoreModule.{h,cpp}</code> is pure <code>do*</code> logic with a thin JSI layer. Android registers the <code>cxxModuleProvider</code> in <code>JNI_OnLoad</code> (<code>bridge/android/jni/OnLoad.cpp</code>); iOS wires it via <code>bridge/ios/</code> + the New-Arch factory delegate. The bridge separates JSI glue from the core logic so the C++ core stays platform-agnostic.</li>
-<li><strong>Native C++ core</strong> (<code>shared/</code>) — the FL engine: canonical perturbation RNG, dtype whitelist, SHA-256 verify-before-load, <code>ModelManager</code>, <code>ZerothOrderEstimator</code>, <code>DeComFLClient</code>, and an <strong>opt-in</strong> gRPC layer (<code>FedLearnClient</code> / <code>FederatedLoop</code> / <code>DataLoader</code>).</li>
+<li><strong>JS/TS layer</strong> (<code>src/</code>) — a 4-tab bottom navigator (<strong>Home · Projects · Models · Settings</strong>, <code>navigation/AppNavigator.tsx</code>) inside an app stack (<code>ModelTesting</code>, <code>Playground</code>, <code>ProjectDetail</code>), wrapped by an auth root navigator (<code>navigation/RootNavigator.tsx</code> → <code>Login</code> / <code>Register</code>). Training is driven from <code>ProjectDetailScreen</code> through <code>state/TrainingContext.tsx</code> + <code>state/trainingReducer.ts</code>; the round loop itself lives in <code>lib/training.ts</code>. NativeWind + the generated token theme, lucide icons.</li>
+<li><strong>TurboModule bridge</strong> (<code>bridge/</code>) — <code>specs/NativeFedLearnCore.ts</code> is the typed codegen source of truth; <code>bridge/common/FedLearnCoreModule.{h,cpp}</code> is pure <code>do*</code> logic behind a thin JSI layer, so the core stays platform-agnostic. Android registers the <code>cxxModuleProvider</code> in <code>JNI_OnLoad</code> (<code>bridge/android/jni/OnLoad.cpp</code>); iOS wires it through <code>bridge/ios/FedLearnFactoryDelegate.mm</code> + the New-Arch factory delegate.</li>
+<li><strong>Native C++ core</strong> (<code>shared/</code>) — the FL engine: the ATen-free canonical RNG, the dtype whitelist, SHA-256 verify-before-load, a torch-free safetensors codec, <code>ModelManager</code>, the ExecuTorch forward/loss wrapper, the zeroth-order estimator, <code>DeComFLClient</code>, <code>FederatedLoop</code>, <code>DataLoader</code>, and an <strong>opt-in</strong> gRPC transport (<code>FedLearnClient</code>).</li>
 </ul>
+<h3 id="what-the-native-core-is-built-from">What the native core is built from<a class="headerlink" href="#what-the-native-core-is-built-from" title="Permanent link">&para;</a></h3>
+<p><code>shared/CMakeLists.txt</code> compiles one static <code>fedlearn_core</code> from <code>DtypeMap · Sha256 · ModelManager · DeComFLClient · ExecutorchModel · Safetensors · DataLoader · FederatedLoop</code>, plus <code>TrainableExecutorchModel</code> when <code>FEDLEARN_BUILD_TRAINING=ON</code>. Several headers carry logic without a matching <code>.cpp</code> — the two on the FL hot path are <code>RandnEngine.h</code> (the canonical RNG) and <code>EtZeroOrder.h</code> (the ZO g-scalar); <code>AuthMetadata.h</code> and <code>EvalMetrics.h</code> are header-only too, each with its own gtest. Two CMake options gate the optional layers:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Adds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FEDLEARN_BUILD_TRAINING</code></td>
+<td><code>OFF</code> (but <strong><code>ON</code> in the Android app build</strong> and in the <code>cpp-parity</code> CI job)</td>
+<td><code>TrainableExecutorchModel</code> + <code>FederatedLoop::firstOrderRound</code>, the ExecuTorch <code>extension_training</code> / <code>extension_module</code> / <code>extension_named_data_map</code> libs, and the <code>FEDLEARN_HAS_TRAINING</code> define the bridge compiles against</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_BUILD_GRPC</code></td>
+<td><code>OFF</code></td>
+<td><code>FedLearnClient</code> + the buf-generated C++ stubs; requires <code>-DGENERATED_PROTO_DIR=&lt;proto/gen/cpp&gt;</code> and a cross-compiled gRPC runtime</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="the-determinism-contract-the-load-bearing-invariant">The determinism contract (the load-bearing invariant)<a class="headerlink" href="#the-determinism-contract-the-load-bearing-invariant" title="Permanent link">&para;</a></h2>
 <p>DeComFL only works if the Python server and this C++ client regenerate <strong>identical</strong> perturbation vectors from the same seed and produce matching gradient scalars. <code>canonical_perturbation(seed, n)</code> generates <code>z ~ N(0, I_d)</code> <strong>on the CPU</strong> with a <em>local</em> generator; callers then move it to their device.</p>
 <ul>
 <li>The <strong>Python</strong> implementation (<code>framework/src/fedlearn/estimators/perturbation.py</code>) is the <strong>source of truth</strong>.</li>
 <li>The <strong>golden vectors</strong> (<code>framework/tests/fixtures/decomfl_golden/</code>, frozen at torch 2.12.0) are derived from it.</li>
-<li>The <strong>C++ parity gate</strong> (<code>shared/tests/rng_parity_test.cpp</code>) is a <strong>release blocker</strong> — if <code>z</code> diverges, the build must not ship, because a divergent <code>z</code> silently corrupts aggregation.</li>
+<li>The <strong>C++ side is ATen-free.</strong> <code>shared/include/fedlearn/RandnEngine.h</code> reimplements <code>torch.randn(n, generator=Generator("cpu").manual_seed(seed), dtype=float32)</code> from first principles — PyTorch's MT19937 engine, the scalar Box-Muller path for <code>n &lt; 16</code> and the vectorised <code>normal_fill</code> path for <code>n ≥ 16</code> — so the parity gate survived the migration off libtorch onto ExecuTorch. There is no <code>Perturbation.cpp</code>; the engine is a header.</li>
+<li>The <strong>parity gate is <code>shared/tests/randn_parity_test.cpp</code></strong> (not <code>rng_parity_test.cpp</code>, which covered the retired <code>at::Tensor</code> wrapper). It is a <strong>release blocker</strong> — if <code>z</code> diverges, the build must not ship, because a divergent <code>z</code> silently corrupts aggregation.</li>
 </ul>
+<p>Re-freeze the fixture only on a deliberate torch bump (<code>framework/tests/fixtures/decomfl_golden/generate.py</code>), then re-run both parity gates and review the diff. Never hand-edit the vectors.</p>
+<hr />
+<h2 id="the-wire-safetensors-float32-only-verified-before-load">The wire: safetensors, float32-only, verified before load<a class="headerlink" href="#the-wire-safetensors-float32-only-verified-before-load" title="Permanent link">&para;</a></h2>
+<p><code>shared/include/fedlearn/Safetensors.h</code> + <code>src/Safetensors.cpp</code> are a <strong>torch-free reimplementation of the Python codec</strong> (<code>framework/src/fedlearn/communication/safetensors_codec.py</code>), byte-identical by construction:</p>
+<div class="codehilite"><pre><span></span><code>u64_le(header_len) ++ compact_header_json_utf8 ++ raw_f32_data
+</code></pre></div>
+
+<p>Two details in the C++ encoder exist purely to preserve byte parity: a 0-d scalar is written with <code>"shape":[1]</code> (matching <code>np.ascontiguousarray</code>, which yields <code>ndim ≥ 1</code>), because emitting <code>[]</code> would change the header JSON, the <code>u64</code> length prefix, and every downstream sha256; and tensor entries stay in stored order so the blob is deterministic.</p>
+<p><strong>This is why the FL wire is float32-only.</strong> The decoder hard-rejects any tensor whose header dtype is not <code>"F32"</code> (<code>Safetensors.cpp</code>: <code>if (dtype != "F32") throw …</code>). A libtorch-free C++ client cannot carry torch's full dtype machinery, so the platform made the wire mono-dtype rather than have the phone silently coerce. Two consequences worth knowing:</p>
+<ul>
+<li>On the Python side, non-float32 buffers are <strong>filtered out of the federated set</strong> rather than raising (commit <code>3b13204</code>) — which is what lets BatchNorm models federate at all, since <code>num_batches_tracked</code> is <code>int64</code>.</li>
+<li>A malformed blob is rejected loudly, not tolerated: offsets outside the data region, a <code>data_offsets</code> span that is not a whole number of floats (a crafted 6-byte span would otherwise heap-overflow the <code>std::vector&lt;float&gt;</code> the memcpy writes into), and an unexpected tensor field all throw.</li>
+</ul>
+<p>Separately, <code>DtypeMap.h/.cpp</code> mirror the Python <code>_SAFE_DTYPES</code> whitelist <strong>exactly</strong> — the same ten names (<code>float16, float32, float64, int8, int16, int32, int64, uint8, bool, bfloat16</code>); it is membership, not order, that must match (Python holds a <code>set</code>, C++ an <code>unordered_map</code>). An unknown dtype string is a hard error, never a silent default — this is the anti-injection guard for a malformed server payload, and it is broader than what the codec itself transports. Keep the two lists in lockstep.</p>
+<p>Every staged artefact is <strong>sha256-verified before it is used</strong>: <code>stageBundleFile</code> hashes the <em>decoded</em> bytes and refuses to write on mismatch (MO-7, which covers <code>inputs.f32</code> / <code>targets.i64</code> that <code>loadModel</code> never re-checks), and <code>loadModel(path, expectedSha256)</code> verifies the <code>.pte</code> before handing it to ExecuTorch.</p>
+<hr />
+<h2 id="the-proto-mirror">The proto mirror<a class="headerlink" href="#the-proto-mirror" title="Permanent link">&para;</a></h2>
+<p>The gRPC contract has <strong>one canonical home</strong>, <code>proto/fedlearn/v2/fedlearn.proto</code> (package <code>fedlearn.v2</code>, buf-governed). <code>mobile_client/proto/fedlearn/v2/fedlearn.proto</code> is a <strong>byte-identical mirror</strong> kept in-tree so the native CMake build has the file locally; it is regenerated by copy, never hand-edited.</p>
+<div class="codehilite"><pre><span></span><code>../scripts/check_proto_mirror.sh<span class="w">    </span><span class="c1"># from mobile_client/ — byte-compares all three mirrors</span>
+</code></pre></div>
+
+<p>The script checks <strong>three</strong> mirrors — this one, the framework's <code>fedlearn.proto</code>, and the framework's <code>fot.proto</code> — and on drift prints the literal <code>cp</code> that fixes it. It runs as a gating job in <strong><code>proto.yml</code></strong> and again as the <code>proto-mirror</code> job in <strong><code>mobile.yml</code></strong>; it is <strong>not</strong> in <code>ci.yml</code>. Nothing in the tree speaks <code>fedlearn.v1</code> any more.</p>
+<hr />
+<h2 id="the-turbomodule-surface">The TurboModule surface<a class="headerlink" href="#the-turbomodule-surface" title="Permanent link">&para;</a></h2>
+<p><code>bridge/specs/NativeFedLearnCore.ts</code> is the codegen source of truth. Every method is async and returns a <strong>typed object</strong> — never a hand-built JSON string (that was the v1 stringly-typed bridge).</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>registerClient(serverAddress, runId, clientId, enrollmentToken, useTls)</code></td>
+<td>gRPC register; returns <code>assignedRound</code> (late-joiner) + the server protocol version</td>
+</tr>
+<tr>
+<td><code>getServerStatus(runId)</code></td>
+<td>live <code>serverState</code>, <code>currentRound</code>, participation counts, <code>roundDeadlineUnixMs</code></td>
+</tr>
+<tr>
+<td><code>stop()</code></td>
+<td>sets the abort flag and joins the native threads</td>
+</tr>
+<tr>
+<td><code>setModelManifest(manifest)</code></td>
+<td>trainable param layout + total param count + the separate infer graph (+ optional trainable graph). <strong>Must precede <code>loadModel</code></strong> — the ExecuTorch loss graph is weights-free, so the layout cannot come from the <code>.pte</code></td>
+</tr>
+<tr>
+<td><code>loadModel(path, expectedSha256)</code></td>
+<td>integrity-checked load; returns <code>paramCount</code>, <code>trainableParamCount</code>, sha256, tier</td>
+</tr>
+<tr>
+<td><code>setTrainingDataFromFiles(inputsF32Path, inputShape, targetsI64Path)</code></td>
+<td>on-device data from app-private files; raw features/labels never enter a server table</td>
+</tr>
+<tr>
+<td><code>stageBundleFile(filename, base64Data, expectedSha256)</code></td>
+<td>sha256-verify then write into app-private storage; filename is basename-sanitised</td>
+</tr>
+<tr>
+<td><code>runDeComFLRound(runId, config)</code> / <code>runFedAvgRound(runId, config)</code></td>
+<td><strong>one round per call</strong> — the RN layer owns the loop and the deadline check</td>
+</tr>
+<tr>
+<td><code>infer(inputJson)</code></td>
+<td>logits + <strong>real softmax</strong> probabilities + argmax (not <code>exp(-loss)</code>)</td>
+</tr>
+<tr>
+<td><code>getDeviceMetrics()</code></td>
+<td>native RSS sample, thermal state, battery level/charging</td>
+</tr>
+</tbody>
+</table>
+<p>The module is fetched with <code>TurboModuleRegistry.get()</code> (not <code>getEnforcing()</code>): on a build that did not compile the native core, <code>getEnforcing</code> throws <em>synchronously at import</em> and took the whole JS bundle down at launch. Instead, <code>isNativeCoreAvailable()</code> reports availability and a typed fallback core <strong>rejects</strong> every call with <code>NATIVE_CORE_UNAVAILABLE_MESSAGE</code>, so the UI disables the training entry point instead of crashing (MO-5). This is the mechanism that keeps the iOS shell usable while the native iOS port is unfinished.</p>
+<hr />
+<h2 id="the-jsts-layer">The JS/TS layer<a class="headerlink" href="#the-jsts-layer" title="Permanent link">&para;</a></h2>
+<p><strong>Auth is Bearer-token, not the web's cookie.</strong> <code>lib/restClient.ts</code> sends <code>Authorization: Bearer &lt;jwt&gt;</code> plus <code>X-FedLearn-Client: fedlearn-mobile</code>. The backend's <code>JwtAuthenticationFilter</code> accepts a Bearer header <strong>only</strong> when that marker header is present (SE-9), and <code>AuthController</code> returns <code>accessToken</code> in the login body <strong>only</strong> to a marker-carrying native client — a browser login response carries identity only, and the JWT stays in the HttpOnly cookie. The token is persisted through <code>lib/authStore.ts</code> on <code>react-native-encrypted-storage</code> (Android Keystore / iOS Secure Enclave); <code>lib/credentialStore.ts</code> adds an explicit opt-in "save password" using the same store. The web JWT's SE-20 audience (<code>fedlearn-web</code>) still applies, so an FL connection token cannot be replayed here.</p>
+<p><strong>Join → provision → train</strong>, in order:</p>
+<ol>
+<li><code>lib/runJoin.ts</code> — <code>GET /api/client/projects/{id}</code> to find the active run, poll <code>GET /api/runs/{runId}/status</code> until it has a gRPC endpoint, then <code>POST /api/runs/{runId}/enroll</code> for the <code>partitionId</code>, <code>connectionToken</code>, CA fingerprint and the run <strong>manifest</strong> (<code>recipeKey</code>, <code>strategy</code>, <code>numRounds</code>, <code>seed</code>, <code>torchVersion</code>, and the <code>firstOrderSupported</code> capability flag).</li>
+<li><code>lib/modelProvisioning.ts</code> — <code>GET /api/runs/{runId}/model-bundle</code>, download each binary, <code>stageBundleFile</code> each one (sha256-verified), and return the local paths.</li>
+<li><code>lib/training.ts</code> — <code>setModelManifest</code> → <code>loadModel</code> → <code>setTrainingDataFromFiles</code> → the round loop.</li>
+</ol>
+<p><strong>The MO-4 capability gate.</strong> A run is trainable on-device with real backprop only when the backend provisioned a <strong>trainable <code>.pte</code></strong> (the manifest's <code>firstOrderSupported</code>); then <code>firstOrderRound</code> uploads a weight blob via <code>SubmitModelUpdateStream</code>, which any gradient-aggregating server consumes. Without that bundle the only native path is the zeroth-order one, which uploads seeds + gradient scalars over <code>SubmitGradientScalars</code> — a wire a non-DeComFL server cannot aggregate. So the gate is <code>!firstOrderSupported &amp;&amp; manifest.strategy !== 'DeComFL'</code>: rather than "train" into a void, <code>runTrainingLoop</code> throws <code>MobileFedAvgUnsupportedError</code> <strong>before</strong> any provisioning or native work, and the UI renders it as a precise "not provisioned for on-device training yet" message. A DeComFL run with no trainable bundle is <em>not</em> refused — that is the supported zeroth-order path.</p>
+<p><strong>Resilience and telemetry.</strong> <code>runResilientRoundLoop</code> (in <code>lib/training.ts</code>) is an injectable state machine: bounded per-round retries with exponential backoff, escalation to a full rejoin, a cap on total rejoins, and pacing between successful rounds so the server is not hot-polled (MO-8) — all unit-tested without the native module. <code>lib/statusHeartbeat.ts</code> polls server status on its <strong>own</strong> interval, because the round loop checks status only once per iteration and discards <code>currentRound</code>/<code>roundDeadlineUnixMs</code>; without the separate heartbeat the live view froze for the duration of a long round (MO-3). <code>lib/deviceMetricsPoll.ts</code> samples <code>getDeviceMetrics</code>.</p>
+<p><strong>Guards and disclosures.</strong> <code>lib/deviceClass.ts</code> maps total RAM to a maximum model tier (<code>≥ 6 GB → 10M</code>, else <code>1M</code>) and hard-refuses the <code>100M</code> tier on any phone — its ~2 GB transient ZO working set OOMs mid-tier Android and ~100 forward passes per round means minutes per round. <code>lib/evaluateEligibility.ts</code> is a copy of the desktop's canonical advisory self-gate (hard failures gate, soft warnings inform). <code>lib/privacyLabel.ts</code> is the static pre-join data-flow disclosure, written to client-side facts only. <code>lib/contributionLedger.ts</code> records one entry per <strong>completed</strong> round — deliberately labelled <em>submitted</em>, never <em>accepted</em>, because no backend API yet reports whether robust aggregation kept the update.</p>
+<hr />
+<h2 id="on-device-model-bundle-current-state-honest-disclosure">On-device model bundle — current state (honest disclosure)<a class="headerlink" href="#on-device-model-bundle-current-state-honest-disclosure" title="Permanent link">&para;</a></h2>
+<p>The bundle is now <strong>per-run and served by the backend</strong>, not a hard-coded client fixture: <code>GET /api/runs/{runId}/model-bundle</code> returns the two weight-free ExecuTorch graphs (loss <code>forward(flat, x, y)</code>, infer <code>forward(flat, x)</code>), the trainable param layout, an on-device data partition, and a sha256 for every file. Backend-side, <code>ScriptModelBundleStager</code> auto-stages it in the background when a run starts (<code>feature.model-bundle-autostage.enabled</code>, default <strong>on</strong>), and it is <strong>recipe-aware</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Recipe class</th>
+<th>Staging path</th>
+<th>Requirements</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fixture-backed (<code>app.model-bundle.autostage.fixture-recipes</code>, default <code>TINYNET_GOLDEN</code>)</td>
+<td><code>scripts/stage_model_bundle.py</code> — copies the committed golden fixture</td>
+<td>stdlib only, <strong>no ExecuTorch toolchain</strong></td>
+</tr>
+<tr>
+<td>Everything else</td>
+<td><code>scripts/export_model.py</code> — instantiates the run's recipe model and lowers both graphs</td>
+<td>torch 2.12.0 + ExecuTorch 1.3.1 on the host</td>
+</tr>
+</tbody>
+</table>
+<p>Both paths write the identical served shape, staging is idempotent, and failure is best-effort: the phone treats a missing bundle as a graceful 404 rather than an error.</p>
+<p><strong>What that means in practice today.</strong> The demo path a phone actually completes is still the fixture one: <code>TINYNET_GOLDEN</code> — <code>Linear(4,5) → ReLU → Linear(5,3)</code> with <code>fc2</code> frozen, <strong>43 total parameters, 25 trainable</strong> (<code>flat_dim = 25</code>), the same fixture that backs the C++ parity gate (<code>framework/tests/fixtures/decomfl_golden/zo_manifest.json</code>, <code>golden_loss ≈ 1.0973</code>). The fixture's <code>zo_inputs.f32</code> / <code>zo_targets.i64</code> are staged <em>as the device's local partition</em>, so they stand in for genuine per-device data. That is a deliberate MVP shortcut and <strong>not representative federation</strong>; real per-device data remains an explicit post-MVP step. The fixture now also ships <code>tinynet_trainable.pte</code>, which is what lets the first-order path be exercised at all.</p>
+<p>The real-export path is the documented seam for every other recipe, but <strong>it does not currently run</strong>: <code>scripts/export_model.py</code> resolves <code>recipes.py</code> from <code>backend/fl-platform-api/src/main/resources/scripts/</code>, a directory that no longer exists (the catalog lives in <code>fl-runtime/recipes.py</code>), so the import fails and the stager logs a non-zero exit. Until that path is fixed, a non-fixture recipe produces no bundle and the phone 404s.</p>
+<p>The full plumbing, phases, and manual acceptance runbook are in <a href="../../mobile_client/ON_DEVICE_TRAINING_E2E.md"><code>mobile_client/ON_DEVICE_TRAINING_E2E.md</code></a>.</p>
 <hr />
 <h2 id="project-layout">Project layout<a class="headerlink" href="#project-layout" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code>mobile_client/
-├── shared/             # C++ FL core (ExecuTorch runtime) + gtest parity/dtype/marshal tests
-│   ├── src/  include/  tests/
+├── shared/             # C++ FL core (ExecuTorch runtime) + the gtest suite
+│   ├── include/fedlearn/   # RandnEngine.h, EtZeroOrder.h, Safetensors.h, DtypeMap.h, …
+│   ├── src/                # DtypeMap, Sha256, ModelManager, DeComFLClient, ExecutorchModel,
+│   │                       # Safetensors, DataLoader, FederatedLoop, TrainableExecutorchModel,
+│   │                       # FedLearnClient (gRPC, opt-in)
+│   ├── tests/              # 17 gtest TUs, +2 under FEDLEARN_BUILD_TRAINING,
+│   │                       # +grpc_marshal_test (its own target) under FEDLEARN_BUILD_GRPC
 │   └── CMakeLists.txt
 ├── bridge/             # TurboModule: TS spec, common C++ module, Android JNI + iOS .mm
-├── src/                # React Native app: lib/, screens/, navigation/, theme/
+├── src/                # React Native app: lib/, screens/, navigation/, state/, theme/, components/
 ├── android/            # Gradle project (+ committed wrapper), externalNativeBuild → JNI
-├── ios/                # FedLearn.xcodeproj (generated), Podfile, Swift AppDelegate
+├── ios/                # FedLearn.xcodeproj (generated), Podfile, FedLearnCore.podspec, Swift AppDelegate
 ├── proto/              # byte-mirror of canonical proto/fedlearn/v2 (mirror-checked)
-├── scripts/            # ARM64 libtorch/gRPC cross-compile, model export, demo data
+├── scripts/            # ARM64 ExecuTorch/gRPC cross-compile, PTE export, demo data
 └── CMakeLists.txt      # host build (parity gate)
 </code></pre></div>
 
 <hr />
 <h2 id="build-status">Build status<a class="headerlink" href="#build-status" title="Permanent link">&para;</a></h2>
-<p>Both app projects are now <strong>buildable</strong>: the two prior template-scaffolding blockers were resolved and committed — the Android <strong>Gradle wrapper</strong> (<code>./gradlew</code> bootstraps Gradle 8.14.1) and the iOS <strong><code>FedLearn.xcodeproj</code></strong> (regenerate with <code>ios/generate_xcodeproj.sh</code>). The native FL core is wired into both targets (Android <code>externalNativeBuild</code> → <code>libfedlearn_jni.so</code>; iOS <code>FedLearnCore.podspec</code>, enabled with <code>FEDLEARN_NATIVE_IOS=1</code>).</p>
-<p>The <strong>C++ core is fully implemented and tested</strong> (parity, dtype, serialize round-trip, DeComFL equivalence, gRPC marshal). What still gates a shippable release: the cross-compiled <strong>ARM64 ExecuTorch + gRPC</strong> artifacts and buf-generated stubs (the Android core links ExecuTorch statically; the iOS libtorch xcframework wiring is a separate, still-pending migration), real <strong>signing configs</strong> for both platforms, the shared <code>@fedlearn/tokens</code> package replacing the local theme placeholder, and on-device training-data wiring.</p>
+<p>Both app projects are <strong>buildable</strong>: the two prior template-scaffolding blockers were resolved and committed — the Android <strong>Gradle wrapper</strong> (<code>./gradlew</code> bootstraps Gradle 8.14.1) and the iOS <strong><code>FedLearn.xcodeproj</code></strong> (regenerate with <code>ios/generate_xcodeproj.sh</code>).</p>
+<ul>
+<li><strong>Android is the real native target.</strong> <code>app/build.gradle</code>'s <code>externalNativeBuild</code> builds <code>libfedlearn_jni.so</code> from <code>bridge/android/jni/CMakeLists.txt</code>, which forces <code>FEDLEARN_BUILD_GRPC=ON</code> and <code>FEDLEARN_BUILD_TRAINING=ON</code> and links <code>fedlearn_core</code> + <code>fedlearn_grpc</code> + the React Native <code>jsi</code>/<code>reactnative</code> prefab. <code>arm64-v8a</code> is the only shipped ABI. It needs <code>-PET_SRC</code>, <code>-PET_BUILD</code>, <code>-PTORCH_INCLUDE</code>, <code>-PGRPC_DIR</code>, <code>-PGENERATED_PROTO_DIR</code> — the cross-compiled artefacts plus <code>buf generate</code> output.</li>
+<li><strong>iOS native is a scaffold, and the podspec says so.</strong> <code>ios/FedLearnCore.podspec</code> vendors a cross-compiled <strong>libtorch</strong> xcframework while <code>shared/</code> targets the <strong>ExecuTorch</strong> runtime. Those are different, incompatible runtimes, so the iOS native wiring will not link/run as-is; the podspec's own build guard says do <strong>not</strong> enable <code>FEDLEARN_NATIVE_IOS</code> in CI or default builds. Swapping the vendored framework for an ExecuTorch iOS runtime and reconciling the bridge is tracked as MO-14. Until then iOS builds the JS shell, <code>canImport(FedLearnCore)</code> is false, and <code>isNativeCoreAvailable()</code> returns false so the training entry point is disabled rather than crashing. <code>scripts/build_libtorch_arm64.sh</code> is retained solely for that pending path.</li>
+</ul>
+<p>What still gates a shippable release: the cross-compiled <strong>ARM64 ExecuTorch + gRPC</strong> artefacts and buf-generated stubs, the iOS ExecuTorch migration above, real <strong>signing configs</strong> for both platforms (the release APK is debug-signed today — the release workflow says so in the release notes), and real on-device training data.</p>
 <h3 id="host-parity-gate-run-the-c-core-tests-in-isolation">Host parity gate (run the C++ core tests in isolation)<a class="headerlink" href="#host-parity-gate-run-the-c-core-tests-in-isolation" title="Permanent link">&para;</a></h3>
 <p>The C++ core links the <strong>ExecuTorch runtime</strong> (no libtorch/ATen), so build ExecuTorch v1.3.1
 from source first, then point the build at it (must match the pinned torch 2.12.0):</p>
@@ -149,35 +311,105 @@ ctest<span class="w"> </span>--test-dir<span class="w"> </span>mobile_client/bui
 <span class="nb">cd</span><span class="w"> </span>framework<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>pytest<span class="w"> </span>tests/test_perturbation.py<span class="w"> </span>-v
 </code></pre></div>
 
-<p>CI (<code>.github/workflows/mobile.yml</code>) runs the proto-mirror, Python-parity, and C++-parity gates; the golden-vector test gates the build.</p>
+<blockquote>
+<p><strong><code>TORCH_INCLUDE</code> is a trap on any gRPC-linked target.</strong> It exists only to supply the build-generated <code>torch/headeronly/macros/cmake_macros.h</code> that the ExecuTorch headers include, and it is ordered <strong>last</strong> on the include path. A <em>full</em> <code>torch/include</code> also carries torch's bundled <code>google/protobuf/*</code> headers, which — added as a normal include dir — shadow the gRPC-supplied protobuf (which arrives via <code>find_package</code> as a lower-priority <code>-isystem</code> include) and break the compile with <code>unknown type name 'uint8'</code>. The host parity gate is gRPC-free so the full dir is safe there; the Android job in <code>mobile.yml</code> copies just the <code>torch/headeronly</code> subtree into an otherwise-empty shim and asserts <code>google/</code> is absent.</p>
+</blockquote>
 <hr />
-<h2 id="on-device-model-bundle-current-state-honest-disclosure">On-device model bundle — current state (honest disclosure)<a class="headerlink" href="#on-device-model-bundle-current-state-honest-disclosure" title="Permanent link">&para;</a></h2>
-<p>The on-device DeComFL path does <strong>not</strong> yet load a per-recipe model. What it loads today is a
-<strong>fixed golden TinyNet fixture</strong>: <code>Linear(4,5) → ReLU → Linear(5,3)</code> with <code>fc2</code> frozen —
-<strong>43 total parameters, 25 trainable</strong> (<code>flat_dim = 25</code>). This is the committed fixture at
-<code>framework/tests/fixtures/decomfl_golden/</code> (see <code>zo_manifest.json</code>), the same fixture that
-backs the C++ parity gate.</p>
-<p>In the end-to-end on-device run, that fixture is <em>staged as the device's local partition</em> — it
-stands in for genuine per-device data, and its <code>.pte</code> loss/infer graphs stand in for a real
-per-recipe model. This is a deliberate MVP shortcut, <strong>not representative federation</strong>:
-per-recipe / per-device bundles and real on-device data are an explicit post-MVP step. The full
-plumbing, phases, and manual acceptance runbook are documented in
-<a href="../../mobile_client/ON_DEVICE_TRAINING_E2E.md"><code>mobile_client/ON_DEVICE_TRAINING_E2E.md</code></a>
-(the loaded model reports exactly 25 trainable params, and a round's loss ≈ the fixture
-<code>golden_loss</code> ~1.097).</p>
+<h2 id="measured-on-device-facts-kernels-inference-vs-training">Measured on-device facts (kernels: inference vs training)<a class="headerlink" href="#measured-on-device-facts-kernels-inference-vs-training" title="Permanent link">&para;</a></h2>
+<p>Two results from this repo's research record bear directly on what the APK ships. They point in opposite directions and are <strong>not</strong> in conflict — one is about inference, the other about training.</p>
+<p><strong>(a) The shipped APK links the slowest available kernels.</strong> <code>shared/CMakeLists.txt:32</code> lists <code>portable_kernels</code> and force-loads <code>portable_ops_lib</code>; nothing in <code>mobile_client/</code> links XNNPACK or Vulkan. (<code>scripts/build_executorch_arm64.sh</code> does pass <code>EXECUTORCH_BUILD_KERNELS_OPTIMIZED=ON</code>, so the optimised kernel library is <em>built</em> — it is simply never linked.) Portable kernels are ExecuTorch's correctness-first <strong>reference</strong> implementations. Measured on a vivo 1805 (Snapdragon 845 / Adreno 630, Android 10, ExecuTorch 1.3.1) against a ResNet-18 feature extractor at 224×224 — the operation a frozen-backbone round spends essentially all its wall-clock in:</p>
+<table>
+<thead>
+<tr>
+<th>Backend, batch 1</th>
+<th>Median latency</th>
+<th>vs shipped</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>portable_cpu</code> (<strong>what ships</strong>)</td>
+<td>4,093.45 ms</td>
+<td>1×</td>
+</tr>
+<tr>
+<td><code>vulkan_gpu</code></td>
+<td>183.05 ms</td>
+<td>22.4×</td>
+</tr>
+<tr>
+<td><code>xnnpack_cpu</code></td>
+<td>49.14 ms</td>
+<td><strong>83×</strong></td>
+</tr>
+</tbody>
+</table>
+<p>All three agree with a PyTorch eager reference to ~1e-7 absolute, so the speed is not bought with a correctness trade. The GPU wins only at batch 1; at batch ≥ 8 the Vulkan partitioner fragments the graph and degrades to portable-CPU levels, while XNNPACK holds ~46 ms/image. Source: <code>research/results/benchmark/ondevice_vivo_backbone_cpu_vs_gpu.json</code>. <strong>Caveat the record states plainly:</strong> one 2018-era mid-range handset, one ExecuTorch version, inference only — a flagship Adreno 7xx/8xx could plausibly reverse the XNNPACK-vs-Vulkan ordering.</p>
+<p><strong>(b) XNNPACK must NOT be linked for training.</strong> At ResNet-18 scale (11.2M trainable params, 84 delegate partitions) the XNNPACK-lowered graph is ~18% faster per step but <strong>never learns</strong>: its minimum loss over 30 steps equals its initial loss (0.69308), while the portable build converges to 0.0187. There is no NaN, no error and no warning — lowering succeeds silently. Follow-ups pinned down the mechanism more precisely than the first write-up did: the forward pass is correct (max abs deviation ~1.07e-6 vs eager) and the <strong>first</strong> backward is correct (step-0 <code>fc.weight</code> gradient L2 matches exactly); subsequent steps compute against <strong>stale, prepacked weights</strong> — supported circumstantially (step-1 <code>fc.weight</code> gradients differ 2.3× from identical parameters), but the record marks it <code>NOT_proven</code>: the delegate's internal weight buffer was never read, and a per-parameter probe <em>refuted</em> the simpler "delegated params are frozen" story (62/62 receive gradients and move). It also costs +51% peak RSS and +99.6% model size — a real per-round wire cost in a federation. Upstream documents delegate+training integration as a work in progress, so the defensible complaint is narrow: the partitioner lowers a trainable graph silently instead of refusing. Sources: <code>research/results/benchmark/ondevice_xnnpack_training_produces_wrong_gradients.json</code> (incl. its <code>CORRECTIONS_2026_08_09</code> block) and <code>ondevice_vivo_optimized_kernels.json</code>.</p>
+<p><strong>Reading:</strong> linking XNNPACK is worth roughly 80× on the dominant on-device operation and is a pure build-configuration change — but it must be scoped to the <strong>inference / feature-extraction</strong> graphs, never the trainable one.</p>
+<hr />
+<h2 id="ci-and-release">CI and release<a class="headerlink" href="#ci-and-release" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>Job</th>
+<th>What it gates</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ci.yml</code></td>
+<td><code>mobile-js</code> (path-filtered on <code>mobile_client/**</code>)</td>
+<td><code>scripts/check_no_skipped_tests.sh mobile_client</code> (TE-10 — a <code>.skip</code>/<code>.only</code> fails the job), then <code>npm ci</code> → <code>npm run lint</code> (ESLint 9 flat config) → <code>npx tsc --noEmit</code> → <code>npm run test:coverage</code> (TE-11; thresholds live in <code>package.json</code>)</td>
+</tr>
+<tr>
+<td><code>ci.yml</code></td>
+<td>design tokens</td>
+<td><code>scripts/check_design_tokens.sh</code>, unconditional — a hand-edit of <code>src/theme/tokens.generated.ts</code> fails here</td>
+</tr>
+<tr>
+<td><code>mobile.yml</code></td>
+<td><code>proto-mirror</code> · <code>python-parity</code> · <code>cpp-parity</code></td>
+<td>the mirror check; <code>test_perturbation.py</code> + <code>test_decomfl_multiround.py</code>; and the C++ gtests built against a from-source ExecuTorch with <code>FEDLEARN_BUILD_TRAINING=ON</code>. <strong>The golden-vector test gates the build.</strong></td>
+</tr>
+<tr>
+<td><code>mobile.yml</code></td>
+<td><code>android-so-size</code></td>
+<td>full arm64 APK + a <code>libfedlearn_jni.so</code> size budget (<code>SO_BUDGET_MB=60</code>). Too heavy for every PR, so TE-8 runs it on a <strong>nightly schedule</strong> (and uploads the APK) or on demand via the <code>MOBILE_NATIVE_CI</code> repo variable</td>
+</tr>
+<tr>
+<td><code>proto.yml</code></td>
+<td>buf lint · breaking-change gate vs <code>main</code> · regenerate-is-a-no-op · mirror check</td>
+<td>the canonical contract</td>
+</tr>
+<tr>
+<td><code>release-mobile.yml</code></td>
+<td><code>build-android</code></td>
+<td><strong>tag-triggered on <code>mobile-v*</code></strong> (so it never fires on <code>desktop-v*</code>), or <code>workflow_dispatch</code>. Cross-compiles <strong>ARM64 ExecuTorch + gRPC from source</strong>, runs <code>buf generate</code>, assembles the release APK, and publishes a GitHub Release. iOS is deliberately absent — it needs full Xcode plus manually cross-compiled xcframeworks and signing, none of it CI-reproducible</td>
+</tr>
+</tbody>
+</table>
+<p>Pinned in the two native workflows (<code>mobile.yml</code> + <code>release-mobile.yml</code>) and required to match: <code>TORCH_VERSION=2.12.0</code> (header only, not a link target), <code>ET_VERSION=1.3.1</code>, <code>GRPC_CPP_VERSION=v1.67.1</code>, NDK r27, JDK 21. <code>ci.yml</code>'s <code>mobile-js</code> is JS-only and pins none of them.</p>
+<p><code>mobile.yml</code>'s triggers include <code>framework/</code> paths (<code>estimators/**</code>, the golden fixtures, <code>test_perturbation.py</code>, <code>test_decomfl_multiround.py</code>) — a framework-side change to the RNG or the fixtures trips the mobile parity gate, which is the point.</p>
 <hr />
 <h2 id="key-cross-component-interfaces">Key cross-component interfaces<a class="headerlink" href="#key-cross-component-interfaces" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Authenticates against the <strong>Backend</strong> <code>POST /api/auth/login</code> (same cookie/JWT contract as the web client).</li>
-<li>Connects to a <strong>Framework</strong> FL server over gRPC and runs the native DeComFL client path.</li>
-<li>Shares the <strong>canonical</strong> <code>proto/fedlearn/v2</code> contract (byte-mirrored into <code>mobile_client/proto/</code>, enforced by <code>scripts/check_proto_mirror.sh</code> — which checks three mirrors: this one plus the framework's <code>fedlearn.proto</code> and <code>fot.proto</code>). The framework's copy is byte-identical to canonical, so client and server share one <code>fedlearn.v2</code> contract with no version skew.</li>
-<li>The C++ <code>SAFE_DTYPES</code> whitelist stays in lockstep with the Python serializer whitelist.</li>
+<li>Authenticates against the <strong>Backend</strong> <code>POST /api/auth/login</code> as a <strong>native client</strong>: <code>Authorization: Bearer</code> + <code>X-FedLearn-Client: fedlearn-mobile</code> (SE-9). This is <em>not</em> the browser's cookie contract.</li>
+<li>Enrols through <code>GET /api/client/projects</code> → <code>GET /api/client/projects/{id}</code> → <code>GET /api/runs/{runId}/status</code> → <code>POST /api/runs/{runId}/enroll</code>, and provisions from <code>GET /api/runs/{runId}/model-bundle</code>.</li>
+<li>Connects to a <strong>Framework</strong> FL server over gRPC and runs the native DeComFL (or, when provisioned, first-order) client path.</li>
+<li>Shares the <strong>canonical</strong> <code>proto/fedlearn/v2</code> contract, byte-mirrored into <code>mobile_client/proto/</code> and enforced by <code>scripts/check_proto_mirror.sh</code> (three mirrors: this one plus the framework's <code>fedlearn.proto</code> and <code>fot.proto</code>). The framework's copy is byte-identical to canonical, so client and server share one <code>fedlearn.v2</code> contract with no version skew.</li>
+<li>The C++ <code>SAFE_DTYPES</code> whitelist stays in lockstep with the Python serializer whitelist, and the C++ safetensors codec stays byte-identical to <code>safetensors_codec.py</code>.</li>
+<li>The theme is generated from <code>design/tokens.json</code> — the same source the frontend and desktop consume.</li>
 </ul>
 <h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Permanent link">&para;</a></h2>
 <ul>
+<li><a href="../../mobile_client/README.md"><code>mobile_client/README.md</code></a> — the unit's own entry point: per-file build inventory and bring-up commands</li>
+<li><a href="../../mobile_client/bridge/README.md"><code>mobile_client/bridge/README.md</code></a> — TurboModule codegen/wiring steps and RN-version caveats</li>
+<li><a href="../../mobile_client/ON_DEVICE_TRAINING_E2E.md"><code>mobile_client/ON_DEVICE_TRAINING_E2E.md</code></a> — the six-phase on-device training plan and acceptance runbook</li>
 <li><a href="../framework/README.html">Framework Wiki</a> — the FL engine and the DeComFL algorithm this client implements natively</li>
 <li><a href="../framework/06_decomfl.html">Framework: DeComFL</a> — zeroth-order estimation, seed/gradient protocol</li>
-<li><a href="../backend/02_security_and_auth.html">Backend: Security &amp; Authentication</a> — the auth contract the client uses</li>
+<li><a href="../backend/02_security_and_auth.html">Backend: Security &amp; Authentication</a> — the auth contract, SE-9 and SE-20</li>
 </ul></article>
     <nav class="toc"></nav>
   </div>

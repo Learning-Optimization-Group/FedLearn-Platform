@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -85,40 +94,313 @@
     <article class="article"><h1 id="03-project-management-lifecycle">03 - Project Management Lifecycle<a class="headerlink" href="#03-project-management-lifecycle" title="Permanent link">&para;</a></h1>
 <p>This document explains how a Federated Learning Project is created, initialized, and managed within the Spring Boot backend.</p>
 <blockquote>
-<p>✅ <strong>Branch reality.</strong> The project CRUD, model initialization, and FL-server start/stop flows on this page are <strong>current</strong>. The <strong>org-scoping and audit layers</strong> described here — <code>projects.org_id</code> (the <code>V5</code> migration), <code>AuthorizationService</code>, <code>OrgScopeFilter</code>, <code>isPlatformAdmin()</code>, and the <code>@Auditable</code> annotations — <strong>are also present on this branch</strong> (the <code>V4</code>–<code>V7</code> identity migrations). A project is owned by a <code>User</code> and pinned to an org via <code>projects.org_id</code>. See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</p>
+<p>✅ <strong>Branch reality.</strong> The <strong>org-scoping and audit layers</strong> described here — <code>projects.org_id</code> (the <code>V5</code> migration), <code>AuthorizationService</code>, <code>OrgScopeFilter</code>, <code>isPlatformAdmin()</code>, and the <code>@Auditable</code> annotations — are present on this branch (the <code>V4</code>–<code>V7</code> identity migrations). A project is owned by a <code>User</code> and pinned to an org via <code>projects.org_id</code>. See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</p>
+<p>Three things on this page changed after the page was first written and are described in their
+current form below, not their historical one: model <strong>initialization is asynchronous</strong> (BA-1) and
+<code>createProject</code> returns 201 while the project is still <code>INITIALIZING</code>; a project's <strong>status is
+derived from its active run</strong>, not read from the column (BA-4); and <strong>direct deletion is
+platform-admin only</strong> — owners file a deletion request an admin approves. The <strong>training arm</strong>
+(<code>projects.training_arm</code>, <code>V22</code>/<code>V23</code>) is new material with no earlier counterpart at all.</p>
 </blockquote>
-<h2 id="1-project-creation-flow">1. Project Creation Flow<a class="headerlink" href="#1-project-creation-flow" title="Permanent link">&para;</a></h2>
+<h2 id="1-the-projectcontroller-route-surface">1. The <code>ProjectController</code> route surface<a class="headerlink" href="#1-the-projectcontroller-route-surface" title="Permanent link">&para;</a></h2>
+<p>Everything below hangs off one controller. These are the routes that actually exist
+(<code>controller/ProjectController.java</code>); membership, access-request and admin routes for a project live
+on their own controllers and are catalogued in
+<a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Method &amp; path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST /api/projects</code></td>
+<td>Create. Body <code>CreateProjectRequest</code>; returns <strong>201</strong> with the project already visible as <code>INITIALIZING</code>.</td>
+</tr>
+<tr>
+<td><code>GET /api/projects</code></td>
+<td>The caller's own projects (owned or joined), org-scoped.</td>
+</tr>
+<tr>
+<td><code>GET /api/projects/discover</code></td>
+<td>The discover feed — <code>DiscoverProjectDto</code>, org-scoped.</td>
+</tr>
+<tr>
+<td><code>GET /api/projects/{id}</code></td>
+<td>One project. 404 (not 403) when out of org scope.</td>
+</tr>
+<tr>
+<td><code>PATCH /api/projects/{id}</code></td>
+<td>Update <code>name</code> / <code>description</code> / <code>visibility</code> / <code>requirementsOverride</code>. Owner-or-admin.</td>
+</tr>
+<tr>
+<td><code>POST /api/projects/{id}/start</code></td>
+<td>Start a run. Body <code>StartProject</code>.</td>
+</tr>
+<tr>
+<td><code>POST /api/projects/{id}/stop</code></td>
+<td>Stop the active run.</td>
+</tr>
+<tr>
+<td><code>GET /api/projects/{id}/results</code></td>
+<td>Per-round results (<code>RoundResultDto</code>).</td>
+</tr>
+<tr>
+<td><code>GET /api/projects/{id}/logs</code></td>
+<td>One page of logs; <code>?page=&amp;size=</code>, default size 200, clamped server-side.</td>
+</tr>
+<tr>
+<td><code>GET /api/projects/{id}/logs/export</code></td>
+<td>The whole log as a downloadable <code>.txt</code> attachment.</td>
+</tr>
+<tr>
+<td><code>POST /api/projects/{id}/deletion-request</code></td>
+<td>Owner files a deletion request for admin approval → <strong>201</strong>.</td>
+</tr>
+<tr>
+<td><code>GET /api/projects/{id}/deletion-request</code></td>
+<td>This project's deletion request, or <strong>204</strong> if none (drives the owner's badge).</td>
+</tr>
+<tr>
+<td><code>DELETE /api/projects/{id}</code></td>
+<td>Delete. <strong>Platform-admin only</strong> — see "Completion and Cleanup".</td>
+</tr>
+<tr>
+<td><code>POST /api/projects/{id}/delete</code></td>
+<td><code>@Deprecated</code> legacy alias for the <code>DELETE</code> above, kept until the desktop and web clients stop calling it.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2-project-creation-flow">2. Project Creation Flow<a class="headerlink" href="#2-project-creation-flow" title="Permanent link">&para;</a></h2>
 <p>The lifecycle begins when a user submits a configuration via the React dashboard.</p>
-<h3 id="projectcontroller"><code>ProjectController</code><a class="headerlink" href="#projectcontroller" title="Permanent link">&para;</a></h3>
-<p>The <code>POST /api/projects</code> endpoint accepts a <code>CreateProjectRequest</code> payload containing:
-- <code>name</code> (e.g., "Pneumonia Detection")
-- <code>modelType</code> (e.g., "CNN")
-- <code>modelName</code> (e.g., "net")
-- <code>optimizer</code> (e.g., "Adam")
-- <code>pretrainEpochs</code> (int)</p>
+<h3 id="the-createprojectrequest-payload">The <code>CreateProjectRequest</code> payload<a class="headerlink" href="#the-createprojectrequest-payload" title="Permanent link">&para;</a></h3>
+<p><code>POST /api/projects</code> accepts:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td><code>@NotEmpty</code> (e.g. "Pneumonia Detection")</td>
+</tr>
+<tr>
+<td><code>modelType</code></td>
+<td><code>@NotEmpty</code> — the recipe key (<code>PNEUMONIA_CNN</code>, <code>CNN</code>, <code>CIFAR_RESNET18</code>, <code>MLP</code>, <code>TRANSFORMER</code>, <code>LLM_LORA</code>, <code>TINYNET_GOLDEN</code>)</td>
+</tr>
+<tr>
+<td><code>modelName</code></td>
+<td>e.g. <code>"net"</code></td>
+</tr>
+<tr>
+<td><code>optimizer</code></td>
+<td>e.g. <code>"Adam"</code></td>
+</tr>
+<tr>
+<td><code>pretrainEpochs</code></td>
+<td><code>@NotNull</code>, <code>@Min(0)</code></td>
+</tr>
+<tr>
+<td><code>taskType</code></td>
+<td><code>@Pattern(SEQ_CLASSIFICATION\|CAUSAL_LM)</code> — <code>LLM_LORA</code> only</td>
+</tr>
+<tr>
+<td><code>trainingArm</code></td>
+<td><code>@Pattern(FULL\|FROZEN_HEAD\|OVA_LP)</code>; omitted means <code>FULL</code>. See §3</td>
+</tr>
+<tr>
+<td><code>regulated</code>, <code>dpEnabled</code>, <code>dpTargetEpsilon</code>, <code>dpDelta</code>, <code>dpClipNorm</code></td>
+<td>SE-11 DP policy; completeness is a cross-field rule enforced in the service, not by bean validation</td>
+</tr>
+<tr>
+<td><code>initFromPretrained</code>, <code>baseRef</code>, <code>derivationSpec</code></td>
+<td>DA-14 derivation record; all optional, absent == a from-scratch recipe project</td>
+</tr>
+<tr>
+<td><code>requirementsOverride</code></td>
+<td>Owner may tighten the recipe's device requirements</td>
+</tr>
+</tbody>
+</table>
 <h3 id="projectservicecreateproject"><code>ProjectService.createProject()</code><a class="headerlink" href="#projectservicecreateproject" title="Permanent link">&para;</a></h3>
-<p>This service method is annotated with <code>@Transactional</code>. If any step fails, the entire database transaction rolls back, preventing "orphaned" projects.</p>
+<p>The method is <code>@Transactional</code> and <code>@Auditable(action = PROJECT_CREATED)</code>, so a successful creation
+writes an <code>audit_events</code> row in the same transaction (see
+<a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>).</p>
 <ol>
-<li><strong>Persist the Shell:</strong> An empty <code>Project</code> entity is saved to the database to generate a UUID.</li>
-<li><strong>Pin to an Organization:</strong> Since the V5 migration made <code>projects.org_id</code> <strong>NOT NULL</strong>, the new project is pinned to the owner's first org membership, falling back to the single <code>DEFAULT_ORG_ID</code> for membership-less users. Its <code>visibility</code> defaults to <code>PRIVATE</code>.</li>
-<li><strong>Determine File Path:</strong> A target file path is generated (e.g., <code>models/&lt;uuid&gt;.npz</code>).</li>
-<li><strong>Model Initialization:</strong> <code>ModelInitializer.initializeModelFile()</code> is invoked. It executes a local Python script (<code>run_init_model.sh</code>) that constructs the initial model architecture (PyTorch) based on the <code>modelType</code> and saves it to the <code>.npz</code> file.</li>
-<li><strong>Finalize DB Entry:</strong> The <code>Project</code> entity is updated with the absolute path to the <code>.npz</code> file and its status is set to <code>CREATED</code>.</li>
+<li><strong>Gate on the platform role.</strong> <code>authz.requireCanCreateProject()</code> — only a <code>PROJECT_OWNER</code>
+   (admin-granted through the owner-promotion workflow) or a <code>PLATFORM_ADMIN</code> may create projects at
+   all. A plain <code>USER</code> gets a 403 telling them to request owner access.</li>
+<li><strong>Validate the DP config (SE-11).</strong> A <code>regulated</code> or <code>dpEnabled</code> request must carry a complete,
+   sane config (<code>epsilon &gt; 0</code>, <code>delta</code> in (0,1) exclusive, <code>clipNorm &gt; 0</code>) — rejected before anything
+   is persisted.</li>
+<li><strong>Build the entity</strong>, including the training arm (§3), the DP knobs and the derivation record.</li>
+<li><strong>Pin to an Organization:</strong> since <code>V5</code> made <code>projects.org_id</code> <strong>NOT NULL</strong>, the project is pinned
+   to the owner's first org membership, falling back to the single <code>DEFAULT_ORG_ID</code> for
+   membership-less users. <code>visibility</code> defaults to <code>PRIVATE</code>.</li>
+<li><strong>Persist the shell as <code>INITIALIZING</code></strong> (<code>init_status</code>, <code>V14</code>) and generate the target model path
+   <code>models/&lt;uuid&gt;.npz</code>.</li>
+<li><strong>Dispatch model init asynchronously (BA-1)</strong> and return <strong>201 immediately</strong>. This is the part
+   most older prose gets wrong: model initialization spawns an unbounded Python process, and running
+   it inside the <code>@Transactional</code> request pinned both a DB connection and a Tomcat thread for its
+   whole duration. It now runs on a bounded async worker (<code>ModelInitializationWorker</code>), dispatched
+   from an <code>afterCommit</code> transaction synchronization so the worker's own unit of work can see the
+   committed row. The worker transitions <code>init_status</code> to <code>DONE</code> (success) or <code>FAILED</code>
+   (timeout/error) and broadcasts the change for a polling client. A failed init therefore leaves a
+   visible <code>FAILED</code> project the owner can inspect and delete — the request no longer rolls the row
+   back.</li>
 </ol>
+<p>Because status is derived from the active run (BA-4) and no run exists yet, a project mid-init would
+otherwise read as the idle <code>CREATED</code>; <code>ProjectStatusService</code> consults <code>init_status</code> <strong>first</strong> and
+reports <code>INITIALIZING</code>, which the SPA renders as a "Preparing" pill.</p>
 <blockquote>
-<p>Steps 3–5 describe the project's <em>initial</em> model file only, written once at creation. They predate,
+<p>Step 5–6 describe the project's <em>initial</em> model file only, written once at creation. They predate,
 and are unrelated to, the content-addressed model artifact registry that now also records every run's
 <em>trained</em> output as a versioned, provenance-tracked row (<code>model_artifacts</code>) rather than treating this
 <code>.npz</code> as the sole, overwritable record. See <a href="07_artifact_registry.html">07 - Content-Addressed Model Artifact Registry</a>
 for the write path (registration on run completion) and the read path (inference/warm-start now prefer
 the registry over this file when an artifact exists).</p>
 </blockquote>
-<p><code>createProject</code> is also annotated <code>@Auditable(action = PROJECT_CREATED)</code>, so a successful creation writes an <code>audit_events</code> row in the same transaction (see <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>).</p>
-<h2 id="2-project-ownership-membership-and-org-isolation">2. Project Ownership, Membership, and Org Isolation<a class="headerlink" href="#2-project-ownership-membership-and-org-isolation" title="Permanent link">&para;</a></h2>
+<h2 id="3-the-training-arm-projectstraining_arm">3. The training arm (<code>projects.training_arm</code>)<a class="headerlink" href="#3-the-training-arm-projectstraining_arm" title="Permanent link">&para;</a></h2>
+<p>An <strong>arm</strong> says which parameters a run trains and federates — and, since OvA-LP, what objective it
+trains them under. It is a property of the <em>project</em>, fixed at creation, and it is the newest
+first-class concept in this subsystem.</p>
+<h3 id="why-it-is-stored-at-all">Why it is stored at all<a class="headerlink" href="#why-it-is-stored-at-all" title="Permanent link">&para;</a></h3>
+<p>Before <code>V22</code> the arm was not stored anywhere. <code>fl-runtime/client.py</code> inferred it from the recipe key
+(<code>USE_DERIVED = (mt == "FROZEN_DEMO")</code>), which had three consequences: every recipe had exactly one
+hard-coded arm; one recipe could not be run under both arms as the two halves of a comparison; and a
+result could not say which arm produced it. That last one is a real, observed bug class — commit
+<code>21699bc</code> ("frozen arm silently mislabelled its backbone, risking cell overwrites"): when the arm is
+implicit, two different experiments write the same result cell.</p>
+<h3 id="the-vocabulary">The vocabulary<a class="headerlink" href="#the-vocabulary" title="Permanent link">&para;</a></h3>
+<p><code>model/TrainingArm.java</code> is the Java vocabulary — three constants:</p>
+<table>
+<thead>
+<tr>
+<th>Arm</th>
+<th>What it trains / federates</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FULL</code></td>
+<td>Every parameter is trainable; the whole model rides the wire.</td>
+</tr>
+<tr>
+<td><code>FROZEN_HEAD</code></td>
+<td>The backbone is frozen and only the head trains, so the wire carries the head alone.</td>
+</tr>
+<tr>
+<td><code>OVA_LP</code></td>
+<td>One-vs-all linear probing (arXiv:2511.05028) — the <em>same</em> frozen encoder and the <em>same</em> federated parameter subset as <code>FROZEN_HEAD</code>, but trained under C independent one-vs-all binary classifiers instead of one softmax.</td>
+</tr>
+</tbody>
+</table>
+<p><code>OVA_LP</code> is the first arm that differs from another arm in its <strong>objective</strong> rather than its
+parameter subset, which is why an arm carries an objective and not merely a trainable set. The Python
+catalog is explicit about it: <code>fl-runtime/recipes.py</code> declares
+<code>TRAINING_ARMS = ("FULL", "FROZEN_HEAD", "OVA_LP")</code>,
+<code>ARM_OBJECTIVES = {"FULL": "cross_entropy", "FROZEN_HEAD": "cross_entropy", "OVA_LP": "one_vs_all"}</code>
+and <code>DEFAULT_ARM = "FULL"</code>. (The paper's two-stage schedule is <em>not</em> implemented; see that file's
+<code>arm_notes</code>.)</p>
+<p><strong>The enum is the vocabulary; the recipe catalog is the authority.</strong> Which arms a given recipe can
+actually run is declared per recipe in <code>recipes.py</code> as <code>supported_arms</code> / <code>trainable_spec</code> —
+<code>PNEUMONIA_CNN</code> and <code>CNN</code> offer <code>[FULL, FROZEN_HEAD]</code>, <code>CIFAR_RESNET18</code> offers all three, and
+<code>MLP</code> / <code>TRANSFORMER</code> / <code>LLM_LORA</code> / <code>TINYNET_GOLDEN</code> offer <code>[FULL]</code> only. The backend deliberately
+does <strong>not</strong> duplicate that table.</p>
+<h3 id="how-an-arm-travels">How an arm travels<a class="headerlink" href="#how-an-arm-travels" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code>CreateProjectModal (picker, with the measured trade-off attached)
+   └─ POST /api/projects  { &quot;trainingArm&quot;: &quot;FROZEN_HEAD&quot;, ... }
+         └─ CreateProjectRequest  @Pattern(FULL|FROZEN_HEAD|OVA_LP)      [400 on anything else]
+              └─ ProjectService.createProject → TrainingArm.valueOf(...)
+                   └─ projects.training_arm   NOT NULL DEFAULT &#39;FULL&#39;    [V22/V23 CHECK]
+                        ├─ FlServerManager argv: --training-arm &lt;ARM&gt;    (emitted only when != FULL)
+                        ├─ ClientConnectionDto.trainingArm               (always stated, never null)
+                        └─ ProjectResponseDto.trainingArm                (always stated, never null)
+</code></pre></div>
+
+<p>Four properties of that chain are load-bearing:</p>
+<ul>
+<li><strong>Omission means <code>FULL</code>, through one code path.</strong> <code>createProject</code> sets the arm only when the
+  request names one, leaving the entity default (<code>TrainingArm.FULL</code>) to supply it otherwise — so a
+  pre-arm client keeps its exact previous behaviour without a second branch. <code>FlServerManager</code>
+  mirrors this on the argv side: <code>--training-arm</code> is emitted <strong>only</strong> when the arm is not <code>FULL</code>, so
+  every pre-existing spawn's command line is byte-identical to before, and both <code>fl_server.py</code> and
+  <code>client.py</code> resolve an omitted arm to <code>FULL</code>.</li>
+<li><strong>The response and the connection payload always state the arm explicitly.</strong> A UI that had to read
+  <code>FULL</code> out of silence would be re-deriving a default the server already knows, and a frozen project
+  would look identical to a full one in every list view. <code>ClientConnectionDto.trainingArm</code> matters
+  more than cosmetically: the server filters its parameters to the arm's trainable subset, so a
+  client that did not know the arm would upload a full state dict against a server expecting the head
+  alone.</li>
+<li><strong>The arm is immutable after creation.</strong> <code>StartProject</code> also carries a <code>trainingArm</code> (same
+  <code>@Pattern</code>), but <code>/start</code> may only <em>restate</em> the project's arm — a mismatch throws
+  <code>ProjectStateException</code> with a message telling the caller to create a separate project for the
+  other arm. Honouring a different arm at start would make two runs of one project incomparable
+  while they still share a project identity; silently ignoring it would be a contract that looks like
+  it works. Neither is acceptable, so it is refused.</li>
+<li><strong>The recipe catalog validates the <em>combination</em>, on the Python side.</strong> The DTO pattern only bounds
+  the vocabulary; whether <code>PNEUMONIA_CNN</code> supports <code>OVA_LP</code> is answered by
+  <code>recipes.validate_arm()</code>, not by Java.</li>
+</ul>
+<h3 id="what-the-picker-is-shown">What the picker is shown<a class="headerlink" href="#what-the-picker-is-shown" title="Permanent link">&para;</a></h3>
+<p><code>GET /api/model-recipes</code> (<code>ModelRecipeController</code> → <code>ModelRecipeService</code>, which shells out to
+<code>recipes.py --describe</code> once and caches the result for the JVM's lifetime) carries two arm fields on
+each <code>ModelRecipeDto</code>:</p>
+<ul>
+<li><strong><code>supportedArms</code></strong> — that recipe's own list, <code>null</code> for a recipe that declares none.</li>
+<li><strong><code>armTradeoff</code></strong> — attached <strong>only to recipes that offer a choice of arms</strong>, and generated from
+  the measurement campaign's verdict record by <code>scripts/build_arm_tradeoff.py</code> into
+  <code>fl-runtime/arm_tradeoff.json</code>. It is never hand-written, so what the picker claims cannot drift
+  from what was measured. The DTO deliberately carries the <code>caveats</code> list alongside the numbers,
+  because a headline figure shown without them is a claim the measurement does not support (the
+  communication ratio is round-budget dependent, and accuracy and on-device latency were measured on
+  different hardware).</li>
+</ul>
+<p>Two typing decisions in <code>ArmTradeoff</code> exist because of specific near-misses: <code>commRatio</code> and
+<code>ondeviceRatio</code> are <code>Double</code>, not <code>Integer</code> — every measured ratio <em>happened</em> to be a large whole
+number (3,321x) until <code>PNEUMONIA_CNN</code> was measured on the product path at <strong>1.004x</strong>, since that
+recipe's classifier is 99.6% of its parameters and freezing saves almost nothing; Jackson coerces a
+JSON float into an <code>Integer</code> by truncating, which would have quietly rounded that honest figure to
+<code>1</code>. And <code>null</code> means <strong>not measured</strong> — it must never become <code>0</code>, which would read as "no saving
+measured" rather than "no measurement taken".</p>
+<p>There is <strong>no hardcoded Java fallback</strong> for the catalog (DA-10). An earlier duplicate had already
+drifted from <code>recipes.py</code>, and since the app spawns Python for all training and inference anyway, a
+broken catalog should surface loudly rather than be masked by stale data: a load failure throws
+<code>IllegalStateException</code> and is not cached, so a transient problem recovers on retry.</p>
+<h3 id="the-check-constraint-contract">The CHECK-constraint contract<a class="headerlink" href="#the-check-constraint-contract" title="Permanent link">&para;</a></h3>
+<p><code>V22</code> adds the column <em>and</em> <code>chk_projects_training_arm</code>; <code>V23</code> drops and re-adds it widened to
+<code>('FULL','FROZEN_HEAD','OVA_LP')</code>. The constraint is deliberately narrow and is described in the
+migration as the last line of defence: DTO validation can be bypassed by any direct writer (a
+migration, an ops script, a future service), and an unrecognised arm would otherwise reach the Python
+runtime and fail at FL-server spawn rather than at write time.</p>
+<p>That creates a split-brain hazard — a Java enum constant the application believes is valid and the
+database rejects — and <strong><code>V22TrainingArmMigrationTest</code> is the guard</strong>. It asserts:</p>
+<ul>
+<li>the column exists, is <code>NOT NULL</code>, and its default contains <code>FULL</code>;</li>
+<li>an insert that omits the arm lands on <code>FULL</code> (the path every pre-existing row took at migration);</li>
+<li><code>FROZEN_HEAD</code> and <code>OVA_LP</code> round-trip;</li>
+<li>an unknown arm (<code>SEMI_FROZEN</code>) is rejected by the database, with <code>training_arm</code> in the message;</li>
+<li><strong>every <code>TrainingArm.values()</code> constant is accepted by the constraint</strong> — so adding a constant
+  without shipping a widening migration fails this test instead of surfacing as a write error inside
+  a user's federation.</li>
+</ul>
+<p><code>ArmCatalogAndCreationTest</code> is its edge-side counterpart: it pins that every enum constant is also
+accepted by <code>CreateProjectRequest</code>'s <code>@Pattern</code>, that an unknown arm is rejected at the edge rather
+than at spawn, that <code>supported_arms</code> and the measured <code>arm_tradeoff</code> survive parsing into
+<code>ModelRecipeDto</code> (both were silently dropped by <code>@JsonIgnoreProperties(ignoreUnknown = true)</code> before
+P1-4), and that a fractional communication ratio is not truncated on the wire — Jackson coerces a
+JSON float into an <code>Integer</code> by truncating, which would have rounded PNEUMONIA_CNN's honest measured
+<code>1.004x</code> saving to <code>1</code>.</p>
+<h2 id="4-project-ownership-membership-and-org-isolation">4. Project Ownership, Membership, and Org Isolation<a class="headerlink" href="#4-project-ownership-membership-and-org-isolation" title="Permanent link">&para;</a></h2>
 <p>A project is no longer just "owned by one user." It belongs to an
-<strong>Organization</strong> (<code>org_id</code> NOT NULL), has a <strong>visibility</strong> (<code>PRIVATE</code>/<code>PUBLIC</code>),
-and can have <strong>project memberships</strong> (<code>OWNER</code>/<code>MEMBER</code>/<code>CLIENT</code>) and <strong>access
-requests</strong>. Authorization is centralised in <code>AuthorizationService</code> and applies two
+<strong>Organization</strong> (<code>org_id</code> NOT NULL), has a <strong>visibility</strong> (three tiers —
+<code>PUBLIC</code>/<code>RESTRICTED</code>/<code>PRIVATE</code>), and can have <strong>project memberships</strong>
+(<code>OWNER</code>/<code>MEMBER</code>/<code>CLIENT</code>) and <strong>access requests</strong>. Authorization is centralised in <code>AuthorizationService</code> and applies two
 layers in sequence.</p>
 <h3 id="layer-1-org-scope-multi-tenant-isolation">Layer 1 — Org-scope (multi-tenant isolation)<a class="headerlink" href="#layer-1-org-scope-multi-tenant-isolation" title="Permanent link">&para;</a></h3>
 <p>Before any ownership check, mutating paths call <code>authz.requireOrgScope(project.getOrgId())</code>,
@@ -139,14 +421,18 @@ bypass both layers). The service also offers <code>requireOwnerOrMemberOrAdmin</
 unauthorized <code>start</code>/<code>stop</code>/<code>delete</code> throws <code>AccessDeniedException</code> → 403.</p>
 <h3 id="visibility-memberships-access-requests">Visibility, memberships &amp; access requests<a class="headerlink" href="#visibility-memberships-access-requests" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Visibility</strong> (<code>PATCH /api/projects/{id}</code>) flips a project between <code>PRIVATE</code>
-  and <code>PUBLIC</code>; participants are notified on change.</li>
+<li><strong>Visibility</strong> (<code>PATCH /api/projects/{id}</code>) moves a project between the three
+  <code>ProjectVisibility</code> tiers — <code>PUBLIC</code> / <code>RESTRICTED</code> / <code>PRIVATE</code>; participants
+  are notified on change, skipping the membership rows whose role is <code>OWNER</code>
+  (the owner's own lazily-created <code>OWNER_SELF</code> row).</li>
 <li><strong>Memberships</strong> (<code>/api/projects/{id}/memberships</code>) — owners/admins add/remove
   any role; a <code>MEMBER</code> may add/remove only <code>CLIENT</code>. Member add/remove are
   <code>@Auditable</code>.</li>
-<li><strong>Access requests</strong> (<code>/api/projects/{id}/access-requests</code>) — joining a PUBLIC
-  project creates a <code>CLIENT</code> membership immediately; requesting a PRIVATE project
-  files a <code>PENDING</code> request the owner decides.</li>
+<li><strong>Access requests</strong> (<code>/api/projects/{id}/access-requests</code>) — behaviour branches
+  on the tier: <strong>PUBLIC</strong> creates a <code>CLIENT</code> membership immediately;
+  <strong>RESTRICTED</strong> upserts a <code>PENDING</code> request the owner decides; <strong>PRIVATE</strong>
+  returns the same <strong>404</strong> a nonexistent project would, so a non-participant
+  cannot use the error code as an existence oracle.</li>
 </ul>
 <p>See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>
 for the full membership/access-request workflow and the org-scope mechanism.</p>
@@ -157,24 +443,109 @@ unless the caller is an unrestricted platform admin, it runs the org-scoped
 so the "My Projects" dashboard only shows projects from the caller's visible
 orgs. The discover feed (<code>GET /api/projects/discover</code>) is likewise constrained via
 <code>findDiscoverableInOrgs</code>.</p>
-<h2 id="3-starting-the-training-server">3. Starting the Training Server<a class="headerlink" href="#3-starting-the-training-server" title="Permanent link">&para;</a></h2>
-<p>The <code>POST /api/projects/{projectId}/start</code> endpoint kicks off the machine learning phase.</p>
+<h2 id="5-starting-the-training-server">5. Starting the Training Server<a class="headerlink" href="#5-starting-the-training-server" title="Permanent link">&para;</a></h2>
+<p><code>POST /api/projects/{projectId}/start</code> kicks off the machine-learning phase. A <code>StartProject</code> body is
+required by the controller, but every field <em>in</em> it is optional — the service supplies defaults — and
+every field it does carry is bounded, so a pathological input (<code>numRounds = Integer.MAX_VALUE</code>) is
+rejected by bean validation before it can reach the spawn path, where it could exhaust resources or
+be interpolated into a command line.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Constraint</th>
+<th>Default if omitted</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>strategy</code></td>
+<td><code>@Pattern(FedAvg\|DeComFL\|FedProx\|FedOpt\|Robust\|FoT)</code></td>
+<td>derived by <code>resolveStrategy(modelType, …)</code></td>
+</tr>
+<tr>
+<td><code>trainingArm</code></td>
+<td><code>@Pattern(FULL\|FROZEN_HEAD\|OVA_LP)</code></td>
+<td>the project's own arm (and it may only restate it — §3)</td>
+</tr>
+<tr>
+<td><code>numRounds</code></td>
+<td><code>@Min(1)</code> <code>@Max(100)</code></td>
+<td>5</td>
+</tr>
+<tr>
+<td><code>minClients</code></td>
+<td><code>@Min(1)</code> <code>@Max(100)</code></td>
+<td>1</td>
+</tr>
+<tr>
+<td><code>clientsPerRound</code></td>
+<td>bounded</td>
+<td><code>minClients</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>FedLoRA</code> is deliberately <strong>not</strong> in that regex: it is derived server-side for <code>LLM_LORA</code> runs by
+<code>resolveStrategy</code> and is never user-submitted. <code>FoT</code> (Federation over Text) is not a gradient
+strategy at all — it spawns the standalone <code>fl_fot_server.py</code> through its own wrapper property.</p>
+<p>The sequence:</p>
 <ol>
-<li>The user specifies the training <code>strategy</code> (e.g., <code>FedAvg</code>), the <code>minClients</code> required, and the <code>numRounds</code>.</li>
-<li>The <code>ProjectService</code> enforces org-scope then ownership (<code>requireOrgScope</code> → <code>requireOwnerOrAdmin</code>) and ensures the server isn't already running. <code>startServerForProject</code> is <code>@Auditable(action = RUN_STARTED)</code>; <code>stopServerForProject</code> is <code>@Auditable(action = RUN_STOPPED)</code>.</li>
-<li>It calls <code>FlServerManager.startServerForProject(...)</code>. (See <a href="04_federated_orchestration.html">04 - Federated Orchestration</a> for full details on this component).</li>
-<li>The backend updates the project's status to <code>RUNNING</code> and saves the network <code>serverPort</code> where the FL Server is listening.</li>
-<li>A real-time <code>ProjectStatusUpdateDto</code> is fired over WebSockets to instantly update the React dashboard UI.</li>
+<li>Load the project, then enforce <strong>org-scope → ownership</strong>
+   (<code>requireOrgScope</code> → <code>requireOwnerOrAdmin</code>). <code>startServerForProject</code> is
+   <code>@Auditable(action = RUN_STARTED)</code>; <code>stopServerForProject</code> is <code>@Auditable(action = RUN_STOPPED)</code>.</li>
+<li>Reconcile the requested arm against the project's arm (§3) — restating is fine, disagreeing is a
+   <code>ProjectStateException</code>.</li>
+<li><strong>Take the per-project start lock (BA-2).</strong> The running-check, <code>Run</code> creation and spawn are one
+   atomic critical section: without it two concurrent <code>/start</code> calls both saw
+   <code>isServerRunning == false</code> and both spawned, leaving one server orphaned and untracked. The loser
+   now gets a deterministic 409 (<code>ProjectStateException</code>) instead.</li>
+<li>Create the <code>Run</code> row (<code>RunService.createForStart</code>), set it as the project's <code>activeRunId</code>, then
+   call <code>FlServerManager.startServerForProject(...)</code> — see
+   <a href="04_federated_orchestration.html">04 - Federated Orchestration</a>. If anything after run creation
+   throws, the run is marked <code>FAILED</code> rather than left dangling.</li>
+<li>Persist the reserved <code>serverPort</code>, mark the run <code>RUNNING</code>, and (flag-gated, phone-only, MO-15)
+   auto-stage the run's on-device model bundle on a background worker so a mobile client that joins
+   finds it at <code>GET /api/runs/{runId}/model-bundle</code>. That stage call is wrapped defensively: a
+   scheduling failure must never fail a start.</li>
+<li>Broadcast a <code>ProjectStatusUpdateDto</code> over STOMP so the React dashboard updates instantly. The
+   status it carries is the <strong>derived</strong> one from <code>ProjectStatusService</code>, not the raw column.</li>
 </ol>
-<h2 id="4-completion-and-cleanup">4. Completion and Cleanup<a class="headerlink" href="#4-completion-and-cleanup" title="Permanent link">&para;</a></h2>
+<h2 id="6-completion-and-cleanup">6. Completion and Cleanup<a class="headerlink" href="#6-completion-and-cleanup" title="Permanent link">&para;</a></h2>
 <h3 id="marking-as-completed">Marking as Completed<a class="headerlink" href="#marking-as-completed" title="Permanent link">&para;</a></h3>
-<p>When the FL Server successfully finishes all its federated rounds, it sends a final REST call to the internal API endpoint.
-<code>ProjectService.markProjectAsCompleted()</code> clears the active <code>serverPort</code> and sets the status to <code>COMPLETED</code>.</p>
-<h3 id="deletion">Deletion<a class="headerlink" href="#deletion" title="Permanent link">&para;</a></h3>
-<p>When a user deletes a project (<code>DELETE /api/projects/{projectId}</code>):
-1. The service enforces org-scope (<code>requireOrgScope</code>) then ownership (<code>requireOwnerOrAdmin</code>). <code>deleteProject</code> is <code>@Auditable(action = PROJECT_DELETED)</code>.
-2. It makes a best-effort attempt to terminate any actively running FL Server processes via <code>FlServerManager.stopServerForProject()</code>. FL servers are local Python processes, tracked in a <code>ConcurrentHashMap&lt;UUID, ProcessHandle&gt;</code> and torn down with <code>destroyForcibly()</code>; this prevents ghost processes from lingering and consuming resources.
-3. The database row is deleted. Cascade rules automatically delete the associated <code>ServerLog</code>, <code>RoundResult</code>, <code>ProjectMembership</code>, and <code>ProjectAccessRequest</code> entries.</p></article>
+<p>When the FL Server finishes all its federated rounds, it calls back to the internal API.
+<code>ProjectService.markProjectAsCompleted()</code> clears the active <code>serverPort</code>, marks the active run
+<code>COMPLETED</code>, and broadcasts the derived status.</p>
+<h3 id="deletion-admin-only-with-an-owner-facing-request-workflow">Deletion — admin-only, with an owner-facing request workflow<a class="headerlink" href="#deletion-admin-only-with-an-owner-facing-request-workflow" title="Permanent link">&para;</a></h3>
+<p>Direct deletion is <strong>platform-admin only</strong>: <code>deleteProject</code> calls <code>authz.requireOrgScope(...)</code> then
+<code>authz.requirePlatformAdmin()</code>, not <code>requireOwnerOrAdmin</code>. An owner instead files a request:</p>
+<div class="codehilite"><pre><span></span><code>owner  → POST /api/projects/{id}/deletion-request        (201, PENDING; ProjectDeletionService)
+admin  → GET  /api/admin/deletion-requests?status=PENDING
+admin  → PUT  /api/admin/deletion-requests/{id}          (APPROVED → calls deleteProject in the admin&#39;s context)
+</code></pre></div>
+
+<p><code>GET /api/projects/{id}/deletion-request</code> returns the project's outstanding request, or <strong>204</strong> when
+there is none — that is what drives the owner's "deletion pending" badge.</p>
+<p>When <code>deleteProject</code> does run:</p>
+<ol>
+<li><code>@Auditable(action = PROJECT_DELETED)</code> records it.</li>
+<li>Under the <strong>same per-project start lock</strong> used by <code>/start</code> (BA-13), it makes a best-effort attempt
+   to stop any running FL server via <code>FlServerManager.stopServerForProject()</code> — local Python
+   processes tracked in a <code>ConcurrentHashMap&lt;UUID, ProcessHandle&gt;</code> and torn down with
+   <code>destroyForcibly()</code>. Holding the start lock is what stops a concurrent start from spawning and
+   tracking a child <em>after</em> the stop and <em>before</em> the row disappears. (A residual race is documented
+   in the code: <code>startServerForProject</code> loads the project before acquiring the lock, so a start
+   already past its load could still race a delete; closing that needs an in-lock existence
+   re-check.)</li>
+<li>The row is deleted, and FK cascades take the children with it: <code>ServerLog</code>, <code>RoundResult</code>,
+   <code>ProjectMembership</code>, <code>ProjectAccessRequest</code>, <code>ProjectDeletionRequest</code>, the benchmark tables, and —
+   since <code>V19</code> — the <code>runs</code> / <code>run_enrollments</code> sub-tree. Before <code>V19</code> those two FKs had no
+   <code>ON DELETE</code> action, so <strong>any project that had ever been started could not be deleted at all</strong>:
+   Postgres raised <code>23503</code> on <code>runs_project_id_fkey</code>, surfaced as an opaque 409.
+   Registry rows are deliberately <em>not</em> cascaded — <code>model_artifacts.project_id</code>/<code>run_id</code> are
+   <code>ON DELETE SET NULL</code> (a provenance row outlives its producer) and <code>artifact_blobs</code> are shared, so
+   they are never garbage-collected here. See
+   <a href="07_artifact_registry.html">07 - Content-Addressed Model Artifact Registry</a>.</li>
+</ol></article>
     <nav class="toc"></nav>
   </div>
 </div>

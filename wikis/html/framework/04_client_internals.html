@@ -50,8 +50,17 @@
 <li><a href="05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -87,10 +96,12 @@
 <ul>
 <li><a href="#overview">Overview</a></li>
 <li><a href="#the-client-abc">The Client ABC</a></li>
+<li><a href="#localtrainer--the-shipped-first-order-client">LocalTrainer — The Shipped First-Order Client</a></li>
 <li><a href="#the-start_client-loop">The start_client() Loop</a></li>
 <li><a href="#registration-phase">Registration Phase</a></li>
 <li><a href="#heartbeat-thread">Heartbeat Thread</a></li>
 <li><a href="#training-loop">Training Loop</a></li>
+<li><a href="#server-driven-stop-fr-10">Server-Driven Stop (FR-10)</a></li>
 <li><a href="#polling-strategy-and-known-limitations">Polling Strategy and Known Limitations</a></li>
 <li><a href="#error-handling-and-reconnection">Error Handling and Reconnection</a></li>
 <li><a href="#grpcclient--the-transport-layer">GrpcClient — The Transport Layer</a></li>
@@ -101,6 +112,7 @@
 <li><a href="#standard-fedavg-client-example-llm">Standard FedAvg Client Example (LLM)</a></li>
 <li><a href="#decomfl-client">DeComFL Client</a></li>
 <li><a href="#start_decomfl_client">start_decomfl_client()</a></li>
+<li><a href="#syncing-the-initial-model-and-the-applied-round-watermark">Syncing the Initial Model and the Applied-Round Watermark</a></li>
 <li><a href="#decomflclientfit-mechanics">DeComFLClient.fit() Mechanics</a></li>
 <li><a href="#model-rebuild-protocol">Model Rebuild Protocol</a></li>
 <li><a href="#progress-reporting-to-the-backend">Progress Reporting to the Backend</a></li>
@@ -122,8 +134,8 @@
 <tr>
 <td>Standard FL</td>
 <td><code>start_client()</code></td>
-<td><code>Client</code> ABC</td>
-<td>FedAvg, any gradient-based optimizer</td>
+<td><code>Client</code> ABC — or the shipped <code>LocalTrainer</code></td>
+<td>FedAvg / FedProx / FedOpt / FedLoRA / robust</td>
 </tr>
 <tr>
 <td>DeComFL</td>
@@ -133,7 +145,22 @@
 </tr>
 </tbody>
 </table>
-<p>Both flavours share the same <code>GrpcClient</code> transport layer and the same outer loop structure. The difference is <em>what</em> gets exchanged: standard clients exchange full parameter tensors; DeComFL clients exchange tiny gradient scalar arrays.</p>
+<p>Both flavours share the same <code>GrpcClient</code> transport layer and the same outer loop structure. The
+difference is <em>what</em> gets exchanged: standard clients exchange full parameter tensors; DeComFL
+clients exchange tiny gradient scalar arrays. There is a third way to run either one with no
+transport at all — the in-process simulator calls <code>client.fit(...)</code> directly (see
+<a href="01_architecture_overview.html#the-in-process-simulator">01 — The In-Process Simulator</a>); a <code>Client</code>
+that works under <code>start_client()</code> works there unchanged.</p>
+<blockquote>
+<p><strong><code>start_decomfl_client()</code> returns a terminal outcome; <code>start_client()</code> returns <code>None</code>.</strong> The
+DeComFL entry point returns one of <code>OUTCOME_COMPLETED</code> / <code>OUTCOME_DISCONNECTED</code> /
+<code>OUTCOME_ERROR</code>, so a caller (or a test) can tell a normal end-of-run from a real disconnect and
+pick an exit code. <code>start_client()</code> has no such distinction yet.</p>
+<p>One gap to code defensively against: the two <strong>FR-1 initial-download failure paths</strong>
+(<code>decomfl_start.py:68</code> and <code>:77</code> — the <code>get_global_model</code> RPC raised, or the server returned no
+global model) <code>return</code> bare, so the caller sees <code>None</code> rather than <code>OUTCOME_ERROR</code>. Treat any
+non-<code>OUTCOME_COMPLETED</code> return, <code>None</code> included, as a failure.</p>
+</blockquote>
 <hr />
 <h2 id="the-client-abc">The Client ABC<a class="headerlink" href="#the-client-abc" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code><span class="c1"># client/client.py</span>
@@ -170,40 +197,136 @@
 </code></pre></div>
 
 <p><strong>Design rationale:</strong> By requiring only these two methods, the framework remains compatible with any training approach — backpropagation, meta-learning, quantisation-aware training, etc. The user controls the optimizer, loss function, number of local epochs, and data loading.</p>
+<p>Two <strong>optional</strong> hooks the framework calls if present (neither is on the ABC):</p>
+<table>
+<thead>
+<tr>
+<th>Hook</th>
+<th>Called by</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>set_grpc_client(gc)</code></td>
+<td><code>start_client()</code> / <code>start_decomfl_client()</code> before the loop</td>
+<td>gives <code>fit()</code> a handle for progress updates and for polling <code>should_stop_training()</code></td>
+</tr>
+<tr>
+<td><code>get_client_config()</code> — <em>server-side</em>, on the <strong>Strategy</strong></td>
+<td><code>FLCoordinator._strategy_client_config()</code></td>
+<td>how <code>proximal_mu</code> / <code>learning_rate</code> / <code>local_epochs</code> reach <code>fit()</code>'s <code>config</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="localtrainer-the-shipped-first-order-client">LocalTrainer — The Shipped First-Order Client<a class="headerlink" href="#localtrainer-the-shipped-first-order-client" title="Permanent link">&para;</a></h2>
+<p>You do not have to hand-write a <code>Client</code> for the first-order family.
+<code>fedlearn.client.local_trainer.LocalTrainer</code> (exported as <code>fl.LocalTrainer</code>) is a concrete <code>Client</code>
+that runs ordinary minibatch SGD and is the counterpart to <code>FedProx</code> / <code>FedOpt</code> on the server:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">fedlearn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">LocalTrainer</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">MyModel</span><span class="p">(),</span> <span class="n">train_loader</span><span class="o">=</span><span class="n">loader</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+<span class="n">fl</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">start_client</span><span class="p">(</span><span class="s2">&quot;localhost:50051&quot;</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="s2">&quot;client_0&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<p>It reads three keys out of the round <code>config</code>, all of which may arrive as <code>str</code> (they travel through
+a protobuf <code>map&lt;string,string&gt;</code>) and are coerced:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>learning_rate</code></td>
+<td><code>0.01</code></td>
+<td>SGD learning rate</td>
+</tr>
+<tr>
+<td><code>local_epochs</code></td>
+<td><code>1</code></td>
+<td>passes over <code>train_loader</code></td>
+</tr>
+<tr>
+<td><code>proximal_mu</code></td>
+<td><code>0.0</code></td>
+<td>FedProx penalty strength; <code>0.0</code> is exactly the FedAvg client</td>
+</tr>
+</tbody>
+</table>
+<p><strong>How the FedProx term is applied — it is a gradient, not a loss addition.</strong> <code>LocalTrainer</code> snapshots
+the round's starting global model as an anchor (only when <code>mu &gt; 0</code>), then after <code>loss.backward()</code>
+adds the penalty's exact gradient contribution in place before stepping:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">global_anchor</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">()]</span> <span class="k">if</span> <span class="n">mu</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="kc">None</span>
+<span class="o">...</span>
+<span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+<span class="k">if</span> <span class="n">mu</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">w0</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">global_anchor</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">grad</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">grad</span><span class="o">.</span><span class="n">add_</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span> <span class="o">-</span> <span class="n">w0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">mu</span><span class="p">)</span>     <span class="c1"># mu * (w - w_global)</span>
+<span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+</code></pre></div>
+
+<p>Two consequences worth knowing:</p>
+<ul>
+<li><strong><code>mu = 0</code> skips the anchor entirely</strong>, so a FedProx run with <code>mu = 0</code> is bitwise the FedAvg
+  client — there is no residual cost.</li>
+<li>The penalty's own iteration is <code>w ← w − lr·mu·(w − w_global)</code>, a linear map with multiplier
+  <code>(1 − lr·mu)</code>. It contracts toward the anchor only while <code>0 &lt; lr·mu &lt; 2</code>. <code>FedProx</code> refuses to
+  construct outside that envelope — see
+  <a href="05_strategies.html#fedprox--proximal-regularisation-shipped">05 — FedProx</a>.</li>
+</ul>
+<p>It returns <code>(state_dict as detached CPU clones, len(train_loader.dataset))</code>, and polls
+<code>should_stop_training()</code> between minibatches (FR-10).</p>
 <hr />
 <h2 id="the-start_client-loop">The start_client() Loop<a class="headerlink" href="#the-start_client-loop" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code>start_client(server_address, client, client_id)
     │
     ├── 1. Register with server
     │       GrpcClient.register()
-    │       → RegisterClient RPC
+    │       → RegisterClient RPC       (exits immediately if this fails)
     │
     ├── 2. Start heartbeat daemon thread
     │       GrpcClient.start_heartbeat()
     │
-    ├── 3. Pass GrpcClient to client (for progress updates)
+    ├── 3. Pass GrpcClient to client (for progress updates + the stop latch)
     │       if hasattr(client, &#39;set_grpc_client&#39;): ...
     │
-    └── 4. Training loop (forever until completion signal)
-            │
-            ├── a. Fetch global model
-            │       GrpcClient.get_global_model()
-            │       → GetGlobalModelStream RPC
-            │
-            ├── b. Check completion signal (server_round == -1)
-            │
-            ├── c. Check for new round (server_round &gt; last_completed_round)
-            │
-            ├── d. Local training
-            │       client.fit(parameters, config)
-            │
-            ├── e. Submit update
-            │       GrpcClient.submit_update(new_params, num_examples, round)
-            │       → SubmitModelUpdate or SubmitModelUpdateStream RPC
-            │
-            └── f. Wait 2 seconds, then poll again
+    ├── 4. Training loop (until a completion signal, a stop, or a fatal error)
+    │       │
+    │       ├── 0. FR-10: if should_stop_training() → break BEFORE the round
+    │       │
+    │       ├── a. Fetch global model
+    │       │       GrpcClient.get_global_model()
+    │       │       → GetGlobalModelStream RPC
+    │       │
+    │       ├── b. Check completion signal (server_round == -1) → break
+    │       │
+    │       ├── c. New round? (server_round &gt; last_completed_round)
+    │       │       NO  → status &quot;waiting&quot;, sleep 2s, poll again
+    │       │       YES → continue
+    │       │
+    │       ├── d. Local training
+    │       │       client.fit(parameters, config)
+    │       │
+    │       ├── e. FR-10: if should_stop_training() → DISCARD the partial
+    │       │       update and break (never submit a half-round)
+    │       │
+    │       └── f. Submit update
+    │               GrpcClient.submit_update(new_params, num_examples, round)
+    │               → SubmitModelUpdate or SubmitModelUpdateStream RPC
+    │
+    └── 5. finally: stop_heartbeat() + close()   ← always runs, on every exit path
 </code></pre></div>
 
+<blockquote>
+<p><strong>The 2-second sleep is only in the "no new round" branch.</strong> A client that just completed a round
+loops straight back to <code>get_global_model()</code> with no delay.</p>
+</blockquote>
 <h3 id="registration-phase">Registration Phase<a class="headerlink" href="#registration-phase" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="n">comm_client</span> <span class="o">=</span> <span class="n">GrpcClient</span><span class="p">(</span><span class="n">client_id</span><span class="o">=</span><span class="n">client_id</span><span class="p">,</span> <span class="n">server_address</span><span class="o">=</span><span class="n">server_address</span><span class="p">)</span>
 
@@ -224,27 +347,40 @@
 <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 </code></pre></div>
 
-<p><code>daemon=True</code> means the thread exits automatically when the main process exits, with no explicit cleanup needed. The interval is 5 seconds by default (<code>heartbeat_interval = 5</code>).</p>
-<p>The heartbeat payload includes real-time progress:</p>
+<p><code>daemon=True</code> means the thread exits automatically when the main process exits, with no explicit cleanup needed. The interval is 5 seconds by default (<code>heartbeat_interval = 5</code>), and the inter-beat wait is an <strong>interruptible <code>Event.wait</code></strong>, not <code>time.sleep</code> — <code>stop_heartbeat()</code> ends it at once instead of the thread having to sleep out the full interval (FR-10).</p>
+<p>The heartbeat payload includes real-time progress, read through a lock so it can never observe a
+torn write:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">send_heartbeat</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="n">status</span><span class="p">,</span> <span class="n">current_step</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">,</span> <span class="n">current_round</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status_snapshot</span><span class="p">()</span>  <span class="c1"># under _status_lock</span>
     <span class="n">req</span> <span class="o">=</span> <span class="n">HeartbeatRequest</span><span class="p">(</span>
         <span class="n">client_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">client_id</span><span class="p">,</span>
-        <span class="n">status</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">current_status</span><span class="p">,</span>   <span class="c1"># &quot;idle&quot;, &quot;training&quot;, &quot;submitting_update&quot;, etc.</span>
-        <span class="n">current_step</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">current_step</span><span class="p">,</span>
-        <span class="n">total_steps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">total_steps</span><span class="p">,</span>
-        <span class="n">current_round</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">,</span>
+        <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>                <span class="c1"># &quot;idle&quot;, &quot;training&quot;, &quot;submitting_update&quot;, …</span>
+        <span class="n">current_step</span><span class="o">=</span><span class="n">current_step</span><span class="p">,</span>
+        <span class="n">total_steps</span><span class="o">=</span><span class="n">total_steps</span><span class="p">,</span>
+        <span class="n">current_round</span><span class="o">=</span><span class="n">current_round</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_stub</span><span class="o">.</span><span class="n">Heartbeat</span><span class="p">(</span><span class="n">req</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
-        <span class="k">return</span> <span class="kc">False</span>   <span class="c1"># server wants us to stop</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_training</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>     <span class="c1"># FR-10: LATCH it for the training thread</span>
+        <span class="k">return</span> <span class="kc">False</span>
     <span class="k">return</span> <span class="n">res</span><span class="o">.</span><span class="n">acknowledged</span>
 </code></pre></div>
 
+<blockquote>
+<p><strong>Why the status triple needs a lock.</strong> <code>update_status()</code> is called from the <em>training</em> thread and
+<code>_status_snapshot()</code> from the <em>heartbeat</em> thread. Three bare attribute stores are not atomic as a
+unit, so without <code>_status_lock</code> a heartbeat could report the status of one phase with the step
+count of another — a confusing dashboard, and a misleading progress signal to the backend.</p>
+</blockquote>
 <h3 id="training-loop">Training Loop<a class="headerlink" href="#training-loop" title="Permanent link">&para;</a></h3>
 <p>The main loop is a <code>while True</code> that polls continuously:</p>
 <div class="codehilite"><pre><span></span><code><span class="n">last_completed_round</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
 
 <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+    <span class="c1"># Phase 0: FR-10 — server-driven stop, checked before starting another round</span>
+    <span class="k">if</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">should_stop_training</span><span class="p">():</span>
+        <span class="k">break</span>
+
     <span class="c1"># Phase 1: Fetch model</span>
     <span class="n">comm_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;fetching_model&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
     <span class="n">parameters</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">get_global_model</span><span class="p">()</span>
@@ -261,57 +397,110 @@
         <span class="c1"># Phase 4: Local training</span>
         <span class="n">new_parameters</span><span class="p">,</span> <span class="n">num_examples</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
 
+        <span class="c1"># Phase 4b: FR-10 — fit() aborted early, so these params are a PARTIAL round.</span>
+        <span class="c1"># Discard them; never submit a half-round.</span>
+        <span class="k">if</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">should_stop_training</span><span class="p">():</span>
+            <span class="k">break</span>
+
         <span class="c1"># Phase 5: Submit update</span>
         <span class="n">comm_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;submitting_update&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="n">success</span> <span class="o">=</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">submit_update</span><span class="p">(</span><span class="n">new_parameters</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">server_round</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">success</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">submit_update</span><span class="p">(</span><span class="n">new_parameters</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">server_round</span><span class="p">):</span>
             <span class="n">last_completed_round</span> <span class="o">=</span> <span class="n">server_round</span>
             <span class="n">comm_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;idle&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">comm_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="c1"># Server hasn&#39;t advanced yet — other clients are still training</span>
+        <span class="c1"># Server hasn&#39;t advanced yet — other clients are still training.</span>
+        <span class="c1"># The sleep lives HERE, in this branch only: a client that just finished a round</span>
+        <span class="c1"># loops straight back to get_global_model() with no delay.</span>
         <span class="n">comm_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;waiting&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-
-    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># poll interval</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 </code></pre></div>
 
-<p>Status values flow through as heartbeat <code>status</code> strings:</p>
+<p>Status values flow through as heartbeat <code>status</code> strings. Note the first two rows: <code>start_client()</code>
+sets <code>"fetching_model"</code>, then <code>GrpcClient.get_global_model()</code> <strong>immediately overwrites it</strong> with
+<code>"downloading_model"</code>, so <code>"fetching_model"</code> is essentially never observed on the wire — a heartbeat
+during a download reports <code>"downloading_model"</code>.</p>
 <table>
 <thead>
 <tr>
 <th>Status String</th>
+<th>Set by</th>
 <th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>"fetching_model"</code></td>
-<td>Downloading global model from server</td>
+<td><code>start_client()</code></td>
+<td>About to download — overwritten within microseconds</td>
+</tr>
+<tr>
+<td><code>"downloading_model"</code></td>
+<td><code>GrpcClient.get_global_model()</code></td>
+<td>Downloading the global model</td>
 </tr>
 <tr>
 <td><code>"training"</code></td>
-<td>Running <code>client.fit()</code></td>
+<td><code>start_client()</code> then <code>client.fit()</code></td>
+<td>Running local training; <code>fit()</code> refines <code>current_step</code>/<code>total_steps</code></td>
 </tr>
 <tr>
 <td><code>"submitting_update"</code></td>
+<td><code>start_client()</code> <strong>and</strong> <code>GrpcClient.submit_update()</code></td>
 <td>Uploading updated parameters</td>
 </tr>
 <tr>
 <td><code>"idle"</code></td>
-<td>Waiting for next round to start</td>
+<td><code>start_client()</code></td>
+<td>Update accepted; waiting for the next round</td>
 </tr>
 <tr>
 <td><code>"waiting"</code></td>
-<td>Submitted update, waiting for other clients</td>
+<td><code>start_client()</code></td>
+<td>Server has not advanced yet — other clients still training</td>
 </tr>
 <tr>
 <td><code>"error"</code></td>
+<td><code>start_client()</code></td>
 <td>Last operation failed</td>
+</tr>
+<tr>
+<td><code>"fetching_config"</code> / <code>"rebuilding"</code></td>
+<td><code>start_decomfl_client()</code></td>
+<td>DeComFL-only phases</td>
 </tr>
 </tbody>
 </table>
+<h3 id="server-driven-stop-fr-10">Server-Driven Stop (FR-10)<a class="headerlink" href="#server-driven-stop-fr-10" title="Permanent link">&para;</a></h3>
+<p>The server can end a client's round mid-flight, and the mechanism is worth understanding because it
+crosses threads <em>and</em> channels.</p>
+<div class="codehilite"><pre><span></span><code>heartbeat thread                          training thread
+────────────────                          ───────────────
+Heartbeat RPC (heartbeat stub) ──►
+   HeartbeatResponse.should_stop=True
+        │
+        └─► self._stop_training.set()  ────────► should_stop_training()  polled between
+            (a threading.Event, LATCHING)         local steps / minibatches
+                                                       │
+                                                       └─► abort the round
+</code></pre></div>
+
+<ul>
+<li>The <strong>heartbeat stub is the only channel that can reach a busy client</strong>: <code>fit()</code> blocks the
+  training stub for the whole round. That is the deeper reason for the dual-channel design, beyond
+  keeping liveness flowing.</li>
+<li>The Event is <strong>latching</strong> — once set it stays set; a server-driven stop ends the run.</li>
+<li>It is polled in three places: <code>LocalTrainer.fit()</code> between minibatches,
+  <code>DeComFLClient.fit()</code> between local steps, and <code>start_client()</code> / <code>start_decomfl_client()</code> at the
+  top of each loop iteration.</li>
+<li><strong>A partial round is never submitted.</strong> After <code>fit()</code> returns, both entry points re-check
+  <code>should_stop_training()</code> and discard the parameters (or the partial, non-K×P scalar grid) rather
+  than uploading them.</li>
+<li>Abort latency is bounded by ~one heartbeat interval + one local step, rather than the full round.</li>
+</ul>
+<p>Historically <code>_heartbeat_loop</code> discarded the response, which made the server's stop request a silent
+no-op. Preserve both stubs <em>and</em> this latch when touching client lifecycle code.</p>
 <h3 id="polling-strategy-and-known-limitations">Polling Strategy and Known Limitations<a class="headerlink" href="#polling-strategy-and-known-limitations" title="Permanent link">&para;</a></h3>
 <p>Currently, clients determine if a new round is available by <strong>polling</strong> <code>GetGlobalModelStream</code> every 2 seconds. This has two drawbacks:</p>
 <ol>
@@ -339,6 +528,19 @@
 
 <p><code>UNAVAILABLE</code> from <code>GetGlobalModel</code> typically means the server's <code>grpc_server.stop()</code> was called (normal post-training shutdown). This is treated as a clean exit.</p>
 <p>All other <code>grpc.RpcError</code> codes get a 10-second retry. Non-gRPC exceptions (Python bugs, out-of-memory) exit immediately — letting the orchestrator restart with a clean slate is safer than continuing in an unknown state.</p>
+<p>Whatever the exit path, a <code>finally:</code> block always runs <code>stop_heartbeat()</code> then <code>close()</code>, so the
+daemon thread and both channels are released.</p>
+<blockquote>
+<p><strong><code>start_decomfl_client()</code> handles this materially better, and the difference is deliberate.</strong>
+Rather than treating <code>UNAVAILABLE</code>/<code>CANCELLED</code> as a clean exit, it first calls
+<code>comm_client.server_reports_complete()</code> — a <code>GetServerStatus</code> probe on the <em>heartbeat</em> channel
+(the training stub may be in a bad state after a cancelled call). If the server reports
+<code>TRAINING_COMPLETE</code> it returns <code>OUTCOME_COMPLETED</code>; otherwise the server went away without
+finishing and it returns <code>OUTCOME_DISCONNECTED</code>. Other transient errors get a <strong>bounded</strong> rejoin
+budget (<code>_MAX_CONSECUTIVE_FAILURES = 3</code>, <code>_RETRY_DELAY_SECONDS = 10</code>) rather than an unbounded
+retry loop, and a successful poll resets the counter. This is what makes "the run finished" and
+"the server died" distinguishable — <code>start_client()</code> cannot currently tell them apart.</p>
+</blockquote>
 <hr />
 <h2 id="grpcclient-the-transport-layer">GrpcClient — The Transport Layer<a class="headerlink" href="#grpcclient-the-transport-layer" title="Permanent link">&para;</a></h2>
 <p><code>GrpcClient</code> wraps all network I/O and presents a clean Python API to the <code>start_client()</code> loop:</p>
@@ -349,8 +551,13 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">send_heartbeat</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">start_heartbeat</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">stop_heartbeat</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">should_stop_training</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>          <span class="c1"># FR-10 latch, polled by fit()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">update_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">current_step</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="c1"># Terminal-state probes (used by start_decomfl_client)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_server_status</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">GetServerStatusResponse</span><span class="p">]</span>   <span class="c1"># None if unreachable</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">server_reports_complete</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
 
     <span class="c1"># DeComFL-specific</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_decomfl_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="nb">round</span><span class="p">,</span> <span class="n">seeds</span><span class="p">,</span> <span class="n">rebuild_history</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
@@ -361,22 +568,35 @@
 <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">server_address</span><span class="p">):</span>
     <span class="n">grpc_options</span> <span class="o">=</span> <span class="p">[</span><span class="o">...</span><span class="p">]</span>
 
-    <span class="c1"># Primary channel for all heavy operations</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">channel</span> <span class="o">=</span> <span class="n">_build_channel</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">grpc_options</span><span class="p">)</span>
+    <span class="c1"># Primary channel for all heavy operations.</span>
+    <span class="c1"># maybe_wrap_channel attaches FEDLEARN_CONNECTION_TOKEN if set (SE-1); no-op when unset.</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">channel</span> <span class="o">=</span> <span class="n">maybe_wrap_channel</span><span class="p">(</span><span class="n">_build_channel</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">grpc_options</span><span class="p">))</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">stub</span> <span class="o">=</span> <span class="n">FederatedLearningServiceStub</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="p">)</span>
 
-    <span class="c1"># Dedicated heartbeat channel</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span> <span class="o">=</span> <span class="n">_build_channel</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">grpc_options</span><span class="p">)</span>
+    <span class="c1"># Dedicated heartbeat channel — never blocked by ongoing transfers.</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span> <span class="o">=</span> <span class="n">maybe_wrap_channel</span><span class="p">(</span><span class="n">_build_channel</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">grpc_options</span><span class="p">))</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_stub</span> <span class="o">=</span> <span class="n">FederatedLearningServiceStub</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span><span class="p">)</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">stop_heartbeat</span><span class="p">()</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">channel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;heartbeat_channel&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_channel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </code></pre></div>
 
-<p>Channels are created once and reused for the lifetime of the client. gRPC handles connection pooling and reconnection internally.</p>
+<p>Channels are created once and reused for the lifetime of the client. gRPC handles connection pooling
+and reconnection internally. <code>_build_channel()</code> returns an <code>insecure_channel</code> unless
+<code>FEDLEARN_GRPC_USE_TLS=1</code>, in which case it builds <code>ssl_channel_credentials</code> (with optional mTLS key
+and cert) and a <code>secure_channel</code> — see
+<a href="02_grpc_communication.html#client-side-tls-setup">02 — TLS Configuration</a>. Transport encryption and
+client authentication are <strong>orthogonal</strong>: <code>maybe_wrap_channel</code> attaches the connection token
+regardless of whether TLS is on.</p>
+<blockquote>
+<p><code>register()</code> currently sends only <code>client_id</code> — <code>run_id</code>, <code>protocol_version</code> and
+<code>enrollment_token</code> are left at their proto defaults, so a Python client always takes the server's
+permissive version branch. See
+<a href="02_grpc_communication.html#protocol-version-negotiation">02 — Protocol Version Negotiation</a>.</p>
+</blockquote>
 <h3 id="status-tracking">Status Tracking<a class="headerlink" href="#status-tracking" title="Permanent link">&para;</a></h3>
 <p>The client maintains a small piece of mutable state for heartbeat payloads:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">update_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">status</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">current_step</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
@@ -537,54 +757,119 @@
 <h2 id="decomfl-client">DeComFL Client<a class="headerlink" href="#decomfl-client" title="Permanent link">&para;</a></h2>
 <h3 id="start_decomfl_client">start_decomfl_client()<a class="headerlink" href="#start_decomfl_client" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="c1"># client/decomfl_start.py</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">start_decomfl_client</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">client_id</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">start_decomfl_client</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">client</span><span class="p">,</span> <span class="n">client_id</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
     <span class="n">comm_client</span> <span class="o">=</span> <span class="n">GrpcClient</span><span class="p">(</span><span class="n">client_id</span><span class="o">=</span><span class="n">client_id</span><span class="p">,</span> <span class="n">server_address</span><span class="o">=</span><span class="n">server_address</span><span class="p">)</span>
-    <span class="n">last_completed_round</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">last_completed_round</span><span class="p">,</span> <span class="n">consecutive_failures</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="n">outcome</span> <span class="o">=</span> <span class="n">OUTCOME_ERROR</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">register</span><span class="p">():</span>
-        <span class="k">return</span>
+        <span class="k">return</span> <span class="n">OUTCOME_ERROR</span>
 
     <span class="n">comm_client</span><span class="o">.</span><span class="n">start_heartbeat</span><span class="p">()</span>
     <span class="n">client</span><span class="o">.</span><span class="n">set_grpc_client</span><span class="p">(</span><span class="n">comm_client</span><span class="p">)</span>
 
-    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="c1"># Fetch seeds and rebuild history instead of model weights</span>
-            <span class="n">current_round</span><span class="p">,</span> <span class="n">seeds</span><span class="p">,</span> <span class="n">rebuild_history</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">get_decomfl_config</span><span class="p">()</span>
+    <span class="c1"># FR-1: adopt the server&#39;s global model FIRST. DeComFL&#39;s core invariant is that every party</span>
+    <span class="c1"># shares the same x_0 — without this the client&#39;s gradient scalars are directional derivatives</span>
+    <span class="c1"># of a DIFFERENT function than the server&#39;s global model, so the aggregate is meaningless.</span>
+    <span class="c1"># This is the one-shot O(d) download the paper assumes; per-round comms stay O(K*P).</span>
+    <span class="n">global_params</span><span class="p">,</span> <span class="n">server_round_at_download</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">get_global_model</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">global_params</span><span class="p">:</span>
+        <span class="o">...</span>   <span class="c1"># exit rather than train from an unsynced x_0</span>
+    <span class="n">client</span><span class="o">.</span><span class="n">load_global_model</span><span class="p">(</span><span class="n">global_params</span><span class="p">,</span>
+                             <span class="n">synced_through_round</span><span class="o">=</span><span class="n">server_round_at_download</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>   <span class="c1"># FR-16</span>
 
-            <span class="k">if</span> <span class="n">current_round</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
-                <span class="k">break</span>   <span class="c1"># training complete</span>
-
-            <span class="k">if</span> <span class="n">current_round</span> <span class="o">&gt;</span> <span class="n">last_completed_round</span><span class="p">:</span>
-                <span class="c1"># Replay missed rounds (rebuilds local model from seeds+gradients)</span>
-                <span class="k">if</span> <span class="n">rebuild_history</span><span class="p">:</span>
-                    <span class="n">client</span><span class="o">.</span><span class="n">rebuild_model</span><span class="p">(</span><span class="n">rebuild_history</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;learning_rate&#39;</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">)))</span>
-
-                <span class="c1"># Inject seeds into config for fit()</span>
-                <span class="n">config</span><span class="p">[</span><span class="s1">&#39;seeds&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">seeds</span>
-
-                <span class="c1"># Local training (returns gradient scalars, not updated weights)</span>
-                <span class="n">gradient_scalars</span><span class="p">,</span> <span class="n">num_examples</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
-
-                <span class="c1"># Submit O(K×P) scalars instead of full model</span>
-                <span class="n">success</span> <span class="o">=</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">submit_gradient_scalars</span><span class="p">(</span>
-                    <span class="n">gradient_scalars</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">current_round</span>
-                <span class="p">)</span>
-
-                <span class="k">if</span> <span class="n">success</span><span class="p">:</span>
-                    <span class="n">last_completed_round</span> <span class="o">=</span> <span class="n">current_round</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>   <span class="c1"># wait for other clients</span>
-
-        <span class="k">except</span> <span class="n">grpc</span><span class="o">.</span><span class="n">RpcError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">code</span><span class="p">()</span> <span class="o">==</span> <span class="n">grpc</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">UNAVAILABLE</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">should_stop_training</span><span class="p">():</span>          <span class="c1"># FR-10</span>
                 <span class="k">break</span>
-            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">current_round</span><span class="p">,</span> <span class="n">seeds</span><span class="p">,</span> <span class="n">rebuild_history</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">get_decomfl_config</span><span class="p">()</span>
+                <span class="n">consecutive_failures</span> <span class="o">=</span> <span class="mi">0</span>
 
-    <span class="n">comm_client</span><span class="o">.</span><span class="n">stop_heartbeat</span><span class="p">()</span>
-    <span class="n">comm_client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+                <span class="c1"># MO-19/FR-14: FATAL, not transient — a dimension mismatch can never clear.</span>
+                <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;model_dim&#39;</span><span class="p">):</span>
+                    <span class="n">client</span><span class="o">.</span><span class="n">assert_dim_matches</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;model_dim&#39;</span><span class="p">]))</span>
+
+                <span class="k">if</span> <span class="n">current_round</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                    <span class="n">outcome</span> <span class="o">=</span> <span class="n">OUTCOME_COMPLETED</span>
+                    <span class="k">break</span>
+
+                <span class="k">if</span> <span class="n">current_round</span> <span class="o">&gt;</span> <span class="n">last_completed_round</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">rebuild_history</span><span class="p">:</span>
+                        <span class="n">client</span><span class="o">.</span><span class="n">rebuild_model</span><span class="p">(</span><span class="n">rebuild_history</span><span class="p">,</span>
+                                             <span class="nb">float</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;learning_rate&#39;</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">)))</span>
+
+                    <span class="n">training_config</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+                    <span class="n">training_config</span><span class="p">[</span><span class="s1">&#39;seeds&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">seeds</span>
+                    <span class="n">gradient_scalars</span><span class="p">,</span> <span class="n">num_examples</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">training_config</span><span class="p">)</span>
+
+                    <span class="k">if</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">should_stop_training</span><span class="p">():</span>   <span class="c1"># FR-10: partial grid — do NOT submit</span>
+                        <span class="k">break</span>
+
+                    <span class="k">if</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">submit_gradient_scalars</span><span class="p">(</span><span class="n">gradient_scalars</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span>
+                                                           <span class="n">current_round</span><span class="p">):</span>
+                        <span class="n">last_completed_round</span> <span class="o">=</span> <span class="n">current_round</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>   <span class="c1"># wait for other clients</span>
+
+            <span class="k">except</span> <span class="n">grpc</span><span class="o">.</span><span class="n">RpcError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="c1"># A finished run tears the RPCs down -&gt; CANCELLED/UNAVAILABLE. ASK before assuming.</span>
+                <span class="k">if</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">server_reports_complete</span><span class="p">():</span>
+                    <span class="n">outcome</span> <span class="o">=</span> <span class="n">OUTCOME_COMPLETED</span>
+                    <span class="k">break</span>
+                <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">code</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="n">grpc</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">UNAVAILABLE</span><span class="p">,</span> <span class="n">grpc</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">CANCELLED</span><span class="p">):</span>
+                    <span class="n">outcome</span> <span class="o">=</span> <span class="n">OUTCOME_DISCONNECTED</span>
+                    <span class="k">break</span>
+                <span class="n">consecutive_failures</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="n">consecutive_failures</span> <span class="o">&gt;=</span> <span class="n">_MAX_CONSECUTIVE_FAILURES</span><span class="p">:</span>   <span class="c1"># 3</span>
+                    <span class="n">outcome</span> <span class="o">=</span> <span class="n">OUTCOME_DISCONNECTED</span>
+                    <span class="k">break</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">_RETRY_DELAY_SECONDS</span><span class="p">)</span>                        <span class="c1"># 10</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">comm_client</span><span class="o">.</span><span class="n">stop_heartbeat</span><span class="p">()</span>
+        <span class="n">comm_client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">outcome</span>
 </code></pre></div>
 
+<p>Three things distinguish this from <code>start_client()</code>:</p>
+<ul>
+<li><strong>The one-shot O(d) sync is mandatory</strong> (FR-1) and happens <em>before</em> the loop. Failing to download
+  the global model is a hard exit, not a retry: training from an unsynced <code>x_0</code> produces gradient
+  scalars for the wrong function, and nothing downstream would notice.</li>
+<li><strong>A dimension mismatch is fatal, not transient</strong> (FR-14). Retrying a condition that can never
+  clear just burns a federation training garbage.</li>
+<li><strong>The DeComFL poll interval is 5 s</strong>, not the 2 s of <code>start_client()</code>.</li>
+</ul>
+<h3 id="syncing-the-initial-model-and-the-applied-round-watermark">Syncing the Initial Model and the Applied-Round Watermark<a class="headerlink" href="#syncing-the-initial-model-and-the-applied-round-watermark" title="Permanent link">&para;</a></h3>
+<p><code>DeComFLClient.load_global_model(parameters, synced_through_round=None)</code> does more than a
+<code>load_state_dict</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">incoming</span><span class="p">,</span> <span class="n">known</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">parameters</span><span class="p">),</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
+<span class="k">if</span> <span class="n">incoming</span> <span class="o">-</span> <span class="n">known</span><span class="p">:</span>                       <span class="c1"># an unexpected key is always an error</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="n">trainable_keys</span> <span class="o">=</span> <span class="p">{</span><span class="n">n</span> <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">()</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">}</span>
+<span class="k">if</span> <span class="n">trainable_keys</span> <span class="o">-</span> <span class="n">incoming</span><span class="p">:</span>              <span class="c1"># a MISSING TRAINABLE key silently misaligns z</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">x_current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">_get_flat_params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">synced_through_round</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_synced_through</span> <span class="o">=</span> <span class="n">synced_through_round</span>
+</code></pre></div>
+
+<p><strong>Why non-strict, and why then re-tightened by hand.</strong> DeComFL synchronises only the
+<code>requires_grad</code>-filtered trainable layout — the exact <code>d</code>-vector the shared-seed perturbation <code>z</code>
+indexes. Frozen parameters (a frozen backbone, a partial fine-tune) and buffers are <em>not</em> sent; they
+keep the net's deterministic build-time init, which every peer reproduces identically. A strict
+<code>load_state_dict</code> therefore crashes on those legitimately-absent keys. So the load is non-strict but
+the invariant that actually matters is enforced explicitly and model-agnostically: <strong>every trainable
+param must be present, and no unexpected key may appear.</strong> For a fully-trainable model this is
+exactly as strict as before, with no per-model special case.</p>
+<p><code>_synced_through</code> (FR-15 / FR-16) is the highest round whose <em>averaged</em> update is already folded into
+<code>x_current</code>. It exists because the server advances its per-client baseline only on aggregation while
+the client mutates <code>x_current</code> at config-fetch time — so a dropped submission makes the server
+re-hand a round the client already applied. Setting it at download time also covers a <strong>restart</strong>: a
+client that reuses its deterministic <code>client_id</code> and re-downloads <code>x_{r-1}</code> would otherwise reset the
+watermark to <code>-1</code> while the server still remembers its pre-crash baseline, and double-apply
+everything it was re-handed.</p>
 <h3 id="decomflclientfit-mechanics">DeComFLClient.fit() Mechanics<a class="headerlink" href="#decomflclientfit-mechanics" title="Permanent link">&para;</a></h3>
 <p>The <code>fit()</code> method on <code>DeComFLClient</code> implements <strong>Algorithm 4</strong> from the DeComFL paper. Instead of computing gradients via backpropagation, it uses a <strong>forward-difference zeroth-order gradient estimator</strong>:</p>
 <div class="codehilite"><pre><span></span><code>g = (f(x + μz; ξ) - f(x; ξ)) / μ
@@ -598,48 +883,55 @@
 - <code>f(·)</code> = loss function</p>
 <p>Full implementation:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
-    <span class="n">seeds</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;seeds&#39;</span><span class="p">]</span>    <span class="c1"># List[List[int]] — [local_step][perturbation]</span>
-    <span class="n">K</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">)</span>             <span class="c1"># Number of local steps</span>
-    <span class="n">P</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>          <span class="c1"># Number of perturbations per step</span>
+    <span class="n">seeds</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;seeds&#39;</span><span class="p">,</span> <span class="p">[])</span>   <span class="c1"># List[List[int]] — [local_step][perturbation]</span>
+    <span class="n">K</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">)</span>                    <span class="c1"># Number of local steps</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="n">K</span> <span class="k">else</span> <span class="mi">0</span>     <span class="c1"># Number of perturbations per step</span>
     <span class="n">eta</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;learning_rate&#39;</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">))</span>
+
+    <span class="c1"># FR-10: mu is SERVER-AUTHORITATIVE. A mismatched mu makes the gradient scalars</span>
+    <span class="c1"># derivatives of a different smoothed function than the one the server reconstructs.</span>
+    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;smoothing_param&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">mu</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;smoothing_param&#39;</span><span class="p">])</span>
 
     <span class="n">total_perturbation</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
     <span class="n">gradient_scalars</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">data_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">)</span>
 
     <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">K</span><span class="p">):</span>
+        <span class="c1"># FR-10: honour a server-driven stop BETWEEN local steps. total_perturbation only</span>
+        <span class="c1"># accumulates APPLIED steps, so the revert below stays exact for a partial run.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span><span class="o">.</span><span class="n">should_stop_training</span><span class="p">():</span>
+            <span class="k">break</span>
+
         <span class="n">delta</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
         <span class="n">k_gradient_scalars</span> <span class="o">=</span> <span class="p">[]</span>
 
-        <span class="c1"># Get data batch</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">batch</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">data_iter</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
-            <span class="n">data_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">)</span>
+            <span class="n">data_iter</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">)</span>   <span class="c1"># cycle the loader</span>
             <span class="n">batch</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">data_iter</span><span class="p">)</span>
 
         <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="n">batch</span>
-        <span class="n">inputs</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">inputs</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+                  <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="n">inputs</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">))</span>
         <span class="n">targets</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
-        <span class="c1"># Progress reporting</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">grpc_client</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="s2">&quot;training&quot;</span><span class="p">,</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">K</span><span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">P</span><span class="p">):</span>
-            <span class="c1"># Generate z from shared seed (reproducible on server + client)</span>
-            <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">generate_perturbation</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">))</span>
+        <span class="c1"># f(x; xi) is the SAME for all P perturbations of this step — x and the batch are both</span>
+        <span class="c1"># fixed here, only z varies. Hoist it: P+1 forward passes per step instead of 2P.</span>
+        <span class="n">base_loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">compute_base_loss</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
 
-            <span class="c1"># Compute ZO gradient scalar</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">P</span><span class="p">):</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">generate_perturbation</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">))</span>
             <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">compute_gradient_scalar</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">,</span> <span class="n">base_loss</span><span class="o">=</span><span class="n">base_loss</span>
             <span class="p">)</span>
             <span class="n">k_gradient_scalars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
-
-            <span class="c1"># Accumulate update direction</span>
             <span class="n">delta</span> <span class="o">+=</span> <span class="n">g</span> <span class="o">*</span> <span class="n">z</span>
 
-        <span class="c1"># Apply local step update</span>
         <span class="n">step_update</span> <span class="o">=</span> <span class="p">(</span><span class="n">eta</span> <span class="o">/</span> <span class="n">P</span><span class="p">)</span> <span class="o">*</span> <span class="n">delta</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span> <span class="o">-=</span> <span class="n">step_update</span>
         <span class="n">total_perturbation</span> <span class="o">-=</span> <span class="n">step_update</span>
@@ -647,8 +939,6 @@
         <span class="n">gradient_scalars</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">k_gradient_scalars</span><span class="p">)</span>
 
     <span class="c1"># CRITICAL: Revert x_current to pre-round state</span>
-    <span class="c1"># The server will apply the update using its own reconstruction.</span>
-    <span class="c1"># The client must NOT keep the locally perturbed model.</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span> <span class="o">-=</span> <span class="n">total_perturbation</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">_set_flat_params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
 
@@ -659,61 +949,94 @@
 <p><strong>Why revert <code>x_current</code>?</strong> After local training, the client reverts its model to the state before this round's perturbations. This is necessary because the client's model will be advanced by the server's averaged update (communicated as seeds + average gradients) through the <code>rebuild_model()</code> call at the start of the <em>next</em> round. If the client kept its locally perturbed model, it would diverge from the global model that the server constructs.</p>
 </blockquote>
 <h3 id="zerothorderestimatorcompute_gradient_scalar">ZerothOrderEstimator.compute_gradient_scalar()<a class="headerlink" href="#zerothorderestimatorcompute_gradient_scalar" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_gradient_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">flat_params</span><span class="p">,</span> <span class="n">perturbation</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_base_loss</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">flat_params</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;f(x; xi) once, for reuse across a local step&#39;s P perturbations.&quot;&quot;&quot;</span>
     <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
     <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-        <span class="c1"># Baseline loss: f(x; ξ)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_flat_params</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">flat_params</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>   <span class="c1"># LLM path</span>
-            <span class="n">loss_x</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">targets</span><span class="p">)</span><span class="o">.</span><span class="n">loss</span>
-        <span class="k">else</span><span class="p">:</span>                          <span class="c1"># CNN/MLP path</span>
-            <span class="n">loss_x</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()(</span><span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">),</span> <span class="n">targets</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_loss</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 
-        <span class="c1"># Perturbed loss: f(x + μz; ξ)</span>
-        <span class="n">perturbed_params</span> <span class="o">=</span> <span class="n">flat_params</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">*</span> <span class="n">perturbation</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_set_flat_params</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">perturbed_params</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-            <span class="n">loss_x_perturbed</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">targets</span><span class="p">)</span><span class="o">.</span><span class="n">loss</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_gradient_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">flat_params</span><span class="p">,</span> <span class="n">perturbation</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">,</span>
+                            <span class="n">base_loss</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">base_loss</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>                       <span class="c1"># back-compatible: recompute f(x; xi)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_set_flat_params</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">flat_params</span><span class="p">)</span>
+            <span class="n">loss_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_loss</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">loss_x_perturbed</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()(</span><span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">),</span> <span class="n">targets</span><span class="p">)</span>
+            <span class="n">loss_x</span> <span class="o">=</span> <span class="n">base_loss</span>
 
-        <span class="c1"># ZO gradient scalar</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_flat_params</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">flat_params</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">*</span> <span class="n">perturbation</span><span class="p">)</span>
+        <span class="n">loss_x_perturbed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_loss</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
         <span class="n">g</span> <span class="o">=</span> <span class="p">(</span><span class="n">loss_x_perturbed</span> <span class="o">-</span> <span class="n">loss_x</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span>
+    <span class="k">return</span> <span class="n">g</span>            <span class="c1"># already a Python float</span>
 
-    <span class="k">return</span> <span class="n">g</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>   <span class="c1"># Python float</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_evaluate_loss</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;One forward pass at the model&#39;s CURRENT params. Caller owns eval()/no_grad().&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>                    <span class="c1"># LLM: unpack as kwargs</span>
+        <span class="k">return</span> <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">targets</span><span class="p">)</span><span class="o">.</span><span class="n">loss</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">criterion</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">),</span> <span class="n">targets</span><span class="p">)</span>   <span class="c1"># CNN/MLP: CrossEntropyLoss</span>
 </code></pre></div>
 
-<p>This requires <strong>two forward passes</strong> per perturbation and <strong>no backward pass</strong>. For a model with <code>d</code> parameters and <code>P</code> perturbations, communication is <code>O(K × P)</code> scalars vs. <code>O(d)</code> for standard FL — a massive reduction for LLMs.</p>
+<p><strong>Cost is P+1 forward passes per local step, not 2P</strong> — and no backward pass at all. Within one
+local step both the base point <code>x</code> and the batch <code>ξ</code> are fixed, so <code>f(x; ξ)</code> is literally the same
+number for every perturbation; hoisting it matches the authors' reference implementation. The scalar
+is bit-identical either way, because the base loss is deterministic under <code>eval()</code> + <code>no_grad()</code> —
+which is exactly the condition. <strong>Pass <code>base_loss=None</code> for any model whose forward is stochastic at
+inference</strong>, or the cached value will be wrong.</p>
+<p>Communication is <code>O(K × P)</code> scalars vs. <code>O(d)</code> for standard FL — a massive reduction for LLMs. Note
+the two <code>loss.item()</code> calls: the scalar leaves the autograd/tensor world immediately, so no <code>d</code>-sized
+gradient tensor is ever materialised.</p>
 <h3 id="model-rebuild-protocol">Model Rebuild Protocol<a class="headerlink" href="#model-rebuild-protocol" title="Permanent link">&para;</a></h3>
 <p>When a client joins late or misses rounds (e.g., temporary network disconnection), it must replay the missed rounds to synchronise its local model:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rebuild_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rebuild_history</span><span class="p">,</span> <span class="n">learning_rate</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Replays missed rounds using server-provided seeds and averaged gradients.</span>
-<span class="sd">    Each missed round is re-simulated deterministically.</span>
+<span class="sd">    Each missed round is re-simulated deterministically. IDEMPOTENT by watermark.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">for</span> <span class="n">round_data</span> <span class="ow">in</span> <span class="n">rebuild_history</span><span class="p">:</span>
-        <span class="n">seeds</span> <span class="o">=</span> <span class="n">round_data</span><span class="p">[</span><span class="s1">&#39;seeds&#39;</span><span class="p">]</span>       <span class="c1"># List[List[int]]</span>
-        <span class="n">avg_gradients</span> <span class="o">=</span> <span class="n">round_data</span><span class="p">[</span><span class="s1">&#39;gradients&#39;</span><span class="p">]</span>  <span class="c1"># List[List[float]]</span>
+        <span class="n">round_num</span> <span class="o">=</span> <span class="n">round_data</span><span class="p">[</span><span class="s1">&#39;round_number&#39;</span><span class="p">]</span>
 
+        <span class="c1"># FR-15: skip any round already folded into x_current. The server advances a client&#39;s</span>
+        <span class="c1"># baseline only when its submission is AGGREGATED, so a dropped/straggler client is</span>
+        <span class="c1"># re-handed a round it already applied; replaying it would double-apply and silently</span>
+        <span class="c1"># diverge the local model from the global trajectory.</span>
+        <span class="k">if</span> <span class="n">round_num</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_synced_through</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="n">seeds</span> <span class="o">=</span> <span class="n">round_data</span><span class="p">[</span><span class="s1">&#39;seeds&#39;</span><span class="p">]</span>              <span class="c1"># List[List[int]]</span>
+        <span class="n">avg_gradients</span> <span class="o">=</span> <span class="n">round_data</span><span class="p">[</span><span class="s1">&#39;gradients&#39;</span><span class="p">]</span>  <span class="c1"># List[List[float]]</span>
         <span class="n">K</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">)</span>
-        <span class="n">P</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">P</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="n">K</span> <span class="k">else</span> <span class="mi">0</span>
 
         <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">K</span><span class="p">):</span>
             <span class="n">delta</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">P</span><span class="p">):</span>
-                <span class="c1"># Regenerate exact same perturbation vector</span>
+                <span class="c1"># Regenerate the exact same perturbation vector from the shared seed</span>
                 <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">generate_perturbation</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">))</span>
-                <span class="n">g</span> <span class="o">=</span> <span class="n">avg_gradients</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">]</span>   <span class="c1"># averaged gradient from server</span>
-                <span class="n">delta</span> <span class="o">+=</span> <span class="n">g</span> <span class="o">*</span> <span class="n">z</span>
+                <span class="n">delta</span> <span class="o">+=</span> <span class="n">avg_gradients</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">]</span> <span class="o">*</span> <span class="n">z</span>
 
-            <span class="c1"># Apply the averaged global update for this step</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span> <span class="o">-=</span> <span class="p">(</span><span class="n">learning_rate</span> <span class="o">/</span> <span class="n">P</span><span class="p">)</span> <span class="o">*</span> <span class="n">delta</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span> <span class="o">-</span> <span class="p">(</span><span class="n">learning_rate</span> <span class="o">/</span> <span class="n">P</span><span class="p">)</span> <span class="o">*</span> <span class="n">delta</span>
 
-    <span class="c1"># Sync model weights</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_synced_through</span> <span class="o">=</span> <span class="n">round_num</span>         <span class="c1"># FR-15: record it as folded in</span>
+
     <span class="bp">self</span><span class="o">.</span><span class="n">zo_estimator</span><span class="o">.</span><span class="n">_set_flat_params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_current</span><span class="p">)</span>
 </code></pre></div>
 
-<p>The rebuild is deterministic because both the client and server use the same random seeds to regenerate perturbation vectors. The only information transmitted is the scalar gradient values — the full perturbation vectors are regenerated locally.</p>
+<p>The rebuild is deterministic because both the client and server regenerate <code>z</code> from the same seed
+through the same canonical CPU-only RNG path (see
+<a href="06_decomfl.html#seed-generation-and-sharing">06 — Seed Generation and Sharing</a>). The only information
+transmitted is the scalar gradient values; the <code>d</code>-dimensional perturbation vectors are never stored
+or sent.</p>
+<blockquote>
+<p><strong>The <code>_synced_through</code> watermark is what makes the replay idempotent</strong>, and it is not a
+micro-optimisation — without it, an overlapping rebuild history double-applies a round's averaged
+update and the client's model drifts off the global trajectory with no error raised anywhere. The
+server has a complementary fail-loud guard for the opposite failure: if it cannot supply the seeds
+<em>and</em> averaged gradients for every round in the catch-up range it raises <code>DeComFLRebuildGap</code>
+rather than handing back a torn chain (FR-4).</p>
+</blockquote>
 <hr />
 <h2 id="progress-reporting-to-the-backend">Progress Reporting to the Backend<a class="headerlink" href="#progress-reporting-to-the-backend" title="Permanent link">&para;</a></h2>
 <p>The Spring Boot backend displays real-time training progress to the user. This works through a chain:</p>
@@ -727,12 +1050,18 @@ HeartbeatRequest { status=&quot;training&quot;, current_step=N, total_steps=tota
     │
     ▼ (gRPC to Python server)
 FLCoordinator.update_client_heartbeat()
-    │ updates client_heartbeats dict
+    │ updates client_heartbeats dict (and returns should_stop — see FR-10 above)
     │
-    ▼ (Spring backend polls /api/projects/{id}/clients or reads server stdout logs)
-React frontend receives progress update
+    ▼ (the FL server&#39;s JSON stdout is captured by the Spring backend)
+React frontend receives progress update over STOMP
 </code></pre></div>
 
+<p>There is a <strong>second, richer telemetry channel</strong> that does not go through the heartbeat:
+<code>ReportClientMetrics</code>. It carries per-round <code>loss</code>, <code>accuracy</code>, <code>current_step</code>, <code>total_steps</code>,
+<code>client_type</code> (<code>"desktop"</code> | <code>"docker"</code> | <code>"mobile"</code>) and <code>compute_ms</code>, and the coordinator appends
+it to <code>client_metrics_log</code>. It is best-effort by design — a telemetry failure returns
+<code>acknowledged=False</code> and never fails the round. The Python <code>GrpcClient</code> does <strong>not</strong> currently call
+it; it exists to close the mobile observability gap, and the native clients use it.</p>
 <p>For the <code>GrpcClient</code> reference to be available inside <code>fit()</code>, the client must implement <code>set_grpc_client()</code>:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">MyClient</span><span class="p">(</span><span class="n">fl</span><span class="o">.</span><span class="n">Client</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
@@ -750,54 +1079,41 @@ React frontend receives progress update
 
 <hr />
 <h2 id="data-loading-patterns">Data Loading Patterns<a class="headerlink" href="#data-loading-patterns" title="Permanent link">&para;</a></h2>
-<h3 id="non-iid-dirichlet-partitioning">Non-IID Dirichlet Partitioning<a class="headerlink" href="#non-iid-dirichlet-partitioning" title="Permanent link">&para;</a></h3>
-<p>For realistic federated scenarios, data should be non-uniformly distributed across clients:</p>
-<div class="codehilite"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">Subset</span>
+<h3 id="use-the-shipped-partitioners">Use the Shipped Partitioners<a class="headerlink" href="#use-the-shipped-partitioners" title="Permanent link">&para;</a></h3>
+<p>Do <strong>not</strong> hand-roll a Dirichlet split. <code>fedlearn.simulation.partition</code> ships four seeded
+partitioners with a tested completeness/disjointness/determinism contract; they return
+<code>List[np.ndarray]</code> of <em>index arrays</em>, so they are cheap to hold for thousands of clients and can be
+recorded verbatim in a result's <code>meta</code> block.</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span><span class="p">,</span> <span class="n">Subset</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torchvision</span><span class="w"> </span><span class="kn">import</span> <span class="n">datasets</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.simulation.partition</span><span class="w"> </span><span class="kn">import</span> <span class="n">dirichlet_partition</span><span class="p">,</span> <span class="n">partition_report</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">partition_dataset_dirichlet</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">num_clients</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Partition dataset using Dirichlet distribution for non-IID splits.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        dataset:     Full dataset</span>
-<span class="sd">        num_clients: Number of clients</span>
-<span class="sd">        alpha:       Dirichlet concentration parameter</span>
-<span class="sd">                     - alpha → 0: one class per client (extreme non-IID)</span>
-<span class="sd">                     - alpha → ∞: uniform IID split</span>
-<span class="sd">        seed:        Random seed for reproducibility</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        List of indices for each client</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-    <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">dataset</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">))])</span>
-    <span class="n">num_classes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">labels</span><span class="p">))</span>
-
-    <span class="n">client_indices</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_clients</span><span class="p">)]</span>
-
-    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_classes</span><span class="p">):</span>
-        <span class="n">class_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">labels</span> <span class="o">==</span> <span class="n">c</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">class_indices</span><span class="p">)</span>
-
-        <span class="c1"># Dirichlet distribution determines how this class is split</span>
-        <span class="n">proportions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">dirichlet</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">num_clients</span><span class="p">))</span>
-        <span class="n">proportions</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">proportions</span><span class="p">)</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">class_indices</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">split_indices</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">class_indices</span><span class="p">,</span> <span class="n">proportions</span><span class="p">)):</span>
-            <span class="n">client_indices</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">split_indices</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-
-    <span class="k">return</span> <span class="p">[</span><span class="n">Subset</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span> <span class="k">for</span> <span class="n">indices</span> <span class="ow">in</span> <span class="n">client_indices</span><span class="p">]</span>
-
-
-<span class="c1"># Usage</span>
 <span class="n">full_dataset</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">MNIST</span><span class="p">(</span><span class="s2">&quot;./data&quot;</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">)</span>
-<span class="n">client_datasets</span> <span class="o">=</span> <span class="n">partition_dataset_dirichlet</span><span class="p">(</span><span class="n">full_dataset</span><span class="p">,</span> <span class="n">num_clients</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
 
-<span class="c1"># Client 0 gets a DataLoader over its personal partition</span>
-<span class="n">client_0_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">client_datasets</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</code></pre></div></article>
+<span class="n">parts</span> <span class="o">=</span> <span class="n">dirichlet_partition</span><span class="p">(</span>
+    <span class="n">labels</span><span class="o">=</span><span class="n">full_dataset</span><span class="o">.</span><span class="n">targets</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span>
+    <span class="n">num_clients</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>                <span class="c1"># lower = more label skew</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+    <span class="n">min_partition_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>    <span class="c1"># an EMPTY client is rejected at coordinator ingress</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">partition_report</span><span class="p">(</span><span class="n">parts</span><span class="p">,</span> <span class="n">full_dataset</span><span class="o">.</span><span class="n">targets</span><span class="o">.</span><span class="n">numpy</span><span class="p">()))</span>
+<span class="n">client_0_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">Subset</span><span class="p">(</span><span class="n">full_dataset</span><span class="p">,</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+
+<p><code>min_partition_size</code> matters more than it looks: low <code>α</code> naturally produces empty clients, and an
+empty client is not a benign edge case — <code>num_examples == 0</code> is rejected at coordinator ingress, so
+it silently shrinks the effective cohort. The repair is deterministic (move samples from the largest
+donor) rather than redraw-until-it-fits, because a variable number of RNG draws would make the
+<em>rest</em> of the run's randomness depend on how many redraws happened.</p>
+<p>See <a href="07_data_partitioning.html">07 — Data Partitioning</a> for all four partitioners, the α guide, and
+<code>partition_report</code>'s fields.</p>
+<h3 id="per-client-randomness">Per-Client Randomness<a class="headerlink" href="#per-client-randomness" title="Permanent link">&para;</a></h3>
+<p>If you are driving clients yourself (or through the simulator), derive each client's randomness from
+<code>fedlearn.simulation.rng.RunRng</code> rather than a global seed — <code>ClientRng.torch_generator(round)</code> hands
+a DataLoader a private generator, so one client's shuffle order cannot perturb another's. See
+<a href="01_architecture_overview.html#the-in-process-simulator">01 — The In-Process Simulator</a>.</p></article>
     <nav class="toc"></nav>
   </div>
 </div>

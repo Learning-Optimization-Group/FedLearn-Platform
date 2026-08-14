@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -153,34 +162,69 @@
 
 <p><code>WebSocketService</code> carries sibling broadcasters on the same pattern: <code>sendStatusUpdate(...)</code>
 → <code>/topic/status/{projectId}</code>, <code>sendResultUpdate(...)</code> → <code>/topic/results/{projectId}</code>, and
-<code>sendInferenceToken(...)</code> → <code>/topic/inference/{projectId}</code>.</p>
+<code>sendInferenceToken(...)</code> → <code>/topic/inference/{projectId}</code>. One is <em>not</em> a broadcast:
+<code>sendUserNotification(userId, NotificationDto)</code> resolves the user's username and sends to
+<code>/queue/notifications</code>, which Spring delivers as <code>/user/{username}/queue/notifications</code> — the
+user-destination path the <code>/queue</code> broker prefix exists for.</p>
 <p>When the React frontend opens the dashboard for project <code>1234</code>, it sends a STOMP <code>SUBSCRIBE</code> frame to <code>/topic/logs/1234</code>. It then passively receives all strings sent to that destination.</p>
 <h3 id="json-parsing-and-persistence">JSON Parsing and Persistence<a class="headerlink" href="#json-parsing-and-persistence" title="Permanent link">&para;</a></h3>
-<p>The backend attempts to parse the incoming log line. If the Python server successfully emitted valid JSON, the backend extracts the <code>level</code>, <code>message</code>, and optional <code>stackTrace</code>. If the line isn't JSON (e.g., raw error output from a crash), it falls back to saving the entire line as a plain <code>INFO</code> string.</p>
+<p>The backend attempts to parse the incoming log line. If the Python server emitted valid JSON, the backend extracts the <code>level</code>, <code>message</code>, and optional <code>stackTrace</code>. If the line isn't JSON (e.g. raw error output from a crash), it falls back to saving the entire line as a plain <code>INFO</code> string. The <code>save</code> is separately guarded: a DB failure is logged at WARN and swallowed, because losing a log row must never break the live log stream that a running federation is being watched through.</p>
 <div class="codehilite"><pre><span></span><code><span class="kd">private</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">persistLog</span><span class="p">(</span><span class="n">UUID</span><span class="w"> </span><span class="n">projectId</span><span class="p">,</span><span class="w"> </span><span class="n">String</span><span class="w"> </span><span class="n">rawLine</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="n">ServerLog</span><span class="w"> </span><span class="n">log</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">ServerLog</span><span class="p">();</span>
 <span class="w">    </span><span class="n">log</span><span class="p">.</span><span class="na">setProjectId</span><span class="p">(</span><span class="n">projectId</span><span class="p">);</span>
 <span class="w">    </span><span class="n">log</span><span class="p">.</span><span class="na">setTimestamp</span><span class="p">(</span><span class="n">Instant</span><span class="p">.</span><span class="na">now</span><span class="p">());</span>
 
 <span class="w">    </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="c1">// Attempt to parse FL server JSON: {&quot;timestamp&quot;:&quot;...&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;message&quot;:&quot;...&quot;}</span>
+<span class="w">        </span><span class="c1">// FL server emits JSON: {&quot;timestamp&quot;:&quot;...&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;message&quot;:&quot;...&quot;}</span>
 <span class="w">        </span><span class="n">JsonNode</span><span class="w"> </span><span class="n">node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">objectMapper</span><span class="p">.</span><span class="na">readTree</span><span class="p">(</span><span class="n">rawLine</span><span class="p">);</span>
 <span class="w">        </span><span class="n">log</span><span class="p">.</span><span class="na">setLevel</span><span class="p">(</span><span class="n">node</span><span class="p">.</span><span class="na">has</span><span class="p">(</span><span class="s">&quot;level&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">node</span><span class="p">.</span><span class="na">get</span><span class="p">(</span><span class="s">&quot;level&quot;</span><span class="p">).</span><span class="na">asText</span><span class="p">()</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="s">&quot;INFO&quot;</span><span class="p">);</span>
 <span class="w">        </span><span class="n">log</span><span class="p">.</span><span class="na">setMessage</span><span class="p">(</span><span class="n">node</span><span class="p">.</span><span class="na">has</span><span class="p">(</span><span class="s">&quot;message&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">node</span><span class="p">.</span><span class="na">get</span><span class="p">(</span><span class="s">&quot;message&quot;</span><span class="p">).</span><span class="na">asText</span><span class="p">()</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">rawLine</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">node</span><span class="p">.</span><span class="na">has</span><span class="p">(</span><span class="s">&quot;stackTrace&quot;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">log</span><span class="p">.</span><span class="na">setStackTrace</span><span class="p">(</span><span class="n">node</span><span class="p">.</span><span class="na">get</span><span class="p">(</span><span class="s">&quot;stackTrace&quot;</span><span class="p">).</span><span class="na">asText</span><span class="p">());</span>
+<span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="n">Exception</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="c1">// Fallback: Not JSON — store as a plain INFO message.</span>
+<span class="w">        </span><span class="c1">// Not JSON — store as a plain INFO message.</span>
 <span class="w">        </span><span class="n">log</span><span class="p">.</span><span class="na">setLevel</span><span class="p">(</span><span class="s">&quot;INFO&quot;</span><span class="p">);</span>
 <span class="w">        </span><span class="n">log</span><span class="p">.</span><span class="na">setMessage</span><span class="p">(</span><span class="n">rawLine</span><span class="p">);</span>
 <span class="w">    </span><span class="p">}</span>
 
-<span class="w">    </span><span class="n">serverLogRepository</span><span class="p">.</span><span class="na">save</span><span class="p">(</span><span class="n">log</span><span class="p">);</span>
+<span class="w">    </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">serverLogRepository</span><span class="p">.</span><span class="na">save</span><span class="p">(</span><span class="n">log</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="n">RuntimeException</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Don&#39;t let a DB failure break the log stream — but make it visible to operators.</span>
+<span class="w">        </span><span class="n">WebSocketService</span><span class="p">.</span><span class="na">log</span><span class="p">.</span><span class="na">warn</span><span class="p">(</span><span class="s">&quot;Failed to persist FL log for project {}: {}&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="n">projectId</span><span class="p">,</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="na">getClass</span><span class="p">().</span><span class="na">getSimpleName</span><span class="p">());</span>
+<span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
 
 <h2 id="4-log-export">4. Log Export<a class="headerlink" href="#4-log-export" title="Permanent link">&para;</a></h2>
 <p>Once a project has finished, the user can download a complete text file of all logs generated during the training session. </p>
-<p>Because ML processes can generate enormous amounts of logging data, the export is capped server-side at <code>ProjectService.MAX_LOGS_EXPORT_SIZE = 10_000</code> — applied as a <code>PageRequest</code> bound on the query — to prevent memory exhaustion on the JVM.</p>
-<p>The export builds a downloadable <code>.txt</code> file constructed from the persisted <code>server_logs</code> table rows, mapping the <code>ServerLog</code> entities to formatted strings.</p></article>
+<p>Because ML processes can generate enormous amounts of logging data, both read paths are bounded
+server-side, and the sort is server-controlled so a caller cannot reverse the order or sort by an
+unindexed column:</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Bound</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /api/projects/{id}/logs</code> (live, paged)</td>
+<td><code>?size=</code> is clamped to <code>MAX_LOGS_PAGE_SIZE = 500</code>; the default is <code>DEFAULT_LOGS_PAGE_SIZE = 200</code></td>
+</tr>
+<tr>
+<td><code>GET /api/projects/{id}/logs/export</code></td>
+<td>a single <code>PageRequest.of(0, MAX_LOGS_EXPORT_SIZE = 10_000, …)</code></td>
+</tr>
+</tbody>
+</table>
+<p>Both go through <code>requireProjectAndOwnership</code>, so org-scope and ownership apply before a single row is
+read. The export builds a downloadable <code>.txt</code> attachment from the persisted <code>server_logs</code> rows —
+a small header (project id, export timestamp, entry count) followed by <code>[timestamp] [level] message</code>
+lines, with an indented <code>STACKTRACE:</code> line where one was captured.</p></article>
     <nav class="toc"></nav>
   </div>
 </div>

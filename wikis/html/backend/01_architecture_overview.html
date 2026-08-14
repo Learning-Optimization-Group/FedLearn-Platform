@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -88,12 +97,12 @@
 <p>The FedLearn backend is designed as an <strong>Orchestration API</strong>. It does not perform the heavy mathematical computations required for Machine Learning itself; instead, it manages users, projects, and security, and then dynamically provisions Python-based Federated Learning (FL) aggregation servers to handle the ML workloads.</p>
 <p>The backend acts as the central control plane connecting the React web interface to the distributed Python FL ecosystem.</p>
 <blockquote>
-<p>✅ <strong>Branch reality.</strong> The backend runs on <strong>PostgreSQL</strong> for every profile (H2 has been retired): <code>dev</code>/<code>ec2demo</code> against a local Postgres (<code>backend/fl-platform-api/docker-compose.yml</code> → <code>docker compose up -d</code>), <code>test</code> against Testcontainers Postgres (<code>jdbc:tc:postgresql:16.6-alpine</code>), and deployed envs override <code>SPRING_DATASOURCE_*</code>. The highest committed Flyway migration is <strong><code>V19</code></strong>. The full <strong>identity / multi-tenancy / audit subsystem IS present</strong>: the <code>audit/</code>, <code>bootstrap/</code>, and <code>email/</code> packages, the <code>Organization</code> / <code>OrganizationMembership</code> / <code>ProjectMembership</code> / <code>ProjectAccessRequest</code> / <code>AuditEvent</code> entities, <code>PlatformRole</code> / <code>OrgScopeFilter</code> / <code>AuthorizationService</code>, and the <code>V4</code>–<code>V7</code> identity migrations (the original <code>users.role IN (USER, ADMIN)</code> from <code>V2</code> has been superseded by the layered <code>PlatformRole</code>). See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>. The orchestration package (<code>orchestration/</code>, renamed from the legacy <code>flower/</code> — DA-12), project, results, logging, security-filter, config, controller, and DTO machinery described below is current.</p>
+<p>✅ <strong>Branch reality.</strong> The backend runs on <strong>PostgreSQL</strong> for every profile (H2 has been retired): <code>dev</code>/<code>ec2demo</code> against a local Postgres (<code>backend/fl-platform-api/docker-compose.yml</code> → <code>docker compose up -d</code>), <code>test</code> against Testcontainers Postgres (<code>jdbc:tc:postgresql:16.6-alpine</code>), and deployed envs override <code>SPRING_DATASOURCE_*</code>. The highest committed Flyway migration is <strong><code>V23</code></strong> (<code>V23__training_arm_ova_lp.sql</code>); <code>V20</code>–<code>V23</code> add project derivation, the <code>BASE_REF</code> unique index, and the two training-arm migrations — see the table in <a href="README.html">the section README</a>. The full <strong>identity / multi-tenancy / audit subsystem IS present</strong>: the <code>audit/</code>, <code>bootstrap/</code>, and <code>email/</code> packages, the <code>Organization</code> / <code>OrganizationMembership</code> / <code>ProjectMembership</code> / <code>ProjectAccessRequest</code> / <code>AuditEvent</code> entities, <code>PlatformRole</code> / <code>OrgScopeFilter</code> / <code>AuthorizationService</code>, and the <code>V4</code>–<code>V7</code> identity migrations (the original <code>users.role IN (USER, ADMIN)</code> from <code>V2</code> has been superseded by the layered <code>PlatformRole</code>). See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>. The orchestration package (<code>orchestration/</code>, renamed from the legacy <code>flower/</code> — DA-12), project, results, logging, security-filter, config, controller, and DTO machinery described below is current.</p>
 </blockquote>
 <h3 id="tech-stack">Tech Stack<a class="headerlink" href="#tech-stack" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Language:</strong> Java 21</li>
-<li><strong>Framework:</strong> Spring Boot 3.4.1</li>
+<li><strong>Language:</strong> Java 21 (<code>JavaLanguageVersion.of(21)</code> in <code>build.gradle</code>)</li>
+<li><strong>Framework:</strong> Spring Boot 3.4.5</li>
 <li><strong>Database:</strong> PostgreSQL 16 for every profile (H2 retired; accessed via Spring Data JPA / Hibernate). Local dev via Docker Compose; tests via Testcontainers; deployed envs override <code>SPRING_DATASOURCE_*</code>.</li>
 <li><strong>Authentication:</strong> Stateless JWT (JSON Web Tokens)</li>
 <li><strong>Real-time Comms:</strong> Spring WebSocket (STOMP protocol)</li>
@@ -129,15 +138,15 @@ Managed-task orchestration is <strong>deferred to <code>OP-12</code></strong>.</
 </tr>
 <tr>
 <td><code>bootstrap/</code></td>
-<td>First-run seeding. <code>BootstrapRunner</code> idempotently creates the first <code>PLATFORM_ADMIN</code> user and a default <code>Organization</code> from <code>app.bootstrap.*</code> env vars.</td>
+<td>Startup work. <code>BootstrapRunner</code> (<code>@Profile("!test")</code>) idempotently creates the first <code>PLATFORM_ADMIN</code> user and a default <code>Organization</code> from <code>app.bootstrap.*</code> env vars. <code>StartupReconciler</code> + <code>ProcessProbe</code> are the BA-3 crash-recovery pair: on boot they re-adopt FL-server children that outlived a backend restart (matching PID <strong>and</strong> OS start instant) and reap the runs whose processes are gone.</td>
 </tr>
 <tr>
 <td><code>config/</code></td>
-<td>Application configuration. Contains CORS settings (<code>WebConfig</code>), WebSocket broker configuration (<code>WebSocketConfig</code>), and Spring Security filter chains (<code>SecurityConfig</code>). Also holds <code>FlOrchestrationModeValidator</code>, the boot-time gate that rejects a non-blank <code>ecs.cluster-name</code> (see the orchestration note above).</td>
+<td>Application configuration. <code>SecurityConfig</code> owns the Spring Security filter chain <strong>and</strong> the CORS <code>CorsConfigurationSource</code> (there is no separate <code>WebConfig</code> — CORS lives here, keyed on <code>app.cors.allowed-origins</code>); <code>WebSocketConfig</code> configures the STOMP broker and interceptor order; <code>AsyncConfig</code> the bounded worker pool; <code>InferenceRequestSizeFilter</code> caps inference payloads. It also holds the three fail-closed boot validators: <code>FlOrchestrationModeValidator</code> (OP-14, rejects a non-blank <code>ecs.cluster-name</code> — see the orchestration note above), <code>FlBoundaryAuthPolicyValidator</code> (SE-14) and <code>FlSecretDistinctnessValidator</code> (SE-20).</td>
 </tr>
 <tr>
 <td><code>controller/</code></td>
-<td>REST API endpoints. Exposes routes for authentication (<code>AuthController</code>), projects (<code>ProjectController</code>), results (<code>ResultsController</code>), plus the identity surface: memberships, access requests, admin console, user search, and the FL-client API.</td>
+<td>REST API endpoints — <strong>24 <code>*Controller</code> classes</strong>. Authentication (<code>AuthController</code>), projects (<code>ProjectController</code>), runs (<code>RunController</code>), results and benchmark ingest (<code>ResultsController</code>, <code>BenchmarkIngestController</code>), inference (<code>InferenceController</code>), the recipe catalog (<code>ModelRecipeController</code>), the artifact registry + marketplace (<code>ArtifactController</code>, <code>ArtifactLineageController</code>, <code>InternalArtifactController</code>, <code>MarketplaceController</code>), and the identity surface: memberships, access requests, owner-promotion requests, profile, admin console, user search, and the FL-client API.</td>
 </tr>
 <tr>
 <td><code>dto/</code></td>
@@ -153,11 +162,11 @@ Managed-task orchestration is <strong>deferred to <code>OP-12</code></strong>.</
 </tr>
 <tr>
 <td><code>orchestration/</code></td>
-<td>The core orchestration layer (renamed from the legacy <code>flower/</code> — DA-12). Contains <code>FlServerManager</code>, which spawns the Python ML servers as local processes through the <code>FlServerProcessRunner</code> seam (DA-8) and tracks them in a <code>ConcurrentHashMap&lt;UUID, ProcessHandle&gt;</code>.</td>
+<td>The core orchestration layer (renamed from the legacy <code>flower/</code> — DA-12). <code>FlServerManager</code> spawns the Python ML servers as local processes through the <code>FlServerProcessRunner</code> seam (DA-8, default impl <code>LocalProcessFlServerRunner</code>, returning a <code>SpawnedFlProcess</code>) and tracks them in a <code>ConcurrentHashMap&lt;UUID, ProcessHandle&gt;</code>.</td>
 </tr>
 <tr>
 <td><code>model/</code></td>
-<td>JPA Entities defining the database schema: <code>Project.java</code>, <code>User.java</code>, <code>RoundResult.java</code>, <code>ServerLog.java</code>, plus the present identity entities (<code>Organization.java</code>, <code>OrganizationMembership.java</code>, <code>ProjectMembership.java</code>, <code>ProjectAccessRequest.java</code>, <code>AuditEvent.java</code>).</td>
+<td>JPA entities and the enums that bound their columns: <code>Project.java</code>, <code>User.java</code>, <code>Run.java</code>, <code>RunEnrollment.java</code>, <code>RoundResult.java</code>, <code>ServerLog.java</code>, the benchmark rows, the artifact-registry trio (<code>ArtifactBlob</code>, <code>ModelArtifact</code>, <code>ArtifactLineage</code>), the identity entities (<code>Organization</code>, <code>OrganizationMembership</code>, <code>ProjectMembership</code>, <code>ProjectAccessRequest</code>, <code>OwnerPromotionRequest</code>, <code>ProjectDeletionRequest</code>, <code>AuditEvent</code>), and the vocabulary enums (<code>PlatformRole</code>, <code>OrgRole</code>, <code>MembershipRole</code>, <code>ProjectVisibility</code>, <code>ProjectStatus</code>, <code>ProjectInitStatus</code>, <code>RunStatus</code>, <code>TrainingArm</code>, <code>ArtifactKind</code>, …).</td>
 </tr>
 <tr>
 <td><code>repository/</code></td>
@@ -165,11 +174,15 @@ Managed-task orchestration is <strong>deferred to <code>OP-12</code></strong>.</
 </tr>
 <tr>
 <td><code>security/</code></td>
-<td>JWT generation, API Key filters, WebSocket handshake interceptors, the request-scoped <code>OrgScope</code>/<code>OrgScopeFilter</code> multi-tenant gate, and the login auditing success/failure handlers.</td>
+<td>JWT generation/validation (<code>JwtTokenProvider</code>), the authentication and internal-API-key filters, WebSocket handshake/channel/subscription interceptors, the request-scoped <code>OrgScope</code>/<code>OrgScopeFilter</code> multi-tenant gate, the FL connection-token and run-token machinery (<code>ConnectionTokenService</code>, <code>RunTokenRegistry</code>, <code>FlClientCertificateAuthority</code>), JWT revocation (<code>TokenRevocationService</code>), the login rate limiter, and the login auditing success/failure handlers.</td>
 </tr>
 <tr>
 <td><code>service/</code></td>
-<td>Business logic layer. Controllers delegate to services (like <code>ProjectService</code>) to handle complex operations and transactional boundaries. <code>AuthorizationService</code> centralises the role/org-scope checks.</td>
+<td>Business logic layer. Controllers delegate to services (like <code>ProjectService</code>) to handle complex operations and transactional boundaries. <code>AuthorizationService</code> centralises the role/org-scope checks; <code>ProjectStatusService</code> derives a project's status from its active run (BA-4); <code>ModelRecipeService</code> caches the <code>recipes.py</code> catalog.</td>
+</tr>
+<tr>
+<td><code>validation/</code></td>
+<td>One reusable constraint: <code>@ValueOfEnum</code> + <code>ValueOfEnumValidator</code>, for DTO fields whose value must name a constant of a given enum.</td>
 </tr>
 </tbody>
 </table>
@@ -183,16 +196,26 @@ Managed-task orchestration is <strong>deferred to <code>OP-12</code></strong>.</
 - Has a one-to-many relationship with <code>Project</code>. See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a> for the full role model.</p>
 <h3 id="project"><code>Project</code><a class="headerlink" href="#project" title="Permanent link">&para;</a></h3>
 <p>The central entity for an FL experiment.
-- <strong>Key Fields:</strong> <code>modelType</code> (e.g., CNN, LLM), <code>optimizer</code>, <code>status</code> (CREATED, RUNNING, STOPPED, COMPLETED), and <code>serverPort</code> (if running locally).
-- <strong>Multi-tenancy:</strong> <code>orgId</code> (a <code>UUID</code>, <strong>NOT NULL</strong>) pins every project to an <code>Organization</code>; <code>visibility</code> (<code>ProjectVisibility</code> — three tiers: <code>PUBLIC</code> / <code>RESTRICTED</code> / <code>PRIVATE</code>, defaulting to <code>PRIVATE</code>) controls discoverability. Plus Model-Hub publish columns (<code>modelPublished</code>, <code>modelDescription</code>, <code>modelTags</code>, <code>modelPublishedAt</code>).
-- <strong>Relationships:</strong> Owned by a <code>User</code>. Contains many <code>RoundResult</code>, <code>ServerLog</code>, and <code>ProjectMembership</code> entries.</p>
+- <strong>Key Fields:</strong> <code>modelType</code> (the recipe key — <code>PNEUMONIA_CNN</code>, <code>CNN</code>, <code>CIFAR_RESNET18</code>, <code>MLP</code>, <code>TRANSFORMER</code>, <code>LLM_LORA</code>, <code>TINYNET_GOLDEN</code>), <code>modelName</code>, <code>optimizer</code>, <code>taskType</code> (<code>SEQ_CLASSIFICATION</code>/<code>CAUSAL_LM</code>, <code>LLM_LORA</code> only), <code>modelPath</code>, <code>serverPort</code>, and <code>activeRunId</code>.
+- <strong>Training arm:</strong> <code>trainingArm</code> (a <code>TrainingArm</code> enum — <code>FULL</code> / <code>FROZEN_HEAD</code> / <code>OVA_LP</code>, defaulting to <code>FULL</code>) decides which parameters a run trains <strong>and federates</strong>, and which objective it trains under. Backed by <code>V22</code>/<code>V23</code>. See <a href="03_project_management.html">03 - Project Management Lifecycle</a>.
+- <strong>Status is derived, not stored-and-trusted.</strong> The <code>status</code> column still exists as a mirror, but every DTO-building caller asks <code>ProjectStatusService.currentStatus(project)</code> instead (BA-4). That method consults the one-time init phase first — <code>initStatus</code> (<code>ProjectInitStatus</code> — <code>INITIALIZING</code>/<code>DONE</code>/<code>FAILED</code>, <code>V14</code>) — and only once init is <code>DONE</code> does it derive from the active <code>Run</code>: <code>PENDING</code>/<code>STARTING</code>/<code>RUNNING</code> → <code>RUNNING</code>, <code>COMPLETED</code> → <code>COMPLETED</code>, <code>STOPPED</code> → <code>STOPPED</code>, <code>FAILED</code> → <code>FAILED</code>, no active run → <code>CREATED</code>. The <code>ProjectStatus</code> enum therefore has six values (<code>INITIALIZING</code>, <code>CREATED</code>, <code>RUNNING</code>, <code>STOPPED</code>, <code>COMPLETED</code>, <code>FAILED</code>), not four. The derivation exists because the denormalized column drifted — a run that ended <code>FAILED</code> used to leave its project stuck reading <code>RUNNING</code>.
+- <strong>DP policy (SE-11, <code>V17</code>):</strong> <code>regulated</code> and <code>dpEnabled</code> (both NOT NULL, default <code>FALSE</code>) plus the nullable <code>dpTargetEpsilon</code> / <code>dpDelta</code> / <code>dpClipNorm</code>. Completeness is validated in Java at creation and re-checked at the spawn seam, not by a CHECK constraint.
+- <strong>Derivation (DA-14, <code>V20</code>):</strong> <code>initFromPretrained</code> (NOT NULL, default <code>FALSE</code>), <code>baseRefSha256</code>, <code>derivationSpec</code>. All opt-in; a NULL derivation is an ordinary from-scratch recipe project.
+- <strong>Multi-tenancy:</strong> <code>orgId</code> (a <code>UUID</code>, <strong>NOT NULL</strong>) pins every project to an <code>Organization</code>; <code>visibility</code> (<code>ProjectVisibility</code> — three tiers: <code>PUBLIC</code> / <code>RESTRICTED</code> / <code>PRIVATE</code>, defaulting to <code>PRIVATE</code>) controls discoverability. Plus Model-Hub publish columns (<code>modelPublished</code>, <code>modelDescription</code>, <code>modelTags</code>, <code>modelPublishedAt</code>) and the optional <code>requirementsOverride</code> JSON (<code>V9</code>).
+- <strong>Relationships:</strong> Owned by a <code>User</code>. Contains many <code>RoundResult</code>, <code>ServerLog</code>, and <code>ProjectMembership</code> entries, and its <code>Run</code> sub-tree cascades on delete (<code>V19</code>).</p>
+<h3 id="run"><code>Run</code><a class="headerlink" href="#run" title="Permanent link">&para;</a></h3>
+<p>One training execution of a project (<code>V8</code>), and the source of truth for live FL-server state.
+- <strong>Key Fields:</strong> <code>strategy</code>, <code>numRounds</code>, <code>minClients</code>, <code>clientsPerRound</code>, <code>partitioningMode</code>, <code>status</code> (<code>RunStatus</code>), <code>serverHost</code>/<code>serverPort</code>, <code>seed</code>, <code>torchVersion</code>, <code>recipeKey</code>, <code>createdBy</code>, and the timestamps (all <code>timestamptz</code> since <code>V13</code>).
+- <strong>Process identity (BA-3):</strong> <code>serverPid</code> + <code>processStartedAt</code> (<code>V15</code>) let <code>StartupReconciler</code> tell a surviving child from a dead one — or from an unrelated process that recycled the PID — and <code>internalTokenHash</code> (<code>V16</code>) lets it rehydrate the in-memory <code>RunTokenRegistry</code> for exactly the runs it re-adopts.
+- <strong><code>RunEnrollment</code></strong> carries per-run client enrollment: <code>(runId, userId)</code> PK, a run-scoped <code>partitionId</code> under <code>UNIQUE(run_id, partition_id)</code>, and <code>clientKind</code>.</p>
 <h3 id="identity-multi-tenancy-entities">Identity &amp; Multi-Tenancy Entities<a class="headerlink" href="#identity-multi-tenancy-entities" title="Permanent link">&para;</a></h3>
 <p>Added by the identity subsystem (full detail in <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>):</p>
 <ul>
 <li><strong><code>Organization</code></strong> — tenant boundary. <code>UUID</code> PK, unique <code>slug</code>, soft-delete <code>deletedAt</code>.</li>
 <li><strong><code>OrganizationMembership</code></strong> — per-user org role (<code>OrgRole</code>: <code>OWNER</code>/<code>ADMIN</code>/<code>MEMBER</code>), composite PK <code>(org_id, user_id)</code>.</li>
 <li><strong><code>ProjectMembership</code></strong> — per-user project role (<code>MembershipRole</code>: <code>OWNER</code>/<code>MEMBER</code>/<code>CLIENT</code>), composite PK <code>(project_id, user_id)</code>; carries <code>partitionId</code> and <code>joinedVia</code> provenance.</li>
-<li><strong><code>ProjectAccessRequest</code></strong> — the join-request workflow for PRIVATE projects (<code>PENDING</code>/<code>APPROVED</code>/<code>DENIED</code>).</li>
+<li><strong><code>ProjectAccessRequest</code></strong> — the join-request workflow for <strong>RESTRICTED</strong> projects (<code>AccessRequestStatus</code>: <code>PENDING</code>/<code>APPROVED</code>/<code>DENIED</code>). PUBLIC projects join outright and PRIVATE ones are invite-only and 404 to outsiders, so neither files a request.</li>
+<li><strong><code>OwnerPromotionRequest</code></strong> / <strong><code>ProjectDeletionRequest</code></strong> (V7) — the two admin-approved workflows, sharing that same <code>AccessRequestStatus</code> vocabulary.</li>
 <li><strong><code>AuditEvent</code></strong> — append-only audit log row: <code>action</code> (<code>AuditAction</code> enum), <code>actorUserId</code>, <code>orgId</code>, <code>targetType</code>/<code>targetId</code>, JSONB <code>metadata</code>, <code>requestIp</code>, <code>userAgent</code>.</li>
 </ul>
 <h3 id="roundresult"><code>RoundResult</code><a class="headerlink" href="#roundresult" title="Permanent link">&para;</a></h3>
@@ -206,12 +229,13 @@ Managed-task orchestration is <strong>deferred to <code>OP-12</code></strong>.</
 <hr />
 <h2 id="4-the-data-flow-summary">4. The Data Flow Summary<a class="headerlink" href="#4-the-data-flow-summary" title="Permanent link">&para;</a></h2>
 <ol>
-<li><strong>User Action:</strong> A user clicks "Start Project" on the React dashboard.</li>
-<li><strong>REST Request:</strong> The React app sends an HTTP POST to the Spring Boot <code>ProjectController</code> with a valid JWT.</li>
-<li><strong>Service Logic:</strong> <code>ProjectService</code> validates ownership and asks the <code>ModelInitializer</code> to build a local <code>.npz</code> weights file.</li>
-<li><strong>Orchestration:</strong> <code>FlServerManager</code> provisions a Python FL Server as a <strong>local process</strong>, shelling out to the <code>fl-runtime/</code> launch scripts (<code>fl-runtime/run_fl_server.sh</code>, resolved from the <code>python.script.*</code> properties) through the <code>FlServerProcessRunner</code> seam, on a port from the <code>50000-50010</code> range.</li>
+<li><strong>User Action:</strong> A user creates a project on the React dashboard, then clicks "Start".</li>
+<li><strong>REST Request:</strong> The React app sends an HTTP POST to the Spring Boot <code>ProjectController</code>; the browser's <code>jwtToken</code> cookie rides along.</li>
+<li><strong>Service Logic:</strong> <code>createProject</code> checks that the caller may create projects at all (<code>PROJECT_OWNER</code> or <code>PLATFORM_ADMIN</code>), validates the DP config, persists the project shell as <code>INITIALIZING</code>, and returns <strong>201 immediately</strong>. Model initialization — a Python spawn that writes the project's initial <code>.npz</code> architecture — is dispatched to a bounded async worker <em>after</em> the transaction commits (BA-1); the worker flips <code>init_status</code> to <code>DONE</code> or <code>FAILED</code> and broadcasts the change.</li>
+<li><strong>Orchestration:</strong> On <code>/start</code>, <code>FlServerManager</code> provisions a Python FL Server as a <strong>local process</strong>, shelling out to the <code>fl-runtime/</code> launch scripts (<code>fl-runtime/run_fl_server.sh</code>, resolved from the <code>python.script.*</code> properties) through the <code>FlServerProcessRunner</code> seam, on a port from the <code>50000-50010</code> range.</li>
 <li><strong>Real-time Observability:</strong> The Python FL Server streams its logs back to Spring Boot. <code>WebSocketService</code> intercepts these logs, saves them to the <code>server_logs</code> table, and broadcasts them via STOMP to the React dashboard.</li>
-<li><strong>Results Storage:</strong> As the Python FL Server completes training rounds, it sends POST requests to Spring Boot's internal endpoints (secured by API Key) to save <code>RoundResult</code> data.</li>
+<li><strong>Results Storage:</strong> As the Python FL Server completes training rounds, it POSTs to Spring Boot's <code>/api/internal/**</code> endpoints to save <code>RoundResult</code> (and benchmark) data. Those calls carry <strong>two</strong> credentials: the shared <code>X-Internal-Key</code> and the per-run <code>X-Internal-Run-Token</code>, which binds the callback to exactly one project (SE-7 — see <a href="02_security_and_auth.html">02 - Security and Authentication</a>).</li>
+<li><strong>Artifact Registration:</strong> On run completion the final model is additionally registered as a versioned, content-addressed artifact with an eval card attached. See <a href="07_artifact_registry.html">07 - Content-Addressed Model Artifact Registry</a>.</li>
 </ol>
 <blockquote>
 <p>This <code>.npz</code> file (step 3) is the project's <em>initial</em>, pre-training architecture — that mechanic is

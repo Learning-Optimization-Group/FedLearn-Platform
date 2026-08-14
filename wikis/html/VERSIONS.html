@@ -50,8 +50,17 @@
 <li><a href="framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -83,10 +92,13 @@
   </header>
   <div class="content-wrap">
     <article class="article"><h1 id="fedlearn-platform-component-versions">FedLearn-Platform — Component Versions<a class="headerlink" href="#fedlearn-platform-component-versions" title="Permanent link">&para;</a></h1>
-<p>This file is the single source of truth for the release version of each
-deployable unit. Update the relevant row whenever a component ships a
-tagged release. Versions follow <a href="https://semver.org">Semantic Versioning</a>.</p>
+<p><strong>This file is the single source of truth for the release version of each
+deployable unit.</strong> Nothing else in the repo is — a version quoted in a README,
+a wiki page or a design doc is a copy, and this table wins when they disagree.
+Update the relevant row whenever a component ships a tagged release. Versions
+follow <a href="https://semver.org">Semantic Versioning</a>.</p>
 <h2 id="current-versions">Current versions<a class="headerlink" href="#current-versions" title="Permanent link">&para;</a></h2>
+<p>Verified against the package files on 2026-08-13.</p>
 <table>
 <thead>
 <tr>
@@ -99,12 +111,12 @@ tagged release. Versions follow <a href="https://semver.org">Semantic Versioning
 <tr>
 <td><strong>backend</strong> (Spring Boot API)</td>
 <td><code>1.4.1-beta</code></td>
-<td><code>backend/fl-platform-api/build.gradle</code></td>
+<td><code>backend/fl-platform-api/build.gradle</code> (<code>version = '1.4.1-beta'</code>)</td>
 </tr>
 <tr>
-<td><strong>framework</strong> (Python FL core)</td>
+<td><strong>framework</strong> (Python FL library)</td>
 <td><code>0.1.0</code></td>
-<td><code>framework/setup.py</code></td>
+<td><code>framework/setup.py</code> (<code>version='0.1.0'</code>)</td>
 </tr>
 <tr>
 <td><strong>frontend</strong> (React web app)</td>
@@ -124,30 +136,112 @@ tagged release. Versions follow <a href="https://semver.org">Semantic Versioning
 <tr>
 <td><strong>client-docker</strong> (container)</td>
 <td>—</td>
-<td><code>client-docker/Dockerfile</code> (inherits framework)</td>
+<td><code>client-docker/Dockerfile</code> (tag mirrors the framework version it bundles)</td>
 </tr>
 </tbody>
 </table>
+<p><code>fl-runtime/</code> is the seventh deployable unit but carries <strong>no version string of
+its own</strong>: it has no package file, and it ships inside the same artifacts as the
+framework (the <code>client-docker</code> image and the desktop PyInstaller bundle both
+package <code>framework/</code> <strong>and</strong> <code>fl-runtime/</code>). Treat it as versioned with the
+framework until it gains a package file of its own.</p>
 <h2 id="versioning-policy">Versioning policy<a class="headerlink" href="#versioning-policy" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>backend / frontend</strong>: versioned together; they share the same REST API
-  contract and are always deployed as a pair.</li>
-<li><strong>framework</strong>: versioned independently; bumped when the gRPC contract,
+<li><strong>backend / frontend</strong>: versioned <strong>together, as a pair</strong>; they share the same
+  REST API contract and are always deployed together. A change to one that does
+  not touch the other still moves both rows.</li>
+<li><strong>framework</strong>: versioned <strong>independently</strong>; bumped when the gRPC contract,
   aggregation strategies, or public Python API changes.</li>
-<li><strong>desktop / mobile</strong>: versioned independently; each follows its own
-  release cadence aligned with platform store requirements.</li>
-<li><strong>client-docker</strong>: not independently versioned; the Docker tag mirrors
-  the framework version it bundles.</li>
+<li><strong>desktop / mobile</strong>: versioned <strong>independently</strong> of everything else and of
+  each other; each follows its own release cadence aligned with platform store
+  requirements.</li>
+<li><strong>client-docker</strong>: <strong>not independently versioned</strong>; the Docker tag mirrors the
+  framework version it bundles.</li>
 </ul>
 <h2 id="how-to-bump-a-version">How to bump a version<a class="headerlink" href="#how-to-bump-a-version" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Update the version string in the package file listed above.</li>
-<li>Update the table in this file.</li>
+<li>Update the table in this file. Never do one without the other — a package
+   file and this table that disagree is the failure this file exists to prevent.</li>
 <li>Tag the commit with the per-unit release prefix: <code>git tag &lt;component&gt;-v&lt;version&gt;</code>
    (e.g. <code>desktop-v3.1.0-beta</code>, <code>mobile-v2.1.0</code>). The prefix scopes the CI
-   release workflow so only the matching unit builds.</li>
+   release workflow (<code>release-desktop.yml</code> / <code>release-mobile.yml</code>) so only the
+   matching unit builds.</li>
 </ol>
+<p>Not every shipped change is a release. Several substantial cycles below landed
+with <strong>no</strong> version bump in any unit; those are recorded here as history with
+the versions they left unchanged, rather than being omitted.</p>
 <h2 id="release-history">Release history<a class="headerlink" href="#release-history" title="Permanent link">&para;</a></h2>
+<h3 id="2026-08-12-2026-08-13-no-version-bump">2026-08-12 → 2026-08-13 — no version bump<a class="headerlink" href="#2026-08-12-2026-08-13-no-version-bump" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>—</td>
+<td>unchanged</td>
+<td><code>flwr</code> / <code>flwr-datasets</code> dropped repo-wide (<code>65048b6</code>), clearing the SE-22 <code>cryptography&lt;45.0.0</code> cap and an unnoticed <code>protobuf&lt;5.0.0</code> one; the CIFAR-10 IID shard is now native in <code>fl-runtime/recipes.py</code> and was verified byte-identical per partition before the swap</td>
+</tr>
+<tr>
+<td>—</td>
+<td>unchanged</td>
+<td>In-process simulator (<code>d4e91f3</code>): <code>framework/src/fedlearn/simulation/</code> drives the production <code>FLCoordinator</code> and strategies by direct call — no gRPC, no port pool — measured to 5,000 clients</td>
+</tr>
+<tr>
+<td>—</td>
+<td>unchanged</td>
+<td>Training arms become a first-class, persisted project property: <code>FULL</code> / <code>FROZEN_HEAD</code> (<code>V22</code>) and then <code>OVA_LP</code> (<code>V23</code>, <code>886749d</code>), where an arm carries an <strong>objective</strong> and not only a trainable subset. <code>CIFAR_RESNET18</code> joins the recipe catalog as the first pretrained-backbone recipe</td>
+</tr>
+</tbody>
+</table>
+<p>No unit shipped a tagged release in this cycle; every version above stayed where
+2026-06-16 left it. Recorded here because the platform's capabilities moved even
+though its version numbers did not.</p>
+<h3 id="2026-07-17-ledger-design-system-no-version-bump">2026-07-17 — Ledger design system — no version bump<a class="headerlink" href="#2026-07-17-ledger-design-system-no-version-bump" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>frontend</td>
+<td><code>1.4.1-beta</code> (unchanged)</td>
+<td><code>2c50672</code> replaced the Ember tokens with <strong>Ledger</strong> in <code>design/tokens.json</code> and regenerated every per-platform output; <code>fdd8a79</code> restyled the representative frontend views onto Ledger the same day (and fixed a latent class-merge bug)</td>
+</tr>
+<tr>
+<td>desktop</td>
+<td><code>3.2.0-beta</code> (unchanged)</td>
+<td>renderer <code>tokens.css</code> regenerated from the same source of truth</td>
+</tr>
+<tr>
+<td>mobile</td>
+<td><code>2.1.0</code> (unchanged)</td>
+<td><code>src/theme/tokens.generated.ts</code> + <code>global.css</code> regenerated; the <code>2.1.0</code> row below still reads "Ember theme", which is correct <strong>as history</strong> — that version's tokens were later replaced in place by Ledger without a bump</td>
+</tr>
+</tbody>
+</table>
+<p>Ledger is <em>navy structural ink on quiet paper surfaces</em>, light-first: canvas
+<code>#F6F3EE</code>, surface <code>#FFFFFF</code>, ink <code>#191A1C</code>, muted <code>#6B6760</code>, accent <code>#1C314D</code>
+(hover <code>#14243A</code>); the dark family is navy-dark (canvas <code>#0B1622</code>, accent
+<code>#4F8AC9</code>) and stays wired. Type is Hanken Grotesk for <strong>both</strong> sans and display
+plus JetBrains Mono, with <code>'calt' 1, 'tnum' 1</code>. It superseded <strong>Ember</strong> (2026-06-10),
+which had superseded <strong>Instrument</strong> (2026-06-09) — three cycles, of which only
+Ledger is current. Bricolage Grotesque was Ember's display face and survives only
+in <code>design/brand/*.html</code> comparison assets, not in the token font stack.</p>
+<p><code>design/tokens.json</code> is the single source of truth and <code>design/build-tokens.mjs</code>
+generates the per-platform artifacts; CI has a "Design tokens in sync with source
+of truth" step, so a hand-edited generated file fails the build. This is why the
+rebrand touched three units and bumped none of them: no unit shipped a tagged
+release, so under the policy above no version row moved.</p>
 <h3 id="2026-06-16">2026-06-16<a class="headerlink" href="#2026-06-16" title="Permanent link">&para;</a></h3>
 <table>
 <thead>

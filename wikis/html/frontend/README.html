@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -87,28 +96,71 @@
 <h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
 <ol>
 <li><a href="Architecture.html">Architecture &amp; State Management</a>
-   - Tech Stack Overview
+   - Tech Stack Overview (resolved versions, not ranges)
    - Project Structure
-   - Global State and Contexts</li>
+   - Global State, Contexts and Service Stores
+   - Vite modes ↔ Spring profiles, the dev proxy, <code>strictPort</code>
+   - Build guards, linting and the Vitest suite</li>
 <li><a href="Routing_and_Auth.html">Authentication &amp; Routing</a>
-   - React Router Configuration
-   - Protected Routes &amp; Auth Guard
-   - HttpOnly Cookie Auth Implementation</li>
+   - React Router Configuration &amp; the full route map
+   - <code>ProtectedRoute</code> / <code>RoleRoute</code> guards
+   - HttpOnly Cookie Auth Implementation
+   - Identity refresh on focus / visibility</li>
 <li><a href="API_and_Services.html">API &amp; Services</a>
    - Axios Configuration &amp; Interceptors
-   - WebSocket Integration
+   - The typed service layer (<code>apiServices.ts</code>, <code>artifactService.ts</code>)
+   - STOMP-over-WebSocket destinations &amp; honest connection state
    - Log Store &amp; Real-time Telemetry</li>
 <li><a href="UI_and_Components.html">UI &amp; Components</a>
-   - Design System &amp; Tailwind CSS
-   - Legacy vs. V2 (Redesign) Components
-   - Reusable Component Patterns</li>
+   - The <strong>Ledger</strong> design system &amp; the generated token pipeline
+   - Component conventions and the <code>ui/</code> primitives
+   - The project-creation picker and the <strong>training arm</strong> trade-off panel</li>
 </ol>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>The FedLearn frontend is a modern Single Page Application (SPA) built with React 19, TypeScript, and Vite. It serves as the primary control plane for the federated learning system, allowing users to:
-- Authenticate and manage access securely using HttpOnly cookies.
-- View and manage projects, models, and federated learning datasets.
-- Monitor live training sessions across multiple clients via WebSockets.
-- Use the current <strong>Ember</strong> design system (warm canvas, burnt-orange accent, Bricolage Grotesque / Hanken Grotesk / JetBrains Mono), which superseded the earlier "Instrument" tokens and the original Apple-inspired V2 redesign.</p>
+<p>The FedLearn frontend is a modern Single Page Application (SPA) built with React 19, TypeScript, and Vite. It serves as the primary control plane for the federated learning system, allowing users to:</p>
+<ul>
+<li>Authenticate and manage access securely using HttpOnly cookies — no token is ever readable from JavaScript.</li>
+<li>View and manage projects, models, datasets, the artifact registry and the adapter marketplace.</li>
+<li>Choose <em>how</em> a project trains: the model recipe, the optimizer, and — where the recipe offers more than one — the <strong>training arm</strong>, shown with the measured cost of the choice (see <a href="UI_and_Components.html#the-project-creation-picker-and-the-training-arm">UI &amp; Components</a>).</li>
+<li>Monitor live training across multiple clients over STOMP-over-WebSocket.</li>
+<li>Run inference against a trained model, and (as a platform admin) explore audit events and benchmark runs.</li>
+<li>Use the current <strong>Ledger</strong> design system (navy structural ink <code>#1C314D</code> on quiet paper — <code>#F6F3EE</code> canvas, white cards — with a single Hanken Grotesk type family and JetBrains Mono for logs/ids), which superseded the earlier <strong>Ember</strong> system (warm paper + burnt orange + Bricolage Grotesque display, with an AMOLED-black dark family) and the "Instrument" tokens before it. See <a href="UI_and_Components.html">UI &amp; Components</a> for the token pipeline.</li>
+</ul>
+<h2 id="quick-reference">Quick reference<a class="headerlink" href="#quick-reference" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Thing</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Package</td>
+<td><code>fedlearn-frontend</code>, version <code>1.4.1-beta</code> (<code>frontend/package.json</code>)</td>
+</tr>
+<tr>
+<td>Dev server</td>
+<td><code>npm run dev</code> → <code>http://localhost:5173</code> (<code>strictPort: true</code> — it will not shift to 5174)</td>
+</tr>
+<tr>
+<td>Backend it expects</td>
+<td>Spring Boot on <code>http://localhost:8081</code>, API base <code>…/api</code></td>
+</tr>
+<tr>
+<td>Node</td>
+<td>24 (repo-pinned in <code>.nvmrc</code> / <code>.tool-versions</code>; CI uses <code>node-version: '24'</code>)</td>
+</tr>
+<tr>
+<td>Test runner</td>
+<td><strong>Vitest</strong> + Testing Library + jsdom (<code>npm run test:run</code>, <code>npm run test:coverage</code>)</td>
+</tr>
+<tr>
+<td>CI gate</td>
+<td><code>npm run lint</code> → <code>npx tsc --noEmit</code> → <code>npm run test:coverage</code> → <code>npm run build</code> (<code>.github/workflows/ci.yml</code>, path-filtered on <code>frontend/**</code>)</td>
+</tr>
+</tbody>
+</table>
 <p>Start by exploring the <a href="Architecture.html">Architecture</a> guide to understand the fundamental building blocks of the application.</p></article>
     <nav class="toc"></nav>
   </div>

@@ -50,8 +50,17 @@
 <li><a href="05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -84,7 +93,7 @@
   <div class="content-wrap">
     <article class="article"><h1 id="fedlearn-python-framework-wiki">FedLearn Python Framework — Wiki<a class="headerlink" href="#fedlearn-python-framework-wiki" title="Permanent link">&para;</a></h1>
 <p>Welcome to the internal documentation for the <strong>FedLearn Python Framework</strong> (<code>framework/</code>).</p>
-<p>This framework is the core distributed federated learning engine that powers the FedLearn-Platform. It is a standalone Python library (<code>fedlearn</code>) built on PyTorch and gRPC, capable of training CNNs, Transformers, and Large Language Models in a privacy-preserving, distributed manner.</p>
+<p>This framework is the core distributed federated learning engine that powers the FedLearn-Platform. It is a standalone Python library (<code>fedlearn</code>) built on PyTorch and gRPC, capable of training CNNs, Transformers, and Large Language Models in a privacy-preserving, distributed manner — over gRPC across real processes, or entirely <strong>in-process</strong> through the simulator.</p>
 <hr />
 <h2 id="documentation-index">Documentation Index<a class="headerlink" href="#documentation-index" title="Permanent link">&para;</a></h2>
 <table>
@@ -99,47 +108,47 @@
 <tr>
 <td>1</td>
 <td><a href="01_architecture_overview.html">Architecture &amp; Package Overview</a></td>
-<td>High-level module map, package layout, and how all components connect</td>
+<td>Module map (all 57 modules), package layout, the in-process simulator, how it all connects</td>
 </tr>
 <tr>
 <td>2</td>
 <td><a href="02_grpc_communication.html">gRPC Communication Layer</a></td>
-<td>Proto definitions, serialization, streaming, TLS, retry logic</td>
+<td>Proto definitions, safetensors wire, streaming, upload caps, TLS, retry logic</td>
 </tr>
 <tr>
 <td>3</td>
 <td><a href="03_server_internals.html">Server Internals</a></td>
-<td><code>start_server</code>, <code>FLCoordinator</code>, round lifecycle, heartbeat management</td>
+<td><code>start_server</code>, <code>FLCoordinator</code>, round lifecycle, dropout deadline, ingress defenses</td>
 </tr>
 <tr>
 <td>4</td>
 <td><a href="04_client_internals.html">Client Internals</a></td>
-<td><code>Client</code> ABC, <code>GrpcClient</code>, polling loop, large model streaming</td>
+<td><code>Client</code> ABC, <code>LocalTrainer</code>, <code>GrpcClient</code>, polling loop, server-driven stop</td>
 </tr>
 <tr>
 <td>5</td>
 <td><a href="05_strategies.html">Aggregation Strategies</a></td>
-<td><code>Strategy</code> ABC, <code>FedAvg</code> deep-dive, weighted aggregation, extensibility</td>
+<td>The six registered strategies, the factory, Byzantine-robust aggregation, central DP</td>
 </tr>
 <tr>
 <td>6</td>
 <td><a href="06_decomfl.html">DeComFL — Dimension-Free Federated Learning</a></td>
-<td>Algorithm 3 &amp; 4, zeroth-order estimation, seed/gradient protocol</td>
+<td>Algorithm 3 &amp; 4, zeroth-order estimation, seed/gradient protocol, LR stability envelope</td>
 </tr>
 <tr>
 <td>7</td>
 <td><a href="07_data_partitioning.html">Data Partitioning &amp; Non-IID Scenarios</a></td>
-<td>Dirichlet distribution, heterogeneous splits, practical setup</td>
+<td>The four shipped partitioners, Dirichlet α, heterogeneity, <code>partition_report</code></td>
 </tr>
 <tr>
 <td>8</td>
-<td><a href="08_examples.html">Examples Walkthrough</a></td>
-<td>End-to-end traces for MNIST, LLM, and ECG federation examples</td>
+<td><a href="08_examples.html">Examples &amp; Benchmarks</a></td>
+<td>The seven examples, the committed benchmark harnesses, the E2E test scripts</td>
 </tr>
 <tr>
 <td>9</td>
 <td><a href="09_developer_guide.html">Developer Guide — Extending the Framework</a></td>
-<td>Adding custom strategies, custom clients, testing, contributing</td>
+<td>Adding strategies/clients, the proto workflow, testing, contributing</td>
 </tr>
 </tbody>
 </table>
@@ -149,25 +158,34 @@
 <p><strong>Debugging a communication error?</strong> Jump to <a href="02_grpc_communication.html">02 — gRPC Communication</a>.</p>
 <p><strong>Implementing a new aggregation algorithm?</strong> See <a href="05_strategies.html">05 — Strategies</a> and <a href="09_developer_guide.html">09 — Developer Guide</a>.</p>
 <p><strong>Understanding the DeComFL paper implementation?</strong> Go straight to <a href="06_decomfl.html">06 — DeComFL</a>.</p>
+<p><strong>Running an experiment at 1,000+ clients?</strong> See the simulator section in
+<a href="01_architecture_overview.html#the-in-process-simulator">01 — Architecture Overview</a> and the
+partitioners in <a href="07_data_partitioning.html">07 — Data Partitioning</a>.</p>
 <hr />
 <h2 id="framework-at-a-glance">Framework At A Glance<a class="headerlink" href="#framework-at-a-glance" title="Permanent link">&para;</a></h2>
-<div class="codehilite"><pre><span></span><code>fedlearn (Python package)
-├── server/          – Server entry point, coordinator, strategies, robust aggregation, gRPC servicer
-├── client/          – Client ABC, gRPC wrapper, local trainer, DeComFL client
-├── communication/   – Proto definitions, serializer, safetensors codec, generated stubs
-├── estimators/      – Zeroth-order gradient estimators (DeComFL)
-├── privacy/         – Central-DP mechanism + RDP accountant
-├── security/        – TLS policy, connection-token verification, gRPC interceptors
-├── backbone/        – Shared backbone/distribution helpers
-├── bundle/          – Adapter-bundle manifest + format schema
-├── fot/             – Federation over Text (separate local-LLM research mode)
-└── data/            – Dataset utilities (MNIST partitioning, etc.)
+<div class="codehilite"><pre><span></span><code>fedlearn (Python package, 57 modules under src/fedlearn/)
+├── server/          – start_server, FLCoordinator, the six strategies, robust aggregation, gRPC servicer
+├── client/          – Client ABC, GrpcClient transport, LocalTrainer (first-order), DeComFL client
+├── communication/   – Proto mirrors, serializer, deterministic safetensors codec, generated stubs
+├── estimators/      – Zeroth-order estimator, canonical perturbation RNG, trainable-parameter manifest
+├── simulation/      – In-process federation driver, seeded partitioners, per-client RNG isolation
+├── privacy/         – Central-DP mechanism + from-scratch RDP accountant
+├── security/        – TLS policy, connection-token verify, gRPC server/client interceptors, identity
+├── backbone/        – Frozen-backbone serialization + content-addressed cache (DA-11)
+├── bundle/          – Adapter-bundle manifest + JSON schema
+├── fot/             – Federation over Text (separate, torch-free research mode)
+└── data/            – Raw MNIST download directory used by the examples (no Python code)
 </code></pre></div>
 
+<blockquote>
+<p><code>data/</code> holds only downloaded MNIST IDX files. Partitioning helpers live in
+<code>simulation/partition.py</code> — see <a href="07_data_partitioning.html">07 — Data Partitioning</a>.</p>
+</blockquote>
 <p>The framework is consumed by:
+- <strong><code>fl-runtime/</code></strong> — the executable layer the Spring Boot backend actually shells out to (<code>client.py</code>, <code>fl_server.py</code>, …) does <code>import fedlearn as fl</code>
 - <strong><code>fedlearn-desktop</code></strong> Electron app (spawns the FL <strong>client</strong> as a child process — the packaged PyInstaller bundle, or system <code>python3</code> against <code>fl-runtime/client.py</code> in dev mode)
 - <strong><code>backend</code></strong> Spring Boot API (spawns Python FL servers as local processes via <code>FlServerManager</code>)
-- <strong><code>client-docker</code></strong> Docker image for containerised client deployment</p></article>
+- <strong><code>client-docker</code></strong> Docker image for containerised client deployment (build context is the repo root)</p></article>
     <nav class="toc"></nav>
   </div>
 </div>

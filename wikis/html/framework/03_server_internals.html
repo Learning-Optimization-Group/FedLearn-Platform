@@ -50,8 +50,17 @@
 <li><a href="05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -88,14 +97,18 @@
 <li><a href="#overview">Overview</a></li>
 <li><a href="#entry-point-start_server">Entry Point: start_server()</a></li>
 <li><a href="#server-configuration">Server Configuration</a></li>
+<li><a href="#security-wiring-in-start_server">Security Wiring in start_server</a></li>
 <li><a href="#json-structured-logging">JSON Structured Logging</a></li>
 <li><a href="#the-flcoordinator">The FLCoordinator</a></li>
 <li><a href="#state-machine">State Machine</a></li>
 <li><a href="#thread-safety-model">Thread Safety Model</a></li>
 <li><a href="#round-lifecycle">Round Lifecycle</a></li>
+<li><a href="#the-per-round-dropout-deadline">The Per-Round Dropout Deadline</a></li>
 <li><a href="#update-submission-and-aggregation-trigger">Update Submission and Aggregation Trigger</a></li>
+<li><a href="#ingress-defenses-on-submit_client_update">Ingress Defenses on submit_client_update</a></li>
 <li><a href="#stale-update-rejection">Stale Update Rejection</a></li>
-<li><a href="#client-registration">Client Registration</a></li>
+<li><a href="#client-registration-and-identity-binding">Client Registration and Identity Binding</a></li>
+<li><a href="#shipping-client-side-hyperparameters">Shipping Client-Side Hyperparameters</a></li>
 <li><a href="#heartbeat-management">Heartbeat Management</a></li>
 <li><a href="#decomfl-path-in-the-coordinator">DeComFL Path in the Coordinator</a></li>
 <li><a href="#the-grpc-servicer">The gRPC Servicer</a></li>
@@ -141,16 +154,33 @@
 
 <p>Call sequence:</p>
 <ol>
-<li><strong>Create coordinator</strong> — initialized with the strategy and client count settings</li>
-<li><strong>Set initial parameters</strong> — pushes <code>strategy.initialize_parameters()</code> into coordinator</li>
-<li><strong>Create gRPC server</strong> — with ThreadPoolExecutor sized for expected client count</li>
-<li><strong>Register servicer</strong> — <code>add_FederatedLearningServiceServicer_to_server(servicer, grpc_server)</code></li>
-<li><strong>Bind address</strong> — insecure or TLS depending on env vars</li>
+<li><strong>Configure logging</strong> — <code>configure_logging()</code> installs the JSON formatter on the <strong>root</strong> logger.
+   Called here at the entry point, deliberately <strong>not</strong> at import time (FR-9), so <code>import fedlearn</code>
+   from a host application does not hijack that application's root logger.</li>
+<li><strong>Create coordinator</strong> — <code>FLCoordinator(strategy, min_clients_for_aggregation=strategy.min_fit_clients, clients_per_round=strategy.clients_per_round)</code></li>
+<li><strong>Set initial parameters</strong> — <code>coordinator.set_initial_parameters(strategy.initial_parameters)</code>
+   (the attribute directly; <code>initialize_parameters()</code> returns the same object)</li>
+<li><strong>Build the auth interceptor</strong> — <code>interceptor_from_env()</code>; <code>None</code> in dev (fail-open), and it
+   <strong>raises</strong> if enforcement is on with no secret (fail-closed on misconfiguration)</li>
+<li><strong>Create gRPC server</strong> — with a ThreadPoolExecutor sized for the expected client count and the
+   interceptor list</li>
+<li><strong>Register servicer</strong> — with the SE-15 <code>partition_extractor</code> wired from the same env gate</li>
+<li><strong>Bind address</strong> — <code>check_server_tls_policy()</code> decides; <code>add_secure_port</code> or <code>add_insecure_port</code></li>
 <li><strong>Start server</strong> — <code>grpc_server.start()</code> begins accepting connections</li>
 <li><strong>Run training loop</strong> — iterates rounds, blocking on <code>coordinator.wait_for_round_to_complete()</code></li>
+<li><strong>Signal completion + drain</strong> — <code>coordinator.mark_training_complete()</code> then sleep
+    <code>FEDLEARN_COMPLETION_DRAIN_SECONDS</code> (default 3) so connected clients can observe the terminal
+    state and exit 0 instead of retry-looping on the <code>CANCELLED</code>/<code>UNAVAILABLE</code> a hard teardown
+    would surface</li>
 <li><strong>Return</strong> history and final parameters</li>
-<li><strong>Cleanup</strong> — <code>grpc_server.stop(grace=5)</code> in the finally block</li>
+<li><strong>Cleanup</strong> — <code>grpc_server.stop(grace=5)</code> in the <code>finally</code> block</li>
 </ol>
+<blockquote>
+<p><strong><code>history</code> only records rounds that produced metrics.</strong> The loop appends <code>(round_num, metrics)</code>
+only when <code>coordinator.get_latest_metrics()</code> is truthy; a round with no <code>evaluate_fn</code>, or one
+whose aggregation returned <code>None</code>, logs a warning and is <strong>absent from <code>history</code></strong>. So
+<code>len(history)</code> is not necessarily <code>config.num_rounds</code>.</p>
+</blockquote>
 <hr />
 <h2 id="server-configuration">Server Configuration<a class="headerlink" href="#server-configuration" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code><span class="nd">@dataclass</span>
@@ -178,6 +208,72 @@
 </code></pre></div>
 
 <hr />
+<h2 id="security-wiring-in-start_server">Security Wiring in start_server<a class="headerlink" href="#security-wiring-in-start_server" title="Permanent link">&para;</a></h2>
+<p>Three independent mechanisms are wired at startup, all env-gated and all fail-closed on
+misconfiguration rather than silently degrading. <code>security/</code> owns the policy; <code>server.py</code> only
+applies it.</p>
+<table>
+<thead>
+<tr>
+<th>Mechanism</th>
+<th>Gate</th>
+<th>Off (default)</th>
+<th>On</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>TLS (SE-2)</strong></td>
+<td><code>FEDLEARN_GRPC_USE_TLS=1</code>, required by <code>FEDLEARN_REQUIRE_TLS=1</code></td>
+<td><code>add_insecure_port</code> + a WARNING log</td>
+<td><code>ssl_server_credentials</code> + <code>add_secure_port</code>; optional mTLS via <code>FEDLEARN_GRPC_REQUIRE_CLIENT_AUTH=1</code></td>
+</tr>
+<tr>
+<td><strong>Connection token (SE-1)</strong></td>
+<td><code>FEDLEARN_REQUIRE_CLIENT_AUTH=1</code></td>
+<td>no interceptor — dev <strong>fail-open</strong></td>
+<td><code>ConnectionTokenInterceptor</code> requires a valid <code>x-connection-token</code> on all 10 FL RPCs</td>
+</tr>
+<tr>
+<td><strong>Identity binding (SE-15)</strong></td>
+<td>the <em>same</em> <code>FEDLEARN_REQUIRE_CLIENT_AUTH=1</code></td>
+<td><code>partition_extractor=None</code> — binding disabled</td>
+<td>one token's server-assigned <code>partitionId</code> is pinned 1:1 to one wire <code>client_id</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>check_server_tls_policy()</code> <strong>raises <code>TlsPolicyError</code></strong> if <code>FEDLEARN_REQUIRE_TLS=1</code> while TLS is
+  not enabled (never silently serve a deployed profile in plaintext), and again if TLS is on but the
+  key or cert path is missing.</li>
+<li><code>interceptor_from_env()</code> <strong>raises <code>RuntimeError</code></strong> if enforcement is on and neither
+  <code>FEDLEARN_FL_TOKEN_SECRET</code> nor the <code>APP_JWT_SECRET</code> fallback is set — the server refuses to start
+  rather than run the gate open.</li>
+<li>The interceptor matches by <strong>method name</strong>, not full path, so it is package-agnostic and
+  auto-exempts the health check and server reflection. It also enforces <strong>FR-7</strong>: when
+  <code>FEDLEARN_RUN_ID</code> is set, a token whose <code>runId</code> claim names a different run is
+  <code>PERMISSION_DENIED</code> (identity proven, but not for <em>this</em> federation) rather than
+  <code>UNAUTHENTICATED</code>.</li>
+<li>Verification is PyJWT with an <code>algorithms</code> allowlist of <code>HS256/384/512</code> only — that allowlist is
+  the <code>alg=none</code> / alg-confusion defense. The whole HMAC family is accepted because the Java signer
+  uses <code>.signWith(key)</code> with no explicit algorithm and JJWT infers the alg from the key's bit length;
+  hardcoding HS256 would reject a longer secret's tokens. The key is the <strong>base64-decoded</strong> secret,
+  and a decoded key shorter than 32 bytes is rejected independently of Java's own check.</li>
+</ul>
+<h3 id="why-se-15-exists">Why SE-15 exists<a class="headerlink" href="#why-se-15-exists" title="Permanent link">&para;</a></h3>
+<p>The wire <code>client_id</code> is a self-chosen handle — the proto itself annotates it <em>"NOT trusted for
+authz"</em>. Without binding, one valid token can be replayed under many <code>client_id</code> values, and each
+fake id becomes its own averaged update: a single enrolled participant impersonates the whole cohort
+and dominates FedAvg/DeComFL aggregation. <code>FLCoordinator.bind_or_check_identity(partition_id,
+client_id)</code> pins the pair on first use and thereafter rejects both directions of conflict (a
+partition presenting a second <code>client_id</code>, or a <code>client_id</code> claimed by a second partition). The
+whole check-then-bind runs under the coordinator lock, so two concurrent first-use calls for the
+same partition cannot both win.</p>
+<p>The servicer calls <code>_enforce_client_identity()</code> <strong>before</strong> each RPC's broad <code>try/except</code> — a
+<code>context.abort</code> raises, and that must reach gRPC rather than be swallowed and remapped to
+<code>INTERNAL</code>. For <code>SubmitModelUpdateStream</code>, whose <code>client_id</code> lives inside the chunk stream, the
+first chunk is pulled, checked, then chained back into the loop with <code>itertools.chain</code>.</p>
+<hr />
 <h2 id="json-structured-logging">JSON Structured Logging<a class="headerlink" href="#json-structured-logging" title="Permanent link">&para;</a></h2>
 <p>The server configures Python's root logger to emit JSON on startup:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">JSONFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">):</span>
@@ -191,14 +287,22 @@
             <span class="n">log_obj</span><span class="p">[</span><span class="s2">&quot;stackTrace&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">formatException</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">exc_info</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">log_obj</span><span class="p">)</span>
 
-<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span>
-<span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
-<span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
-<span class="n">handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">JSONFormatter</span><span class="p">())</span>
-<span class="n">logger</span><span class="o">.</span><span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">handler</span><span class="p">]</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">configure_logging</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="n">handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">JSONFormatter</span><span class="p">())</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span>
+    <span class="n">root</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+    <span class="n">root</span><span class="o">.</span><span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span><span class="n">handler</span><span class="p">]</span>          <span class="c1"># note: REPLACES the root handlers</span>
 </code></pre></div>
 
 <p><strong>Why JSON logging?</strong> The Spring Boot backend captures the Python process's stdout and parses it line-by-line to extract structured log objects, which are then broadcast to the React frontend via STOMP WebSocket. Plain text logs would require fragile regex parsing.</p>
+<blockquote>
+<p><strong>FR-9 — it is called from <code>start_server()</code>, not at import time.</strong> <code>root.handlers = [handler]</code>
+<em>replaces</em> whatever the host application configured. That is appropriate for the FL server, which
+runs as its own process whose stdout the backend parses — and wrong for anyone doing
+<code>import fedlearn</code> inside a larger program. Doing it at import time hijacked the host's root
+logger; doing it at the entry point does not. <code>tests/test_logging_hygiene.py</code> guards this.</p>
+</blockquote>
 <p>Example output:</p>
 <div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2024-01-15T10:23:45.123Z&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Starting round 1/10&quot;</span><span class="p">}</span>
 <span class="p">{</span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2024-01-15T10:23:46.456Z&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;All 3 clients reported for round 1; aggregating&quot;</span><span class="p">}</span>
@@ -209,85 +313,157 @@
 <h2 id="the-flcoordinator">The FLCoordinator<a class="headerlink" href="#the-flcoordinator" title="Permanent link">&para;</a></h2>
 <p><code>FLCoordinator</code> is the stateful core of the server. It owns:
 - The current global model parameters
-- The current round number
+- The current round number (<strong>1-based</strong> — it starts at 1, not 0)
 - The list of received updates for the current round
-- Client registration and heartbeat records</p>
+- Client registration, heartbeat records, and the SE-15 partition ↔ client_id bijection
+- Client-reported telemetry (<code>client_metrics_log</code>, fed by <code>ReportClientMetrics</code>)
+- Two distinct terminal flags: <code>stop_requested</code> (stop <strong>or</strong> error teardown) and
+  <code>training_complete</code> (all configured rounds finished successfully)
+- Two round-failure signals: <code>last_round_failed</code> / <code>last_round_message</code></p>
 <h3 id="state-machine">State Machine<a class="headerlink" href="#state-machine" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code>              start_round()
+<div class="codehilite"><pre><span></span><code>              start_round()  ← clears updates AND resets the dropout deadline
                    │
-    ┌──────────────▼──────────────┐
-    │         COLLECTING          │ ← waiting for client updates
-    │                             │
-    │  submit_client_update() ────┤
-    │  (called per client)        │
-    └──────────────┬──────────────┘
-                   │ len(updates) == clients_per_round
-                   ▼
-    ┌──────────────────────────────┐
-    │   AGGREGATING (brief)        │
-    │                             │
-    │  strategy.aggregate_fit()   │
-    │  strategy.evaluate()        │
-    │  current_round += 1         │
-    │  _round_complete_event.set()│
-    └──────────────┬──────────────┘
-                   │
-    ┌──────────────▼──────────────┐
+    ┌──────────────▼─────────────────────────────┐
+    │              COLLECTING                    │ ← waiting for client updates
+    │                                            │
+    │  submit_client_update()  ──────────────────┤
+    │  (called per client, on its own gRPC thread)│
+    └──────┬──────────────────────────────┬──────┘
+           │ len(updates)==clients_per_round│ round_timeout_s elapsed
+           │  (inline, on the Nth submit)   │  (on the MAIN thread)
+           ▼                                ▼
+    ┌──────────────────────┐   ┌────────────────────────────────────┐
+    │  _trigger_*_and_     │   │   resolve_round_incomplete()       │
+    │  evaluation()        │   │   received &gt;= max(1, min_clients)? │
+    │                      │   │     yes → force-aggregate (+ flag) │
+    │  strategy.aggregate_ │◄──┤     no  → stop_requested = True    │
+    │    fit() / evaluate()│   └────────────────────────────────────┘
+    │  current_round += 1  │
+    │  _round_complete_    │
+    │    event.set()       │
+    └──────────┬───────────┘
+               │
+    ┌──────────▼───────────────────┐
     │  wait_for_round_to_complete  │
     │  unblocks in server.py loop  │
-    └─────────────────────────────┘
+    └──────────────────────────────┘
 </code></pre></div>
 
+<blockquote>
+<p>Both paths converge on the same trigger, and <code>resolve_round_incomplete</code> is <strong>idempotent</strong>: it
+re-checks <code>_round_complete_event.is_set()</code> under the lock and returns if a client completed the
+round in the meantime, so a redundant call cannot double-aggregate.</p>
+</blockquote>
 <h3 id="thread-safety-model">Thread Safety Model<a class="headerlink" href="#thread-safety-model" title="Permanent link">&para;</a></h3>
 <p>The coordinator is accessed concurrently by:
-- <strong>The main server thread</strong> — calling <code>start_round()</code>, <code>wait_for_round_to_complete()</code>, <code>get_latest_metrics()</code>
-- <strong>One gRPC thread per active client</strong> — calling <code>submit_client_update()</code>, <code>get_global_model_for_client()</code>, <code>register_client()</code>, <code>update_client_heartbeat()</code></p>
+- <strong>The main server thread</strong> — calling <code>start_round()</code>, <code>wait_for_round_to_complete()</code>,
+  <code>resolve_round_incomplete()</code> (via the timeout path), <code>get_latest_metrics()</code>
+- <strong>One or more gRPC threads per active client</strong> — calling <code>submit_client_update()</code> /
+  <code>submit_decomfl_update()</code>, <code>get_global_model_for_client()</code>, <code>register_client()</code>,
+  <code>bind_or_check_identity()</code>, <code>update_client_heartbeat()</code>, <code>record_client_metrics()</code></p>
 <p>Two separate locks protect different parts of the state:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FLCoordinator</span><span class="p">:</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>        <span class="c1"># protects round state + model params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>        <span class="c1"># protects round state + model params + identity maps</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>  <span class="c1"># signals round completion</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_lock</span> <span class="o">=</span> <span class="n">Lock</span><span class="p">()</span>         <span class="c1"># protects heartbeat dict only</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_lock</span> <span class="o">=</span> <span class="n">Lock</span><span class="p">()</span>         <span class="c1"># protects the heartbeat dict + client_metrics_log</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">client_heartbeats</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 </code></pre></div>
 
 <blockquote>
-<p><strong>Critical threading contract:</strong> <code>_trigger_aggregation_and_evaluation()</code> is always called <strong>while <code>_lock</code> is held</strong> (inside <code>submit_client_update</code>). The round counter increment and <code>_round_complete_event.set()</code> are therefore atomic — no waiting thread can observe an inconsistent state.</p>
+<p><strong>Critical threading contract:</strong> every aggregation trigger —
+<code>_trigger_aggregation_and_evaluation()</code>, <code>_trigger_decomfl_aggregation_and_evaluation()</code> and the
+dispatcher <code>_trigger_round_completion()</code> — is called <strong>while <code>_lock</code> is held</strong>, from
+<code>submit_client_update</code> / <code>submit_decomfl_update</code> / <code>resolve_round_incomplete</code>. The round counter
+increment and <code>_round_complete_event.set()</code> are therefore atomic — no waiting thread can observe
+an inconsistent state.</p>
+<p>The corollary is that <code>strategy.aggregate_fit()</code> and <code>evaluate_fn</code> both execute inside that
+critical section. Keep them non-blocking.</p>
 </blockquote>
+<p><code>DeComFL</code> carries a third lock of its own, <code>_seed_lock</code>, guarding <code>get_or_create_seeds</code> against
+concurrent client RPCs racing to generate the same round's seeds (see
+<a href="06_decomfl.html#seed-generation-and-sharing">06</a>).</p>
 <h3 id="round-lifecycle">Round Lifecycle<a class="headerlink" href="#round-lifecycle" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">start_round</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Called by main loop to begin a new round.&quot;&quot;&quot;</span>
     <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>  <span class="c1"># flush any stale updates</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>          <span class="c1"># reset completion signal</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>   <span class="c1"># prevent stale state leaking across rounds</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_round_started_at</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>  <span class="c1"># reset the dropout deadline for this round</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>           <span class="c1"># reset completion signal</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">wait_for_round_to_complete</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Blocking wait on main loop thread. Checks stop flag every 1 second.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Blocking wait on the main-loop thread. Wakes every second to check the stop flag</span>
+<span class="sd">    AND the per-round dropout deadline.&quot;&quot;&quot;</span>
     <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop_requested</span><span class="p">:</span>
             <span class="k">break</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_round_started_at</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">round_timeout_s</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_handle_round_timeout</span><span class="p">()</span>
+            <span class="k">break</span>
 </code></pre></div>
 
-<p>The 1-second timeout in <code>wait()</code> allows the server to respond to <code>signal_stop()</code> without hanging indefinitely.</p>
+<p>The 1-second timeout in <code>wait()</code> is what lets the server respond to <code>signal_stop()</code> and to the
+dropout deadline without hanging indefinitely. The deadline uses <code>time.monotonic()</code>, so a wall-clock
+adjustment cannot lengthen or shorten a round.</p>
+<h3 id="the-per-round-dropout-deadline">The Per-Round Dropout Deadline<a class="headerlink" href="#the-per-round-dropout-deadline" title="Permanent link">&para;</a></h3>
+<p>A synchronous FedAvg round blocks forever if a selected client never reports. <code>round_timeout_s</code>
+bounds it. Precedence: <strong>explicit constructor arg &gt; <code>FEDLEARN_ROUND_TIMEOUT_S</code> &gt; the module default
+<code>DEFAULT_ROUND_TIMEOUT_S = 120.0</code>.</strong> A malformed or non-positive env value logs a warning and falls
+back to the default rather than being honoured.</p>
+<p>The <strong>policy</strong> (when the deadline has passed) and the <strong>mechanism</strong> (what to do about it) are
+deliberately split — <code>_handle_round_timeout()</code> decides, <code>resolve_round_incomplete(reason)</code> acts:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">resolve_round_incomplete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span><span class="o">.</span><span class="n">is_set</span><span class="p">():</span>
+            <span class="k">return</span>                                   <span class="c1"># already resolved inline — idempotent</span>
+        <span class="n">received</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="p">)</span>
+        <span class="n">required</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_clients</span><span class="p">)</span>          <span class="c1"># the strategy aggregates from min_clients</span>
+        <span class="k">if</span> <span class="n">received</span> <span class="o">&gt;=</span> <span class="n">required</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">last_round_failed</span> <span class="o">=</span> <span class="kc">True</span>            <span class="c1"># force-aggregated, NOT a clean round</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">last_round_message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Round … </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">; force-aggregated </span><span class="si">{</span><span class="n">received</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s2">…&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_round_completion</span><span class="p">()</span>         <span class="c1"># FR-4: strategy-appropriate dispatch</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">last_round_failed</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stop_requested</span> <span class="o">=</span> <span class="kc">True</span>               <span class="c1"># never aggregate an EMPTY cohort</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+</code></pre></div>
+
+<p>Two things this buys, both load-bearing:</p>
+<ul>
+<li><strong>An empty cohort never aggregates.</strong> FedAvg over zero updates produces a zero-key aggregate that
+  would silently <em>wipe</em> the global model while the round advanced as a false success. Below the
+  floor the run stops instead, with the reason recorded in <code>last_round_message</code>.</li>
+<li><strong>FR-4: the dispatch is strategy-aware.</strong> <code>_trigger_round_completion()</code> checks
+  <code>isinstance(self.strategy, DeComFL)</code> and routes to the DeComFL trigger, because that path also
+  writes <code>gradient_history[round]</code> (which clients replay to rebuild locally) and guards a <code>None</code>
+  evaluate. Hardcoding the FedAvg trigger here would silently desync every DeComFL client.</li>
+</ul>
+<p>The split also exists so the <strong>in-process simulator</strong> can model dropout deterministically: it calls
+the mechanism directly and resolves the round immediately, instead of sleeping out a 120-second
+deadline per dropped round (P0-1c). Deployed behaviour is unchanged — <code>_handle_round_timeout</code> is
+still the only caller on the server path, and it still phrases the failure as a timeout.</p>
 <h3 id="update-submission-and-aggregation-trigger">Update Submission and Aggregation Trigger<a class="headerlink" href="#update-submission-and-aggregation-trigger" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">submit_client_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">trained_on_round</span><span class="p">):</span>
     <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-        <span class="c1"># Stale update rejection (see below)</span>
-        <span class="k">if</span> <span class="n">trained_on_round</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">:</span>
-            <span class="k">return</span>
-        <span class="k">if</span> <span class="n">trained_on_round</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">trained_on_round</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">:</span>
+            <span class="k">return</span>                                  <span class="c1"># stale or ahead — see below</span>
+
+        <span class="c1"># FR-5: dedup. A retried submit must be counted ONCE.</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">cid</span> <span class="o">==</span> <span class="n">client_id</span> <span class="k">for</span> <span class="n">cid</span><span class="p">,</span> <span class="n">_p</span><span class="p">,</span> <span class="n">_n</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="p">):</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Ignoring duplicate update from </span><span class="si">%s</span><span class="s2"> in round </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">client_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">)</span>
             <span class="k">return</span>
 
-        <span class="c1"># Sanitise num_examples</span>
         <span class="k">if</span> <span class="n">num_examples</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Invalid num_examples from </span><span class="si">%s</span><span class="s2">; skipping&quot;</span><span class="p">,</span> <span class="n">client_id</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Invalid num_examples (</span><span class="si">%s</span><span class="s2">) from client </span><span class="si">%s</span><span class="s2">; skipping update&quot;</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">client_id</span><span class="p">)</span>
             <span class="k">return</span>
-        <span class="n">num_examples</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">num_examples</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_NUM_EXAMPLES</span><span class="p">)</span>  <span class="c1"># cap at 100,000</span>
+        <span class="n">num_examples</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">num_examples</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_NUM_EXAMPLES</span><span class="p">)</span>   <span class="c1"># cap at 100,000</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">))</span>
+        <span class="c1"># ... the ingress defenses below (empty / non-finite / shape / optional clip) ...</span>
 
-        <span class="c1"># Trigger aggregation when we have all expected updates</span>
+        <span class="c1"># Tagged with the client identity so a poisoned update is ATTRIBUTABLE.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">client_id</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">))</span>
+
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">clients_per_round</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_aggregation_and_evaluation</span><span class="p">()</span>
             <span class="c1"># Note: this is still inside _lock — intentional</span>
@@ -301,8 +477,15 @@
 
     <span class="k">if</span> <span class="n">aggregated_parameters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_global_model_params</span> <span class="o">=</span> <span class="n">aggregated_parameters</span>
-        <span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_model_params</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">latest_metrics</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="n">loss</span><span class="p">,</span> <span class="o">**</span><span class="n">metrics</span><span class="p">}</span>
+        <span class="c1"># FR-22: evaluate() returns None when no evaluate_fn is configured — the constructor</span>
+        <span class="c1"># default for FedAvg/FedProx/FedOpt/FedLoRA/Robust. Unpacking None as a 2-tuple raised</span>
+        <span class="c1"># a TypeError INSIDE the lock, after updates were cleared, wedging the round.</span>
+        <span class="n">eval_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_model_params</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">eval_result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="n">eval_result</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">latest_metrics</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="n">loss</span><span class="p">,</span> <span class="o">**</span><span class="n">metrics</span><span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">latest_metrics</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Aggregation for round </span><span class="si">%d</span><span class="s2"> failed&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">latest_metrics</span> <span class="o">=</span> <span class="kc">None</span>
@@ -313,8 +496,65 @@
 </code></pre></div>
 
 <blockquote>
+<p><strong>The stored update is a 3-tuple <code>(client_id, params, num_examples)</code></strong>, not a 2-tuple. Every
+aggregator accepts both shapes via <code>server/_update_normalize.normalize_updates</code>, but the
+coordinator always tags the client id so a rejected or anomalous update is attributable.</p>
 <p><strong>Memory note:</strong> <code>self._client_updates_received.clear()</code> is called immediately after copying to <code>results</code>. This frees all client parameter tensors as soon as aggregation completes, which is critical when training large models across many clients.</p>
 </blockquote>
+<h3 id="ingress-defenses-on-submit_client_update">Ingress Defenses on submit_client_update<a class="headerlink" href="#ingress-defenses-on-submit_client_update" title="Permanent link">&para;</a></h3>
+<p>Every one of these runs <strong>before</strong> the update is stored, under the lock. All of them <code>raise
+ValueError</code>, which the servicer maps to a client-visible <code>INVALID_ARGUMENT</code> — the point is that a
+bad client is told it is bad, rather than the round dying later and blaming whoever submitted last.</p>
+<table>
+<thead>
+<tr>
+<th>Guard</th>
+<th>Rejects</th>
+<th>Why it must be at ingress</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>FR-5 dedup</strong></td>
+<td>a <code>client_id</code> already counted this round</td>
+<td><code>ABORTED</code>/<code>UNAVAILABLE</code>/<code>DEADLINE_EXCEEDED</code> are client-retryable, so the server <em>will</em> see the same update twice. A second append both inflates that client's weight and can trip the <code>clients_per_round</code> trigger with fewer than N distinct clients. First accepted update wins.</td>
+</tr>
+<tr>
+<td><strong>Empty update</strong></td>
+<td><code>params == {}</code></td>
+<td>With <code>clients_per_round == 1</code> (or an all-empty cohort) FedAvg produces a zero-key aggregate that silently <strong>wipes</strong> the global model while the round advances as a false success. Nothing downstream catches it: the finiteness check is <code>all([]) == True</code> and the shape loop is a no-op on zero keys.</td>
+</tr>
+<tr>
+<td><strong>SE-3 non-finite</strong></td>
+<td>any NaN/Inf tensor</td>
+<td>One NaN corrupts the average for every honest client in the round. Checked in the tensor's own dtype <strong>and</strong> in float32 — a value finite only in a wider dtype (<code>1e300</code> as float64) overflows to <code>inf</code> when downcast to the aggregation precision, or becomes NaN inside the delta clip.</td>
+</tr>
+<tr>
+<td><strong>FR-17 shape mismatch</strong></td>
+<td>a key whose shape differs from the global's</td>
+<td>FedAvg does an in-place <code>torch.add</code>, so a mismatch would raise deep inside <code>aggregate_fit</code> — <em>after</em> the round's updates were cleared and the client was ACKed, wedging the round, discarding every honest update, misattributing the error to the last (often honest) submitter, and then tripping the timeout path that stops the whole server. Only keys shared with the global are checked; missing/extra keys are a separate concern (FR-18).</td>
+</tr>
+<tr>
+<td><strong>SE-3 delta clip</strong> (opt-in)</td>
+<td>nothing — it <strong>bounds</strong></td>
+<td><code>client_update_l2_clip</code> clips <code>params - global</code> to a joint L2 budget and returns <code>global + clipped_delta</code>. <strong>Off by default</strong>, unlike the DeComFL scalar clamp: a too-tight bound on dense FedAvg deltas biases honest convergence, so it is a deliberate knob. Only float tensors with a matching global key/shape are clipped; integer buffers pass through.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="shipping-client-side-hyperparameters">Shipping Client-Side Hyperparameters<a class="headerlink" href="#shipping-client-side-hyperparameters" title="Permanent link">&para;</a></h3>
+<p><code>get_global_model_for_client()</code> returns <code>(params, current_round, config)</code> where <code>config</code> is
+<strong>not</strong> empty — it is <code>self._strategy_client_config()</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_strategy_client_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="n">get_cfg</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;get_client_config&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">get_cfg</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">get_cfg</span><span class="p">()</span>
+</code></pre></div>
+
+<p>This is the params-path analogue of DeComFL's <code>GetDeComFLConfig</code>. A strategy that needs to push
+client-side knobs — FedProx's <code>proximal_mu</code>, or the shared <code>learning_rate</code> / <code>local_epochs</code> —
+exposes <code>get_client_config()</code> returning a <code>str -&gt; str</code> dict (the proto <code>config</code> is
+<code>map&lt;string,string&gt;</code>). <code>FedProx</code> and <code>FedOpt</code> implement it; <code>FedAvg</code>, <code>FedLoRA</code>, <code>DeComFL</code> and
+<code>RobustAggregator</code> do not, so they yield <code>{}</code> and behave exactly as before. <code>LocalTrainer.fit()</code>
+reads the values back and coerces them.</p>
 <h3 id="stale-update-rejection">Stale Update Rejection<a class="headerlink" href="#stale-update-rejection" title="Permanent link">&para;</a></h3>
 <p>The coordinator rejects updates that don't match the current round:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">if</span> <span class="n">trained_on_round</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">:</span>
@@ -325,14 +565,34 @@
 
 <p><strong>Why stale updates happen:</strong> If a client is slow and submits its update after the round has already advanced (because other clients submitted faster), the update is stale. Accepting it would corrupt the next round's aggregation with parameters from a different global model version.</p>
 <p><strong>Why "ahead" updates are rejected:</strong> This shouldn't happen in correct protocol execution. If it does, it indicates a bug or a malicious client. Rejecting silently is safe.</p>
-<h3 id="client-registration">Client Registration<a class="headerlink" href="#client-registration" title="Permanent link">&para;</a></h3>
+<h3 id="client-registration-and-identity-binding">Client Registration and Identity Binding<a class="headerlink" href="#client-registration-and-identity-binding" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">register_client</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
     <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_registered_clients</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">client_id</span><span class="p">)</span>
         <span class="k">return</span> <span class="kc">True</span>  <span class="c1"># currently always accepts</span>
 </code></pre></div>
 
-<p>The registration is lightweight — it just records the client ID. Future versions could implement capacity limits (reject if <code>len(registered_clients) &gt;= max_clients</code>).</p>
+<p>The coordinator's own registration is lightweight — it just records the client ID and always
+returns <code>True</code>. <strong>Rejection happens one layer up</strong>, in the servicer: <code>RegisterClient</code> rejects a
+set-but-mismatched <code>protocol_version</code> before ever reaching the coordinator, and
+<code>_enforce_client_identity</code> can abort <code>PERMISSION_DENIED</code> before that. The response also carries
+<code>assigned_round = coordinator.current_round</code>, which is what a <strong>late joiner</strong> should start on.</p>
+<p>The anti-Sybil binding lives in a separate method (SE-15), called from the servicer:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">bind_or_check_identity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">partition_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">client_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+        <span class="n">bound_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_partition_to_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">partition_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bound_client</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">bound_client</span> <span class="o">==</span> <span class="n">client_id</span>                 <span class="c1"># this token is already pinned</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client_to_partition</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">client_id</span><span class="p">,</span> <span class="n">partition_id</span><span class="p">)</span> <span class="o">!=</span> <span class="n">partition_id</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>   <span class="c1"># this client_id already belongs to a DIFFERENT token</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_partition_to_client</span><span class="p">[</span><span class="n">partition_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">client_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_client_to_partition</span><span class="p">[</span><span class="n">client_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">partition_id</span>
+        <span class="k">return</span> <span class="kc">True</span>
+</code></pre></div>
+
+<p>Trust-on-first-use, a strict bijection in both directions, and the whole check-then-bind under the
+lock so two concurrent first-use calls for one partition cannot both win. No capacity limit on
+<code>_registered_clients</code> exists yet.</p>
 <hr />
 <h2 id="heartbeat-management">Heartbeat Management<a class="headerlink" href="#heartbeat-management" title="Permanent link">&para;</a></h2>
 <p>The coordinator maintains a <code>client_heartbeats</code> dictionary keyed by <code>client_id</code>:</p>
@@ -349,6 +609,7 @@
 
 <p>Updated by <code>update_client_heartbeat()</code> on every heartbeat RPC (every 5 seconds per client):</p>
 <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">update_client_heartbeat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">status</span><span class="p">,</span> <span class="n">current_step</span><span class="p">,</span> <span class="n">total_steps</span><span class="p">,</span> <span class="n">current_round</span><span class="p">):</span>
+    <span class="c1"># Record liveness FIRST, so bookkeeping stays accurate even during teardown.</span>
     <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">heartbeat_lock</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">client_heartbeats</span><span class="p">[</span><span class="n">client_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="n">status</span><span class="p">,</span>
@@ -357,13 +618,24 @@
             <span class="s1">&#39;current_round&#39;</span><span class="p">:</span> <span class="n">current_round</span><span class="p">,</span>
             <span class="s1">&#39;last_seen&#39;</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="p">}</span>
-    <span class="c1"># ...</span>
-    <span class="n">should_stop</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">should_stop</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Heartbeat received for </span><span class="si">{</span><span class="n">client_id</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="c1"># ... DEBUG progress logging (per-step heartbeats are chatty) ...</span>
+
+    <span class="c1"># FR-10: should_stop reflects the coordinator&#39;s REAL stop state.</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop_requested</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Server stop requested; </span><span class="si">{</span><span class="n">client_id</span><span class="si">}</span><span class="s2"> should abort training&quot;</span>
+    <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Heartbeat received for </span><span class="si">{</span><span class="n">client_id</span><span class="si">}</span><span class="s2">&quot;</span>
 </code></pre></div>
 
 <blockquote>
-<p><strong><code>should_stop</code> field:</strong> Included for future use — the server can signal a client to stop mid-training by returning <code>should_stop=True</code> from the heartbeat response. Currently always <code>False</code>.</p>
+<p><strong><code>should_stop</code> is WIRED (FR-10) — it is no longer a hardcoded <code>False</code>.</strong> It mirrors
+<code>stop_requested</code>, which is set by <code>signal_stop()</code>, by <code>mark_training_complete()</code>, and by the
+quorum-lost branch of <code>resolve_round_incomplete()</code>. A globally-stopped coordinator therefore asks
+every heart-beating client to halt its fit loop. On the client side, <code>GrpcClient.send_heartbeat</code>
+latches it into a <code>threading.Event</code> (<code>_stop_training</code>) that the training thread polls between
+local steps — the heartbeat stub is the <em>only</em> channel that can reach a client whose training stub
+is blocked inside <code>fit()</code>. See
+<a href="02_grpc_communication.html#the-heartbeat-channel-is-also-the-stop-signal-fr-10">02 — Dual-Channel Heartbeat</a>
+and <a href="04_client_internals.html#server-driven-stop-fr-10">04 — Client Internals</a>.</p>
 </blockquote>
 <p>Active client detection uses a 300-second timeout:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_active_clients</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
@@ -378,11 +650,30 @@
 
 <hr />
 <h2 id="decomfl-path-in-the-coordinator">DeComFL Path in the Coordinator<a class="headerlink" href="#decomfl-path-in-the-coordinator" title="Permanent link">&para;</a></h2>
-<p>When <code>DeComFL</code> is the active strategy, the coordinator has a separate update path:</p>
+<p>When <code>DeComFL</code> is the active strategy, the coordinator has a separate update path with its own
+validation and its own trigger:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">submit_decomfl_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">gradient_scalars</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">trained_on_round</span><span class="p">):</span>
     <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-        <span class="c1"># same stale rejection logic as FedAvg path</span>
-        <span class="o">...</span>
+        <span class="c1"># ... same stale / ahead rejection as the FedAvg path ...</span>
+
+        <span class="c1"># FR-5: validate the K x P grid against the STRATEGY&#39;s configuration, before the</span>
+        <span class="c1"># scalars can reach aggregate_fit (which indexes grad_scalars[k][p]).</span>
+        <span class="c1"># Raised, not dropped -&gt; the servicer maps it to INVALID_ARGUMENT.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gradient_scalars</span><span class="p">)</span> <span class="o">!=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">K</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">!=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">P</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">gradient_scalars</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MalformedDeComFLSubmission</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+
+        <span class="c1"># FR-5: dedup (same rationale as the FedAvg path).</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">cid</span> <span class="o">==</span> <span class="n">client_id</span> <span class="k">for</span> <span class="n">cid</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="p">):</span>
+            <span class="k">return</span>
+
+        <span class="c1"># SE-3 layer 1: reject non-finite scalars outright.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">gradient_scalars</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">row</span><span class="p">):</span>
+            <span class="k">return</span>
+
+        <span class="c1"># SE-3 layer 2: CLAMP finite-but-huge scalars into [-tau, +tau].</span>
+        <span class="n">tau</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grad_clip_threshold</span>                       <span class="c1"># default 1000.0; None disables</span>
+        <span class="n">gradient_scalars</span> <span class="o">=</span> <span class="p">[[</span><span class="nb">max</span><span class="p">(</span><span class="o">-</span><span class="n">tau</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="n">g</span><span class="p">))</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">row</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">gradient_scalars</span><span class="p">]</span>
+
         <span class="c1"># Store as 3-tuple: (client_id, gradient_scalars, num_examples)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_client_updates_received</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">client_id</span><span class="p">,</span> <span class="n">gradient_scalars</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">))</span>
 
@@ -398,18 +689,43 @@
     <span class="k">if</span> <span class="n">aggregated_parameters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_global_model_params</span> <span class="o">=</span> <span class="n">aggregated_parameters</span>
 
-        <span class="c1"># Store gradient history for client model rebuilding</span>
         <span class="n">avg_gradients</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_average_gradients</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s1">&#39;gradient_history&#39;</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">gradient_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">avg_gradients</span><span class="p">)</span>
+        <span class="c1"># FR-6: TYPED dispatch — isinstance guarantees gradient_history exists on a DeComFL.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="n">DeComFL</span><span class="p">):</span>
+            <span class="c1"># A DICT keyed by ROUND, aligned with seed_history + get_rebuild_history.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">gradient_history</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">]</span> <span class="o">=</span> <span class="n">avg_gradients</span>
 
-        <span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">latest_metrics</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="n">loss</span><span class="p">,</span> <span class="o">**</span><span class="n">metrics</span><span class="p">}</span>
+        <span class="n">eval_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_model_params</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">eval_result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="n">eval_result</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">latest_metrics</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="n">loss</span><span class="p">,</span> <span class="o">**</span><span class="n">metrics</span><span class="p">}</span>
 
     <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span> <span class="o">+=</span> <span class="mi">1</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
 </code></pre></div>
 
+<p>Three things here are easy to get wrong:</p>
+<ul>
+<li><strong><code>gradient_history</code> is a <code>Dict[int, List[List[float]]]</code> keyed by round number</strong>, assigned to —
+  not a list appended to. Same for <code>seed_history</code>. The old list-append produced N entries per round
+  and off-by-one indexing, and handed each client a <em>different</em> perturbation direction, breaking
+  DeComFL's shared-seed invariant.</li>
+<li><strong>The strategy check is <code>isinstance(self.strategy, DeComFL)</code>, not <code>hasattr(...)</code></strong> (FR-6).
+  <code>decomfl_strategy</code> does not import <code>coordinator</code>, so the typed import is safe.</li>
+<li><strong>The scalar guard is two-layered on purpose.</strong> Non-finite is <em>rejected</em>; finite-but-huge is
+  <em>clamped</em>, to preserve liveness. The clamp happens at ingress, before storage, so both consumers
+  of the stored scalars read identical values: <code>aggregate_fit</code> (which steps the real global model)
+  and <code>_calculate_average_gradients</code> (which feeds <code>gradient_history</code>, which clients replay to
+  rebuild). Clamping later would desync them. The honest zeroth-order scalar envelope is ~O(10)
+  (O(100) at init), so the <code>1e3</code> default is ≥10× above honest support — the identity map on honest
+  values, with zero trajectory bias, while capping a 1e9-scale hijack to a bounded, recoverable
+  step.</li>
+</ul>
+<p><strong>What the clamp does NOT cover, stated plainly:</strong> within-bound stealth bias and rail collusion. Those
+need client identity (SE-1/SE-15) plus reputation. Robust aggregation (median / trimmed-mean) is a
+<em>large-cohort</em> defense and is close to a no-op at the 1–3 client cohorts this platform often runs —
+which is why it is opt-in per project rather than the default. See
+<a href="05_strategies.html#byzantine-robust-aggregation-fr-12">05 — Byzantine-Robust Aggregation</a>.</p>
 <p>The <code>_calculate_average_gradients()</code> computes element-wise average gradient scalars across all clients:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_calculate_average_gradients</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
     <span class="c1"># results = [(client_id, grad_scalars[K][P], num_examples), ...]</span>
@@ -431,34 +747,68 @@
     <span class="k">return</span> <span class="n">avg</span>
 </code></pre></div>
 
-<p>These averaged gradients are stored in <code>strategy.gradient_history</code> so that late-joining clients can replay missed rounds and rebuild their local model to match the current global state.</p>
+<p>These averaged gradients are stored in <code>strategy.gradient_history[round]</code> so that late-joining or
+straggling clients can replay missed rounds and rebuild their local model to match the current global
+state. Note the average is <strong>unweighted</strong> — <code>num_examples</code> is collected but not used, which the proto
+comment states explicitly. See
+<a href="06_decomfl.html#model-rebuild-for-missed-rounds">06 — Model Rebuild for Missed Rounds</a> for the
+consumer side, including the <code>DeComFLRebuildGap</code> fail-loud guard and history pruning.</p>
 <hr />
 <h2 id="the-grpc-servicer">The gRPC Servicer<a class="headerlink" href="#the-grpc-servicer" title="Permanent link">&para;</a></h2>
 <p><code>FederatedLearningServiceServicer</code> is a thin I/O adapter. Every method:
-1. Deserialises the protobuf request
-2. Calls the appropriate coordinator method
-3. Serialises the protobuf response</p>
-<p>There is intentionally no business logic in the servicer. Example:</p>
+1. Enforces the SE-15 identity binding (<strong>before</strong> any <code>try/except</code> — <code>context.abort</code> raises, and
+   that must reach gRPC rather than be swallowed and remapped)
+2. Deserialises the protobuf request
+3. Calls the appropriate coordinator method
+4. Serialises the protobuf response, mapping exceptions to the right status code</p>
+<p>The only logic that genuinely lives <em>in</em> the servicer rather than the coordinator is the part that
+is about the transport itself: protocol-version negotiation, the SE-18 streamed-upload caps, the
+safetensors encode/chunking for <code>GetGlobalModelStream</code>, and the exception → status-code map. Example:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FederatedLearningServiceServicer</span><span class="p">(</span><span class="n">fedlearn_pb2_grpc</span><span class="o">.</span><span class="n">FederatedLearningServiceServicer</span><span class="p">):</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coordinator</span><span class="p">:</span> <span class="n">FLCoordinator</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span> <span class="o">=</span> <span class="n">coordinator</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">RegisterClient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_enforce_client_identity</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">client_id</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>   <span class="c1"># SE-15, before any try:</span>
+        <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">protocol_version</span> <span class="ow">and</span> <span class="n">request</span><span class="o">.</span><span class="n">protocol_version</span> <span class="o">!=</span> <span class="n">SERVER_PROTOCOL_VERSION</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">RegisterClientResponse</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="n">REJECTED</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="s2">&quot;Protocol version mismatch: …&quot;</span><span class="p">,</span>
+                                          <span class="n">protocol_version</span><span class="o">=</span><span class="n">SERVER_PROTOCOL_VERSION</span><span class="p">)</span>
         <span class="n">success</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span><span class="o">.</span><span class="n">register_client</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">client_id</span><span class="p">)</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="p">(</span><span class="n">RegisterClientResponse</span><span class="o">.</span><span class="n">Status</span><span class="o">.</span><span class="n">ACCEPTED</span> <span class="k">if</span> <span class="n">success</span>
-                  <span class="k">else</span> <span class="n">RegisterClientResponse</span><span class="o">.</span><span class="n">Status</span><span class="o">.</span><span class="n">REJECTED</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">RegisterClientResponse</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">RegisterClientResponse</span><span class="p">(</span>
+            <span class="n">status</span><span class="o">=</span><span class="n">ACCEPTED</span> <span class="k">if</span> <span class="n">success</span> <span class="k">else</span> <span class="n">REJECTED</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+            <span class="n">assigned_round</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span><span class="o">.</span><span class="n">current_round</span><span class="p">,</span>   <span class="c1"># late joiners start on the live round</span>
+            <span class="n">protocol_version</span><span class="o">=</span><span class="n">SERVER_PROTOCOL_VERSION</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">SubmitModelUpdate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
-        <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span> <span class="o">=</span> <span class="n">proto_to_parameters</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span><span class="o">.</span><span class="n">submit_client_update</span><span class="p">(</span>
-            <span class="n">request</span><span class="o">.</span><span class="n">client_id</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">trained_on_round</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">SubmitModelUpdateResponse</span><span class="p">(</span><span class="n">received</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_enforce_client_identity</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">client_id</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>   <span class="c1"># SE-15, before any try:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span> <span class="o">=</span> <span class="n">proto_to_parameters</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">coordinator</span><span class="o">.</span><span class="n">submit_client_update</span><span class="p">(</span>
+                <span class="n">request</span><span class="o">.</span><span class="n">client_id</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">trained_on_round</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">SubmitModelUpdateResponse</span><span class="p">(</span><span class="n">received</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># A client&#39;s fault -&gt; INVALID_ARGUMENT, not the generic INTERNAL that hides it.</span>
+            <span class="n">context</span><span class="o">.</span><span class="n">abort</span><span class="p">(</span><span class="n">grpc</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">INVALID_ARGUMENT</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;invalid model update: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">context</span><span class="o">.</span><span class="n">abort</span><span class="p">(</span><span class="n">grpc</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">INTERNAL</span><span class="p">,</span> <span class="s2">&quot;An internal server error occurred.&quot;</span><span class="p">)</span>
 </code></pre></div>
 
-<p>The <code>GetGlobalModelStream</code> and <code>SubmitModelUpdateStream</code> RPCs use Python generators — <code>yield</code> for server streaming, iterator consumption for client streaming.</p>
+<p>The <code>GetGlobalModelStream</code> and <code>SubmitModelUpdateStream</code> RPCs use Python generators — <code>yield</code> for
+server streaming, iterator consumption for client streaming. <code>SERVER_PROTOCOL_VERSION = 2</code> and must
+equal the mobile client's <code>kProtocolVersion</code>.</p>
+<blockquote>
+<p><strong>Two RPCs report failure without aborting.</strong> <code>GetDeComFLConfig</code> and <code>SubmitGradientScalars</code> use
+<code>context.set_code()</code> / <code>set_details()</code> and then <code>return</code> a default-valued response of their own
+type, rather than <code>context.abort()</code>. So a DeComFL client sees a status code <em>and</em> an empty
+message. (<code>SubmitGradientScalars</code> returning the wrong response type was FR-6's bug; it now returns
+<code>SubmitGradientScalarsResponse(received=False)</code>.) <code>Heartbeat</code> likewise swallows an internal error
+into <code>HeartbeatResponse(acknowledged=False, should_stop=False)</code> — a telemetry failure never fails
+the round, and neither does <code>ReportClientMetrics</code>.</p>
+</blockquote>
 <hr />
 <h2 id="server-thread-pool-sizing">Server Thread Pool Sizing<a class="headerlink" href="#server-thread-pool-sizing" title="Permanent link">&para;</a></h2>
 <p>The thread pool must be large enough to handle all concurrent RPCs:</p>
@@ -486,9 +836,19 @@
             <span class="k">break</span>
 
         <span class="n">metrics</span> <span class="o">=</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">get_latest_metrics</span><span class="p">()</span>
-        <span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">round_num</span><span class="p">,</span> <span class="n">metrics</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">metrics</span><span class="p">:</span>
+            <span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">round_num</span><span class="p">,</span> <span class="n">metrics</span><span class="p">))</span>   <span class="c1"># rounds with no metrics are NOT appended</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Round </span><span class="si">%d</span><span class="s2"> completed but no metrics available.&quot;</span><span class="p">,</span> <span class="n">round_num</span><span class="p">)</span>
 
     <span class="n">final_parameters</span> <span class="o">=</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">get_global_model_params</span><span class="p">()</span>
+
+    <span class="c1"># Tell still-connected clients the run is OVER, then give them a window to see it.</span>
+    <span class="n">coordinator</span><span class="o">.</span><span class="n">mark_training_complete</span><span class="p">()</span>
+    <span class="n">drain</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FEDLEARN_COMPLETION_DRAIN_SECONDS&quot;</span><span class="p">,</span> <span class="s2">&quot;3&quot;</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">drain</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">drain</span><span class="p">)</span>
+
     <span class="k">return</span> <span class="n">history</span><span class="p">,</span> <span class="n">final_parameters</span>
 
 <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
@@ -500,21 +860,36 @@
     <span class="n">grpc_server</span><span class="o">.</span><span class="n">stop</span><span class="p">(</span><span class="n">grace</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>   <span class="c1"># waits up to 5s for active RPCs to complete</span>
 </code></pre></div>
 
-<p><code>signal_stop()</code> sets <code>stop_requested = True</code> and also calls <code>_round_complete_event.set()</code> to unblock <code>wait_for_round_to_complete()</code>:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">signal_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<h3 id="two-terminal-flags-deliberately-distinct">Two terminal flags, deliberately distinct<a class="headerlink" href="#two-terminal-flags-deliberately-distinct" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">signal_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>                 <span class="c1"># stop OR error teardown — NOT a clean completion</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">stop_requested</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>  <span class="c1"># unblock the waiting main thread</span>
-</code></pre></div>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
 
-<p>After training completes, the server broadcasts a completion signal to clients by returning <code>current_round = -1</code> from <code>get_global_model_for_client()</code>:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_global_model_for_client</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">mark_training_complete</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>      <span class="c1"># all configured rounds finished successfully</span>
     <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop_requested</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">{}</span>   <span class="c1"># sentinel: -1 means &quot;training complete&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_global_model_params</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_round</span><span class="p">,</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">training_complete</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_requested</span> <span class="o">=</span> <span class="kc">True</span>     <span class="c1"># so the -1 sentinel also fires</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_round_complete_event</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
 </code></pre></div>
 
-<p>Clients detect this and exit cleanly:</p>
+<p><code>GetServerStatus</code> reports <code>TRAINING_COMPLETE</code> when <strong>either</strong> is set, so a client can always exit
+cleanly; but <code>training_complete</code> is the precise "all rounds done" signal, and only
+<code>mark_training_complete()</code> sets it.</p>
+<h3 id="how-a-client-learns-the-run-is-over-three-routes">How a client learns the run is over — three routes<a class="headerlink" href="#how-a-client-learns-the-run-is-over-three-routes" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>The <code>-1</code> sentinel.</strong> <code>get_global_model_for_client()</code> returns <code>(None, -1, {})</code> once
+   <code>stop_requested</code> is set; <code>GetDeComFLConfig</code> returns <code>current_round = -1</code>. <code>start_client</code> /
+   <code>start_decomfl_client</code> break on it.</li>
+<li><strong><code>should_stop</code> on the heartbeat</strong> (FR-10) — reaches a client even while its training stub is
+   blocked inside <code>fit()</code>.</li>
+<li><strong><code>GetServerStatus</code> → <code>TRAINING_COMPLETE</code>.</strong> This is the one that survives a hard teardown: a
+   completed run tears the RPCs down, so an in-flight call surfaces as <code>CANCELLED</code>/<code>UNAVAILABLE</code>.
+   <code>GrpcClient.server_reports_complete()</code> probes on the <em>heartbeat</em> channel (the training stub may
+   be in a bad state after a cancelled call) and, if the server is still draining, reports the run
+   finished — which is exactly what the drain window is for. A genuinely crashed server returns
+   <code>None</code> from the probe, so the client keeps its disconnect handling and reports
+   <code>OUTCOME_DISCONNECTED</code> rather than a false success.</li>
+</ol>
 <div class="codehilite"><pre><span></span><code><span class="c1"># client.py</span>
 <span class="n">parameters</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="n">comm_client</span><span class="o">.</span><span class="n">get_global_model</span><span class="p">()</span>
 <span class="k">if</span> <span class="n">server_round</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
@@ -524,11 +899,14 @@
 
 <hr />
 <h2 id="environment-variables-reference">Environment Variables Reference<a class="headerlink" href="#environment-variables-reference" title="Permanent link">&para;</a></h2>
+<p>Everything the server process reads. TLS/auth variables are also listed in
+<a href="02_grpc_communication.html#environment-variable-reference">02 — TLS Configuration</a>.</p>
 <table>
 <thead>
 <tr>
 <th>Variable</th>
 <th>Default</th>
+<th>Read by</th>
 <th>Description</th>
 </tr>
 </thead>
@@ -536,45 +914,115 @@
 <tr>
 <td><code>MAX_CLIENTS</code></td>
 <td><code>50</code></td>
-<td>Used to size the gRPC thread pool</td>
+<td><code>server.py</code></td>
+<td>Sizes the gRPC thread pool: <code>(MAX_CLIENTS * 2) + 10</code> workers</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_ROUND_TIMEOUT_S</code></td>
+<td><code>120.0</code></td>
+<td><code>coordinator.py</code></td>
+<td>Per-round dropout deadline. Invalid or ≤ 0 → warning + fall back to the default</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_COMPLETION_DRAIN_SECONDS</code></td>
+<td><code>"3"</code></td>
+<td><code>server.py</code></td>
+<td>Post-run window so clients can observe <code>TRAINING_COMPLETE</code>; ≤ 0 skips it</td>
 </tr>
 <tr>
 <td><code>FEDLEARN_GRPC_USE_TLS</code></td>
 <td><code>"0"</code></td>
-<td>Set to <code>"1"</code> to enable TLS</td>
+<td><code>security/tls.py</code></td>
+<td><code>"1"</code> to enable TLS</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_REQUIRE_TLS</code></td>
+<td>unset</td>
+<td><code>security/tls.py</code></td>
+<td><code>"1"</code> to <strong>require</strong> TLS — refuses to serve plaintext (SE-2)</td>
 </tr>
 <tr>
 <td><code>FEDLEARN_GRPC_SERVER_KEY</code></td>
 <td>—</td>
-<td>Path to server private key (PEM)</td>
+<td><code>server.py</code></td>
+<td>Path to server private key (PEM); required when TLS is on</td>
 </tr>
 <tr>
 <td><code>FEDLEARN_GRPC_SERVER_CERT</code></td>
 <td>—</td>
-<td>Path to server certificate (PEM)</td>
+<td><code>server.py</code></td>
+<td>Path to server certificate (PEM); required when TLS is on</td>
 </tr>
 <tr>
 <td><code>FEDLEARN_GRPC_ROOT_CERT</code></td>
 <td>—</td>
+<td><code>server.py</code></td>
 <td>CA cert for verifying clients (mTLS)</td>
 </tr>
 <tr>
 <td><code>FEDLEARN_GRPC_REQUIRE_CLIENT_AUTH</code></td>
 <td><code>"0"</code></td>
-<td><code>"1"</code> to require client certs</td>
+<td><code>server.py</code></td>
+<td><code>"1"</code> to require client <strong>certificates</strong> (mTLS)</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_REQUIRE_CLIENT_AUTH</code></td>
+<td>unset</td>
+<td><code>security/interceptor.py</code>, <code>security/identity.py</code></td>
+<td><code>"1"</code> to require a valid <strong>connection token</strong> (SE-1) and enable identity binding (SE-15). Distinct from the mTLS variable above — do not confuse them</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_FL_TOKEN_SECRET</code></td>
+<td>—</td>
+<td><code>security/interceptor.py</code></td>
+<td>Base64 HMAC secret for connection tokens (SE-7)</td>
+</tr>
+<tr>
+<td><code>APP_JWT_SECRET</code></td>
+<td>—</td>
+<td><code>security/interceptor.py</code></td>
+<td>Fallback secret until the dedicated one is provisioned</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_RUN_ID</code></td>
+<td>unset</td>
+<td><code>security/interceptor.py</code></td>
+<td>FR-7: binds the server to its run; a token for another run → <code>PERMISSION_DENIED</code></td>
+</tr>
+<tr>
+<td><code>FEDLEARN_MAX_UPLOAD_BYTES</code></td>
+<td>2 GiB</td>
+<td><code>grpc_servicer.py</code></td>
+<td>SE-18 streamed-upload byte cap</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_MAX_UPLOAD_CHUNKS</code></td>
+<td><code>100000</code></td>
+<td><code>grpc_servicer.py</code></td>
+<td>SE-18 streamed-upload chunk cap</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_MAX_UPLOAD_SECONDS</code></td>
+<td><code>600.0</code></td>
+<td><code>grpc_servicer.py</code></td>
+<td>SE-18 active-streaming deadline; ≤ 0 disables it</td>
 </tr>
 <tr>
 <td><code>FEDLEARN_USE_COMPRESSION</code></td>
 <td><code>"0"</code></td>
-<td><code>"1"</code> to enable LZ4 compression</td>
+<td><code>communication/serializer.py</code></td>
+<td><code>"1"</code> to enable LZ4 — read at <strong>import</strong> time; the gRPC streaming path ignores it</td>
 </tr>
 <tr>
 <td><code>FEDLEARN_CHUNK_SIZE_MB</code></td>
 <td><code>"4"</code></td>
-<td>Chunk size for streaming serialisation</td>
+<td><code>communication/serializer.py</code></td>
+<td>Default <code>serializer.CHUNK_SIZE</code>. Does <strong>not</strong> resize gRPC upload chunks (those are an explicit 50 MB)</td>
 </tr>
 </tbody>
-</table></article>
+</table>
+<p>Client-side only: <code>FEDLEARN_CONNECTION_TOKEN</code> (<code>security/client_interceptor.py</code>),
+<code>FEDLEARN_GRPC_CLIENT_KEY</code> / <code>FEDLEARN_GRPC_CLIENT_CERT</code> (<code>client/grpc_client.py</code>).</p></article>
     <nav class="toc"></nav>
   </div>
 </div>

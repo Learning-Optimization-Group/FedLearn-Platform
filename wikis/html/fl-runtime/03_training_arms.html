@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 — Training Arms · FedLearn Wiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../fonts/fonts.css">
+<script src="../app.js" defer></script>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <a class="brand" href="../index.html" style="text-decoration:none;color:inherit">
+    <span class="mark"></span>
+    <span><span class="name">FedLearn</span><br><span class="sub">Platform Wiki</span></span>
+  </a>
+  <nav><details class="nav-group" open>
+<summary>Overview</summary><ul>
+<li><a href="../index.html">Master Wiki</a></li>
+<li><a href="../VERSIONS.html">Component Versions</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Backend</summary><ul>
+<li><a href="../backend/README.html">Backend Architecture Wiki</a></li>
+<li><a href="../backend/01_architecture_overview.html">Architecture & Core Concepts</a></li>
+<li><a href="../backend/02_security_and_auth.html">Security and Authentication</a></li>
+<li><a href="../backend/03_project_management.html">Project Management Lifecycle</a></li>
+<li><a href="../backend/04_federated_orchestration.html">Federated Orchestration (FlServerManager)</a></li>
+<li><a href="../backend/05_websocket_logs_streaming.html">WebSocket Logs Streaming</a></li>
+<li><a href="../backend/06_identity_multitenancy_and_audit.html">Identity, Multi-Tenancy & Audit</a></li>
+<li><a href="../backend/07_artifact_registry.html">Content-Addressed Model Artifact Registry</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Frontend</summary><ul>
+<li><a href="../frontend/README.html">FedLearn Frontend Documentation</a></li>
+<li><a href="../frontend/API_and_Services.html">API and Services</a></li>
+<li><a href="../frontend/Architecture.html">Frontend Architecture & State Management</a></li>
+<li><a href="../frontend/Routing_and_Auth.html">Authentication & Routing</a></li>
+<li><a href="../frontend/UI_and_Components.html">UI and Components</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Framework</summary><ul>
+<li><a href="../framework/README.html">FedLearn Python Framework — Wiki</a></li>
+<li><a href="../framework/01_architecture_overview.html">01 — Architecture & Package Overview</a></li>
+<li><a href="../framework/02_grpc_communication.html">02 — gRPC Communication Layer</a></li>
+<li><a href="../framework/03_server_internals.html">03 — Server Internals</a></li>
+<li><a href="../framework/04_client_internals.html">04 — Client Internals</a></li>
+<li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
+<li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
+<li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
+<li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group" open>
+<summary>FL Runtime</summary><ul>
+<li><a href="README.html">FL Runtime Wiki</a></li>
+<li><a href="01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a class="active" href="03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="05_testing.html">05 — Testing & CI</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Desktop</summary><ul>
+<li><a href="../desktop/README.html">FedLearn Desktop — Wiki</a></li>
+<li><a href="../desktop/01-overview-and-architecture.html">FedLearn Desktop — Overview & Architecture</a></li>
+<li><a href="../desktop/02-security-model.html">FedLearn Desktop — Security Model</a></li>
+<li><a href="../desktop/03-main-process.html">FedLearn Desktop — Main Process Deep Dive</a></li>
+<li><a href="../desktop/04-preload-ipc-bridge.html">FedLearn Desktop — Preload Script & IPC Bridge</a></li>
+<li><a href="../desktop/05-renderer-components.html">FedLearn Desktop — Renderer & React Components</a></li>
+<li><a href="../desktop/06-build-and-packaging.html">FedLearn Desktop — Build, Packaging & Distribution</a></li>
+<li><a href="../desktop/07-hardware-profiles.html">FedLearn Desktop — Hardware Profiles & Training Execution</a></li>
+<li><a href="../desktop/08-developer-guide.html">FedLearn Desktop — Developer Guide & Contributing</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Mobile</summary><ul>
+<li><a href="../mobile/README.html">FedLearn Mobile — Wiki</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>Client (Docker)</summary><ul>
+<li><a href="../client-docker/README.html">FedLearn Client (Docker) — Wiki</a></li>
+</ul></details></nav>
+</aside>
+<div class="main">
+  <header class="topbar">
+    <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
+    <div class="crumb"><b>FL Runtime</b> &nbsp;·&nbsp; 03 — Training Arms</div>
+    <span class="spacer"></span>
+    <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
+  </header>
+  <div class="content-wrap">
+    <article class="article"><h1 id="03-training-arms">03 — Training Arms<a class="headerlink" href="#03-training-arms" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a> → <a href="README.html">FL Runtime Wiki</a></p>
+</blockquote>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#what-an-arm-is">What an Arm Is</a></li>
+<li><a href="#the-three-arms">The Three Arms</a></li>
+<li><a href="#how-an-arm-is-declared">How an Arm Is Declared</a></li>
+<li><a href="#the-arm-helpers-in-recipespy">The Arm Helpers in <code>recipes.py</code></a></li>
+<li><a href="#end-to-end-flow">End-to-End Flow</a></li>
+<li><a href="#server-side">Server Side</a></li>
+<li><a href="#client-side">Client Side</a></li>
+<li><a href="#arm_tradeoffjson--the-measured-cost-of-the-choice"><code>arm_tradeoff.json</code> — the measured cost of the choice</a></li>
+<li><a href="#provenance-the-arm-rides-on-every-result">Provenance: the Arm Rides on Every Result</a></li>
+<li><a href="#four-defects-only-a-live-federation-found">Four Defects Only a Live Federation Found</a></li>
+<li><a href="#frozen-means-frozen-the-batchnorm-trap">Frozen Means Frozen: the BatchNorm Trap</a></li>
+</ul>
+<hr />
+<h2 id="what-an-arm-is">What an Arm Is<a class="headerlink" href="#what-an-arm-is" title="Permanent link">&para;</a></h2>
+<p>A <strong>training arm</strong> is a declared property of a project that answers two questions at once:</p>
+<blockquote>
+<p><strong>which parameters train, and under what objective.</strong></p>
+</blockquote>
+<p>It started as only the first half. <code>OVA_LP</code> forced the second: it trains exactly the parameters <code>FROZEN_HEAD</code> trains, and differs solely in the loss. So an arm that recorded only a parameter subset would make two genuinely different experiments indistinguishable.</p>
+<p>Before arms existed, <code>client.py</code> inferred the behaviour from the recipe key — a module global <code>USE_DERIVED = (mt == "FROZEN_DEMO")</code>. That gave every recipe exactly one hard-coded arm, so <code>PNEUMONIA_CNN</code> could not be run frozen <em>and</em> full as two arms of one comparison through the product path. It also meant a result could not say which arm produced it, which is the bug class behind commit <code>21699bc</code> — <em>"frozen arm silently mislabelled its backbone, risking cell overwrites"</em>.</p>
+<hr />
+<h2 id="the-three-arms">The Three Arms<a class="headerlink" href="#the-three-arms" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code><span class="n">TRAINING_ARMS</span>  <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;FULL&quot;</span><span class="p">,</span> <span class="s2">&quot;FROZEN_HEAD&quot;</span><span class="p">,</span> <span class="s2">&quot;OVA_LP&quot;</span><span class="p">)</span>                  <span class="c1"># recipes.py:55</span>
+<span class="n">ARM_OBJECTIVES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;FULL&quot;</span><span class="p">:</span> <span class="s2">&quot;cross_entropy&quot;</span><span class="p">,</span>
+                  <span class="s2">&quot;FROZEN_HEAD&quot;</span><span class="p">:</span> <span class="s2">&quot;cross_entropy&quot;</span><span class="p">,</span>
+                  <span class="s2">&quot;OVA_LP&quot;</span><span class="p">:</span> <span class="s2">&quot;one_vs_all&quot;</span><span class="p">}</span>                           <span class="c1"># recipes.py:59</span>
+<span class="n">DEFAULT_ARM</span>    <span class="o">=</span> <span class="s2">&quot;FULL&quot;</span>                                             <span class="c1"># recipes.py:60</span>
+</code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>Arm</th>
+<th>Trains</th>
+<th>Objective</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FULL</code></td>
+<td>everything (<code>trainable_prefixes</code> is <code>None</code>)</td>
+<td>softmax cross-entropy</td>
+<td>The default. An omitted arm resolves here, so every project created before arms existed is unchanged</td>
+</tr>
+<tr>
+<td><code>FROZEN_HEAD</code></td>
+<td>only the head, per the recipe's <code>trainable_spec</code> prefixes</td>
+<td>softmax cross-entropy</td>
+<td>Head-only federation: the frozen backbone never rides the wire</td>
+</tr>
+<tr>
+<td><code>OVA_LP</code></td>
+<td>the same parameters as <code>FROZEN_HEAD</code></td>
+<td>one-vs-all (BCE-with-logits against a one-hot target)</td>
+<td>One-vs-all linear probing on a frozen encoder, per arXiv:2511.05028</td>
+</tr>
+</tbody>
+</table>
+<h3 id="why-the-objective-is-not-cosmetic">Why the objective is not cosmetic<a class="headerlink" href="#why-the-objective-is-not-cosmetic" title="Permanent link">&para;</a></h3>
+<p>Softmax cross-entropy normalises across classes, so raising one logit lowers every other class's contribution — a client holding <strong>none</strong> of class <em>k</em> still moves class <em>k</em>'s weights through that coupling. Under one-vs-all each class is its own binary problem, so a class absent from a client's shard is simply a negative example like any other. That is the recorded argument for suppressing client drift at its source under extreme non-IID.</p>
+<p><code>build_criterion</code> (<code>recipes.py:144</code>) constructs the loss. The <code>one_vs_all</code> branch uses <code>BCEWithLogitsLoss(reduction="sum")</code> divided by the batch size — <strong>sum over classes, mean over the batch</strong>, which is <em>not</em> <code>BCEWithLogitsLoss</code>'s default. Two reasons the default is wrong here:</p>
+<ol>
+<li><strong>Faithfulness.</strong> "C independent binary classifiers" means each classifier gets the gradient it would get trained standalone. Averaging over classes scales every one by 1/C, making a class's update depend on how many other classes exist — a weaker form of exactly the coupling this objective removes.</li>
+<li><strong>Comparability.</strong> Softmax cross-entropy averages over the batch only. Under the default, the OvA arm would train at 1/C the effective learning rate, so a <code>FROZEN_HEAD</code> vs <code>OVA_LP</code> contrast on CIFAR-10 would be confounded by a 10× LR difference rather than measuring the objective.</li>
+</ol>
+<p>Inference is unchanged: the head still emits per-class scores and <code>argmax</code> remains valid, so accuracy stays comparable across arms.</p>
+<blockquote>
+<p><strong>Honest scope.</strong> <code>OVA_LP</code> implements the frozen encoder and the one-vs-all objective. It does <strong>not</strong> implement the paper's two-stage schedule — this repository records that a schedule exists but not what it is, and inventing one would misattribute a design to the citation. <code>CIFAR_RESNET18</code>'s <code>arm_notes</code> block says so in the catalog itself, so the caveat travels with the metadata rather than living only in a doc. Read <code>OVA_LP</code> results as <em>OvA heads on a frozen encoder</em>, not as a reproduction of the paper.</p>
+</blockquote>
+<hr />
+<h2 id="how-an-arm-is-declared">How an Arm Is Declared<a class="headerlink" href="#how-an-arm-is-declared" title="Permanent link">&para;</a></h2>
+<p>Every recipe declares two things in its <code>RECIPE_METADATA</code> entry:</p>
+<div class="codehilite"><pre><span></span><code><span class="s2">&quot;supported_arms&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;FULL&quot;</span><span class="p">,</span> <span class="s2">&quot;FROZEN_HEAD&quot;</span><span class="p">,</span> <span class="s2">&quot;OVA_LP&quot;</span><span class="p">],</span>
+<span class="s2">&quot;trainable_spec&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;FULL&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;FROZEN_HEAD&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;fc.&quot;</span><span class="p">],</span> <span class="s2">&quot;OVA_LP&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;fc.&quot;</span><span class="p">]},</span>
+</code></pre></div>
+
+<p><code>trainable_spec[arm]</code> is a list of <strong>parameter-name prefixes</strong> that stay trainable; <code>None</code> means everything. Current declarations:</p>
+<table>
+<thead>
+<tr>
+<th>Recipe</th>
+<th><code>supported_arms</code></th>
+<th><code>FROZEN_HEAD</code> / <code>OVA_LP</code> prefixes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PNEUMONIA_CNN</code></td>
+<td><code>FULL</code>, <code>FROZEN_HEAD</code></td>
+<td><code>classifier.</code></td>
+</tr>
+<tr>
+<td><code>CNN</code></td>
+<td><code>FULL</code>, <code>FROZEN_HEAD</code></td>
+<td><code>fc3.</code></td>
+</tr>
+<tr>
+<td><code>CIFAR_RESNET18</code></td>
+<td><code>FULL</code>, <code>FROZEN_HEAD</code>, <code>OVA_LP</code></td>
+<td><code>fc.</code> (both)</td>
+</tr>
+<tr>
+<td><code>MLP</code></td>
+<td><code>FULL</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>TRANSFORMER</code></td>
+<td><code>FULL</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>LLM_LORA</code></td>
+<td><code>FULL</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>TINYNET_GOLDEN</code></td>
+<td><code>FULL</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>BLOOD_CNN</code> (non-catalog)</td>
+<td><code>FULL</code>, <code>FROZEN_HEAD</code></td>
+<td><code>classifier.</code></td>
+</tr>
+<tr>
+<td><code>FROZEN_DEMO</code> (non-catalog)</td>
+<td><code>FULL</code>, <code>FROZEN_HEAD</code></td>
+<td><code>head.</code></td>
+</tr>
+</tbody>
+</table>
+<p>Two invariants are pinned by <code>tests/test_ova_lp_arm.py</code>: a recipe offering <code>OVA_LP</code> must also offer <code>FROZEN_HEAD</code> (OvA-LP <em>is</em> linear probing on a frozen encoder, so it needs the same freezing capability), and <code>OVA_LP</code> must declare the <strong>same prefixes</strong> as <code>FROZEN_HEAD</code> on that recipe — otherwise the comparison between them stops being controlled.</p>
+<hr />
+<h2 id="the-arm-helpers-in-recipespy">The Arm Helpers in <code>recipes.py</code><a class="headerlink" href="#the-arm-helpers-in-recipespy" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Line</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apply_arm(model, arm, prefixes)</code></td>
+<td><code>recipes.py:63</code></td>
+<td>Sets <code>requires_grad</code> across the model in place. <strong>Writes every parameter's flag</strong>, never just clearing some, so applying an arm is idempotent and a process that ran a frozen arm cannot leak frozen state into a later <code>FULL</code> run in the same interpreter. <strong>Raises if the prefixes match nothing</strong> — a typo'd prefix would otherwise freeze the whole model and train nothing, which looks like a converged-but-terrible run rather than an error</td>
+</tr>
+<tr>
+<td><code>freeze_untrained_modules(model, prefixes)</code></td>
+<td><code>recipes.py:95</code></td>
+<td>Puts every module <em>outside</em> the trainable set into <code>eval()</code> mode. See <a href="#frozen-means-frozen-the-batchnorm-trap">the BatchNorm trap</a>. Prefixes are <em>parameter</em>-name prefixes (<code>"fc."</code>) while module names are bare (<code>"fc"</code>), so it appends the separator before comparing — matching the raw name would put the trainable head itself into eval mode and silently disable its dropout</td>
+</tr>
+<tr>
+<td><code>arm_objective(recipe_key, arm)</code></td>
+<td><code>recipes.py:139</code></td>
+<td>The objective for this (recipe, arm). Validates first, so it raises on an arm the recipe cannot run</td>
+</tr>
+<tr>
+<td><code>build_criterion(objective)</code></td>
+<td><code>recipes.py:144</code></td>
+<td>The loss. This is the only function here that imports torch</td>
+</tr>
+<tr>
+<td><code>validate_arm(recipe_key, arm)</code></td>
+<td><code>recipes.py:186</code></td>
+<td>Resolves <code>None</code>/<code>""</code> to a runnable arm and rejects unsupported ones. Called at <strong>project creation</strong> so a bad arm fails there rather than at FL-server spawn</td>
+</tr>
+<tr>
+<td><code>trainable_prefixes(recipe_key, arm)</code></td>
+<td><code>recipes.py:217</code></td>
+<td>The prefixes; <code>None</code> = everything</td>
+</tr>
+<tr>
+<td><code>arm_stamp(recipe_key, arm)</code></td>
+<td><code>recipes.py:224</code></td>
+<td>JSON-serialisable provenance for a result's <code>meta</code> block</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-resolution-rule-in-validate_arm">The resolution rule in <code>validate_arm</code><a class="headerlink" href="#the-resolution-rule-in-validate_arm" title="Permanent link">&para;</a></h3>
+<p>An omitted arm resolves to <code>FULL</code> <strong>when the recipe supports it</strong>. When it does not, and the recipe offers exactly one arm, it resolves to that one; when it does not and several arms are offered, it raises and demands the arm be stated explicitly.</p>
+<p>That middle case is not hypothetical. <code>CIFAR_RESNET18</code> could not run <code>FULL</code> at all until 2026-08-13 — every BatchNorm module carries an int64 <code>num_batches_tracked</code> and the safetensors wire is float32-only, so a <code>FULL</code> run died on the first <code>GetGlobalModel</code>. Raising on every creation that omitted the arm would have turned a capability limit into an outage.</p>
+<hr />
+<h2 id="end-to-end-flow">End-to-End Flow<a class="headerlink" href="#end-to-end-flow" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>Frontend  CreateProjectModal
+   │  arm selector rendered only when supportedArms.length &gt; 1;
+   │  trainingArm is included in the payload only when a choice was offered
+   ▼
+POST /api/projects   CreateProjectRequest.trainingArm
+   │  @Pattern &quot;must be one of: FULL, FROZEN_HEAD, OVA_LP&quot;
+   ▼
+Java  TrainingArm enum  →  Project.trainingArm  (defaults to FULL)
+   │  DB: projects.training_arm VARCHAR(32) NOT NULL DEFAULT &#39;FULL&#39;
+   │      CHECK chk_projects_training_arm IN (&#39;FULL&#39;,&#39;FROZEN_HEAD&#39;,&#39;OVA_LP&#39;)
+   │      (V22__project_training_arm.sql, widened by V23__training_arm_ova_lp.sql)
+   ▼
+FlServerManager.buildServerCommand
+   │  emits --training-arm ONLY when the arm is not FULL, so a pre-arm spawn&#39;s
+   │  argv is byte-identical to before
+   ▼
+fl-runtime/fl_server.py  --training-arm      fl-runtime/client.py  --training-arm
+                                              ▲
+                       Desktop: TRAINING_ARM env → entrypoint.sh (Docker path)
+                                or --training-arm directly (native path)
+</code></pre></div>
+
+<p>The <strong>Python side is the authority on whether a recipe supports an arm</strong> — <code>recipes.validate_arm()</code> decides that, because the catalog is where <code>supported_arms</code> lives. The Java enum and the V23 <code>CHECK</code> bound the <em>vocabulary</em> only.</p>
+<hr />
+<h2 id="server-side">Server Side<a class="headerlink" href="#server-side" title="Permanent link">&para;</a></h2>
+<p><code>fl_server.py</code> resolves and applies the arm while loading initial parameters (<code>fl_server.py:667-687</code>):</p>
+<div class="codehilite"><pre><span></span><code><span class="n">args</span><span class="o">.</span><span class="n">training_arm</span> <span class="o">=</span> <span class="n">recipes</span><span class="o">.</span><span class="n">validate_arm</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">model_type</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">training_arm</span><span class="p">)</span>
+<span class="n">full_initial_parameters</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span><span class="n">initial_parameters</span><span class="p">)</span>   <span class="c1"># keep the complete model</span>
+<span class="n">initial_parameters</span> <span class="o">=</span> <span class="n">federable_state</span><span class="p">(</span><span class="n">initial_parameters</span><span class="p">)</span>    <span class="c1"># drop non-float32 first</span>
+<span class="n">_prefixes</span> <span class="o">=</span> <span class="n">recipes</span><span class="o">.</span><span class="n">trainable_prefixes</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">model_type</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">training_arm</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">_prefixes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">_kept</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">initial_parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                        <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">_prefixes</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_kept</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>   <span class="c1"># names the arm, the prefixes and the keys it actually saw</span>
+        <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>              <span class="c1"># an empty federated set is a hard failure, not a degenerate run</span>
+    <span class="n">initial_parameters</span> <span class="o">=</span> <span class="n">_kept</span>
+</code></pre></div>
+
+<p>Three properties of that block matter:</p>
+<ul>
+<li><strong>The <code>.npz</code> deliberately keeps the FULL model.</strong> The arm is applied here, at load, not at save — the frozen backbone has to stay recoverable. See <a href="04_the_federated_set.html#saving-merge_non_federated">04</a>.</li>
+<li><strong>The wire filter runs <em>before</em> the arm filter</strong>, using the same helper the client uses, so both sides agree on the federated key set by construction.</li>
+<li><strong>An arm whose prefixes match no key in the <code>.npz</code> exits 1</strong> with the keys it actually saw, rather than federating an empty set.</li>
+</ul>
+<p>The server must federate exactly what the clients send. A client on a subset arm returns <code>trainable_state(net)</code>; a server holding the full state dict would have <code>d_server &gt; d_client</code>, and for DeComFL the shared-seed perturbation <code>z</code> would silently misalign.</p>
+<p><code>fl_server.py</code> also derives <strong>evaluation strictness</strong> from the arm rather than from a recipe name — see <a href="04_the_federated_set.html#evaluation-strictness">04</a>.</p>
+<hr />
+<h2 id="client-side">Client Side<a class="headerlink" href="#client-side" title="Permanent link">&para;</a></h2>
+<p><code>client.py</code> resolves the arm in <code>main()</code> and stores three globals:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">MODEL_TYPE</span>   <span class="o">=</span> <span class="n">mt</span>
+<span class="n">TRAINING_ARM</span> <span class="o">=</span> <span class="n">_r</span><span class="o">.</span><span class="n">validate_arm</span><span class="p">(</span><span class="n">mt</span><span class="p">,</span> <span class="n">requested</span><span class="p">)</span>
+<span class="n">USE_DERIVED</span>  <span class="o">=</span> <span class="n">_r</span><span class="o">.</span><span class="n">trainable_prefixes</span><span class="p">(</span><span class="n">mt</span><span class="p">,</span> <span class="n">TRAINING_ARM</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</code></pre></div>
+
+<p><code>USE_DERIVED</code> is <strong>derived from whether the arm federates a subset</strong>, not from an arm-name comparison. The name test silently excluded <code>OVA_LP</code>, which is also a subset arm — and comparing arm names is the pattern behind three separate defects in this file's history.</p>
+<p>Three places consume it:</p>
+<ol>
+<li><strong><code>apply_declared_arm(net)</code></strong> (<code>client.py:173</code>), called <strong>after the whole build chain</strong> (<code>client.py:695</code>) rather than inside one branch of it. See below.</li>
+<li><strong><code>get_parameters()</code></strong> (<code>client.py:714</code>) — under a subset arm it returns <code>trainable_state(self.net)</code>, so the frozen backbone never rides the wire. This mirrors the <code>LLM_LORA</code> adapter-only upload.</li>
+<li><strong><code>fit()</code></strong> — under a subset arm the aggregated head is loaded with <code>strict=False</code>, because the wire carried only the head and the local backbone must survive.</li>
+</ol>
+<p>The objective is applied in <code>train()</code> (<code>client.py:405-414</code>): the criterion comes from <code>recipes.arm_objective(MODEL_TYPE, TRAINING_ARM)</code>, defaulting to cross-entropy when no recipe is set, so every legacy caller is byte-identical.</p>
+<blockquote>
+<p><strong>A known asymmetry, stated honestly:</strong> <code>fl_server.py</code>'s <code>server_side_evaluate</code> builds <code>torch.nn.CrossEntropyLoss()</code> unconditionally (<code>fl_server.py:830</code>). So an <code>OVA_LP</code> run trains under one-vs-all but its reported server-side <em>eval loss</em> is cross-entropy. Accuracy — which is what the arm trade-off is stated in — is unaffected, because argmax over per-class scores is valid under both objectives. Treat an <code>OVA_LP</code> run's loss curve as not directly comparable to its own training loss.</p>
+</blockquote>
+<hr />
+<h2 id="arm_tradeoffjson-the-measured-cost-of-the-choice"><code>arm_tradeoff.json</code> — the measured cost of the choice<a class="headerlink" href="#arm_tradeoffjson-the-measured-cost-of-the-choice" title="Permanent link">&para;</a></h2>
+<p><code>fl-runtime/arm_tradeoff.json</code> carries the <strong>measured</strong> frozen-vs-full trade-off, generated by <code>scripts/build_arm_tradeoff.py</code> and surfaced through <code>describe()</code> so the picker can show what the choice costs at the point it is made.</p>
+<p>Its structure is <code>{"$schema_version": 2, "generated_by": …, "note": …, "by_recipe": {…}}</code>, and <code>arm_tradeoff(recipe_key)</code> (<code>recipes.py:376</code>) does a <strong>keyed lookup with no fallback</strong>:</p>
+<blockquote>
+<p>Returning a default here is exactly the bug this replaced: one chest X-ray result was attached to every dual-arm recipe, so a CIFAR-10 recipe advertised a pneumonia figure.</p>
+</blockquote>
+<p>It returns <code>None</code> rather than raising when the file is missing or unparseable — a missing trade-off must cost the user an explanation, not the ability to create a project.</p>
+<p>Three recipes currently carry a measurement, and the three headlines say very different things — which is the point of keying it per recipe:</p>
+<table>
+<thead>
+<tr>
+<th>Recipe</th>
+<th>Measured verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PNEUMONIA_CNN</code></td>
+<td>Freezing costs <strong>21.8 accuracy points</strong> (92.44 % → 70.62 %) and saves only 1.004× the communication — its classifier is 99.6 % of the model, so there is almost nothing to freeze. The frozen arm is identical every round: the majority-class rate. It never learns</td>
+</tr>
+<tr>
+<td><code>CNN</code></td>
+<td>The frozen arm reaches <strong>10.0 %</strong> — chance for ten classes — against 38.0 % for <code>FULL</code>. The backbone is randomly initialised, so freezing it trains a head on random features</td>
+</tr>
+<tr>
+<td><code>CIFAR_RESNET18</code></td>
+<td>The frozen arm reaches <strong>80.37 %</strong> for 0.02 MB per download while <code>FULL</code> reaches 77.94 % for 42.7 MB — <strong>2,135× less data</strong>, and slightly <em>better</em> accuracy at this budget. It starts from ImageNet weights, so freezing keeps a backbone worth keeping</td>
+</tr>
+</tbody>
+</table>
+<p>Every entry records its <code>source</code> result file, that file's <code>source_sha256</code>, the protocol (rounds, clients, α, seed, resolution) and its own caveats. <code>tests/test_arm_tradeoff.py</code> guards two distinct risks: <strong>drift</strong> (the committed numbers are regenerated from the record and compared where the record is present) and <strong>unsupported claims</strong> (a number shown without its caveat is a claim the record does not make — the comm ratio in particular is round-budget dependent).</p>
+<blockquote>
+<p>The <code>research/</code> tree those source files live in is <strong>gitignored</strong>, so the committed JSON is the only copy of these numbers inside the repository.</p>
+</blockquote>
+<hr />
+<h2 id="provenance-the-arm-rides-on-every-result">Provenance: the Arm Rides on Every Result<a class="headerlink" href="#provenance-the-arm-rides-on-every-result" title="Permanent link">&para;</a></h2>
+<p><code>build_eval_card</code> (<code>fl_server.py:147</code>) writes the arm onto the eval card attached to the registered model artifact:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;recipe_key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;training_arm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;FROZEN_HEAD&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;trainable_prefixes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;fc.&quot;</span><span class="p">],</span><span class="w"> </span><span class="nt">&quot;seed&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1234567</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+
+<p>Three deliberate choices:</p>
+<ul>
+<li><strong><code>FULL</code> is recorded explicitly, not by absence.</strong> Otherwise a reader cannot distinguish a full fine-tune from a card written before arms existed.</li>
+<li><strong>The prefixes ride along with the name.</strong> Two runs can share an arm name while freezing different modules, and a name alone is not a checkable provenance claim.</li>
+<li><strong><code>arm_stamp()</code> additionally carries the objective</strong>, because <code>OVA_LP</code> and <code>FROZEN_HEAD</code> train the same parameters — without the objective their stamps would be identical and two different experiments would be indistinguishable.</li>
+</ul>
+<p>A card travels independently of the project, so a reader must be able to answer <em>"which arm produced this?"</em> from the card alone. The failure this prevents is downstream, when results are <strong>keyed</strong>: if the identity of a result does not include the arm, two arms of the same recipe produce the same key and the second silently replaces the first. A warning does not fix that; only putting the arm in the key does.</p>
+<hr />
+<h2 id="four-defects-only-a-live-federation-found">Four Defects Only a Live Federation Found<a class="headerlink" href="#four-defects-only-a-live-federation-found" title="Permanent link">&para;</a></h2>
+<p>The arm feature was implemented, unit-tested, and <em>then</em> run live — and the live run surfaced four defects that no unit test had caught. Each now has a regression test named after the property rather than the instance.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Symptom</th>
+<th>Cause</th>
+<th>Guard</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>The FL server never started: <code>UnboundLocalError</code> on <code>recipes</code></td>
+<td><code>main()</code> contains <code>import recipes</code> inside later dataset branches. In Python, any binding of a name inside a function makes it local for the <em>entire</em> body — so the arm filter's earlier use referred to an unbound local</td>
+<td><code>test_fl_server_arm_scope.py</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td>A completed round failed evaluation: <code>Missing key(s) in state_dict: conv1.weight, …</code></td>
+<td><code>server_side_evaluate</code> hardcoded <code>_strict = model_type != 'TINYNET_GOLDEN'</code> — correct while that was the only subset-federating recipe, wrong the moment any recipe could run <code>FROZEN_HEAD</code></td>
+<td><code>test_server_eval_strictness.py</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>A frozen CNN run died on <code>Expected 3D or 4D input to conv2d, but got input of size: [32, 256]</code></td>
+<td><code>load_data</code> branched on <code>USE_DERIVED</code>, which used to mean "this is FROZEN_DEMO". Once it meant "this arm federates a subset", it handed FROZEN_DEMO's synthetic 256-dim vector shard to whatever model the selected recipe had built. <strong>The dataset is a property of the recipe; the arm only decides which parameters are trainable</strong></td>
+<td><code>test_arm_does_not_choose_the_dataset.py</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td>A <code>FROZEN_HEAD</code> run reported itself frozen while its backbone moved by 0.65</td>
+<td>The arm was applied <em>inside</em> the <code>USE_DERIVED</code> branch of the build chain, and <code>USE_PNEUMONIA</code> is tested first — so a frozen pneumonia run built its model, skipped the arm entirely, and fine-tuned the whole network. <strong>Correctness must not depend on the order of a build chain</strong></td>
+<td><code>test_arm_applies_to_every_recipe_branch.py</code></td>
+</tr>
+</tbody>
+</table>
+<p>A fifth, found in the same campaign: a <code>FROZEN_HEAD</code> run's saved <code>.npz</code> contained <strong>two keys</strong>, because the server writes the final <em>global</em> model to <code>--model-path</code> and under a subset arm the global model <em>is</em> the head. That destroyed the only full copy of the model. Fixed by <code>merge_non_federated</code> — see <a href="04_the_federated_set.html#saving-merge_non_federated">04</a>, guarded by <code>test_frozen_save_preserves_backbone.py</code>.</p>
+<p>A sixth, subtler one concerns FedProx. <code>_apply_proximal_gradient</code> zips <code>net.parameters()</code> against <code>global_params</code> <strong>positionally</strong>. Had <code>global_params</code> been the <em>received</em> global model, that would be the head alone under <code>FROZEN_HEAD</code> — two tensors against sixty-two — and <code>zip</code> would silently pair the first two backbone parameters with the head's values and stop. <code>test_fedprox_respects_the_frozen_arm.py</code> pins that the proximal term regularises the federated subset and leaves the frozen backbone alone.</p>
+<hr />
+<h2 id="frozen-means-frozen-the-batchnorm-trap">Frozen Means Frozen: the BatchNorm Trap<a class="headerlink" href="#frozen-means-frozen-the-batchnorm-trap" title="Permanent link">&para;</a></h2>
+<p><code>apply_arm</code> sets <code>requires_grad=False</code>, which stops <strong>gradients</strong>. It does not stop BatchNorm.</p>
+<p><code>running_mean</code> and <code>running_var</code> are <strong>buffers, not parameters</strong>, so <code>requires_grad</code> does not touch them: a module left in <code>train()</code> mode re-estimates them from local data on every forward pass. That is a second, silent channel through which a "frozen" backbone changes.</p>
+<p>Measured on CIFAR-10 (linear probe on frozen features), 2026-08-13:</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Accuracy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pretrained backbone, <strong>BN held fixed</strong></td>
+<td><strong>80.37 %</strong> federated / 81.05 % offline probe</td>
+</tr>
+<tr>
+<td>Pretrained backbone, <strong>BN adapting</strong></td>
+<td>72.85 % federated</td>
+</tr>
+<tr>
+<td>Random backbone, BN fixed (offline probe, same arch/resolution/data)</td>
+<td>26.25 %</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>The two probe figures are the <strong>committed</strong> harness's (<code>research/benchmarks/frozen_feature_linear_probe.py</code>, seed 1234 / head seed 0). They supersede an earlier inline-script pair — 80.35 % / 25.10 % — which <code>recipes.py</code>'s <code>freeze_untrained_modules</code> docstring still quotes; the record keeps both (<code>research/results/pretrained-backbone/pretrained_frozen_arm_2026-08-13.json</code>) and notes that probe and federation agree to within about a point, not the 0.02 once claimed.</p>
+</blockquote>
+<p>So BN adaptation <strong>degrades</strong> good features by roughly 7.5 points — it re-estimates, from one client's shard, statistics that ImageNet training had already fitted well.</p>
+<blockquote>
+<p>An earlier reading of this said BN adaptation <em>lifted a random backbone</em> to 72 %. That came from a federated "random control" that was invalid: under a subset arm the backbone is never transmitted, so the client always builds it locally from the recipe and a random <code>.npz</code> cannot change it. The valid random comparison is the offline probe at 26.25 %.</p>
+</blockquote>
+<p>Three things are wrong with letting it adapt, independent of the numbers: the arm's premise is that the backbone is delivered once and stays fixed; BN statistics are data-dependent and never federated, so clients silently diverge from each other and from the server's copy; and it hides the value of pretraining, which is the only reason to freeze a backbone at all.</p>
+<p>The fix is <code>freeze_untrained_modules</code>, and its call site is timing-sensitive: <code>nn.Module.train()</code> re-enables every child, so it must be re-applied <strong>after</strong> each call to <code>train()</code>, not before. <code>client.py</code> does exactly that (<code>client.py:415-424</code>). For the <code>FULL</code> arm it is a deliberate no-op — BatchNorm <em>should</em> adapt when the whole model is being trained.</p>
+<p><code>test_frozen_means_frozen.py</code> pins this.</p></article>
+    <nav class="toc"></nav>
+  </div>
+</div>
+</div>
+</body>
+</html>

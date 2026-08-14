@@ -3,9 +3,15 @@
 ## Table of Contents
 - [Why Non-IID Data Matters](#why-non-iid-data-matters)
 - [IID vs. Non-IID Illustrated](#iid-vs-non-iid-illustrated)
+- [The Four Shipped Partitioners](#the-four-shipped-partitioners)
+  - [The Shared Contract](#the-shared-contract)
+  - [iid_partition](#iid_partition)
+  - [dirichlet_partition](#dirichlet_partition)
+  - [shard_partition](#shard_partition)
+  - [pathological_partition](#pathological_partition)
+  - [partition_report](#partition_report)
 - [Dirichlet Distribution for Non-IID Partitioning](#dirichlet-distribution-for-non-iid-partitioning)
   - [Mathematical Intuition](#mathematical-intuition)
-  - [Implementation](#implementation)
   - [Visualising Partitions](#visualising-partitions)
 - [Practical Data Setup Patterns](#practical-data-setup-patterns)
   - [MNIST with Non-IID Split](#mnist-with-non-iid-split)
@@ -58,6 +64,140 @@ Client 2:  ░░░░░░░░░░░░░░░░░░░░░░░
 
 ---
 
+## The Four Shipped Partitioners
+
+**Do not hand-roll a partitioner.** `fedlearn.simulation.partition` ships four, all seeded and all
+tested against the same contract. They are the native replacement for `flwr_datasets.FederatedDataset`
+partitioning, and they land the simulator's side of that removal.
+
+> **Credit the unblocking correctly.** Dropping `flwr` is what freed the platform's `cryptography`
+> and `protobuf` floors (see
+> [01 — Technology Stack](01_architecture_overview.md#technology-stack)), but the change that
+> actually did it was the native CIFAR-10 IID shard in `fl-runtime/recipes.py` — `flwr-datasets`'
+> only remaining consumer. These four partitioners are used by the simulator and its tests, not by
+> `fl-runtime`; `simulation/partition.py`'s own module docstring still describes the cap as a live
+> residual, which is stale. Both pieces belong to the same effort; only the `recipes.py` one was
+> load-bearing for the dependency floors.
+
+```python
+from fedlearn.simulation.partition import (
+    iid_partition, dirichlet_partition, shard_partition, pathological_partition,
+    partition_report,
+)
+```
+
+The heterogeneity knobs are deliberately **different shapes**, because the literature uses all of
+them and a result is only comparable to a paper that used the same one:
+
+| Partitioner | How heterogeneity is controlled | Use it when |
+|---|---|---|
+| `iid_partition` | none — the IID **control arm** | you need a baseline that isolates federation from heterogeneity |
+| `dirichlet_partition` | `alpha` — smaller is more skewed | the common modern default |
+| `shard_partition` | sort-and-shard; `shards_per_client` **bounds** classes per client | reproducing the original FedAvg (McMahan et al.) construction |
+| `pathological_partition` | **exactly** `classes_per_client` classes per client | worst-case heterogeneity; cleanly separates methods that depend on local label coverage (e.g. linear probing on a frozen encoder) from methods that do not |
+
+### The Shared Contract
+
+Every partitioner returns `List[np.ndarray]` of **index arrays into the dataset** — not data. That
+makes a partitioner independent of how the dataset is stored, cheap to hold for thousands of
+clients, and recordable verbatim in a result's `meta` block.
+
+All four satisfy the same three-part contract, enforced by `tests/test_simulation_partition.py`:
+
+- **complete** — the union of client index sets is exactly `range(n_samples)`
+- **disjoint** — no index is held by two clients
+- **deterministic in `seed`** — and *genuinely dependent on it*
+
+### iid_partition
+
+```python
+iid_partition(n_samples: int, num_clients: int, seed: int) -> List[np.ndarray]
+```
+
+Shuffle and deal into near-equal parts (sizes differ by at most 1). Note it takes `n_samples`, not
+labels — it does not need them.
+
+> Any non-IID effect must be measured against **this**, not against a centralized baseline, or the
+> comparison confounds federation with heterogeneity.
+
+### dirichlet_partition
+
+```python
+dirichlet_partition(labels, num_clients, alpha, seed, min_partition_size=0) -> List[np.ndarray]
+```
+
+For each class, draw client proportions from `Dir(alpha)` and cut the class's shuffled indices at
+the cumulative proportions. Using a **single cumulative cut** (rather than per-client rounding) is
+what guarantees completeness and disjointness: every index lands in exactly one slice, whatever the
+proportions are.
+
+`min_partition_size` is the parameter that matters operationally. Low `alpha` naturally produces
+**empty clients**, and an empty client is not a benign edge case — `num_examples == 0` is rejected at
+coordinator ingress, so it silently shrinks the effective cohort.
+
+The repair is deterministic — move samples from the largest donor to the most-deficient client,
+tie-breaking by lowest index — rather than the usual "redraw until it fits" loop. Two reasons, and
+the second is the important one:
+
+1. It always terminates (feasibility, `num_clients * min_partition_size <= n_samples`, is checked up
+   front and raises otherwise).
+2. It consumes a **fixed** number of RNG draws. A redraw loop would make the *rest* of a run's
+   randomness depend on how many redraws happened, quietly breaking reproducibility across `alpha`
+   values — the kind of bug that is invisible in a passing test suite and fatal in an experiments
+   table.
+
+### shard_partition
+
+```python
+shard_partition(labels, num_clients, shards_per_client, seed) -> List[np.ndarray]
+```
+
+Sort by label, cut into `num_clients * shards_per_client` contiguous shards, deal them from a seeded
+permutation. The original FedAvg non-IID construction; `shards_per_client=2` is the canonical
+setting.
+
+Because shards are label-contiguous, a client holding `s` shards sees **at most `s + 1`** distinct
+classes — one more than `s` only when a shard straddles a class boundary. The sort is `kind="stable"`
+so ties within a class are ordered by index and the sort itself contributes no randomness, keeping
+the seed the only source of variation.
+
+### pathological_partition
+
+```python
+pathological_partition(labels, num_clients, classes_per_client, seed) -> List[np.ndarray]
+```
+
+Every client gets **exactly** `classes_per_client` distinct classes — unlike `shard_partition`, where
+the count is only bounded. Classes are dealt from a seeded permutation using a rotating stride
+(`perm[(i*k + j) % n_classes]`), which guarantees distinctness within a client and even coverage
+across classes.
+
+Two `ValueError`s guard the degenerate cases: `classes_per_client` exceeding the number of distinct
+classes, and `num_clients * classes_per_client < n_classes` — the latter because some class would
+then have no holder and its samples would be **dropped**, violating completeness.
+
+### partition_report
+
+```python
+partition_report(parts, labels) -> dict
+```
+
+Summarises a partition into a JSON-serializable block for a result's `meta`. A result that records
+only `alpha=0.5` cannot be checked later; one that records the *realised* sizes and skew can.
+
+| Field | Meaning |
+|---|---|
+| `num_clients`, `total_samples`, `num_classes` | shape of the split |
+| `client_sizes`, `min_client_size`, `max_client_size` | realised per-client sizes |
+| `empty_clients` | count of zero-sample clients — should be 0 for a usable run |
+| **`mean_max_class_share`** | the headline statistic: **1.0** = every client holds a single class |
+| `iid_reference_share` | `1 / num_classes` — the value `mean_max_class_share` takes under a perfect IID split |
+
+Comparing those last two is the honest way to state "how non-IID was this run" — an `alpha` value
+alone is a request, not a measurement.
+
+---
+
 ## Dirichlet Distribution for Non-IID Partitioning
 
 The Dirichlet distribution `Dir(α)` over a k-simplex is the standard way to generate heterogeneous data partitions in federated learning research.
@@ -86,148 +226,41 @@ Then assign a fraction `p_{c,i}` of class `c`'s samples to client `i`.
 | α = 0.1 | Highly non-IID | Severe heterogeneity |
 | α → 0 | Pathological | 1 class per client |
 
-### Implementation
-
-```python
-import numpy as np
-from torch.utils.data import Dataset, Subset
-from typing import List, Optional
-
-def dirichlet_partition(
-    dataset: Dataset,
-    num_clients: int,
-    alpha: float = 0.5,
-    seed: int = 42,
-    min_samples_per_client: int = 10,
-) -> List[Subset]:
-    """
-    Partition a dataset using Dirichlet distribution for non-IID splits.
-
-    Args:
-        dataset:                 Full training dataset
-        num_clients:             Number of federated clients
-        alpha:                   Dirichlet concentration parameter
-                                 (lower = more heterogeneous)
-        seed:                    Random seed for reproducibility
-        min_samples_per_client:  Minimum samples to guarantee per client
-                                 (prevents degenerate partitions)
-
-    Returns:
-        List of Subset objects, one per client
-    """
-    np.random.seed(seed)
-
-    # Extract all labels efficiently
-    if hasattr(dataset, 'targets'):
-        # torchvision datasets expose targets directly
-        labels = np.array(dataset.targets)
-    else:
-        labels = np.array([dataset[i][1] for i in range(len(dataset))])
-
-    num_classes = len(np.unique(labels))
-    num_samples = len(labels)
-
-    # Build index list per class
-    class_indices = {c: np.where(labels == c)[0].tolist() for c in range(num_classes)}
-    for c in class_indices:
-        np.random.shuffle(class_indices[c])
-
-    client_indices = [[] for _ in range(num_clients)]
-
-    for c in range(num_classes):
-        # Sample proportions from Dirichlet
-        proportions = np.random.dirichlet(np.full(num_clients, alpha))
-
-        # Convert proportions to integer counts (ensure no client gets 0)
-        indices = class_indices[c]
-        n_class = len(indices)
-
-        # Compute cumulative split points
-        splits = (np.cumsum(proportions) * n_class).astype(int)
-        splits[-1] = n_class  # ensure last split covers all
-
-        start = 0
-        for i, end in enumerate(splits):
-            client_indices[i].extend(indices[start:end])
-            start = end
-
-    # Validate: ensure minimum samples per client
-    for i, indices in enumerate(client_indices):
-        if len(indices) < min_samples_per_client:
-            raise ValueError(
-                f"Client {i} has only {len(indices)} samples with alpha={alpha}. "
-                f"Increase alpha or reduce num_clients."
-            )
-        np.random.shuffle(indices)  # shuffle within each client's partition
-
-    return [Subset(dataset, indices) for indices in client_indices]
-
-
-def stratified_partition(
-    dataset: Dataset,
-    num_clients: int,
-    seed: int = 42,
-) -> List[Subset]:
-    """
-    Perfect IID partition: each client gets an equal, stratified sample of all classes.
-    Use as a baseline to isolate the effect of non-IID data distribution.
-    """
-    np.random.seed(seed)
-
-    if hasattr(dataset, 'targets'):
-        labels = np.array(dataset.targets)
-    else:
-        labels = np.array([dataset[i][1] for i in range(len(dataset))])
-
-    num_classes = len(np.unique(labels))
-    client_indices = [[] for _ in range(num_clients)]
-
-    for c in range(num_classes):
-        class_idx = np.where(labels == c)[0]
-        np.random.shuffle(class_idx)
-        # Round-robin assignment
-        for i, idx in enumerate(class_idx):
-            client_indices[i % num_clients].append(idx)
-
-    return [Subset(dataset, indices) for indices in client_indices]
-```
-
 ### Visualising Partitions
+
+`partition_report` gives you the numbers; this gives you the picture. It takes **index arrays**
+straight from any of the four partitioners.
 
 ```python
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot_data_distribution(client_subsets, dataset, num_classes=10):
+def plot_data_distribution(parts, labels, out="data_distribution.png"):
     """
     Visualise the class distribution across clients.
     Each row = one client, each column = one class.
+
+    parts:  List[np.ndarray] from any fedlearn.simulation.partition function
+    labels: the same 1-D label array passed to the partitioner
     """
-    if hasattr(dataset, 'targets'):
-        all_labels = np.array(dataset.targets)
-    else:
-        all_labels = np.array([dataset[i][1] for i in range(len(dataset))])
+    labels = np.asarray(labels)
+    num_classes = int(np.unique(labels).size)
+    distribution = np.zeros((len(parts), num_classes))
 
-    num_clients = len(client_subsets)
-    distribution = np.zeros((num_clients, num_classes))
+    for i, idx in enumerate(parts):
+        counts = np.bincount(labels[np.asarray(idx, dtype=np.int64)], minlength=num_classes)
+        distribution[i] = counts
 
-    for i, subset in enumerate(client_subsets):
-        client_labels = all_labels[subset.indices]
-        for c in range(num_classes):
-            distribution[i, c] = np.sum(client_labels == c)
-
-    # Normalise rows
     row_sums = distribution.sum(axis=1, keepdims=True)
+    row_sums[row_sums == 0] = 1          # an empty client would divide by zero
     distribution_pct = distribution / row_sums * 100
 
-    fig, ax = plt.subplots(figsize=(12, num_clients * 0.4 + 2))
+    fig, ax = plt.subplots(figsize=(12, len(parts) * 0.4 + 2))
     im = ax.imshow(distribution_pct, aspect='auto', cmap='YlOrRd')
-    ax.set_xlabel('Class')
-    ax.set_ylabel('Client')
+    ax.set_xlabel('Class'); ax.set_ylabel('Client')
     ax.set_title('Data Distribution Across Clients (%)')
     plt.colorbar(im, ax=ax, label='% of client data')
-    plt.tight_layout()
-    plt.savefig('data_distribution.png', dpi=150)
+    plt.tight_layout(); plt.savefig(out, dpi=150)
     return distribution
 ```
 
@@ -238,10 +271,11 @@ def plot_data_distribution(client_subsets, dataset, num_classes=10):
 ### MNIST with Non-IID Split
 
 ```python
-# examples/simple_federation/run_client.py pattern
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
 import argparse
+import fedlearn as fl
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader, Subset
+from fedlearn.simulation.partition import dirichlet_partition, partition_report
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--id", type=int, default=0)
@@ -255,27 +289,31 @@ transform = transforms.Compose([
     transforms.Normalize((0.1307,), (0.3081,))
 ])
 
-full_dataset = datasets.MNIST(
-    root="./data", train=True, download=True, transform=transform
-)
+full_dataset = datasets.MNIST(root="./data", train=True, download=True, transform=transform)
+labels = full_dataset.targets.numpy()
 
-# Partition according to Dirichlet distribution
-client_subsets = dirichlet_partition(
-    full_dataset,
+# Every client MUST pass the same (labels, num_clients, alpha, seed) to get the same split.
+parts = dirichlet_partition(
+    labels=labels,
     num_clients=args.num_clients,
-    alpha=args.alpha,  # 0.5 = moderately non-IID
+    alpha=args.alpha,          # 0.5 = moderately non-IID
     seed=42,
+    min_partition_size=16,     # never hand a client 0 samples — ingress rejects it
 )
+print(partition_report(parts, labels))     # record this in the run's meta block
 
-# This client gets its assigned partition
-my_dataset = client_subsets[args.id]
+my_dataset = Subset(full_dataset, parts[args.id])
 train_loader = DataLoader(my_dataset, batch_size=32, shuffle=True, num_workers=2)
-
 print(f"Client {args.id}: {len(my_dataset)} samples")
 
-client = MNISTClient(model=CNN(), train_loader=train_loader)
+client = fl.LocalTrainer(model=CNN(), train_loader=train_loader)
 fl.client.start_client(args.server_address, client, f"client_{args.id}")
 ```
+
+> **The partition is reproduced independently on each client, not distributed by the server.** Every
+> client must be given the identical `(labels, num_clients, alpha, seed)` tuple, or the split is not
+> a partition at all — clients will overlap and some samples will be trained on twice while others
+> are never seen. The seed is the contract.
 
 ### ECG Classification Data
 
@@ -399,6 +437,18 @@ class CBDataset(Dataset):
 
 Beyond class distribution, real federated settings have additional sources of heterogeneity:
 
+> The patterns below are **illustrative sketches**, not shipped API — unlike the partitioners above,
+> which are. Two of them have first-class support you should prefer:
+>
+> - **Dropout / stragglers** — `SimulatedFederation(dropout_rate=…)` models dropout deterministically
+>   from the run seed, and resolves the round *immediately* instead of sleeping out the deployed
+>   120-second deadline. Each `RoundRecord` carries `selected` / `reported` / `dropped` / `forced`,
+>   so a forced (partial-cohort) round can never be mistaken for a clean one. See
+>   [01 — The In-Process Simulator](01_architecture_overview.md#the-in-process-simulator).
+> - **Per-client randomness** — `ClientRng` / `RunRng` give each client an isolated stream keyed on
+>   `(seed, client_id[, round])`, so a straggler or a dropped client cannot perturb anyone else's
+>   draws.
+
 ### System Heterogeneity (Stragglers)
 
 Some clients are faster than others. Simulate with throttled training:
@@ -468,26 +518,43 @@ class NoisyLabelClient(MNISTClient):
 
 ## Impact on Convergence
 
-Experimental observations from the FedLearn examples:
+> **No numbers are quoted here, deliberately.** Earlier revisions of this page carried a
+> FedAvg-vs-FedProx accuracy table across α. **Those figures are not reproducible from anything in
+> this repository** — no committed harness produces them and no result file backs them — so they
+> have been removed rather than restated. Treat any α-vs-accuracy figure you find in an old copy of
+> this page as unverified.
 
-| Setting | FedAvg Accuracy (10 rounds) | FedProx Accuracy (10 rounds) | Notes |
-|---------|----------------------------|------------------------------|-------|
-| IID (α=100) | 95.2% | 95.1% | FedProx overhead not needed |
-| α = 0.5 | 91.3% | 93.7% | FedProx noticeably better |
-| α = 0.1 | 84.1% | 89.2% | Significant drift with FedAvg |
-| α = 0.01 | 71.5% | 81.8% | Extreme drift; FedProx helps a lot |
+What *is* committed, and re-runnable, is the harness that would produce such a table honestly:
 
-**Key takeaways:**
+| Harness (`framework/benchmarks/`) | Measures |
+|---|---|
+| `algo_comparison.py` | one task, one **fixed** non-IID partition, one seed, run through each algorithm's **real** `aggregate_fit`; records per-round accuracy, loss, wall-clock and truthful cumulative wire bytes |
+| `comms_regimes.py` | per-round communication cost across three regimes: full-model FedAvg, head-only (frozen-backbone) FedAvg, and DeComFL |
+| `zeroth_vs_first_order.py` | zeroth-order vs first-order convergence **and** bytes side by side |
+
+Run one and read its own `results/*.md`; those files are generated from the JSON record, not
+hand-written. See [08 — The Committed Benchmark Harnesses](08_examples.md#the-committed-benchmark-harnesses).
+
+The qualitative statements below are standard results from the FL literature (McMahan et al. 2017;
+Li et al. 2020), not measurements from this codebase:
+
 1. The more non-IID the data (lower α), the worse FedAvg performs relative to centralised training.
-2. FedProx's proximal term limits how far each client's model can drift from the global model, mitigating the effect.
-3. DeComFL is less affected by non-IID data because zeroth-order estimates are inherently noisy — the noise from non-IID is less dominant compared to the ZO estimation variance.
+2. FedProx's proximal term limits how far each client's model can drift from the global model,
+   mitigating the effect — **within its stability envelope**; past `lr·mu ≥ 2` the same term
+   amplifies drift instead. See [05 — FedProx](05_strategies.md#fedprox--proximal-regularisation-shipped).
+3. Whether DeComFL is *less* affected by non-IID data than first-order methods is an open question
+   here, not an established result. The plausible argument — that zeroth-order estimation variance
+   dominates the heterogeneity noise — is untested on this platform. Do not cite it as a finding.
 
 ### Choosing α for Experiments
 
 | Research Goal | Recommended α |
 |--------------|--------------|
-| Baseline (mimic IID) | α = 10.0 |
+| Baseline (mimic IID) | α = 10.0 — or better, use `iid_partition` as the true control arm |
 | Standard FL benchmark | α = 0.5 |
 | Stress test for robustness | α = 0.1 |
-| Worst-case (1 class per client) | α = 0.01 |
-| Exact replication of prior work | Check the paper's α value |
+| Worst-case | prefer `pathological_partition(classes_per_client=1)` — **exact**, where a small α is only *probably* near-degenerate |
+| Exact replication of prior work | Check the paper's α — **and which partitioner it used**; a Dirichlet result is not comparable to a sort-and-shard result at any α |
+
+Whatever you choose, record `partition_report(parts, labels)` alongside it. `mean_max_class_share`
+versus `iid_reference_share` is the measured skew; α alone is only the request.

@@ -50,8 +50,17 @@
 <li><a href="05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -88,16 +97,18 @@
 <li><a href="#what-is-the-framework">What Is the Framework?</a></li>
 <li><a href="#technology-stack">Technology Stack</a></li>
 <li><a href="#package-layout">Package Layout</a></li>
+<li><a href="#module-inventory--all-57-modules">Module Inventory — All 57 Modules</a></li>
 <li><a href="#module-dependency-graph">Module Dependency Graph</a></li>
 <li><a href="#how-the-components-fit-together">How the Components Fit Together</a></li>
 <li><a href="#federated-learning-lifecycle-at-a-glance">Federated Learning Lifecycle at a Glance</a></li>
+<li><a href="#the-in-process-simulator">The In-Process Simulator</a></li>
 <li><a href="#integration-with-the-rest-of-the-platform">Integration with the Rest of the Platform</a></li>
 <li><a href="#public-api-surface">Public API Surface</a></li>
 </ul>
 <hr />
 <h2 id="what-is-the-framework">What Is the Framework?<a class="headerlink" href="#what-is-the-framework" title="Permanent link">&para;</a></h2>
 <p>The <code>framework/</code> directory contains <code>fedlearn</code> — a self-contained Python library that implements the core federated learning logic. It is the component that actually performs model training, parameter aggregation, and client-server communication. Everything else in the platform (the Spring Boot backend, the React frontend, the Electron desktop app) ultimately delegates to this library.</p>
-<p>The library is intentionally decoupled from the platform orchestration layer. You can run it standalone on a laptop with three terminals, inside Docker containers, or as processes spawned by the Java backend on a deployed VM — the library itself doesn't know or care.</p>
+<p>The library is intentionally decoupled from the platform orchestration layer. You can run it standalone on a laptop with three terminals, inside Docker containers, as processes spawned by the Java backend on a deployed VM, or <strong>entirely inside one Python process</strong> through <code>fedlearn.simulation</code> — the library itself doesn't know or care.</p>
 <hr />
 <h2 id="technology-stack">Technology Stack<a class="headerlink" href="#technology-stack" title="Permanent link">&para;</a></h2>
 <table>
@@ -112,17 +123,17 @@
 <tr>
 <td>Language</td>
 <td>Python</td>
-<td>3.10+ (uses <code>list[X]</code> built-in generics)</td>
+<td><code>python_requires='&gt;=3.10'</code> in <code>setup.py</code> (uses <code>list[X]</code> built-in generics); CI tests 3.12</td>
 </tr>
 <tr>
 <td>Deep Learning</td>
 <td>PyTorch</td>
-<td>Pinned to <code>torch==2.12.0</code> (used for parameter tensors, autograd) — see the pin rationale at the top of <code>requirements.txt</code></td>
+<td>Pinned to <code>torch==2.12.0</code> — it is the version the DeComFL golden fixtures and the ExecuTorch toolchain were built against, and <code>tests/test_perturbation.py::test_torch_version_matches_manifest</code> gates on it</td>
 </tr>
 <tr>
 <td>Communication</td>
 <td>gRPC + Protobuf</td>
-<td><code>grpcio&gt;=1.75.1</code>, <code>protobuf&gt;=4.21.6,&lt;5.0.0</code></td>
+<td><code>grpcio&gt;=1.75.1</code>, <code>protobuf&gt;=5.29.0,&lt;6.0.0</code></td>
 </tr>
 <tr>
 <td>Wire format</td>
@@ -132,91 +143,136 @@
 <tr>
 <td>Data Science</td>
 <td>NumPy</td>
-<td>Array manipulation, Dirichlet sampling</td>
+<td><code>numpy==2.1.2</code>. Array manipulation, Dirichlet sampling, <code>SeedSequence</code> streams</td>
 </tr>
 <tr>
 <td>LLM Support</td>
 <td>HuggingFace Transformers</td>
-<td>OPT, GPT-2, etc.</td>
+<td><code>transformers==4.55.2</code>, <code>peft&gt;=0.11</code> (LoRA adapters)</td>
+</tr>
+<tr>
+<td>Security</td>
+<td>PyJWT</td>
+<td><code>PyJWT&gt;=2.8,&lt;3</code> — connection-token verification (SE-1); <code>cryptography&gt;=46.0.6,&lt;47.0</code></td>
 </tr>
 <tr>
 <td>Compression</td>
 <td>lz4 (optional)</td>
-<td>Activated by <code>FEDLEARN_USE_COMPRESSION=1</code></td>
+<td>Not in <code>requirements.txt</code>; imported in a <code>try/except</code>. Activated by <code>FEDLEARN_USE_COMPRESSION=1</code></td>
 </tr>
 <tr>
 <td>Packaging</td>
 <td>setuptools</td>
-<td><code>setup.py</code> + <code>pyproject.toml</code></td>
+<td><code>setup.py</code> + <code>pyproject.toml</code>. <code>setup.py</code> filters <code>torch*</code>/<code>torchvision*</code> out of <code>install_requires</code></td>
 </tr>
 </tbody>
 </table>
 <p>The library has <strong>zero dependency on the Spring Boot backend</strong>. Its only external communication is gRPC between the Python server and Python clients.</p>
 <blockquote>
-<p><strong>No Flower FL semantics.</strong> Despite the legacy <code>flower</code> package name on the Java side (renamed to <code>orchestration</code> / <code>FlServerManager</code> — DA-12), the FL framework is entirely custom — its own protobuf contract (<code>fedlearn.v2</code>) and its own FedAvg / DeComFL strategies. <code>framework/requirements.txt</code> has <strong>no <code>flwr</code> / <code>flwr-datasets</code></strong> entry (they carried zero imports and were removed).</p>
-<p>Be precise about the scope of that claim, though: <code>flwr-datasets</code> <em>is</em> still a dependency <strong>elsewhere in the platform</strong> — <code>backend/fl-platform-api/requirements.txt</code> pins <code>flwr==1.20.0</code> + <code>flwr-datasets==0.5.0</code> and <code>client-docker/requirements.txt</code> pins <code>flwr-datasets&gt;=0.3.0</code>, because <code>fl-runtime/client.py</code> and <code>fl-runtime/fl_server.py</code> use <code>flwr_datasets.FederatedDataset</code> <strong>for dataset partitioning only</strong> — never for FL server/client/strategy semantics. Known wart: that pin drags in <code>cryptography&lt;45.0.0</code>, which sits below the framework's own <code>&gt;=46.0.6</code> floor (the SE-22 residual, documented at <code>backend/fl-platform-api/requirements.txt:16</code>).</p>
-<p><code>transformers</code> <em>is</em> pinned in the framework — it backs the FoT (Federation over Text) path and the HuggingFace model loaders.</p>
+<p><strong>No Flower — not the semantics, and no longer the package.</strong> The FL framework is entirely
+custom: its own protobuf contract (<code>fedlearn.v2</code>) and its own FedAvg / FedProx / FedOpt /
+FedLoRA / DeComFL / robust strategies. The Java-side supervisor was renamed from the historical
+<code>flower</code> names to <code>orchestration</code> / <code>FlServerManager</code> (DA-12).</p>
+<p><strong><code>flwr</code> and <code>flwr-datasets</code> are now gone platform-wide</strong> (commit <code>65048b6</code>), not merely absent
+from <code>framework/requirements.txt</code>. They survived only to build one CIFAR-10 IID shard; that shard
+is now produced natively in <code>fl-runtime/recipes.py</code> (<code>CNN_SHUFFLE_SEED = 42</code>, which is the
+<code>flwr</code> <code>FederatedDataset</code> default it replaced) straight from <code>datasets</code>, and the replacement was
+verified <strong>byte-identical per partition</strong> by <code>research/benchmarks/verify_flwr_shard_equivalence.py</code>.</p>
+<p>Two dependency caps fell with it, and both are now <strong>cleared</strong>, not residual:
+- <strong><code>cryptography</code></strong> — <code>flwr</code> 1.20.0 capped it at <code>&lt;45.0.0</code>, which made this framework's own
+  <code>&gt;=46.0.6</code> security floor unreachable elsewhere in the platform (the SE-22 residual).
+  <code>backend/fl-platform-api/requirements.txt:16</code> now pins <code>cryptography==46.0.7</code>, at the floor.
+- <strong><code>protobuf</code></strong> — the same package capped it at <code>&lt;5.0.0</code>, which silently made the FoT path
+  <em>uninstallable</em> in the backend and Docker lockfiles (<code>fot_pb2.py</code> is gencode 5.29.0, and
+  protobuf requires runtime ≥ gencode). The backend now pins <code>protobuf==5.29.5</code>, matching the
+  framework's <code>&gt;=5.29.0,&lt;6.0.0</code>.</p>
+<p><code>fl-runtime/tests/test_requirements_security_floors.py::test_flwr_stays_out_of_the_lockfiles</code> is
+the regression guard: re-adding <code>flwr</code> re-imposes both caps at once.</p>
+<p><code>transformers</code> <em>is</em> pinned in the framework — it backs the HuggingFace model loaders and the LoRA
+recipes. (FoT itself is torch-free by design.)</p>
 </blockquote>
 <hr />
 <h2 id="package-layout">Package Layout<a class="headerlink" href="#package-layout" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code>framework/
 ├── src/
-│   └── fedlearn/                   ← Installable Python package
+│   └── fedlearn/                   ← Installable Python package (57 modules)
 │       ├── __init__.py             ← Public API (re-exports key symbols)
 │       │
 │       ├── server/                 ← Server-side logic
-│       │   ├── __init__.py
-│       │   ├── server.py           ← start_server() entry point
-│       │   ├── coordinator.py      ← FLCoordinator (round management)
-│       │   ├── strategy.py         ← Strategy ABC + FedAvg / FedProx / FedOpt
-│       │   ├── strategy_factory.py ← create_strategy() dispatch
-│       │   ├── decomfl_strategy.py ← DeComFL strategy (Algorithm 3)
-│       │   ├── robust_aggregation.py ← Byzantine-robust aggregators (FR-12)
-│       │   ├── subset_federation.py← Subset / cohort selection
-│       │   ├── _update_normalize.py← Update normalisation helpers
-│       │   └── grpc_servicer.py    ← FederatedLearningServiceServicer (RPC handlers)
+│       │   ├── __init__.py         ← Re-exports incl. FedLoRA, RobustAggregator, STRATEGY_REGISTRY
+│       │   ├── server.py           ← start_server() entry point + JSON logging + TLS/auth wiring
+│       │   ├── coordinator.py      ← FLCoordinator (round state, dropout deadline, ingress defenses)
+│       │   ├── strategy.py         ← Strategy ABC + FedAvg / FedLoRA / FedProx / FedOpt + FedAvgAggregator
+│       │   ├── strategy_factory.py ← create_strategy() + STRATEGY_REGISTRY (six names)
+│       │   ├── decomfl_strategy.py ← DeComFL strategy (Algorithm 3) + LR stability envelope
+│       │   ├── robust_aggregation.py ← Byzantine-robust aggregators + clip_l2_norm (FR-12)
+│       │   ├── subset_federation.py← Trainable-subset guards for frozen-backbone FedAvg (DA-11)
+│       │   ├── _update_normalize.py← The one client-update wire-shape normaliser, shared by 4 paths
+│       │   └── grpc_servicer.py    ← FederatedLearningServiceServicer (RPC handlers, SE-18 caps)
 │       │
 │       ├── client/                 ← Client-side logic
 │       │   ├── __init__.py
 │       │   ├── client.py           ← Client ABC + start_client() entry point
-│       │   ├── grpc_client.py      ← GrpcClient (transport layer)
-│       │   ├── local_trainer.py    ← LocalTrainer (first-order FedAvg/FedProx/FedOpt client)
-│       │   ├── decomfl_client.py   ← DeComFLClient (Algorithm 4)
-│       │   └── decomfl_start.py    ← start_decomfl_client() entry point
+│       │   ├── grpc_client.py      ← GrpcClient (transport layer, dual channel, retry)
+│       │   ├── local_trainer.py    ← LocalTrainer (the shipped first-order FedAvg/FedProx/FedOpt client)
+│       │   ├── decomfl_client.py   ← DeComFLClient (Algorithm 4 + Algorithm 2 rebuild)
+│       │   └── decomfl_start.py    ← start_decomfl_client() entry point + terminal outcomes
 │       │
 │       ├── communication/          ← Protocol layer
 │       │   ├── __init__.py
-│       │   ├── serializer.py       ← Proto ↔ PyTorch tensor conversion + chunking
-│       │   ├── safetensors_codec.py← Deterministic float32 safetensors wire codec
-│       │   ├── protos/
-│       │   │   ├── fedlearn.proto  ← Source of truth for all RPC messages (fedlearn.v2)
-│       │   │   └── fot.proto       ← FoT service contract (fedlearn.fot.v1)
+│       │   ├── serializer.py       ← Proto ↔ PyTorch tensor conversion + safetensors chunking
+│       │   ├── safetensors_codec.py← Deterministic float32 safetensors wire codec (+ decode hardening)
+│       │   ├── protos/             ← BYTE-IDENTICAL MIRRORS of proto/ — never hand-edit
+│       │   │   ├── fedlearn.proto  ← Mirror of proto/fedlearn/v2/fedlearn.proto (fedlearn.v2)
+│       │   │   └── fot.proto       ← Mirror of proto/fedlearn/fot/v1/fot.proto (fedlearn.fot.v1)
 │       │   └── generated/          ← Code generated by protoc (committed)
 │       │       ├── fedlearn_pb2.py / fedlearn_pb2.pyi / fedlearn_pb2_grpc.py
 │       │       └── fot_pb2.py / fot_pb2_grpc.py
 │       │
-│       ├── estimators/             ← Gradient estimation algorithms
+│       ├── estimators/             ← Gradient estimation + the trainable-parameter manifest
 │       │   ├── __init__.py
-│       │   ├── params.py           ← Parameter flatten/unflatten helpers
-│       │   ├── perturbation.py     ← Seeded perturbation generation
-│       │   └── zeroth_order.py     ← ZerothOrderEstimator (DeComFL forward-diff)
+│       │   ├── params.py           ← FR-14 canonical layout: param_layout / flat_params /
+│       │   │                          trainable_state / frozen_state / federable_state
+│       │   ├── perturbation.py     ← canonical_perturbation() — the frozen Python↔C++ RNG contract
+│       │   └── zeroth_order.py     ← ZerothOrderEstimator (DeComFL forward-difference)
+│       │
+│       ├── simulation/             ← In-process federation (P0-1) — no gRPC, no ports, no subprocesses
+│       │   ├── __init__.py
+│       │   ├── federation.py       ← SimulatedFederation / SimulationResult / RoundRecord
+│       │   ├── partition.py        ← iid / dirichlet / shard / pathological + partition_report
+│       │   └── rng.py              ← ClientRng / RunRng / torch_rng_scope (per-client isolation)
 │       │
 │       ├── privacy/                ← Central DP (FR-13)
-│       │   ├── dp_mechanism.py     ← Clipping + Gaussian noise
-│       │   └── dp_accountant.py    ← From-scratch RDP accountant
+│       │   ├── __init__.py
+│       │   ├── dp_mechanism.py     ← dp_aggregate(): clip → uniform average → Gaussian
+│       │   └── dp_accountant.py    ← From-scratch RDP accountant for the Sampled Gaussian Mechanism
 │       │
 │       ├── security/               ← FL-boundary security
+│       │   ├── __init__.py
 │       │   ├── tls.py              ← SE-2 fail-closed TLS policy
-│       │   ├── token_verify.py     ← SE-1 connection-token verification
-│       │   ├── identity.py         ← SE-15 partition binding
-│       │   └── interceptor.py / client_interceptor.py
+│       │   ├── token_verify.py     ← SE-1 connection-token verification (PyJWT, HMAC family)
+│       │   ├── identity.py         ← SE-15 partition extraction from RPC metadata
+│       │   ├── interceptor.py      ← Server-side ConnectionTokenInterceptor (+ FR-7 run binding)
+│       │   └── client_interceptor.py ← maybe_wrap_channel() — attaches the token outbound
 │       │
-│       ├── backbone/               ← Shared backbone/distribution helpers
-│       ├── bundle/                 ← Adapter-bundle manifest + JSON schema
-│       ├── fot/                    ← Federation over Text (separate research mode)
+│       ├── backbone/               ← DA-11 frozen-backbone distribution
+│       │   ├── __init__.py
+│       │   └── distribution.py     ← serialize_backbone / BackboneCache / reconstruct_frozen_backbone
 │       │
-│       └── data/                   ← Dataset utilities
-│           └── MNIST/              ← MNIST download + Dirichlet partition helpers
+│       ├── bundle/                 ← Adapter-bundle manifest (DA-9)
+│       │   ├── __init__.py
+│       │   ├── manifest.py         ← build_manifest / adapter_to_safetensors / sha256_hex
+│       │   ├── adapter_bundle.schema.json
+│       │   └── BUNDLE_FORMAT.md
+│       │
+│       ├── fot/                    ← Federation over Text (separate, torch-free research mode)
+│       │   └── agent.py backend.py distiller.py fot_server.py fot_servicer.py model.py
+│       │       provenance.py redaction.py round.py trace_guard.py
+│       │
+│       └── data/                   ← Raw MNIST IDX files downloaded by the examples
+│           └── MNIST/raw/          ← NO Python code lives here (see simulation/partition.py)
+│
+├── tests/                          ← ~100 pytest modules + tests/fixtures/ (golden vectors)
 │
 ├── examples/                       ← End-to-end runnable examples
 │   ├── simple_federation/          ← MNIST + CNN (FedAvg)
@@ -227,16 +283,138 @@
 │   ├── ecg_decomfl_framework_integration/
 │   └── fot_text_federation/        ← FoT offline demo (run_fot.py)
 │
-├── benchmarks/                     ← DP / robust-aggregation experiment harnesses
+├── benchmarks/                     ← 17 committed, seeded experiment harnesses + the shared
+│                                      wire_bytes.py accounting module (see 08).
+│                                      results/ is generated, NOT tracked
 │
 ├── requirements.txt                ← Python dependencies
 ├── setup.py                        ← Package metadata + install configuration
 ├── pyproject.toml                  ← Minimal build-system config
+├── pytest.ini                      ← -m &quot;not slow&quot; + --cov=fedlearn --cov-fail-under=73
 ├── run_full_test_suite.py          ← Comprehensive e2e test runner
 ├── run_local_test.py               ← Quick local sanity test
 └── run_platform_e2e_test.py        ← Integration test (talks to Spring backend)
 </code></pre></div>
 
+<blockquote>
+<p><strong>The <code>protos/</code> directory is a mirror, not a source.</strong> The canonical contract lives at
+<code>proto/fedlearn/v2/fedlearn.proto</code> and <code>proto/fedlearn/fot/v1/fot.proto</code>, governed by <code>buf</code>.
+<code>scripts/check_proto_mirror.sh</code> diff-gates three in-tree mirrors (the two above plus
+<code>mobile_client/proto/fedlearn/v2/fedlearn.proto</code>) and fails CI on drift. See
+<a href="02_grpc_communication.html#regenerating-generated-code">02 — gRPC Communication</a>.</p>
+</blockquote>
+<hr />
+<h2 id="module-inventory-all-57-modules">Module Inventory — All 57 Modules<a class="headerlink" href="#module-inventory-all-57-modules" title="Permanent link">&para;</a></h2>
+<p>Every <code>.py</code> file under <code>src/fedlearn/</code>, and where it is documented. <code>__init__.py</code> files are
+counted but only listed where they carry re-exports worth knowing.</p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>Modules</th>
+<th>Documented in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>(root)</em></td>
+<td><code>__init__.py</code></td>
+<td><a href="#public-api-surface">Public API Surface</a></td>
+</tr>
+<tr>
+<td><code>server/</code> (10)</td>
+<td><code>__init__.py</code>, <code>server.py</code>, <code>coordinator.py</code>, <code>grpc_servicer.py</code></td>
+<td><a href="03_server_internals.html">03 — Server Internals</a></td>
+</tr>
+<tr>
+<td></td>
+<td><code>strategy.py</code>, <code>strategy_factory.py</code>, <code>robust_aggregation.py</code>, <code>_update_normalize.py</code></td>
+<td><a href="05_strategies.html">05 — Strategies</a></td>
+</tr>
+<tr>
+<td></td>
+<td><code>decomfl_strategy.py</code></td>
+<td><a href="06_decomfl.html">06 — DeComFL</a></td>
+</tr>
+<tr>
+<td></td>
+<td><code>subset_federation.py</code></td>
+<td><a href="05_strategies.html#trainable-subset-federation-da-11">05 — Strategies</a></td>
+</tr>
+<tr>
+<td><code>client/</code> (6)</td>
+<td><code>__init__.py</code>, <code>client.py</code>, <code>grpc_client.py</code>, <code>local_trainer.py</code></td>
+<td><a href="04_client_internals.html">04 — Client Internals</a></td>
+</tr>
+<tr>
+<td></td>
+<td><code>decomfl_client.py</code>, <code>decomfl_start.py</code></td>
+<td><a href="04_client_internals.html#decomfl-client">04</a> + <a href="06_decomfl.html">06</a></td>
+</tr>
+<tr>
+<td><code>communication/</code> (8)</td>
+<td><code>serializer.py</code>, <code>safetensors_codec.py</code>, <code>__init__.py</code></td>
+<td><a href="02_grpc_communication.html">02 — gRPC Communication</a></td>
+</tr>
+<tr>
+<td></td>
+<td><code>generated/</code> (5: <code>__init__</code>, <code>fedlearn_pb2</code>, <code>fedlearn_pb2_grpc</code>, <code>fot_pb2</code>, <code>fot_pb2_grpc</code>)</td>
+<td><a href="02_grpc_communication.html#regenerating-generated-code">02</a></td>
+</tr>
+<tr>
+<td><code>estimators/</code> (4)</td>
+<td><code>__init__.py</code>, <code>zeroth_order.py</code>, <code>perturbation.py</code></td>
+<td><a href="06_decomfl.html">06 — DeComFL</a></td>
+</tr>
+<tr>
+<td></td>
+<td><code>params.py</code></td>
+<td><a href="05_strategies.html#trainable-subset-federation-da-11">05 — Strategies</a></td>
+</tr>
+<tr>
+<td><code>simulation/</code> (4)</td>
+<td><code>__init__.py</code>, <code>federation.py</code>, <code>rng.py</code></td>
+<td><a href="#the-in-process-simulator">The In-Process Simulator</a></td>
+</tr>
+<tr>
+<td></td>
+<td><code>partition.py</code></td>
+<td><a href="07_data_partitioning.html">07 — Data Partitioning</a></td>
+</tr>
+<tr>
+<td><code>privacy/</code> (3)</td>
+<td><code>__init__.py</code>, <code>dp_mechanism.py</code>, <code>dp_accountant.py</code></td>
+<td><a href="05_strategies.html#central-differential-privacy-fr-13">05 — Strategies</a></td>
+</tr>
+<tr>
+<td><code>security/</code> (6)</td>
+<td><code>__init__.py</code>, <code>tls.py</code>, <code>token_verify.py</code>, <code>identity.py</code>, <code>interceptor.py</code>, <code>client_interceptor.py</code></td>
+<td><a href="02_grpc_communication.html#tls-configuration">02</a> + <a href="03_server_internals.html#security-wiring-in-start_server">03</a></td>
+</tr>
+<tr>
+<td><code>backbone/</code> (2)</td>
+<td><code>__init__.py</code>, <code>distribution.py</code></td>
+<td><a href="05_strategies.html#trainable-subset-federation-da-11">05 — Strategies</a></td>
+</tr>
+<tr>
+<td><code>bundle/</code> (2)</td>
+<td><code>__init__.py</code>, <code>manifest.py</code></td>
+<td><a href="05_strategies.html#adapter-bundles-da-9">05 — Strategies</a></td>
+</tr>
+<tr>
+<td><code>fot/</code> (11)</td>
+<td><code>__init__.py</code>, <code>agent.py</code>, <code>backend.py</code>, <code>distiller.py</code>, <code>fot_server.py</code>, <code>fot_servicer.py</code>, <code>model.py</code>, <code>provenance.py</code>, <code>redaction.py</code>, <code>round.py</code>, <code>trace_guard.py</code></td>
+<td>Not covered by this wiki — see the FoT caveats below</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Coverage: 46 of 57 modules are documented in these nine pages.</strong> The eleven <code>fot/</code> modules are
+deliberately out of scope here: Federation over Text is an <em>additive, orthogonal</em> research path that
+shares no code with the gradient path (it is torch-free by design so it cannot perturb gradient
+correctness), and — critically — <strong>no LLM has ever run through it</strong>. <code>fot/backend.get_backend()</code>
+wires only a <code>DeterministicStubBackend</code>; the <code>local-http</code> / <code>vllm</code> / <code>ollama</code> options raise
+<code>BackendError</code>. Its tests assert plumbing, not semantics, and there is no reproduced FoT result
+anywhere in this repo. Treat it as scaffolding, not a validated capability.</p>
 <hr />
 <h2 id="module-dependency-graph">Module Dependency Graph<a class="headerlink" href="#module-dependency-graph" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code>                         ┌──────────────────────────────┐
@@ -279,37 +457,50 @@
                          └──────────────────────────────┘
 
 Side chains:
-  strategy.py ──► FedAvgAggregator
-  decomfl_strategy.py ──► zeroth_order.ZerothOrderEstimator
+  strategy.py ──► FedAvgAggregator ──► _update_normalize.normalize_updates
+  strategy.py (FedLoRA, DP on) ──► privacy.dp_mechanism ──► robust_aggregation.clip_l2_norm
+  decomfl_strategy.py ──► estimators.perturbation.canonical_perturbation
+  zeroth_order.py ──► estimators.perturbation.canonical_perturbation + estimators.params
+  serializer.py ──► communication/safetensors_codec.py
   serializer.py ──► communication/generated/fedlearn_pb2.py
+
+Second driver (no gRPC at all):
+  simulation/federation.SimulatedFederation ──► FLCoordinator (direct method calls)
+                                            └─► Strategy (the same production objects)
 </code></pre></div>
 
+<p>Note the shape of that last chain: the simulator does <strong>not</strong> re-implement anything. <code>FLCoordinator</code>
+turned out to be transport-free — <code>register_client</code>, <code>get_global_model_for_client</code>,
+<code>submit_client_update</code> and <code>start_round</code> are ordinary methods and gRPC lives entirely in the
+servicer that wraps them — so the simulator is a driver loop over the production objects.</p>
 <hr />
 <h2 id="how-the-components-fit-together">How the Components Fit Together<a class="headerlink" href="#how-the-components-fit-together" title="Permanent link">&para;</a></h2>
 <h3 id="the-server-side">The Server Side<a class="headerlink" href="#the-server-side" title="Permanent link">&para;</a></h3>
 <ol>
-<li><strong><code>server.py</code></strong> — the single public entry point. It creates a <code>FLCoordinator</code>, wraps it in a gRPC server, and runs the training loop.</li>
-<li><strong><code>FLCoordinator</code></strong> — the brain of the server. It tracks round state, client registrations, heartbeats, update submissions, and triggers aggregation when all expected clients have submitted.</li>
-<li><strong><code>FederatedLearningServiceServicer</code></strong> — the gRPC I/O layer. Each incoming RPC call is a thin dispatcher that validates the request and calls a method on <code>FLCoordinator</code>.</li>
-<li><strong><code>Strategy</code></strong> — pluggable aggregation and evaluation logic. The coordinator delegates <code>aggregate_fit()</code> and <code>evaluate()</code> to the active strategy.</li>
+<li><strong><code>server.py</code></strong> — the single public entry point. It configures JSON logging (at the entry point, <em>not</em> at import time — FR-9), creates a <code>FLCoordinator</code>, builds the gRPC server with the optional SE-1 auth interceptor, applies the SE-2 TLS policy, and runs the outer training loop.</li>
+<li><strong><code>FLCoordinator</code></strong> — the brain of the server. It tracks round state, client registrations, heartbeats and update submissions; enforces the ingress defenses (dedup, non-finite rejection, shape checking, optional delta clipping); triggers aggregation when all expected clients have submitted; and <strong>resolves the round anyway</strong> if the per-round dropout deadline elapses first.</li>
+<li><strong><code>FederatedLearningServiceServicer</code></strong> — the gRPC I/O layer. Each incoming RPC call is a thin dispatcher that validates the request and calls a method on <code>FLCoordinator</code>. It also owns the SE-18 streamed-upload resource caps and the SE-15 identity binding.</li>
+<li><strong><code>Strategy</code></strong> — pluggable aggregation and evaluation logic. The coordinator delegates <code>aggregate_fit()</code> and <code>evaluate()</code> to the active strategy, and — if the strategy exposes <code>get_client_config()</code> — ships that strategy's client-side hyperparameters down with the global model.</li>
 </ol>
 <h3 id="the-client-side">The Client Side<a class="headerlink" href="#the-client-side" title="Permanent link">&para;</a></h3>
 <ol>
-<li><strong><code>client.py</code></strong> — the single public entry point for standard FL clients. <code>start_client()</code> wraps the entire training loop: register → fetch model → <code>client.fit()</code> → submit update → poll for next round.</li>
-<li><strong><code>GrpcClient</code></strong> — handles all network I/O. It manages the gRPC channel, heartbeat thread, retry logic, and automatically selects between unary and streaming RPC for model uploads.</li>
+<li><strong><code>client.py</code></strong> — the single public entry point for standard FL clients. <code>start_client()</code> wraps the entire training loop: register → fetch model → <code>client.fit()</code> → submit update → poll for next round, with a server-driven stop checked at every stage (FR-10).</li>
+<li><strong><code>GrpcClient</code></strong> — handles all network I/O. It manages <strong>two</strong> gRPC channels (training + heartbeat), the heartbeat thread, retry logic with exponential backoff, and automatically selects between unary and streaming RPC for model uploads.</li>
 <li><strong><code>Client</code> ABC</strong> — the interface that application code must implement. Only two methods: <code>get_parameters()</code> and <code>fit()</code>.</li>
-<li><strong><code>DeComFLClient</code></strong> — a specialised subclass for the DeComFL protocol. Instead of returning updated model weights, it returns gradient scalars, making communication O(1) in model size.</li>
+<li><strong><code>LocalTrainer</code></strong> — the shipped concrete <code>Client</code> for the first-order family. Plain minibatch SGD, plus the FedProx proximal gradient when the server sends <code>proximal_mu &gt; 0</code>.</li>
+<li><strong><code>DeComFLClient</code></strong> — a specialised subclass for the DeComFL protocol. Instead of returning updated model weights, it returns gradient scalars, making per-round communication O(K×P) rather than O(d).</li>
 </ol>
 <hr />
 <h2 id="federated-learning-lifecycle-at-a-glance">Federated Learning Lifecycle at a Glance<a class="headerlink" href="#federated-learning-lifecycle-at-a-glance" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code>Server starts
     │
     ▼
-coordinator.set_initial_parameters(strategy.initialize_parameters())
+coordinator.set_initial_parameters(strategy.initial_parameters)
+    │   (start_server reads the attribute directly; initialize_parameters() returns the same object)
     │
     └─► For each round r = 1 … N:
             │
-            ├── coordinator.start_round()   ← clears stale state
+            ├── coordinator.start_round()   ← clears stale state + resets the dropout deadline
             │
             │   ┌──────────────────────────────────────────────┐
             │   │ Meanwhile, clients are polling               │
@@ -325,20 +516,116 @@ coordinator.set_initial_parameters(strategy.initialize_parameters())
             │   └──────────────────────────────────────────────┘
             │
             ├── coordinator.wait_for_round_to_complete()
-            │       (blocks until clients_per_round updates received)
+            │       (blocks until clients_per_round updates arrive, OR until the
+            │        round_timeout_s deadline elapses → resolve_round_incomplete())
             │
             ├── strategy.aggregate_fit(round, results)
-            │       → new global model params
+            │       → new global model params  (or None → round marked failed)
             │
             ├── strategy.evaluate(round, params)
-            │       → loss + metrics dict
+            │       → (loss, metrics) or None when no evaluate_fn is configured
             │
             └── coordinator.current_round += 1
                 coordinator._round_complete_event.set()
 
-Server stops gRPC server, returns (history, final_parameters)
+coordinator.mark_training_complete()  ← TRAINING_COMPLETE + the -1 sentinel
+sleep(FEDLEARN_COMPLETION_DRAIN_SECONDS, default 3)  ← let clients observe it
+Server stops gRPC server (grace=5), returns (history, final_parameters)
 </code></pre></div>
 
+<hr />
+<h2 id="the-in-process-simulator">The In-Process Simulator<a class="headerlink" href="#the-in-process-simulator" title="Permanent link">&para;</a></h2>
+<p><code>fedlearn.simulation</code> (<code>simulation/federation.py</code>, <code>partition.py</code>, <code>rng.py</code>) runs a federation of
+arbitrarily many clients <strong>inside one Python process</strong>: no gRPC channel, no TCP port, no subprocess.</p>
+<h3 id="why-it-exists">Why it exists<a class="headerlink" href="#why-it-exists" title="Permanent link">&para;</a></h3>
+<p>The deployed path reserves one TCP port per FL server from <code>50000-50010</code> (set in the backend's
+<code>application.properties</code>), which caps the platform at <strong>11 concurrent federations</strong> and makes a
+1,000-client experiment inexpressible. That is a deployment constraint leaking into the science —
+essentially every FL result worth comparing against is quoted at client counts far above 11.</p>
+<h3 id="it-drives-the-production-objects">It drives the production objects<a class="headerlink" href="#it-drives-the-production-objects" title="Permanent link">&para;</a></h3>
+<p><code>SimulatedFederation</code> constructs a real <code>FLCoordinator</code> and calls a real <code>Strategy</code>. A simulated run
+therefore exercises the same aggregation, the same poisoning defenses, and the same round
+bookkeeping a deployed run does; only the transport is elided — and even that can be put back.</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.server.strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">FedAvg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.simulation.federation</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimulatedFederation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.simulation.partition</span><span class="w"> </span><span class="kn">import</span> <span class="n">dirichlet_partition</span><span class="p">,</span> <span class="n">partition_report</span>
+
+<span class="n">parts</span> <span class="o">=</span> <span class="n">dirichlet_partition</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">num_clients</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">min_partition_size</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">make_client</span><span class="p">(</span><span class="n">client_id</span><span class="p">,</span> <span class="n">client_rng</span><span class="p">):</span>
+    <span class="c1"># Called ONCE PER PARTICIPATION — close over already-partitioned indices (cheap),</span>
+    <span class="c1"># do not re-read a dataset from disk here.</span>
+    <span class="k">return</span> <span class="n">MyClient</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">build_model</span><span class="p">(),</span> <span class="n">train_loader</span><span class="o">=</span><span class="n">loader_for</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="n">client_id</span><span class="p">]))</span>
+
+<span class="n">sim</span> <span class="o">=</span> <span class="n">SimulatedFederation</span><span class="p">(</span>
+    <span class="n">strategy</span><span class="o">=</span><span class="n">FedAvg</span><span class="p">(</span><span class="n">initial_parameters</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span> <span class="n">evaluate_fn</span><span class="o">=</span><span class="n">my_eval</span><span class="p">,</span> <span class="n">clients_per_round</span><span class="o">=</span><span class="mi">100</span><span class="p">),</span>
+    <span class="n">client_factory</span><span class="o">=</span><span class="n">make_client</span><span class="p">,</span>
+    <span class="n">num_clients</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+    <span class="n">clients_per_round</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span>
+    <span class="n">client_config</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;learning_rate&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s2">&quot;local_epochs&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+    <span class="n">wire_in_the_loop</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>     <span class="c1"># fraction of updates routed through the real safetensors codec</span>
+    <span class="n">dropout_rate</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>         <span class="c1"># modelled, not waited for</span>
+<span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">num_rounds</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+<span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;run.json&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">))</span>   <span class="c1"># {&quot;meta&quot;: {...}, &quot;per_round&quot;: [...]}</span>
+</code></pre></div>
+
+<h3 id="the-three-properties-it-is-responsible-for">The three properties it is responsible for<a class="headerlink" href="#the-three-properties-it-is-responsible-for" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>Determinism from <code>(seed, client_id, round)</code> alone.</strong> <code>simulation/rng.py</code> folds the identity
+   into a <code>numpy.random.SeedSequence</code> <strong>entropy tuple</strong> — <code>SeedSequence(entropy=(run_seed,
+   client_id))</code> and <code>(run_seed, client_id, round)</code>. That is deliberately <em>not</em>
+   <code>SeedSequence.spawn(n)</code>: spawning <code>n</code> children folds <code>n</code> into each child's entropy, so the same
+   client would draw differently in a bigger cohort, and <code>clients_per_round=10</code> would not be
+   comparable to <code>clients_per_round=100</code>. Round-scoped (rather than sequential) streams mean round 5
+   is reproducible <strong>without replaying rounds 1–4</strong>, which is what makes a single anomalous round
+   re-examinable. Torch's global RNG drives dropout, weight init and DataLoader shuffling, so
+   <code>torch_rng_scope(seed)</code> saves and restores it (CPU <strong>and</strong> CUDA) around every seeded block —
+   including the whole run, because a strategy's <code>evaluate_fn</code> is user code that also touches it.</p>
+</li>
+<li>
+<p><strong>No wall-clock dependence.</strong> A full cohort aggregates inline on the submit that completes it. A
+   round with modelled dropout is resolved immediately via <code>FLCoordinator.resolve_round_incomplete</code>
+   rather than by sleeping out the deployed server's 120-second deadline (P0-1c). Simulated time is
+   never real time.</p>
+</li>
+<li>
+<p><strong>The wire stays testable.</strong> <code>wire_in_the_loop</code> (0.0–1.0) routes that fraction of client updates
+   through the real deterministic safetensors encode/decode and accounts the bytes.
+   <code>tests/test_simulation_federation.py::test_full_wire_matches_no_wire_bitwise</code> asserts that off
+   and on agree bit-for-bit — which is the only reason running experiments with it off is
+   defensible. Only floating-point tensors traverse the codec (it is float32-only by design);
+   integer buffers such as BatchNorm's <code>num_batches_tracked</code> are passed through rather than
+   silently coerced.</p>
+</li>
+</ol>
+<h3 id="memory-and-the-client-factory">Memory and the client factory<a class="headerlink" href="#memory-and-the-client-factory" title="Permanent link">&para;</a></h3>
+<p>Clients are constructed per round and released (<code>del client</code> after each submit), so peak memory
+scales with <code>clients_per_round</code>, not <code>num_clients</code>. The corollary is the one real constraint on
+<code>client_factory</code>: it is called <strong>once per participation</strong>, so it must be cheap. Clients are assumed
+stateless between rounds, which holds for the FedAvg/FedProx/FedOpt family — each round begins by
+loading the global parameters.</p>
+<h3 id="what-a-run-records">What a run records<a class="headerlink" href="#what-a-run-records" title="Permanent link">&para;</a></h3>
+<p><code>SimulationResult.to_json()</code> emits <code>{"meta": …, "per_round": […]}</code>. Each <code>RoundRecord</code> carries
+<code>round</code>, <code>selected</code>, <code>reported</code>, <code>dropped</code>, <strong><code>forced</code></strong> (a round force-aggregated with a partial
+cohort — kept distinct so a dropout study cannot read as a clean run), <code>num_examples</code>, <code>loss</code>,
+<code>metrics</code>, <code>wire_clients</code>, <code>wire_bytes</code>, <code>wall_seconds</code>. <code>meta</code> carries the seed, cohort sizing,
+strategy name, client config, wire/dropout settings, torch/numpy/python versions, platform, total
+wall-clock, total wire bytes, and a <code>final_digest</code> — the sha256 <strong>of the canonical safetensors
+encoding</strong> of the final parameters, deliberately the same function the wire uses so the digest is
+comparable against a C++/mobile encoding of the same state rather than a Python-only hash.</p>
+<h3 id="measured-scale">Measured scale<a class="headerlink" href="#measured-scale" title="Permanent link">&para;</a></h3>
+<p><code>research/benchmarks/simulation_scale.py</code> (seeded, re-runnable) sweeps <code>10 → 5000</code> clients at 10%
+participation over 20 rounds × 3 seeds. All 21 cells ran; the record lives in
+<code>research/results/simulation/scale_m4max.json</code>. Read it with its own caveat, which the meta block
+states: it measures <em>simulator</em> scaling (driver overhead, coordinator throughput, memory per client)
+on a deliberately tiny model, so a cell's wall-clock is a <strong>floor</strong> on what a real architecture would
+cost, never an estimate of it. (<code>research/</code> is gitignored — it is a local working area, not a
+backup.)</p>
 <hr />
 <h2 id="integration-with-the-rest-of-the-platform">Integration with the Rest of the Platform<a class="headerlink" href="#integration-with-the-rest-of-the-platform" title="Permanent link">&para;</a></h2>
 <p>The Python framework is invoked as a <strong>child process</strong> by several parts of the platform:</p>
@@ -369,7 +656,11 @@ corresponding <code>FlServerManager</code> branch throws <code>UnsupportedOperat
 
 <p>On Jetson, the same service takes the Docker path instead of the native one.</p>
 <h3 id="3-docker-containers">3. Docker Containers<a class="headerlink" href="#3-docker-containers" title="Permanent link">&para;</a></h3>
-<p><code>client-docker/</code> contains a <code>Dockerfile</code> that installs the framework and exposes a client entrypoint. The backend can instruct clients to spin up Docker containers for isolated training environments.</p>
+<p><code>client-docker/</code> contains a <code>Dockerfile</code> that installs the framework <strong>and</strong> <code>fl-runtime/</code> — its
+build context is the <strong>repo root</strong>, not <code>client-docker/</code>. The container is configured entirely by
+environment variables (<code>PROJECT_ID</code>, <code>SERVER_ADDRESS</code>, <code>PARTITION_ID</code>, and
+<code>FEDLEARN_CONNECTION_TOKEN</code> when the server has client auth on); <code>entrypoint.sh</code> hard-fails if the
+first three are unset and builds the CLI flags itself. The desktop app takes this path on Jetson.</p>
 <hr />
 <h2 id="public-api-surface">Public API Surface<a class="headerlink" href="#public-api-surface" title="Permanent link">&para;</a></h2>
 <p>The <code>fedlearn/__init__.py</code> exports the minimal surface that application code needs:</p>
@@ -408,12 +699,28 @@ corresponding <code>FlServerManager</code> branch throws <code>UnsupportedOperat
 <span class="n">start_decomfl_client</span><span class="p">(</span><span class="n">server_address</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="n">MyDeComFLClient</span><span class="p">(</span><span class="o">...</span><span class="p">),</span> <span class="n">client_id</span><span class="o">=</span><span class="s2">&quot;c0&quot;</span><span class="p">)</span>
 </code></pre></div>
 
-<p>Also re-exported from <code>fedlearn/__init__.py</code>: the <code>Strategy</code> ABC, the <code>FedProx</code> / <code>FedOpt</code>
-strategies alongside <code>FedAvg</code>, <code>LocalTrainer</code> (the first-order client trainer), and
-<code>create_strategy</code> (the name → <code>Strategy</code> factory). <code>fedlearn.server</code> additionally exports
-<code>FedLoRA</code>, <code>RobustAggregator</code> (FR-12), and <code>STRATEGY_REGISTRY</code>.</p>
+<h3 id="what-each-namespace-actually-exports">What each namespace actually exports<a class="headerlink" href="#what-each-namespace-actually-exports" title="Permanent link">&para;</a></h3>
+<p><code>fedlearn/__init__.py</code> is deliberately small — <code>server</code>, <code>client</code>, <code>Client</code>, <code>Strategy</code>, <code>FedAvg</code>,
+<code>FedProx</code>, <code>FedOpt</code>, <code>DeComFLClient</code>, <code>DeComFL</code>, <code>LocalTrainer</code>, <code>create_strategy</code>.</p>
+<p><code>FedLoRA</code>, <code>RobustAggregator</code> and <code>STRATEGY_REGISTRY</code> are exported from <strong><code>fedlearn.server</code></strong>, not
+from the top level:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">FedLoRA</span><span class="p">,</span> <span class="n">RobustAggregator</span><span class="p">,</span> <span class="n">STRATEGY_REGISTRY</span><span class="p">,</span> <span class="n">create_strategy</span>
+</code></pre></div>
+
+<p>The remaining subsystems are imported by module path rather than re-exported:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.simulation.federation</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimulatedFederation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.simulation.partition</span><span class="w"> </span><span class="kn">import</span> <span class="n">dirichlet_partition</span><span class="p">,</span> <span class="n">partition_report</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.privacy.dp_accountant</span><span class="w"> </span><span class="kn">import</span> <span class="n">RDPAccountant</span><span class="p">,</span> <span class="n">compute_rdp</span><span class="p">,</span> <span class="n">get_epsilon</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.estimators.params</span><span class="w"> </span><span class="kn">import</span> <span class="n">trainable_state</span><span class="p">,</span> <span class="n">frozen_state</span><span class="p">,</span> <span class="n">federable_state</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.backbone.distribution</span><span class="w"> </span><span class="kn">import</span> <span class="n">serialize_backbone</span><span class="p">,</span> <span class="n">BackboneCache</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.bundle.manifest</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_manifest</span><span class="p">,</span> <span class="n">adapter_to_safetensors</span>
+</code></pre></div>
+
 <blockquote>
-<p><strong>Key design principle:</strong> Users only implement two methods (<code>get_parameters</code> and <code>fit</code>). All network communication, retry logic, heartbeating, and round synchronisation is handled by the framework.</p>
+<p><strong>Key design principle:</strong> Users only implement two methods (<code>get_parameters</code> and <code>fit</code>) — and
+for the first-order family they need not even do that, since <code>LocalTrainer</code> is a ready-made
+<code>Client</code>. All network communication, retry logic, heartbeating, and round synchronisation is
+handled by the framework.</p>
 </blockquote></article>
     <nav class="toc"></nav>
   </div>

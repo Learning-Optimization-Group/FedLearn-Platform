@@ -53,21 +53,58 @@ The entire exposed API is declared in a single `contextBridge.exposeInMainWorld(
 ```typescript
 // src/preload/preload.ts
 contextBridge.exposeInMainWorld('fedLearnAPI', {
-  startTraining:             async (config)           => { /* ... */ },
-  stopTraining:              async ()                 => { /* ... */ },
-  getDockerStatus:           async ()                 => { /* ... */ },
+  // ── Training ──────────────────────────────────────────────
+  startTraining:             async (config)             => { /* ... */ },
+  stopTraining:              async ()                   => { /* ... */ },
+  getDockerStatus:           async ()                   => { /* ... */ },
+  onTrainingLog:             (callback)                 => { /* ... */ },
+  removeTrainingLogListener: ()                         => { /* ... */ },
+  selectDatasetPath:         async ()                   => { /* ... */ },
+
+  // ── Auth / session ────────────────────────────────────────
   login:                     async (username, password) => { /* ... */ },
-  logout:                    async ()                 => { /* ... */ },
-  checkAuth:                 async ()                 => { /* ... */ },
-  onTrainingLog:             (callback)               => { /* ... */ },
-  removeTrainingLogListener: ()                       => { /* ... */ },
-  onDockerUnavailable:       (callback)               => { /* ... */ },
-  setServerUrl:              async (url)              => { /* ... */ },
-  getServerUrl:              async ()                 => { /* ... */ },
-  selectDatasetPath:         async ()                 => { /* ... */ },
-  detectHardware:            async ()                 => { /* ... */ },
+  logout:                    async ()                   => { /* ... */ },
+  checkAuth:                 async ()                   => { /* ... */ },
+  onSessionExpired:          (callback)                 => { /* ... */ },
+  removeSessionExpiredListener: ()                      => { /* ... */ },
+  setServerUrl:              async (url, opts)          => { /* ... */ },
+  getServerUrl:              async ()                   => { /* ... */ },
+  saveCredentials:           async (username, password) => { /* ... */ },
+  getSavedCredentials:       async ()                   => { /* ... */ },
+  clearSavedCredentials:     async ()                   => { /* ... */ },
+
+  // ── "Models I can train" ──────────────────────────────────
+  listTrainableProjects:     async ()                   => { /* ... */ },
+  getProjectConnection:      async (projectId)          => { /* ... */ },
+
+  // ── "Use a model" (inference) ─────────────────────────────
+  listModels:                async ()                   => { /* ... */ },
+  runInference:              async (projectId, payload) => { /* ... */ },
+  runGeneration:             async (projectId, payload) => { /* ... */ },
+  stopGeneration:            async (projectId)          => { /* ... */ },
+  onInferenceToken:          (callback)                 => { /* ... */ },
+  removeInferenceTokenListener: ()                      => { /* ... */ },
+
+  // ── Device / hardware ─────────────────────────────────────
+  detectHardware:            async ()                   => { /* ... */ },
+  getDeviceCapabilities:     ()                         => { /* ... */ },
+
+  // ── Auto-updater ──────────────────────────────────────────
+  onUpdateAvailable:         (callback)                 => { /* ... */ },
+  onUpdateProgress:          (callback)                 => { /* ... */ },
+  onUpdateDownloaded:        (callback)                 => { /* ... */ },
+  onUpdateNotAvailable:      (callback)                 => { /* ... */ },
+  onUpdateError:             (callback)                 => { /* ... */ },
+  installUpdate:             async ()                   => { /* ... */ },
+  checkForUpdates:           async ()                   => { /* ... */ },
 });
 ```
+
+There is **no `onDockerUnavailable`**. It was removed together with the eager Docker daemon ping and the `docker:daemon-unavailable` channel (`4d7d3a4`); Docker failures now surface in the training log at the moment the Jetson path needs the daemon.
+
+All five `onUpdate*` listeners have **no removal counterpart** — nothing removes them, by design. That is why `App.tsx` mounts `UpdateBanner` once at shell level and never unmounts it: re-mounting would stack listeners with no way to clear them. The other three families — `onTrainingLog`, `onSessionExpired` and `onInferenceToken` — *do* have removers and must be cleaned up.
+
+`electron-updater` appears in the preload as a **type-only** import (`import type { UpdateInfo, ProgressInfo }`), erased at compile time — the preload bundle never pulls in its runtime code, only the shapes Main forwards over IPC.
 
 **Important:** `contextBridge` serializes all values using the **structured clone algorithm**. This means:
 - Functions passed TO the renderer are callable but not inspectable
@@ -89,10 +126,32 @@ const ALLOWED_HARDWARE_PROFILES = ['discrete', 'jetson', 'cpu', 'mps'] as const;
 const PROJECT_ID_PATTERN     = /^[a-zA-Z0-9_-]{1,128}$/;
 const PARTITION_ID_PATTERN   = /^[0-9]{1,10}$/;
 const SERVER_ADDRESS_PATTERN = /^[a-zA-Z0-9._:/-]{1,256}$/;
-const MAX_STRING_LENGTH = 256;
+const MAX_STRING_LENGTH      = 256;
+
+// Payload bounds for the inference channels
+const MAX_IMAGE_BASE64_LEN = 14 * 1024 * 1024;  // ~10 MB decoded
+const MAX_VECTOR_LEN       = 100_000;
+const MAX_TEXT_LEN         = 10_000;            // matches the backend's @Size(max = 10_000)
 ```
 
 All patterns use **anchored regex** (both `^` and `$`) to prevent partial matches. Every pattern includes an explicit **maximum length** to prevent resource exhaustion from arbitrarily long strings.
+
+Two validators are worth calling out separately:
+
+```typescript
+// Optional: absent means the legacy no-auth flow. When present it must be a
+// bounded token-charset string (an HMAC-JWT: three base64url segments, dots).
+function isValidConnectionToken(val: unknown): boolean {
+  if (val === undefined || val === null) return true;
+  if (typeof val !== 'string' || val.length === 0 || val.length > 8192) return false;
+  return /^[A-Za-z0-9._-]+$/.test(val);
+}
+
+// Exactly one of imageBase64 / values / text, each within bounds.
+function isValidInferencePayload(payload: unknown): payload is InferencePayloadInput { /* ... */ }
+```
+
+`isValidInferencePayload` checks in order — `imageBase64` (non-empty, ≤ `MAX_IMAGE_BASE64_LEN`), then `values` (non-empty, ≤ `MAX_VECTOR_LEN`, every element a finite number), then `text` (non-blank after trim, ≤ `MAX_TEXT_LEN`) — and rejects a payload carrying none of them. `ipc.handlers.ts` re-implements the same rules in `sanitizeInferencePayload`, which additionally returns a *clean* payload object rather than a boolean.
 
 ### Validation Function Pattern
 
@@ -123,8 +182,9 @@ function isValidProjectId(id: unknown): boolean {
 function isValidDatasetPath(val: unknown): boolean {
   if (typeof val !== 'string') { /* ... */ return false; }
   // Length-only check here — deep path validation happens in Main
-  // (Main has access to fs.statSync; preload doesn't in sandbox mode)
-  if (val.length === 0 || val.length > 2048) { /* ... */ return false; }
+  // (Main has access to fs.statSync; preload doesn't in sandbox mode).
+  // '' is deliberately ALLOWED — it means "use the built-in dataset".
+  if (val.length > 2048) { /* ... */ return false; }
   return true;
 }
 ```
@@ -135,24 +195,32 @@ function isValidDatasetPath(val: unknown): boolean {
 
 ```typescript
 startTraining: async (config: TrainingConfigInput) => {
-  // Validate all 6 fields before ANY ipcRenderer call
+  // Validate every field before ANY ipcRenderer call
   if (!isValidHardwareProfile(config.hardwareProfile))
     return { success: false, error: 'Invalid hardware profile' };
-  
+
   if (!isValidProjectId(config.projectId))
     return { success: false, error: 'Invalid project ID' };
-  
+
   if (!isValidServerAddress(config.serverAddress))
     return { success: false, error: 'Invalid server address' };
-  
+
   if (!isValidPartitionId(config.partitionId))
     return { success: false, error: 'Invalid partition ID' };
-  
+
   if (!isValidModelType(config.modelType))
     return { success: false, error: 'Invalid model type' };
-  
+
   if (!isValidDatasetPath(config.datasetPath))
     return { success: false, error: 'Invalid dataset path' };
+
+  if (!isValidConnectionToken(config.connectionToken))
+    return { success: false, error: 'Invalid connection token' };
+
+  // strategy is optional and comes from the backend connection payload; reject a
+  // malformed one rather than forwarding garbage. Main re-validates identically.
+  if (config.strategy !== undefined && !/^[a-zA-Z0-9_\-.]{1,64}$/.test(config.strategy))
+    return { success: false, error: 'Invalid strategy' };
 
   // All checks passed — forward to Main
   return ipcRenderer.invoke('docker:start-training', {
@@ -164,11 +232,19 @@ startTraining: async (config: TrainingConfigInput) => {
     partitionId:     config.partitionId,
     modelType:       config.modelType,
     datasetPath:     config.datasetPath,
+    connectionToken: config.connectionToken,
+    strategy:        config.strategy,
   });
 },
 ```
 
-**Why reconstruct the object instead of spreading?** Spreading `{ ...config }` would forward any extra properties on the `config` object to Main. While Main validates the expected fields, it's cleaner to be explicit about what gets sent.
+**Why reconstruct the object instead of spreading?** Spreading `{ ...config }` would forward any extra properties on the `config` object to Main. While Main validates the expected fields, it is cleaner — and safer — to be explicit about what gets sent.
+
+> **The cost of that pattern, live in this file.** `TrainingConfigInput` declares `trainingArm?: string`, `TrainSection` populates it from the backend connection payload, and `App.tsx`'s `Window.fedLearnAPI` declaration types it — but the reconstructed object above does **not** include `trainingArm`. The field is therefore dropped at the bridge, and Main's `docker:start-training` handler always observes `cfg.trainingArm === undefined`.
+>
+> Downstream, `if (config.trainingArm)` in `DockerService` is never true, so neither `--training-arm` (native path) nor `TRAINING_ARM` (container path) is ever emitted from the desktop app. `buildContainerEnv` and the argv construction are both correct and unit-tested (`src/__tests__/trainingArmPropagation.test.ts` calls them directly), which is exactly why the gap survives a green suite: nothing tests the preload's forwarded payload shape.
+>
+> The commit that added the field (`2eefee1`) touched the interface and every layer below the bridge, but not the invoke object. Adding a field to `TrainingConfigInput` **and** to the invoke payload is one change, not two.
 
 ---
 
@@ -181,17 +257,22 @@ Starts a federated learning training session.
 ```typescript
 startTraining(config: {
   hardwareProfile: 'discrete' | 'jetson' | 'cpu' | 'mps';
-  projectId: string;       // Pattern: /^[a-zA-Z0-9_-]{1,128}$/
-  serverAddress: string;   // Pattern: /^[a-zA-Z0-9._:/-]{1,256}$/
-  partitionId: string;     // Pattern: /^[0-9]{1,10}$/
-  modelType: string;       // Pattern: /^[a-zA-Z0-9_\-\.]{1,128}$/
-  datasetPath: string;     // Existing directory on the local filesystem
+  projectId: string;        // Pattern: /^[a-zA-Z0-9_-]{1,128}$/
+  serverAddress: string;    // Pattern: /^[a-zA-Z0-9._:/-]{1,256}$/
+  partitionId: string;      // Pattern: /^[0-9]{1,10}$/
+  modelType: string;        // Pattern: /^[a-zA-Z0-9_\-\.]{1,128}$/  (a recipe key)
+  datasetPath: string;      // Existing directory, or '' for "use the built-in dataset"
+  connectionToken?: string; // FL connection token from the backend (SE-14)
+  strategy?: string;        // Aggregation strategy from the connection payload
+  trainingArm?: string;     // DECLARED but NOT FORWARDED — see the note above
 }): Promise<{ success: boolean; error?: string }>
 ```
 
+Everything from `projectId` through `trainingArm` originates in `GET /api/client/projects/{id}/connection`, not in a form the user filled in. `datasetPath` is the only field the user supplies directly, and only through the native dialog.
+
 **Returns:**
 - `{ success: true }` — training started successfully
-- `{ success: false, error: string }` — validation failed or Docker error
+- `{ success: false, error: string }` — validation failed at either layer, or Docker/spawn error
 
 ---
 
@@ -299,32 +380,50 @@ useEffect(() => {
 
 ---
 
-### `onDockerUnavailable(callback)`
+### `onSessionExpired(callback)` / `removeSessionExpiredListener()`
 
-Registers a callback for when the Docker daemon is unreachable. Fired by Main if the initial ping fails.
+Registers a callback fired when Main invalidates the current session mid-use — a 401 from the backend, a locally-detected expired token, or a server-URL change. The renderer reacts by clearing its own auth state and showing the login screen again.
 
 ```typescript
-onDockerUnavailable(callback: (message: string) => void): void
+onSessionExpired(callback: () => void): void
+removeSessionExpiredListener(): void
 ```
+
+`App.tsx` registers this **unconditionally on mount**, not gated on `isAuthenticated` — it is precisely what detects the authenticated → expired transition, so gating it on the state it is meant to change would make it useless.
 
 ---
 
-### `setServerUrl(url)`
+### `setServerUrl(url, opts?)`
 
 Sets the backend server URL. The URL is validated (must start with `http://` or `https://`) and `/api` is appended automatically if not present.
 
 ```typescript
-setServerUrl(url: string): Promise<{
+setServerUrl(
+  url: string,
+  opts?: { allowInsecureHttp?: boolean },
+): Promise<{
   success: boolean;
-  url?: string;    // The normalized URL that was saved
+  url?: string;      // The normalized URL that was saved
   error?: string;
+  code?: string;     // 'INSECURE_HTTP' when refused for plaintext transport
+  warning?: string;  // Present when accepted via the insecure override
 }>
 ```
+
+Plaintext `http://` to a **non-loopback** host is refused with `code: 'INSECURE_HTTP'` unless `opts.allowInsecureHttp` is set — and even then the response carries a `warning` the caller must surface, because credentials and the session token would traverse the network unencrypted (DE-13). The preload forwards only the single known flag, never the caller's whole `opts` object.
+
+Setting a **different** URL clears the current session (see [03 → Changing the URL Invalidates the Session](./03-main-process.md#changing-the-url-invalidates-the-session)).
 
 **Example:**
 ```typescript
 await window.fedLearnAPI.setServerUrl('http://192.168.1.50:8081');
-// Stored as: 'http://192.168.1.50:8081/api'
+// → { success: false, code: 'INSECURE_HTTP', error: '…would cross the network unencrypted…' }
+
+await window.fedLearnAPI.setServerUrl('http://192.168.1.50:8081', { allowInsecureHttp: true });
+// → { success: true, url: 'http://192.168.1.50:8081/api', warning: 'Insecure server URL: …' }
+
+await window.fedLearnAPI.setServerUrl('http://localhost:8081');
+// → { success: true, url: 'http://localhost:8081/api' }   — loopback, warning-free
 ```
 
 ---
@@ -376,9 +475,125 @@ detectHardware(): Promise<{
 
 ---
 
+### Saved credentials
+
+```typescript
+saveCredentials(username: string, password: string): Promise<{ success: boolean }>
+getSavedCredentials(): Promise<{ success: boolean; username?: string; password?: string }>
+clearSavedCredentials(): Promise<{ success: boolean }>
+```
+
+Backs the "Save password" opt-in. `saveCredentials` returns `{ success: false }` when OS encryption is unavailable — Main refuses to write a reversible secret to disk rather than degrading silently. `getSavedCredentials` returns `{ success: false }` when nothing is stored or the blob can no longer be decrypted.
+
+---
+
+### `listTrainableProjects()` / `getProjectConnection(projectId)`
+
+The pair that replaced manual project-id / server-address / partition entry.
+
+```typescript
+listTrainableProjects(): Promise<{ success: boolean; projects?: ClientProject[]; error?: string }>
+
+getProjectConnection(projectId: string): Promise<{
+  success: boolean;
+  connection?: {
+    projectId: string;
+    name: string;
+    modelType: string;
+    serverAddress: string;
+    partitionId: number;      // number here; TrainSection stringifies it for startTraining
+    status: string;
+    connectionToken?: string;
+    strategy?: string;
+    trainingArm?: string;
+  };
+  error?: string;
+}>
+```
+
+`getProjectConnection` performs an idempotent `POST .../join` before the `GET .../connection` — without it, a PUBLIC project the user only *discovered* would 403 "Access denied" (`43f4d7e`). Backend 4xx messages are surfaced verbatim (e.g. "the FL server is not running").
+
+`ClientProject` additionally carries an optional `requirements` block that feeds the advisory device self-gate.
+
+---
+
+### Inference
+
+```typescript
+listModels(): Promise<{ success: boolean; models?: InferableModel[]; error?: string }>
+
+runInference(
+  projectId: string,
+  payload: { imageBase64?: string } | { values?: number[] } | { text?: string },
+): Promise<{ success: boolean; result?: InferenceResult; error?: string }>
+
+runGeneration(
+  projectId: string,
+  payload: {
+    prompt: string;
+    maxNewTokens: number;
+    temperature: number;
+    history?: { role: 'user' | 'assistant'; content: string }[];
+  },
+): Promise<{ success: boolean; result?: unknown; error?: string }>
+
+stopGeneration(projectId: string): Promise<{ success: boolean; stopped?: boolean; error?: string }>
+
+onInferenceToken(callback: (token: string) => void): void
+removeInferenceTokenListener(): void
+```
+
+`InferableModel.inputKind` is `'image' | 'vector' | 'text' | 'generation' | null` and drives which input widget the Model Playground renders.
+
+The preload validates `prompt` (non-blank, ≤ 10 000 chars) but leaves `maxNewTokens`/`temperature` to Main, which **clamps rather than rejects** them: `maxNewTokens` to `[1, 2048]` (default 256) and `temperature` to `[0, 2]` (default 0.7), and truncates `history` to 100 turns after filtering out malformed entries. `stopGeneration` is best-effort — the renderer keeps whatever partial text it already streamed regardless of the response.
+
+---
+
+### `getDeviceCapabilities()`
+
+```typescript
+getDeviceCapabilities(): Promise<{
+  success: boolean;
+  capabilities?: DeviceCapabilities;  // ramGb, freeStorageGb?, osName, osVersion, npuTops?, batteryPct?, onWifi?
+  error?: string;
+}>
+```
+
+Feeds `evaluateEligibility` (`src/shared/`) so the model picker can mark each project *recommended* / *limited* / *unsupported*. On desktop, `npuTops`, `batteryPct` and `onWifi` are always `undefined`, which the rule treats as "unknown" — a soft warning, never a hard failure. The result is advisory and never blocks Start.
+
+---
+
+### Auto-updater
+
+```typescript
+onUpdateAvailable(callback: (info: UpdateInfo) => void): void
+onUpdateProgress(callback: (progress: ProgressInfo) => void): void
+onUpdateDownloaded(callback: (info: UpdateInfo) => void): void
+onUpdateNotAvailable(callback: () => void): void
+onUpdateError(callback: (message: string) => void): void
+installUpdate(): Promise<{ success: boolean; error?: string }>
+checkForUpdates(): Promise<{ success: boolean; error?: string }>
+```
+
+None of the five listeners has a removal counterpart. `UpdateBanner` is therefore mounted once at shell level and never unmounted — see [05](./05-renderer-components.md#updatebanner--auto-update-layer).
+
+`onUpdateNotAvailable` and `onUpdateError` only fire for a **manual** `checkForUpdates()`: the `updater:check` handler attaches those one-shot relays itself, whereas the passive listeners registered in `updater.ts` cover only `update-available`, `download-progress` and `update-downloaded`.
+
+---
+
 ## Event-Based IPC (Push Channels)
 
-Unlike `ipcRenderer.invoke` (request-response), some IPC communication is **unidirectional push** from Main to Renderer. This is used for real-time log streaming where efficiency matters.
+Unlike `ipcRenderer.invoke` (request-response), some IPC communication is **unidirectional push** from Main to Renderer. Five families use it:
+
+| Channel | Preload listener | Remover | Consumer |
+|---|---|---|---|
+| `docker:training-log` | `onTrainingLog` | `removeTrainingLogListener` | `App.tsx` → RAF batch → `LogPanel` |
+| `inference:token` | `onInferenceToken` | `removeInferenceTokenListener` | `ModelPlayground` streaming bubble |
+| `auth:session-expired` | `onSessionExpired` | `removeSessionExpiredListener` | `App.tsx` → back to the login screen |
+| `updater:update-available` / `download-progress` / `update-downloaded` | `onUpdateAvailable` / `onUpdateProgress` / `onUpdateDownloaded` | *(none)* | `UpdateBanner` |
+| `updater:not-available` / `updater:error` | `onUpdateNotAvailable` / `onUpdateError` | *(none)* | `UpdateBanner`, manual checks only |
+
+The log-streaming case below is the one where efficiency matters most.
 
 ### How Push Works
 
@@ -424,39 +639,45 @@ declare global {
         partitionId: string;
         modelType: string;
         datasetPath: string;
+        connectionToken?: string;
+        strategy?: string;
+        trainingArm?: string;
       }) => Promise<{ success: boolean; error?: string }>;
-      
+
       stopTraining: () => Promise<{ success: boolean; error?: string }>;
       getDockerStatus: () => Promise<{ success: boolean; status?: string }>;
       login: (username: string, password: string) => Promise<{ success: boolean }>;
       logout: () => Promise<{ success: boolean }>;
       checkAuth: () => Promise<{ success: boolean; authenticated?: boolean }>;
+      onSessionExpired: (callback: () => void) => void;
+      removeSessionExpiredListener: () => void;
       onTrainingLog: (callback: (logLine: string) => void) => void;
       removeTrainingLogListener: () => void;
-      onDockerUnavailable: (callback: (message: string) => void) => void;
-      setServerUrl: (url: string) => Promise<{ success: boolean; url?: string; error?: string }>;
+      listTrainableProjects: () => Promise<{ success: boolean; projects?: ClientProject[]; error?: string }>;
+      getProjectConnection: (projectId: string)
+        => Promise<{ success: boolean; connection?: ProjectConnection; error?: string }>;
+      setServerUrl: (url: string, opts?: { allowInsecureHttp?: boolean })
+        => Promise<{ success: boolean; url?: string; error?: string; code?: string; warning?: string }>;
       getServerUrl: () => Promise<{ success: boolean; url?: string }>;
+      saveCredentials / getSavedCredentials / clearSavedCredentials: /* … */;
       selectDatasetPath: () => Promise<{ success: boolean; path?: string; error?: string }>;
-      detectHardware: () => Promise<{
-        success: boolean;
-        detection?: {
-          platform: string;
-          arch: string;
-          recommendedProfile: string;
-          nativeBundleAvailable: boolean;
-          cudaAvailable: boolean;
-          cudaInfo?: string;
-        };
-        error?: string;
-      }>;
+      listModels / runInference / runGeneration / stopGeneration: /* … */;
+      onInferenceToken: (callback: (token: string) => void) => void;
+      removeInferenceTokenListener: () => void;
+      detectHardware: () => Promise<{ success: boolean; detection?: { /* … */ }; error?: string }>;
+      getDeviceCapabilities: () => Promise<{ success: boolean; capabilities?: DeviceCapabilities; error?: string }>;
+      onUpdateAvailable / onUpdateProgress / onUpdateDownloaded
+        / onUpdateNotAvailable / onUpdateError / installUpdate / checkForUpdates: /* … */;
     };
   }
 }
 ```
 
+(Abbreviated above; the file carries every signature in full.) The declaration references `ClientProject` / `ProjectConnection` from `src/renderer/client.types.ts` and `InferableModel` / `InferenceResult` from `src/renderer/inference.types.ts`, so the renderer's view of the backend payloads is typed rather than `unknown` — even though the **preload** deliberately types those same returns as `unknown[]`/`unknown` (it validates shape, not schema).
+
 This declaration should ideally live in a separate `src/renderer/global.d.ts` file for cleaner separation, but is currently co-located in `App.tsx`.
 
-> **Important:** Keep this declaration in sync with the actual `preload.ts` implementation. Drift between the two will only be caught at runtime.
+> **Important:** Keep this declaration in sync with the actual `preload.ts` implementation. Drift between the two is only caught at runtime — and note it can drift in *either* direction. `trainingArm` is currently present in this declaration and in `TrainingConfigInput`, yet absent from the object the preload actually forwards, so the compiler is entirely happy while the value is silently discarded.
 
 ---
 
@@ -466,11 +687,22 @@ This declaration should ideally live in a separate `src/renderer/global.d.ts` fi
 
 Adding any new capability requires updating **three files** in a specific order:
 
-1. **`ipc.handlers.ts`** — Register `ipcMain.handle('new:channel', ...)` with validation
+1. **`ipc.handlers.ts`** — Register `ipcMain.handle('new:channel', ...)`, with validation delegated to `validators.ts`
 2. **`preload.ts`** — Add a typed wrapper to `contextBridge.exposeInMainWorld` with validation
 3. **`App.tsx` (or `global.d.ts`)** — Add the TypeScript declaration to `Window.fedLearnAPI`
 
 Missing any one of these causes either a silent failure (no channel registered), a TypeScript error (missing type), or a security gap (no preload validation).
+
+### 1a. Adding a New *Field* to an Existing Channel — Four Edits, Not Three
+
+A new field on an existing payload is easier to get wrong than a new channel, because every layer type-checks and none of them fails:
+
+1. `TrainingConfigInput` (or the equivalent interface) in `preload.ts`
+2. **the object literal passed to `ipcRenderer.invoke`** ← the one that gets forgotten
+3. the Main-side validation + the `TrainingConfig` construction in `ipc.handlers.ts`
+4. the `Window.fedLearnAPI` declaration in `App.tsx`
+
+`trainingArm` currently has 1, 3 and 4 but not 2, so it type-checks end to end and is discarded at the bridge. If you add a field, grep the invoke object — not the interface — to confirm it actually crosses.
 
 ### 2. `electron-log` Cannot Be Used in Sandboxed Preload
 

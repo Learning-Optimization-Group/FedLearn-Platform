@@ -50,8 +50,17 @@
 <li><a class="active" href="05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -86,6 +95,7 @@
 <h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="#overview">Overview</a></li>
+<li><a href="#the-strategy-registry">The Strategy Registry</a></li>
 <li><a href="#the-strategy-abstract-base-class">The Strategy Abstract Base Class</a></li>
 <li><a href="#fedavg--federated-averaging">FedAvg — Federated Averaging</a></li>
 <li><a href="#mathematical-foundation">Mathematical Foundation</a></li>
@@ -95,9 +105,14 @@
 <li><a href="#memory-management-in-aggregation">Memory Management in Aggregation</a></li>
 <li><a href="#evaluation-hook">Evaluation Hook</a></li>
 <li><a href="#fedavg-vs-local-training">FedAvg vs. Local Training</a></li>
+<li><a href="#fedprox--proximal-regularisation-shipped">FedProx — Proximal Regularisation (shipped)</a></li>
+<li><a href="#fedopt--server-side-adaptive-optimisation-shipped">FedOpt — Server-Side Adaptive Optimisation (shipped)</a></li>
+<li><a href="#fedlora--adapter-only-federation-shipped">FedLoRA — Adapter-Only Federation (shipped)</a></li>
+<li><a href="#byzantine-robust-aggregation-fr-12">Byzantine-Robust Aggregation (FR-12)</a></li>
+<li><a href="#central-differential-privacy-fr-13">Central Differential Privacy (FR-13)</a></li>
+<li><a href="#trainable-subset-federation-da-11">Trainable-Subset Federation (DA-11)</a></li>
+<li><a href="#adapter-bundles-da-9">Adapter Bundles (DA-9)</a></li>
 <li><a href="#implementing-a-custom-strategy">Implementing a Custom Strategy</a></li>
-<li><a href="#fedprox-example">FedProx Example</a></li>
-<li><a href="#trimmed-mean-byzantine-robust-example">Trimmed Mean (Byzantine-Robust) Example</a></li>
 <li><a href="#strategy-lifecycle-in-the-server">Strategy Lifecycle in the Server</a></li>
 <li><a href="#strategy-selection-decision-tree">Strategy Selection Decision Tree</a></li>
 </ul>
@@ -107,9 +122,81 @@
 1. <strong>Initialization:</strong> How the global model is initially distributed
 2. <strong>Aggregation:</strong> How client updates are combined into a new global model
 3. <strong>Evaluation:</strong> How the global model is evaluated after each round</p>
-<p>The framework ships with two built-in strategies:
-- <strong><code>FedAvg</code></strong> — Weighted federated averaging (McMahan et al., 2017)
-- <strong><code>DeComFL</code></strong> — Dimension-free gradient scalar aggregation (documented separately in <a href="06_decomfl.html">06 — DeComFL</a>)</p>
+<p>The framework ships with <strong>six registered strategies</strong>, not two. All six are real, tested
+implementations selectable per project — none of them is an example you are expected to write
+yourself.</p>
+<hr />
+<h2 id="the-strategy-registry">The Strategy Registry<a class="headerlink" href="#the-strategy-registry" title="Permanent link">&para;</a></h2>
+<p><code>server/strategy_factory.py</code> is the single dispatch point. Adding a strategy is a one-line registry
+entry, not another <code>if</code>/<code>elif</code> branch scattered across the launch code.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">STRATEGY_REGISTRY</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Strategy</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;fedavg&quot;</span><span class="p">:</span>  <span class="n">FedAvg</span><span class="p">,</span>
+    <span class="s2">&quot;fedprox&quot;</span><span class="p">:</span> <span class="n">FedProx</span><span class="p">,</span>
+    <span class="s2">&quot;fedopt&quot;</span><span class="p">:</span>  <span class="n">FedOpt</span><span class="p">,</span>
+    <span class="s2">&quot;fedlora&quot;</span><span class="p">:</span> <span class="n">FedLoRA</span><span class="p">,</span>
+    <span class="s2">&quot;decomfl&quot;</span><span class="p">:</span> <span class="n">DeComFL</span><span class="p">,</span>
+    <span class="s2">&quot;robust&quot;</span><span class="p">:</span>  <span class="n">RobustAggregator</span><span class="p">,</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Class</th>
+<th>Module</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fedavg</code></td>
+<td><code>FedAvg</code></td>
+<td><code>strategy.py</code></td>
+<td>num-examples-weighted mean of client models</td>
+</tr>
+<tr>
+<td><code>fedprox</code></td>
+<td><code>FedProx</code></td>
+<td><code>strategy.py</code></td>
+<td><strong>identical</strong> server aggregation; adds a client-side proximal penalty</td>
+</tr>
+<tr>
+<td><code>fedopt</code></td>
+<td><code>FedOpt</code></td>
+<td><code>strategy.py</code></td>
+<td>server-side Adam/Yogi step on a pseudo-gradient, moments persisted across rounds</td>
+</tr>
+<tr>
+<td><code>fedlora</code></td>
+<td><code>FedLoRA</code></td>
+<td><code>strategy.py</code></td>
+<td>aggregates <strong>only</strong> LoRA adapter keys; optional central DP</td>
+</tr>
+<tr>
+<td><code>decomfl</code></td>
+<td><code>DeComFL</code></td>
+<td><code>decomfl_strategy.py</code></td>
+<td>zeroth-order gradient scalars — see <a href="06_decomfl.html">06</a></td>
+</tr>
+<tr>
+<td><code>robust</code></td>
+<td><code>RobustAggregator</code></td>
+<td><code>robust_aggregation.py</code></td>
+<td>coordinate-wise median / β-trimmed mean + norm clipping</td>
+</tr>
+</tbody>
+</table>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_strategy</span>
+<span class="n">strategy</span> <span class="o">=</span> <span class="n">create_strategy</span><span class="p">(</span><span class="s2">&quot;fed_prox&quot;</span><span class="p">,</span> <span class="n">initial_parameters</span><span class="o">=</span><span class="n">params</span><span class="p">,</span> <span class="n">proximal_mu</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+</code></pre></div>
+
+<p><strong>Name matching is case-insensitive and ignores hyphens and underscores</strong> (<code>_normalize</code> lowercases
+and strips both), so <code>"FedAvg"</code>, <code>"fed-avg"</code> and <code>"fed_avg"</code> all resolve. An unregistered name raises
+<code>ValueError</code> listing the available names.</p>
+<p><code>strategy_factory.py</code> lives in its own module specifically to break an import cycle: <code>strategy.py</code>
+must not import <code>decomfl_strategy</code> (which imports <code>strategy</code>), so the factory — which needs both —
+sits above them.</p>
 <hr />
 <h2 id="the-strategy-abstract-base-class">The Strategy Abstract Base Class<a class="headerlink" href="#the-strategy-abstract-base-class" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code><span class="c1"># server/strategy.py</span>
@@ -189,20 +276,40 @@
 <tr>
 <td><code>initialize_parameters()</code></td>
 <td>Initial state_dict</td>
-<td>Server aborts with <code>UNAVAILABLE</code></td>
+<td>The servicer aborts <code>UNAVAILABLE</code> ("Server not initialized") on the first model request</td>
 </tr>
 <tr>
 <td><code>aggregate_fit()</code></td>
 <td>Updated state_dict</td>
-<td>Round marked as failed; metrics=None</td>
+<td>Round marked as failed; global model <strong>untouched</strong>; <code>latest_metrics = None</code>; the loop continues</td>
 </tr>
 <tr>
 <td><code>evaluate()</code></td>
-<td>(loss, metrics dict)</td>
-<td>Logged as warning; training continues</td>
+<td><code>(loss, metrics)</code></td>
+<td><code>latest_metrics = None</code>; the round still completes (FR-22 guards the unpack)</td>
 </tr>
 </tbody>
 </table>
+<blockquote>
+<p><strong><code>evaluate()</code> returning <code>None</code> is the normal case, not an error path.</strong> <code>evaluate_fn</code> defaults to
+<code>None</code> on FedAvg, FedProx, FedOpt, FedLoRA and RobustAggregator. Unpacking that <code>None</code> as a
+2-tuple used to raise a <code>TypeError</code> <em>inside the coordinator's lock</em>, after the round's updates
+were cleared — wedging the round. Both triggers now guard it (FR-22).</p>
+</blockquote>
+<h3 id="the-optional-get_client_config-hook">The Optional <code>get_client_config()</code> Hook<a class="headerlink" href="#the-optional-get_client_config-hook" title="Permanent link">&para;</a></h3>
+<p>Not on the ABC, but read by the coordinator every time it serves the global model. A strategy that
+needs to push client-side hyperparameters implements it:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_client_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="c1"># The proto config is map&lt;string,string&gt;, so values are STRINGIFIED here</span>
+    <span class="c1"># and coerced back by the client trainer.</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;proximal_mu&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">),</span>
+            <span class="s2">&quot;learning_rate&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">learning_rate</span><span class="p">),</span>
+            <span class="s2">&quot;local_epochs&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_epochs</span><span class="p">)}</span>
+</code></pre></div>
+
+<p><code>FedProx</code> and <code>FedOpt</code> implement it. <code>FedAvg</code>, <code>FedLoRA</code>, <code>DeComFL</code> and <code>RobustAggregator</code> do not, so
+<code>FLCoordinator._strategy_client_config()</code> returns <code>{}</code> for them and behaviour is unchanged. This is
+the params-path analogue of DeComFL's <code>GetDeComFLConfig</code>.</p>
 <hr />
 <h2 id="fedavg-federated-averaging">FedAvg — Federated Averaging<a class="headerlink" href="#fedavg-federated-averaging" title="Permanent link">&para;</a></h2>
 <h3 id="mathematical-foundation">Mathematical Foundation<a class="headerlink" href="#mathematical-foundation" title="Permanent link">&para;</a></h3>
@@ -226,12 +333,12 @@ where:
         <span class="n">initial_parameters</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
         <span class="n">evaluate_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">min_fit_clients</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-        <span class="n">clients_per_round</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">clients_per_round</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>      <span class="c1"># None -&gt; falls back to min_fit_clients</span>
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span> <span class="o">=</span> <span class="n">initial_parameters</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="o">=</span> <span class="n">evaluate_fn</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">min_fit_clients</span> <span class="o">=</span> <span class="n">min_fit_clients</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">clients_per_round</span> <span class="o">=</span> <span class="n">clients_per_round</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clients_per_round</span> <span class="o">=</span> <span class="n">clients_per_round</span> <span class="k">if</span> <span class="n">clients_per_round</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">min_fit_clients</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">aggregator</span> <span class="o">=</span> <span class="n">FedAvgAggregator</span><span class="p">()</span>
 </code></pre></div>
 
@@ -252,94 +359,91 @@ where:
 <tr>
 <td><code>evaluate_fn</code></td>
 <td><code>Callable(round, params) → (loss, dict)</code></td>
-<td>Optional evaluation function</td>
+<td>Optional evaluation function; <code>None</code> means no server-side eval</td>
 </tr>
 <tr>
 <td><code>min_fit_clients</code></td>
 <td><code>int</code></td>
-<td>Minimum clients for aggregation (guards against premature rounds)</td>
+<td>Minimum clients for aggregation (the floor a force-resolved round must clear)</td>
 </tr>
 <tr>
 <td><code>clients_per_round</code></td>
 <td><code>int</code></td>
-<td>Exact number of clients expected per round</td>
+<td>Exact number of clients expected per round. <strong>Defaults to <code>min_fit_clients</code> when omitted</strong> — every shipped strategy uses that same <code>clients_per_round if … is not None else min_fit_clients</code> pattern</td>
 </tr>
 </tbody>
 </table>
 <blockquote>
-<p><strong>Note:</strong> <code>min_fit_clients</code> is currently read by the <code>FLCoordinator</code> for its <code>min_clients</code> attribute, but the coordinator uses <code>clients_per_round</code> for the actual aggregation trigger. Semantically, <code>clients_per_round</code> should always be ≥ <code>min_fit_clients</code>.</p>
+<p><strong>Note:</strong> <code>min_fit_clients</code> is read by the <code>FLCoordinator</code> as its <code>min_clients</code>, but the <em>inline</em>
+aggregation trigger fires on <code>clients_per_round</code>. <code>min_clients</code> is what matters on the
+<strong>timeout</strong> path: <code>resolve_round_incomplete</code> force-aggregates only if at least
+<code>max(1, min_clients)</code> reported. Semantically, <code>clients_per_round</code> should always be ≥
+<code>min_fit_clients</code>.</p>
 </blockquote>
 <h3 id="fedavgaggregator-weighted-averaging">FedAvgAggregator — Weighted Averaging<a class="headerlink" href="#fedavgaggregator-weighted-averaging" title="Permanent link">&para;</a></h3>
-<p>The <code>FedAvgAggregator</code> is separated from the <code>FedAvg</code> strategy to allow reuse:</p>
+<p>The <code>FedAvgAggregator</code> is separated from the <code>FedAvg</code> strategy so <code>FedProx</code>, <code>FedOpt</code> and <code>FedLoRA</code>
+can reuse it verbatim rather than re-deriving the mean:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FedAvgAggregator</span><span class="p">:</span>
     <span class="n">MAX_SAMPLES</span> <span class="o">=</span> <span class="mi">100_000</span>  <span class="c1"># Security cap — prevents poisoning via inflated counts</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">aggregate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">updates</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Args:</span>
-<span class="sd">            updates: List of (params, num_examples) OR (client_id, params, num_examples)</span>
+<span class="sd">            updates: List of (params, num_examples) OR (client_id, params, num_examples);</span>
+<span class="sd">                     params may also be a JSON string (decoded by the shared normalizer).</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            Weighted average of params</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">updates</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot aggregate an empty list of updates.&quot;</span><span class="p">)</span>
 
-        <span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span>
+        <span class="c1"># ONE shared normalizer for all four aggregation sites (FedAvg, FedLoRA&#39;s key probe,</span>
+        <span class="c1"># RobustAggregator, and the DP path) — see server/_update_normalize.py.</span>
+        <span class="n">updates</span> <span class="o">=</span> <span class="n">normalize_updates</span><span class="p">(</span><span class="n">updates</span><span class="p">)</span>
 
-        <span class="c1"># Normalise to 3-tuple format</span>
-        <span class="n">deserialized_updates</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">updates</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="n">client_id</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span> <span class="o">=</span> <span class="n">entry</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span> <span class="o">=</span> <span class="n">entry</span>
-                <span class="n">client_id</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Aggregate on the device the DATA is already on.</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">_first_tensor_device</span><span class="p">(</span><span class="n">updates</span><span class="p">)</span>
 
-            <span class="c1"># Handle JSON-serialised params (from proto round-trip)</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-                <span class="n">params</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
-                <span class="n">params</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
-
-            <span class="n">deserialized_updates</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">client_id</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span><span class="p">))</span>
-
-        <span class="c1"># Security: discard updates with invalid num_examples</span>
-        <span class="n">sanitized</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="p">(</span><span class="n">cid</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_SAMPLES</span><span class="p">))</span>
-            <span class="k">for</span> <span class="n">cid</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">deserialized_updates</span> <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span>
-        <span class="p">]</span>
+        <span class="n">sanitized</span> <span class="o">=</span> <span class="p">[(</span><span class="n">cid</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_SAMPLES</span><span class="p">))</span> <span class="k">for</span> <span class="n">cid</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">updates</span> <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">sanitized</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No valid updates after sanitisation.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No valid updates after sanitization.&quot;</span><span class="p">)</span>
 
-        <span class="c1"># Compute weighted sum</span>
-        <span class="n">total_examples</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">n</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">sanitized</span><span class="p">)</span>
-
-        <span class="c1"># Initialise accumulator to zeros matching the template tensor shapes</span>
-        <span class="n">_</span><span class="p">,</span> <span class="n">template_params</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sanitized</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">template_params</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">template_params</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-        <span class="n">aggregated</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
-            <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
-            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">tensor</span> <span class="ow">in</span> <span class="n">template_params</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-        <span class="p">)</span>
+        <span class="c1"># FR-18: template on the UNION of client keys, and total examples PER KEY.</span>
+        <span class="n">aggregated</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="n">key_totals</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">_cid</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span> <span class="ow">in</span> <span class="n">sanitized</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">tensor</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">aggregated</span><span class="p">:</span>
+                    <span class="n">aggregated</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+                <span class="n">key_totals</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">key_totals</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">num_examples</span>
 
         <span class="k">for</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span> <span class="ow">in</span> <span class="n">sanitized</span><span class="p">:</span>
-            <span class="n">weight</span> <span class="o">=</span> <span class="n">num_examples</span> <span class="o">/</span> <span class="n">total_examples</span>  <span class="c1"># normalised weight</span>
-
-            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">aggregated</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
-                    <span class="n">torch</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
-                        <span class="n">aggregated</span><span class="p">[</span><span class="n">key</span><span class="p">],</span>
-                        <span class="n">params</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">(),</span>
-                        <span class="n">alpha</span><span class="o">=</span><span class="n">weight</span><span class="p">,</span>           <span class="c1"># in-place weighted accumulation</span>
-                        <span class="n">out</span><span class="o">=</span><span class="n">aggregated</span><span class="p">[</span><span class="n">key</span><span class="p">],</span>
-                    <span class="p">)</span>
-
-            <span class="c1"># Free client buffer immediately after use</span>
-            <span class="n">params</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">aggregated</span><span class="p">:</span>
+                    <span class="n">weight</span> <span class="o">=</span> <span class="n">num_examples</span> <span class="o">/</span> <span class="n">key_totals</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>      <span class="c1"># PER-KEY renormalisation</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">aggregated</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">params</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">(),</span>
+                              <span class="n">alpha</span><span class="o">=</span><span class="n">weight</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">aggregated</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+            <span class="n">params</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>          <span class="c1"># free the client buffer immediately</span>
 
         <span class="k">return</span> <span class="n">aggregated</span>
 </code></pre></div>
 
-<p><strong>Step-by-step walkthrough for 3 clients:</strong></p>
+<p><strong>Two corrections in this method are load-bearing. Do not "simplify" either one back.</strong></p>
+<p><strong>1. FR-18 — union of keys, and totals <em>per key</em>.</strong> Templating the accumulator on <code>updates[0]</code>
+alone silently dropped any key that only a later client carried. Worse, weighting every key by
+<code>num_examples / total_over_ALL_clients</code> while summing only the clients that <em>have</em> that key scaled a
+subset-held key by a weight share <code>&lt; 1</code> — decaying it toward zero every round — and let a client
+with an inflated <code>num_examples</code> bypass the per-client L2 clip on the keys it omitted. Renormalising
+each key over the clients that actually provided it fixes both, and when every client holds every
+key it reduces <strong>exactly</strong> to the previous weighted mean.</p>
+<p><strong>2. Device is taken from the data, not from global availability.</strong> The old rule,
+<code>"cuda" if torch.cuda.is_available() else "cpu"</code>, was wrong in two distinct ways: it never selected
+MPS at all (so on Apple Silicon every GPU-trained update was silently copied to CPU every round),
+and on a CUDA host it force-migrated aggregates to CUDA regardless of where the run actually lived —
+which is what crashed <code>FedOpt</code>, whose <code>_global</code> stays on the device <code>initial_parameters</code> arrived on,
+so <code>g = old - x_bar</code> mixed CPU and CUDA tensors. <code>_first_tensor_device(updates)</code> is both correct and
+intent-preserving: a run the caller placed on CPU stays on CPU even on a CUDA box.</p>
+<p><strong>Step-by-step walkthrough for 3 clients (all holding every key):</strong></p>
 <div class="codehilite"><pre><span></span><code>Client A: 100 examples, weight = 100/250 = 0.40
 Client B:  75 examples, weight =  75/250 = 0.30
 Client C:  75 examples, weight =  75/250 = 0.30
@@ -351,6 +455,36 @@ For each parameter key &quot;layer.weight&quot;:
   aggregated[&quot;layer.weight&quot;] += 0.30 × C[&quot;layer.weight&quot;]
 </code></pre></div>
 
+<p>And with a key only B and C carry, the denominator for <strong>that key</strong> is <code>75 + 75 = 150</code>, so B and C
+weight 0.5 each and A contributes nothing to it — rather than B and C summing to 0.6 of a value that
+should be 1.0.</p>
+<h3 id="accepted-update-shapes">Accepted Update Shapes<a class="headerlink" href="#accepted-update-shapes" title="Permanent link">&para;</a></h3>
+<p>Four aggregation sites accept the same wire shapes and coerce them identically, through the one
+implementation in <code>server/_update_normalize.py</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>Normalised to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>(client_id, params, num_examples)</code></td>
+<td>unchanged</td>
+</tr>
+<tr>
+<td><code>(params, num_examples)</code></td>
+<td><code>client_id = None</code></td>
+</tr>
+<tr>
+<td><code>params</code> as a JSON string <code>{name: list}</code></td>
+<td>decoded to <code>OrderedDict[str, Tensor]</code>; a decode failure raises <code>ValueError</code> <strong>naming the offending client</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Callers that do not need <code>num_examples</code> (the DP uniform average, the FedLoRA key probe) simply
+ignore the third element.</p>
 <h3 id="security-num_examples-sanitisation">Security: num_examples Sanitisation<a class="headerlink" href="#security-num_examples-sanitisation" title="Permanent link">&para;</a></h3>
 <p>The aggregation contains two layers of protection against <strong>model poisoning via inflated dataset size</strong>:</p>
 <ol>
@@ -368,6 +502,14 @@ For each parameter key &quot;layer.weight&quot;:
 </li>
 </ol>
 <p>Without these caps, a malicious client could claim to have trained on 10 billion examples, making its parameters dominate the weighted average (weight ≈ 1.0, others ≈ 0.0), effectively replacing the global model.</p>
+<p>Note the two are <strong>not</strong> redundant. The coordinator's cap protects the live gRPC path; the
+aggregator's protects every <em>other</em> caller — the in-process simulator, benchmark harnesses, and unit
+tests all reach <code>aggregate()</code> without passing through <code>submit_client_update</code>. A cap in one place only
+would be bypassable by construction.</p>
+<p>The other two strategies that do not use <code>FedAvgAggregator</code> handle this differently rather than
+inheriting the cap: <code>RobustAggregator</code> validates <code>num_examples &gt; 0</code> and then <strong>ignores it entirely</strong>
+(unweighted by design, see <a href="#aggregation-is-unweighted-and-that-is-deliberate">above</a>), and the DP
+path also ignores it (uniform average — weighting would void the ε claim).</p>
 <h3 id="memory-management-in-aggregation">Memory Management in Aggregation<a class="headerlink" href="#memory-management-in-aggregation" title="Permanent link">&para;</a></h3>
 <p>After each client's parameters are incorporated into the weighted sum, they are explicitly freed:</p>
 <div class="codehilite"><pre><span></span><code><span class="k">for</span> <span class="n">client_id</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span> <span class="ow">in</span> <span class="n">sanitized</span><span class="p">:</span>
@@ -433,157 +575,483 @@ Next round, both clients start from w_global_new, NOT from their own w_A_end or 
 
 <p>This "reset to global" behaviour at the start of each round is what prevents client models from diverging permanently. It also means the local optimizer state (momentum, Adam's m/v buffers) is discarded between rounds — or must be explicitly preserved by the client implementation.</p>
 <hr />
+<h2 id="fedprox-proximal-regularisation-shipped">FedProx — Proximal Regularisation (shipped)<a class="headerlink" href="#fedprox-proximal-regularisation-shipped" title="Permanent link">&para;</a></h2>
+<p><code>FedProx</code> (Li et al. 2020, <a href="https://arxiv.org/abs/1812.06127">arXiv:1812.06127</a>) is a <strong>real class in
+<code>server/strategy.py</code></strong>, registered as <code>"fedprox"</code>. Do not reimplement it.</p>
+<p><strong>Its server aggregation is bitwise identical to FedAvg</strong> — it reuses <code>FedAvgAggregator</code> with no
+reimplementation. FedProx's entire difference is <em>client-side</em>: each client minimises</p>
+<div class="codehilite"><pre><span></span><code>min_w  F_i(w) + (mu/2) * || w - w_global ||^2
+</code></pre></div>
+
+<p>Because that term lives in the client's loss, <code>mu</code> never touches server aggregation, so <code>mu = 0</code>
+makes aggregation bitwise-identical to FedAvg. <code>mu</code> reaches the client through
+<code>get_client_config() → config["proximal_mu"]</code>, read by <code>LocalTrainer.fit()</code> exactly the way
+<code>DeComFLClient.fit()</code> reads <code>config["learning_rate"]</code>.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">FedProx</span><span class="p">(</span><span class="n">initial_parameters</span><span class="p">,</span> <span class="n">evaluate_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_fit_clients</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">clients_per_round</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">proximal_mu</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">local_epochs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">allow_unstable_mu</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</code></pre></div>
+
+<h3 id="the-mu-lr-stability-envelope-measured-then-enforced">The (mu, lr) stability envelope — measured, then enforced<a class="headerlink" href="#the-mu-lr-stability-envelope-measured-then-enforced" title="Permanent link">&para;</a></h3>
+<p><code>LocalTrainer</code> applies the penalty as an explicit gradient term <code>mu * (w - w_global)</code> added to
+<code>.grad</code> before the SGD step. The penalty's own iteration is therefore</p>
+<div class="codehilite"><pre><span></span><code>w &lt;- w - lr*mu*(w - w_global)
+</code></pre></div>
+
+<p>a linear map with multiplier <code>(1 - lr*mu)</code>, which contracts toward the anchor <strong>only while
+<code>0 &lt; lr*mu &lt; 2</code></strong>. At <code>lr*mu &gt;= 2</code> the penalty oscillates <em>outward</em>: the term whose entire purpose is
+to bound client drift instead amplifies it, and nothing raises. Measured on a 3-class linear task,
+one local epoch, drift = <code>||w_local - w_global||</code>:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>lr*mu = 1.9</code></th>
+<th><code>lr*mu = 10</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lr=0.5</code></td>
+<td><code>mu=3.8</code> → drift <strong>0.517</strong></td>
+<td><code>mu=20</code> → drift <strong>2.4e4</strong></td>
+</tr>
+<tr>
+<td><code>lr=0.1</code></td>
+<td><code>mu=19</code> → drift <strong>0.109</strong></td>
+<td><code>mu=100</code> → drift <strong>4.8e3</strong></td>
+</tr>
+<tr>
+<td><code>lr=0.01</code></td>
+<td><code>mu=190</code> → drift <strong>0.011</strong></td>
+<td><code>mu=1000</code> → drift <strong>4.8e2</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The minimum sits at <code>lr*mu ≈ 2</code> in all three rows and <code>mu = 10/lr</code> is catastrophic in all three, so
+the boundary is a property of the <strong>discretisation</strong>, not of the task.</p>
+<p><code>_check_prox_stability()</code> therefore runs at <strong>construction</strong>, not mid-run, so a doomed configuration
+fails before it burns a federation:</p>
+<table>
+<thead>
+<tr>
+<th><code>s = lr*mu</code></th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mu &lt;= 0</code></td>
+<td>return immediately — <code>mu = 0</code> is exactly FedAvg</td>
+</tr>
+<tr>
+<td><code>s &lt; PROX_STABILITY_WARN</code> (1.0)</td>
+<td>silent</td>
+</tr>
+<tr>
+<td><code>1.0 &lt;= s &lt; PROX_STABILITY_LIMIT</code> (2.0)</td>
+<td><strong>warn</strong> — stable but near the boundary; drift-vs-<code>mu</code> is no longer monotone here</td>
+</tr>
+<tr>
+<td><code>s &gt;= 2.0</code></td>
+<td><strong>raise <code>ValueError</code></strong>, unless <code>allow_unstable_mu=True</code> (then warn loudly)</td>
+</tr>
+</tbody>
+</table>
+<p>The reason this is an error rather than a note: the failure is silent <em>and inverted</em>. A run
+configured to reduce drift produces far more of it and still completes — nothing in an accuracy
+curve says "unstable". It looks like an ordinary bad-hyperparameter run.</p>
+<hr />
+<h2 id="fedopt-server-side-adaptive-optimisation-shipped">FedOpt — Server-Side Adaptive Optimisation (shipped)<a class="headerlink" href="#fedopt-server-side-adaptive-optimisation-shipped" title="Permanent link">&para;</a></h2>
+<p><code>FedOpt</code> implements Reddi et al. 2021's Algorithm 2
+(<a href="https://arxiv.org/abs/2003.00295">arXiv:2003.00295</a>) — <strong>FedAdam</strong> and <strong>FedYogi</strong>. Clients do
+ordinary local SGD (<code>proximal_mu = 0</code>); the adaptivity is entirely server-side.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">FedOpt</span><span class="p">(</span><span class="n">initial_parameters</span><span class="p">,</span> <span class="n">evaluate_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_fit_clients</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">clients_per_round</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+       <span class="n">server_learning_rate</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">beta1</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">beta2</span><span class="o">=</span><span class="mf">0.99</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">variant</span><span class="o">=</span><span class="s2">&quot;adam&quot;</span><span class="p">,</span>
+       <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">local_epochs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">bias_correction</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Per round: aggregate the client models into <code>x_bar</code> with the usual weighted mean, form a
+pseudo-gradient, then take an Adam-style step, <strong>persisting <code>(m, v)</code> across rounds</strong>:</p>
+<div class="codehilite"><pre><span></span><code>g_t = w_global(old) - x_bar                          # == -Delta_t in the paper
+m_t = beta1 * m_{t-1} + (1 - beta1) * g_t
+FedAdam:  v_t = beta2 * v_{t-1} + (1 - beta2) * g_t^2
+FedYogi:  v_t = v_{t-1} - (1 - beta2) * sign(v_{t-1} - g_t^2) * g_t^2
+w_global(new) = w_global(old) - eta * m_t / (sqrt(v_t) + tau)
+</code></pre></div>
+
+<p>The paper defines <code>Delta_t = x_bar - w_global</code> and <em>ascends</em> with <code>+Delta</code>; using <code>g_t</code> and
+<em>descending</em> is algebraically identical. Moments initialise to zero and accumulate, so a round's step
+depends on the whole history — <strong>the same aggregated input produces a different update at round 2
+than at round 20.</strong></p>
+<h3 id="bias_correction-off-by-default-and-that-is-a-real-comparability-trap"><code>bias_correction</code> — off by default, and that is a real comparability trap<a class="headerlink" href="#bias_correction-off-by-default-and-that-is-a-real-comparability-trap" title="Permanent link">&para;</a></h3>
+<p>Kingma &amp; Ba's <code>alpha_t = sqrt(1 - b2^(t+1)) / (1 - b1^(t+1))</code> scales the server learning rate.
+Flower's <code>FedAdam</code> applies it; <strong>Reddi et al.'s Algorithm 2 — which this class implements literally —
+does not.</strong> So it defaults to <code>False</code>, and (mirroring Flower's own asymmetry) it applies to the
+<code>adam</code> variant only.</p>
+<p>That factor is <strong>not</strong> a small correction. At <code>b1=0.9, b2=0.99</code> it is <code>0.74</code> at round 1, bottoms near
+<code>0.47</code> around round 12, and is still only <code>0.93</code> at round 200 — roughly a <strong>2× difference in
+effective server step for the whole of any realistic run</strong>. Turn it on to compare like-for-like
+against a Flower <code>FedAdam</code> baseline; leaving it off while quoting a Flower <code>FedAdam</code> number as the
+referent compares two optimisers running at ~2× different effective learning rates. This asymmetry
+is also what makes this FedYogi cross-validate against Flower's at float32 epsilon while FedAdam
+does not.</p>
+<h3 id="device-migration">Device migration<a class="headerlink" href="#device-migration" title="Permanent link">&para;</a></h3>
+<p><code>_global</code> and the moments are migrated <strong>once</strong>, on the first round, to whatever device the
+aggregated tensors landed on — rather than converting <code>x_bar</code> every round. It is idempotent (after
+round 1 the devices agree and <code>.to()</code> is a no-op) and costs no per-round transfer.
+<code>aggregate_fit</code> returns a <strong>clone</strong>, so a downstream mutation of the served model cannot corrupt
+server state.</p>
+<hr />
+<h2 id="fedlora-adapter-only-federation-shipped">FedLoRA — Adapter-Only Federation (shipped)<a class="headerlink" href="#fedlora-adapter-only-federation-shipped" title="Permanent link">&para;</a></h2>
+<p><code>FedLoRA</code> federates <strong>only LoRA adapter parameters</strong> — never the base model. Two aggregation modes:</p>
+<table>
+<thead>
+<tr>
+<th><code>aggregation</code></th>
+<th>Communicated</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"FFA_LORA"</code> (default)</td>
+<td><code>B</code> + head</td>
+<td><code>A</code> is frozen and shared, so it is <strong>not</strong> aggregated. The strategy captures <code>A</code> from <code>initial_parameters</code> and re-attaches it to every aggregated global, unchanged — which is what makes <code>avg(B) @ A == avg(B @ A)</code> exact</td>
+</tr>
+<tr>
+<td><code>"FedIT"</code></td>
+<td><code>A</code> + <code>B</code> + head</td>
+<td>plain weighted mean over all adapter keys</td>
+</tr>
+</tbody>
+</table>
+<p><code>FFA_LORA</code> <strong>raises at construction</strong> if <code>initial_parameters</code> carries no <code>lora_A</code> keys — the global
+adapter must be the <em>full</em> adapter (A+B+head), or the frozen-A invariant has nothing to preserve.</p>
+<h3 id="two-server-side-guards">Two server-side guards<a class="headerlink" href="#two-server-side-guards" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>_assert_homogeneous</code></strong> — every client must agree on the adapter key set <em>and</em> per-key shape
+  (homogeneous rank/config), else <code>ValueError</code>.</li>
+<li><strong><code>_assert_client_keys_allowed</code> (FR-23)</strong> — a server-side <strong>allowlist</strong>: every client key must
+  already exist in <code>initial_parameters</code>. Homogeneity alone only checks clients against <em>each other</em>,
+  so a <code>min_clients=1</code> client (or a colluding full cohort) could append keys outside the adapter —
+  poisoned base-model weights under their peft state-dict names — which would then be averaged into
+  the global, broadcast to every peer, and packaged into the registry bundle. Clients may send a
+  <strong>subset</strong> (FFA re-attaches the frozen A) but never a <strong>superset</strong>.</li>
+</ul>
+<hr />
+<h2 id="byzantine-robust-aggregation-fr-12">Byzantine-Robust Aggregation (FR-12)<a class="headerlink" href="#byzantine-robust-aggregation-fr-12" title="Permanent link">&para;</a></h2>
+<p><code>RobustAggregator</code> (<code>server/robust_aggregation.py</code>, registered as <code>"robust"</code>) replaces FedAvg's
+weighted mean with a robust estimator and hardens the ingress.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">RobustAggregator</span><span class="p">(</span><span class="n">initial_parameters</span><span class="p">,</span> <span class="n">evaluate_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_fit_clients</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">clients_per_round</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">method</span><span class="o">=</span><span class="s2">&quot;median&quot;</span><span class="p">,</span>        <span class="c1"># or &quot;trimmed_mean&quot;</span>
+                 <span class="n">trim_ratio</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>         <span class="c1"># beta, in [0, 0.5)</span>
+                 <span class="n">clip_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>         <span class="c1"># L2 bound S on each client&#39;s DELTA; None disables</span>
+                 <span class="n">byzantine_fraction</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span> <span class="c1"># the operator&#39;s ESTIMATE</span>
+</code></pre></div>
+
+<h3 id="the-two-estimators">The two estimators<a class="headerlink" href="#the-two-estimators" title="Permanent link">&para;</a></h3>
+<p>Both from Yin et al. 2018, <a href="https://arxiv.org/abs/1803.01498">"Byzantine-Robust Distributed
+Learning"</a>:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">coordinate_wise_median</span><span class="p">(</span><span class="n">stacked</span><span class="p">):</span>     <span class="c1"># stacked: [num_clients, *param_shape]</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">stacked</span><span class="o">.</span><span class="n">float</span><span class="p">(),</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">trimmed_mean</span><span class="p">(</span><span class="n">stacked</span><span class="p">,</span> <span class="n">trim_ratio</span><span class="p">):</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">stacked</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">trim_ratio</span> <span class="o">*</span> <span class="n">n</span><span class="p">)</span>                       <span class="c1"># floor</span>
+    <span class="k">if</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k</span> <span class="o">&gt;=</span> <span class="n">n</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>                     <span class="c1"># trimming would remove every value</span>
+    <span class="n">ordered</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">stacked</span><span class="o">.</span><span class="n">float</span><span class="p">(),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ordered</span><span class="p">[</span><span class="n">k</span><span class="p">:</span> <span class="n">n</span> <span class="o">-</span> <span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</code></pre></div>
+
+<blockquote>
+<p><strong>The median is <code>torch.quantile(..., 0.5)</code>, deliberately NOT <code>torch.median</code>.</strong> For an even client
+count <code>torch.median</code> returns the <em>lower</em> of the two central order statistics, which is a biased
+estimator; the true median — the one Yin et al. analyse — is the mean of the two central order
+statistics, which is what <code>quantile</code> with linear interpolation gives. It still reduces to the
+middle element for an odd count.</p>
+</blockquote>
+<h3 id="the-five-layers">The five layers<a class="headerlink" href="#the-five-layers" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Coordinate-wise median</strong> — tolerates up to (not including) half the clients being Byzantine.</li>
+<li><strong>β-trimmed mean</strong> — drops <code>k = floor(β·n)</code> from <strong>each</strong> end; tolerates up to <code>β</code>. <code>β = 0</code>
+   recovers the plain mean.</li>
+<li><strong>Non-finite rejection</strong> — a client carrying NaN/Inf is dropped <em>before</em> aggregation, reusing the
+   canonical <code>serializer._reject_non_finite</code> so this second layer shares one definition of "poisoned"
+   with the wire path rather than re-implementing an <code>isfinite</code> test that could drift.</li>
+<li><strong>Delta-space L2 clipping</strong> — each client's <em>delta from the current global</em> is clipped to <code>S</code>
+   using the same global-norm convention as <code>torch.nn.utils.clip_grad_norm_</code> (all tensors
+   concatenated, so a sprawl-across-many-layers attack is bounded jointly), then the model is
+   reconstructed as <code>global + clipped_delta</code>. Clipping the <strong>delta</strong>, not the raw model, is what
+   bounds each client's per-round <em>pull</em>. Both estimators are translation-equivariant, so with
+   clipping off this reduces exactly to the robust estimator over the raw client models.</li>
+<li><strong>Byzantine-fraction guard</strong> — if <code>byzantine_fraction &gt; tolerance</code> (0.5 for median, <code>β</code> for
+   trimmed-mean) the round <strong>refuses to aggregate</strong>, leaves the global untouched, sets
+   <code>last_round_failed</code> / <code>last_round_message</code>, and returns <code>None</code>. The coordinator already treats
+   <code>None</code> as a non-fatal round failure.</li>
+</ol>
+<p><strong>FR-19</strong> adds a sixth: <code>_conforms_to_global</code> drops any update whose key set or per-key shape
+differs from the global model's. Without it, <code>torch.stack</code> raises on a shape mismatch (crashing the
+aggregation thread <em>after</em> the client was accepted), and an empty or mis-keyed <code>clients[0]</code> templates
+the reduction to a smaller key set — silently dropping those parameters and, once persisted, <strong>wiping
+them from the global model</strong>. The reduction is templated on <code>self._global.keys()</code> for the same
+reason.</p>
+<h3 id="aggregation-is-unweighted-and-that-is-deliberate">Aggregation is UNWEIGHTED, and that is deliberate<a class="headerlink" href="#aggregation-is-unweighted-and-that-is-deliberate" title="Permanent link">&para;</a></h3>
+<p><code>num_examples</code> is validated (<code>&gt; 0</code>, else the client is dropped) but never used as a weight. This
+matches the robust-statistics literature: <strong>an attacker controls its own reported <code>num_examples</code></strong>,
+so a weighted median or trimmed-mean would hand the adversary back exactly the leverage these
+estimators exist to remove.</p>
+<h3 id="honest-scope">Honest scope<a class="headerlink" href="#honest-scope" title="Permanent link">&para;</a></h3>
+<p>Median tolerates <code>&lt; 1/2</code> Byzantine clients; trimmed-mean tolerates <code>&lt;= β</code>. Both are <strong>large-cohort</strong>
+defenses and degrade at the 1–3 client cohorts this platform often runs — which is precisely why the
+estimator is opt-in per project rather than the default. The measured breakdown point is what
+<code>benchmarks/robust_breakdown_point.py</code> exists to establish; see <a href="08_examples.html">08 — Benchmarks</a>.</p>
+<hr />
+<h2 id="central-differential-privacy-fr-13">Central Differential Privacy (FR-13)<a class="headerlink" href="#central-differential-privacy-fr-13" title="Permanent link">&para;</a></h2>
+<p>Client-level (user-level) <code>(ε, δ)</code>-DP against an honest-but-curious server, added at aggregation
+time. <strong>One client = one privacy unit.</strong> Two modules, both dependency-free:</p>
+<ul>
+<li><code>privacy/dp_mechanism.py</code> — <code>dp_aggregate()</code>, the mechanism</li>
+<li><code>privacy/dp_accountant.py</code> — a from-scratch RDP accountant, <strong>no opacus / tensorflow-privacy at
+  runtime</strong></li>
+</ul>
+<p>Currently reachable only through <code>FedLoRA(dp_enabled=True, …)</code>.</p>
+<h3 id="the-mechanism">The mechanism<a class="headerlink" href="#the-mechanism" title="Permanent link">&para;</a></h3>
+<p>Over the <em>aggregatable</em> keys only — adapter <code>B</code> + head, i.e. every client key that is <strong>not</strong> a
+frozen <code>lora_A</code> key:</p>
+<ol>
+<li><code>delta_i = client[k] - global[k]</code></li>
+<li>Clip <code>delta_i</code> <strong>jointly</strong> to L2 norm <code>S</code> (the same <code>clip_l2_norm</code> the FR-12 path uses, so DP
+   clipping and Byzantine clipping share one definition of "an update's norm"). One client's
+   sensitivity to the summed delta is then exactly <code>S</code>.</li>
+<li><strong>Uniform</strong> average (weight <code>1/N</code>) — <strong>not</strong> num-examples-weighted.</li>
+<li>Add <code>N(0, (z·S/N)²)</code> per coordinate. <code>z = 0</code> is the noiseless clip+average sanity path.</li>
+<li>Return <code>{k: global[k] + mean_delta[k]}</code>; the caller re-attaches the frozen <code>A</code> <strong>bit-identically</strong>
+   (zero noise on <code>A</code> keeps the FFA invariant exact).</li>
+</ol>
+<blockquote>
+<p><strong>Step 3 is a security property, not a simplification.</strong> Weighting by an attacker-reported example
+count would inflate that client's sensitivity above <code>S</code> and void the ε claim. The DP path
+deliberately drops the weighting.</p>
+</blockquote>
+<p>A non-finite coordinate is rejected loudly: it makes the L2 norm non-finite, so the clip becomes a
+no-op (<code>min(1.0, S/NaN) == 1.0</code>) or produces NaN (<code>Inf*0</code>) — silently defeating the sensitivity bound
+the whole guarantee rests on.</p>
+<h3 id="the-noise-generator-is-isolated-on-purpose">The noise generator is isolated on purpose<a class="headerlink" href="#the-noise-generator-is-isolated-on-purpose" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="bp">self</span><span class="o">.</span><span class="n">_dp_generator</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span>
+<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dp_seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_dp_generator</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dp_seed</span><span class="p">)</span>     <span class="c1"># reproducible: tests / audits</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_dp_generator</span><span class="o">.</span><span class="n">seed</span><span class="p">()</span>                        <span class="c1"># FRESH OS entropy, independent of global RNG</span>
+</code></pre></div>
+
+<p>This isolation is load-bearing for the guarantee. <code>fl_server.resolve_run_seed</code> calls
+<code>torch.manual_seed(S)</code> for data/model-init reproducibility and <strong>discloses <code>S</code></strong> on the eval card and
+in the logs. If the DP noise were drawn from the global default generator, it would become a
+deterministic function of that disclosed seed — an adversary holding the card could replay the run,
+<strong>strip the noise</strong>, recover the un-noised client-level aggregate, and void DP entirely (a DA-3 ×
+FR-13 interaction). The generator is also persisted across rounds, so advancing it never reuses
+identical noise.</p>
+<h3 id="the-rdp-accountant">The RDP accountant<a class="headerlink" href="#the-rdp-accountant" title="Permanent link">&para;</a></h3>
+<p>Implements Mironov, Talwar &amp; Zhang 2019, <a href="https://arxiv.org/abs/1908.10530">"Rényi Differential Privacy of the Sampled Gaussian
+Mechanism"</a> — the analysis Opacus and TF-Privacy implement — in
+pure <code>math</code> + numpy (numpy only for array plumbing).</p>
+<div class="codehilite"><pre><span></span><code><span class="n">DEFAULT_ORDERS</span>                                    <span class="c1"># Opacus&#39; grid: 1.1..10.9, 12..63, 128, 256, 512</span>
+<span class="n">compute_rdp</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">noise_multiplier</span><span class="p">,</span> <span class="n">steps</span><span class="p">,</span> <span class="n">orders</span><span class="p">)</span>   <span class="c1"># -&gt; list[float], already × steps</span>
+<span class="n">get_epsilon</span><span class="p">(</span><span class="n">rdp</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">orders</span><span class="p">)</span>                   <span class="c1"># -&gt; (epsilon, best_order)</span>
+<span class="n">required_noise_multiplier</span><span class="p">(</span><span class="n">target_eps</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">steps</span><span class="p">,</span> <span class="n">delta</span><span class="p">)</span>   <span class="c1"># -&gt; smallest z meeting the budget</span>
+<span class="n">RDPAccountant</span>                                     <span class="c1"># step() per round, get_privacy_spent(delta)</span>
+</code></pre></div>
+
+<p>Implementation notes that matter if you compare against another library:</p>
+<ul>
+<li><strong>Integer vs fractional α take different paths.</strong> Integer α uses the exact finite binomial sum in
+  log space; fractional α uses the signed infinite series, with the fractional binomial carried as a
+  running float (<code>C(α, i+1) = C(α, i)·(α−i)/(i+1)</code>) so gamma functions of non-positive arguments are
+  never formed. Truncation is by log-magnitude (<code>-30.0</code>, matching Opacus) plus a hard 10,000-term
+  cap Opacus does not have.</li>
+<li><strong><code>log(erfc(x))</code> is stdlib-only and tail-accurate.</strong> Below <code>x = 25</code> it defers to <code>math.erfc</code>;
+  beyond that (where <code>erfc</code> underflows to 0) it uses the classical asymptotic expansion. This is what
+  <code>scipy.special.log_ndtr</code> would provide, without the dependency.</li>
+<li><strong>The ε conversion is intentionally conservative.</strong> <code>get_epsilon</code> uses the <em>classic</em> Mironov (2017)
+  bound <code>ε = min_α [ rdp(α) + ln(1/δ)/(α − 1) ]</code>. Opacus uses the tighter Balle et al. (2020) bound
+  and therefore reports a <strong>smaller</strong> ε for the same RDP curve. The per-order RDP here matches Opacus
+  to ~1e-9; the reported ε never <em>under</em>-reports privacy loss.</li>
+<li><code>q = 1</code> (no subsampling) short-circuits to the closed form <code>α / (2σ²)</code>, and <code>q = 1</code> is the
+  conservative default when the enrolled population is unknown.</li>
+<li><code>required_noise_multiplier</code> uses <strong>geometric</strong> bisection because <code>z</code> ranges over several orders of
+  magnitude, and raises if the target is infeasible even at <code>z_max = 1e6</code>.</li>
+</ul>
+<h3 id="calibration-in-fedlora">Calibration in FedLoRA<a class="headerlink" href="#calibration-in-fedlora" title="Permanent link">&para;</a></h3>
+<p>Supply <strong>exactly one</strong> of <code>dp_noise_multiplier</code> (z directly) or <code>dp_target_epsilon</code> (solved via
+<code>required_noise_multiplier</code>); supplying both, or neither, raises. <code>dp_target_epsilon</code> additionally
+requires <code>dp_delta</code> and <code>dp_rounds</code>. The subsampling rate is
+<code>q = clients_per_round / dp_num_clients</code> (or <code>1.0</code> when the population is unknown), and
+<code>dp_accounted_epsilon</code> records the ε the accountant certifies for the chosen <code>z</code> — compare it against
+the requested target.</p>
+<h3 id="the-honest-negative-result">The honest negative result<a class="headerlink" href="#the-honest-negative-result" title="Permanent link">&para;</a></h3>
+<p>The measured privacy–utility finding at laptop scale is a <strong>collapse</strong>, and it is documented rather
+than tuned away. The utility SNR is <code>N / (z·√d)</code>; on the FedLoRA adapter (<code>d = 26112</code> aggregatable
+coordinates, <code>√d ≈ 162</code>) with a small cohort, the per-coordinate signal <code>~S/√d</code> sits far below the
+noise floor <code>z·S/N</code>. <strong>The SNR is independent of the clip <code>S</code> — it cancels — so no clip tuning
+helps.</strong> A usable gradient needs SNR near 1: many more clients (<code>N ≈ √d</code>), subsampling
+amplification, or a lower-dimensional adapter. <code>benchmarks/dp_epsilon_accuracy.py</code>,
+<code>dp_snr_crossing.py</code>, <code>dp_on_head*.py</code> and <code>dp_subsampling_amplification.py</code> are the committed
+harnesses that establish this; the accountant certifies the accounted ε back to the requested budget
+exactly in all of them. See <a href="08_examples.html#the-committed-benchmark-harnesses">08 — Benchmarks</a>.</p>
+<hr />
+<h2 id="trainable-subset-federation-da-11">Trainable-Subset Federation (DA-11)<a class="headerlink" href="#trainable-subset-federation-da-11" title="Permanent link">&para;</a></h2>
+<p>Not a strategy — a set of contracts that let plain FedAvg federate only a model's <strong>trainable</strong>
+subset over a shared <strong>frozen backbone</strong>. Three modules cooperate.</p>
+<h3 id="estimatorsparamspy-the-canonical-layout-fr-14"><code>estimators/params.py</code> — the canonical layout (FR-14)<a class="headerlink" href="#estimatorsparamspy-the-canonical-layout-fr-14" title="Permanent link">&para;</a></h3>
+<p>The single source of truth for how a model's parameters are enumerated and ordered:
+<code>named_parameters()</code> order, filtered by <code>requires_grad</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>param_layout(model)</code></td>
+<td>ordered <code>(name, shape, numel)</code> for the trainable params — the flat vector's manifest</td>
+</tr>
+<tr>
+<td><code>flat_params</code> / <code>set_flat_params</code></td>
+<td>flatten / unflatten in that order</td>
+</tr>
+<tr>
+<td><code>num_trainable(model)</code></td>
+<td>the flat vector's length <code>d</code></td>
+</tr>
+<tr>
+<td><code>trainable_state(model)</code></td>
+<td>trainable params as an <code>OrderedDict</code> — <strong>the correct <code>initial_parameters</code> for a DeComFL server</strong></td>
+</tr>
+<tr>
+<td><code>frozen_state(model)</code></td>
+<td>the F32-only complement: frozen params, then all <em>float</em> buffers — the bytes a <code>BASE_REF</code> backbone blob carries</td>
+</tr>
+<tr>
+<td><code>federable_state(state)</code></td>
+<td>the float32 subset of any state — what can cross the wire</td>
+</tr>
+<tr>
+<td><code>non_federable_names(state)</code></td>
+<td>what <code>federable_state</code> withheld, so a run can <strong>log</strong> the exclusion instead of dropping silently</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Passing a full <code>model.state_dict()</code> where <code>trainable_state()</code> belongs includes buffers and frozen
+params, so <code>d_server &gt; d_client</code> and the shared-seed perturbation <code>z</code> silently misaligns. That is
+the failure <code>DeComFL.validate_participant_dim</code> / <code>DeComFLClient.assert_dim_matches</code> exist to catch.</p>
+</blockquote>
+<h3 id="serversubset_federationpy-the-fail-loud-guard"><code>server/subset_federation.py</code> — the fail-loud guard<a class="headerlink" href="#serversubset_federationpy-the-fail-loud-guard" title="Permanent link">&para;</a></h3>
+<p><code>validate_subset_update(update, model)</code> raises <code>SubsetDimMismatch</code> unless the update matches the
+model's trainable layout on <strong>both</strong> axes — key set <em>and</em> per-key shape.</p>
+<p><strong>Key comparison is order-INSENSITIVE (set-based), deliberately.</strong> The FedAvg subset path is entirely
+by-name (the aggregator averages per key; <code>apply_trainable_subset</code> writes back via
+<code>load_state_dict(strict=False)</code>), so order carries no safety signal — and it cannot be relied on
+anyway: a small non-transformer head takes the <strong>unary</strong> upload path, and a protobuf
+<code>map&lt;string, Tensor&gt;</code> iterates in an unspecified order. An order-sensitive check false-rejected every
+legitimate head update on that path.</p>
+<p><code>guard_client_updates(payloads, model)</code> must run <strong>per-client, before aggregation</strong>. Validating the
+<em>aggregated</em> output cannot catch a non-first client's bad payload.</p>
+<blockquote>
+<p><strong>A caveat in the source, flagged honestly:</strong> <code>subset_federation.py</code>'s module docstring still
+explains that guard in terms of <code>FedAvgAggregator</code> deriving its key set from the <em>first</em> client and
+silently skipping keys later clients omit. That description predates <strong>FR-18</strong>, which changed the
+aggregator to template on the <em>union</em> of client keys with per-key totals (see
+<a href="#fedavgaggregator--weighted-averaging">FedAvgAggregator</a> above). The guard is still correct and
+still worth running per-client — a wrong-shape update must not reach <code>torch.add</code> — but its stated
+rationale is out of date relative to the aggregator it describes.</p>
+</blockquote>
+<h3 id="backbonedistributionpy-shipping-the-frozen-backbone"><code>backbone/distribution.py</code> — shipping the frozen backbone<a class="headerlink" href="#backbonedistributionpy-shipping-the-frozen-backbone" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="n">blob</span>   <span class="o">=</span> <span class="n">serialize_backbone</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>          <span class="c1"># deterministic safetensors of frozen_state(model)</span>
+<span class="n">sha</span>    <span class="o">=</span> <span class="n">backbone_sha256</span><span class="p">(</span><span class="n">blob</span><span class="p">)</span>              <span class="c1"># the content address</span>
+<span class="n">path</span>   <span class="o">=</span> <span class="n">BackboneCache</span><span class="p">(</span><span class="nb">dir</span><span class="p">)</span><span class="o">.</span><span class="n">get_or_fetch</span><span class="p">(</span><span class="n">sha</span><span class="p">,</span> <span class="n">fetch</span><span class="p">)</span>   <span class="c1"># fetch is an injected Callable[[], bytes]</span>
+<span class="n">model</span>  <span class="o">=</span> <span class="n">reconstruct_frozen_backbone</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">path</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">())</span>
+</code></pre></div>
+
+<p>Fail-loud throughout, which is the whole point:</p>
+<ul>
+<li><code>get_or_fetch</code> <strong>verifies the sha256 of the fetched bytes against the requested key</strong> and raises
+  <code>BackboneIntegrityError</code> rather than caching a mismatch.</li>
+<li>A cache file whose bytes no longer hash to its own name is treated as a <strong>miss and re-fetched</strong> —
+  self-healing.</li>
+<li>Writes are <strong>atomic</strong> (temp file + <code>os.replace</code>), so a crash mid-write never leaves a half-written
+  blob under its final content-addressed name.</li>
+<li><code>reconstruct_frozen_backbone</code> requires the blob's key <strong>set</strong> to equal <code>frozen_state(model)</code>'s.
+  An unexpected key (a blob carrying something the model does not declare frozen) or a missing key
+  (a truncated blob) raises <code>BackboneKeyMismatch</code> rather than silently loading a partial backbone.
+  It then re-freezes the loaded parameters, so afterwards the model's only trainable — hence only
+  federated — subset is its head.</li>
+</ul>
+<p>The fetch source is a <code>Callable[[], bytes]</code>, so this framework contract is independent of <em>how</em> the
+bytes arrive.</p>
+<hr />
+<h2 id="adapter-bundles-da-9">Adapter Bundles (DA-9)<a class="headerlink" href="#adapter-bundles-da-9" title="Permanent link">&para;</a></h2>
+<p><code>bundle/manifest.py</code> builds the content-addressed manifest for a specialised model — the unit of
+delivery / serving / on-device training.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">adapter_to_safetensors</span><span class="p">(</span><span class="n">state_dict</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span>    <span class="c1"># deterministic order, stored float32</span>
+<span class="n">safetensors_to_state_dict</span><span class="p">(</span><span class="n">blob</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+<span class="n">sha256_hex</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>                                  <span class="c1"># the content address</span>
+<span class="n">build_manifest</span><span class="p">(</span><span class="n">artifact_sha256</span><span class="o">=</span><span class="err">…</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="err">…</span><span class="p">,</span> <span class="n">recipe_key</span><span class="o">=</span><span class="err">…</span><span class="p">,</span> <span class="n">base_model_ref</span><span class="o">=</span><span class="err">…</span><span class="p">,</span> <span class="n">license_tag</span><span class="o">=</span><span class="err">…</span><span class="p">,</span>
+               <span class="n">lora</span><span class="o">=</span><span class="err">…</span><span class="p">,</span> <span class="n">eval_card_ref</span><span class="o">=</span><span class="err">…</span><span class="p">,</span> <span class="n">files</span><span class="o">=</span><span class="p">[</span><span class="err">…</span><span class="p">],</span> <span class="n">provenance</span><span class="o">=</span><span class="err">…</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span>
+</code></pre></div>
+
+<ul>
+<li><code>SCHEMA_VERSION = "1.0"</code>; the manifest validates against <code>adapter_bundle.schema.json</code>, committed
+  <strong>next to the module</strong> rather than under <code>docs/</code> (which is gitignored).</li>
+<li><code>kind</code> is <code>"LORA_ADAPTER"</code> or <code>"FULL_CHECKPOINT"</code>; anything else raises.</li>
+<li>A <code>LORA_ADAPTER</code> <strong>must</strong> name its <code>base_model_ref</code> and carry a <code>lora</code> config — the same invariant
+  the registry enforces for the <code>ADAPTER_OF</code> edge.</li>
+<li>Adapter weights ship as <strong>safetensors</strong>, never <code>torch.save</code>/pickle. Full checkpoints stay in the
+  imaging air-gap export format.</li>
+<li><code>artifact_sha256</code> is the same content hash the registry row stores, which is what aligns a bundle
+  with its provenance record across languages.</li>
+</ul>
+<p>See <code>framework/src/fedlearn/bundle/BUNDLE_FORMAT.md</code> for the human-readable spec, including the
+fixture-MVP boundary where real export is not yet wired into the mobile bundle path.</p>
+<hr />
 <h2 id="implementing-a-custom-strategy">Implementing a Custom Strategy<a class="headerlink" href="#implementing-a-custom-strategy" title="Permanent link">&para;</a></h2>
-<p>Any class inheriting from <code>Strategy</code> and implementing the three abstract methods is a valid strategy.</p>
-<h3 id="fedprox-example">FedProx Example<a class="headerlink" href="#fedprox-example" title="Permanent link">&para;</a></h3>
-<p>FedProx adds a proximal term <code>μ/2 ||w - w_global||²</code> to the local loss to limit client drift:</p>
-<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fedlearn.server.strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Strategy</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">FedProx</span><span class="p">(</span><span class="n">Strategy</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    FedProx strategy: FedAvg with proximal regularisation.</span>
-<span class="sd">    Reduces client drift in non-IID settings.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">initial_parameters</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span>
-        <span class="n">evaluate_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">min_fit_clients</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-        <span class="n">clients_per_round</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
-        <span class="n">proximal_mu</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>   <span class="c1"># regularisation strength</span>
-    <span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span> <span class="o">=</span> <span class="n">initial_parameters</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="o">=</span> <span class="n">evaluate_fn</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">min_fit_clients</span> <span class="o">=</span> <span class="n">min_fit_clients</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">clients_per_round</span> <span class="o">=</span> <span class="n">clients_per_round</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">proximal_mu</span> <span class="o">=</span> <span class="n">proximal_mu</span>   <span class="c1"># passed to clients via config</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">aggregate_fit</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">server_round</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-        <span class="n">results</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">OrderedDict</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">OrderedDict</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;FedProx uses same weighted averaging as FedAvg.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
-
-        <span class="n">total_examples</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">n</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">results</span><span class="p">)</span>
-        <span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span>
-
-        <span class="c1"># Initialise accumulator</span>
-        <span class="n">template</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-        <span class="n">aggregated</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
-            <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
-            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">template</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-        <span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">params</span><span class="p">,</span> <span class="n">num_examples</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-            <span class="n">weight</span> <span class="o">=</span> <span class="n">num_examples</span> <span class="o">/</span> <span class="n">total_examples</span>
-            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">aggregated</span><span class="p">:</span>
-                <span class="n">aggregated</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">+=</span> <span class="n">weight</span> <span class="o">*</span> <span class="n">params</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
-            <span class="n">params</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-
-        <span class="k">return</span> <span class="n">aggregated</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">parameters</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span><span class="p">(</span><span class="n">server_round</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
-</code></pre></div>
-
-<p>For FedProx to work, the client's <code>fit()</code> method must add the proximal term to its loss:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FedProxClient</span><span class="p">(</span><span class="n">fl</span><span class="o">.</span><span class="n">Client</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
-        <span class="n">global_weights</span> <span class="o">=</span> <span class="n">parameters</span>  <span class="c1"># save for proximal term</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
-        <span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="p">:</span>
-            <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
-            <span class="n">outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
-            <span class="n">loss</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
-
-            <span class="c1"># Proximal term: μ/2 × ||w - w_global||²</span>
-            <span class="n">proximal_term</span> <span class="o">=</span> <span class="mf">0.0</span>
-            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
-                <span class="n">proximal_term</span> <span class="o">+=</span> <span class="n">torch</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">param</span> <span class="o">-</span> <span class="n">global_weights</span><span class="p">[</span><span class="n">name</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span>
-            <span class="n">loss</span> <span class="o">+=</span> <span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;proximal_mu&#39;</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">proximal_term</span>
-
-            <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
-            <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
-
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span><span class="o">.</span><span class="n">dataset</span><span class="p">)</span>
-</code></pre></div>
-
-<h3 id="trimmed-mean-byzantine-robust-example">Trimmed Mean (Byzantine-Robust) Example<a class="headerlink" href="#trimmed-mean-byzantine-robust-example" title="Permanent link">&para;</a></h3>
-<p>For Byzantine-robust aggregation, replace FedAvg's weighted mean with a coordinate-wise trimmed mean:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TrimmedMeanStrategy</span><span class="p">(</span><span class="n">Strategy</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Coordinate-wise trimmed mean for Byzantine robustness.</span>
-<span class="sd">    Removes the top and bottom `trim_fraction` of updates per coordinate.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initial_parameters</span><span class="p">,</span> <span class="n">evaluate_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                 <span class="n">min_fit_clients</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">clients_per_round</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">trim_fraction</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span> <span class="o">=</span> <span class="n">initial_parameters</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="o">=</span> <span class="n">evaluate_fn</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">min_fit_clients</span> <span class="o">=</span> <span class="n">min_fit_clients</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">clients_per_round</span> <span class="o">=</span> <span class="n">clients_per_round</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">trim_fraction</span> <span class="o">=</span> <span class="n">trim_fraction</span>   <span class="c1"># remove 10% from each end by default</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_parameters</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">aggregate_fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
-
-        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
-        <span class="n">k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">trim_fraction</span><span class="p">)</span>  <span class="c1"># number to trim from each end</span>
-
-        <span class="n">aggregated</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
-        <span class="n">param_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-
-        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">param_names</span><span class="p">:</span>
-            <span class="n">stacked</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">params</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="k">for</span> <span class="n">params</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">results</span><span class="p">])</span>
-            <span class="c1"># stacked shape: [n_clients, *param_shape]</span>
-
-            <span class="c1"># Sort along client dimension, trim k from each end</span>
-            <span class="n">sorted_stacked</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">stacked</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-            <span class="n">trimmed</span> <span class="o">=</span> <span class="n">sorted_stacked</span><span class="p">[</span><span class="n">k</span><span class="p">:</span><span class="n">n</span><span class="o">-</span><span class="n">k</span><span class="p">]</span>   <span class="c1"># shape: [n-2k, *param_shape]</span>
-
-            <span class="n">aggregated</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">trimmed</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">params</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-            <span class="n">params</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-
-        <span class="k">return</span> <span class="n">aggregated</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">server_round</span><span class="p">,</span> <span class="n">parameters</span><span class="p">):</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate_fn</span><span class="p">(</span><span class="n">server_round</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
-</code></pre></div>
-
+<p>Check the <a href="#the-strategy-registry">registry</a> first — FedProx, FedOpt, FedLoRA and Byzantine-robust
+aggregation are already shipped, and the older versions of this page presenting them as "examples to
+write yourself" were wrong. Write a new strategy only for an algorithm none of the six covers.</p>
+<p>Any class inheriting <code>Strategy</code> and implementing the three abstract methods is valid. The skeleton
+and the registration step live in
+<a href="09_developer_guide.html#adding-a-custom-strategy">09 — Adding a Custom Strategy</a>. Four conventions to
+follow so it composes with the rest of the framework:</p>
+<ol>
+<li><strong>Accept the same constructor front-matter</strong> — <code>initial_parameters</code>, <code>evaluate_fn</code>,
+   <code>min_fit_clients</code>, <code>clients_per_round=None</code> (falling back to <code>min_fit_clients</code>). The coordinator
+   reads <code>min_fit_clients</code> and <code>clients_per_round</code> off the strategy object, and <code>server.py</code> reads
+   <code>initial_parameters</code>.</li>
+<li><strong>Route incoming updates through <code>normalize_updates</code></strong> rather than unpacking tuples yourself, so
+   your strategy accepts every wire shape the others do.</li>
+<li><strong>Reuse <code>FedAvgAggregator</code></strong> if your algorithm's aggregation <em>is</em> the weighted mean (FedProx,
+   FedOpt and FedLoRA all do). Reuse <code>clip_l2_norm</code> if you need a norm bound, so there is one
+   definition of "an update's norm" across FR-12, FR-13 and SE-3.</li>
+<li><strong>Return <code>None</code> from <code>evaluate()</code> when <code>evaluate_fn</code> is <code>None</code></strong>, and free client buffers
+   (<code>params.clear()</code>) after folding them in.</li>
+</ol>
+<p>If your strategy needs client-side hyperparameters, add <code>get_client_config()</code> returning a
+<code>str -&gt; str</code> dict — no coordinator or proto change is required.</p>
 <hr />
 <h2 id="strategy-lifecycle-in-the-server">Strategy Lifecycle in the Server<a class="headerlink" href="#strategy-lifecycle-in-the-server" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code><span class="c1"># server.py — full strategy usage trace</span>
 
-<span class="c1"># 1. Strategy is instantiated by user code</span>
+<span class="c1"># 1. Strategy is instantiated by user code, or by name through the factory</span>
 <span class="n">strategy</span> <span class="o">=</span> <span class="n">FedAvg</span><span class="p">(</span>
     <span class="n">initial_parameters</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
     <span class="n">evaluate_fn</span><span class="o">=</span><span class="n">evaluate_fn</span><span class="p">,</span>
     <span class="n">min_fit_clients</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
     <span class="n">clients_per_round</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="c1"># strategy = create_strategy(&quot;fedavg&quot;, initial_parameters=..., clients_per_round=3)</span>
 
 <span class="c1"># 2. Coordinator is created, strategy is injected</span>
 <span class="n">coordinator</span> <span class="o">=</span> <span class="n">FLCoordinator</span><span class="p">(</span>
@@ -592,42 +1060,64 @@ Next round, both clients start from w_global_new, NOT from their own w_A_end or 
     <span class="n">clients_per_round</span><span class="o">=</span><span class="n">strategy</span><span class="o">.</span><span class="n">clients_per_round</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="c1"># 3. Initial parameters from strategy are set on coordinator</span>
+<span class="c1"># 3. Initial parameters are read off the strategy ATTRIBUTE</span>
 <span class="n">coordinator</span><span class="o">.</span><span class="n">set_initial_parameters</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">initial_parameters</span><span class="p">)</span>
-<span class="c1"># equivalent to: strategy.initialize_parameters()</span>
+<span class="c1"># initialize_parameters() returns the same object; the attribute is what start_server uses</span>
 
 <span class="c1"># 4. Training loop</span>
 <span class="k">for</span> <span class="n">round_num</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">num_rounds</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
     <span class="n">coordinator</span><span class="o">.</span><span class="n">start_round</span><span class="p">()</span>
     <span class="n">coordinator</span><span class="o">.</span><span class="n">wait_for_round_to_complete</span><span class="p">()</span>
-    <span class="c1"># ... inside coordinator, during this wait:</span>
-    <span class="c1">#   strategy.aggregate_fit(round_num, results) is called</span>
-    <span class="c1">#   strategy.evaluate(round_num, new_params) is called</span>
+    <span class="c1"># ... inside coordinator, during this wait, on a gRPC thread (or on the main thread</span>
+    <span class="c1">#     if the dropout deadline fired first):</span>
+    <span class="c1">#   strategy.get_client_config()  — each time the global model is served</span>
+    <span class="c1">#   strategy.aggregate_fit(round_num, results)</span>
+    <span class="c1">#   strategy.evaluate(round_num, new_params)</span>
 
     <span class="n">metrics</span> <span class="o">=</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">get_latest_metrics</span><span class="p">()</span>
-    <span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">round_num</span><span class="p">,</span> <span class="n">metrics</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">metrics</span><span class="p">:</span>                       <span class="c1"># a round with no evaluate_fn appends NOTHING</span>
+        <span class="n">history</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">round_num</span><span class="p">,</span> <span class="n">metrics</span><span class="p">))</span>
 </code></pre></div>
 
+<blockquote>
+<p><strong><code>aggregate_fit</code> runs while the coordinator lock is held</strong>, on whichever gRPC thread submitted the
+Nth update. Keep it non-blocking: no network calls, no user prompts. Heavy per-round evaluation
+belongs in <code>evaluate_fn</code>, which runs in the same critical section — so it is subject to the same
+rule.</p>
+</blockquote>
 <hr />
 <h2 id="strategy-selection-decision-tree">Strategy Selection Decision Tree<a class="headerlink" href="#strategy-selection-decision-tree" title="Permanent link">&para;</a></h2>
-<div class="codehilite"><pre><span></span><code>Are you training LLMs or very large models?
+<p>All six leaves below are shipped and selectable by name; none requires you to write a strategy.</p>
+<div class="codehilite"><pre><span></span><code>Are you training LLMs / very large models, or on a device where
+backprop memory is the binding constraint?
 │
-├── YES → DeComFL (06_decomfl.md)
-│           - Communication: O(K×P) scalars per round
-│           - No backpropagation required
-│           - Works on memory-constrained devices
+├── YES → &quot;decomfl&quot;  (06_decomfl.md)
+│           - Communication: O(K×P) scalars per round, independent of d
+│           - No backpropagation; P+1 forward passes per local step
+│           - Mind the eta*sqrt(d) stability envelope — it is NOT dimension-transferable
 │
-└── NO  → FedAvg (this document)
+└── NO  → is only an ADAPTER (LoRA) being trained?
             │
-            ├── Is your data IID and clients trusted?
-            │   └── YES → Standard FedAvg
+            ├── YES → &quot;fedlora&quot;        (+ dp_enabled=True for central DP, FR-13)
             │
-            ├── Do you have many local epochs (E&gt;1) and non-IID data?
-            │   └── YES → FedProx (add proximal term)
-            │
-            └── Do you have potentially malicious/Byzantine clients?
-                └── YES → TrimmedMean or Krum (custom strategy)
-</code></pre></div></article>
+            └── NO  → are some clients potentially malicious?
+                        │
+                        ├── YES → &quot;robust&quot;   (median / trimmed-mean + delta clipping)
+                        │           Large-cohort defense; near a no-op at 1-3 clients
+                        │
+                        └── NO  → is the data non-IID with multiple local epochs?
+                                    │
+                                    ├── Client drift is the problem   → &quot;fedprox&quot;
+                                    │     (watch lr*mu &lt; 2; the strategy enforces it)
+                                    ├── Server-side convergence speed → &quot;fedopt&quot;
+                                    │     (adam | yogi; mind bias_correction when
+                                    │      comparing against a Flower baseline)
+                                    └── Neither                       → &quot;fedavg&quot;
+</code></pre></div>
+
+<p>Orthogonal to the choice above: <strong>federate only a trainable subset over a frozen backbone</strong>
+(<a href="#trainable-subset-federation-da-11">DA-11</a>) — that composes with <code>fedavg</code>, <code>fedprox</code>, <code>fedopt</code> and
+<code>robust</code> rather than replacing any of them.</p></article>
     <nav class="toc"></nav>
   </div>
 </div>

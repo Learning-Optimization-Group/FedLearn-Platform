@@ -11,13 +11,16 @@
 3. [Content Security Policy](#content-security-policy)
 4. [Context Isolation & the Preload Bridge](#context-isolation--the-preload-bridge)
 5. [Input Validation — Two-Layer Defense](#input-validation--two-layer-defense)
-6. [JWT Confinement to Main Process](#jwt-confinement-to-main-process)
-7. [safeStorage — OS-Level Encryption](#safestorage--os-level-encryption)
-8. [Navigation and Window-Open Restrictions](#navigation-and-window-open-restrictions)
-9. [Docker Socket Confinement](#docker-socket-confinement)
-10. [Log Rendering — XSS Prevention](#log-rendering--xss-prevention)
-11. [Threat Model Summary](#threat-model-summary)
-12. [Dependency Vulnerability Posture](#dependency-vulnerability-posture)
+6. [Dataset-Path Consent](#dataset-path-consent-dataset-consentts)
+7. [JWT Confinement to Main Process](#jwt-confinement-to-main-process)
+8. [safeStorage — OS-Level Encryption](#safestorage--os-level-encryption)
+9. [Session Expiry and Server-URL Rebinding](#session-expiry-and-server-url-rebinding)
+10. [Transport Policy — Refusing Remote Plaintext HTTP](#transport-policy--refusing-remote-plaintext-http)
+11. [Navigation and Window-Open Restrictions](#navigation-and-window-open-restrictions)
+12. [Docker Socket Confinement](#docker-socket-confinement)
+13. [Log Rendering — XSS Prevention](#log-rendering--xss-prevention)
+14. [Threat Model Summary](#threat-model-summary)
+15. [Dependency Vulnerability Posture](#dependency-vulnerability-posture)
 
 ---
 
@@ -25,11 +28,12 @@
 
 FedLearn Desktop is built around the principle of **minimal privilege + defense-in-depth**. Because the app embeds a web renderer (Chromium) that processes externally-sourced data (container log output, backend API responses), every trust boundary is explicitly defended at multiple layers.
 
-The three non-negotiable invariants:
+The four non-negotiable invariants:
 
 1. **The JWT never leaves the Main Process.** No matter what happens in the renderer.
 2. **The Docker socket is never exposed to the renderer or any container.** Only `DockerService` in Main accesses it.
 3. **Every input crossing the IPC boundary is validated twice** — in the Preload bridge and again in Main.
+4. **A host directory is only bind-mounted if the user physically picked it** in the native dialog — validation alone is not consent.
 
 ---
 
@@ -69,54 +73,57 @@ mainWindow = new BrowserWindow({
 
 ## Content Security Policy
 
-A Content Security Policy (CSP) is applied to every response. This acts as a defense-in-depth layer **on top of** `contextIsolation` — even if an XSS payload executes, the CSP blocks it from loading external scripts or exfiltrating data.
+A Content Security Policy (CSP) is applied in both runtime modes. This acts as a defense-in-depth layer **on top of** `contextIsolation` — even if an XSS payload executes, the CSP blocks it from loading external scripts or exfiltrating data.
 
-### Dev Mode (HTTP — response headers)
+There are two delivery mechanisms and they are **not** two views of the same policy — read both.
 
-In development the app is served over HTTP from the webpack dev server, so CSP is applied via session-level response header injection:
+### The `<meta>` policy (both modes) — `webpack.csp.js`
 
-```typescript
-// src/main/main.ts
-session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-  callback({
-    responseHeaders: {
-      ...details.responseHeaders,
-      'Content-Security-Policy': [[
-        "default-src 'self'",
-        "script-src 'self' 'unsafe-eval'",   // webpack HMR needs eval
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-        "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data:",
-        `connect-src 'self' ${apiConnectSrc}`,  // backend origins
-        "frame-src 'none'",
-        "object-src 'none'",
-        "base-uri 'self'",
-      ].join('; ')],
-    },
-  });
-});
+`webpack.csp.js` is the single source of truth for the CSP baked into `index.html` by `HtmlWebpackPlugin`'s `templateParameters`. Both webpack renderer configs call it; they differ only in two flags:
+
+```javascript
+// fedlearn-desktop/webpack.csp.js
+function buildRendererCsp({ allowEval, allowInlineStyle }) {
+  const scriptSrc = allowEval ? "script-src 'self' 'unsafe-eval'" : "script-src 'self'";
+  const styleSrc = allowInlineStyle ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'";
+  return [
+    "default-src 'self'",
+    scriptSrc,
+    styleSrc,
+    "font-src 'self'",
+    "img-src 'self' data:",
+    "connect-src 'self' http://localhost:* https://localhost:* ws://localhost:* wss://localhost:*",
+    "frame-src 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+  ].join('; ');
+}
 ```
 
-### Production Mode (file:// — meta tag)
+| Flag | Dev (`webpack.renderer.config.js`) | Packaged (`webpack.prod.config.js`) | Why |
+|---|---|---|---|
+| `allowEval` | `true` | **`false`** | Webpack's development build uses the `eval` devtool. The production config sets `devtool: false`, so nothing at runtime needs it (DE-14, `8f43018`). |
+| `allowInlineStyle` | `true` | **`false`** | Dev uses `style-loader`, which injects runtime `<style>` tags (required for HMR). Production extracts CSS with `MiniCssExtractPlugin` into a real file loaded via `<link rel="stylesheet">`, so `'unsafe-inline'` can be dropped (`18b3b59`). |
 
-In packaged builds the app loads from `file://`. Chromium's handling of `'self'` under `file://` origins is inconsistent — it does **not** resolve to the API host. Therefore, in production the CSP is embedded as a `<meta>` tag in `index.html`, and the `connect-src` origins are injected at build time via the `FEDLEARN_API_ORIGINS` environment variable.
+`font-src 'self'` with **no remote font host** in either mode: Hanken Grotesk and JetBrains Mono are self-hosted through `@fontsource` (`src/renderer/fonts.css`). Any doc showing `https://fonts.googleapis.com` / `https://fonts.gstatic.com` in this policy is describing the pre-DE-14 build.
 
-### Dynamic API Origins
+### The dev-only response header — `main.ts`
+
+Separately, and **only when `isDev`**, `main.ts` injects a `Content-Security-Policy` response header via `session.defaultSession.webRequest.onHeadersReceived`. This covers the HTTP dev-server origin. Its `connect-src` is assembled from two sources:
 
 ```typescript
-// Comma-separated list of backend origins (set at CI/build time for production)
+// src/main/main.ts — dev only
 const apiOriginsFromEnv = (process.env.FEDLEARN_API_ORIGINS || '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
-
-// In dev mode, always allow localhost
+  .split(',').map((s) => s.trim()).filter(Boolean);
 const defaultApiOrigins = isDev
   ? ['http://localhost:8081', 'ws://localhost:8081', 'http://localhost:9000', 'ws://localhost:9000']
   : [];
-
 const apiConnectSrc = [...defaultApiOrigins, ...apiOriginsFromEnv].join(' ');
 ```
+
+> **Correction worth flagging:** `FEDLEARN_API_ORIGINS` reaches **only this dev-mode header**. The packaged build registers no `onHeadersReceived` handler at all, and its `<meta>` policy's `connect-src` is the fixed localhost wildcard list above — the env var does not widen it. An earlier version of this page claimed production origins were injected from `FEDLEARN_API_ORIGINS` at build time; that is not what the code does. A packaged build pointed at a non-localhost backend therefore depends on that fixed `connect-src` list, which is a real limitation, not a documented feature.
+
+`src/__tests__/renderer-csp.test.ts` guards this: it calls `buildRendererCsp({ allowEval: false, allowInlineStyle: false })` and asserts the result carries no `unsafe-eval`, no `unsafe-inline` in `style-src`, and no `googleapis`/`gstatic` host — then loads both renderer webpack configs and checks the CSP each one hands to `HtmlWebpackPlugin`.
 
 ---
 
@@ -160,30 +167,48 @@ Every input that crosses the preload bridge is validated **twice**: once in the 
 ```typescript
 // src/preload/preload.ts — Allowlist constants
 const ALLOWED_HARDWARE_PROFILES = ['discrete', 'jetson', 'cpu', 'mps'] as const;
-const PROJECT_ID_PATTERN    = /^[a-zA-Z0-9_-]{1,128}$/;
-const PARTITION_ID_PATTERN  = /^[0-9]{1,10}$/;
-const SERVER_ADDRESS_PATTERN = /^[a-zA-Z0-9._:/-]{1,256}$/;
+const PROJECT_ID_PATTERN      = /^[a-zA-Z0-9_-]{1,128}$/;
+const PARTITION_ID_PATTERN    = /^[0-9]{1,10}$/;
+const SERVER_ADDRESS_PATTERN  = /^[a-zA-Z0-9._:/-]{1,256}$/;
+const MAX_STRING_LENGTH       = 256;
+const MAX_IMAGE_BASE64_LEN    = 14 * 1024 * 1024;  // ~10 MB decoded
+const MAX_VECTOR_LEN          = 100_000;
+const MAX_TEXT_LEN            = 10_000;            // matches the backend's @Size(max = 10_000)
 
 // Used before every ipcRenderer.invoke('docker:start-training', ...)
 startTraining: async (config: TrainingConfigInput) => {
-  if (!isValidHardwareProfile(config.hardwareProfile))
-    return { success: false, error: 'Invalid hardware profile' };
-  if (!isValidProjectId(config.projectId))
-    return { success: false, error: 'Invalid project ID' };
-  if (!isValidServerAddress(config.serverAddress))
-    return { success: false, error: 'Invalid server address' };
-  if (!isValidPartitionId(config.partitionId))
-    return { success: false, error: 'Invalid partition ID' };
-  if (!isValidModelType(config.modelType))
-    return { success: false, error: 'Invalid model type' };
-  if (!isValidDatasetPath(config.datasetPath))
-    return { success: false, error: 'Invalid dataset path' };
-  // Only reach ipcRenderer if ALL checks pass
-  return ipcRenderer.invoke('docker:start-training', { ...config });
+  if (!isValidHardwareProfile(config.hardwareProfile))  return { success: false, error: 'Invalid hardware profile' };
+  if (!isValidProjectId(config.projectId))              return { success: false, error: 'Invalid project ID' };
+  if (!isValidServerAddress(config.serverAddress))      return { success: false, error: 'Invalid server address' };
+  if (!isValidPartitionId(config.partitionId))          return { success: false, error: 'Invalid partition ID' };
+  if (!isValidModelType(config.modelType))              return { success: false, error: 'Invalid model type' };
+  if (!isValidDatasetPath(config.datasetPath))          return { success: false, error: 'Invalid dataset path' };
+  if (!isValidConnectionToken(config.connectionToken))  return { success: false, error: 'Invalid connection token' };
+  if (config.strategy !== undefined && !/^[a-zA-Z0-9_\-.]{1,64}$/.test(config.strategy))
+    return { success: false, error: 'Invalid strategy' };
+
+  // Only reach ipcRenderer if ALL checks pass — and forward an EXPLICIT object,
+  // never a spread of the renderer's own config.
+  return ipcRenderer.invoke('docker:start-training', {
+    hardwareProfile: config.hardwareProfile,
+    projectId:       config.projectId,
+    serverAddress:   config.serverAddress,
+    partitionId:     config.partitionId,
+    modelType:       config.modelType,
+    datasetPath:     config.datasetPath,
+    connectionToken: config.connectionToken,
+    strategy:        config.strategy,
+  });
 },
 ```
 
+`isValidConnectionToken` accepts `undefined`/`null` (the legacy no-auth flow) but otherwise requires a bounded JWT-charset string (`/^[A-Za-z0-9._-]+$/`, ≤ 8192 chars) before it is forwarded as the FL `FEDLEARN_CONNECTION_TOKEN`.
+
+> **Known gap in this list.** `TrainingConfigInput` declares `trainingArm?: string` and `TrainSection` sends it, but the explicit object above does **not** carry `trainingArm` — so the field is dropped at the preload boundary and Main always sees `undefined`. The explicit-reconstruction pattern is the right security posture; adding a field to the interface without adding it to the forwarded object is the failure mode it invites. Treat it as the worked example in [04 → Common Pitfalls](./04-preload-ipc-bridge.md#common-pitfalls).
+
 ### Main Process Validation (Layer 2)
+
+Main's validators live in `src/main/validators.ts` — a deliberately `electron`-free, side-effect-free module so the *shipped* predicates can be unit-tested directly (`src/__tests__/validators.test.ts`). `ipc.handlers.ts` previously carried a diverged inline copy of them, which is exactly how the empty-dataset-path case ended up behaving differently on the two layers.
 
 ```typescript
 // src/main/ipc.handlers.ts
@@ -193,44 +218,57 @@ ipcMain.handle('docker:start-training', async (_event, config: unknown) => {
   if (!validateProjectId(cfg.projectId))             { /* reject */ }
   if (!validateServerAddress(cfg.serverAddress))     { /* reject */ }
   if (!validatePartitionId(cfg.partitionId))         { /* reject */ }
+  if (typeof cfg.modelType !== 'string' || !/^[a-zA-Z0-9_\-.]{1,128}$/.test(cfg.modelType)) { /* reject */ }
 
-  // Dataset path gets special treatment — full canonicalization
+  // Dataset path gets special treatment — full canonicalization…
   const safeDatasetPath = sanitizeDatasetPath(cfg.datasetPath);
   if (safeDatasetPath === null)
     return { success: false, error: 'Invalid dataset path: must be an existing absolute directory' };
 
-  // Only use the sanitized path in Docker bind mount — never the raw input
-  const validConfig: TrainingConfig = {
-    ...cfg,
-    datasetPath: safeDatasetPath, // canonical, resolved, verified-directory path
-  };
-  await dockerService.startTraining(validConfig);
+  // …and then a CONSENT check: only a directory the user picked in the native
+  // dialog may be bind-mounted. '' means "no mount, use the built-in dataset".
+  if (safeDatasetPath !== '' && !isDatasetPathConsented(safeDatasetPath))
+    return { success: false, error: 'Dataset path must be selected with the "Select dataset" button' };
+
+  // Only use the sanitized path — never the raw input.
+  await dockerService.startTraining({ ...cfg, datasetPath: safeDatasetPath });
 });
 ```
 
+Two fields are treated asymmetrically on purpose:
+
+- **`strategy`** falls back to `undefined` on a malformed value. Most strategy strings are no-ops on the client (only DeComFL changes its behaviour), so a bad one costs nothing and should never block a start.
+- **`trainingArm`** is validated **strictly** and an unrecognised value **throws**, failing the start with an explanatory message. Silently downgrading to `FULL` against a `FROZEN_HEAD` server *is* the bug the field exists to prevent — the client would upload every parameter to a server holding only the head. Main currently accepts exactly `'FULL'` and `'FROZEN_HEAD'`.
+
 ### `sanitizeDatasetPath` — Deep Dive
 
-The dataset path is particularly critical because it's interpolated into a Docker bind mount string (`${path}:/data`). A malicious path like `../../etc` could expose sensitive host directories.
+The dataset path is particularly critical because it is interpolated into a Docker bind mount (`${path}:/data`) and passed to the native client as `--dataset-path`. A malicious path like `../../etc` could expose sensitive host directories.
 
 ```typescript
-function sanitizeDatasetPath(raw: unknown): string | null {
-  // 1. Type and length check
-  if (typeof raw !== 'string' || raw.length === 0 || raw.length > 2048) return null;
+// src/main/validators.ts
+export function sanitizeDatasetPath(raw: unknown): string | null {
+  // 0. Optional field: empty / whitespace means "use the container's default
+  //    dataset". Normalize to '' rather than rejecting. (The inline copy this
+  //    module replaced got exactly this case wrong.)
+  if (typeof raw === 'string' && raw.trim() === '') return '';
 
-  // 2. Null byte check — prevents directory traversal via embedded null terminator
+  // 1. Type and length check
+  if (typeof raw !== 'string' || raw.length === 0 || raw.length > MAX_DATASET_PATH_LEN) return null;
+
+  // 2. Null byte check — prevents traversal via an embedded null terminator
   if (raw.includes('\0')) return null;
 
-  // 3. Resolve to absolute path (collapses all .. segments)
+  // 3. Resolve to an absolute path (collapses all .. segments)
   let resolved: string;
   try { resolved = path.resolve(raw); } catch { return null; }
 
-  // 4. Verify no remaining .. segments (shouldn't be possible after resolve, but belt-and-suspenders)
+  // 4. Verify no remaining .. segments (belt-and-suspenders after resolve)
   if (resolved.split(path.sep).some((seg) => seg === '..')) return null;
 
   // 5. Must be absolute
   if (!path.isAbsolute(resolved)) return null;
 
-  // 6. Must exist AND be a directory (not a file, not a symlink to a non-dir)
+  // 6. Must exist AND be a directory
   let stat: fs.Stats;
   try { stat = fs.statSync(resolved); } catch { return null; }
   if (!stat.isDirectory()) return null;
@@ -238,6 +276,32 @@ function sanitizeDatasetPath(raw: unknown): string | null {
   return resolved;  // canonical, safe path
 }
 ```
+
+`MAX_DATASET_PATH_LEN` is 2048, matching the preload's own length bound.
+
+---
+
+## Dataset-Path Consent (`dataset-consent.ts`)
+
+`sanitizeDatasetPath` proves a path is *well-formed and real*. It does not prove the **user** chose it — and under the "compromised renderer" threat model that distinction is the whole point: a headless renderer compromise could hand over `~/.ssh`, which passes every check above.
+
+`src/main/dataset-consent.ts` closes that gap with an in-memory allowlist:
+
+```typescript
+const consented = new Set<string>();
+
+/** Record a directory the user picked via the native dialog as consented for mounting. */
+export function recordConsentedDatasetPath(p: string): void { /* consented.add(path.resolve(p)) */ }
+
+/** True iff `resolvedPath` (already path.resolve'd) was user-selected. */
+export function isDatasetPathConsented(resolvedPath: string): boolean {
+  return consented.has(resolvedPath);
+}
+```
+
+`dialog:open-directory` calls `recordConsentedDatasetPath` on the path the OS picker returned; `docker:start-training` refuses any non-empty path that is not on the list. Getting onto the list requires a real dialog invocation and a physical user selection, which a compromised renderer cannot forge.
+
+The set is per-app-run and deliberately not persisted: the renderer always re-selects the dataset within the same session, because `TrainSection` holds `datasetPath` in component state rather than on disk.
 
 ---
 
@@ -262,7 +326,9 @@ The JWT **never travels left** in this diagram. The renderer only ever receives 
 - Even if the renderer's JavaScript environment is fully compromised (e.g., via a stored XSS in log output), the attacker cannot steal the JWT
 - The JWT is not accessible via `window.*`, `localStorage`, `sessionStorage`, or `indexedDB` from the renderer
 
-The `getAuthHeader()` method in `AuthService` is a Main-only method — it's never called from the IPC handlers that respond to the renderer; it's used internally when the Main process needs to make authenticated API calls on behalf of the user.
+`AuthService.getAuthHeader()` returns `Bearer <jwt>` and is Main-only. It is called by `ClientProjectService`, `InferenceService` and `InferenceStreamService` — all of which *are* reachable from the renderer over IPC — but the header itself is attached inside Main and only the response data crosses back. No IPC handler ever returns the header or the token to the renderer.
+
+The one asymmetry worth knowing: the backend scopes `Authorization: Bearer` acceptance to native clients (SE-9). A Bearer token is honoured only when the request also carries the `X-FedLearn-Client: fedlearn-desktop` marker header, which `src/main/http.ts` sets as an instance-wide default so every service gets it without per-call wiring. The marker is an intent signal, **not** a secret; browsers stay strictly cookie-only.
 
 ---
 
@@ -337,6 +403,61 @@ isAuthenticated(): boolean {
 }
 ```
 
+### Saved credentials ("Save password")
+
+`46aea4d` added an explicit opt-in that persists the *login credentials*, not just the session. It follows the same posture as the JWT and shares the same store file (`fedlearn-auth`, key `savedCredentials`):
+
+- `saveCredentials()` refuses to write anything when `safeStorage.isEncryptionAvailable()` is false, and scrubs any prior blob — a reversible secret is never written to disk.
+- When encryption is available it stores `safeStorage.encryptString(JSON.stringify({ username, password }))` as base64.
+- `getSavedCredentials()` decrypts on demand for the login form's pre-fill; a decrypt failure (keychain key rotated) scrubs the stale blob and returns `null`.
+- Unchecking the box calls `clearSavedCredentials()`.
+
+The plaintext credentials do cross the bridge in both directions here — inherent to pre-filling a login form — but the *encrypted blob* never leaves Main.
+
+---
+
+## Session Expiry and Server-URL Rebinding
+
+Two related mechanisms, both DE-8 era, both living in `AuthService`.
+
+**401 ⇒ session expired (`http.ts` + `auth.service.ts`).** `installUnauthorizedHandler` puts exactly one response interceptor on the shared axios instance (it ejects any previous one, so handlers never stack). A 401 on any authenticated call — inference, client projects, generation — fires `handleSessionExpired()`, which clears both storage backends and pushes `auth:session-expired` to the renderer so it returns to the login screen instead of showing opaque per-call errors. The handler fires whether the 401 arrives as a resolved response (every current service uses a permissive `validateStatus`) or as a rejected promise.
+
+The auth handshake itself is excluded by `isAuthHandshakeRequest`, matching `/auth/(login|me)`: a 401 there means "wrong credentials" or "not logged in yet", not "an existing session went stale". Without that exclusion the app would loop — show login → submit → 401 → re-show login. The frontend's `axiosConfig.ts` carries the equivalent exclusion.
+
+`getAuthHeader()` also checks `expiresAt` *proactively* and routes through the same `handleSessionExpired()` rather than arming a request with a token already doomed to 401. `handleSessionExpired()` is guarded on `hasStoredSession()`, so a burst of concurrent in-flight failures clears once and signals once.
+
+**Changing the server URL invalidates the session.** A JWT and the credentials are minted by *one* backend and must never be sent to another. `setApiUrl()` therefore calls `handleSessionExpired()` whenever the URL actually changes — covering both a legitimate switch and a compromised renderer calling `setServerUrl('https://attacker…')` in the hope that the next authenticated call ships the Bearer token to the new host. Startup deliberately loads `apiBaseUrl` directly in the constructor rather than through `setApiUrl`, so a persisted session survives a normal relaunch (`77cb95e`).
+
+---
+
+## Transport Policy — Refusing Remote Plaintext HTTP
+
+Credentials and the session token flow to whatever URL the user configures, so DE-13 (`2de75a7`) made plaintext `http://` to a **non-loopback** host a refusal rather than a warning.
+
+The rule lives in `src/shared/urlSecurity.ts` so Main's policy and the renderer's on-screen copy cannot drift:
+
+```typescript
+export function isLoopbackHost(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (host === 'localhost' || host === '::1') return true;
+  return /^127(\.\d{1,3}){3}$/.test(host);   // the whole 127.0.0.0/8 block
+}
+```
+
+Suffix lookalikes such as `localhost.evil.com` do **not** qualify, and an `http://` URL that fails to parse is treated as remote (fail closed).
+
+`validators.ts → evaluateServerUrl(raw, allowInsecureHttp)` is the whole decision for `auth:set-server-url`:
+
+| Input | Result |
+|---|---|
+| Not a string / empty / > 512 chars | `{ ok: false, error: 'Invalid server URL' }` |
+| No `http(s)://` prefix | `{ ok: false, error: 'URL must start with http:// or https://' }` |
+| Remote `http://`, no override | `{ ok: false, code: 'INSECURE_HTTP', error: PLAINTEXT_HTTP_REFUSAL }` |
+| Remote `http://` **with** `allowInsecureHttp` | `{ ok: true, url, warning: PLAINTEXT_HTTP_WARNING }` |
+| `https://` or loopback `http://` | `{ ok: true, url }` — warning-free |
+
+Accepted URLs are normalized: trailing slashes stripped, `/api` appended if absent. The renderer keys off the machine-readable `code` to show the "Use HTTP anyway" affordance, and the acknowledgement is scoped to the current URL only — editing the field resets it (`AuthModal.tsx`, `SettingsSection.tsx`). The preload forwards only the single known flag (`{ allowInsecureHttp: true }`), never an arbitrary renderer object.
+
 ---
 
 ## Navigation and Window-Open Restrictions
@@ -387,45 +508,47 @@ The Docker socket (`/var/run/docker.sock` on Unix, `//./pipe/docker_engine` on W
 
 FedLearn Desktop's security contract:
 1. The Docker socket is **only accessed in `DockerService`** (Main Process)
-2. The Docker socket is **never mounted into training containers** (enforced in `startDockerTraining` — `AutoRemove: false` and no socket bind mount)
+2. The Docker socket is **never mounted into training containers** — the only bind in `HostConfig` is the dataset directory
 3. The renderer has no knowledge that Docker even exists — it only calls `startTraining(config)` via the API bridge
+4. The socket is not even opened unless the Jetson path is taken. `dockerode` connects lazily and the constructor performs no ping, so a macOS/Windows user on a native profile never touches it.
 
 ```typescript
 // src/main/docker.service.ts
 const hostConfig: Docker.HostConfig = {
+  // Principle of least privilege — never mount the host Docker socket
+  // into the training container.
   AutoRemove: false,
   Binds: [`${config.datasetPath}:/data`],  // ONLY the dataset directory
-  // NOTE: /var/run/docker.sock is intentionally NOT mounted
 };
 ```
 
 If the training container were to receive the Docker socket, it could escape the container and control the host daemon. This is explicitly prevented.
 
+`AutoRemove: false` in that block is **not** a socket defence — it is a log-drain choice. With `AutoRemove: true` Docker deletes the container the instant it exits, before the attached log stream has drained; with `false` the container survives until `stopDockerContainer()` explicitly removes it, so the final bytes reach the log panel.
+
 ---
 
 ## Log Rendering — XSS Prevention
 
-Container output is untrusted data. A maliciously crafted training script could output HTML/JavaScript. The `LogPanel` component is designed to prevent any XSS from this source:
+Container output is untrusted data. A maliciously crafted training script could output HTML/JavaScript. The `LogPanel` component is designed to prevent any XSS from this source.
+
+The panel has grown display features since it was a single `<pre>{logs.join('')}</pre>` — per-line severity colouring, arrival timestamps, a filter box, follow-tail — so each line is now its own memoized row. The XSS property is unchanged, because every one of those pieces is still a **React text node**:
 
 ```typescript
 // src/renderer/components/LogPanel.tsx
-const LogPanel: React.FC<LogPanelProps> = ({ logs }) => {
-  return (
-    <div className="log-panel" ref={containerRef}>
-      <pre className="log-content">
-        {/*
-          SECURITY: Each log line is a plain text node.
-          React's default escaping prevents any HTML interpretation.
-          No dangerouslySetInnerHTML. No innerHTML. No DOM injection.
-        */}
-        {logs.join('')}
-      </pre>
-    </div>
-  );
-};
+<pre className="log-content">
+  {/*
+    SECURITY: Every piece of log output below is a plain React text
+    node — React escapes all content, so no HTML from container output
+    is ever interpreted.
+  */}
+  {visible.map((line) => (
+    <LogLineRow key={line.lineIndex} line={line} arrivedAt={entryTimesRef.current[line.entryIndex] ?? 0} />
+  ))}
+</pre>
 ```
 
-React's JSX rendering **automatically escapes** all string content — `<script>alert(1)</script>` in a log line renders as the literal text, not as an executable script tag. This means even if an attacker controls the Python training script, they cannot achieve XSS through container output.
+`LogLineRow` renders `{line.text}` as a child, never as `dangerouslySetInnerHTML`; severity only selects a CSS class. React's JSX rendering **automatically escapes** all string content — `<script>alert(1)</script>` in a log line renders as literal text, not an executable script tag. So even an attacker who controls the Python training script cannot achieve XSS through container output.
 
 ---
 
@@ -435,25 +558,51 @@ React's JSX rendering **automatically escapes** all string content — `<script>
 |---|---|
 | Compromised renderer executes arbitrary code | `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true` |
 | Renderer steals JWT | JWT confined to Main Process; renderer only gets `{ success: boolean }` |
-| XSS via malicious log output | `LogPanel` uses React text nodes (auto-escaped); no `innerHTML` |
+| XSS via malicious log output | `LogPanel` renders React text nodes (auto-escaped); no `innerHTML` |
 | Path traversal via dataset path | `sanitizeDatasetPath()` resolves, canonicalizes, and stat-checks the path |
+| Renderer mounts a host directory the user never chose | `dataset-consent.ts` allowlist — only a path returned by the native dialog can be bind-mounted |
 | Arbitrary IPC channel calls | Preload only exposes a typed, allowlisted API surface; no raw `ipcRenderer` |
-| Input injection into Docker args | Double validation (preload + main) with strict regex allowlists |
+| Input injection into Docker args | Double validation (preload + `validators.ts`) with strict regex allowlists |
+| Silent training-arm downgrade (client uploads full state dict to a head-only server) | `trainingArm` is validated strictly in Main and an unrecognised value **throws** instead of defaulting to `FULL` |
 | Docker socket access from container | Socket never mounted into training containers |
 | Navigation to external URLs | `will-navigate` event handler blocks non-app URLs |
 | New window/popup abuse | `setWindowOpenHandler` returns `{ action: 'deny' }` for all opens |
 | Stale/decryptable JWT on disk | `safeStorage` uses OS keychain; if unavailable, no disk persistence |
 | Token replay after OS user password change | Decryption failure triggers `logout()` and graceful re-auth prompt |
+| Token shipped to a different backend after a URL change | `setApiUrl()` clears the session and signals the renderer whenever the URL changes |
+| Credentials/token over the wire in the clear | Remote plaintext `http://` refused with `code: 'INSECURE_HTTP'` unless explicitly overridden (DE-13) |
+| Stale session left usable after server-side revocation | Single 401 interceptor on the shared axios instance → `auth:session-expired` push |
+| Console leakage of secrets in packaged builds | `TerserPlugin` with `drop_console` on the renderer **and** preload bundles (Main keeps `console` for electron-log) |
 | Crash data exfiltration | `crashReporter.start({ uploadToServer: false })` — dumps stay local |
-| Known Chromium/Electron CVEs in the runtime | Electron pinned to `^42.4.0` (bumped from `^34.5.8`) to clear all high/critical advisories flagged by `npm audit` |
+| Known Chromium/Electron CVEs in the runtime | Electron pinned to `^42.4.0` (bumped from `^34.5.8` in `0be70dc`). See the posture section below — the pin is no longer sufficient on its own. |
 
 ---
 
 ## Dependency Vulnerability Posture
 
-The desktop app's dependency tree is audited via `npm audit`. As of the Electron `^42.4.0` bump, the tree is **clean at `--audit-level=high`** — no high- or critical-severity advisories remain. The Electron upgrade (from `^34.5.8`) was driven specifically by high/critical Chromium/Electron CVEs that `npm audit` surfaced against the older `34.x` line; `tsc` and the Jest suite pass against Electron 42 with no application-code changes.
+**This section states a measurement, and measurements of `npm audit` drift as the advisory database moves. Re-run it before relying on it.**
 
-Four **moderate** advisories remain, all the same `uuid` missing-buffer-bounds-check issue ([GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq)) reached transitively through `dockerode` (4.0.x) and `sockjs`/`webpack-dev-server`. The only published fix pulls in `dockerode@5.0.0`, a breaking major, so these are deliberately **deferred and tracked for a future `dockerode` major upgrade** rather than force-fixed.
+Measured on **2026-08-13** (`cd fedlearn-desktop && npm audit`, lockfile as committed):
+
+```
+31 vulnerabilities (2 low, 8 moderate, 19 high, 2 critical)
+```
+
+So the earlier claim on this page — "clean at `--audit-level=high`, only four moderate `uuid` advisories remain" — **no longer holds**. That was true immediately after the Electron 34 → 42 bump (`0be70dc`); the tree has since accumulated new advisories without any dependency change on our side.
+
+What the current run reports, grouped by how it should be treated:
+
+| Group | Severity | Packages (and where they come from) | Notes |
+|---|---|---|---|
+| Shipped runtime deps | high / moderate | `axios` (direct), `electron-updater` (direct) → `builder-util-runtime` — *cross-origin redirect leaks `PRIVATE-TOKEN` and mixed-case `Authorization`*; `form-data` ← `axios`; `@grpc/grpc-js` and `protobufjs` ← `dockerode` | These matter most: `electron-updater` and `axios` sit on the shipped auto-update and REST paths. All report `fixAvailable: true`. |
+| Build/packaging toolchain | high / critical | `electron-builder` → `app-builder-lib`, `builder-util`, `builder-util-runtime`, `dmg-builder`, `electron-publish`; plus `js-yaml`, `tar` (critical), `shell-quote`, `nanoid`, `postcss`, `brace-expansion`, `ip-address`, `fast-uri`; `undici` ← `electron` → `@electron/get` | Dev-time only — they run on the release machine, not on a user's install. `fixAvailable: true` for all. |
+| Dev server | moderate / critical | `webpack-dev-server` (direct) → `sockjs` → `websocket-driver` (critical); plus `http-proxy-middleware`, `launch-editor` | Local dev only; never shipped. |
+| Electron itself | moderate | `electron` (direct) — `ProtocolResponse.url` reuses the default session cache instead of the registering session | `fixAvailable: true`. |
+| The long-standing `uuid` case | moderate | `uuid` ← `dockerode` 4.0.x, and separately ← `sockjs`/`webpack-dev-server` | [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq), missing buffer bounds check in v3/v5/v6. Still the one advisory whose only published fix is a **breaking major** (`dockerode@5.0.1`, `isSemVerMajor: true`), so it remains deliberately deferred. |
+
+The honest reading: everything except the `dockerode` → `uuid` chain has a non-breaking fix available and is simply un-applied. The `overrides` block in `package.json` currently pins only `protobufjs >= 7.5.5` (which resolves to 8.6.1 and is *still* flagged, so the override no longer clears that advisory).
+
+**CI does not gate on `npm audit`.** The desktop job (`.github/workflows/ci.yml`) runs `check_no_skipped_tests.sh`, `npm ci`, `npm run lint`, and `npm run test:coverage` — nothing else. Nothing in the pipeline will fail when this list grows, which is why the number above went stale unnoticed.
 
 ---
 

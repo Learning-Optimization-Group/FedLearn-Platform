@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -83,48 +92,356 @@
   </header>
   <div class="content-wrap">
     <article class="article"><h1 id="api-and-services">API and Services<a class="headerlink" href="#api-and-services" title="Permanent link">&para;</a></h1>
-<p>The frontend communicates with the FedLearn backend via REST APIs for operations and state, and WebSockets (STOMP) for real-time telemetry and logs.</p>
+<p>The frontend communicates with the FedLearn backend via REST APIs for operations and state, and
+WebSockets (STOMP) for real-time telemetry and logs. Both transports authenticate with the <strong>same
+HttpOnly cookie</strong> — there is no Bearer header and nothing in <code>localStorage</code> anywhere in this app.</p>
 <h2 id="axios-configuration">Axios Configuration<a class="headerlink" href="#axios-configuration" title="Permanent link">&para;</a></h2>
-<p>The global Axios instance is configured in <code>src/api/axiosConfig.ts</code>. It handles base URL resolution dynamically depending on the environment (dev vs prod) and injects interceptors.</p>
-<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">baseURL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">import</span><span class="p">.</span><span class="nx">meta</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">PROD</span>
-<span class="w">        </span><span class="o">?</span><span class="w"> </span><span class="nx">envBaseUrl</span>
-<span class="w">        </span><span class="o">:</span><span class="w"> </span><span class="kt">envBaseUrl</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nb">window</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;undefined&#39;</span>
-<span class="w">            </span><span class="o">?</span><span class="w"> </span><span class="sb">`http://</span><span class="si">${</span><span class="nb">window</span><span class="p">.</span><span class="nx">location</span><span class="p">.</span><span class="nx">hostname</span><span class="si">}</span><span class="sb">:8081/api`</span>
-<span class="w">            </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;http://localhost:8081/api&#39;</span><span class="p">);</span>
+<p><code>src/api/axiosConfig.ts</code> exports <strong>one</strong> shared Axios instance. Every service module imports that
+singleton; nothing else calls <code>axios.create()</code>.</p>
+<h3 id="base-url-resolution">Base URL resolution<a class="headerlink" href="#base-url-resolution" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">envBaseUrl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">import</span><span class="p">.</span><span class="nx">meta</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">VITE_FEDLEARN_API_URL</span><span class="p">;</span>
+
+<span class="c1">// Local-dev fallback only; production builds fail fast (see below).</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">baseURL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">import</span><span class="p">.</span><span class="nx">meta</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">PROD</span>
+<span class="w">    </span><span class="o">?</span><span class="w"> </span><span class="nx">envBaseUrl</span>
+<span class="w">    </span><span class="o">:</span><span class="w"> </span><span class="kt">envBaseUrl</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nb">window</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;undefined&#39;</span>
+<span class="w">        </span><span class="o">?</span><span class="w"> </span><span class="sb">`http://</span><span class="si">${</span><span class="nb">window</span><span class="p">.</span><span class="nx">location</span><span class="p">.</span><span class="nx">hostname</span><span class="si">}</span><span class="sb">:8081/api`</span>
+<span class="w">        </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;http://localhost:8081/api&#39;</span><span class="p">);</span>
 
 <span class="kd">const</span><span class="w"> </span><span class="nx">api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">axios</span><span class="p">.</span><span class="nx">create</span><span class="p">({</span><span class="w"> </span><span class="nx">baseURL</span><span class="p">,</span><span class="w"> </span><span class="nx">withCredentials</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="w"> </span><span class="p">});</span>
 </code></pre></div>
 
-<p>This instance is exported and consumed by <code>apiServices.ts</code>, which abstracts all backend endpoints into strongly-typed functions.</p>
-<h2 id="service-abstraction-layer">Service Abstraction Layer<a class="headerlink" href="#service-abstraction-layer" title="Permanent link">&para;</a></h2>
-<p>All API calls are defined as named exports in <code>src/services/apiServices.ts</code>. This isolates Axios logic from the components and provides a single source of truth for Request/Response typings.</p>
-<div class="codehilite"><pre><span></span><code><span class="c1">// Example from apiServices.ts</span>
-<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">fetchProjects</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">api</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="s1">&#39;/projects&#39;</span><span class="p">);</span>
-<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">createProject</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">data</span><span class="o">:</span><span class="w"> </span><span class="kt">ProjectPayload</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">api</span><span class="p">.</span><span class="nx">post</span><span class="p">(</span><span class="s1">&#39;/projects&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">data</span><span class="p">);</span>
+<p><code>VITE_FEDLEARN_API_URL</code> comes from the committed <code>.env.[mode]</code> file for the active Vite mode — see
+<a href="Architecture.html#environments-vite-modes-and-the-dev-proxy">Architecture § Environments</a> for the
+mode ↔ Spring-profile table. The <code>window.location.hostname</code> fallback exists so a dev server reached
+from another device on the LAN still finds the backend; it never fires in a production build.</p>
+<h3 id="the-production-host-guard-fe-7">The production host guard (FE-7)<a class="headerlink" href="#the-production-host-guard-fe-7" title="Permanent link">&para;</a></h3>
+<p>Three module-scope throws run only under <code>import.meta.env.PROD</code>, so a misconfigured production
+bundle dies loudly at load instead of silently shipping a dead origin:</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VITE_FEDLEARN_API_URL</code> unset</td>
+<td>must be set for production builds</td>
+</tr>
+<tr>
+<td>value contains <code>REPLACE_WITH_YOUR_API_HOST</code></td>
+<td>still the placeholder from <code>.env.production</code></td>
+</tr>
+<tr>
+<td>value does not start with <code>https://</code></td>
+<td>mixed content — the browser will block it</td>
+</tr>
+</tbody>
+</table>
+<p>The npm <code>prebuild</code> hook (<code>scripts/check-prod-env.mjs</code>) catches the placeholder case earlier still,
+before Vite ever runs.</p>
+<h3 id="withcredentials-true"><code>withCredentials: true</code><a class="headerlink" href="#withcredentials-true" title="Permanent link">&para;</a></h3>
+<p>This is the whole auth contract on the REST side. The backend issues an HttpOnly <code>jwtToken</code> cookie
+on <code>/auth/login</code>; <code>withCredentials</code> makes the browser attach it to every request, including
+cross-origin ones (which is why the backend's CORS config sets <code>allowCredentials(true)</code> and uses
+<code>setAllowedOriginPatterns</code> rather than a literal <code>*</code>). Nothing in the frontend reads, stores or
+forwards the token.</p>
+<h3 id="the-response-interceptor">The response interceptor<a class="headerlink" href="#the-response-interceptor" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Endpoints whose 401 means &quot;no session&quot; rather than &quot;session expired&quot;.</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">SILENT_401_ENDPOINTS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;/auth/me&#39;</span><span class="p">];</span>
+
+<span class="nx">api</span><span class="p">.</span><span class="nx">interceptors</span><span class="p">.</span><span class="nx">response</span><span class="p">.</span><span class="nx">use</span><span class="p">(</span>
+<span class="w">    </span><span class="p">(</span><span class="nx">response</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">response</span><span class="p">,</span>
+<span class="w">    </span><span class="p">(</span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="kt">AxiosError</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">error</span><span class="p">.</span><span class="nx">response</span><span class="o">?</span><span class="p">.</span><span class="nx">status</span><span class="p">;</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">status</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">401</span>
+<span class="w">            </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="nx">error</span><span class="p">.</span><span class="nx">config</span><span class="o">?</span><span class="p">.</span><span class="nx">url</span><span class="o">?</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="s1">&#39;/auth/login&#39;</span><span class="p">)</span>
+<span class="w">            </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="nx">isSilent401</span><span class="p">(</span><span class="nx">error</span><span class="p">.</span><span class="nx">config</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nb">window</span><span class="p">.</span><span class="nx">dispatchEvent</span><span class="p">(</span><span class="ow">new</span><span class="w"> </span><span class="nx">Event</span><span class="p">(</span><span class="s1">&#39;authError&#39;</span><span class="p">));</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">Promise</span><span class="p">.</span><span class="nx">reject</span><span class="p">(</span><span class="nx">error</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">);</span>
 </code></pre></div>
 
-<h2 id="real-time-logs-websockets">Real-Time Logs &amp; WebSockets<a class="headerlink" href="#real-time-logs-websockets" title="Permanent link">&para;</a></h2>
-<p>Federated learning involves distributed clients. Real-time updates are critical. We use <code>@stomp/stompjs</code> to connect to the backend's WebSocket broker.</p>
-<h3 id="logstore-telemetry-cache">LogStore (Telemetry Cache)<a class="headerlink" href="#logstore-telemetry-cache" title="Permanent link">&para;</a></h3>
-<p>The <code>logStore.ts</code> acts as an agnostic cache for WebSocket payloads. Because logs are pushed constantly, we decouple the React render cycle from the WebSocket listener using a publish-subscribe pattern.</p>
-<ol>
-<li>The WebSocket listener pushes entries via <code>logStore.append(projectId, entry)</code>.</li>
-<li>Components like <code>LogViewer</code> subscribe to <code>logStore</code>.</li>
-<li>The store automatically trims logs to a maximum limit (e.g., 2000) to prevent memory leaks.</li>
-</ol>
-<div class="codehilite"><pre><span></span><code><span class="c1">// Pushing to the store</span>
-<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">logStore</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nx">append</span><span class="p">(</span><span class="nx">projectId</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">entry</span><span class="o">:</span><span class="w"> </span><span class="kt">StoredLogEntry</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">arr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">cache</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="nx">projectId</span><span class="p">)</span><span class="w"> </span><span class="o">??</span><span class="w"> </span><span class="p">[];</span>
-<span class="w">        </span><span class="nx">arr</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">entry</span><span class="p">);</span>
-<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">arr</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">2000</span><span class="p">)</span><span class="w"> </span><span class="nx">arr</span><span class="p">.</span><span class="nx">splice</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="nx">arr</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">2000</span><span class="p">);</span>
-<span class="w">        </span><span class="nx">cache</span><span class="p">.</span><span class="nx">set</span><span class="p">(</span><span class="nx">projectId</span><span class="p">,</span><span class="w"> </span><span class="nx">arr</span><span class="p">);</span>
-<span class="w">        </span><span class="nx">emit</span><span class="p">(</span><span class="nx">projectId</span><span class="p">);</span><span class="w"> </span><span class="c1">// Notifies React components</span>
-<span class="w">    </span><span class="p">}</span>
+<p>Three behaviours here are deliberate and pinned by <code>src/api/axiosConfig.test.ts</code>:</p>
+<ul>
+<li><strong>401 on a data route → global logout.</strong> The interceptor dispatches a bare <code>authError</code> window
+  event; <code>App.tsx</code> listens for it and calls <code>logout()</code>. The interceptor itself knows nothing about
+  React, routing or the auth context.</li>
+<li><strong>401 is swallowed for exactly two URLs.</strong> <code>/auth/login</code> (a wrong password is not a session
+  expiry, and the login form renders its own error) and <code>/auth/me</code> (the bootstrap probe — surfacing
+  its 401 as <code>authError</code> would produce an immediate redirect loop on every anonymous page load).
+  <code>SILENT_401_ENDPOINTS</code> is a substring match on the request URL.</li>
+<li><strong>403 is never a logout.</strong> 403 means "authenticated, but not allowed <em>this</em> resource" — a
+  non-admin hitting <code>/users</code>, a non-owner touching someone else's project. The interceptor leaves it
+  alone so the calling component can render "permission denied" inline. Several service functions
+  document this in their own doc comments.</li>
+</ul>
+<p>The interceptor always re-rejects with the original error, so callers still see the status and body.</p>
+<h2 id="service-abstraction-layer">Service Abstraction Layer<a class="headerlink" href="#service-abstraction-layer" title="Permanent link">&para;</a></h2>
+<p>All API calls are named exports in <code>src/services/apiServices.ts</code>, which isolates Axios from the
+components and is the single source of truth for request/response typings. <code>src/services/artifactService.ts</code>
+is a second typed client over the <em>same</em> singleton for the registry/marketplace surface (FE-11/FE-12).</p>
+<p>Three error helpers sit at the top of <code>apiServices.ts</code> and are used across the views, because the
+backend's <code>GlobalExceptionHandler</code> returns <code>{message}</code> (sometimes <code>{error}</code>):</p>
+<div class="codehilite"><pre><span></span><code><span class="nx">errorStatus</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span><span class="w">             </span><span class="c1">// the HTTP status, or undefined for a non-HTTP failure</span>
+<span class="nx">errorMessage</span><span class="p">(</span><span class="nx">err</span><span class="p">,</span><span class="w"> </span><span class="nx">fallback</span><span class="p">)</span><span class="w">  </span><span class="c1">// the backend&#39;s human-readable message, or the fallback</span>
+<span class="nx">isEmptyBody</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span><span class="w">            </span><span class="c1">// a 204 / empty body carries no resource</span>
+</code></pre></div>
+
+<p><code>isEmptyBody</code> matters more than it looks: <code>GET /owner-requests/mine</code> and
+<code>GET /projects/{id}/deletion-request</code> return <strong>204 with an empty body</strong> to mean "no request yet",
+which is a normal result rather than an error.</p>
+<h3 id="endpoint-groups">Endpoint groups<a class="headerlink" href="#endpoint-groups" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Functions → endpoints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Auth</td>
+<td><code>loginUser</code> POST <code>/auth/login</code> · <code>registerUser</code> POST <code>/auth/register</code> · <code>fetchCurrentUser</code> GET <code>/auth/me</code> · <code>logoutUser</code> POST <code>/auth/logout</code></td>
+</tr>
+<tr>
+<td>Recipe catalog</td>
+<td><code>fetchModelRecipes</code> GET <code>/model-recipes</code></td>
+</tr>
+<tr>
+<td>Projects</td>
+<td><code>fetchProjects</code> / <code>fetchOwnedProjects</code> GET <code>/projects</code> · <code>createProject</code> POST <code>/projects</code> · <code>fetchProject</code> GET <code>/projects/{id}</code> · <code>updateProject</code> PUT <code>/projects/{id}</code> · <code>updateProjectVisibility</code> PATCH <code>/projects/{id}</code> · <code>deleteProject</code> DELETE <code>/projects/{id}</code> · <code>startProjectServer</code> POST <code>/projects/{id}/start</code> · <code>stopProjectServer</code> POST <code>/projects/{id}/stop</code> · <code>fetchProjectResults</code> GET <code>/projects/{id}/results</code> · <code>fetchProjectLogs</code> GET <code>/projects/{id}/logs</code></td>
+</tr>
+<tr>
+<td>Membership &amp; access</td>
+<td><code>fetchAccessRequests</code> / <code>requestProjectAccess</code> on <code>/projects/{id}/access-requests</code> · <code>decideAccessRequest</code> PUT <code>…/{requestId}</code> · <code>fetchMemberships</code> / <code>addMembership</code> / <code>removeMembership</code> on <code>/projects/{id}/memberships</code> · <code>fetchDiscoverableProjects</code> GET <code>/projects/discover</code></td>
+</tr>
+<tr>
+<td>Deletion workflow</td>
+<td><code>submitDeletionRequest</code> POST + <code>fetchProjectDeletionRequest</code> GET <code>/projects/{id}/deletion-request</code></td>
+</tr>
+<tr>
+<td>Owner promotion</td>
+<td><code>submitOwnerRequest</code> POST <code>/owner-requests</code> · <code>fetchMyOwnerRequest</code> GET <code>/owner-requests/mine</code></td>
+</tr>
+<tr>
+<td>Inference</td>
+<td><code>fetchInferableModels</code> GET <code>/inference/models</code> · <code>runInference</code> POST <code>/inference/{id}</code> · <code>runGeneration</code> POST <code>/inference/{id}/generate</code> · <code>stopGeneration</code> POST <code>/inference/{id}/generate/stop</code></td>
+</tr>
+<tr>
+<td>Profile</td>
+<td><code>fetchMyProfile</code> GET + <code>updateMyProfile</code> PATCH <code>/users/me/profile</code></td>
+</tr>
+<tr>
+<td>Admin</td>
+<td><code>fetchAdminOverview</code> <code>/admin/overview</code> · <code>fetchAdminUsers</code> / <code>searchAdminUsers</code> · <code>updateUserRole</code> PUT <code>/admin/users/{id}/role</code> · <code>updateUserStatus</code> PUT <code>/admin/users/{id}/status</code> · <code>fetchAdminProjects</code> / <code>searchAdminProjects</code> · <code>fetchAuditEvents</code> <code>/admin/audit-events</code> · <code>fetchOwnerRequests</code> / <code>decideOwnerRequest</code> · <code>fetchDeletionRequests</code> / <code>decideDeletionRequest</code></td>
+</tr>
+<tr>
+<td>Benchmarks (admin)</td>
+<td><code>fetchBenchmarkOverview</code> <code>/admin/benchmarks/overview</code> · <code>fetchProjectBenchmark</code> <code>/admin/benchmarks/projects/{id}</code></td>
+</tr>
+<tr>
+<td>Artifacts (<code>artifactService.ts</code>)</td>
+<td><code>listArtifacts</code> GET <code>/artifacts?projectId=</code> · <code>getArtifact</code> GET <code>/artifacts/{id}</code> · <code>getLineage</code> GET <code>/artifacts/{id}/lineage</code> · <code>downloadBlob</code> GET <code>/artifacts/{id}/blob</code> (<code>responseType: 'blob'</code>) · <code>listMarketplace</code> GET <code>/marketplace/adapters</code> · <code>publishAdapter</code> POST + <code>unpublishAdapter</code> DELETE <code>/marketplace/adapters/{id}/publish</code></td>
+</tr>
+</tbody>
+</table>
+<p>The search endpoints return a <code>Paged&lt;T&gt;</code> envelope (<code>{ items, page, size, total }</code>); the admin
+directories page against those rather than the unbounded legacy list endpoints.</p>
+<h3 id="the-model-recipe-catalog-contract">The model-recipe catalog contract<a class="headerlink" href="#the-model-recipe-catalog-contract" title="Permanent link">&para;</a></h3>
+<p><code>GET /api/model-recipes</code> is served by the backend from <code>fl-runtime/recipes.py --describe</code>
+(snake_case on the Python side, camelCase on the wire — Jackson bridges it with <code>@JsonAlias</code>). The
+frontend's <code>ModelRecipe</code> type mirrors that shape:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">ModelRecipe</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">key</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">                 </span><span class="c1">// PNEUMONIA_CNN, CNN, CIFAR_RESNET18, MLP, TRANSFORMER, …</span>
+<span class="w">    </span><span class="nx">displayName</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">inputKind</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w">           </span><span class="c1">// image | text | tabular | …</span>
+<span class="w">    </span><span class="nx">classes</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<span class="w">    </span><span class="nx">baseModels</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<span class="w">    </span><span class="nx">optimizers</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<span class="w">    </span><span class="nx">supportedArms?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span><span class="w">    </span><span class="c1">// absent for recipes that declare none</span>
+<span class="w">    </span><span class="nx">armTradeoff?</span><span class="o">:</span><span class="w"> </span><span class="kt">ArmTradeoff</span><span class="p">;</span><span class="w">   </span><span class="c1">// present ONLY when the recipe offers more than one arm</span>
 <span class="p">}</span>
 </code></pre></div>
 
-<p>This guarantees that if the user closes and reopens a project modal, the logs are immediately available without refetching from the backend.</p></article>
+<p>The catalog currently advertises <strong>seven</strong> keys, and only three of them offer a choice of arm — so
+most projects never see the arm control at all:</p>
+<table>
+<thead>
+<tr>
+<th>Recipe key</th>
+<th><code>supportedArms</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PNEUMONIA_CNN</code></td>
+<td><code>FULL</code>, <code>FROZEN_HEAD</code></td>
+</tr>
+<tr>
+<td><code>CNN</code></td>
+<td><code>FULL</code>, <code>FROZEN_HEAD</code></td>
+</tr>
+<tr>
+<td><code>CIFAR_RESNET18</code></td>
+<td><code>FULL</code>, <code>FROZEN_HEAD</code>, <code>OVA_LP</code></td>
+</tr>
+<tr>
+<td><code>MLP</code>, <code>TRANSFORMER</code>, <code>LLM_LORA</code>, <code>TINYNET_GOLDEN</code></td>
+<td><code>FULL</code> only</td>
+</tr>
+</tbody>
+</table>
+<p>(<code>fl-runtime/recipes.py</code> also defines <code>BLOOD_CNN</code> and <code>FROZEN_DEMO</code>, which are deliberately kept
+out of <code>RECIPE_METADATA</code> — dispatchable but not selectable, so they never reach the picker.)</p>
+<p><code>ArmTradeoff</code> carries <code>headline</code>, optional <code>commRatio</code> / <code>ondeviceRatio</code>, a <code>measuredOn</code>
+string map, per-arm <code>ArmFacts</code>, and a <code>caveats: string[]</code>. Two subtleties in <code>ArmFacts</code> are
+contractual, not incidental:</p>
+<ul>
+<li><code>accuracyAuc</code> and <code>accuracyPct</code> are <strong>mutually exclusive</strong> — binary tasks are reported as AUC,
+  multi-class as top-1.</li>
+<li><code>ondeviceFeasible</code> is <code>boolean | null</code>, and <code>null</code> means <strong>not measured</strong>, which is a different
+  statement from a measured <code>false</code>. The UI must render <code>null</code> as absence, never as a claim in
+  either direction.</li>
+</ul>
+<p>How the picker renders all of this is documented in
+<a href="UI_and_Components.html#the-project-creation-picker-and-the-training-arm">UI &amp; Components § the training arm</a>.</p>
+<h2 id="real-time-logs-websockets">Real-Time Logs &amp; WebSockets<a class="headerlink" href="#real-time-logs-websockets" title="Permanent link">&para;</a></h2>
+<h3 id="origin-derivation-srclibserverconfigts">Origin derivation (<code>src/lib/serverConfig.ts</code>)<a class="headerlink" href="#origin-derivation-srclibserverconfigts" title="Permanent link">&para;</a></h3>
+<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">SERVER_ROOT_URL</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="k">import</span><span class="p">.</span><span class="nx">meta</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">VITE_SERVER_ROOT_URL</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="sb">`http://</span><span class="si">${</span><span class="nb">window</span><span class="p">.</span><span class="nx">location</span><span class="p">.</span><span class="nx">hostname</span><span class="si">}</span><span class="sb">:8081`</span><span class="p">;</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">WS_BROKER_URL</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">SERVER_ROOT_URL</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/^http/</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;ws&#39;</span><span class="p">)</span><span class="si">}</span><span class="sb">/ws-logs`</span><span class="p">;</span>
+</code></pre></div>
+
+<p>One module owns the HTTP origin and the broker URL derived from it (<code>http→ws</code>, <code>https→wss</code>, then
+<code>/ws-logs</code>). Before FE-9 this derivation was copy-pasted across several views, and any one of them
+drifting would silently desync a WebSocket surface from the REST origin it is supposed to share.
+<code>VITE_SERVER_ROOT_URL</code> must stay on the same host as <code>VITE_FEDLEARN_API_URL</code> — in <code>ec2demo</code> both
+point at <code>localhost:5173</code> so the Vite proxy (which has <code>ws: true</code> on <code>/ws-logs</code>) carries the socket
+too, keeping the cookie first-party.</p>
+<p>The backend's <code>JwtHandshakeInterceptor</code> authenticates the STOMP handshake from that <strong>same HttpOnly
+cookie</strong>. Nothing token-related is attached here or anywhere upstream.</p>
+<h3 id="destinations">Destinations<a class="headerlink" href="#destinations" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Destination</th>
+<th>Subscriber</th>
+<th>Payload</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/topic/logs/{projectId}</code></td>
+<td><code>LogViewer</code></td>
+<td>a log line, or a <code>RoundResultDto</code> carrying <code>loss</code> / <code>accuracy</code> / <code>serverRound</code></td>
+</tr>
+<tr>
+<td><code>/topic/status/{projectId}</code></td>
+<td><code>useProjectStatus</code></td>
+<td><code>{ projectId, newStatus, serverPort? }</code></td>
+</tr>
+<tr>
+<td><code>/topic/results/{projectId}</code></td>
+<td><code>useProjectStatus</code></td>
+<td>one <code>ProjectResult</code> per completed round</td>
+</tr>
+<tr>
+<td><code>/topic/inference/{projectId}</code></td>
+<td><code>PlaygroundView</code></td>
+<td>streamed generation tokens</td>
+</tr>
+</tbody>
+</table>
+<p><code>OwnerDashboard</code> subscribes with <code>projectId: '*'</code>, intending one socket for every owned project, and
+<code>useProjectStatus</code> therefore reads the owning id off <code>message.headers.destination</code> rather than off
+the subscribed pattern.</p>
+<blockquote>
+<p><strong>That wildcard does not reach the broker — the backend rejects it.</strong> There are no wildcard
+destinations server-side: <code>WebSocketService</code> only ever publishes concrete
+<code>/topic/{logs,status,results}/{projectId}</code>, and <code>StompSubscriptionInterceptor</code> (BA-5, hardened in
+<code>d6fb77d</code>) rejects <em>any</em> SUBSCRIBE destination containing <code>*</code> or <code>?</code> with
+<code>AccessDeniedException("Wildcard subscriptions are not permitted")</code> — the SimpleBroker matches
+destinations as Ant patterns, so an ungated wildcard would have received every tenant's
+broadcasts. <code>OwnerDashboard</code>'s live status/results push is therefore refused today (its list
+refreshes on mount and after its own mutations, not from the socket). This is a live
+frontend/backend contract mismatch, not a design; the source comment in <code>OwnerDashboard.tsx:107-109</code>
+carries the same stale belief. The destination-header id resolution above stays correct and is
+what a per-project fan-out would need.</p>
+</blockquote>
+<h3 id="usestompclient-one-lifecycle-honest-state"><code>useStompClient</code> — one lifecycle, honest state<a class="headerlink" href="#usestompclient-one-lifecycle-honest-state" title="Permanent link">&para;</a></h3>
+<p>Every WS surface used to hand-roll its own <code>new StompClient({ brokerURL, reconnectDelay: 5000 })</code>,
+its own subscribe/unsubscribe bookkeeping, and its own approximate notion of "connected". The hook
+now owns all of it and reports state derived <strong>only</strong> from the real <code>onConnect</code>,
+<code>onWebSocketClose</code>, <code>onStompError</code> and <code>onWebSocketError</code> callbacks — so a dropped socket can never
+present as a silent stall or a fake "connected".</p>
+<p>It returns <code>{ isConnected, isReconnecting, lastError }</code>, and
+<code>src/lib/connectionStatus.ts</code> maps that snapshot onto four honest phases plus a caller-chosen label:</p>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Meaning</th>
+<th><code>StatusPill</code> kind</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>connecting</code></td>
+<td>never connected yet, no error observed</td>
+<td><code>idle</code></td>
+</tr>
+<tr>
+<td><code>live</code></td>
+<td>the STOMP CONNECTED frame has arrived</td>
+<td><code>running</code></td>
+</tr>
+<tr>
+<td><code>reconnecting</code></td>
+<td>was live, socket dropped, auto-retry under way</td>
+<td><code>pending</code></td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td>never connected, and a STOMP/WebSocket error was observed</td>
+<td><code>error</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>error</code> and <code>reconnecting</code> both mean "the client is retrying in the background"
+(<code>reconnectDelay</code> defaults to 5000 ms); the distinction is purely whether the surface has <em>ever</em>
+been live, so the label can honestly say "still trying" versus "hasn't connected yet".</p>
+<h3 id="logviewers-message-handling">LogViewer's message handling<a class="headerlink" href="#logviewers-message-handling" title="Permanent link">&para;</a></h3>
+<p><code>LogViewer</code> supplies only the parsing; the socket belongs to <code>useStompClient</code>. Two details are
+worth knowing:</p>
+<ul>
+<li>Frames are appended to <code>logStore</code> <strong>even while paused</strong>. "Pause" freezes auto-scroll only, so
+  nothing received in the paused window is lost.</li>
+<li>A frame is treated as telemetry only when <code>Number.isFinite(parsed.loss) &amp;&amp; Number.isFinite(parsed.accuracy)</code>.
+  A merely "defined" check let a malformed or hostile frame with <code>null</code>/<code>"x"</code> into the telemetry
+  cache, where <code>latest.loss.toFixed(...)</code> would throw and white-screen the whole SPA on render.
+  Non-numeric telemetry is ignored; an unparseable body is stored as a plain INFO line.</li>
+</ul>
+<h3 id="logstore-telemetry-cache">LogStore (telemetry cache)<a class="headerlink" href="#logstore-telemetry-cache" title="Permanent link">&para;</a></h3>
+<p><code>logStore.ts</code> is an intentionally framework-agnostic publish/subscribe cache so a WebSocket callback
+can write to it from outside the React tree:</p>
+<ol>
+<li>The subscription handler pushes entries via <code>logStore.append(projectId, entry)</code>.</li>
+<li><code>LogViewer</code> subscribes and re-renders from the emitted snapshot.</li>
+<li>Historical lines from <code>GET /projects/{id}/logs</code> are <strong>prepended</strong> by <code>mergeHistorical()</code>, deduped
+   on <code>timestamp|message</code>, and fetched at most once per project (<code>hasLoadedHistorical</code>).</li>
+<li>Entries are trimmed to the last 2000 per project.</li>
+</ol>
+<p>The store assigns each entry a monotonic <code>id</code> that consumers must use as the React key — see
+<a href="Architecture.html#2-service-level-stores-domain-state-that-outlives-a-component">Architecture § Service-Level Stores</a>
+for why an index key breaks under <code>mergeHistorical</code>.</p>
+<p>The net effect: closing and reopening a project's log modal shows prior session output immediately,
+with no refetch and no gap in the live stream.</p></article>
     <nav class="toc"></nav>
   </div>
 </div>

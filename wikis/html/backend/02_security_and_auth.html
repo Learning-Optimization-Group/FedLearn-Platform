@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -85,35 +94,97 @@
     <article class="article"><h1 id="02-security-and-authentication">02 - Security and Authentication<a class="headerlink" href="#02-security-and-authentication" title="Permanent link">&para;</a></h1>
 <p>The FedLearn backend implements a robust, multi-layered security architecture designed to handle both standard REST API clients (React) and internal Machine Learning servers (Python).</p>
 <blockquote>
-<p>✅ <strong>Branch reality.</strong> The JWT / cookie / WebSocket-handshake / internal-API-key mechanics on this page are <strong>current</strong>. The <strong>role and org-scope material</strong> — <code>PlatformRole</code> / <code>PLATFORM_ADMIN</code>, the three role layers, <code>OrgScope</code> / <code>OrgScopeFilter</code>, <code>organization_memberships</code>, and the <code>@Auditable</code> audit trail — <strong>is also present on this branch</strong> (the <code>V4</code>–<code>V7</code> identity migrations; the coarse <code>users.role IN (USER, ADMIN)</code> column from <code>V2</code> has been superseded). See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</p>
+<p>✅ <strong>Branch reality.</strong> The <strong>role and org-scope material</strong> — <code>PlatformRole</code> / <code>PLATFORM_ADMIN</code>, the three role layers, <code>OrgScope</code> / <code>OrgScopeFilter</code>, <code>organization_memberships</code>, and the <code>@Auditable</code> audit trail — is present on this branch (the <code>V4</code>–<code>V7</code> identity migrations; the coarse <code>users.role IN (USER, ADMIN)</code> column from <code>V2</code> has been superseded). See <a href="06_identity_multitenancy_and_audit.html">06 - Identity, Multi-Tenancy &amp; Audit</a>.</p>
+<p>Two mechanisms on this page have changed materially since the page was first written, and §1 and §3
+now describe their current form: <strong>Bearer tokens are no longer a co-equal source</strong> — the browser
+path is cookie-only and a Bearer header authenticates only for a marked native client (SE-9); and
+the internal callback gate takes <strong>two</strong> credentials, <code>X-Internal-Key</code> <em>and</em> a per-run
+<code>X-Internal-Run-Token</code> scoped to one project (SE-7). It also does not grant a <code>ROLE_INTERNAL</code>
+authority — it never establishes an <code>Authentication</code> at all.</p>
 </blockquote>
 <h2 id="1-rest-api-security-jwt">1. REST API Security (JWT)<a class="headerlink" href="#1-rest-api-security-jwt" title="Permanent link">&para;</a></h2>
-<p>The platform uses <strong>JSON Web Tokens (JWT)</strong> for stateless user authentication. When a user logs in via <code>/api/auth/login</code>, the <code>AuthController</code> generates a token using <code>JwtTokenProvider</code> and returns it to the client.</p>
-<h3 id="token-extraction-strategy">Token Extraction Strategy<a class="headerlink" href="#token-extraction-strategy" title="Permanent link">&para;</a></h3>
-<p>The <code>JwtAuthenticationFilter</code> intercepts every incoming HTTP request and attempts to extract the token from two potential sources in priority order:</p>
-<div class="codehilite"><pre><span></span><code><span class="n">String</span><span class="w"> </span><span class="n">authHeader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">request</span><span class="p">.</span><span class="na">getHeader</span><span class="p">(</span><span class="s">&quot;Authorization&quot;</span><span class="p">);</span>
-<span class="n">String</span><span class="w"> </span><span class="n">jwt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
-
-<span class="c1">// 1. Check Authorization Header (used by programmatic clients)</span>
-<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">authHeader</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">authHeader</span><span class="p">.</span><span class="na">startsWith</span><span class="p">(</span><span class="s">&quot;Bearer &quot;</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">jwt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">authHeader</span><span class="p">.</span><span class="na">substring</span><span class="p">(</span><span class="mi">7</span><span class="p">);</span>
-<span class="p">}</span><span class="w"> </span>
-<span class="c1">// 2. Check HttpOnly Cookies (used securely by the browser)</span>
-<span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">request</span><span class="p">.</span><span class="na">getCookies</span><span class="p">()</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">jakarta</span><span class="p">.</span><span class="na">servlet</span><span class="p">.</span><span class="na">http</span><span class="p">.</span><span class="na">Cookie</span><span class="w"> </span><span class="n">cookie</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="n">request</span><span class="p">.</span><span class="na">getCookies</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="s">&quot;jwtToken&quot;</span><span class="p">.</span><span class="na">equals</span><span class="p">(</span><span class="n">cookie</span><span class="p">.</span><span class="na">getName</span><span class="p">()))</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="n">jwt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cookie</span><span class="p">.</span><span class="na">getValue</span><span class="p">();</span>
-<span class="w">            </span><span class="k">break</span><span class="p">;</span>
-<span class="w">        </span><span class="p">}</span>
-<span class="w">    </span><span class="p">}</span>
+<p>The platform uses <strong>JSON Web Tokens (JWT)</strong> for stateless user authentication. When a user logs in via <code>/api/auth/login</code>, the <code>AuthController</code> authenticates the credentials, mints a token with <code>JwtTokenProvider</code>, and sets it as an <code>HttpOnly</code> <code>jwtToken</code> cookie on <code>path=/</code>.</p>
+<p>Its two policy attributes are per-profile, and <code>production</code> deliberately differs (SE-21):</p>
+<table>
+<thead>
+<tr>
+<th>Profile</th>
+<th><code>app.auth.cookie.secure</code></th>
+<th><code>app.auth.cookie.same-site</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>base / <code>dev</code></td>
+<td><code>false</code></td>
+<td><code>Lax</code></td>
+</tr>
+<tr>
+<td><code>ec2demo</code></td>
+<td><code>false</code> (the demo runs plain HTTP)</td>
+<td><code>Lax</code></td>
+</tr>
+<tr>
+<td><code>production</code></td>
+<td><code>true</code></td>
+<td><code>Strict</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>maxAge</code> is <strong>not</strong> configured separately — it is derived from <code>app.jwt.expiration-ms</code> so the cookie
+cannot outlive the JWT (a valid-looking cookie past the token's <code>exp</code> produces silent 401s, SE-8).
+Note that <code>application.properties</code> still declares an <code>app.auth.cookie.max-age-seconds</code> key that
+nothing reads; it is vestigial, not a knob.</p>
+<p>The login <strong>response body carries <code>accessToken</code> only for a native client</strong> — one that sent the <code>X-FedLearn-Client</code> marker. A browser login response carries <code>username</code> / <code>email</code> / <code>role</code> and nothing else, so the SPA never holds a JS-readable token (SE-8). This is the same marker that gates Bearer acceptance below.</p>
+<h3 id="token-extraction-strategy-cookie-first-bearer-only-for-native-clients-se-9">Token Extraction Strategy — cookie-first, Bearer only for native clients (SE-9)<a class="headerlink" href="#token-extraction-strategy-cookie-first-bearer-only-for-native-clients-se-9" title="Permanent link">&para;</a></h3>
+<p><code>JwtAuthenticationFilter</code> intercepts every request. The two sources are <strong>not</strong> interchangeable and the header is <strong>not</strong> checked first:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// JwtAuthenticationFilter.doFilterInternal</span>
+<span class="n">String</span><span class="w"> </span><span class="n">jwt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">readJwtCookie</span><span class="p">(</span><span class="n">request</span><span class="p">);</span><span class="w">                 </span><span class="c1">// 1. always honour the browser cookie</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">jwt</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">isNativeClient</span><span class="p">(</span><span class="n">request</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w">        </span><span class="c1">// 2. Bearer ONLY for a marked native client</span>
+<span class="w">    </span><span class="n">jwt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">readBearerToken</span><span class="p">(</span><span class="n">request</span><span class="p">);</span>
 <span class="p">}</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">jwt</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">filterChain</span><span class="p">.</span><span class="na">doFilter</span><span class="p">(</span><span class="n">request</span><span class="p">,</span><span class="w"> </span><span class="n">response</span><span class="p">);</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w"> </span><span class="p">}</span><span class="w">   </span><span class="c1">// anonymous</span>
 </code></pre></div>
 
-<p>By supporting both mechanisms, the backend is highly flexible while remaining secure against Cross-Site Scripting (XSS) when using <code>HttpOnly</code> cookies on the web.</p>
+<p><code>isNativeClient</code> is true only when the request carries a non-blank <strong><code>X-FedLearn-Client</code></strong> header
+(<code>JwtAuthenticationFilter.NATIVE_CLIENT_HEADER</code>). The reasoning is that the two client worlds want
+different storage: the browser SPA keeps the token in an <code>HttpOnly</code> cookie JS cannot read (defeating
+XSS exfiltration) and never sends an <code>Authorization</code> header, while the mobile/desktop clients cannot
+use that cookie and instead read the token from the login response body, stash it in platform secure
+storage (Keychain / EncryptedSharedPreferences / Electron <code>safeStorage</code>) and replay it as
+<code>Authorization: Bearer &lt;jwt&gt;</code>. Keeping Bearer behind an explicit marker is fail-closed: a
+browser-origin request that presents a Bearer header <em>without</em> the marker is treated as anonymous —
+the header is ignored, never authenticated from. The marker is an intent signal, not a secret; a
+marked request still runs every check below.</p>
+<p>Once a token is extracted, three further gates apply before an <code>Authentication</code> is set:</p>
+<ul>
+<li><strong>Signature, expiry and audience.</strong> <code>JwtTokenProvider.validateToken</code> requires the audience claim
+  <code>fedlearn-web</code> (<code>WEB_AUDIENCE</code>), deliberately distinct from the FL connection token's
+  <code>fedlearn-fl-server</code> (<code>ConnectionTokenService.AUDIENCE</code>). This is <strong>SE-20</strong>: an FL token — or a
+  legacy audience-less one — signed with the same HMAC key cannot be replayed against the web
+  boundary. Preserve the audience check when touching either token type.</li>
+<li><strong>Revocation (SE-8).</strong> <code>TokenRevocationService.isRevoked(jti)</code> is consulted, so logout actually
+  ends a session rather than waiting out the token's expiry.</li>
+<li><strong>Account lifecycle.</strong> <code>CustomUserDetailsService</code> throws <code>DisabledException</code> for a user who is not
+  <code>ACTIVE</code> or is soft-deleted, before any principal is built — so a suspension takes effect on the
+  very next request instead of surviving until token expiry. The filter catches it and treats the
+  request as anonymous.</li>
+</ul>
+<p><code>GET /api/auth/me</code> is the SPA's silent 401 probe: the Axios interceptor swallows 401s on that one
+endpoint, while a 401 anywhere else fires an <code>authError</code> event and redirects to <code>/login</code>.</p>
+<h3 id="login-throttling-se-4">Login throttling (SE-4)<a class="headerlink" href="#login-throttling-se-4" title="Permanent link">&para;</a></h3>
+<p><code>LoginRateLimiter</code> is an in-memory sliding-window throttle on <strong>failed</strong> logins: 5 failures inside a
+15-minute window lock a key, old failures age out so the lock is temporary, and a successful login
+resets it. <code>AuthController</code> feeds it <strong>two</strong> keys per attempt — one per username and one per source
+IP — so neither a single-account brute force nor a username-spraying source can hammer
+<code>/api/auth/login</code> indefinitely. It is per-instance by construction; a shared store is the documented
+hardening for a multi-replica deployment. The injected <code>Clock</code> is a test seam, so window expiry is
+testable without sleeping.</p>
 <hr />
 <h2 id="2-websocket-security-stomp">2. WebSocket Security (STOMP)<a class="headerlink" href="#2-websocket-security-stomp" title="Permanent link">&para;</a></h2>
 <p>WebSockets present a unique security challenge because the initial connection is an HTTP Upgrade request, but subsequent messages flow over a persistent, non-HTTP TCP channel.</p>
-<p>We secure WebSockets at <strong>two distinct layers</strong>:</p>
+<p>We secure WebSockets at <strong>three distinct layers</strong> — the first two establish <em>who</em> the caller is, the
+third decides <em>what they may subscribe to</em>:</p>
 <h3 id="layer-1-handshake-interception-jwthandshakeinterceptorjava">Layer 1: Handshake Interception (<code>JwtHandshakeInterceptor.java</code>)<a class="headerlink" href="#layer-1-handshake-interception-jwthandshakeinterceptorjava" title="Permanent link">&para;</a></h3>
 <p>This is the most critical defense. Before the WebSocket channel is even opened, the <code>JwtHandshakeInterceptor</code> validates the token on the initial HTTP upgrade request.</p>
 <p>If the token is invalid or missing, the handshake is rejected with a <code>401 Unauthorized</code> status, completely preventing an unauthenticated client from opening a socket.</p>
@@ -134,36 +205,54 @@
 </code></pre></div>
 
 <h3 id="layer-2-stomp-channel-interception-jwtchannelinterceptorjava">Layer 2: STOMP Channel Interception (<code>JwtChannelInterceptor.java</code>)<a class="headerlink" href="#layer-2-stomp-channel-interception-jwtchannelinterceptorjava" title="Permanent link">&para;</a></h3>
-<p>Once the socket is open, STOMP clients send <code>CONNECT</code> frames. The <code>JwtChannelInterceptor</code> takes the <code>PRINCIPAL_ATTR</code> saved during the handshake and officially promotes it into the STOMP message header context. This ensures that any <code>@SubscribeMapping</code> or message routing logic has access to the user's identity.</p>
+<p>Once the socket is open, STOMP clients send <code>CONNECT</code> frames. The <code>JwtChannelInterceptor</code> takes the <code>PRINCIPAL_ATTR</code> saved during the handshake and officially promotes it into the STOMP message header context, rejecting an unauthenticated <code>CONNECT</code>. This ensures that any <code>@SubscribeMapping</code> or message routing logic has access to the user's identity.</p>
+<h3 id="layer-3-per-destination-subscribe-authorization-stompsubscriptioninterceptor-ba-5">Layer 3: Per-destination SUBSCRIBE authorization (<code>StompSubscriptionInterceptor</code>, BA-5)<a class="headerlink" href="#layer-3-per-destination-subscribe-authorization-stompsubscriptioninterceptor-ba-5" title="Permanent link">&para;</a></h3>
+<p>Identity alone is not authorization. Without this third gate, <strong>any</strong> authenticated user could
+<code>SUBSCRIBE</code> to any project's stream — across tenants — and receive its broadcasts, because layers 1
+and 2 only prove who is asking. The interceptor inspects each <code>SUBSCRIBE</code> frame's destination against
+the four project-scoped prefixes <code>WebSocketService</code> publishes to —
+<code>/topic/logs/</code>, <code>/topic/status/</code>, <code>/topic/results/</code>, <code>/topic/inference/</code> — parses the trailing project
+id, and runs <strong>the same org-scope + participant check the REST read path enforces</strong> before the frame
+reaches the broker. Within <code>/topic</code> the rule is deny-by-default: an unrecognised <code>/topic/...</code>
+destination is rejected rather than passed through, and any destination containing a <code>*</code>/<code>?</code> pattern
+is refused outright (the simple broker matches SUBSCRIBE destinations as Ant patterns, so an ungated
+<code>/topic/**</code> would otherwise receive every project's broadcasts). Only the other namespaces
+(<code>/user/**</code> user-destinations, <code>/app/**</code> app destinations) pass through untouched.</p>
+<p>Registration order in <code>WebSocketConfig.configureClientInboundChannel</code> is load-bearing:
+<code>registration.interceptors(jwtChannelInterceptor, stompSubscriptionInterceptor)</code> — the subscription
+gate must run second, once the session principal exists.</p>
 <hr />
 <h2 id="3-machine-to-machine-security-internal-api-key">3. Machine-to-Machine Security (Internal API Key)<a class="headerlink" href="#3-machine-to-machine-security-internal-api-key" title="Permanent link">&para;</a></h2>
 <p>The Python Federated Learning server — spawned as a <strong>local process</strong> on the backend host via the <code>FlServerProcessRunner</code> seam, which shells out to the <code>fl-runtime/</code> scripts — needs to send training results and status updates back to the Spring Boot API. This local-process path is the only supported deployment architecture: managed-task (ECS/Fargate) orchestration was implemented once, removed along with the AWS SDK, and is deferred to <code>OP-12</code>; setting <code>ecs.cluster-name</code> today is rejected at boot by <code>FlOrchestrationModeValidator</code> in every profile.</p>
 <p><strong>Problem:</strong> The Python script is not a "User". It doesn't have a username/password, and generating temporary JWTs for the script introduces unnecessary complexity.</p>
-<p><strong>Solution:</strong> The <code>InternalApiKeyFilter</code>.</p>
-<p>All internal reporting endpoints are placed under <code>/api/internal/**</code>. The <code>SecurityConfig</code> allows these endpoints to bypass the standard JWT checks. Instead, they are intercepted by the <code>InternalApiKeyFilter</code>.</p>
-<div class="codehilite"><pre><span></span><code><span class="c1">// Inside InternalApiKeyFilter.java</span>
-<span class="nd">@Override</span>
-<span class="kd">protected</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">doFilterInternal</span><span class="p">(</span><span class="n">HttpServletRequest</span><span class="w"> </span><span class="n">request</span><span class="p">,</span><span class="w"> </span><span class="n">HttpServletResponse</span><span class="w"> </span><span class="n">response</span><span class="p">,</span>
-<span class="w">                                </span><span class="n">FilterChain</span><span class="w"> </span><span class="n">filterChain</span><span class="p">)</span><span class="w"> </span><span class="kd">throws</span><span class="w"> </span><span class="n">ServletException</span><span class="p">,</span><span class="w"> </span><span class="n">IOException</span><span class="w"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="n">String</span><span class="w"> </span><span class="n">requestApiKey</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">request</span><span class="p">.</span><span class="na">getHeader</span><span class="p">(</span><span class="s">&quot;X-Internal-API-Key&quot;</span><span class="p">);</span>
-
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">internalApiKey</span><span class="p">.</span><span class="na">equals</span><span class="p">(</span><span class="n">requestApiKey</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="c1">// Authenticate the request as an internal service</span>
-<span class="w">        </span><span class="n">UsernamePasswordAuthenticationToken</span><span class="w"> </span><span class="n">authentication</span><span class="w"> </span><span class="o">=</span>
-<span class="w">                </span><span class="k">new</span><span class="w"> </span><span class="n">UsernamePasswordAuthenticationToken</span><span class="p">(</span><span class="s">&quot;internal-service&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<span class="w">                        </span><span class="n">Collections</span><span class="p">.</span><span class="na">singletonList</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="n">SimpleGrantedAuthority</span><span class="p">(</span><span class="s">&quot;ROLE_INTERNAL&quot;</span><span class="p">)));</span>
-<span class="w">        </span><span class="n">SecurityContextHolder</span><span class="p">.</span><span class="na">getContext</span><span class="p">().</span><span class="na">setAuthentication</span><span class="p">(</span><span class="n">authentication</span><span class="p">);</span>
-<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="n">response</span><span class="p">.</span><span class="na">setStatus</span><span class="p">(</span><span class="n">HttpServletResponse</span><span class="p">.</span><span class="na">SC_UNAUTHORIZED</span><span class="p">);</span>
-<span class="w">        </span><span class="k">return</span><span class="p">;</span>
-<span class="w">    </span><span class="p">}</span>
-
-<span class="w">    </span><span class="n">filterChain</span><span class="p">.</span><span class="na">doFilter</span><span class="p">(</span><span class="n">request</span><span class="p">,</span><span class="w"> </span><span class="n">response</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div>
-
-<p>The Spring Boot backend securely passes this <code>FEDLEARN_INTERNAL_API_KEY</code> to the Python server via environment variables during the orchestration phase (see <code>FlServerManager</code>), ensuring that only backend-spawned ML processes can hit the internal endpoints.</p>
+<p><strong>Solution:</strong> The <code>InternalApiKeyFilter</code> — <strong>two</strong> credentials, not one.</p>
+<p>All internal reporting endpoints sit under <code>/api/internal/**</code>. <code>SecurityConfig</code> marks that prefix
+<code>permitAll()</code> at the chain level <em>only because</em> <code>InternalApiKeyFilter</code> runs before
+<code>UsernamePasswordAuthenticationFilter</code> and rejects anything unauthorised before Spring Security sees
+it. The filter never establishes an <code>Authentication</code> and never grants a <code>ROLE_INTERNAL</code> authority —
+it is a pure gate that either forwards the request or ends it.</p>
+<p>Its checks, in order:</p>
+<ol>
+<li><strong>Path scope.</strong> Anything outside <code>/api/internal/</code> is forwarded untouched.</li>
+<li><strong>Server configured.</strong> An empty <code>app.internal.api-key</code> is a <strong>401</strong> with an ERROR log — fail-closed,
+   so a misconfigured deployment cannot silently accept unauthenticated callbacks.</li>
+<li><strong>Shared key.</strong> The request must present <strong><code>X-Internal-Key</code></strong> (not <code>X-Internal-API-Key</code>), compared
+   with <code>MessageDigest.isEqual</code> — constant time, so the key cannot be recovered by timing. Missing or
+   mismatched → <strong>401</strong>.</li>
+<li><strong>Per-run token (SE-7).</strong> The shared key is only the outer gate. The request must also present
+   <strong><code>X-Internal-Run-Token</code></strong>, which <code>RunTokenRegistry</code> resolves to a scope carrying the run's
+   <code>projectId</code>. Every <code>/api/internal/**</code> route puts its target project id in the <strong>5th path segment</strong>
+   (<code>/api/internal/{results|benchmarks}/{projectId}/…</code>, <code>/api/internal/projects/{projectId}/artifacts</code>,
+   <code>/api/internal/runs/{projectId}/{runId}/verify-connection-token</code>), and the filter extracts it and
+   compares. Unknown/absent token or a non-project path → <strong>401</strong>; a token scoped to a <em>different</em>
+   project → <strong>403</strong>. So a leaked run token can only mutate its own project.</li>
+</ol>
+<p><code>FlServerManager</code> mints that run token fresh at each spawn and hands both credentials to the child
+process through the environment (<code>FEDLEARN_INTERNAL_API_KEY</code>, <code>FEDLEARN_INTERNAL_RUN_TOKEN</code>) — see
+<a href="04_federated_orchestration.html">04 - Federated Orchestration</a>. Stopping a run evicts its token from
+the registry, and <code>StartupReconciler</code> rehydrates the registry from <code>runs.internal_token_hash</code> for
+exactly the runs it re-adopts after a backend restart (<code>V16</code>), so a survivor's callbacks keep working
+while a reaped run's token stays dead.</p>
 <hr />
 <h2 id="4-authorization-roles-org-scoped-isolation">4. Authorization: Roles &amp; Org-Scoped Isolation<a class="headerlink" href="#4-authorization-roles-org-scoped-isolation" title="Permanent link">&para;</a></h2>
 <p>Once a request is <em>authenticated</em> (sections 1–2), a second layer decides what it
@@ -185,7 +274,7 @@ treatment lives in <a href="06_identity_multitenancy_and_audit.html">06 - Identi
 <td><strong>Platform</strong></td>
 <td><code>users.platform_role</code></td>
 <td><code>PlatformRole</code></td>
-<td><code>USER</code>, <code>PLATFORM_ADMIN</code></td>
+<td><code>USER</code>, <code>PROJECT_OWNER</code>, <code>PLATFORM_ADMIN</code></td>
 </tr>
 <tr>
 <td><strong>Organization</strong></td>
@@ -202,12 +291,24 @@ treatment lives in <a href="06_identity_multitenancy_and_audit.html">06 - Identi
 </tbody>
 </table>
 <p><code>CustomUserDetailsService</code> maps the user's <code>PlatformRole</code> to a single Spring
-authority via <code>PlatformRole.authority()</code> (<code>ROLE_USER</code> / <code>ROLE_PLATFORM_ADMIN</code>), so
-admin-only routes gate with <code>@PreAuthorize("hasRole('PLATFORM_ADMIN')")</code>
-(<code>@EnableMethodSecurity</code> is on in <code>SecurityConfig</code>). <code>PLATFORM_ADMIN</code> is the
-privileged tier and <strong>bypasses org-scope checks</strong>. The same service also enforces
-a lifecycle gate: it throws <code>DisabledException</code> (→ 401) for any user whose
-<code>status != ACTIVE</code> or who is soft-deleted, <em>before</em> the password check.</p>
+authority via <code>PlatformRole.authority()</code> (<code>ROLE_USER</code> / <code>ROLE_PROJECT_OWNER</code> /
+<code>ROLE_PLATFORM_ADMIN</code>), so admin-only routes gate with
+<code>@PreAuthorize("hasRole('PLATFORM_ADMIN')")</code> (<code>@EnableMethodSecurity</code> is on in
+<code>SecurityConfig</code>), and project creation gates on
+<code>AuthorizationService.requireCanCreateProject()</code> —
+<code>ROLE_PROJECT_OWNER</code> or platform admin. Authorities are reloaded from the database
+on every request, so a role change takes effect immediately without re-login.
+<code>PLATFORM_ADMIN</code> is the privileged tier and <strong>bypasses org-scope checks</strong>. The same
+service also enforces a lifecycle gate: it throws <code>DisabledException</code> (→ 401) for
+any user whose <code>status != ACTIVE</code> or who is soft-deleted, <em>before</em> the password
+check.</p>
+<p><code>SecurityConfig</code> also carries two non-role rules worth knowing: <code>/actuator/**</code> is
+<code>hasRole('PLATFORM_ADMIN')</code> (SE-5 — a plain user could otherwise <code>POST
+/actuator/loggers</code> to flip log levels), with only <code>/actuator/health</code> left public for
+load-balancer probes; and <code>/api/users/me/profile</code> is <code>permitAll()</code> at the chain
+level so <code>ProfileController</code> can 401 anonymous callers itself (the chain's default
+entry point would 403, which the SPA's interceptor does not treat as "log in
+again").</p>
 <blockquote>
 <p><strong>Note (fixed):</strong> <code>AuthorizationService.isAdmin</code> formerly checked the literal
 <code>"ROLE_ADMIN"</code> — a string that no longer existed after the role rename, so the

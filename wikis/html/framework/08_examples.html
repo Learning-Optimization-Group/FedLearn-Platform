@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>08 — Examples Walkthrough · FedLearn Wiki</title>
+<title>08 — Examples & Benchmarks · FedLearn Wiki</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C56A1E'/%3E%3Cpath d='M16 5c1.5 4-2.5 5.5-2.5 9a4.2 4.2 0 0 0 2.5 4c-.6-2 .8-3 1.6-4.2 1.9 1.4 2.9 3 2.9 5.2A6 6 0 1 1 9.8 20c0-4.6 4.2-6.7 6.2-15z' fill='%23FBF9F6'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="../styles.css">
 <link rel="stylesheet" href="../fonts/fonts.css">
@@ -50,8 +50,17 @@
 <li><a href="05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a class="active" href="08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a class="active" href="08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -77,14 +86,15 @@
 <div class="main">
   <header class="topbar">
     <button id="menu-btn" class="icon-btn" aria-label="Toggle navigation">&#9776;</button>
-    <div class="crumb"><b>Framework</b> &nbsp;·&nbsp; 08 — Examples Walkthrough</div>
+    <div class="crumb"><b>Framework</b> &nbsp;·&nbsp; 08 — Examples & Benchmarks</div>
     <span class="spacer"></span>
     <button id="theme-btn" class="icon-btn" aria-label="Toggle theme" title="Toggle light / dark">&#9681;</button>
   </header>
   <div class="content-wrap">
-    <article class="article"><h1 id="08-examples-walkthrough">08 — Examples Walkthrough<a class="headerlink" href="#08-examples-walkthrough" title="Permanent link">&para;</a></h1>
+    <article class="article"><h1 id="08-examples-benchmarks">08 — Examples &amp; Benchmarks<a class="headerlink" href="#08-examples-benchmarks" title="Permanent link">&para;</a></h1>
 <h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
 <ul>
+<li><a href="#examples-vs-benchmarks">Examples vs. Benchmarks</a></li>
 <li><a href="#overview">Overview</a></li>
 <li><a href="#example-1-simple-federation-mnist--cnn">Example 1: Simple Federation (MNIST + CNN)</a></li>
 <li><a href="#what-it-demonstrates">What It Demonstrates</a></li>
@@ -108,8 +118,55 @@
 <li><a href="#communication-comparison">Communication Comparison</a></li>
 <li><a href="#running-the-example-3">Running the Example</a></li>
 <li><a href="#running-multiple-examples-at-once">Running Multiple Examples at Once</a></li>
+<li><a href="#the-committed-benchmark-harnesses">The Committed Benchmark Harnesses</a></li>
 <li><a href="#end-to-end-test-suites">End-to-End Test Suites</a></li>
 </ul>
+<hr />
+<h2 id="examples-vs-benchmarks">Examples vs. Benchmarks<a class="headerlink" href="#examples-vs-benchmarks" title="Permanent link">&para;</a></h2>
+<p>Two different directories with two different jobs. Do not cite one where you mean the other.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><code>framework/examples/</code></th>
+<th><code>framework/benchmarks/</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Purpose</td>
+<td>show the <strong>API</strong> end to end</td>
+<td><strong>measure</strong> something and record it</td>
+</tr>
+<tr>
+<td>Seeded / reproducible</td>
+<td>not systematically</td>
+<td>yes, by construction</td>
+</tr>
+<tr>
+<td>Produces a machine-readable record</td>
+<td>no</td>
+<td>yes — <code>results/&lt;name&gt;.{json,md}</code></td>
+</tr>
+<tr>
+<td>Numbers quotable in a report</td>
+<td><strong>no</strong></td>
+<td>yes, with their caveats</td>
+</tr>
+<tr>
+<td>Tracked in git</td>
+<td>yes</td>
+<td>the harnesses <strong>yes</strong>, <code>benchmarks/results/</code> <strong>no</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>The "Expected Results" blocks in the example walkthroughs below are illustrative shapes, not
+measurements.</strong> They show what a healthy run's output <em>looks like</em> — decreasing loss, rising
+accuracy — so you can tell a working run from a broken one. They are not reproduced from any
+committed record and must not be quoted as results. Every quotable number in this repo comes from
+a benchmark harness and lands in a JSON file next to it.</p>
+</blockquote>
 <hr />
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>The <code>framework/examples/</code> directory contains seven end-to-end runnable experiments:</p>
@@ -119,51 +176,51 @@
 <th>Example</th>
 <th>Model</th>
 <th>Strategy</th>
-<th>Clients</th>
+<th>Clients per round (<strong>as shipped</strong>)</th>
 <th>Dataset</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>simple_federation</code></td>
-<td>CNN</td>
+<td>CNN (<code>SimpleCNN</code>)</td>
 <td>FedAvg</td>
-<td>3</td>
+<td>2 — <code>min_fit_clients=2</code>, <code>clients_per_round</code> unset so it falls back</td>
 <td>MNIST</td>
 </tr>
 <tr>
 <td><code>llm_federation</code></td>
 <td>OPT-125M</td>
 <td>FedAvg</td>
-<td>3</td>
+<td>2 (<code>--clients_per_round</code> default; <code>--min_fit_clients</code> defaults to 8)</td>
 <td>SuperGLUE CB</td>
 </tr>
 <tr>
 <td><code>ecg_federation</code></td>
 <td>Transformer</td>
 <td>FedAvg</td>
-<td>5</td>
+<td>1 (<code>--num_clients</code> / <code>--min_fit_clients</code> / <code>--clients_per_round</code> all default to 1)</td>
 <td>ECG (binary)</td>
 </tr>
 <tr>
 <td><code>ecg_decomfl_central</code></td>
-<td>Transformer</td>
+<td><strong>MLP</strong> (<code>ECGModel</code>, 140→64→64→2)</td>
 <td>DeComFL</td>
-<td>1</td>
+<td>1 (<code>config.NUM_CLIENTS</code>)</td>
 <td>ECG</td>
 </tr>
 <tr>
 <td><code>ecg_decomfl_multiclient</code></td>
-<td>Transformer</td>
+<td><strong>MLP</strong> (<code>ECGModel</code>)</td>
 <td>DeComFL</td>
-<td>3</td>
+<td>2 of 5 (<code>NUM_CLIENTS=5 × CLIENT_FRACTION=0.4</code>)</td>
 <td>ECG</td>
 </tr>
 <tr>
 <td><code>ecg_decomfl_framework_integration</code></td>
-<td>Transformer</td>
+<td><strong>MLP</strong> (<code>ECGModel</code>)</td>
 <td>DeComFL</td>
-<td>3</td>
+<td>2 of 5 (<code>CLIENTS_PER_ROUND=2</code>)</td>
 <td>ECG (via full framework)</td>
 </tr>
 <tr>
@@ -175,11 +232,24 @@
 </tr>
 </tbody>
 </table>
-<p>The six gradient examples are each self-contained with their own <code>run_server.py</code> and <code>run_client.py</code>.
-<strong><code>fot_text_federation</code> is the exception</strong> — it is a single in-process <code>run_fot.py</code> demo of the
-Federation over Text mode, which is a separate, offline, local-LLM-only research path that is <em>additive
-and orthogonal</em> to the DeComFL gradient path rather than a replacement for it. See
+<blockquote>
+<p>The counts above are the <strong>committed defaults</strong>, not a recommendation — override them with the
+flags each script actually exposes (listed per example below) or by editing that example's
+<code>config.py</code>.</p>
+</blockquote>
+<p>The six gradient examples are each self-contained with their own <code>run_server.py</code> and <code>run_client.py</code>
+(<code>simple_federation</code> also has a <code>run_server_debug.py</code>); most carry a local <code>config.py</code>, <code>data.py</code> and
+<code>model.py</code>, and several ship committed CSV/PNG artefacts from past runs.</p>
+<p><strong><code>fot_text_federation</code> is the exception</strong> — it is a single in-process <code>run_fot.py</code> demo of the
+Federation over Text mode: a separate, offline, local-LLM-only research path that is <em>additive and
+orthogonal</em> to the gradient path rather than a replacement for it. See
 <code>framework/examples/fot_text_federation/README.md</code>.</p>
+<blockquote>
+<p><strong>The FoT example runs against a deterministic stub, and no LLM has ever run through that path.</strong>
+<code>fot.backend.get_backend()</code> wires only <code>DeterministicStubBackend</code>; asking for <code>local-http</code>, <code>vllm</code>
+or <code>ollama</code> raises <code>BackendError("not implemented in this build")</code>. The example demonstrates the
+plumbing, and nothing about FoT should be cited as a validated capability of this platform.</p>
+</blockquote>
 <hr />
 <h2 id="example-1-simple-federation-mnist-cnn">Example 1: Simple Federation (MNIST + CNN)<a class="headerlink" href="#example-1-simple-federation-mnist-cnn" title="Permanent link">&para;</a></h2>
 <h3 id="what-it-demonstrates">What It Demonstrates<a class="headerlink" href="#what-it-demonstrates" title="Permanent link">&para;</a></h3>
@@ -187,51 +257,54 @@ and orthogonal</em> to the DeComFL gradient path rather than a replacement for i
 <li>Basic FedAvg workflow end-to-end</li>
 <li>Custom <code>Client</code> subclass implementation</li>
 <li>Server evaluation with test accuracy metrics</li>
-<li>Non-IID data partitioning with Dirichlet α=0.5</li>
+<li>A crude contiguous-slice data split</li>
 </ul>
+<blockquote>
+<p><strong>It does <em>not</em> demonstrate Dirichlet partitioning.</strong> <code>data.get_mnist_loader</code> hands client <code>i</code> the
+contiguous index range <code>[i·N/num_clients, (i+1)·N/num_clients)</code> of MNIST, and <code>run_client.py:36</code>
+calls it with a hardcoded <code>num_clients=10</code> regardless of how many clients you launch — so each
+client trains on 6,000 samples and the "non-IID" character is whatever MNIST's storage order
+happens to give. For a real, seeded, contract-tested split use
+<code>fedlearn.simulation.partition</code> — see <a href="07_data_partitioning.html">07 — Data Partitioning</a>.</p>
+</blockquote>
 <h3 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code>┌─────────────────────────────────────────────────────┐
 │                    Server                            │
 │                                                      │
 │  FedAvg Strategy                                     │
-│    initial_parameters = CNN().state_dict()           │
-│    evaluate_fn = evaluate_on_test_set()              │
+│    initial_parameters = SimpleCNN().state_dict()     │
+│    evaluate_fn = server_side_evaluate()              │
 │    min_fit_clients = 2                               │
-│    clients_per_round = 3                             │
+│    clients_per_round → defaults to min_fit_clients=2 │
 │                                                      │
-│  FLCoordinator (10 rounds)                          │
+│  FLCoordinator (--num_rounds, default 5)            │
 └──────────────────────┬──────────────────────────────┘
                        │ gRPC :50051
-          ┌────────────┼────────────┐
-          ▼            ▼            ▼
-    Client 0      Client 1      Client 2
-    ~20,000       ~20,000       ~20,000
-    samples       samples       samples
-    (biased       (different    (different
-    classes)      bias)         bias)
+             ┌─────────┴─────────┐
+             ▼                   ▼
+         Client 0            Client 1
+         6,000               6,000
+         samples             samples
+    (contiguous MNIST slices; get_mnist_loader is called
+     with num_clients=10 hardcoded in run_client.py:36)
 </code></pre></div>
 
+<blockquote>
+<p><code>run_server.py</code> never passes <code>clients_per_round</code>, so it falls back to <code>min_fit_clients</code> (2) — the
+round aggregates as soon as <strong>two</strong> clients report, and a third client's update for that round is
+then rejected as stale. Launch two clients, or pass <code>clients_per_round</code> in the source.</p>
+</blockquote>
 <h3 id="running-the-example">Running the Example<a class="headerlink" href="#running-the-example" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>examples/simple_federation
 
-<span class="c1"># Terminal 1: Start server</span>
-python<span class="w"> </span>run_server.py<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--num_rounds<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--num_clients<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--server_address<span class="w"> </span><span class="m">0</span>.0.0.0:50051
+<span class="c1"># Terminal 1: Start server — the ONLY flags are --port and --num_rounds</span>
+python<span class="w"> </span>run_server.py<span class="w"> </span>--port<span class="w"> </span><span class="m">50051</span><span class="w"> </span>--num_rounds<span class="w"> </span><span class="m">10</span>
 
-<span class="c1"># Terminal 2: Client 0</span>
-python<span class="w"> </span>run_client.py<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--id<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--num_clients<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--alpha<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--server_address<span class="w"> </span>localhost:50051
+<span class="c1"># Terminal 2: Client 0 — the ONLY flags are --id (required) and --server_address</span>
+python<span class="w"> </span>run_client.py<span class="w"> </span>--id<span class="w"> </span><span class="m">0</span><span class="w"> </span>--server_address<span class="w"> </span>localhost:50051
 
 <span class="c1"># Terminal 3: Client 1</span>
-python<span class="w"> </span>run_client.py<span class="w"> </span>--id<span class="w"> </span><span class="m">1</span><span class="w"> </span>--num_clients<span class="w"> </span><span class="m">3</span><span class="w"> </span>--alpha<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>--server_address<span class="w"> </span>localhost:50051
-
-<span class="c1"># Terminal 4: Client 2</span>
-python<span class="w"> </span>run_client.py<span class="w"> </span>--id<span class="w"> </span><span class="m">2</span><span class="w"> </span>--num_clients<span class="w"> </span><span class="m">3</span><span class="w"> </span>--alpha<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>--server_address<span class="w"> </span>localhost:50051
+python<span class="w"> </span>run_client.py<span class="w"> </span>--id<span class="w"> </span><span class="m">1</span><span class="w"> </span>--server_address<span class="w"> </span>localhost:50051
 </code></pre></div>
 
 <h3 id="step-by-step-trace">Step-by-Step Trace<a class="headerlink" href="#step-by-step-trace" title="Permanent link">&para;</a></h3>
@@ -248,16 +321,17 @@ python<span class="w"> </span>run_client.py<span class="w"> </span>--id<span cla
 
 <p><strong>Round 1 begins:</strong></p>
 <div class="codehilite"><pre><span></span><code>Server: coordinator.start_round()           ← clears updates buffer
-Client: GetGlobalModelStream                ← downloads 4.8 MB CNN
-Client: fit(parameters, config)             ← 1 local epoch, ~400 batches
-  → heartbeats: status=&quot;training&quot;, step=1..400/400
-Client: SubmitModelUpdateStream             ← uploads 4.8 MB
+Client: GetGlobalModelStream                ← downloads SimpleCNN: 85,822 params ≈ 0.33 MB
+Client: fit(parameters, config)             ← 1 local epoch, 6000/32 ≈ 188 batches
+  → heartbeats: status=&quot;training&quot;, step=1..188/188
+Client: SubmitModelUpdate                   ← 0.33 MB is under STREAMING_THRESHOLD_MB=100
+                                              and not a transformer → the UNARY upload path
 Server: submit_client_update()
-Server: [waiting for 2 more clients...]
+Server: [waiting for 1 more client...]
 </code></pre></div>
 
-<p><strong>Aggregation trigger (when client 2 submits):</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;All 3 clients reported for round 1; aggregating&quot;</span><span class="p">}</span>
+<p><strong>Aggregation trigger (when the second client submits — <code>clients_per_round</code> is 2 here):</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;All 2 clients reported for round 1; aggregating&quot;</span><span class="p">}</span>
 <span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;FedAvg eval round=1 loss=0.4312 metrics={&#39;accuracy&#39;: 0.8734}&quot;</span><span class="p">}</span>
 <span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;[Server] Round 1 complete. Metrics: {&#39;loss&#39;: 0.4312, &#39;accuracy&#39;: 0.8734}&quot;</span><span class="p">}</span>
 </code></pre></div>
@@ -268,6 +342,7 @@ Client: server_round (2) &gt; last_completed_round (1) → start round 2
 </code></pre></div>
 
 <h3 id="expected-results">Expected Results<a class="headerlink" href="#expected-results" title="Permanent link">&para;</a></h3>
+<p><em>Illustrative shape only — not a measurement (see <a href="#examples-vs-benchmarks">Examples vs. Benchmarks</a>).</em></p>
 <div class="codehilite"><pre><span></span><code>Round  1: loss=0.43, accuracy=87.3%
 Round  3: loss=0.31, accuracy=91.2%
 Round  5: loss=0.24, accuracy=93.1%
@@ -275,7 +350,10 @@ Round  7: loss=0.19, accuracy=94.4%
 Round 10: loss=0.15, accuracy=95.2%
 </code></pre></div>
 
-<p>Training time: ~5 minutes on CPU for 3 clients × 10 rounds with a small CNN.</p>
+<p>What to actually check: loss decreasing monotonically-ish and accuracy rising. A flat curve means the
+clients are not receiving the aggregated model; a curve that rises then explodes means a learning-rate
+problem (and, on the DeComFL path, is the signature the LR stability envelope exists to catch —
+see <a href="06_decomfl.html#the-learning-rate-stability-envelope">06</a>).</p>
 <hr />
 <h2 id="example-2-llm-federation-opt-125m">Example 2: LLM Federation (OPT-125M)<a class="headerlink" href="#example-2-llm-federation-opt-125m" title="Permanent link">&para;</a></h2>
 <h3 id="what-it-demonstrates_1">What It Demonstrates<a class="headerlink" href="#what-it-demonstrates_1" title="Permanent link">&para;</a></h3>
@@ -305,21 +383,24 @@ Round 10: loss=0.15, accuracy=95.2%
 <h3 id="running-the-example_1">Running the Example<a class="headerlink" href="#running-the-example_1" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>examples/llm_federation
 
-<span class="c1"># Requires ~2 GB RAM per client (model + optimizer + activations)</span>
-<span class="c1"># Optional: --device mps for Apple Silicon, --device cuda for NVIDIA GPU</span>
+<span class="c1"># Requires ~2 GB RAM per client (model + optimizer + activations).</span>
+<span class="c1"># There is no --device flag on either script — the device is picked in config.py.</span>
 
-<span class="c1"># Terminal 1: Server</span>
+<span class="c1"># Terminal 1: Server. Flags: --port --dataset --num_rounds --data_fraction</span>
+<span class="c1">#                            --min_fit_clients --clients_per_round</span>
 python<span class="w"> </span>run_server.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--port<span class="w"> </span><span class="m">50051</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--dataset<span class="w"> </span>cb<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--num_rounds<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--num_clients<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--server_address<span class="w"> </span><span class="m">0</span>.0.0.0:50051
+<span class="w">    </span>--min_fit_clients<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--clients_per_round<span class="w"> </span><span class="m">3</span>
 
-<span class="c1"># Terminals 2-4: Clients</span>
+<span class="c1"># Terminals 2-4: Clients. Flags: --server_address --id --dataset --num_clients --data_fraction</span>
+<span class="c1"># NOTE the client&#39;s --server_address DEFAULT is a hardcoded AWS IP, not localhost — pass it.</span>
 python<span class="w"> </span>run_client.py<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--id<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--dataset<span class="w"> </span>cb<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--device<span class="w"> </span>cpu<span class="w"> </span><span class="se">\ </span><span class="w"> </span><span class="c1"># or mps/cuda</span>
+<span class="w">    </span>--num_clients<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--server_address<span class="w"> </span>localhost:50051
 </code></pre></div>
 
@@ -335,8 +416,9 @@ python<span class="w"> </span>run_client.py<span class="w"> </span><span class="
 <span class="c1"># OPT parameter names contain &#39;decoder&#39; and &#39;attention&#39; → streaming selected</span>
 </code></pre></div>
 
-<p>Download sequence:</p>
-<div class="codehilite"><pre><span></span><code>[client_0] Model: 500.24 MB (125,237,760 params)
+<p>Upload sequence <em>(shape only — <code>submit_update</code> logs MiB, i.e. <code>params * 4 / 1024²</code>, so ~125M params
+prints ≈ 478 MB, not the 500 decimal-MB figure above)</em>:</p>
+<div class="codehilite"><pre><span></span><code>[client_0] Model: 477.75 MB (125,237,760 params)
 [client_0] Streaming upload selected (transformer)
 [client_0] Zero-copy streaming upload
 [client_0] Streaming upload complete in 12.3s
@@ -354,6 +436,7 @@ Total: ~1.5 GB per client (model + gradients + buffer)
 float32-only and fails loud on any non-float32 tensor.</p>
 </blockquote>
 <h3 id="expected-results_1">Expected Results<a class="headerlink" href="#expected-results_1" title="Permanent link">&para;</a></h3>
+<p><em>Illustrative shape only — not a measurement.</em></p>
 <div class="codehilite"><pre><span></span><code>Round 1: loss=1.12, accuracy=72.3%
 Round 2: loss=0.89, accuracy=78.1%
 Round 3: loss=0.73, accuracy=81.4%
@@ -361,7 +444,8 @@ Round 4: loss=0.64, accuracy=82.7%
 Round 5: loss=0.58, accuracy=83.1%
 </code></pre></div>
 
-<p>The CB dataset has only 250 training examples and 56 test examples — accuracy variance between runs is expected.</p>
+<p>The CB dataset has only 250 training examples and 56 test examples — run-to-run variance is large
+enough that a single run's accuracy is not a result at any scale.</p>
 <hr />
 <h2 id="example-3-ecg-classification-transformer">Example 3: ECG Classification (Transformer)<a class="headerlink" href="#example-3-ecg-classification-transformer" title="Permanent link">&para;</a></h2>
 <h3 id="what-it-demonstrates_2">What It Demonstrates<a class="headerlink" href="#what-it-demonstrates_2" title="Permanent link">&para;</a></h3>
@@ -372,28 +456,33 @@ Round 5: loss=0.58, accuracy=83.1%
 <li>Binary classification: Normal (0) vs. Abnormal (1)</li>
 </ul>
 <h3 id="architecture_2">Architecture<a class="headerlink" href="#architecture_2" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code>ECG Signal (187 time steps) → Transformer (multi-head attention) → FC → Binary label
+<div class="codehilite"><pre><span></span><code>ECG Signal (140 time steps) → Transformer (multi-head attention) → FC → Binary label
 
-Transformer config:
-  d_model = 64
-  nhead = 4
-  num_encoder_layers = 2
-  dim_feedforward = 256
+Transformer config (ECGTransformer, defined inline in run_server.py / run_client.py —
+this example has no model.py):
+  input_dim          = 140      ← config.ECG_CONFIG; ecg.csv is 141 columns wide
+  d_model            = 64
+  nhead              = 4
+  num_layers         = 2
+  dim_feedforward    = 256      ← hardcoded in the encoder layer, not in config.py
 
-Parameters: ~500K (small — unary upload used)
+Parameters: ~111K (small — the upload takes the UNARY path)
 </code></pre></div>
 
 <h3 id="running-the-example_2">Running the Example<a class="headerlink" href="#running-the-example_2" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>examples/ecg_federation
 
 <span class="c1"># Download ECG dataset first (Kaggle PTB-ECG or MIT-BIH)</span>
-<span class="c1"># Place at ecg_data/ecg.csv (col 0-186: signal, col 187: label)</span>
+<span class="c1"># Place at ecg_data/ecg.csv — the committed file is 141 columns: cols 0-139 signal, col 140 label</span>
 
+<span class="c1"># Server binds via --port (there is no --server_address on the server side)</span>
 python<span class="w"> </span>run_server.py<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--data_path<span class="w"> </span>ecg_data/ecg.csv<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--num_clients<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--min_fit_clients<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--clients_per_round<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--num_rounds<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--server_address<span class="w"> </span><span class="m">0</span>.0.0.0:50051
+<span class="w">    </span>--port<span class="w"> </span><span class="m">50051</span>
 
 <span class="c1"># 5 separate client terminals</span>
 <span class="k">for</span><span class="w"> </span>i<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="m">4</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
@@ -406,82 +495,99 @@ python<span class="w"> </span>run_server.py<span class="w"> </span><span class="
 </code></pre></div>
 
 <h3 id="expected-results_2">Expected Results<a class="headerlink" href="#expected-results_2" title="Permanent link">&para;</a></h3>
+<p><em>Illustrative shape only — not a measurement.</em></p>
 <div class="codehilite"><pre><span></span><code>Round 1: loss=0.68, accuracy=81.2%
 Round 2: loss=0.42, accuracy=89.7%
 Round 3: loss=0.31, accuracy=93.8%
 </code></pre></div>
 
-<p>The ECG Transformer converges quickly because:
-1. Binary classification is simple
-2. The signal features are highly structured
-3. All 5 clients contribute gradient information from different patient profiles</p>
+<p>The ECG Transformer converges quickly because binary classification is simple and the signal features
+are highly structured — which also makes it a poor discriminator between aggregation strategies. Use
+<code>benchmarks/algo_comparison.py</code> if you want to compare algorithms, not this example.</p>
 <hr />
 <h2 id="example-4-ecg-decomfl-multi-client">Example 4: ECG + DeComFL (Multi-Client)<a class="headerlink" href="#example-4-ecg-decomfl-multi-client" title="Permanent link">&para;</a></h2>
 <h3 id="what-it-demonstrates_3">What It Demonstrates<a class="headerlink" href="#what-it-demonstrates_3" title="Permanent link">&para;</a></h3>
 <ul>
-<li>DeComFL communication efficiency for the ECG Transformer</li>
+<li>DeComFL communication efficiency on the ECG <strong>MLP</strong> (<code>ECGModel</code>, 140→64→64→2 — <em>not</em> the
+  Transformer that <code>ecg_federation</code> uses; all three DeComFL examples ship the MLP)</li>
 <li>Gradient scalar protocol (O(K×P) scalars per round)</li>
 <li>Model rebuild for late-joining clients</li>
 <li>Comparison to standard FedAvg on same task</li>
 </ul>
 <h3 id="communication-comparison">Communication Comparison<a class="headerlink" href="#communication-comparison" title="Permanent link">&para;</a></h3>
+<p>Arithmetic on the shipped <code>ECGModel</code> (13,314 trainable parameters), at a hypothetical <code>K=5, P=10</code>
+(the committed <code>config.py</code> ships <code>NUM_LOCAL_STEPS = 1</code>, <code>NUM_PERTURBATIONS = 10</code>):</p>
 <table>
 <thead>
 <tr>
 <th></th>
-<th>FedAvg (ECG Transformer)</th>
+<th>FedAvg (ECG MLP)</th>
 <th>DeComFL (K=5, P=10)</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Upload per client</td>
-<td>~2 MB (500K params × 4B)</td>
-<td>400 bytes (50 scalars × 8B)</td>
+<td>~53 KB (13,314 params × 4 B)</td>
+<td>400 bytes (50 scalars × 8 B)</td>
 </tr>
 <tr>
 <td>Download per client</td>
-<td>~2 MB</td>
+<td>~53 KB</td>
 <td>~600 bytes (seeds + history)</td>
 </tr>
 <tr>
 <td>Ratio</td>
 <td>1×</td>
-<td>~5,000× smaller</td>
+<td>~130× smaller</td>
 </tr>
 </tbody>
 </table>
+<blockquote>
+<p><strong>This model is far too small for DeComFL to pay off dramatically</strong> — the O(K×P) win scales with
+<code>d</code>, and <code>d = 13,314</code> here. The million-fold figures in
+<a href="06_decomfl.html#communication-comparison">06 — Communication Comparison</a> are for LLM-scale <code>d</code>.
+Do not quote either number as a measurement; the committed measurement is
+<code>benchmarks/zeroth_vs_first_order.py</code>.</p>
+</blockquote>
 <h3 id="running-the-example_3">Running the Example<a class="headerlink" href="#running-the-example_3" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>examples/ecg_decomfl_multiclient
+<blockquote>
+<p><strong>Two ECG DeComFL examples, only one of them federated.</strong> <code>ecg_decomfl_multiclient</code> (and
+<code>ecg_decomfl_central</code>) is a <em>single-process simulation</em> with its own in-file server/client classes:
+no gRPC, <strong>no argparse at all</strong> — <code>config.py</code> is the only knob — and its <code>run_client.py</code> has no
+<code>__main__</code>, so it is imported rather than executed. The example that actually runs the framework
+over gRPC (<code>fl.server.start_server</code> + <code>start_decomfl_client</code>) is
+<code>ecg_decomfl_framework_integration</code>.</p>
+</blockquote>
+<div class="codehilite"><pre><span></span><code><span class="c1"># The federated one — this is the example to copy</span>
+<span class="nb">cd</span><span class="w"> </span>examples/ecg_decomfl_framework_integration
 
-<span class="c1"># Server</span>
-python<span class="w"> </span>run_server.py<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--num_clients<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--num_rounds<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--num_local_steps<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--num_perturbations<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--learning_rate<span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--smoothing_param<span class="w"> </span><span class="m">0</span>.001<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--server_address<span class="w"> </span><span class="m">0</span>.0.0.0:50051
+<span class="c1"># Server: no CLI flags. Edit config.py for NUM_ROUNDS / NUM_LOCAL_STEPS / NUM_PERTURBATIONS /</span>
+<span class="c1"># LEARNING_RATE / SMOOTHING_PARAM / SERVER_ADDRESS (default localhost:50051).</span>
+python<span class="w"> </span>run_server.py
 
-<span class="c1"># Clients (note: DeComFL clients use start_decomfl_client)</span>
-python<span class="w"> </span>run_client.py<span class="w"> </span>--id<span class="w"> </span><span class="m">0</span><span class="w"> </span>--data_path<span class="w"> </span>ecg_data/ecg.csv<span class="w"> </span>--server_address<span class="w"> </span>localhost:50051
-python<span class="w"> </span>run_client.py<span class="w"> </span>--id<span class="w"> </span><span class="m">1</span><span class="w"> </span>--data_path<span class="w"> </span>ecg_data/ecg.csv<span class="w"> </span>--server_address<span class="w"> </span>localhost:50051
-python<span class="w"> </span>run_client.py<span class="w"> </span>--id<span class="w"> </span><span class="m">2</span><span class="w"> </span>--data_path<span class="w"> </span>ecg_data/ecg.csv<span class="w"> </span>--server_address<span class="w"> </span>localhost:50051
+<span class="c1"># Clients: the only two flags are --client-id (required) and --server</span>
+python<span class="w"> </span>run_client.py<span class="w"> </span>--client-id<span class="w"> </span>client_0
+python<span class="w"> </span>run_client.py<span class="w"> </span>--client-id<span class="w"> </span>client_1<span class="w"> </span>--server<span class="w"> </span>localhost:50051
+python<span class="w"> </span>run_client.py<span class="w"> </span>--client-id<span class="w"> </span>client_2<span class="w"> </span>--server<span class="w"> </span>localhost:50051
+
+<span class="c1"># The single-process simulation, for contrast — no flags, config.py is the only knob</span>
+<span class="nb">cd</span><span class="w"> </span>../ecg_decomfl_multiclient<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>run_server.py
 </code></pre></div>
 
-<p><strong>Server-side round log for DeComFL:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DeComFL initialised: K=5, P=10, eta=0.001, mu=0.001, model_dim=512000&quot;</span><span class="p">}</span>
+<p><strong>Server-side round log for DeComFL</strong> <em>(shape only; <code>model_dim</code> is the shipped <code>ECGModel</code>'s 13,314
+trainable params, and the committed config is <code>K=1</code>)</em>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DeComFL initialised: K=1, P=10, eta=0.001, mu=0.001, model_dim=13314&quot;</span><span class="p">}</span>
 <span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DeComFL config request from client_0 for round 1&quot;</span><span class="p">}</span>
-<span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sending 5 local steps, 0 missed rounds&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sending 1 local steps, 0 missed rounds&quot;</span><span class="p">}</span>
 <span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Receiving gradient scalars from client_0 for round 1&quot;</span><span class="p">}</span>
-<span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Received 5 local steps, 10 perturbations per step&quot;</span><span class="p">}</span>
-<span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;All 3 DeComFL updates received for round 1; aggregating&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Received 1 local steps, 10 perturbations per step&quot;</span><span class="p">}</span>
+<span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;All 2 DeComFL updates received for round 1; aggregating&quot;</span><span class="p">}</span>
 <span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Round 1 complete (loss=0.71, metrics={&#39;accuracy&#39;: 0.782})&quot;</span><span class="p">}</span>
 </code></pre></div>
 
 <p><strong>Late-joining client rebuild example:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DEBUG&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sending 5 local steps, 3 missed rounds&quot;</span><span class="p">}</span>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DEBUG&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sending 1 local steps, 3 missed rounds&quot;</span><span class="p">}</span>
 <span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DEBUG&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Rebuilding model from 3 missed rounds&quot;</span><span class="p">}</span>
 <span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DEBUG&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Model rebuild complete&quot;</span><span class="p">}</span>
 </code></pre></div>
@@ -504,24 +610,24 @@ component by hand.</p>
 <div class="codehilite"><pre><span></span><code><span class="ch">#!/bin/bash</span>
 <span class="c1"># Quick multi-client test script</span>
 
-<span class="nv">SERVER_ADDR</span><span class="o">=</span><span class="s2">&quot;localhost:50051&quot;</span>
-<span class="nv">NUM_CLIENTS</span><span class="o">=</span><span class="m">3</span>
+<span class="nv">PORT</span><span class="o">=</span><span class="m">50051</span>
+<span class="nv">SERVER_ADDR</span><span class="o">=</span><span class="s2">&quot;localhost:</span><span class="si">${</span><span class="nv">PORT</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="c1"># simple_federation aggregates at clients_per_round, which defaults to min_fit_clients=2.</span>
+<span class="nv">NUM_CLIENTS</span><span class="o">=</span><span class="m">2</span>
 <span class="nv">NUM_ROUNDS</span><span class="o">=</span><span class="m">5</span>
 
-<span class="c1"># Start server in background</span>
+<span class="c1"># Start server in background (--port and --num_rounds are its only flags)</span>
 python<span class="w"> </span>examples/simple_federation/run_server.py<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--num_rounds<span class="w"> </span><span class="nv">$NUM_ROUNDS</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--num_clients<span class="w"> </span><span class="nv">$NUM_CLIENTS</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--server_address<span class="w"> </span><span class="s2">&quot;0.0.0.0:</span><span class="si">${</span><span class="nv">SERVER_ADDR</span><span class="p">##*:</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="p">&amp;</span>
+<span class="w">    </span>--port<span class="w"> </span><span class="nv">$PORT</span><span class="w"> </span><span class="p">&amp;</span>
 
 <span class="nv">SERVER_PID</span><span class="o">=</span><span class="nv">$!</span>
 sleep<span class="w"> </span><span class="m">2</span><span class="w">   </span><span class="c1"># wait for server to be ready</span>
 
-<span class="c1"># Start clients</span>
+<span class="c1"># Start clients (--id and --server_address are its only flags)</span>
 <span class="k">for</span><span class="w"> </span>i<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="k">$(</span>seq<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="k">$((</span><span class="nv">NUM_CLIENTS</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span><span class="k">)))</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
 <span class="w">    </span>python<span class="w"> </span>examples/simple_federation/run_client.py<span class="w"> </span><span class="se">\</span>
 <span class="w">        </span>--id<span class="w"> </span><span class="nv">$i</span><span class="w"> </span><span class="se">\</span>
-<span class="w">        </span>--num_clients<span class="w"> </span><span class="nv">$NUM_CLIENTS</span><span class="w"> </span><span class="se">\</span>
 <span class="w">        </span>--server_address<span class="w"> </span><span class="nv">$SERVER_ADDR</span><span class="w"> </span><span class="p">&amp;</span>
 <span class="k">done</span>
 
@@ -532,9 +638,162 @@ sleep<span class="w"> </span><span class="m">2</span><span class="w">   </span><
 </code></pre></div>
 
 <hr />
+<h2 id="the-committed-benchmark-harnesses">The Committed Benchmark Harnesses<a class="headerlink" href="#the-committed-benchmark-harnesses" title="Permanent link">&para;</a></h2>
+<p><code>framework/benchmarks/</code> holds <strong>17 seeded, re-runnable measurement harnesses</strong> plus one shared
+accounting module (<code>wire_bytes.py</code>) and a <code>README.md</code> — 19 files, all tracked in git.
+<strong><code>benchmarks/results/</code> is not tracked</strong> — the JSON/Markdown records are generated, so regenerate
+rather than expecting them in a fresh clone.</p>
+<p>Every harness runs against the <strong>real</strong> strategy and client code, not a mock, and writes
+<code>results/&lt;name&gt;.json</code> — the machine-readable record. Most also write <code>results/&lt;name&gt;.md</code>, a
+rendering of it; <code>decomfl_vs_fedavg_dim.py</code>, <code>frozen_vs_finetune_xray.py</code> and
+<code>strategy_device_sweep.py</code> currently emit JSON only.</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>framework
+<span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>benchmarks/&lt;name&gt;.py<span class="w"> </span><span class="o">[</span>--flags<span class="o">]</span>
+</code></pre></div>
+
+<p><code>wire_bytes.py</code> is the exception to that command: it has <strong>no <code>__main__</code></strong> and writes nothing — it is
+the byte-accounting library <code>algo_comparison</code> imports, not a harness you run.</p>
+<h3 id="algorithms-and-communication">Algorithms and communication<a class="headerlink" href="#algorithms-and-communication" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Harness</th>
+<th>What it measures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>algo_comparison.py</code></td>
+<td>Apples-to-apples: one task, one fixed non-IID partition, one seed, through each algorithm's real <code>aggregate_fit</code>. Per round: test accuracy, loss, wall-clock, and <strong>truthful cumulative wire bytes</strong></td>
+</tr>
+<tr>
+<td><code>wire_bytes.py</code></td>
+<td>The per-round wire-byte accounting <code>algo_comparison</code> uses. Exists because the platform measured accuracy but never bytes — the proto's <code>bytes_received</code> field is unwired — and a fair FedAvg-vs-DeComFL comparison lives or dies on the communication axis</td>
+</tr>
+<tr>
+<td><code>comms_regimes.py</code></td>
+<td>Three-regime per-round comms: full-model FedAvg vs head-only (frozen-backbone) FedAvg vs DeComFL, unified into one contrast</td>
+</tr>
+<tr>
+<td><code>decomfl_vs_fedavg_dim.py</code></td>
+<td>Zeroth- vs first-order <strong>as a function of model dimension</strong></td>
+</tr>
+<tr>
+<td><code>zeroth_vs_first_order.py</code></td>
+<td>Both families' convergence <strong>and</strong> bytes side by side — the measured convergence↔communication trade-off</td>
+</tr>
+<tr>
+<td><code>strategy_device_sweep.py</code></td>
+<td>Every aggregation strategy on CPU versus GPU at the model scale this platform federates</td>
+</tr>
+</tbody>
+</table>
+<h3 id="byzantine-robustness-fr-12">Byzantine robustness (FR-12)<a class="headerlink" href="#byzantine-robustness-fr-12" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Harness</th>
+<th>What it measures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>robust_aggregation_attack.py</code></td>
+<td>Whether the real <code>RobustAggregator</code> retains held-out accuracy under a family of Byzantine attacks where the real <code>FedAvg</code> collapses, on a non-IID split</td>
+</tr>
+<tr>
+<td><code>robust_breakdown_point.py</code></td>
+<td>The <strong>measured breakdown point</strong> — <code>robust_aggregation_attack</code> runs at one fixed Byzantine fraction, which shows the estimators defend <em>a</em> level; this sweeps the fraction to find where they stop</td>
+</tr>
+</tbody>
+</table>
+<h3 id="central-dp-fr-13">Central DP (FR-13)<a class="headerlink" href="#central-dp-fr-13" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Harness</th>
+<th>What it measures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dp_epsilon_accuracy.py</code></td>
+<td>The ε-vs-accuracy trade-off on the real federated-LoRA loop: no-DP baseline plus several target ε, everything else fixed and seeded</td>
+</tr>
+<tr>
+<td><code>dp_snr_crossing.py</code></td>
+<td>Whether pushing the utility-SNR toward 1 (by cohort size) recovers FedLoRA utility</td>
+</tr>
+<tr>
+<td><code>dp_on_head.py</code></td>
+<td>Whether DP on a <strong>small head</strong> (low <code>d</code>) escapes the high-dimension collapse — on a seeded synthetic task</td>
+</tr>
+<tr>
+<td><code>dp_on_head_xray.py</code></td>
+<td>The same question on <strong>real chest X-ray</strong> data over a frozen backbone, sweeping ε</td>
+</tr>
+<tr>
+<td><code>dp_on_head_xray_cohort.py</code></td>
+<td>Its cohort-size (<code>N</code>) axis</td>
+</tr>
+<tr>
+<td><code>dp_on_head_xray_domain.py</code></td>
+<td>Whether a <strong>domain</strong> backbone beats frozen ImageNet for DP-on-head</td>
+</tr>
+<tr>
+<td><code>dp_head_cohort_sweep.py</code></td>
+<td>The cohort-size axis of the DP utility-SNR on a small head</td>
+</tr>
+<tr>
+<td><code>dp_subsampling_amplification.py</code></td>
+<td>Poisson client subsampling (<code>q &lt; 1</code>) amplifying privacy — exercising the accountant's <code>q</code> parameter</td>
+</tr>
+</tbody>
+</table>
+<h3 id="frozen-backbone-transfer-da-11-da-14">Frozen backbone / transfer (DA-11, DA-14)<a class="headerlink" href="#frozen-backbone-transfer-da-11-da-14" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Harness</th>
+<th>What it measures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>frozen_backbone_fl.py</code></td>
+<td>Head-only federated learning over a shared frozen backbone: communication <strong>and</strong> utility</td>
+</tr>
+<tr>
+<td><code>frozen_vs_finetune_xray.py</code></td>
+<td>The non-DP 2×2 that separates "pretraining helped" from "freezing helped"</td>
+</tr>
+</tbody>
+</table>
+<h3 id="how-to-read-a-benchmark-result-honestly">How to read a benchmark result honestly<a class="headerlink" href="#how-to-read-a-benchmark-result-honestly" title="Permanent link">&para;</a></h3>
+<p>The <code>benchmarks/README.md</code> is worth reading in full, because it models the standard these records are
+held to. The FR-13 entry is the clearest example: the DP mechanism and accountant are <strong>validated
+end-to-end</strong> (DP solves <code>z</code> from each target ε, the accountant certifies the accounted ε back to the
+requested budget exactly), and utility nonetheless <strong>collapses at every tested ε</strong> at laptop scale.
+The README quantifies <em>why</em> — the utility SNR <code>N/(z·√d)</code> is ≪ 1, and it is <strong>independent of the clip
+<code>S</code></strong>, so no tuning helps — rather than reporting a hand-tuned curve. That is a negative result,
+recorded as one.</p>
+<p>Several harnesses have paired smoke tests in <code>framework/tests/</code> (<code>test_algo_comparison_smoke.py</code>,
+<code>test_dp_on_head_smoke.py</code>, <code>test_robust_aggregation_breakdown.py</code>, …) so the harnesses themselves
+cannot silently rot between full runs.</p>
+<hr />
 <h2 id="end-to-end-test-suites">End-to-End Test Suites<a class="headerlink" href="#end-to-end-test-suites" title="Permanent link">&para;</a></h2>
-<p>The framework ships with three test scripts. <strong>None of them take CLI arguments</strong> — each is configured in
-the source (or, for the platform test, by environment variable). Run them from <code>framework/</code>.</p>
+<p>These are <strong>separate from the pytest suite</strong>, which is what CI actually gates on:</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>framework
+<span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w">          </span><span class="c1"># ~100 test modules; how CI runs it</span>
+</code></pre></div>
+
+<p><code>pytest.ini</code> sets <code>-m "not slow"</code> (deselecting tests that download models or run full training) and
+enforces coverage: <code>--cov=fedlearn --cov-fail-under=73</code>. That floor is a <strong>regression guard, not a
+target</strong> — measured line coverage is ~77%. Consequence worth knowing: <strong>running a hand-picked subset
+of tests will report low coverage and trip the floor by design</strong> — pass <code>--no-cov</code> for a subset run.</p>
+<p>The three scripts below are heavier, hand-run end-to-end checks. <strong>None of them take CLI
+arguments</strong> — each is configured in the source (or, for the platform test, by environment variable).
+Run them from <code>framework/</code>.</p>
 <h3 id="run_local_testpy-quick-sanity-test">run_local_test.py — Quick Sanity Test<a class="headerlink" href="#run_local_testpy-quick-sanity-test" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>framework/
 python<span class="w"> </span>run_local_test.py

@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group" open>
 <summary>Desktop</summary><ul>
@@ -94,8 +103,11 @@
 <li><a href="#content-security-policy">Content Security Policy</a></li>
 <li><a href="#context-isolation--the-preload-bridge">Context Isolation &amp; the Preload Bridge</a></li>
 <li><a href="#input-validation--two-layer-defense">Input Validation — Two-Layer Defense</a></li>
+<li><a href="#dataset-path-consent-dataset-consentts">Dataset-Path Consent</a></li>
 <li><a href="#jwt-confinement-to-main-process">JWT Confinement to Main Process</a></li>
 <li><a href="#safestorage--os-level-encryption">safeStorage — OS-Level Encryption</a></li>
+<li><a href="#session-expiry-and-server-url-rebinding">Session Expiry and Server-URL Rebinding</a></li>
+<li><a href="#transport-policy--refusing-remote-plaintext-http">Transport Policy — Refusing Remote Plaintext HTTP</a></li>
 <li><a href="#navigation-and-window-open-restrictions">Navigation and Window-Open Restrictions</a></li>
 <li><a href="#docker-socket-confinement">Docker Socket Confinement</a></li>
 <li><a href="#log-rendering--xss-prevention">Log Rendering — XSS Prevention</a></li>
@@ -105,11 +117,12 @@
 <hr />
 <h2 id="security-philosophy">Security Philosophy<a class="headerlink" href="#security-philosophy" title="Permanent link">&para;</a></h2>
 <p>FedLearn Desktop is built around the principle of <strong>minimal privilege + defense-in-depth</strong>. Because the app embeds a web renderer (Chromium) that processes externally-sourced data (container log output, backend API responses), every trust boundary is explicitly defended at multiple layers.</p>
-<p>The three non-negotiable invariants:</p>
+<p>The four non-negotiable invariants:</p>
 <ol>
 <li><strong>The JWT never leaves the Main Process.</strong> No matter what happens in the renderer.</li>
 <li><strong>The Docker socket is never exposed to the renderer or any container.</strong> Only <code>DockerService</code> in Main accesses it.</li>
 <li><strong>Every input crossing the IPC boundary is validated twice</strong> — in the Preload bridge and again in Main.</li>
+<li><strong>A host directory is only bind-mounted if the user physically picked it</strong> in the native dialog — validation alone is not consent.</li>
 </ol>
 <hr />
 <h2 id="browserwindow-hardening">BrowserWindow Hardening<a class="headerlink" href="#browserwindow-hardening" title="Permanent link">&para;</a></h2>
@@ -170,47 +183,68 @@
 </table>
 <hr />
 <h2 id="content-security-policy">Content Security Policy<a class="headerlink" href="#content-security-policy" title="Permanent link">&para;</a></h2>
-<p>A Content Security Policy (CSP) is applied to every response. This acts as a defense-in-depth layer <strong>on top of</strong> <code>contextIsolation</code> — even if an XSS payload executes, the CSP blocks it from loading external scripts or exfiltrating data.</p>
-<h3 id="dev-mode-http-response-headers">Dev Mode (HTTP — response headers)<a class="headerlink" href="#dev-mode-http-response-headers" title="Permanent link">&para;</a></h3>
-<p>In development the app is served over HTTP from the webpack dev server, so CSP is applied via session-level response header injection:</p>
-<div class="codehilite"><pre><span></span><code><span class="c1">// src/main/main.ts</span>
-<span class="nx">session</span><span class="p">.</span><span class="nx">defaultSession</span><span class="p">.</span><span class="nx">webRequest</span><span class="p">.</span><span class="nx">onHeadersReceived</span><span class="p">((</span><span class="nx">details</span><span class="p">,</span><span class="w"> </span><span class="nx">callback</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="nx">callback</span><span class="p">({</span>
-<span class="w">    </span><span class="nx">responseHeaders</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="p">...</span><span class="nx">details</span><span class="p">.</span><span class="nx">responseHeaders</span><span class="p">,</span>
-<span class="w">      </span><span class="s1">&#39;Content-Security-Policy&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">[[</span>
-<span class="w">        </span><span class="s2">&quot;default-src &#39;self&#39;&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;script-src &#39;self&#39; &#39;unsafe-eval&#39;&quot;</span><span class="p">,</span><span class="w">   </span><span class="c1">// webpack HMR needs eval</span>
-<span class="w">        </span><span class="s2">&quot;style-src &#39;self&#39; &#39;unsafe-inline&#39; https://fonts.googleapis.com&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;font-src &#39;self&#39; https://fonts.gstatic.com&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;img-src &#39;self&#39; data:&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="sb">`connect-src &#39;self&#39; </span><span class="si">${</span><span class="nx">apiConnectSrc</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span><span class="w">  </span><span class="c1">// backend origins</span>
-<span class="w">        </span><span class="s2">&quot;frame-src &#39;none&#39;&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;object-src &#39;none&#39;&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="s2">&quot;base-uri &#39;self&#39;&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="p">].</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;; &#39;</span><span class="p">)],</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">  </span><span class="p">});</span>
-<span class="p">});</span>
+<p>A Content Security Policy (CSP) is applied in both runtime modes. This acts as a defense-in-depth layer <strong>on top of</strong> <code>contextIsolation</code> — even if an XSS payload executes, the CSP blocks it from loading external scripts or exfiltrating data.</p>
+<p>There are two delivery mechanisms and they are <strong>not</strong> two views of the same policy — read both.</p>
+<h3 id="the-meta-policy-both-modes-webpackcspjs">The <code>&lt;meta&gt;</code> policy (both modes) — <code>webpack.csp.js</code><a class="headerlink" href="#the-meta-policy-both-modes-webpackcspjs" title="Permanent link">&para;</a></h3>
+<p><code>webpack.csp.js</code> is the single source of truth for the CSP baked into <code>index.html</code> by <code>HtmlWebpackPlugin</code>'s <code>templateParameters</code>. Both webpack renderer configs call it; they differ only in two flags:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// fedlearn-desktop/webpack.csp.js</span>
+<span class="kd">function</span><span class="w"> </span><span class="nx">buildRendererCsp</span><span class="p">({</span><span class="w"> </span><span class="nx">allowEval</span><span class="p">,</span><span class="w"> </span><span class="nx">allowInlineStyle</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">scriptSrc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">allowEval</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s2">&quot;script-src &#39;self&#39; &#39;unsafe-eval&#39;&quot;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;script-src &#39;self&#39;&quot;</span><span class="p">;</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">styleSrc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">allowInlineStyle</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="s2">&quot;style-src &#39;self&#39; &#39;unsafe-inline&#39;&quot;</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;style-src &#39;self&#39;&quot;</span><span class="p">;</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="s2">&quot;default-src &#39;self&#39;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">scriptSrc</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">styleSrc</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">&quot;font-src &#39;self&#39;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">&quot;img-src &#39;self&#39; data:&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">&quot;connect-src &#39;self&#39; http://localhost:* https://localhost:* ws://localhost:* wss://localhost:*&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">&quot;frame-src &#39;none&#39;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">&quot;object-src &#39;none&#39;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">&quot;base-uri &#39;self&#39;&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="p">].</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;; &#39;</span><span class="p">);</span>
+<span class="p">}</span>
 </code></pre></div>
 
-<h3 id="production-mode-file-meta-tag">Production Mode (file:// — meta tag)<a class="headerlink" href="#production-mode-file-meta-tag" title="Permanent link">&para;</a></h3>
-<p>In packaged builds the app loads from <code>file://</code>. Chromium's handling of <code>'self'</code> under <code>file://</code> origins is inconsistent — it does <strong>not</strong> resolve to the API host. Therefore, in production the CSP is embedded as a <code>&lt;meta&gt;</code> tag in <code>index.html</code>, and the <code>connect-src</code> origins are injected at build time via the <code>FEDLEARN_API_ORIGINS</code> environment variable.</p>
-<h3 id="dynamic-api-origins">Dynamic API Origins<a class="headerlink" href="#dynamic-api-origins" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code><span class="c1">// Comma-separated list of backend origins (set at CI/build time for production)</span>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Dev (<code>webpack.renderer.config.js</code>)</th>
+<th>Packaged (<code>webpack.prod.config.js</code>)</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>allowEval</code></td>
+<td><code>true</code></td>
+<td><strong><code>false</code></strong></td>
+<td>Webpack's development build uses the <code>eval</code> devtool. The production config sets <code>devtool: false</code>, so nothing at runtime needs it (DE-14, <code>8f43018</code>).</td>
+</tr>
+<tr>
+<td><code>allowInlineStyle</code></td>
+<td><code>true</code></td>
+<td><strong><code>false</code></strong></td>
+<td>Dev uses <code>style-loader</code>, which injects runtime <code>&lt;style&gt;</code> tags (required for HMR). Production extracts CSS with <code>MiniCssExtractPlugin</code> into a real file loaded via <code>&lt;link rel="stylesheet"&gt;</code>, so <code>'unsafe-inline'</code> can be dropped (<code>18b3b59</code>).</td>
+</tr>
+</tbody>
+</table>
+<p><code>font-src 'self'</code> with <strong>no remote font host</strong> in either mode: Hanken Grotesk and JetBrains Mono are self-hosted through <code>@fontsource</code> (<code>src/renderer/fonts.css</code>). Any doc showing <code>https://fonts.googleapis.com</code> / <code>https://fonts.gstatic.com</code> in this policy is describing the pre-DE-14 build.</p>
+<h3 id="the-dev-only-response-header-maints">The dev-only response header — <code>main.ts</code><a class="headerlink" href="#the-dev-only-response-header-maints" title="Permanent link">&para;</a></h3>
+<p>Separately, and <strong>only when <code>isDev</code></strong>, <code>main.ts</code> injects a <code>Content-Security-Policy</code> response header via <code>session.defaultSession.webRequest.onHeadersReceived</code>. This covers the HTTP dev-server origin. Its <code>connect-src</code> is assembled from two sources:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/main/main.ts — dev only</span>
 <span class="kd">const</span><span class="w"> </span><span class="nx">apiOriginsFromEnv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">FEDLEARN_API_ORIGINS</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span>
-<span class="w">  </span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)</span>
-<span class="w">  </span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">s</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">trim</span><span class="p">())</span>
-<span class="w">  </span><span class="p">.</span><span class="nx">filter</span><span class="p">(</span><span class="nb">Boolean</span><span class="p">);</span>
-
-<span class="c1">// In dev mode, always allow localhost</span>
+<span class="w">  </span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">).</span><span class="nx">map</span><span class="p">((</span><span class="nx">s</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">trim</span><span class="p">()).</span><span class="nx">filter</span><span class="p">(</span><span class="nb">Boolean</span><span class="p">);</span>
 <span class="kd">const</span><span class="w"> </span><span class="nx">defaultApiOrigins</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">isDev</span>
 <span class="w">  </span><span class="o">?</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;http://localhost:8081&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;ws://localhost:8081&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;http://localhost:9000&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;ws://localhost:9000&#39;</span><span class="p">]</span>
 <span class="w">  </span><span class="o">:</span><span class="w"> </span><span class="p">[];</span>
-
 <span class="kd">const</span><span class="w"> </span><span class="nx">apiConnectSrc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[...</span><span class="nx">defaultApiOrigins</span><span class="p">,</span><span class="w"> </span><span class="p">...</span><span class="nx">apiOriginsFromEnv</span><span class="p">].</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">);</span>
 </code></pre></div>
 
+<blockquote>
+<p><strong>Correction worth flagging:</strong> <code>FEDLEARN_API_ORIGINS</code> reaches <strong>only this dev-mode header</strong>. The packaged build registers no <code>onHeadersReceived</code> handler at all, and its <code>&lt;meta&gt;</code> policy's <code>connect-src</code> is the fixed localhost wildcard list above — the env var does not widen it. An earlier version of this page claimed production origins were injected from <code>FEDLEARN_API_ORIGINS</code> at build time; that is not what the code does. A packaged build pointed at a non-localhost backend therefore depends on that fixed <code>connect-src</code> list, which is a real limitation, not a documented feature.</p>
+</blockquote>
+<p><code>src/__tests__/renderer-csp.test.ts</code> guards this: it calls <code>buildRendererCsp({ allowEval: false, allowInlineStyle: false })</code> and asserts the result carries no <code>unsafe-eval</code>, no <code>unsafe-inline</code> in <code>style-src</code>, and no <code>googleapis</code>/<code>gstatic</code> host — then loads both renderer webpack configs and checks the CSP each one hands to <code>HtmlWebpackPlugin</code>.</p>
 <hr />
 <h2 id="context-isolation-the-preload-bridge">Context Isolation &amp; the Preload Bridge<a class="headerlink" href="#context-isolation-the-preload-bridge" title="Permanent link">&para;</a></h2>
 <p>With <code>contextIsolation: true</code> and <code>sandbox: true</code>, the renderer cannot access any Node.js globals. The <strong>only</strong> way for the renderer to communicate with the Main Process is through the API surface explicitly exposed by the preload script via <code>contextBridge</code>.</p>
@@ -240,30 +274,47 @@
 <h3 id="preload-validation-layer-1">Preload Validation (Layer 1)<a class="headerlink" href="#preload-validation-layer-1" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="c1">// src/preload/preload.ts — Allowlist constants</span>
 <span class="kd">const</span><span class="w"> </span><span class="nx">ALLOWED_HARDWARE_PROFILES</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;discrete&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;mps&#39;</span><span class="p">]</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kd">const</span><span class="p">;</span>
-<span class="kd">const</span><span class="w"> </span><span class="nx">PROJECT_ID_PATTERN</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[a-zA-Z0-9_-]{1,128}$/</span><span class="p">;</span>
-<span class="kd">const</span><span class="w"> </span><span class="nx">PARTITION_ID_PATTERN</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[0-9]{1,10}$/</span><span class="p">;</span>
-<span class="kd">const</span><span class="w"> </span><span class="nx">SERVER_ADDRESS_PATTERN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[a-zA-Z0-9._:/-]{1,256}$/</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">PROJECT_ID_PATTERN</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[a-zA-Z0-9_-]{1,128}$/</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">PARTITION_ID_PATTERN</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[0-9]{1,10}$/</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">SERVER_ADDRESS_PATTERN</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="sr">/^[a-zA-Z0-9._:/-]{1,256}$/</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">MAX_STRING_LENGTH</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="mf">256</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">MAX_IMAGE_BASE64_LEN</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mf">14</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mf">1024</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mf">1024</span><span class="p">;</span><span class="w">  </span><span class="c1">// ~10 MB decoded</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">MAX_VECTOR_LEN</span><span class="w">          </span><span class="o">=</span><span class="w"> </span><span class="mf">100</span><span class="nx">_000</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">MAX_TEXT_LEN</span><span class="w">            </span><span class="o">=</span><span class="w"> </span><span class="mf">10</span><span class="nx">_000</span><span class="p">;</span><span class="w">            </span><span class="c1">// matches the backend&#39;s @Size(max = 10_000)</span>
 
 <span class="c1">// Used before every ipcRenderer.invoke(&#39;docker:start-training&#39;, ...)</span>
 <span class="nx">startTraining</span><span class="o">:</span><span class="w"> </span><span class="kt">async</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">TrainingConfigInput</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidHardwareProfile</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="p">))</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid hardware profile&#39;</span><span class="w"> </span><span class="p">};</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidProjectId</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">projectId</span><span class="p">))</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid project ID&#39;</span><span class="w"> </span><span class="p">};</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidServerAddress</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">serverAddress</span><span class="p">))</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid server address&#39;</span><span class="w"> </span><span class="p">};</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidPartitionId</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">partitionId</span><span class="p">))</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid partition ID&#39;</span><span class="w"> </span><span class="p">};</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidModelType</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="p">))</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid model type&#39;</span><span class="w"> </span><span class="p">};</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidDatasetPath</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">datasetPath</span><span class="p">))</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid dataset path&#39;</span><span class="w"> </span><span class="p">};</span>
-<span class="w">  </span><span class="c1">// Only reach ipcRenderer if ALL checks pass</span>
-<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">ipcRenderer</span><span class="p">.</span><span class="nx">invoke</span><span class="p">(</span><span class="s1">&#39;docker:start-training&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="nx">config</span><span class="w"> </span><span class="p">});</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidHardwareProfile</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">hardwareProfile</span><span class="p">))</span><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid hardware profile&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidProjectId</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">projectId</span><span class="p">))</span><span class="w">              </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid project ID&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidServerAddress</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">serverAddress</span><span class="p">))</span><span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid server address&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidPartitionId</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">partitionId</span><span class="p">))</span><span class="w">          </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid partition ID&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidModelType</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="p">))</span><span class="w">              </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid model type&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidDatasetPath</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">datasetPath</span><span class="p">))</span><span class="w">          </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid dataset path&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isValidConnectionToken</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">connectionToken</span><span class="p">))</span><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid connection token&#39;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">strategy</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="kc">undefined</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="sr">/^[a-zA-Z0-9_\-.]{1,64}$/</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">strategy</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid strategy&#39;</span><span class="w"> </span><span class="p">};</span>
+
+<span class="w">  </span><span class="c1">// Only reach ipcRenderer if ALL checks pass — and forward an EXPLICIT object,</span>
+<span class="w">  </span><span class="c1">// never a spread of the renderer&#39;s own config.</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">ipcRenderer</span><span class="p">.</span><span class="nx">invoke</span><span class="p">(</span><span class="s1">&#39;docker:start-training&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">hardwareProfile</span><span class="o">:</span><span class="w"> </span><span class="kt">config.hardwareProfile</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">projectId</span><span class="o">:</span><span class="w">       </span><span class="kt">config.projectId</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">serverAddress</span><span class="o">:</span><span class="w">   </span><span class="kt">config.serverAddress</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">partitionId</span><span class="o">:</span><span class="w">     </span><span class="kt">config.partitionId</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">modelType</span><span class="o">:</span><span class="w">       </span><span class="kt">config.modelType</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">datasetPath</span><span class="o">:</span><span class="w">     </span><span class="kt">config.datasetPath</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">connectionToken</span><span class="o">:</span><span class="w"> </span><span class="kt">config.connectionToken</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">strategy</span><span class="o">:</span><span class="w">        </span><span class="kt">config.strategy</span><span class="p">,</span>
+<span class="w">  </span><span class="p">});</span>
 <span class="p">},</span>
 </code></pre></div>
 
+<p><code>isValidConnectionToken</code> accepts <code>undefined</code>/<code>null</code> (the legacy no-auth flow) but otherwise requires a bounded JWT-charset string (<code>/^[A-Za-z0-9._-]+$/</code>, ≤ 8192 chars) before it is forwarded as the FL <code>FEDLEARN_CONNECTION_TOKEN</code>.</p>
+<blockquote>
+<p><strong>Known gap in this list.</strong> <code>TrainingConfigInput</code> declares <code>trainingArm?: string</code> and <code>TrainSection</code> sends it, but the explicit object above does <strong>not</strong> carry <code>trainingArm</code> — so the field is dropped at the preload boundary and Main always sees <code>undefined</code>. The explicit-reconstruction pattern is the right security posture; adding a field to the interface without adding it to the forwarded object is the failure mode it invites. Treat it as the worked example in <a href="04-preload-ipc-bridge.html#common-pitfalls">04 → Common Pitfalls</a>.</p>
+</blockquote>
 <h3 id="main-process-validation-layer-2">Main Process Validation (Layer 2)<a class="headerlink" href="#main-process-validation-layer-2" title="Permanent link">&para;</a></h3>
+<p>Main's validators live in <code>src/main/validators.ts</code> — a deliberately <code>electron</code>-free, side-effect-free module so the <em>shipped</em> predicates can be unit-tested directly (<code>src/__tests__/validators.test.ts</code>). <code>ipc.handlers.ts</code> previously carried a diverged inline copy of them, which is exactly how the empty-dataset-path case ended up behaving differently on the two layers.</p>
 <div class="codehilite"><pre><span></span><code><span class="c1">// src/main/ipc.handlers.ts</span>
 <span class="nx">ipcMain</span><span class="p">.</span><span class="nx">handle</span><span class="p">(</span><span class="s1">&#39;docker:start-training&#39;</span><span class="p">,</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">_event</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="c1">// Re-validate even though preload already did</span>
@@ -271,41 +322,54 @@
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">validateProjectId</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">projectId</span><span class="p">))</span><span class="w">             </span><span class="p">{</span><span class="w"> </span><span class="cm">/* reject */</span><span class="w"> </span><span class="p">}</span>
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">validateServerAddress</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">serverAddress</span><span class="p">))</span><span class="w">     </span><span class="p">{</span><span class="w"> </span><span class="cm">/* reject */</span><span class="w"> </span><span class="p">}</span>
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">validatePartitionId</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">partitionId</span><span class="p">))</span><span class="w">         </span><span class="p">{</span><span class="w"> </span><span class="cm">/* reject */</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nx">cfg</span><span class="p">.</span><span class="nx">modelType</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;string&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="sr">/^[a-zA-Z0-9_\-.]{1,128}$/</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">modelType</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* reject */</span><span class="w"> </span><span class="p">}</span>
 
-<span class="w">  </span><span class="c1">// Dataset path gets special treatment — full canonicalization</span>
+<span class="w">  </span><span class="c1">// Dataset path gets special treatment — full canonicalization…</span>
 <span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">safeDatasetPath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">sanitizeDatasetPath</span><span class="p">(</span><span class="nx">cfg</span><span class="p">.</span><span class="nx">datasetPath</span><span class="p">);</span>
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">safeDatasetPath</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span>
 <span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Invalid dataset path: must be an existing absolute directory&#39;</span><span class="w"> </span><span class="p">};</span>
 
-<span class="w">  </span><span class="c1">// Only use the sanitized path in Docker bind mount — never the raw input</span>
-<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">validConfig</span><span class="o">:</span><span class="w"> </span><span class="kt">TrainingConfig</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">...</span><span class="nx">cfg</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">datasetPath</span><span class="o">:</span><span class="w"> </span><span class="kt">safeDatasetPath</span><span class="p">,</span><span class="w"> </span><span class="c1">// canonical, resolved, verified-directory path</span>
-<span class="w">  </span><span class="p">};</span>
-<span class="w">  </span><span class="k">await</span><span class="w"> </span><span class="nx">dockerService</span><span class="p">.</span><span class="nx">startTraining</span><span class="p">(</span><span class="nx">validConfig</span><span class="p">);</span>
+<span class="w">  </span><span class="c1">// …and then a CONSENT check: only a directory the user picked in the native</span>
+<span class="w">  </span><span class="c1">// dialog may be bind-mounted. &#39;&#39; means &quot;no mount, use the built-in dataset&quot;.</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">safeDatasetPath</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="nx">isDatasetPathConsented</span><span class="p">(</span><span class="nx">safeDatasetPath</span><span class="p">))</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Dataset path must be selected with the &quot;Select dataset&quot; button&#39;</span><span class="w"> </span><span class="p">};</span>
+
+<span class="w">  </span><span class="c1">// Only use the sanitized path — never the raw input.</span>
+<span class="w">  </span><span class="k">await</span><span class="w"> </span><span class="nx">dockerService</span><span class="p">.</span><span class="nx">startTraining</span><span class="p">({</span><span class="w"> </span><span class="p">...</span><span class="nx">cfg</span><span class="p">,</span><span class="w"> </span><span class="nx">datasetPath</span><span class="o">:</span><span class="w"> </span><span class="kt">safeDatasetPath</span><span class="w"> </span><span class="p">});</span>
 <span class="p">});</span>
 </code></pre></div>
 
+<p>Two fields are treated asymmetrically on purpose:</p>
+<ul>
+<li><strong><code>strategy</code></strong> falls back to <code>undefined</code> on a malformed value. Most strategy strings are no-ops on the client (only DeComFL changes its behaviour), so a bad one costs nothing and should never block a start.</li>
+<li><strong><code>trainingArm</code></strong> is validated <strong>strictly</strong> and an unrecognised value <strong>throws</strong>, failing the start with an explanatory message. Silently downgrading to <code>FULL</code> against a <code>FROZEN_HEAD</code> server <em>is</em> the bug the field exists to prevent — the client would upload every parameter to a server holding only the head. Main currently accepts exactly <code>'FULL'</code> and <code>'FROZEN_HEAD'</code>.</li>
+</ul>
 <h3 id="sanitizedatasetpath-deep-dive"><code>sanitizeDatasetPath</code> — Deep Dive<a class="headerlink" href="#sanitizedatasetpath-deep-dive" title="Permanent link">&para;</a></h3>
-<p>The dataset path is particularly critical because it's interpolated into a Docker bind mount string (<code>${path}:/data</code>). A malicious path like <code>../../etc</code> could expose sensitive host directories.</p>
-<div class="codehilite"><pre><span></span><code><span class="kd">function</span><span class="w"> </span><span class="nx">sanitizeDatasetPath</span><span class="p">(</span><span class="nx">raw</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="c1">// 1. Type and length check</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nx">raw</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;string&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">raw</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">raw</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">2048</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<p>The dataset path is particularly critical because it is interpolated into a Docker bind mount (<code>${path}:/data</code>) and passed to the native client as <code>--dataset-path</code>. A malicious path like <code>../../etc</code> could expose sensitive host directories.</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// src/main/validators.ts</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">sanitizeDatasetPath</span><span class="p">(</span><span class="nx">raw</span><span class="o">:</span><span class="w"> </span><span class="kt">unknown</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// 0. Optional field: empty / whitespace means &quot;use the container&#39;s default</span>
+<span class="w">  </span><span class="c1">//    dataset&quot;. Normalize to &#39;&#39; rather than rejecting. (The inline copy this</span>
+<span class="w">  </span><span class="c1">//    module replaced got exactly this case wrong.)</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nx">raw</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;string&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">raw</span><span class="p">.</span><span class="nx">trim</span><span class="p">()</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
 
-<span class="w">  </span><span class="c1">// 2. Null byte check — prevents directory traversal via embedded null terminator</span>
+<span class="w">  </span><span class="c1">// 1. Type and length check</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="ow">typeof</span><span class="w"> </span><span class="nx">raw</span><span class="w"> </span><span class="o">!==</span><span class="w"> </span><span class="s1">&#39;string&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">raw</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">raw</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nx">MAX_DATASET_PATH_LEN</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+
+<span class="w">  </span><span class="c1">// 2. Null byte check — prevents traversal via an embedded null terminator</span>
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">raw</span><span class="p">.</span><span class="nx">includes</span><span class="p">(</span><span class="s1">&#39;\0&#39;</span><span class="p">))</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
 
-<span class="w">  </span><span class="c1">// 3. Resolve to absolute path (collapses all .. segments)</span>
+<span class="w">  </span><span class="c1">// 3. Resolve to an absolute path (collapses all .. segments)</span>
 <span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">resolved</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
 <span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">resolved</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">resolve</span><span class="p">(</span><span class="nx">raw</span><span class="p">);</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
 
-<span class="w">  </span><span class="c1">// 4. Verify no remaining .. segments (shouldn&#39;t be possible after resolve, but belt-and-suspenders)</span>
+<span class="w">  </span><span class="c1">// 4. Verify no remaining .. segments (belt-and-suspenders after resolve)</span>
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">resolved</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="nx">path</span><span class="p">.</span><span class="nx">sep</span><span class="p">).</span><span class="nx">some</span><span class="p">((</span><span class="nx">seg</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">seg</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;..&#39;</span><span class="p">))</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
 
 <span class="w">  </span><span class="c1">// 5. Must be absolute</span>
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">path</span><span class="p">.</span><span class="nx">isAbsolute</span><span class="p">(</span><span class="nx">resolved</span><span class="p">))</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
 
-<span class="w">  </span><span class="c1">// 6. Must exist AND be a directory (not a file, not a symlink to a non-dir)</span>
+<span class="w">  </span><span class="c1">// 6. Must exist AND be a directory</span>
 <span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">stat</span><span class="o">:</span><span class="w"> </span><span class="kt">fs.Stats</span><span class="p">;</span>
 <span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">stat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">fs</span><span class="p">.</span><span class="nx">statSync</span><span class="p">(</span><span class="nx">resolved</span><span class="p">);</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
 <span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">stat</span><span class="p">.</span><span class="nx">isDirectory</span><span class="p">())</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
@@ -314,6 +378,24 @@
 <span class="p">}</span>
 </code></pre></div>
 
+<p><code>MAX_DATASET_PATH_LEN</code> is 2048, matching the preload's own length bound.</p>
+<hr />
+<h2 id="dataset-path-consent-dataset-consentts">Dataset-Path Consent (<code>dataset-consent.ts</code>)<a class="headerlink" href="#dataset-path-consent-dataset-consentts" title="Permanent link">&para;</a></h2>
+<p><code>sanitizeDatasetPath</code> proves a path is <em>well-formed and real</em>. It does not prove the <strong>user</strong> chose it — and under the "compromised renderer" threat model that distinction is the whole point: a headless renderer compromise could hand over <code>~/.ssh</code>, which passes every check above.</p>
+<p><code>src/main/dataset-consent.ts</code> closes that gap with an in-memory allowlist:</p>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">consented</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Set</span><span class="o">&lt;</span><span class="kt">string</span><span class="o">&gt;</span><span class="p">();</span>
+
+<span class="cm">/** Record a directory the user picked via the native dialog as consented for mounting. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">recordConsentedDatasetPath</span><span class="p">(</span><span class="nx">p</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* consented.add(path.resolve(p)) */</span><span class="w"> </span><span class="p">}</span>
+
+<span class="cm">/** True iff `resolvedPath` (already path.resolve&#39;d) was user-selected. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">isDatasetPathConsented</span><span class="p">(</span><span class="nx">resolvedPath</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">consented</span><span class="p">.</span><span class="nx">has</span><span class="p">(</span><span class="nx">resolvedPath</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><code>dialog:open-directory</code> calls <code>recordConsentedDatasetPath</code> on the path the OS picker returned; <code>docker:start-training</code> refuses any non-empty path that is not on the list. Getting onto the list requires a real dialog invocation and a physical user selection, which a compromised renderer cannot forge.</p>
+<p>The set is per-app-run and deliberately not persisted: the renderer always re-selects the dataset within the same session, because <code>TrainSection</code> holds <code>datasetPath</code> in component state rather than on disk.</p>
 <hr />
 <h2 id="jwt-confinement-to-main-process">JWT Confinement to Main Process<a class="headerlink" href="#jwt-confinement-to-main-process" title="Permanent link">&para;</a></h2>
 <p>Authentication follows a strict trust model:</p>
@@ -333,7 +415,8 @@
 <li>Even if the renderer's JavaScript environment is fully compromised (e.g., via a stored XSS in log output), the attacker cannot steal the JWT</li>
 <li>The JWT is not accessible via <code>window.*</code>, <code>localStorage</code>, <code>sessionStorage</code>, or <code>indexedDB</code> from the renderer</li>
 </ul>
-<p>The <code>getAuthHeader()</code> method in <code>AuthService</code> is a Main-only method — it's never called from the IPC handlers that respond to the renderer; it's used internally when the Main process needs to make authenticated API calls on behalf of the user.</p>
+<p><code>AuthService.getAuthHeader()</code> returns <code>Bearer &lt;jwt&gt;</code> and is Main-only. It is called by <code>ClientProjectService</code>, <code>InferenceService</code> and <code>InferenceStreamService</code> — all of which <em>are</em> reachable from the renderer over IPC — but the header itself is attached inside Main and only the response data crosses back. No IPC handler ever returns the header or the token to the renderer.</p>
+<p>The one asymmetry worth knowing: the backend scopes <code>Authorization: Bearer</code> acceptance to native clients (SE-9). A Bearer token is honoured only when the request also carries the <code>X-FedLearn-Client: fedlearn-desktop</code> marker header, which <code>src/main/http.ts</code> sets as an instance-wide default so every service gets it without per-call wiring. The marker is an intent signal, <strong>not</strong> a secret; browsers stay strictly cookie-only.</p>
 <hr />
 <h2 id="safestorage-os-level-encryption">safeStorage — OS-Level Encryption<a class="headerlink" href="#safestorage-os-level-encryption" title="Permanent link">&para;</a></h2>
 <p>When the JWT needs to persist across app restarts, it's encrypted using Electron's <code>safeStorage</code> API, which delegates to the OS credential store:</p>
@@ -417,6 +500,66 @@
 <span class="p">}</span>
 </code></pre></div>
 
+<h3 id="saved-credentials-save-password">Saved credentials ("Save password")<a class="headerlink" href="#saved-credentials-save-password" title="Permanent link">&para;</a></h3>
+<p><code>46aea4d</code> added an explicit opt-in that persists the <em>login credentials</em>, not just the session. It follows the same posture as the JWT and shares the same store file (<code>fedlearn-auth</code>, key <code>savedCredentials</code>):</p>
+<ul>
+<li><code>saveCredentials()</code> refuses to write anything when <code>safeStorage.isEncryptionAvailable()</code> is false, and scrubs any prior blob — a reversible secret is never written to disk.</li>
+<li>When encryption is available it stores <code>safeStorage.encryptString(JSON.stringify({ username, password }))</code> as base64.</li>
+<li><code>getSavedCredentials()</code> decrypts on demand for the login form's pre-fill; a decrypt failure (keychain key rotated) scrubs the stale blob and returns <code>null</code>.</li>
+<li>Unchecking the box calls <code>clearSavedCredentials()</code>.</li>
+</ul>
+<p>The plaintext credentials do cross the bridge in both directions here — inherent to pre-filling a login form — but the <em>encrypted blob</em> never leaves Main.</p>
+<hr />
+<h2 id="session-expiry-and-server-url-rebinding">Session Expiry and Server-URL Rebinding<a class="headerlink" href="#session-expiry-and-server-url-rebinding" title="Permanent link">&para;</a></h2>
+<p>Two related mechanisms, both DE-8 era, both living in <code>AuthService</code>.</p>
+<p><strong>401 ⇒ session expired (<code>http.ts</code> + <code>auth.service.ts</code>).</strong> <code>installUnauthorizedHandler</code> puts exactly one response interceptor on the shared axios instance (it ejects any previous one, so handlers never stack). A 401 on any authenticated call — inference, client projects, generation — fires <code>handleSessionExpired()</code>, which clears both storage backends and pushes <code>auth:session-expired</code> to the renderer so it returns to the login screen instead of showing opaque per-call errors. The handler fires whether the 401 arrives as a resolved response (every current service uses a permissive <code>validateStatus</code>) or as a rejected promise.</p>
+<p>The auth handshake itself is excluded by <code>isAuthHandshakeRequest</code>, matching <code>/auth/(login|me)</code>: a 401 there means "wrong credentials" or "not logged in yet", not "an existing session went stale". Without that exclusion the app would loop — show login → submit → 401 → re-show login. The frontend's <code>axiosConfig.ts</code> carries the equivalent exclusion.</p>
+<p><code>getAuthHeader()</code> also checks <code>expiresAt</code> <em>proactively</em> and routes through the same <code>handleSessionExpired()</code> rather than arming a request with a token already doomed to 401. <code>handleSessionExpired()</code> is guarded on <code>hasStoredSession()</code>, so a burst of concurrent in-flight failures clears once and signals once.</p>
+<p><strong>Changing the server URL invalidates the session.</strong> A JWT and the credentials are minted by <em>one</em> backend and must never be sent to another. <code>setApiUrl()</code> therefore calls <code>handleSessionExpired()</code> whenever the URL actually changes — covering both a legitimate switch and a compromised renderer calling <code>setServerUrl('https://attacker…')</code> in the hope that the next authenticated call ships the Bearer token to the new host. Startup deliberately loads <code>apiBaseUrl</code> directly in the constructor rather than through <code>setApiUrl</code>, so a persisted session survives a normal relaunch (<code>77cb95e</code>).</p>
+<hr />
+<h2 id="transport-policy-refusing-remote-plaintext-http">Transport Policy — Refusing Remote Plaintext HTTP<a class="headerlink" href="#transport-policy-refusing-remote-plaintext-http" title="Permanent link">&para;</a></h2>
+<p>Credentials and the session token flow to whatever URL the user configures, so DE-13 (<code>2de75a7</code>) made plaintext <code>http://</code> to a <strong>non-loopback</strong> host a refusal rather than a warning.</p>
+<p>The rule lives in <code>src/shared/urlSecurity.ts</code> so Main's policy and the renderer's on-screen copy cannot drift:</p>
+<div class="codehilite"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">isLoopbackHost</span><span class="p">(</span><span class="nx">hostname</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">host</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">hostname</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/^\[|\]$/g</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">).</span><span class="nx">toLowerCase</span><span class="p">();</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">host</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;localhost&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">host</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;::1&#39;</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="sr">/^127(\.\d{1,3}){3}$/</span><span class="p">.</span><span class="nx">test</span><span class="p">(</span><span class="nx">host</span><span class="p">);</span><span class="w">   </span><span class="c1">// the whole 127.0.0.0/8 block</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>Suffix lookalikes such as <code>localhost.evil.com</code> do <strong>not</strong> qualify, and an <code>http://</code> URL that fails to parse is treated as remote (fail closed).</p>
+<p><code>validators.ts → evaluateServerUrl(raw, allowInsecureHttp)</code> is the whole decision for <code>auth:set-server-url</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Not a string / empty / &gt; 512 chars</td>
+<td><code>{ ok: false, error: 'Invalid server URL' }</code></td>
+</tr>
+<tr>
+<td>No <code>http(s)://</code> prefix</td>
+<td><code>{ ok: false, error: 'URL must start with http:// or https://' }</code></td>
+</tr>
+<tr>
+<td>Remote <code>http://</code>, no override</td>
+<td><code>{ ok: false, code: 'INSECURE_HTTP', error: PLAINTEXT_HTTP_REFUSAL }</code></td>
+</tr>
+<tr>
+<td>Remote <code>http://</code> <strong>with</strong> <code>allowInsecureHttp</code></td>
+<td><code>{ ok: true, url, warning: PLAINTEXT_HTTP_WARNING }</code></td>
+</tr>
+<tr>
+<td><code>https://</code> or loopback <code>http://</code></td>
+<td><code>{ ok: true, url }</code> — warning-free</td>
+</tr>
+</tbody>
+</table>
+<p>Accepted URLs are normalized: trailing slashes stripped, <code>/api</code> appended if absent. The renderer keys off the machine-readable <code>code</code> to show the "Use HTTP anyway" affordance, and the acknowledgement is scoped to the current URL only — editing the field resets it (<code>AuthModal.tsx</code>, <code>SettingsSection.tsx</code>). The preload forwards only the single known flag (<code>{ allowInsecureHttp: true }</code>), never an arbitrary renderer object.</p>
 <hr />
 <h2 id="navigation-and-window-open-restrictions">Navigation and Window-Open Restrictions<a class="headerlink" href="#navigation-and-window-open-restrictions" title="Permanent link">&para;</a></h2>
 <p>Two additional hardening measures prevent the app from being used as a launcher for external content:</p>
@@ -455,38 +598,38 @@
 <p>The Docker socket (<code>/var/run/docker.sock</code> on Unix, <code>//./pipe/docker_engine</code> on Windows) grants full control over all containers on the host. This is a <strong>high-privilege resource</strong>.</p>
 <p>FedLearn Desktop's security contract:
 1. The Docker socket is <strong>only accessed in <code>DockerService</code></strong> (Main Process)
-2. The Docker socket is <strong>never mounted into training containers</strong> (enforced in <code>startDockerTraining</code> — <code>AutoRemove: false</code> and no socket bind mount)
-3. The renderer has no knowledge that Docker even exists — it only calls <code>startTraining(config)</code> via the API bridge</p>
+2. The Docker socket is <strong>never mounted into training containers</strong> — the only bind in <code>HostConfig</code> is the dataset directory
+3. The renderer has no knowledge that Docker even exists — it only calls <code>startTraining(config)</code> via the API bridge
+4. The socket is not even opened unless the Jetson path is taken. <code>dockerode</code> connects lazily and the constructor performs no ping, so a macOS/Windows user on a native profile never touches it.</p>
 <div class="codehilite"><pre><span></span><code><span class="c1">// src/main/docker.service.ts</span>
 <span class="kd">const</span><span class="w"> </span><span class="nx">hostConfig</span><span class="o">:</span><span class="w"> </span><span class="kt">Docker.HostConfig</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Principle of least privilege — never mount the host Docker socket</span>
+<span class="w">  </span><span class="c1">// into the training container.</span>
 <span class="w">  </span><span class="nx">AutoRemove</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span>
 <span class="w">  </span><span class="nx">Binds</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="sb">`</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">datasetPath</span><span class="si">}</span><span class="sb">:/data`</span><span class="p">],</span><span class="w">  </span><span class="c1">// ONLY the dataset directory</span>
-<span class="w">  </span><span class="c1">// NOTE: /var/run/docker.sock is intentionally NOT mounted</span>
 <span class="p">};</span>
 </code></pre></div>
 
 <p>If the training container were to receive the Docker socket, it could escape the container and control the host daemon. This is explicitly prevented.</p>
+<p><code>AutoRemove: false</code> in that block is <strong>not</strong> a socket defence — it is a log-drain choice. With <code>AutoRemove: true</code> Docker deletes the container the instant it exits, before the attached log stream has drained; with <code>false</code> the container survives until <code>stopDockerContainer()</code> explicitly removes it, so the final bytes reach the log panel.</p>
 <hr />
 <h2 id="log-rendering-xss-prevention">Log Rendering — XSS Prevention<a class="headerlink" href="#log-rendering-xss-prevention" title="Permanent link">&para;</a></h2>
-<p>Container output is untrusted data. A maliciously crafted training script could output HTML/JavaScript. The <code>LogPanel</code> component is designed to prevent any XSS from this source:</p>
+<p>Container output is untrusted data. A maliciously crafted training script could output HTML/JavaScript. The <code>LogPanel</code> component is designed to prevent any XSS from this source.</p>
+<p>The panel has grown display features since it was a single <code>&lt;pre&gt;{logs.join('')}&lt;/pre&gt;</code> — per-line severity colouring, arrival timestamps, a filter box, follow-tail — so each line is now its own memoized row. The XSS property is unchanged, because every one of those pieces is still a <strong>React text node</strong>:</p>
 <div class="codehilite"><pre><span></span><code><span class="c1">// src/renderer/components/LogPanel.tsx</span>
-<span class="kd">const</span><span class="w"> </span><span class="nx">LogPanel</span><span class="o">:</span><span class="w"> </span><span class="kt">React.FC</span><span class="o">&lt;</span><span class="nx">LogPanelProps</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">({</span><span class="w"> </span><span class="nx">logs</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">(</span>
-<span class="w">    </span><span class="o">&lt;</span><span class="nx">div</span><span class="w"> </span><span class="nx">className</span><span class="o">=</span><span class="s2">&quot;log-panel&quot;</span><span class="w"> </span><span class="nx">ref</span><span class="o">=</span><span class="p">{</span><span class="nx">containerRef</span><span class="p">}</span><span class="o">&gt;</span>
-<span class="w">      </span><span class="o">&lt;</span><span class="nx">pre</span><span class="w"> </span><span class="nx">className</span><span class="o">=</span><span class="s2">&quot;log-content&quot;</span><span class="o">&gt;</span>
-<span class="w">        </span><span class="p">{</span><span class="cm">/*</span>
-<span class="cm">          SECURITY: Each log line is a plain text node.</span>
-<span class="cm">          React&#39;s default escaping prevents any HTML interpretation.</span>
-<span class="cm">          No dangerouslySetInnerHTML. No innerHTML. No DOM injection.</span>
-<span class="cm">        */</span><span class="p">}</span>
-<span class="w">        </span><span class="p">{</span><span class="nx">logs</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)}</span>
-<span class="w">      </span><span class="o">&lt;</span><span class="err">/pre&gt;</span>
-<span class="w">    </span><span class="o">&lt;</span><span class="err">/div&gt;</span>
-<span class="w">  </span><span class="p">);</span>
-<span class="p">};</span>
+<span class="o">&lt;</span><span class="nx">pre</span><span class="w"> </span><span class="nx">className</span><span class="o">=</span><span class="s2">&quot;log-content&quot;</span><span class="o">&gt;</span>
+<span class="w">  </span><span class="p">{</span><span class="cm">/*</span>
+<span class="cm">    SECURITY: Every piece of log output below is a plain React text</span>
+<span class="cm">    node — React escapes all content, so no HTML from container output</span>
+<span class="cm">    is ever interpreted.</span>
+<span class="cm">  */</span><span class="p">}</span>
+<span class="w">  </span><span class="p">{</span><span class="nx">visible</span><span class="p">.</span><span class="nx">map</span><span class="p">((</span><span class="nx">line</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="nx">LogLineRow</span><span class="w"> </span><span class="nx">key</span><span class="o">=</span><span class="p">{</span><span class="nx">line</span><span class="p">.</span><span class="nx">lineIndex</span><span class="p">}</span><span class="w"> </span><span class="nx">line</span><span class="o">=</span><span class="p">{</span><span class="nx">line</span><span class="p">}</span><span class="w"> </span><span class="nx">arrivedAt</span><span class="o">=</span><span class="p">{</span><span class="nx">entryTimesRef</span><span class="p">.</span><span class="nx">current</span><span class="p">[</span><span class="nx">line</span><span class="p">.</span><span class="nx">entryIndex</span><span class="p">]</span><span class="w"> </span><span class="o">??</span><span class="w"> </span><span class="mf">0</span><span class="p">}</span><span class="w"> </span><span class="o">/&gt;</span>
+<span class="w">  </span><span class="p">))}</span>
+<span class="o">&lt;</span><span class="err">/pre&gt;</span>
 </code></pre></div>
 
-<p>React's JSX rendering <strong>automatically escapes</strong> all string content — <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> in a log line renders as the literal text, not as an executable script tag. This means even if an attacker controls the Python training script, they cannot achieve XSS through container output.</p>
+<p><code>LogLineRow</code> renders <code>{line.text}</code> as a child, never as <code>dangerouslySetInnerHTML</code>; severity only selects a CSS class. React's JSX rendering <strong>automatically escapes</strong> all string content — <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> in a log line renders as literal text, not an executable script tag. So even an attacker who controls the Python training script cannot achieve XSS through container output.</p>
 <hr />
 <h2 id="threat-model-summary">Threat Model Summary<a class="headerlink" href="#threat-model-summary" title="Permanent link">&para;</a></h2>
 <table>
@@ -507,11 +650,15 @@
 </tr>
 <tr>
 <td>XSS via malicious log output</td>
-<td><code>LogPanel</code> uses React text nodes (auto-escaped); no <code>innerHTML</code></td>
+<td><code>LogPanel</code> renders React text nodes (auto-escaped); no <code>innerHTML</code></td>
 </tr>
 <tr>
 <td>Path traversal via dataset path</td>
 <td><code>sanitizeDatasetPath()</code> resolves, canonicalizes, and stat-checks the path</td>
+</tr>
+<tr>
+<td>Renderer mounts a host directory the user never chose</td>
+<td><code>dataset-consent.ts</code> allowlist — only a path returned by the native dialog can be bind-mounted</td>
 </tr>
 <tr>
 <td>Arbitrary IPC channel calls</td>
@@ -519,7 +666,11 @@
 </tr>
 <tr>
 <td>Input injection into Docker args</td>
-<td>Double validation (preload + main) with strict regex allowlists</td>
+<td>Double validation (preload + <code>validators.ts</code>) with strict regex allowlists</td>
+</tr>
+<tr>
+<td>Silent training-arm downgrade (client uploads full state dict to a head-only server)</td>
+<td><code>trainingArm</code> is validated strictly in Main and an unrecognised value <strong>throws</strong> instead of defaulting to <code>FULL</code></td>
 </tr>
 <tr>
 <td>Docker socket access from container</td>
@@ -542,19 +693,84 @@
 <td>Decryption failure triggers <code>logout()</code> and graceful re-auth prompt</td>
 </tr>
 <tr>
+<td>Token shipped to a different backend after a URL change</td>
+<td><code>setApiUrl()</code> clears the session and signals the renderer whenever the URL changes</td>
+</tr>
+<tr>
+<td>Credentials/token over the wire in the clear</td>
+<td>Remote plaintext <code>http://</code> refused with <code>code: 'INSECURE_HTTP'</code> unless explicitly overridden (DE-13)</td>
+</tr>
+<tr>
+<td>Stale session left usable after server-side revocation</td>
+<td>Single 401 interceptor on the shared axios instance → <code>auth:session-expired</code> push</td>
+</tr>
+<tr>
+<td>Console leakage of secrets in packaged builds</td>
+<td><code>TerserPlugin</code> with <code>drop_console</code> on the renderer <strong>and</strong> preload bundles (Main keeps <code>console</code> for electron-log)</td>
+</tr>
+<tr>
 <td>Crash data exfiltration</td>
 <td><code>crashReporter.start({ uploadToServer: false })</code> — dumps stay local</td>
 </tr>
 <tr>
 <td>Known Chromium/Electron CVEs in the runtime</td>
-<td>Electron pinned to <code>^42.4.0</code> (bumped from <code>^34.5.8</code>) to clear all high/critical advisories flagged by <code>npm audit</code></td>
+<td>Electron pinned to <code>^42.4.0</code> (bumped from <code>^34.5.8</code> in <code>0be70dc</code>). See the posture section below — the pin is no longer sufficient on its own.</td>
 </tr>
 </tbody>
 </table>
 <hr />
 <h2 id="dependency-vulnerability-posture">Dependency Vulnerability Posture<a class="headerlink" href="#dependency-vulnerability-posture" title="Permanent link">&para;</a></h2>
-<p>The desktop app's dependency tree is audited via <code>npm audit</code>. As of the Electron <code>^42.4.0</code> bump, the tree is <strong>clean at <code>--audit-level=high</code></strong> — no high- or critical-severity advisories remain. The Electron upgrade (from <code>^34.5.8</code>) was driven specifically by high/critical Chromium/Electron CVEs that <code>npm audit</code> surfaced against the older <code>34.x</code> line; <code>tsc</code> and the Jest suite pass against Electron 42 with no application-code changes.</p>
-<p>Four <strong>moderate</strong> advisories remain, all the same <code>uuid</code> missing-buffer-bounds-check issue (<a href="https://github.com/advisories/GHSA-w5hq-g745-h8pq">GHSA-w5hq-g745-h8pq</a>) reached transitively through <code>dockerode</code> (4.0.x) and <code>sockjs</code>/<code>webpack-dev-server</code>. The only published fix pulls in <code>dockerode@5.0.0</code>, a breaking major, so these are deliberately <strong>deferred and tracked for a future <code>dockerode</code> major upgrade</strong> rather than force-fixed.</p>
+<p><strong>This section states a measurement, and measurements of <code>npm audit</code> drift as the advisory database moves. Re-run it before relying on it.</strong></p>
+<p>Measured on <strong>2026-08-13</strong> (<code>cd fedlearn-desktop &amp;&amp; npm audit</code>, lockfile as committed):</p>
+<div class="codehilite"><pre><span></span><code>31 vulnerabilities (2 low, 8 moderate, 19 high, 2 critical)
+</code></pre></div>
+
+<p>So the earlier claim on this page — "clean at <code>--audit-level=high</code>, only four moderate <code>uuid</code> advisories remain" — <strong>no longer holds</strong>. That was true immediately after the Electron 34 → 42 bump (<code>0be70dc</code>); the tree has since accumulated new advisories without any dependency change on our side.</p>
+<p>What the current run reports, grouped by how it should be treated:</p>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Severity</th>
+<th>Packages (and where they come from)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shipped runtime deps</td>
+<td>high / moderate</td>
+<td><code>axios</code> (direct), <code>electron-updater</code> (direct) → <code>builder-util-runtime</code> — <em>cross-origin redirect leaks <code>PRIVATE-TOKEN</code> and mixed-case <code>Authorization</code></em>; <code>form-data</code> ← <code>axios</code>; <code>@grpc/grpc-js</code> and <code>protobufjs</code> ← <code>dockerode</code></td>
+<td>These matter most: <code>electron-updater</code> and <code>axios</code> sit on the shipped auto-update and REST paths. All report <code>fixAvailable: true</code>.</td>
+</tr>
+<tr>
+<td>Build/packaging toolchain</td>
+<td>high / critical</td>
+<td><code>electron-builder</code> → <code>app-builder-lib</code>, <code>builder-util</code>, <code>builder-util-runtime</code>, <code>dmg-builder</code>, <code>electron-publish</code>; plus <code>js-yaml</code>, <code>tar</code> (critical), <code>shell-quote</code>, <code>nanoid</code>, <code>postcss</code>, <code>brace-expansion</code>, <code>ip-address</code>, <code>fast-uri</code>; <code>undici</code> ← <code>electron</code> → <code>@electron/get</code></td>
+<td>Dev-time only — they run on the release machine, not on a user's install. <code>fixAvailable: true</code> for all.</td>
+</tr>
+<tr>
+<td>Dev server</td>
+<td>moderate / critical</td>
+<td><code>webpack-dev-server</code> (direct) → <code>sockjs</code> → <code>websocket-driver</code> (critical); plus <code>http-proxy-middleware</code>, <code>launch-editor</code></td>
+<td>Local dev only; never shipped.</td>
+</tr>
+<tr>
+<td>Electron itself</td>
+<td>moderate</td>
+<td><code>electron</code> (direct) — <code>ProtocolResponse.url</code> reuses the default session cache instead of the registering session</td>
+<td><code>fixAvailable: true</code>.</td>
+</tr>
+<tr>
+<td>The long-standing <code>uuid</code> case</td>
+<td>moderate</td>
+<td><code>uuid</code> ← <code>dockerode</code> 4.0.x, and separately ← <code>sockjs</code>/<code>webpack-dev-server</code></td>
+<td><a href="https://github.com/advisories/GHSA-w5hq-g745-h8pq">GHSA-w5hq-g745-h8pq</a>, missing buffer bounds check in v3/v5/v6. Still the one advisory whose only published fix is a <strong>breaking major</strong> (<code>dockerode@5.0.1</code>, <code>isSemVerMajor: true</code>), so it remains deliberately deferred.</td>
+</tr>
+</tbody>
+</table>
+<p>The honest reading: everything except the <code>dockerode</code> → <code>uuid</code> chain has a non-breaking fix available and is simply un-applied. The <code>overrides</code> block in <code>package.json</code> currently pins only <code>protobufjs &gt;= 7.5.5</code> (which resolves to 8.6.1 and is <em>still</em> flagged, so the override no longer clears that advisory).</p>
+<p><strong>CI does not gate on <code>npm audit</code>.</strong> The desktop job (<code>.github/workflows/ci.yml</code>) runs <code>check_no_skipped_tests.sh</code>, <code>npm ci</code>, <code>npm run lint</code>, and <code>npm run test:coverage</code> — nothing else. Nothing in the pipeline will fail when this list grows, which is why the number above went stale unnoticed.</p>
 <hr />
 <p><em>Next: <a href="03-main-process.html">03 — Main Process Deep Dive</a></em>
 <em>Previous: <a href="01-overview-and-architecture.html">01 — Overview &amp; Architecture</a></em></p></article>

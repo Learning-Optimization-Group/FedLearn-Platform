@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -84,58 +93,301 @@
   <div class="content-wrap">
     <article class="article"><h1 id="frontend-architecture-state-management">Frontend Architecture &amp; State Management<a class="headerlink" href="#frontend-architecture-state-management" title="Permanent link">&para;</a></h1>
 <h2 id="technology-stack">Technology Stack<a class="headerlink" href="#technology-stack" title="Permanent link">&para;</a></h2>
-<p>The frontend is built for performance, security, and developer experience. The core technologies include:</p>
-<ul>
-<li><strong>Framework</strong>: React 19 (Hooks, Functional Components)</li>
-<li><strong>Language</strong>: TypeScript 5.7+</li>
-<li><strong>Build Tool</strong>: Vite 6.3+ (Extremely fast HMR and optimized builds)</li>
-<li><strong>Styling</strong>: Tailwind CSS 4.x (Utility-first CSS), standard CSS modules.</li>
-<li><strong>Routing</strong>: React Router DOM 7.17+ (patched within the v7 major to clear an npm-audit high vuln)</li>
-<li><strong>Data Fetching</strong>: Axios 1.17+ (patched within the v1 major to clear an npm-audit high vuln)</li>
-<li><strong>Real-time / Telemetry</strong>: StompJS 7+ (WebSockets)</li>
-<li><strong>Charting</strong>: Recharts 2.15+</li>
-</ul>
+<p>The frontend is built for performance, security, and developer experience. Declared ranges live in
+<code>frontend/package.json</code>; the <strong>resolved</strong> versions below are what <code>frontend/package-lock.json</code>
+actually installs, which is what CI builds against.</p>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Library</th>
+<th>Declared</th>
+<th>Resolved</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Framework</td>
+<td>React + React DOM</td>
+<td><code>^19.0.0</code></td>
+<td>19.2.4</td>
+</tr>
+<tr>
+<td>Language</td>
+<td>TypeScript</td>
+<td><code>^5.7.2</code></td>
+<td>5.9.3</td>
+</tr>
+<tr>
+<td>Build tool</td>
+<td>Vite</td>
+<td><code>^6.3.1</code></td>
+<td>6.4.2</td>
+</tr>
+<tr>
+<td>Styling</td>
+<td>Tailwind CSS (v4, <code>@tailwindcss/vite</code> plugin)</td>
+<td><code>^4.1.12</code></td>
+<td>4.2.2</td>
+</tr>
+<tr>
+<td>Routing</td>
+<td>react-router-dom</td>
+<td><code>^7.5.2</code></td>
+<td>7.17.0</td>
+</tr>
+<tr>
+<td>Data fetching</td>
+<td>Axios</td>
+<td><code>^1.11.0</code></td>
+<td>1.17.0</td>
+</tr>
+<tr>
+<td>Real-time</td>
+<td><code>@stomp/stompjs</code></td>
+<td><code>^7.1.1</code></td>
+<td>7.3.0</td>
+</tr>
+<tr>
+<td>Charting</td>
+<td>Recharts</td>
+<td><code>^2.15.2</code></td>
+<td>2.15.4</td>
+</tr>
+<tr>
+<td>Icons</td>
+<td><code>lucide-react</code></td>
+<td><code>^0.487.0</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Class handling</td>
+<td><code>clsx</code>, <code>tailwind-merge</code>, <code>class-variance-authority</code></td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Tests</td>
+<td>Vitest + Testing Library + jsdom</td>
+<td><code>^3.2.6</code></td>
+<td>3.2.6</td>
+</tr>
+</tbody>
+</table>
+<p>Both <code>axios</code> and <code>react-router-dom</code> were bumped <em>within</em> their existing major to clear npm-audit
+highs (<code>07b369f</code>, "bump axios/react-router-dom to patched versions (0 npm-audit high)") — neither
+was a breaking upgrade.</p>
+<p>There is <strong>no state-management library</strong> (no Redux, no Zustand, no React Query) and no UI kit
+dependency: the primitives in <code>src/components/ui/</code> are local, and the design tokens are generated
+(see <a href="UI_and_Components.html">UI &amp; Components</a>).</p>
 <h2 id="directory-structure">Directory Structure<a class="headerlink" href="#directory-structure" title="Permanent link">&para;</a></h2>
 <p>The <code>src/</code> directory is logically partitioned to separate concerns:</p>
 <div class="codehilite"><pre><span></span><code>src/
-├── api/             # Axios configuration and base API clients
+├── api/             # The single Axios instance + its interceptors (axiosConfig.ts)
 ├── assets/          # Static images, icons, SVGs
-├── components/      # Reusable UI components
-│   └── redesign/    # V2 components (now on the Ember design system)
-├── context/         # React Contexts (e.g., AuthContext)
-├── lib/             # Utility libraries and helpers (logger, generic utils)
-├── pages/           # Route-level components / Views
-├── services/        # Service layer for API wrappers and stores (e.g., logStore)
-└── styles/          # Global stylesheets and legacy component CSS
+├── components/
+│   ├── brand/       # BrandMark / Wordmark / HeroNetwork
+│   ├── redesign/    # Every routed view + the project modals (see note below)
+│   ├── ui/          # Design-system primitives (Button, Modal, StatusPill, …)
+│   ├── DiskLoader.tsx      ErrorBoundary.tsx
+│   └── ProtectedRoute.tsx  RoleRoute.tsx
+├── context/         # AuthContext (the only React Context in the app)
+├── hooks/           # useStompClient · useProjectStatus · useFocusTrap
+├── lib/             # serverConfig · connectionStatus · logger · utils (cn)
+├── pages/           # Unauthenticated route-level views: Landing, Login, Register
+├── services/        # Typed API clients + stores: apiServices, artifactService, logStore
+├── styles/          # tailwind.css, theme.css, tokens.css (generated), brand.css, fonts.css
+└── test/            # Vitest setup + shared auth fixtures
 </code></pre></div>
 
+<p><code>components/redesign/</code> is a <strong>historical name, not a second UI</strong>. There is no "legacy" component
+tree any more: <code>redesign/</code> holds the only shipped views, and the old <code>/v2/*</code> URLs are pure
+redirects (see <a href="Routing_and_Auth.html">Routing &amp; Auth</a>). Several files still carry an
+<code>(Ember design system)</code> banner comment from the previous design cycle — the code itself is on
+Ledger tokens.</p>
 <h2 id="state-management-approach">State Management Approach<a class="headerlink" href="#state-management-approach" title="Permanent link">&para;</a></h2>
-<p>Instead of using a heavy state management library like Redux, the FedLearn frontend utilizes a combination of <strong>React Context API</strong> and <strong>Service-Level Stores</strong>:</p>
-<h3 id="1-react-context-global-ui-auth-state">1. React Context (Global UI &amp; Auth State)<a class="headerlink" href="#1-react-context-global-ui-auth-state" title="Permanent link">&para;</a></h3>
-<p>We use Context primarily for state that is required globally and changes infrequently, such as the current authenticated user.</p>
-<h3 id="2-service-level-stores-domain-state">2. Service-Level Stores (Domain State)<a class="headerlink" href="#2-service-level-stores-domain-state" title="Permanent link">&para;</a></h3>
-<p>For state that needs to be accessed independently of the React component tree (e.g., by WebSocket listeners) and persists across unmounts, we use lightweight, in-memory stores. </p>
-<p>A prime example is the <code>logStore.ts</code>, which caches logs per project:</p>
+<p>Instead of using a heavy state management library, the FedLearn frontend uses three tiers:</p>
+<h3 id="1-react-context-auth-identity-only">1. React Context (auth identity only)<a class="headerlink" href="#1-react-context-auth-identity-only" title="Permanent link">&para;</a></h3>
+<p><code>AuthContext</code> is the single Context in the app. It owns <code>currentUser</code>, <code>isLoading</code>, the derived
+<code>isAdmin</code> / <code>isOwner</code> booleans, <code>setSession</code> and <code>logout</code>. Everything else is either local state or
+a service store. Details in <a href="Routing_and_Auth.html#the-authcontext">Routing &amp; Auth</a>.</p>
+<h3 id="2-service-level-stores-domain-state-that-outlives-a-component">2. Service-Level Stores (domain state that outlives a component)<a class="headerlink" href="#2-service-level-stores-domain-state-that-outlives-a-component" title="Permanent link">&para;</a></h3>
+<p>For state that must survive unmounts and be writable from a WebSocket callback outside the React
+tree, the app uses small module-scoped stores with a publish/subscribe API.</p>
+<p><code>src/services/logStore.ts</code> is the canonical one — a <code>Map&lt;projectId, StoredLogEntry[]&gt;</code> capped at
+<strong>2000 entries per project</strong>:</p>
 <div class="codehilite"><pre><span></span><code><span class="c1">// src/services/logStore.ts</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">MAX_LOGS_PER_PROJECT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">2000</span><span class="p">;</span>
 <span class="kd">const</span><span class="w"> </span><span class="nx">cache</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Map</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">StoredLogEntry</span><span class="p">[]</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="kd">let</span><span class="w"> </span><span class="nx">nextId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1</span><span class="p">;</span><span class="w">                                  </span><span class="c1">// monotonic, never reused</span>
 
-<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">logStore</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nx">get</span><span class="p">(</span><span class="nx">projectId</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nx">StoredLogEntry</span><span class="p">[]</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">cache</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="nx">projectId</span><span class="p">)</span><span class="w"> </span><span class="o">??</span><span class="w"> </span><span class="p">[];</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="nx">append</span><span class="p">(</span><span class="nx">projectId</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">entry</span><span class="o">:</span><span class="w"> </span><span class="kt">StoredLogEntry</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">arr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">cache</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="nx">projectId</span><span class="p">)</span><span class="w"> </span><span class="o">??</span><span class="w"> </span><span class="p">[];</span>
-<span class="w">        </span><span class="nx">arr</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="nx">entry</span><span class="p">);</span>
-<span class="w">        </span><span class="nx">cache</span><span class="p">.</span><span class="nx">set</span><span class="p">(</span><span class="nx">projectId</span><span class="p">,</span><span class="w"> </span><span class="nx">arr</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="o">-</span><span class="mf">2000</span><span class="p">));</span><span class="w"> </span><span class="c1">// Keep last 2000 logs</span>
-<span class="w">        </span><span class="nx">emit</span><span class="p">(</span><span class="nx">projectId</span><span class="p">);</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="c1">// ... subscription logic</span>
-<span class="p">};</span>
+<span class="nx">append</span><span class="p">(</span><span class="nx">projectId</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">entry</span><span class="o">:</span><span class="w"> </span><span class="kt">LogEntryInput</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="ow">void</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// A NEW array every time — listeners feed this straight into setState, and an</span>
+<span class="w">    </span><span class="c1">// identical reference hits React&#39;s Object.is bailout, freezing the log pane.</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">prev</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">cache</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="nx">projectId</span><span class="p">)</span><span class="w"> </span><span class="o">??</span><span class="w"> </span><span class="p">[];</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">next</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[...</span><span class="nx">prev</span><span class="p">,</span><span class="w"> </span><span class="nx">stamp</span><span class="p">(</span><span class="nx">entry</span><span class="p">)];</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">next</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nx">MAX_LOGS_PER_PROJECT</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nx">next</span><span class="p">.</span><span class="nx">splice</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="w"> </span><span class="nx">next</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nx">MAX_LOGS_PER_PROJECT</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nx">cache</span><span class="p">.</span><span class="nx">set</span><span class="p">(</span><span class="nx">projectId</span><span class="p">,</span><span class="w"> </span><span class="nx">next</span><span class="p">);</span>
+<span class="w">    </span><span class="nx">emit</span><span class="p">(</span><span class="nx">projectId</span><span class="p">);</span>
+<span class="p">}</span>
 </code></pre></div>
 
-<p>This pattern allows the <code>LogViewer</code> to unmount and remount instantly without losing the currently streaming logs.</p>
+<p>Two non-obvious invariants are load-bearing and documented in the file itself:</p>
+<ul>
+<li><strong>Never mutate the cached array in place.</strong> Listeners pass the emitted reference directly into
+  <code>setState</code>; an in-place <code>push</code> returns the same reference, React bails out, and the live pane
+  freezes until some unrelated re-render.</li>
+<li><strong>Every entry gets a store-assigned monotonic <code>id</code>, and consumers must key on it.</strong>
+  <code>mergeHistorical()</code> <em>prepends</em> the REST-fetched history, which shifts every array index — an
+  index key would reconcile the wrong DOM node to the wrong entry (garbled timestamps, repeated
+  lines, broken auto-scroll).</li>
+</ul>
+<p><code>logStore</code> also tracks <code>hasLoadedHistorical(projectId)</code> so <code>GET /projects/{id}/logs</code> is fetched at
+most once per project per tab. <code>LogViewer</code> keeps a parallel <code>telemetryCache</code> (last 30 loss/accuracy
+points per project) with the same "survive the modal close" motivation.</p>
 <h3 id="3-local-component-state">3. Local Component State<a class="headerlink" href="#3-local-component-state" title="Permanent link">&para;</a></h3>
-<p>Standard React <code>useState</code> and <code>useReducer</code> are used for isolated, component-specific state (e.g., form inputs, modal visibility, local toggles).</p></article>
+<p>Standard <code>useState</code> / <code>useReducer</code> for isolated concerns (form inputs, modal visibility, filter
+toggles, pagination). Admin directory views additionally mirror their filter + page state into the
+URL via <code>useSearchParams</code>, so a filtered view is linkable and survives refresh/back.</p>
+<h2 id="hooks-layer">Hooks layer<a class="headerlink" href="#hooks-layer" title="Permanent link">&para;</a></h2>
+<p>Three hooks carry the cross-cutting behaviour that used to be copy-pasted per view:</p>
+<table>
+<thead>
+<tr>
+<th>Hook</th>
+<th>Owns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>useStompClient</code></td>
+<td>One STOMP client's whole lifecycle: activate, (re)subscribe on every CONNECTED frame, unsubscribe + deactivate on unmount, and the honest <code>{ isConnected, isReconnecting, lastError }</code> state. See <a href="API_and_Services.html#real-time-logs--websockets">API &amp; Services</a>.</td>
+</tr>
+<tr>
+<td><code>useProjectStatus</code></td>
+<td>The <code>/topic/status/{id}</code> + <code>/topic/results/{id}</code> pair, JSON-decoded, with the owning project id resolved from the message's <code>destination</code> header rather than from the subscribed pattern. <code>OwnerDashboard</code> passes <code>'*'</code> for that segment, but the backend rejects wildcard SUBSCRIBE destinations outright — see <a href="API_and_Services.html#destinations">API &amp; Services</a>.</td>
+</tr>
+<tr>
+<td><code>useFocusTrap</code></td>
+<td>Keeps focus inside an open dialog and returns it to the trigger on close. Used by <code>ui/Modal</code> and by the <code>LogViewer</code> overlay.</td>
+</tr>
+</tbody>
+</table>
+<p><code>useStompClient</code> reads <code>subscriptions</code> and <code>onConnect</code> through refs that are refreshed on every
+render, and derives its effect dependency from <code>subscriptions.map(s =&gt; s.topic).join(' ')</code> rather
+than the array identity. Every call site builds that array inline, so without this the socket would
+be torn down and rebuilt on every render.</p>
+<h2 id="environments-vite-modes-and-the-dev-proxy">Environments, Vite modes and the dev proxy<a class="headerlink" href="#environments-vite-modes-and-the-dev-proxy" title="Permanent link">&para;</a></h2>
+<p>Vite modes map <strong>1:1</strong> onto Spring profiles, and the committed <code>.env.*</code> files say so in their own
+headers.</p>
+<table>
+<thead>
+<tr>
+<th>Vite mode</th>
+<th>Command</th>
+<th>Spring profile</th>
+<th><code>VITE_FEDLEARN_API_URL</code></th>
+<th>Proxy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>development</code></td>
+<td><code>npm run dev</code></td>
+<td><code>dev</code></td>
+<td><code>http://localhost:8081/api</code></td>
+<td>none — the browser calls <code>:8081</code> directly</td>
+</tr>
+<tr>
+<td><code>ec2demo</code></td>
+<td><code>npm run dev:ec2demo</code></td>
+<td><code>ec2demo</code></td>
+<td><code>http://localhost:5173/api</code></td>
+<td><code>/api</code> <strong>and</strong> <code>/ws-logs</code> → <code>VITE_PROXY_TARGET</code></td>
+</tr>
+<tr>
+<td><code>production</code></td>
+<td><code>npm run build</code></td>
+<td><code>production</code></td>
+<td>injected out-of-band (see below)</td>
+<td>none</td>
+</tr>
+</tbody>
+</table>
+<p><code>.env.development</code>, <code>.env.ec2demo</code> and <code>.env.production</code> are committed; <code>.env.local</code> and
+<code>.env.[mode].local</code> are gitignored personal overrides and win under Vite's precedence
+(<code>.env.[mode].local &gt; .env.local &gt; .env.[mode] &gt; .env</code>). <code>frontend/.env.example</code> documents every
+variable the app reads.</p>
+<p><strong>Why <code>ec2demo</code> proxies through Vite rather than pointing at the demo host directly.</strong> The auth
+contract is an HttpOnly cookie. If the browser loaded the SPA from <code>localhost:5173</code> and called a
+remote API origin directly, that cookie would be a <em>third-party</em> cookie — which Safari blocks
+outright and other browsers increasingly restrict. Routing <code>/api</code> and <code>/ws-logs</code> through the Vite
+dev server keeps the cookie first-party to <code>localhost:5173</code> while the traffic still reaches the
+real backend. <code>vite.config.ts</code> only installs the proxy block when <code>VITE_PROXY_TARGET</code> is set, so it
+is dead weight in full-local dev:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// vite.config.ts — proxy is undefined unless VITE_PROXY_TARGET is set</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">proxy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">proxyTarget</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="s1">&#39;/api&#39;</span><span class="o">:</span><span class="w">     </span><span class="p">{</span><span class="w"> </span><span class="nx">target</span><span class="o">:</span><span class="w"> </span><span class="kt">proxyTarget</span><span class="p">,</span><span class="w">                          </span><span class="nx">changeOrigin</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w"> </span><span class="nx">secure</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="s1">&#39;/ws-logs&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">target</span><span class="o">:</span><span class="w"> </span><span class="kt">proxyTarget.replace</span><span class="p">(</span><span class="sr">/^http/</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;ws&#39;</span><span class="p">),</span><span class="w"> </span><span class="nx">ws</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w"> </span><span class="nx">changeOrigin</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span><span class="w"> </span><span class="nx">secure</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="w"> </span><span class="p">},</span>
+<span class="p">}</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="kc">undefined</span><span class="p">;</span>
+</code></pre></div>
+
+<p><strong><code>strictPort: true</code> on 5173.</strong> Vite is configured to <em>fail</em> rather than shift to 5174 when the
+port is taken. The reason is the backend's CORS allowlist: <code>app.cors.allowed-origins</code> is fed into
+<code>CorsConfiguration.setAllowedOriginPatterns(...)</code> with <code>allowCredentials(true)</code>, and a cookie-bearing
+request from an unlisted origin fails with a missing <code>Access-Control-Allow-Credentials</code> — a
+confusing symptom whose real cause is a stuck process on 5173. Worth being precise about the blast
+radius: the shipped <strong><code>dev</code></strong> default is a port <em>wildcard</em>
+(<code>CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*,http://[::1]:*,file://</code> in
+<code>application-dev.properties</code>), so a silent shift to 5174 would still pass CORS there. The base
+profile has no default at all and refuses to boot without an explicit <code>CORS_ALLOWED_ORIGINS</code>, so
+any environment that lists origins literally — and the <code>ec2demo</code> first-party-cookie trick, which
+depends on the SPA actually being on 5173 — does break on a port shift. Failing fast is the cheap
+way to never have to tell those two cases apart.</p>
+<h2 id="build-guards-and-quality-gates">Build, guards and quality gates<a class="headerlink" href="#build-guards-and-quality-gates" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><code>npm run build</code> is <code>tsc &amp;&amp; vite build</code></strong> — the type check is part of the build, not a separate
+  step, and CI additionally runs <code>npx tsc --noEmit</code>.</li>
+<li><strong>Production host guard (FE-7).</strong> <code>.env.production</code> deliberately ships the placeholder host
+  <code>REPLACE_WITH_YOUR_API_HOST</code>. Two independent guards stop it reaching a bundle: the npm
+  <code>prebuild</code> hook (<code>scripts/check-prod-env.mjs</code>, which reuses Vite's own <code>loadEnv</code> so it inspects
+  exactly what the bundle would inline), and three throws at module scope in <code>src/api/axiosConfig.ts</code>
+  for a missing, placeholder, or non-<code>https://</code> origin. The real host is injected out-of-band via a
+  gitignored <code>.env.local</code> or CI-exported env vars — never by editing the committed file.</li>
+<li><strong>No sourcemaps in the bundle.</strong> <code>build.sourcemap</code> is <code>false</code>; the previous <code>true</code> emitted
+  <code>dist/assets/index-*.js.map</code>, which anyone could fetch and de-minify back to readable TypeScript.
+  Switch to <code>'hidden'</code> if an error tracker ever needs server-side de-minification.</li>
+<li><strong>ESLint 9 flat config</strong> (<code>eslint.config.mjs</code>). Three rules are <code>error</code>, not <code>warn</code>, deliberately:
+  <code>@typescript-eslint/no-explicit-any</code>, <code>@typescript-eslint/no-unused-vars</code>, and
+  <code>react-refresh/only-export-components</code>. The one legitimate exception (the <code>useAuth</code> hook
+  co-located with its provider) carries a scoped, documented disable.</li>
+<li><strong>Vitest</strong> (<code>vitest.config.ts</code>) runs the component/unit suite on jsdom. It is kept separate from
+  <code>vite.config.ts</code> so tests don't pull in the dev proxy or the Tailwind pipeline. <code>globals: false</code> —
+  specs import <code>describe</code>/<code>it</code>/<code>expect</code>/<code>vi</code> explicitly, so the app tsconfig and lint config need no
+  test-only changes. <code>src/test/setup.ts</code> stubs <code>matchMedia</code>, <code>ResizeObserver</code> and <code>scrollIntoView</code>,
+  which jsdom lacks and Recharts/PlaygroundView touch on mount.</li>
+<li><strong>Coverage is a gate, not a report.</strong> <code>vitest.config.ts</code> sets thresholds (lines/statements 54,
+  functions 34, branches 66) a few points under the measured baseline — the intent is to catch a
+  drop, not to pin an aspirational target.</li>
+<li><strong>CI</strong> (<code>.github/workflows/ci.yml</code>, path-filtered on <code>frontend/**</code>) runs, in order:
+  <code>npm ci</code> → <code>npm run lint</code> → <code>npx tsc --noEmit</code> → <code>npm run test:coverage</code> → <code>npm run build</code>.
+  A separate, <em>unfiltered</em> <code>design-tokens</code> job runs <code>scripts/check_design_tokens.sh</code> on every push —
+  see <a href="UI_and_Components.html#design-tokens-are-generated-not-hand-written">UI &amp; Components</a>.</li>
+</ul>
+<h2 id="cross-cutting-utilities">Cross-cutting utilities<a class="headerlink" href="#cross-cutting-utilities" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><code>src/lib/logger.ts</code></strong> — <code>createLogger(scope)</code> returns a leveled logger. <code>debug</code> and <code>info</code> are
+  stripped from production bundles (<code>import.meta.env.PROD</code>), every line is tagged <code>[Scope]</code> so it is
+  greppable, and the whole app funnels through one chokepoint for a future Sentry/Datadog RUM wiring.
+  Use <code>console.*</code> directly nowhere.</li>
+<li><strong><code>src/components/ErrorBoundary.tsx</code></strong> wraps the entire tree in <code>main.tsx</code>, outside
+  <code>BrowserRouter</code> and <code>AuthProvider</code>.</li>
+<li><strong><code>src/components/DiskLoader.tsx</code></strong> is the standard async spinner (app bootstrap, auth check).</li>
+<li><strong><code>main.tsx</code></strong> aliases <code>window.global = window</code> before render — some dependencies expect a
+  Node-style <code>global</code>; <code>vite.config.ts</code> mirrors that with <code>define: { global: {} }</code>.</li>
+</ul></article>
     <nav class="toc"></nav>
   </div>
 </div>

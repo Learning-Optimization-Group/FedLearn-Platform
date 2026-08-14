@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group" open>
 <summary>Desktop</summary><ul>
@@ -103,12 +112,14 @@
 <p>FedLearn Desktop is a cross-platform Electron application that serves as the <strong>local training orchestrator</strong> for the FedLearn federated learning platform. It provides participants (clients) in a federated learning network with a graphical interface to:</p>
 <ul>
 <li><strong>Authenticate</strong> against the FedLearn backend server</li>
-<li><strong>Configure</strong> a training job: hardware profile, project, partition, model architecture, and local dataset</li>
+<li><strong>Pick a model to train</strong> from the list of projects the signed-in user is allowed to join — the gRPC address, the server-assigned partition id, the model type, the aggregation strategy, the training arm, and the FL connection token all come back from the backend, not from a form</li>
+<li><strong>Choose</strong> a local dataset directory (or explicitly skip it and use the recipe's built-in data) and, if needed, override the detected hardware profile</li>
 <li><strong>Launch</strong> a containerized (Docker) or native (PyInstaller binary) Python training client</li>
 <li><strong>Stream real-time logs</strong> from the running training process</li>
 <li><strong>Monitor</strong> training status via live status polling</li>
+<li><strong>Run inference</strong> against an already-trained model — image, numeric vector, text classification, or streamed text generation — through the Model Playground</li>
 </ul>
-<p>The desktop app is the bridge between the <strong>end user's machine</strong> (with its local dataset) and the <strong>central FedLearn Spring Boot server</strong> that coordinates federated learning rounds. Critically, <strong>raw data never leaves the client machine</strong> — only model updates (gradients/weights) are transmitted.</p>
+<p>The desktop app is the bridge between the <strong>end user's machine</strong> (with its local dataset) and the <strong>central FedLearn Spring Boot server</strong> that coordinates federated learning rounds. Critically, <strong>raw data never leaves the client machine</strong> — only model updates (weights/pseudo-gradients) are transmitted.</p>
 <hr />
 <h2 id="technology-stack">Technology Stack<a class="headerlink" href="#technology-stack" title="Permanent link">&para;</a></h2>
 <table>
@@ -134,6 +145,12 @@
 <td>Renderer UI components</td>
 </tr>
 <tr>
+<td>Icons</td>
+<td>lucide-react</td>
+<td><code>^0.487.0</code></td>
+<td>Icon set (replaced the emoji-based UI in <code>74cda60</code>)</td>
+</tr>
+<tr>
 <td>Language</td>
 <td>TypeScript</td>
 <td><code>5.7.3</code></td>
@@ -149,25 +166,43 @@
 <td>Packaging</td>
 <td>electron-builder</td>
 <td><code>^26.8.1</code></td>
-<td>Produces DMG, NSIS, AppImage distributable</td>
+<td>Produces DMG, NSIS, AppImage, deb distributables</td>
+</tr>
+<tr>
+<td>Auto-update</td>
+<td>electron-updater</td>
+<td><code>^6.8.3</code></td>
+<td>Background download + restart-to-install</td>
 </tr>
 <tr>
 <td>Docker Control</td>
 <td>dockerode</td>
 <td><code>^4.0.10</code></td>
-<td>Node.js Docker Engine API client</td>
+<td>Node.js Docker Engine API client (Jetson path only)</td>
 </tr>
 <tr>
 <td>Secure Storage</td>
 <td>electron-store + safeStorage</td>
 <td><code>8.2.0</code></td>
-<td>OS-encrypted JWT persistence</td>
+<td>OS-encrypted JWT and saved-credential persistence</td>
 </tr>
 <tr>
 <td>HTTP Client</td>
 <td>axios</td>
 <td><code>^1.15.0</code></td>
-<td>Backend API calls (auth only, from Main)</td>
+<td>Backend REST calls from Main, through one shared instance (<code>src/main/http.ts</code>)</td>
+</tr>
+<tr>
+<td>Streaming</td>
+<td><code>@stomp/stompjs</code> + <code>ws</code></td>
+<td><code>^7.3.0</code> / <code>^8.21.0</code></td>
+<td>Main-process STOMP bridge that relays generation tokens to the renderer</td>
+</tr>
+<tr>
+<td>Fonts</td>
+<td><code>@fontsource/hanken-grotesk</code>, <code>@fontsource/jetbrains-mono</code></td>
+<td><code>^5.2.8</code></td>
+<td>Self-hosted Ledger typefaces — no remote font host in the CSP</td>
 </tr>
 <tr>
 <td>Logging</td>
@@ -177,58 +212,73 @@
 </tr>
 </tbody>
 </table>
+<p>Version pins are read from <code>fedlearn-desktop/package.json</code>. There is one <code>overrides</code> entry — <code>protobufjs &gt;= 7.5.5</code> — forcing a patched transitive copy.</p>
 <hr />
 <h2 id="high-level-architecture">High-Level Architecture<a class="headerlink" href="#high-level-architecture" title="Permanent link">&para;</a></h2>
-<div class="codehilite"><pre><span></span><code>┌───────────────────────────────────────────────────────────┐
-│                   FedLearn Desktop (Electron)             │
-│                                                           │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │  RENDERER PROCESS  (sandboxed, context-isolated)    │  │
-│  │                                                     │  │
-│  │   React App (App.tsx)                               │  │
-│  │   ├── AuthModal       ← login form                  │  │
-│  │   ├── HardwareSelector ← training config + start    │  │
-│  │   ├── LogPanel        ← real-time log stream        │  │
-│  │   ├── StatusIndicator ← container state badge       │  │
-│  │   └── SettingsModal   ← server URL settings         │  │
-│  │                                                     │  │
-│  │   window.fedLearnAPI (contextBridge — read only)    │  │
-│  └────────────────────────┬────────────────────────────┘  │
-│                           │ IPC (validated)               │
-│  ┌─────────────────────────▼────────────────────────────┐  │
-│  │  PRELOAD SCRIPT  (trusted context bridge)            │  │
-│  │   preload.ts                                         │  │
-│  │   • Exposes window.fedLearnAPI via contextBridge     │  │
-│  │   • Validates ALL inputs against allowlists          │  │
-│  │   • Blocks invalid calls before Main ever sees them  │  │
-│  └────────────────────────┬────────────────────────────┘  │
-│                           │ ipcMain.handle               │
-│  ┌─────────────────────────▼────────────────────────────┐  │
-│  │  MAIN PROCESS  (full Node.js privileges)             │  │
-│  │                                                     │  │
-│  │   main.ts          ← BrowserWindow + CSP + security │  │
-│  │   ipc.handlers.ts  ← ipcMain registrations          │  │
-│  │   ├── docker.service.ts  ← container lifecycle      │  │
-│  │   ├── auth.service.ts    ← JWT + backend API calls  │  │
-│  │   └── hardware.probe.ts  ← GPU/platform detection   │  │
-│  └───────────┬───────────────────────────┬─────────────┘  │
-│              │                           │                 │
-└──────────────┼───────────────────────────┼─────────────────┘
-               │                           │
-       Docker Daemon                FedLearn Backend
-   (container lifecycle)            (Spring Boot API)
+<div class="codehilite"><pre><span></span><code>┌────────────────────────────────────────────────────────────────┐
+│                   FedLearn Desktop (Electron)                  │
+│                                                                │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  RENDERER PROCESS  (sandboxed, context-isolated)         │  │
+│  │                                                          │  │
+│  │   React App (App.tsx) — icon rail + section outlet        │  │
+│  │   ├── AuthModal        ← login + server URL (auth gate)   │  │
+│  │   ├── TrainSection     ← guided setup / running run       │  │
+│  │   │     ├── HardwareProfilePicker (Advanced disclosure)   │  │
+│  │   │     └── LogPanel   ← filtered, severity-coloured logs │  │
+│  │   ├── ModelPlayground  ← &quot;Use a model&quot; inference + chat   │  │
+│  │   ├── SettingsSection  ← server URL, updates, about       │  │
+│  │   ├── UpdateBanner     ← auto-update layer (shell level)  │  │
+│  │   └── StatusBar        ← host · hardware · StatusIndicator│  │
+│  │                                                          │  │
+│  │   window.fedLearnAPI (contextBridge — frozen surface)     │  │
+│  └───────────────────────────┬──────────────────────────────┘  │
+│                              │ IPC (validated)                 │
+│  ┌───────────────────────────▼──────────────────────────────┐  │
+│  │  PRELOAD SCRIPT  (trusted context bridge)                │  │
+│  │   preload.ts                                             │  │
+│  │   • Exposes window.fedLearnAPI via contextBridge         │  │
+│  │   • Validates ALL inputs against allowlists              │  │
+│  │   • Blocks invalid calls before Main ever sees them      │  │
+│  └───────────────────────────┬──────────────────────────────┘  │
+│                              │ ipcMain.handle                  │
+│  ┌───────────────────────────▼──────────────────────────────┐  │
+│  │  MAIN PROCESS  (full Node.js privileges)                 │  │
+│  │                                                          │  │
+│  │   main.ts            ← BrowserWindow, menu, CSP, quit    │  │
+│  │   ipc.handlers.ts    ← every ipcMain registration        │  │
+│  │   ├── validators.ts          ← pure input validation     │  │
+│  │   ├── dataset-consent.ts     ← user-chosen path allowlist│  │
+│  │   ├── docker.service.ts      ← container + native client │  │
+│  │   ├── auth.service.ts        ← JWT, credentials, expiry  │  │
+│  │   ├── http.ts                ← shared axios + 401 hook   │  │
+│  │   ├── client-projects.service.ts ← &quot;models I can train&quot;  │  │
+│  │   ├── inference.service.ts   ← one-shot inference        │  │
+│  │   ├── inference-stream.service.ts ← STOMP token bridge   │  │
+│  │   ├── deviceCapabilities.collector.ts ← RAM/disk/OS      │  │
+│  │   ├── hardware.probe.ts      ← GPU/platform detection    │  │
+│  │   └── updater.ts             ← electron-updater wiring   │  │
+│  └───────────┬────────────────────────────────┬────────────┘  │
+│              │                                │               │
+└──────────────┼────────────────────────────────┼───────────────┘
+               │                                │
+       Docker Daemon                     FedLearn Backend
+   (Jetson profile only)          (Spring Boot REST + STOMP)
 </code></pre></div>
 
+<p><code>src/shared/</code> holds the modules imported from <strong>both</strong> processes (and from jest): <code>urlSecurity.ts</code> (loopback / plaintext-HTTP policy), <code>evaluateEligibility.ts</code> + <code>deviceCapabilities.types.ts</code> (the advisory device self-gate), and <code>bundleVariants.ts</code> (the shippable platform/arch/GPU variant manifest).</p>
 <hr />
 <h2 id="three-process-model">Three-Process Model<a class="headerlink" href="#three-process-model" title="Permanent link">&para;</a></h2>
 <p>Electron uses a <strong>multi-process architecture</strong> for security and stability. FedLearn Desktop leverages all three processes:</p>
 <h3 id="1-main-process-srcmain">1. Main Process (<code>src/main/</code>)<a class="headerlink" href="#1-main-process-srcmain" title="Permanent link">&para;</a></h3>
 <p>The <strong>privileged</strong> process. It:
-- Creates and manages <code>BrowserWindow</code>
+- Creates and manages <code>BrowserWindow</code>, and sets a standard-roles-only application menu (no custom items, so no menu item needs an IPC channel)
 - Has access to Node.js APIs (file system, child processes, Docker socket)
 - Manages the JWT in memory/encrypted storage — <strong>never exposed to the renderer</strong>
-- Runs <code>DockerService</code>, <code>AuthService</code>, and <code>HardwareProbe</code>
-- Registers all <code>ipcMain.handle</code> listeners</p>
+- Owns every backend HTTP call, through one shared axios instance that carries the <code>X-FedLearn-Client</code> marker and the single 401 session-expiry interceptor
+- Runs <code>DockerService</code>, <code>AuthService</code>, <code>ClientProjectService</code>, <code>InferenceService</code>, <code>InferenceStreamService</code>, the hardware probe and the device-capability collector
+- Registers all <code>ipcMain.handle</code> listeners
+- Drains any running training on <code>before-quit</code> (with a 15 s hard cap) so quitting mid-run cannot orphan a Jetson container</p>
 <div class="codehilite"><pre><span></span><code><span class="c1">// main.ts — The entry point</span>
 <span class="nx">app</span><span class="p">.</span><span class="nx">whenReady</span><span class="p">().</span><span class="nx">then</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="nx">createWindow</span><span class="p">();</span><span class="w"> </span><span class="c1">// Creates BrowserWindow with strict security settings</span>
@@ -260,7 +310,7 @@
 - Has <strong>no access to Node.js</strong> (<code>nodeIntegration: false</code>)
 - Can only call the functions exposed on <code>window.fedLearnAPI</code>
 - Renders the React component tree
-- Listens for pushed log events via <code>onTrainingLog</code> callback</p>
+- Listens for pushed events via the <code>onTrainingLog</code>, <code>onInferenceToken</code>, <code>onSessionExpired</code> and <code>onUpdate*</code> callbacks</p>
 <hr />
 <h2 id="execution-paths">Execution Paths<a class="headerlink" href="#execution-paths" title="Permanent link">&para;</a></h2>
 <p>A key design feature is that training supports <strong>two execution paths</strong> depending on hardware:</p>
@@ -276,6 +326,7 @@
 
 <p><strong>When used:</strong> <code>mps</code>, <code>discrete</code> (Windows), <code>cpu</code> profiles.<br />
 <strong>Why:</strong> PyInstaller bundles the entire Python runtime — no system Python, no <code>pip install</code>, no Docker required on the end user's machine.</p>
+<p>In <strong>dev mode</strong> (<code>app.isPackaged === false</code>) the same path spawns <code>python3 -u fl-runtime/client.py</code> from the repo checkout with <code>framework/src</code> prepended to <code>PYTHONPATH</code>, so a Python edit does not require rebuilding the bundle.</p>
 <h3 id="path-b-docker-container-jetson-soc">Path B — Docker Container (Jetson SoC)<a class="headerlink" href="#path-b-docker-container-jetson-soc" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code>Renderer → IPC → Main → DockerService → Docker daemon
                                          ↓
@@ -288,69 +339,107 @@
 </code></pre></div>
 
 <p><strong>When used:</strong> <code>jetson</code> profile only.<br />
-<strong>Why:</strong> NVIDIA Jetson uses a very specific JetPack/L4T PyTorch wheel that cannot be PyInstaller-bundled. Docker with direct <code>/dev/nvhost-*</code> device mounts is the supported path.</p>
+<strong>Why:</strong> NVIDIA Jetson uses a very specific JetPack/L4T PyTorch wheel that cannot be PyInstaller-bundled. A prebuilt container image with the matching L4T stack is the practical path. <em>How</em> the container is granted GPU access is the part that has changed: see <a href="07-hardware-profiles.html#nvidia-jetson-soc-docker">07 — NVIDIA Jetson SoC</a>, which documents a measured correction to the shipped device-mount approach on JetPack 6.</p>
 <hr />
 <h2 id="data-flow-diagram">Data Flow Diagram<a class="headerlink" href="#data-flow-diagram" title="Permanent link">&para;</a></h2>
-<div class="codehilite"><pre><span></span><code>User fills form                  → HardwareSelector (Renderer)
-         ↓ onClick
-validate client-side             → HardwareSelector (Renderer)
+<div class="codehilite"><pre><span></span><code>User picks a model + dataset     → TrainSection (Renderer)
+         ↓ getProjectConnection(projectId)
+backend resolves the run          → client:get-connection → ClientProjectService
+   (gRPC address, partitionId, modelType, strategy, trainingArm, token)
          ↓ window.fedLearnAPI.startTraining(config)
-validate in preload allowlists   → preload.ts
+validate in preload allowlists    → preload.ts
          ↓ ipcRenderer.invoke(&#39;docker:start-training&#39;, config)
-validate again in IPC handler    → ipc.handlers.ts / sanitizeDatasetPath()
-         ↓ dockerService.startTraining(config)
-route by hardwareProfile         → docker.service.ts
+re-validate + canonicalize        → ipc.handlers.ts → validators.ts
+   sanitizeDatasetPath() + isDatasetPathConsented()
+         ↓ dockerService.startTraining(validConfig)
+route by hardwareProfile          → docker.service.ts
          ↓
-  [jetson] → Docker container    OR   [mps/cpu/discrete] → Native process
-         ↓                                    ↓
-  stdout of container                   stdout of child process
-         ↓                                    ↓
-  sendLog(text) → ipcMain.send(&#39;docker:training-log&#39;, text)
+  [jetson] → Docker container     OR   [mps/cpu/discrete] → Native process
+         ↓                                     ↓
+  demuxed container stdout               child stdout/stderr
+         ↓                                     ↓
+  sendLog(text) → mainWindow.webContents.send(&#39;docker:training-log&#39;, text)
          ↓
   ipcRenderer.on(&#39;docker:training-log&#39;) in preload
          ↓
   onTrainingLog callback in App.tsx
          ↓
-  RAF-batched setLogs() → LogPanel re-render
+  RAF-batched setLogs() → TrainSection → LogPanel re-render
 </code></pre></div>
 
+<p>The renderer never composes a project id, gRPC address or partition id by hand; those come from <code>GET /api/client/projects/{id}/connection</code> (after an idempotent <code>POST .../join</code>) and are only re-validated on the way through.</p>
 <hr />
 <h2 id="directory-structure">Directory Structure<a class="headerlink" href="#directory-structure" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code>fedlearn-desktop/
 ├── src/
-│   ├── main/                    # Main Process (Node.js context)
-│   │   ├── main.ts              # Entry point, BrowserWindow, CSP, app lifecycle
-│   │   ├── ipc.handlers.ts      # All ipcMain.handle registrations
-│   │   ├── docker.service.ts    # Docker + native process orchestration
-│   │   ├── auth.service.ts      # JWT storage, login, logout
-│   │   └── hardware.probe.ts    # GPU / platform detection
+│   ├── main/                          # Main Process (Node.js context)
+│   │   ├── main.ts                    # Entry point, BrowserWindow, menu, CSP, quit drain
+│   │   ├── ipc.handlers.ts            # All ipcMain.handle registrations
+│   │   ├── validators.ts              # Pure input validation (electron-free, unit-tested)
+│   │   ├── dataset-consent.ts         # In-memory allowlist of user-picked dataset dirs
+│   │   ├── docker.service.ts          # Docker + native process orchestration
+│   │   ├── auth.service.ts            # JWT + saved credentials, session expiry
+│   │   ├── http.ts                    # Shared axios instance, SE-9 marker, 401 hook
+│   │   ├── client-projects.service.ts # GET /client/projects + /connection
+│   │   ├── inference.service.ts       # POST /inference/{id}, GET /inference/models
+│   │   ├── inference-stream.service.ts# STOMP bridge for generation tokens
+│   │   ├── deviceCapabilities.collector.ts # RAM / free storage / OS probe
+│   │   ├── hardware.probe.ts          # GPU / platform detection
+│   │   └── updater.ts                 # electron-updater registration (once per process)
 │   │
 │   ├── preload/
-│   │   └── preload.ts           # contextBridge API surface (security boundary)
+│   │   └── preload.ts                 # contextBridge API surface (security boundary)
 │   │
-│   └── renderer/                # Renderer Process (Chromium context)
-│       ├── index.tsx            # React root mount
-│       ├── index.html           # HTML shell (CSP meta tag for packaged builds)
-│       ├── styles.css           # Global CSS (dark theme, components)
-│       ├── App.tsx              # Root React component, state management
+│   ├── shared/                        # Imported by BOTH processes and by jest
+│   │   ├── urlSecurity.ts             # Loopback detection + plaintext-HTTP policy text
+│   │   ├── evaluateEligibility.ts     # Advisory device self-gate rule
+│   │   ├── deviceCapabilities.types.ts
+│   │   └── bundleVariants.ts          # Shippable platform/arch/GPU variant manifest
+│   │
+│   └── renderer/                      # Renderer Process (Chromium context)
+│       ├── index.tsx                  # React root mount (StrictMode)
+│       ├── index.html                 # HTML shell; CSP meta baked in at build time
+│       ├── tokens.css                 # GENERATED from design/tokens.json — do not edit
+│       ├── fonts.css                  # Self-hosted @fontsource imports
+│       ├── styles.css                 # Global Ledger styles (imports tokens + fonts)
+│       ├── client.types.ts            # ClientProject / ProjectConnection shapes
+│       ├── inference.types.ts         # InferableModel / InferenceResult shapes
+│       ├── App.tsx                    # Shell: rail, section outlet, StatusBar, IPC wiring
 │       └── components/
-│           ├── AuthModal.tsx    # Login form + server URL config
-│           ├── HardwareSelector.tsx  # Profile cards + training config form
-│           ├── LogPanel.tsx     # Real-time log stream viewer
-│           ├── StatusIndicator.tsx   # Container status badge
-│           └── SettingsModal.tsx     # Settings overlay (server URL)
+│           ├── AuthModal.tsx          # Login, server URL, save-password, show-password
+│           ├── TrainSection.tsx       # Guided setup ⇄ running-run layout
+│           ├── trainFlow.ts           # Pure phase/readiness/format logic for TrainSection
+│           ├── HardwareSelector.tsx   # HardwareProfilePicker (controlled card grid)
+│           ├── LogPanel.tsx           # Filtered, severity-coloured, follow-tail log view
+│           ├── logView.ts             # Incremental log-line cache + filter (pure)
+│           ├── runNotifications.ts    # Run completed/failed desktop notifications (pure)
+│           ├── ModelPlayground.tsx    # &quot;Use a model&quot; inference + chat
+│           ├── SettingsSection.tsx    # Server URL, updates, about
+│           ├── StatusBar.tsx          # Persistent bottom strip
+│           ├── StatusIndicator.tsx    # Status badge (rendered inside StatusBar)
+│           ├── UpdateBanner.tsx       # Auto-update layer (mounted at shell level)
+│           └── sections.css           # Section-scoped styles
 │
-├── build/                       # Static build assets (icons)
-├── dist/                        # Compiled output (webpack)
-├── release/                     # electron-builder output (DMG/EXE/AppImage)
+├── src/__tests__/                     # 22 jest suites (node env, ts-jest)
+├── src/__mocks__/                     # electron / electron-log / electron-store / CSS stubs
+├── scripts/
+│   ├── check-native-bundle.js         # Packaging preflight (bundle must exist)
+│   └── generate-checksums.js          # afterAllArtifactBuild → release/SHA256SUMS.txt
 │
-├── webpack.main.config.js       # Webpack config for Main Process
-├── webpack.preload.config.js    # Webpack config for Preload Script
-├── webpack.renderer.config.js   # Webpack config for Renderer (with HMR)
-├── webpack.prod.config.js       # Combined production build (all 3 targets)
-├── electron-builder.yml         # Packaging config (macOS/Win/Linux)
-├── tsconfig.json                # TypeScript config
-└── package.json                 # Scripts + dependencies
+├── build/                             # Static build assets (icons, entitlements)
+├── dist/                              # Compiled output (webpack)
+├── release/                           # electron-builder output (DMG/EXE/AppImage/deb)
+│
+├── webpack.main.config.js             # Dev webpack config for Main Process
+├── webpack.preload.config.js          # Dev webpack config for Preload Script
+├── webpack.renderer.config.js         # Dev webpack config for Renderer (dev server + HMR)
+├── webpack.prod.config.js             # Production build — exports all 3 configs as an array
+├── webpack.csp.js                     # Single source of truth for the renderer &lt;meta&gt; CSP
+├── electron-builder.yml               # Packaging config (macOS/Win/Linux)
+├── eslint.config.mjs                  # ESLint 9 flat config (CI-gated)
+├── jest.config.js                     # ts-jest, node env, coverage thresholds
+├── tsconfig.json / tsconfig.test.json # TypeScript configs
+└── package.json                       # Scripts + dependencies
 </code></pre></div>
 
 <hr />
@@ -358,13 +447,20 @@ route by hardwareProfile         → docker.service.ts
 <h3 id="1-jwt-never-reaches-the-renderer">1. JWT Never Reaches the Renderer<a class="headerlink" href="#1-jwt-never-reaches-the-renderer" title="Permanent link">&para;</a></h3>
 <p>The authentication token is stored exclusively in the Main Process (via <code>electron-store</code> + <code>safeStorage</code>). The renderer only ever receives <code>{ success: boolean }</code>. This means even if the renderer is compromised (e.g., via XSS from a malicious log line), it cannot steal the JWT.</p>
 <h3 id="2-double-validation-preload-main">2. Double Validation (Preload + Main)<a class="headerlink" href="#2-double-validation-preload-main" title="Permanent link">&para;</a></h3>
-<p>Every input is validated <strong>twice</strong>: once in <code>preload.ts</code> (renderer-side, for fast UX feedback) and once in <code>ipc.handlers.ts</code> (main-side, as defense-in-depth). This ensures that even a crafted <code>ipcRenderer.invoke</code> call from a compromised renderer cannot inject malicious data into Docker bind mounts or child process arguments.</p>
+<p>Every input is validated <strong>twice</strong>: once in <code>preload.ts</code> (renderer-side, for fast UX feedback) and once in Main (<code>ipc.handlers.ts</code> delegating to <code>validators.ts</code>, as defense-in-depth). This ensures that even a crafted <code>ipcRenderer.invoke</code> call from a compromised renderer cannot inject malicious data into Docker bind mounts or child process arguments.</p>
+<p>The main-side validators live in their own <code>electron</code>-free module precisely so they can be unit-tested against the shipped code. <code>ipc.handlers.ts</code> used to carry a diverged inline copy — and the copy got the empty-dataset-path case wrong.</p>
+<h3 id="2a-dataset-paths-need-consent-not-just-validation">2a. Dataset Paths Need Consent, Not Just Validation<a class="headerlink" href="#2a-dataset-paths-need-consent-not-just-validation" title="Permanent link">&para;</a></h3>
+<p>Proving a path is an existing absolute directory does <strong>not</strong> prove the <em>user</em> chose it. <code>dataset-consent.ts</code> keeps an in-memory set of the directories returned by the native <code>dialog:open-directory</code> picker; <code>docker:start-training</code> refuses to bind-mount any non-empty path that is not in that set. A compromised renderer therefore cannot get <code>~/.ssh</code> mounted into the training container even with a perfectly well-formed path.</p>
 <h3 id="3-mps-is-native-only">3. MPS is Native-Only<a class="headerlink" href="#3-mps-is-native-only" title="Permanent link">&para;</a></h3>
 <p>Apple Silicon MPS (Metal Performance Shaders) cannot run inside Docker containers on macOS — Docker Desktop on Mac runs containers inside a Linux VM that has no access to the Apple GPU. Therefore, MPS training always uses the native PyInstaller binary path.</p>
 <h3 id="4-jetson-is-docker-only">4. Jetson is Docker-Only<a class="headerlink" href="#4-jetson-is-docker-only" title="Permanent link">&para;</a></h3>
-<p>NVIDIA Jetson is the inverse case: its L4T PyTorch wheels are pinned to specific JetPack firmware, making PyInstaller bundling impractical. Docker with direct device mounts (<code>/dev/nvhost-*</code>) is the only reliable approach.</p>
-<h3 id="5-log-batching-via-requestanimationframe">5. Log Batching via requestAnimationFrame<a class="headerlink" href="#5-log-batching-via-requestanimationframe" title="Permanent link">&para;</a></h3>
+<p>NVIDIA Jetson is the inverse case: its L4T PyTorch wheels are pinned to specific JetPack firmware, making PyInstaller bundling impractical. A prebuilt L4T container image is the reliable approach. The shipped code grants that container GPU access through direct <code>/dev/nvhost-*</code> device mounts and explicitly refuses <code>--runtime nvidia</code>; that refusal was <strong>measured to be wrong on JetPack 6</strong> and is documented in full, with the honest scope of what was and was not re-tested, in <a href="07-hardware-profiles.html#nvidia-jetson-soc-docker">07</a>.</p>
+<h3 id="5-docker-is-never-probed-eagerly">5. Docker Is Never Probed Eagerly<a class="headerlink" href="#5-docker-is-never-probed-eagerly" title="Permanent link">&para;</a></h3>
+<p><code>DockerService</code>'s constructor builds a <code>dockerode</code> client but does <strong>not</strong> ping the daemon — <code>dockerode</code> opens the socket lazily, so constructing it costs nothing. The daemon is probed on demand inside <code>startDockerTraining()</code>, which is only reachable from the Jetson profile. An earlier eager ping produced a spurious "Docker is not running" banner for the overwhelming majority of users (macOS/Windows on MPS/CUDA/CPU) who never touch Docker at all; that banner and its <code>docker:daemon-unavailable</code> push channel were removed.</p>
+<h3 id="6-log-batching-via-requestanimationframe">6. Log Batching via requestAnimationFrame<a class="headerlink" href="#6-log-batching-via-requestanimationframe" title="Permanent link">&para;</a></h3>
 <p>Container output can arrive in rapid bursts (hundreds of lines per second). Instead of calling <code>setState</code> on every IPC event (which would thrash React's reconciler), the app buffers incoming lines in a <code>useRef</code> and flushes the entire buffer in a single <code>setState</code> call on the next animation frame. This keeps the UI smooth even during heavy training output.</p>
+<h3 id="7-sections-stay-mounted">7. Sections Stay Mounted<a class="headerlink" href="#7-sections-stay-mounted" title="Permanent link">&para;</a></h3>
+<p>The authenticated shell mounts Train, Models and Settings once and toggles visibility with CSS rather than unmounting. That is deliberate: the Model Playground's chat thread and streaming state, and the training log buffer, survive a section switch. <code>UpdateBanner</code> is mounted at shell level <em>forever</em> because its preload listeners have no removal API.</p>
 <hr />
 <p><em>Next: <a href="02-security-model.html">02 — Security Model</a></em></p></article>
     <nav class="toc"></nav>

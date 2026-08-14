@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group" open>
 <summary>Desktop</summary><ul>
@@ -126,7 +135,7 @@
 <td>Discrete GPU</td>
 <td>Native binary</td>
 <td>❌ No</td>
-<td>NVIDIA CUDA (via PyTorch)</td>
+<td>NVIDIA CUDA (via PyTorch in the bundle)</td>
 </tr>
 <tr>
 <td><code>cpu</code></td>
@@ -140,27 +149,31 @@
 <td>Jetson SoC</td>
 <td>Docker container</td>
 <td>✅ Yes</td>
-<td>Tegra GPU (direct device mounts)</td>
+<td>Tegra GPU — see the <a href="#nvidia-jetson-soc-docker">Jetson section</a></td>
 </tr>
 </tbody>
 </table>
-<p>The profile selection drives all downstream decisions: how the training process is launched, what environment variables or device mounts are configured, and which binary/image is used.</p>
+<p><code>hardwareProfile</code> is the <strong>sole</strong> dispatcher in <code>DockerService.startTraining()</code>: <code>jetson</code> → Docker, everything else → the bundled native client. There is no Docker fallback for the other three; if the native bundle is missing, training does not run.</p>
+<blockquote>
+<p><code>discrete</code> does <strong>not</strong> go through Docker. An earlier version of this page (and of the profile card copy) described it as using <code>DeviceRequests: --gpus all</code>, i.e. the <code>--gpus all</code> container equivalent. That branch no longer exists in <code>startDockerTraining</code>'s switch — a <code>discrete</code> value reaching that method now throws, because it means a routing regression (<code>2b02173</code>).</p>
+</blockquote>
 <hr />
 <h2 id="apple-silicon-mps-native">Apple Silicon MPS (Native)<a class="headerlink" href="#apple-silicon-mps-native" title="Permanent link">&para;</a></h2>
 <h3 id="why-native-not-docker">Why Native, Not Docker?<a class="headerlink" href="#why-native-not-docker" title="Permanent link">&para;</a></h3>
 <p>Docker Desktop on macOS runs Linux containers inside a Linux virtual machine (using Apple Hypervisor framework). This VM has <strong>no access to the Apple GPU hardware</strong> — Metal Performance Shaders only work from processes running natively on macOS. Therefore, MPS training <strong>cannot</strong> run in a Docker container on macOS.</p>
 <p>The solution: ship a PyInstaller bundle that includes a macOS-native PyTorch build with MPS support. This binary runs as a direct child process of Electron.</p>
 <h3 id="execution-flow">Execution Flow<a class="headerlink" href="#execution-flow" title="Permanent link">&para;</a></h3>
-<div class="codehilite"><pre><span></span><code>User selects &quot;Apple Silicon&quot; profile
+<div class="codehilite"><pre><span></span><code>User selects &quot;Apple Silicon&quot; (or leaves it preselected by detection)
     │
     ▼
-HardwareSelector → handleStart()
-    │
+TrainSection → handleStart() → getProjectConnection(projectId)
+    │  (backend returns serverAddress, partitionId, modelType, strategy,
+    │   trainingArm, connectionToken)
     ▼
 window.fedLearnAPI.startTraining({ hardwareProfile: &#39;mps&#39;, ... })
     │
     ▼
-IPC: &#39;docker:start-training&#39;
+IPC: &#39;docker:start-training&#39;   (validate + canonicalize + consent-check)
     │
     ▼
 DockerService.startTraining() → startNativeProcess()
@@ -168,18 +181,19 @@ DockerService.startTraining() → startNativeProcess()
     ▼
 resolveNativeInvocation():
     ├── app.isPackaged = true  → binary: &lt;resourcesPath&gt;/fedlearn-client/fedlearn-client
-    └── app.isPackaged = false → python3 fl-runtime/client.py
+    └── app.isPackaged = false → python3 -u fl-runtime/client.py   (PYTHONPATH=framework/src)
     │
     ▼
-spawn(binary, [&#39;--project-id&#39;, ..., &#39;--server-address&#39;, ..., &#39;--partition-id&#39;, ...])
+spawn(binary, [&#39;--project-id&#39;, …, &#39;--server-address&#39;, …, &#39;--partition-id&#39;, …,
+               &#39;--model-type&#39;, …, &#39;--strategy&#39;, …, &#39;--dataset-path&#39;, …])
     │
-    env: { PYTHONUNBUFFERED: &#39;1&#39; }
+    env: { PYTHONUNBUFFERED: &#39;1&#39;, FEDLEARN_CONNECTION_TOKEN: &lt;token&gt; }
     │
     ▼
 Python client runs training:
-    ├── Downloads model from FedLearn server (gRPC/HTTP)
-    ├── Trains on local dataset (using torch.device(&#39;mps&#39;))
-    └── Sends updated weights back to server
+    ├── Downloads the global model from the FL server (gRPC)
+    ├── Trains on the local dataset (using torch.device(&#39;mps&#39;))
+    └── Sends the updated parameters back
     │
 stdout/stderr → sendLog() → IPC push → LogPanel
 </code></pre></div>
@@ -246,11 +260,11 @@ Python client: torch.device(&#39;cuda&#39;)
 <p><strong>Typical use case:</strong> Development machines, CI/CD testing, machines behind enterprise IT restrictions.</p>
 <hr />
 <h2 id="nvidia-jetson-soc-docker">NVIDIA Jetson SoC (Docker)<a class="headerlink" href="#nvidia-jetson-soc-docker" title="Permanent link">&para;</a></h2>
-<p>Jetson is the most complex profile because it requires Docker and specific device node configuration.</p>
+<p>Jetson is the most complex profile: it is the only one that requires Docker, and the mechanism by which the container gets GPU access is both version-sensitive and — in the shipped code — wrong for JetPack 6. Read the correction below before deploying to a device.</p>
 <h3 id="why-docker">Why Docker?<a class="headerlink" href="#why-docker" title="Permanent link">&para;</a></h3>
-<p>NVIDIA Jetson runs JetPack OS, which includes a specific version of the L4T (Linux for Tegra) PyTorch wheel. This wheel is compiled against a specific CUDA Compute Architecture (e.g., SM 8.7 for Orin), specific GCC version, and specific Linux kernel. It cannot be PyInstaller-bundled cross-platform.</p>
-<p>Docker allows us to ship a pre-built container image (<code>fedlearn-client:latest</code>) with the exact L4T environment already configured. The Jetson host's device nodes are bind-mounted into the container so PyTorch inside the container can access the GPU.</p>
-<h3 id="jetson-device-node-requirements">Jetson Device Node Requirements<a class="headerlink" href="#jetson-device-node-requirements" title="Permanent link">&para;</a></h3>
+<p>NVIDIA Jetson runs JetPack OS, which includes a specific version of the L4T (Linux for Tegra) PyTorch wheel. That wheel is compiled against a specific CUDA compute architecture (SM 8.7 for Orin), a specific GCC, and a specific kernel. It cannot be PyInstaller-bundled cross-platform.</p>
+<p>Docker lets us ship a pre-built container image (<code>fedlearn-client:latest</code>) with the exact L4T environment already configured. The container then needs GPU access from the host — and <strong>how</strong> that access is granted is the part that is version-sensitive and that this page corrects below.</p>
+<h3 id="what-the-shipped-code-does">What the Shipped Code Does<a class="headerlink" href="#what-the-shipped-code-does" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">JETSON_DEVICE_MOUNTS</span><span class="o">:</span><span class="w"> </span><span class="kt">Docker.DeviceMapping</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
 <span class="w">  </span><span class="c1">// Tegra GPU control interface</span>
 <span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">PathOnHost</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-ctrl&#39;</span><span class="p">,</span><span class="w">     </span><span class="nx">PathInContainer</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-ctrl&#39;</span><span class="p">,</span><span class="w">     </span><span class="nx">CgroupPermissions</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;rwm&#39;</span><span class="w"> </span><span class="p">},</span>
@@ -265,31 +279,62 @@ Python client: torch.device(&#39;cuda&#39;)
 <span class="w">  </span><span class="c1">// GPU kernel interface</span>
 <span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">PathOnHost</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-gpu&#39;</span><span class="p">,</span><span class="w">      </span><span class="nx">PathInContainer</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;/dev/nvhost-gpu&#39;</span><span class="p">,</span><span class="w">      </span><span class="nx">CgroupPermissions</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;rwm&#39;</span><span class="w"> </span><span class="p">},</span>
 <span class="p">];</span>
-</code></pre></div>
 
-<p><code>CgroupPermissions: 'rwm'</code> = read + write + mknod. All three are required for the GPU to work inside the container.</p>
-<p><strong>Critical:</strong> The <code>--runtime nvidia</code> flag (used for discrete NVIDIA GPUs) is <strong>explicitly NOT used</strong> for Jetson:</p>
-<div class="codehilite"><pre><span></span><code><span class="k">case</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="o">:</span>
-<span class="w">  </span><span class="c1">// DO NOT use runtime: &#39;nvidia&#39; — it hangs on Jetson</span>
+<span class="k">case</span><span class="w"> </span><span class="s1">&#39;jetson&#39;</span><span class="o">:</span>
+<span class="w">  </span><span class="c1">// Source comment: &quot;The --runtime nvidia flag is PROHIBITED on Jetson — it</span>
+<span class="w">  </span><span class="c1">// searches for PCIe discrete-GPU metadata in the kernel device tree and</span>
+<span class="w">  </span><span class="c1">// hangs indefinitely. Direct device mounts are the supported path.&quot;</span>
 <span class="w">  </span><span class="nx">hostConfig</span><span class="p">.</span><span class="nx">Devices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">JETSON_DEVICE_MOUNTS</span><span class="p">;</span>
 <span class="w">  </span><span class="k">break</span><span class="p">;</span>
-<span class="k">case</span><span class="w"> </span><span class="s1">&#39;discrete&#39;</span><span class="o">:</span>
-<span class="w">  </span><span class="c1">// Standard NVIDIA Container Toolkit</span>
-<span class="w">  </span><span class="nx">hostConfig</span><span class="p">.</span><span class="nx">DeviceRequests</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nx">Count</span><span class="o">:</span><span class="w"> </span><span class="o">-</span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="nx">Capabilities</span><span class="o">:</span><span class="w"> </span><span class="p">[[</span><span class="s1">&#39;gpu&#39;</span><span class="p">]]</span><span class="w"> </span><span class="p">}];</span>
-<span class="w">  </span><span class="k">break</span><span class="p">;</span>
 </code></pre></div>
 
+<p><code>CgroupPermissions: 'rwm'</code> = read + write + mknod.</p>
+<hr />
+<h3 id="the-runtime-nvidia-prohibition-was-measured-wrong-on-jetpack-6">The <code>--runtime nvidia</code> Prohibition Was Measured Wrong on JetPack 6<a class="headerlink" href="#the-runtime-nvidia-prohibition-was-measured-wrong-on-jetpack-6" title="Permanent link">&para;</a></h3>
+<p><strong>Read this before trusting the recipe above on any specific device.</strong></p>
+<p>The blanket ban on <code>--runtime nvidia</code> above is <strong>withdrawn</strong>. It was tested directly on an NVIDIA AGX Orin running <strong>L4T R36.5.0 / JetPack 6.2</strong>, with <code>nvidia-container-toolkit 1.19.0-1</code> installed and <code>docker info</code> listing <code>nvidia</code> among its runtimes. The result is the reverse of what the comment claims:</p>
+<table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>Result on that Orin</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docker run --runtime nvidia</code> (image <code>fedbench:orin</code>)</td>
+<td><strong>Works — 7.9 s, <code>torch.cuda.is_available()</code> True, device reported as "Orin".</strong> No hang.</td>
+</tr>
+<tr>
+<td><code>docker run --runtime nvidia</code> (image <code>vllm:0.20.0-orin</code>)</td>
+<td>Works, CUDA True</td>
+</tr>
+<tr>
+<td>Device mounts, <strong>no</strong> <code>--runtime nvidia</code>, host driver libs bind-mounted</td>
+<td><strong>Fails</strong> — <code>cuInit → 801</code> (<code>CUDA_ERROR_NOT_SUPPORTED</code>), then a segfault. The in-container <code>libcuda.so.1</code> is a stub (<code>file too short</code>).</td>
+</tr>
+</tbody>
+</table>
+<p>So on JetPack 6 the flag the code prohibits is the one that works, and the hand-rolled device-mount path the code implements is the one that does not.</p>
+<p>Two further problems with the shipped list on that L4T version:</p>
+<ol>
+<li><strong><code>/dev/nvhost-ctrl</code> does not exist on L4T R36.5.</strong> It is the first entry in <code>JETSON_DEVICE_MOUNTS</code>, and Docker <strong>hard-errors</strong> (<code>no such file or directory</code>) if you pass a device node that isn't there. The set above is a JetPack-5-era node list.</li>
+<li><strong>The documented base image tag is JetPack-5-era.</strong> <code>nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3</code> is the <code>--build-arg BASE_IMAGE=</code> value shown for Jetson builds in the root <code>README.md</code>, <code>framework/docs/installation.md</code> and the client-docker wiki. It is two major L4T generations behind an R36.5 device. (The Dockerfile's own <code>ARG BASE_IMAGE</code> default is <code>pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime</code> — an x86 image — so the L4T tag must be passed explicitly on a Jetson build regardless.)</li>
+</ol>
+<h4 id="honest-scope-of-this-correction">Honest scope of this correction<a class="headerlink" href="#honest-scope-of-this-correction" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>What was measured:</strong> container GPU access on one AGX Orin at L4T R36.5.0 / JetPack 6.2. Both mechanisms were exercised; the results above are observations, not inference.</li>
+<li><strong>What was <em>not</em> measured:</strong> the original hang. It is plausible the ban was genuinely correct on the older JetPack 5 / <code>nvidia-container-runtime</code> it was written against — but <strong>that was not re-tested</strong>, because no JetPack 5 hardware was available. Treat the "it hung on JetPack 5" half as an inference, not a finding.</li>
+<li><strong>What was also not measured:</strong> the desktop <code>DockerService</code> Jetson flow <strong>end to end</strong>. Only the container GPU-access mechanism it depends on was exercised, with plain <code>docker run</code>. Nothing here says the desktop app's Jetson path has been validated on JetPack 6.</li>
+<li><strong>What follows from it:</strong> on JetPack 6+, treat <code>--runtime nvidia</code> as the default to try and keep the device-mount path as a fallback. On any device, <strong>re-verify against the L4T version that device actually runs</strong> rather than trusting either rule blindly. <code>cat /etc/nv_tegra_release</code> and <code>docker info | grep -i runtime</code> are the two things to check first.</li>
+</ul>
+<p>The shipped code has not been changed to match; this is documentation of a measurement, not of a fix.</p>
+<hr />
 <h3 id="docker-container-configuration">Docker Container Configuration<a class="headerlink" href="#docker-container-configuration" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">container</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="k">this</span><span class="p">.</span><span class="nx">docker</span><span class="p">.</span><span class="nx">createContainer</span><span class="p">({</span>
-<span class="w">  </span><span class="nx">Image</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;fedlearn-client:latest&#39;</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">Image</span><span class="o">:</span><span class="w"> </span><span class="kt">DOCKER_IMAGE</span><span class="p">,</span><span class="w">               </span><span class="c1">// FEDLEARN_CLIENT_IMAGE ?? &#39;fedlearn-client:latest&#39;</span>
 <span class="w">  </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;fedlearn-training-client&#39;</span><span class="p">,</span>
-<span class="w">  </span><span class="nx">Env</span><span class="o">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">    </span><span class="sb">`PROJECT_ID=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">projectId</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
-<span class="w">    </span><span class="sb">`SERVER_ADDRESS=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">serverAddress</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
-<span class="w">    </span><span class="sb">`PARTITION_ID=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">partitionId</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
-<span class="w">    </span><span class="sb">`MODEL_TYPE=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
-<span class="w">    </span><span class="sb">`DATASET_PATH=/data`</span><span class="p">,</span>
-<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nx">Env</span><span class="o">:</span><span class="w"> </span><span class="kt">buildContainerEnv</span><span class="p">(</span><span class="nx">config</span><span class="p">),</span><span class="w">    </span><span class="c1">// see below</span>
 <span class="w">  </span><span class="nx">HostConfig</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nx">AutoRemove</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span>
 <span class="w">    </span><span class="nx">Binds</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="sb">`</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">datasetPath</span><span class="si">}</span><span class="sb">:/data`</span><span class="p">],</span><span class="w">  </span><span class="c1">// Dataset bind mount</span>
@@ -301,16 +346,25 @@ Python client: torch.device(&#39;cuda&#39;)
 <span class="p">});</span>
 </code></pre></div>
 
+<p><code>buildContainerEnv(config)</code> produces:</p>
+<div class="codehilite"><pre><span></span><code>PROJECT_ID, SERVER_ADDRESS, PARTITION_ID, MODEL_TYPE, DATASET_PATH=/data
+STRATEGY=&lt;strategy&gt;                     (only when set)
+TRAINING_ARM=&lt;arm&gt;                      (only when set)
+FEDLEARN_CONNECTION_TOKEN=&lt;token&gt;       (only when set)
+</code></pre></div>
+
+<p><code>client-docker/entrypoint.sh</code> converts <code>MODEL_TYPE</code>, <code>STRATEGY</code> and <code>TRAINING_ARM</code> back into <code>--model-type</code> / <code>--strategy</code> / <code>--training-arm</code> flags — omitting each entirely when its variable is unset — giving the container path argv parity with the native path. <code>FEDLEARN_CONNECTION_TOKEN</code> needs no flag: the framework reads it straight from the process environment.</p>
 <h3 id="building-the-jetson-docker-image">Building the Jetson Docker Image<a class="headerlink" href="#building-the-jetson-docker-image" title="Permanent link">&para;</a></h3>
-<p>The Docker image must be built on the Jetson itself (or an ARM64 Linux machine with Jetson's software stack):</p>
+<p>The Docker image must be built on the Jetson itself (or an ARM64 Linux machine with the matching L4T stack). <strong>The build context is the repository root</strong>, because the Dockerfile copies both <code>framework/</code> and <code>fl-runtime/</code>:</p>
 <div class="codehilite"><pre><span></span><code>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>fedlearn-client:latest<span class="w"> </span>-f<span class="w"> </span>client-docker/Dockerfile<span class="w"> </span>.
 </code></pre></div>
 
-<p>If the image is missing, <code>DockerService</code> surfaces a helpful error:</p>
+<p>If the image is missing, <code>DockerService</code> surfaces the command verbatim:</p>
 <div class="codehilite"><pre><span></span><code>Docker image &#39;fedlearn-client:latest&#39; not found locally.
 Build it with: docker build -t fedlearn-client:latest -f client-docker/Dockerfile .
 </code></pre></div>
 
+<p>Set <code>FEDLEARN_CLIENT_IMAGE</code> to point the app at a different image tag.</p>
 <h3 id="log-stream-demultiplexing">Log Stream Demultiplexing<a class="headerlink" href="#log-stream-demultiplexing" title="Permanent link">&para;</a></h3>
 <p>Docker's <code>container.logs()</code> returns a multiplexed stream. The <code>demuxDockerStream</code> method strips the 8-byte frame headers:</p>
 <div class="codehilite"><pre><span></span><code>Raw Docker log chunk:
@@ -324,39 +378,35 @@ After demux:
 
 <hr />
 <h2 id="model-architecture-selection">Model Architecture Selection<a class="headerlink" href="#model-architecture-selection" title="Permanent link">&para;</a></h2>
-<p>The model type is selected via a dropdown in the <code>HardwareSelector</code> component:</p>
-<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="nx">select</span><span class="w"> </span><span class="nx">id</span><span class="o">=</span><span class="s2">&quot;config-model-type&quot;</span><span class="w"> </span><span class="nx">className</span><span class="o">=</span><span class="s2">&quot;form-input&quot;</span><span class="w"> </span><span class="nx">value</span><span class="o">=</span><span class="p">{</span><span class="nx">modelType</span><span class="p">}</span><span class="w"> </span><span class="nx">onChange</span><span class="o">=</span><span class="p">{...}</span><span class="o">&gt;</span>
-<span class="w">  </span><span class="o">&lt;</span><span class="nx">option</span><span class="w"> </span><span class="nx">value</span><span class="o">=</span><span class="s2">&quot;CNN&quot;</span><span class="o">&gt;</span><span class="nx">CNN</span><span class="o">&lt;</span><span class="err">/option&gt;</span>
-<span class="w">  </span><span class="o">&lt;</span><span class="nx">option</span><span class="w"> </span><span class="nx">value</span><span class="o">=</span><span class="s2">&quot;OPT-125M&quot;</span><span class="o">&gt;</span><span class="nx">OPT</span><span class="o">-</span><span class="mf">125</span><span class="nx">M</span><span class="o">&lt;</span><span class="err">/option&gt;</span>
-<span class="w">  </span><span class="o">&lt;</span><span class="nx">option</span><span class="w"> </span><span class="nx">value</span><span class="o">=</span><span class="s2">&quot;Transformer&quot;</span><span class="o">&gt;</span><span class="nx">Transformer</span><span class="o">&lt;</span><span class="err">/option&gt;</span>
-<span class="o">&lt;</span><span class="err">/select&gt;</span>
-</code></pre></div>
-
-<h3 id="how-model-type-affects-the-launch-command">How Model Type Affects the Launch Command<a class="headerlink" href="#how-model-type-affects-the-launch-command" title="Permanent link">&para;</a></h3>
+<p><strong>There is no model-architecture dropdown any more.</strong> <code>619a5a5</code> replaced manual entry with "pick a model to train": the user selects a <em>project</em> from the list the backend says they may train, and <code>modelType</code> arrives in that project's connection payload as a <strong>recipe key</strong> (the catalog lives in <code>fl-runtime/recipes.py</code> and is served to the platform at <code>GET /api/model-recipes</code>). The old three-option <code>&lt;select&gt;</code> of <code>CNN</code> / <code>OPT-125M</code> / <code>Transformer</code> is gone, along with the hardcoded values.</p>
+<h3 id="how-model-type-reaches-the-client">How Model Type Reaches the Client<a class="headerlink" href="#how-model-type-reaches-the-client" title="Permanent link">&para;</a></h3>
 <div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">args</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
 <span class="w">  </span><span class="p">...</span><span class="nx">invocation</span><span class="p">.</span><span class="nx">baseArgs</span><span class="p">,</span>
 <span class="w">  </span><span class="s1">&#39;--project-id&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">projectId</span><span class="p">,</span>
 <span class="w">  </span><span class="s1">&#39;--server-address&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">serverAddress</span><span class="p">,</span>
 <span class="w">  </span><span class="s1">&#39;--partition-id&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">partitionId</span><span class="p">,</span>
-<span class="w">  </span><span class="c1">// NOTE: modelType is NOT passed as an argument for CNN</span>
 <span class="p">];</span>
 
-<span class="c1">// LLM architectures need special flag</span>
-<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;OPT-125M&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;Transformer&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s1">&#39;--use-llm&#39;</span><span class="p">);</span>
-<span class="p">}</span>
+<span class="c1">// Forward the recipe key so the client trains the right architecture. The value</span>
+<span class="c1">// comes from the backend connection payload, not a hardcoded dropdown. The client</span>
+<span class="c1">// derives USE_LLM from --model-type TRANSFORMER itself, so --use-llm is no longer</span>
+<span class="c1">// passed separately.</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="p">)</span><span class="w">   </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s1">&#39;--model-type&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="p">);</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">trainingArm</span><span class="p">)</span><span class="w"> </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s1">&#39;--training-arm&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">trainingArm</span><span class="p">);</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">config</span><span class="p">.</span><span class="nx">strategy</span><span class="p">)</span><span class="w">    </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s1">&#39;--strategy&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">config</span><span class="p">.</span><span class="nx">strategy</span><span class="p">);</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">datasetPath</span><span class="p">)</span><span class="w">        </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s1">&#39;--dataset-path&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">datasetPath</span><span class="p">);</span>
 </code></pre></div>
 
-<p>The <code>--use-llm</code> flag tells the Python training client to load the language model variant of the federated learning pipeline instead of the default CNN pipeline.</p>
+<p>Three changes from the old behaviour, all of them corrections:</p>
+<ul>
+<li><strong><code>--model-type</code> is now passed.</strong> It previously was not, and the container client silently defaulted to CNN.</li>
+<li><strong><code>--use-llm</code> is no longer passed.</strong> The client derives it from <code>--model-type TRANSFORMER</code> (the flag itself survives in <code>fl-runtime/client.py</code> only as a deprecated alias).</li>
+<li><strong><code>--strategy</code> is passed</strong> (<code>e6fae1a</code>) so a non-MLP DeComFL project runs the DeComFL client path instead of a mismatched FedAvg-path client. Only DeComFL actually changes client behaviour; the other strategy strings use the same first-order path, so passing them is a safe no-op.</li>
+</ul>
+<p><code>--dataset-path</code> (DE-2, <code>d8f1b60</code>) was meant to mirror the Jetson path's <code>${datasetPath}:/data</code> bind for the native client, and is omitted when blank. <strong>It no longer reaches a receiver:</strong> <code>fl-runtime/client.py</code> — the dev-mode target and the PyInstaller bundle's entry point — declares no <code>--dataset-path</code> argument and uses strict <code>parse_args()</code>, so a non-blank dataset path makes the native client exit 2 on an unrecognised argument. DE-2 added the flag to <code>client-docker/scripts/client.py</code>, which DA-5 (<code>d2cc757</code>) deleted when it consolidated onto <code>fl-runtime/</code>. See <a href="03-main-process.html#starting-a-native-process">03 → Starting a Native Process</a>.</p>
+<p><strong><code>--training-arm</code> is constructed here but never actually emitted from the desktop app today</strong>, because the value is dropped one layer earlier at the preload bridge — see <a href="04-preload-ipc-bridge.html#the-starttraining-validation-flow">04 → the <code>startTraining</code> validation flow</a>. The argv and container-env construction shown here are both correct and unit-tested; the gap is upstream of them.</p>
 <h3 id="for-docker-based-training-jetson">For Docker-Based Training (Jetson)<a class="headerlink" href="#for-docker-based-training-jetson" title="Permanent link">&para;</a></h3>
-<p>Model type is passed as an environment variable instead:</p>
-<div class="codehilite"><pre><span></span><code><span class="nx">Env</span><span class="o">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">  </span><span class="sb">`MODEL_TYPE=</span><span class="si">${</span><span class="nx">config</span><span class="p">.</span><span class="nx">modelType</span><span class="si">}</span><span class="sb">`</span><span class="p">,</span>
-<span class="w">  </span><span class="c1">// ...</span>
-<span class="p">]</span>
-</code></pre></div>
-
-<p>The container's entrypoint reads <code>MODEL_TYPE</code> and selects the appropriate training script.</p>
+<p>Everything travels as environment variables instead of argv, and <code>client-docker/entrypoint.sh</code> converts them back into the same flags — see <a href="#docker-container-configuration">Docker Container Configuration</a> above.</p>
 <hr />
 <h2 id="training-configuration-parameters">Training Configuration Parameters<a class="headerlink" href="#training-configuration-parameters" title="Permanent link">&para;</a></h2>
 <h3 id="full-parameter-reference">Full Parameter Reference<a class="headerlink" href="#full-parameter-reference" title="Permanent link">&para;</a></h3>
@@ -364,7 +414,7 @@ After demux:
 <thead>
 <tr>
 <th>Parameter</th>
-<th>UI Field</th>
+<th>Where it comes from</th>
 <th>Validation</th>
 <th>Purpose</th>
 </tr>
@@ -372,52 +422,71 @@ After demux:
 <tbody>
 <tr>
 <td><code>hardwareProfile</code></td>
-<td>Profile card selection</td>
+<td>Detected, overridable under <strong>Advanced</strong></td>
 <td><code>ALLOWED_HARDWARE_PROFILES</code> enum</td>
-<td>Determines execution path and GPU config</td>
+<td>Determines the execution path and GPU config</td>
 </tr>
 <tr>
 <td><code>projectId</code></td>
-<td>"Project ID" text input</td>
+<td>Connection payload (user picked the project)</td>
 <td><code>/^[a-zA-Z0-9_-]{1,128}$/</code></td>
-<td>Identifies which federated learning project on the server</td>
+<td>Which FL project on the server</td>
 </tr>
 <tr>
 <td><code>serverAddress</code></td>
-<td>"Server Address" text input</td>
+<td>Connection payload</td>
 <td><code>/^[a-zA-Z0-9._:/-]{1,256}$/</code></td>
-<td>Host:port of the FedLearn gRPC/REST server</td>
+<td><code>host:port</code> of the FL gRPC server</td>
 </tr>
 <tr>
 <td><code>partitionId</code></td>
-<td>"Partition ID" text input</td>
+<td>Connection payload (<strong>server-assigned</strong>)</td>
 <td><code>/^[0-9]{1,10}$/</code></td>
 <td>Which data partition this client represents</td>
 </tr>
 <tr>
 <td><code>modelType</code></td>
-<td>"Model Architecture" dropdown</td>
+<td>Connection payload</td>
 <td><code>/^[a-zA-Z0-9_\-\.]{1,128}$/</code></td>
-<td>CNN, OPT-125M, or Transformer</td>
+<td>The recipe key to train</td>
+</tr>
+<tr>
+<td><code>strategy</code></td>
+<td>Connection payload</td>
+<td><code>/^[a-zA-Z0-9_\-\.]{1,64}$/</code>; bad value ⇒ dropped</td>
+<td>Aggregation strategy (DeComFL vs the first-order path)</td>
+</tr>
+<tr>
+<td><code>trainingArm</code></td>
+<td>Connection payload</td>
+<td>Strict: <code>FULL</code> | <code>FROZEN_HEAD</code>; bad value ⇒ <strong>throws</strong></td>
+<td>Which parameter subset the client federates</td>
+</tr>
+<tr>
+<td><code>connectionToken</code></td>
+<td>Connection payload</td>
+<td><code>/^[A-Za-z0-9._-]+$/</code>, ≤ 8192</td>
+<td>FL connection token (SE-14)</td>
 </tr>
 <tr>
 <td><code>datasetPath</code></td>
-<td>"Local Dataset Path" (browse button)</td>
-<td>Existing directory, absolute path</td>
-<td>Local dataset directory mounted into training</td>
+<td><strong>User</strong>, via the native dialog only</td>
+<td>Existing absolute directory <strong>and</strong> on the consent allowlist; <code>''</code> allowed</td>
+<td>Local dataset, bind-mounted or passed as <code>--dataset-path</code></td>
 </tr>
 </tbody>
 </table>
+<p>Only <code>hardwareProfile</code> and <code>datasetPath</code> are user-supplied, and <code>datasetPath</code> only through the OS picker. Everything else is resolved server-side by <code>GET /api/client/projects/{id}/connection</code> after an idempotent join.</p>
 <h3 id="serveraddress-format"><code>serverAddress</code> Format<a class="headerlink" href="#serveraddress-format" title="Permanent link">&para;</a></h3>
-<p>The server address is passed directly to the Python training client as the gRPC endpoint. Format:</p>
-<div class="codehilite"><pre><span></span><code>host:port           → 192.168.1.100:8080
-hostname:port       → fedlearn-server.local:8080
-domain:port         → api.fedlearn.company.com:8080
+<p>The server address is passed directly to the Python training client as the gRPC endpoint:</p>
+<div class="codehilite"><pre><span></span><code>host:port           → 192.168.1.100:50000
+hostname:port       → fedlearn-server.local:50000
+domain:port         → api.fedlearn.company.com:50000
 </code></pre></div>
 
-<p>Note: This is <strong>not</strong> the same as the backend HTTP URL configured in the auth settings. That URL is for the Spring Boot REST API. This address is for the federated learning training coordinator (gRPC).</p>
+<p>Note: this is <strong>not</strong> the backend HTTP URL configured in Settings. That URL is the Spring Boot REST API; this address is the FL training coordinator (gRPC), on a port the backend reserved for the run.</p>
 <h3 id="partitionid-and-data-partitioning"><code>partitionId</code> and Data Partitioning<a class="headerlink" href="#partitionid-and-data-partitioning" title="Permanent link">&para;</a></h3>
-<p>In federated learning, the global dataset is divided into partitions — one per client (participant). Each client trains only on its local partition:</p>
+<p>In federated learning, the global dataset is divided into partitions — one per client. Each client trains only on its local partition:</p>
 <div class="codehilite"><pre><span></span><code>Global Dataset
     ├── Partition 0 → Client A (partitionId=0)
     ├── Partition 1 → Client B (partitionId=1)
@@ -425,7 +494,7 @@ domain:port         → api.fedlearn.company.com:8080
     └── Partition N → Client N+1 (partitionId=N)
 </code></pre></div>
 
-<p>The <code>partitionId</code> tells the training client which subset of the global dataset it should use. In a real deployment, each hospital/institution has a unique partition ID.</p>
+<p>The backend <strong>assigns</strong> this id when the client requests a connection; the user never types it. That is also what makes the "drain before respawn" behaviour in <code>DockerService.stopTraining()</code> matter — two live clients on the same partition would both train and both submit.</p>
 <hr />
 <h2 id="training-lifecycle-state-machine">Training Lifecycle State Machine<a class="headerlink" href="#training-lifecycle-state-machine" title="Permanent link">&para;</a></h2>
 <p>The training lifecycle from the UI perspective:</p>
@@ -527,12 +596,12 @@ Return { platform, arch, recommendedProfile, nativeBundleAvailable, cudaAvailabl
 <hr />
 <h2 id="troubleshooting-guide">Troubleshooting Guide<a class="headerlink" href="#troubleshooting-guide" title="Permanent link">&para;</a></h2>
 <h3 id="docker-daemon-unreachable">"Docker daemon unreachable"<a class="headerlink" href="#docker-daemon-unreachable" title="Permanent link">&para;</a></h3>
-<p><strong>Symptom:</strong> Docker warning banner appears; Jetson profile fails to start.</p>
-<p><strong>Cause:</strong> Docker Desktop is not running, or the Docker socket path is wrong.</p>
+<p><strong>Symptom:</strong> the log panel shows <code>[System] Docker daemon unreachable: … Start the Docker daemon.</code> when starting a Jetson run.</p>
+<p><strong>Cause:</strong> the Docker daemon is not running, or the socket path is wrong.</p>
 <p><strong>Fix:</strong>
-- macOS/Windows: Start Docker Desktop and wait for the status to show "Engine running"
+- macOS/Windows: start Docker Desktop and wait for "Engine running"
 - Linux: <code>sudo systemctl start docker</code></p>
-<p><strong>Note:</strong> For MPS, CPU, and Discrete GPU profiles, Docker is not required. Only Jetson needs Docker.</p>
+<p><strong>Note:</strong> there is <strong>no startup Docker warning banner any more.</strong> The eager constructor ping and the <code>docker:daemon-unavailable</code> push channel were removed in <code>4d7d3a4</code> because they produced a false alarm for every MPS/CPU/CUDA user who never touches Docker. The daemon is probed only when the Jetson path needs it, and the error appears in the log panel at that moment. For MPS, CPU and Discrete GPU profiles Docker is not required at all.</p>
 <hr />
 <h3 id="native-training-bundle-not-found">"Native training bundle not found"<a class="headerlink" href="#native-training-bundle-not-found" title="Permanent link">&para;</a></h3>
 <p><strong>Symptom:</strong> <code>[System] Native training bundle not found at &lt;resources&gt;/fedlearn-client.</code></p>
@@ -541,7 +610,21 @@ Return { platform, arch, recommendedProfile, nativeBundleAvailable, cudaAvailabl
 - Run the appropriate build script before packaging:
   - Mac: <code>client-docker/packaging/build-mac.sh</code>
   - Windows CPU: <code>client-docker/packaging/build-win-cpu.ps1</code>
-- Re-run <code>npm run package:mac</code> or <code>npm run package:win:cpu</code></p>
+  - Windows CUDA: <code>client-docker/packaging/build-win-cuda.ps1</code>
+  - Linux: <code>client-docker/packaging/build-linux.sh</code>
+- Re-run <code>npm run package:mac</code> (or the platform equivalent)</p>
+<p>The <code>npm run package:*</code> scripts run <code>scripts/check-native-bundle.js</code> first, so this should now fail at <em>packaging</em> time with the exact build command rather than at <em>runtime</em> on a user's machine. If you see it at runtime, either the installer was produced by invoking <code>electron-builder</code> directly (bypassing the preflight) or the bundle was removed after packaging.</p>
+<p>In the UI, the same condition also shows up before you press Start: the <strong>Hardware detected</strong> readiness row goes to <code>warn</code> with "Native client bundle missing — reinstall to enable training". There is no Docker fallback for the non-Jetson profiles.</p>
+<hr />
+<h3 id="jetson-docker-error-response-from-daemon-devnvhost-ctrl-no-such-file-or-directory">Jetson: <code>docker: Error response from daemon: … /dev/nvhost-ctrl: no such file or directory</code><a class="headerlink" href="#jetson-docker-error-response-from-daemon-devnvhost-ctrl-no-such-file-or-directory" title="Permanent link">&para;</a></h3>
+<p><strong>Symptom:</strong> container creation fails immediately on a Jetson.</p>
+<p><strong>Cause:</strong> <code>/dev/nvhost-ctrl</code> is in <code>JETSON_DEVICE_MOUNTS</code> but does not exist on L4T R36.5 (JetPack 6). Docker hard-errors on a missing device node rather than skipping it. That node set is JetPack-5-era.</p>
+<p><strong>Fix / next step:</strong> check what your device actually runs (<code>cat /etc/nv_tegra_release</code>) and read <a href="#the---runtime-nvidia-prohibition-was-measured-wrong-on-jetpack-6">the correction above</a>. On JetPack 6 the working mechanism measured here was <code>--runtime nvidia</code>, not the device-mount list.</p>
+<hr />
+<h3 id="jetson-cuinit-801-cuda_error_not_supported-then-a-segfault">Jetson: <code>cuInit → 801</code> (<code>CUDA_ERROR_NOT_SUPPORTED</code>) then a segfault<a class="headerlink" href="#jetson-cuinit-801-cuda_error_not_supported-then-a-segfault" title="Permanent link">&para;</a></h3>
+<p><strong>Symptom:</strong> the container starts, then dies during CUDA initialization.</p>
+<p><strong>Cause:</strong> measured on an AGX Orin at L4T R36.5.0 — with device mounts and no <code>--runtime nvidia</code>, the in-container <code>libcuda.so.1</code> is a stub (<code>file too short</code>), so <code>cuInit</code> fails and the process segfaults.</p>
+<p><strong>Fix / next step:</strong> same as above — on JetPack 6, <code>--runtime nvidia</code> with <code>nvidia-container-toolkit</code> installed is the path that worked. Also check the base image: <code>nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3</code> is two major L4T generations behind an R36.5 device.</p>
 <hr />
 <h3 id="docker-image-fedlearn-clientlatest-not-found-locally">"Docker image 'fedlearn-client:latest' not found locally"<a class="headerlink" href="#docker-image-fedlearn-clientlatest-not-found-locally" title="Permanent link">&para;</a></h3>
 <p><strong>Symptom:</strong> Training fails immediately after starting with this message in the log panel.</p>
@@ -560,16 +643,17 @@ docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </
 2. Check that the Python script uses <code>print(..., flush=True)</code> or <code>sys.stdout.flush()</code> for critical output</p>
 <hr />
 <h3 id="mps-profile-cannot-run-under-docker">"MPS profile cannot run under Docker"<a class="headerlink" href="#mps-profile-cannot-run-under-docker" title="Permanent link">&para;</a></h3>
-<p><strong>Symptom:</strong> Error thrown immediately when selecting Jetson profile on macOS.</p>
-<p><strong>Cause:</strong> This is a guard — if somehow <code>startDockerTraining</code> is called with <code>mps</code> profile, it throws this error.</p>
-<p><strong>Fix:</strong> This shouldn't happen in normal usage. The <code>mps</code> profile always goes to <code>startNativeProcess</code>. If you see this, check <code>DockerService.startTraining()</code> routing logic.</p>
+<p><strong>Symptom:</strong> the run fails immediately with this message in the log panel.</p>
+<p><strong>Cause:</strong> a routing guard. <code>startDockerTraining</code>'s switch throws for <code>mps</code>, and its <code>default</code> branch throws for any other non-<code>jetson</code> profile (<code>Profile 'X' does not use the Docker path — only 'jetson' runs under Docker</code>).</p>
+<p><strong>Fix:</strong> this cannot happen through the UI — <code>DockerService.startTraining()</code> sends everything except <code>jetson</code> to <code>startNativeProcess</code>. Seeing either message means the dispatch was bypassed or regressed; check <code>startTraining()</code>'s routing.</p>
 <hr />
 <h3 id="log-panel-performance-degrading-over-long-training-runs">Log panel performance degrading over long training runs<a class="headerlink" href="#log-panel-performance-degrading-over-long-training-runs" title="Permanent link">&para;</a></h3>
 <p><strong>Symptom:</strong> UI becomes sluggish after hours of training.</p>
-<p><strong>Cause:</strong> The log buffer has exceeded <code>MAX_LOG_LINES = 10_000</code> and the string joining + re-render is taking too long.</p>
-<p><strong>Fix:</strong> The buffer cap should handle this automatically. If performance still degrades:
-1. Reduce <code>MAX_LOG_LINES</code> in <code>App.tsx</code>
-2. Consider implementing virtual scrolling in <code>LogPanel</code> for very long runs</p>
+<p><strong>Cause:</strong> log rendering cost. Two independent caps already bound it — <code>MAX_LOG_LINES = 10_000</code> on the buffer in <code>App.tsx</code>, and <code>MAX_RENDERED_LINES = 2_000</code> on the DOM in <code>LogPanel.tsx</code> — and <code>logView.ts</code> parses only newly-appended entries while <code>LogLineRow</code> is memoized, so a steady stream should re-render only the new rows.</p>
+<p><strong>Fix:</strong> if it still degrades:
+1. Use the log filter box — filtering runs over the full buffer but renders far fewer rows
+2. Reduce <code>MAX_RENDERED_LINES</code> in <code>LogPanel.tsx</code> (cheaper than reducing the buffer, which loses history)
+3. Consider virtual scrolling in <code>LogPanel</code> for very long runs</p>
 <hr />
 <p><em>Next: <a href="08-developer-guide.html">08 — Developer Guide &amp; Contributing</a></em><br />
 <em>Previous: <a href="06-build-and-packaging.html">06 — Build, Packaging &amp; Distribution</a></em></p></article>

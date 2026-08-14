@@ -50,8 +50,17 @@
 <li><a href="../framework/05_strategies.html">05 — Aggregation Strategies</a></li>
 <li><a href="../framework/06_decomfl.html">06 — DeComFL: Dimension-Free Federated Learning</a></li>
 <li><a href="../framework/07_data_partitioning.html">07 — Data Partitioning & Non-IID Scenarios</a></li>
-<li><a href="../framework/08_examples.html">08 — Examples Walkthrough</a></li>
+<li><a href="../framework/08_examples.html">08 — Examples & Benchmarks</a></li>
 <li><a href="../framework/09_developer_guide.html">09 — Developer Guide: Extending the Framework</a></li>
+</ul></details>
+<details class="nav-group">
+<summary>FL Runtime</summary><ul>
+<li><a href="../fl-runtime/README.html">FL Runtime Wiki</a></li>
+<li><a href="../fl-runtime/01_entry_points.html">01 — Entry Points & the Backend Contract</a></li>
+<li><a href="../fl-runtime/02_recipe_catalog.html">02 — The Model-Recipe Catalog</a></li>
+<li><a href="../fl-runtime/03_training_arms.html">03 — Training Arms</a></li>
+<li><a href="../fl-runtime/04_the_federated_set.html">04 — The Federated Set</a></li>
+<li><a href="../fl-runtime/05_testing.html">05 — Testing & CI</a></li>
 </ul></details>
 <details class="nav-group">
 <summary>Desktop</summary><ul>
@@ -85,29 +94,91 @@
     <article class="article"><h1 id="fedlearn-client-docker-wiki">FedLearn Client (Docker) — Wiki<a class="headerlink" href="#fedlearn-client-docker-wiki" title="Permanent link">&para;</a></h1>
 <blockquote>
 <p><strong>Part of:</strong> <a href="../index.html">FedLearn Platform Docs</a><br />
-<strong>Stack:</strong> Docker, multi-arch base images, thin wrapper around <code>framework/</code></p>
+<strong>Stack:</strong> Docker, multi-arch base images, thin wrapper around <code>framework/</code> + <code>fl-runtime/</code></p>
 </blockquote>
 <p><code>client-docker/</code> is the <strong>containerised FL client</strong>. It bundles the <code>framework/</code> library plus the canonical <code>fl-runtime/client.py</code> entry point (shared with the desktop native bundle and dev/local runs) so a client can join training <strong>without a Python toolchain on the host</strong>. End users don't usually run it directly — the <strong>Electron desktop orchestrator</strong> (<code>fedlearn-desktop/</code>) launches it via <code>dockerode</code>. Developers and Jetson operators run it manually.</p>
 <blockquote>
 <p><strong>Thin wrapper, by design.</strong> <code>framework/</code> is <code>pip install</code>-ed and the canonical <code>fl-runtime/client.py</code> is copied into the image. The container carries <strong>no forked FL logic of its own</strong> — DA-5 removed the old <code>client-docker/scripts/</code> client fork; don't reintroduce one.</p>
 </blockquote>
 <hr />
+<h2 id="the-two-facts-that-are-misunderstood-most-often">The two facts that are misunderstood most often<a class="headerlink" href="#the-two-facts-that-are-misunderstood-most-often" title="Permanent link">&para;</a></h2>
+<p><strong>1. The build context is the REPO ROOT, not this directory.</strong> The <code>Dockerfile</code> <code>COPY</code>s <code>framework/</code> <em>and</em> <code>fl-runtime/</code>, both of which live above <code>client-docker/</code>. A <code>docker build .</code> from inside the directory fails on the first <code>COPY</code>.</p>
+<p><strong>2. The container is configured by ENV VARS, not CLI flags.</strong> <code>entrypoint.sh</code> <strong>hard-fails</strong> if <code>PROJECT_ID</code>, <code>SERVER_ADDRESS</code> or <code>PARTITION_ID</code> is unset, then builds the <code>--project-id</code> / <code>--server-address</code> / <code>--partition-id</code> flags <em>itself</em> and forwards <code>"$@"</code> for extras. Passing those three as CLI flags exits 1 before <code>client.py</code> is ever exec'd. And there is <strong>no <code>--client-id</code></strong> anywhere — <code>fl-runtime/client.py</code> has never had one; the per-client index is <code>--partition-id</code>.</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># correct — from the repo root, config in the environment</span>
+docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>client-docker/Dockerfile<span class="w"> </span>-t<span class="w"> </span>fedlearn-client:latest<span class="w"> </span>.
+docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-e<span class="w"> </span><span class="nv">PROJECT_ID</span><span class="o">=</span>&lt;uuid&gt;<span class="w"> </span>-e<span class="w"> </span><span class="nv">SERVER_ADDRESS</span><span class="o">=</span>&lt;host&gt;:&lt;port&gt;<span class="w"> </span>-e<span class="w"> </span><span class="nv">PARTITION_ID</span><span class="o">=</span><span class="m">0</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>fedlearn-client:latest
+
+<span class="c1"># wrong — exits 1 in entrypoint.sh before client.py starts</span>
+docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span>fedlearn-client:latest<span class="w"> </span>--project-id<span class="w"> </span>&lt;uuid&gt;<span class="w"> </span>--client-id<span class="w"> </span><span class="m">0</span>
+</code></pre></div>
+
+<hr />
 <h2 id="layout">Layout<a class="headerlink" href="#layout" title="Permanent link">&para;</a></h2>
 <div class="codehilite"><pre><span></span><code>client-docker/
-├── Dockerfile                 # Multi-arch via the BASE_IMAGE build arg
-├── entrypoint.sh              # Single CLI surface; parses flags + env
-├── run-client.sh              # Helper wrapper for ad-hoc local runs
-├── requirements.txt           # Pinned client deps (framework installs its own)
-├── test_docker_build.sh       # Build smoke check
+├── Dockerfile                 # Multi-arch via the BASE_IMAGE build arg; context = REPO ROOT
+├── entrypoint.sh              # Env-driven launcher; the only CLI surface
+├── run-client.sh              # Smart launcher: detects platform, picks Docker vs native
+├── requirements.txt           # Client-side deps (framework/ installs its own via pip)
+├── test_docker_build.sh       # Build + import + device-backend validation suite
 ├── packaging/                 # PyInstaller bundling for the desktop installer (Mac / Win / Linux)
 └── DEPLOYMENT_GUIDE.md        # Canonical Jetson + native deployment procedure
 </code></pre></div>
 
-<p>There is <strong>no <code>client-docker/scripts/</code></strong> — DA-5 deleted that client fork. The image is
-assembled from two copies outside this directory (<code>Dockerfile</code>): <code>framework/</code> is copied to
-<code>/app/framework/</code> and <code>pip install</code>-ed, then <code>fl-runtime/</code> is copied to <code>/app/fl-runtime/</code>,
-which becomes the container <code>WORKDIR</code>. The container runs as an unprivileged <code>fedlearn</code>
-user (uid/gid <code>10001</code>), not root.</p>
+<p>There is <strong>no committed <code>scripts/</code> directory here</strong> — DA-5 deleted that client fork (<code>git ls-files client-docker/</code> confirms it; an empty untracked <code>scripts/models/</code> may exist locally as build residue). The image is assembled from two trees <em>outside</em> this directory.</p>
+<h3 id="image-anatomy">Image anatomy<a class="headerlink" href="#image-anatomy" title="Permanent link">&para;</a></h3>
+<p>The <code>Dockerfile</code> is short and every step matters:</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ARG BASE_IMAGE=pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime</code></td>
+<td>the only multi-arch knob; see the table below</td>
+</tr>
+<tr>
+<td><code>apt-get install python3-venv python3-dev python3-pip build-essential git wget curl ca-certificates</code></td>
+<td>build toolchain for source-only wheels</td>
+</tr>
+<tr>
+<td><code>COPY framework/ /app/framework/</code> → <code>pip3 install /app/framework/</code></td>
+<td>the FL library, installed as <code>fedlearn</code> — <strong>single source of truth</strong></td>
+</tr>
+<tr>
+<td><code>COPY client-docker/requirements.txt .</code> → <code>pip3 install -r requirements.txt</code></td>
+<td>client-side extras only (transformers/datasets, grpc, torchvision, monitoring, CLI)</td>
+</tr>
+<tr>
+<td><code>COPY fl-runtime/ /app/fl-runtime/</code></td>
+<td>the executable layer: <code>client.py</code>, <code>recipes.py</code>, <code>config.py</code>, <code>data.py</code>, <code>device.py</code> …</td>
+</tr>
+<tr>
+<td><code>COPY client-docker/entrypoint.sh /app/entrypoint.sh</code> + <code>chmod +x</code></td>
+<td>the launcher</td>
+</tr>
+<tr>
+<td><code>groupadd/useradd fedlearn</code> (<code>APP_UID</code>/<code>APP_GID</code>, default <code>10001</code>) + <code>chown -R /app /home/fedlearn</code></td>
+<td>the container runs <strong>unprivileged</strong> — GPU access via <code>--gpus</code> or device mounts does not need root</td>
+</tr>
+<tr>
+<td><code>ENV PYTHONPATH=/app</code> · <code>WORKDIR /app/fl-runtime</code> · <code>USER fedlearn</code></td>
+<td><code>client.py</code> resolves its siblings by being <em>in</em> <code>/app/fl-runtime</code></td>
+</tr>
+<tr>
+<td><code>ENTRYPOINT ["/app/entrypoint.sh"]</code> · <code>CMD []</code></td>
+<td>everything after the image name lands in <code>"$@"</code></td>
+</tr>
+</tbody>
+</table>
+<p>Because the working directory is <code>/app/fl-runtime</code> and the process is uid <code>10001</code>, <strong>any host directory you bind-mount must be readable by that uid</strong>, and any relative path a recipe writes (e.g. torchvision's <code>root="./data"</code>) resolves to <code>/app/fl-runtime/data</code> inside the container — not to <code>/data</code>.</p>
+<blockquote>
+<p><strong><code>flwr</code> is no longer a dependency.</strong> Comments in <code>requirements.txt</code> (the <code>pyarrow</code>-uncapped note at line 23) and in <code>packaging/</code> still reason about <code>flwr</code> / <code>flwr-datasets</code> conflicts. Those are leftover strings, not live constraints: nothing in the image installs Flower any more, and the CIFAR-10 IID shard is reproduced natively in <code>fl-runtime/recipes.py</code> (<code>_cnn_iid_shard</code>, <code>CNN_SHUFFLE_SEED = 42</code>). See <strong>Packaging</strong> below for the remaining traces and what each one now costs.</p>
+</blockquote>
 <hr />
 <h2 id="hardware-variants-base_image-build-arg">Hardware variants (<code>BASE_IMAGE</code> build arg)<a class="headerlink" href="#hardware-variants-base_image-build-arg" title="Permanent link">&para;</a></h2>
 <table>
@@ -136,59 +207,229 @@ user (uid/gid <code>10001</code>), not root.</p>
 </tr>
 </tbody>
 </table>
-<h3 id="jetson-path">⚠️ Jetson path<a class="headerlink" href="#jetson-path" title="Permanent link">&para;</a></h3>
-<p>Jetson clients <strong>must</strong> use the L4T base image (<code>nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3</code>) and <strong>must not</strong> pass the <code>--runtime nvidia</code> Docker flag — on Jetson it hangs indefinitely searching the device tree for discrete-GPU PCIe metadata. The desktop app's <code>DockerService</code> uses direct <code>/dev/nvhost-*</code> <strong>device mounts</strong> for the Jetson profile instead of the NVIDIA runtime. (Note: the in-repo <code>client-docker/DEPLOYMENT_GUIDE.md</code> is the canonical operational reference; follow the device-mount approach the platform uses.)</p>
+<p>The pinned Jetson tag is <strong>JetPack 5-era (L4T r35)</strong>. A JetPack 6 device runs L4T r36.x — two major generations newer — so pick a matching <code>l4t-pytorch</code> / <code>l4t-jetpack</code> tag rather than assuming r35 works, and re-verify GPU access on whatever L4T the device actually runs.</p>
+<p><code>requirements.txt</code> still carries its original Jetson framing ("Python 3.8, aarch64, CUDA 11.4"; <code>numpy&lt;2.0</code>, <code>scikit-learn&lt;1.4</code>, <code>fsspec&lt;2024.3</code>). Those caps exist for cp38-aarch64 wheel availability on the r35 base image and are conservative-but-harmless on a modern x86 base — worth knowing before you assume a version floor is a deliberate security pin. The one genuine floor is <code>protobuf&gt;=5.29.0,&lt;6.0.0</code> (P0-2b: it tracks the newest committed gencode, <code>fot_pb2.py</code> at 5.29.0).</p>
+<h3 id="jetson-gpu-access-the-old-blanket-ban-is-withdrawn">Jetson GPU access — the old blanket ban is withdrawn<a class="headerlink" href="#jetson-gpu-access-the-old-blanket-ban-is-withdrawn" title="Permanent link">&para;</a></h3>
+<p>This page used to state that <code>--runtime nvidia</code> must never be passed on Jetson because it hangs searching the device tree for discrete-GPU PCIe metadata. <strong>That was measured false on JetPack 6.</strong> On an AGX Orin running <strong>L4T R36.5 / JetPack 6.2</strong> with <code>nvidia-container-toolkit</code> 1.19.0:</p>
+<table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docker run --runtime nvidia</code></td>
+<td><strong>works</strong> — <code>torch.cuda.is_available()</code> is <code>True</code>, device reports as <code>Orin</code>. No hang.</td>
+</tr>
+<tr>
+<td><code>/dev/nvhost-*</code> device mounts, no <code>--runtime nvidia</code></td>
+<td><strong>fails</strong> — <code>cuInit → 801 (CUDA_ERROR_NOT_SUPPORTED)</code> then a segfault; the in-container <code>libcuda.so.1</code> is a stub</td>
+</tr>
+</tbody>
+</table>
+<p>Recorded in <code>research/results/decomfl/device_ab_cpu_vs_gpu.json</code> (<code>orin_cuda_added_2026_07_28</code>) and used for the Orin CUDA rows of <code>research/results/benchmark/pytorch_crossdevice_matrix.json</code>. Two further JetPack 6 details:</p>
+<ul>
+<li>The device-node list itself is JetPack-5-era. Both <code>run-client.sh</code> (its <code>jetson</code> branch, line 133) and the desktop's <code>DockerService</code> (<code>JETSON_DEVICE_MOUNTS</code>) pass <code>/dev/nvhost-ctrl</code>, which is <strong>reported absent on L4T R36.5</strong> — Docker hard-errors with <code>no such file or directory</code> when a device node does not exist. That specific node's absence was not re-verified while writing this page; the measured fact is that the whole device-mount path failed on the JetPack 6.2 box above.</li>
+<li>The device-mount path stays the documented fallback and is still what the desktop app uses for its Jetson profile.</li>
+</ul>
+<p><strong>Honest scope:</strong> the original hang was plausibly real on the older JetPack 5 / <code>nvidia-container-runtime</code> the note was written against, but that was <em>not</em> re-tested — no JetPack 5 hardware was available. Treat <code>--runtime nvidia</code> as the default to <em>try</em> on JetPack 6+, keep device mounts as the fallback, and re-verify per device. <code>DEPLOYMENT_GUIDE.md</code> §2.5 / §4.2 / §5.3 still carry the older blanket ban and are stale on this point.</p>
 <hr />
 <h2 id="build">Build<a class="headerlink" href="#build" title="Permanent link">&para;</a></h2>
-<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>client-docker
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>/path/to/FedLearn-Platform<span class="w">          </span><span class="c1"># the build context is the repo root</span>
 
 <span class="c1"># Default (x86 CUDA 11.7) — tag both :latest and a version</span>
-docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>fedlearn-client:latest<span class="w"> </span>-t<span class="w"> </span>fedlearn-client:0.1.0<span class="w"> </span>.
+docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>client-docker/Dockerfile<span class="w"> </span>-t<span class="w"> </span>fedlearn-client:latest<span class="w"> </span>-t<span class="w"> </span>fedlearn-client:0.1.0<span class="w"> </span>.
 
 <span class="c1"># Jetson AGX Orin (ARM64, L4T)</span>
-docker<span class="w"> </span>build<span class="w"> </span><span class="se">\</span>
+docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>client-docker/Dockerfile<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--build-arg<span class="w"> </span><span class="nv">BASE_IMAGE</span><span class="o">=</span>nvcr.io/nvidia/l4t-pytorch:r35.2.1-pth2.0-py3<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>-t<span class="w"> </span>fedlearn-client:jetson<span class="w"> </span>.
 </code></pre></div>
 
-<p>Always tag both <code>:latest</code> and a version — the desktop orchestrator (<code>fedlearn-desktop/src/main/docker.service.ts</code>) resolves <code>:latest</code> by default; pinned tags are consumed via <code>FEDLEARN_CLIENT_IMAGE</code> overrides for per-environment testing. The image tag mirrors the <strong>framework</strong> version it bundles (client-docker is not independently versioned — see <a href="../VERSIONS.html"><code>VERSIONS.md</code></a>).</p>
+<p>Always tag both <code>:latest</code> and a version — the desktop orchestrator (<code>fedlearn-desktop/src/main/docker.service.ts</code>) resolves <code>fedlearn-client:latest</code> by default; pinned tags are consumed via the <code>FEDLEARN_CLIENT_IMAGE</code> override for per-environment testing. The image tag mirrors the <strong>framework</strong> version it bundles (client-docker is not independently versioned — see <a href="../VERSIONS.html"><code>VERSIONS.md</code></a>).</p>
+<p><code>test_docker_build.sh</code> builds from the repo root and then validates the image: the framework imports, PyTorch loads, and the available device backends are reported. Note its step 3 asserts <code>/app/scripts</code> exists — a path the current <code>Dockerfile</code> never creates (it copies <code>fl-runtime/</code> to <code>/app/fl-runtime/</code>), so that assertion fails on a correctly built image and the script is stale on that point.</p>
+<hr />
 <h2 id="run">Run<a class="headerlink" href="#run" title="Permanent link">&para;</a></h2>
+<p><code>entrypoint.sh</code> does four things, in order:</p>
+<ol>
+<li><strong>Echoes</strong> <code>PROJECT_ID</code> / <code>SERVER_ADDRESS</code> / <code>PARTITION_ID</code> so a container log always begins with its identity.</li>
+<li><strong>Hard-fails</strong> (<code>exit 1</code> with a usage line) if any of the three is empty.</li>
+<li><strong>Clears proxy state</strong> — <code>unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY</code>, <code>export no_proxy="*"</code>, <code>export GRPC_ENABLE_FORK_SUPPORT=0</code>. A VPN or lab proxy that intercepts the gRPC connection otherwise surfaces as <code>Failed parsing HTTP/2</code>, which looks like a server bug and is not.</li>
+<li><strong>Execs</strong> <code>python3 -u client.py --project-id … --server-address … --partition-id … "${EXTRA_ARGS[@]}" "$@"</code>.</li>
+</ol>
 <div class="codehilite"><pre><span></span><code>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-v<span class="w"> </span>/path/to/data:/data<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-e<span class="w"> </span><span class="nv">PROJECT_ID</span><span class="o">=</span>&lt;project-uuid&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-e<span class="w"> </span><span class="nv">SERVER_ADDRESS</span><span class="o">=</span>&lt;server-host&gt;:&lt;grpc-port&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-e<span class="w"> </span><span class="nv">PARTITION_ID</span><span class="o">=</span><span class="m">0</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>-e<span class="w"> </span><span class="nv">FEDLEARN_CONNECTION_TOKEN</span><span class="o">=</span>&lt;token&gt;<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>fedlearn-client:latest<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--server-address<span class="w"> </span>&lt;server-host&gt;:&lt;grpc-port&gt;<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--client-id<span class="w"> </span><span class="m">0</span>
+<span class="w">  </span>--model-type<span class="w"> </span>CNN<span class="w"> </span>--training-arm<span class="w"> </span>FROZEN_HEAD
 </code></pre></div>
 
+<h3 id="env-vars-the-entrypoint-translates-into-flags">Env vars the entrypoint translates into flags<a class="headerlink" href="#env-vars-the-entrypoint-translates-into-flags" title="Permanent link">&para;</a></h3>
+<p><code>EXTRA_ARGS</code> is a bash <strong>array</strong>, so empty or space-containing values stay safe, and it is placed <em>before</em> <code>"$@"</code> — an explicit flag you pass after the image name still wins, because argparse takes the last occurrence.</p>
+<table>
+<thead>
+<tr>
+<th>Env var</th>
+<th>Becomes</th>
+<th>Why it exists</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MODEL_TYPE</code></td>
+<td><code>--model-type</code></td>
+<td>It was previously dropped here, and the container client then silently defaulted to <code>CNN</code>.</td>
+</tr>
+<tr>
+<td><code>STRATEGY</code></td>
+<td><code>--strategy</code></td>
+<td>Without it a non-MLP DeComFL project ran the <strong>FedAvg client path against a DeComFL server</strong> — a silent mismatch.</td>
+</tr>
+<tr>
+<td><code>TRAINING_ARM</code></td>
+<td><code>--training-arm</code></td>
+<td>The arm the FL server was spawned with. Without it the client trains and uploads <em>every</em> parameter while a <code>FROZEN_HEAD</code> server expects only the head.</td>
+</tr>
+</tbody>
+</table>
+<p>These three are exactly what the desktop's <code>buildContainerEnv</code> emits (<code>docker.service.ts</code>), alongside <code>PROJECT_ID</code> / <code>SERVER_ADDRESS</code> / <code>PARTITION_ID</code> / <code>DATASET_PATH</code> and, when present, <code>FEDLEARN_CONNECTION_TOKEN</code>.</p>
+<h3 id="the-flag-surface-clientpy-actually-accepts">The flag surface <code>client.py</code> actually accepts<a class="headerlink" href="#the-flag-surface-clientpy-actually-accepts" title="Permanent link">&para;</a></h3>
+<p>Anything after the image name is forwarded verbatim. The full parser (<code>fl-runtime/client.py</code>, <code>build_arg_parser</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--project-id</code>, <code>--server-address</code>, <code>--partition-id</code></td>
+<td>required; supplied by the entrypoint. <code>--partition-id</code> is bounded by <code>NUM_PARTITIONS</code></td>
+</tr>
+<tr>
+<td><code>--model-type</code></td>
+<td>choices are <strong>data-driven from the recipe catalog</strong> (<code>recipes.catalog_keys()</code>): <code>PNEUMONIA_CNN</code>, <code>CNN</code>, <code>CIFAR_RESNET18</code>, <code>MLP</code>, <code>TRANSFORMER</code>, <code>LLM_LORA</code>, <code>TINYNET_GOLDEN</code></td>
+</tr>
+<tr>
+<td><code>--training-arm</code></td>
+<td><code>FULL</code> (default) · <code>FROZEN_HEAD</code> · <code>OVA_LP</code>; validated against the recipe's <code>supported_arms</code> at startup and rejected otherwise. An arm carries an <strong>objective</strong>, not just a trainable subset (<code>OVA_LP</code> → one-vs-all)</td>
+</tr>
+<tr>
+<td><code>--strategy</code></td>
+<td>free-form string, default <code>FedAvg</code>; the client compares it case-insensitively (<code>args.strategy.lower() == 'decomfl'</code>) to pick the DeComFL client path. <strong><code>MLP</code> overrides it to <code>DeComFL</code> unconditionally</strong> (<code>ECG_STRATEGY</code>), so an <code>MLP</code> project ignores whatever you pass</td>
+</tr>
+<tr>
+<td><code>--dataset</code></td>
+<td><code>cb</code> · <code>sst2</code> · <code>ecg</code>. Also overridden per model type: <code>MLP</code> forces <code>ecg</code>, <code>PNEUMONIA_CNN</code> forces <code>pneumonia</code></td>
+</tr>
+<tr>
+<td><code>--model-name</code>, <code>--aggregation</code> (<code>FFA_LORA</code>/<code>FEDIT</code>), <code>--task-type</code> (<code>SEQ_CLASSIFICATION</code>/<code>CAUSAL_LM</code>)</td>
+<td><code>LLM_LORA</code> only</td>
+</tr>
+<tr>
+<td><code>--use-llm</code></td>
+<td>deprecated; use <code>--model-type TRANSFORMER</code></td>
+</tr>
+<tr>
+<td><code>--device</code></td>
+<td><code>auto</code> (default, <code>cuda &gt; mps &gt; cpu</code>) · <code>cpu</code> · <code>cuda</code> · <code>mps</code>; falls back to the <code>FEDLEARN_DEVICE</code> env var</td>
+</tr>
+</tbody>
+</table>
+<p>There is <strong>no <code>--client-id</code></strong>.</p>
+<h3 id="data-and-volumes-read-this-before-mounting">Data and volumes — read this before mounting<a class="headerlink" href="#data-and-volumes-read-this-before-mounting" title="Permanent link">&para;</a></h3>
+<p><code>-v /path/to/data:/data</code> on its own does <strong>nothing</strong>: neither <code>client.py</code> nor <code>fl-runtime/data.py</code> reads <code>/data</code> or the <code>DATASET_PATH</code> env var the desktop sets. Datasets are otherwise fetched at runtime (HuggingFace <code>load_dataset</code>, torchvision <code>download=True</code>). To point a recipe at a mounted directory, use the recipe's own env var — for <code>PNEUMONIA_CNN</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Env var</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FEDLEARN_PNEUMONIA_DIR</code></td>
+<td>use a local <code>ImageFolder</code> layout: <code>&lt;dir&gt;/train</code> and <code>&lt;dir&gt;/test</code> (or <code>/val</code>), each with <code>NORMAL/</code> and <code>PNEUMONIA/</code>. Missing split ⇒ a clear <code>FileNotFoundError</code>, not a silent fallback</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_PNEUMONIA_DATASET</code> / <code>_CONFIG</code> / <code>_REVISION</code></td>
+<td>HuggingFace fallback repo, config, and a commit pin</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_PNEUMONIA_TRUST_REMOTE_CODE=1</code></td>
+<td><strong>SE-19</strong> — remote dataset-loader execution is OFF by default. Enabling it downloads and runs the dataset repo's loader script on this host; pair it with <code>_REVISION</code> so an opted-in run executes a known immutable revision</td>
+</tr>
+<tr>
+<td><code>FEDLEARN_PNEUMONIA_ALPHA</code> / <code>_BATCH</code> / <code>_SUBSET</code>, <code>FEDLEARN_NUM_CLIENTS</code></td>
+<td>Dirichlet non-IID α, batch size, subset cap, cohort size</td>
+</tr>
+</tbody>
+</table>
+<h3 id="fedlearn_connection_token-se-14"><code>FEDLEARN_CONNECTION_TOKEN</code> (SE-14)<a class="headerlink" href="#fedlearn_connection_token-se-14" title="Permanent link">&para;</a></h3>
+<p>When the FL server enforces client auth (<code>app.fl.require-client-auth=true</code>), every client must present a backend-minted connection token or the server rejects it <code>UNAUTHENTICATED</code>. Fetch it from <code>GET /api/client/projects/{projectId}/connection</code> (field <code>connectionToken</code>) over your authenticated web session — the same DTO that carries the gRPC endpoint. The framework's client interceptor reads it straight from the process environment and attaches it as the <code>x-connection-token</code> metadata header on every gRPC call, which is why it travels as a container <strong>env var</strong> and not a CLI arg. The token is sized to the run's length and expires with it, so fetch a fresh one per run.</p>
+<p>The desktop launcher injects it automatically; a <strong>standalone <code>docker run</code> must pass it explicitly</strong>. The property defaults to <code>false</code> (<code>app.fl.require-client-auth=${APP_FL_REQUIRE_CLIENT_AUTH:false}</code>), so you can omit it against a server with auth off — but pass it whenever you don't control the server's setting. Note the backend refuses to boot a deployed profile with client auth on and TLS off (<code>FlBoundaryAuthPolicyValidator</code>), precisely because the token would then ride plaintext gRPC and be replayable.</p>
 <blockquote>
-<p><strong><code>FEDLEARN_CONNECTION_TOKEN</code> (SE-14).</strong> When the FL server enforces client auth
-(<code>app.fl.require-client-auth=true</code>), every client must present a backend-minted
-connection token or the server rejects it <code>UNAUTHENTICATED</code>. Fetch it from
-<code>GET /api/client/projects/{projectId}/connection</code> (<code>connectionToken</code>) over your
-authenticated web session; the framework client attaches it as <code>x-connection-token</code>
-on every gRPC call. The desktop launcher injects it automatically — a <strong>standalone
-<code>docker run</code> must pass it explicitly</strong> (omit only against a dev server with auth off).</p>
+<p><code>run-client.sh</code> does <strong>not</strong> forward <code>FEDLEARN_CONNECTION_TOKEN</code> (nor <code>MODEL_TYPE</code> / <code>STRATEGY</code> / <code>TRAINING_ARM</code>) into the container — it only passes the three required vars and appends extra args. Against a server with client auth on, or a project on a non-default recipe/arm, use a direct <code>docker run</code> or extend the script's invocation.</p>
 </blockquote>
-<p>For multi-platform image distribution (<code>buildx</code>, registry pushes, offline export) see the in-repo <code>DEPLOYMENT_GUIDE.md</code>.</p>
+<h3 id="run-clientsh-what-it-actually-does"><code>run-client.sh</code> — what it actually does<a class="headerlink" href="#run-clientsh-what-it-actually-does" title="Permanent link">&para;</a></h3>
+<p>A convenience launcher, not a supported deployment path: <code>./run-client.sh &lt;PROJECT_ID&gt; &lt;SERVER_ADDRESS&gt; &lt;PARTITION_ID&gt; [extra args...]</code>. It detects the platform and branches:</p>
+<ul>
+<li><strong>macOS</strong> → runs <code>fl-runtime/client.py</code> <strong>natively</strong> (with <code>framework/src</code> on <code>PYTHONPATH</code>), because Docker on Mac has no Metal pass-through, so MPS is unreachable from a container.</li>
+<li><strong>Linux + <code>/etc/nv_tegra_release</code></strong> → Docker with the JetPack-5-era <code>/dev/nvhost-*</code> device mounts (see the Jetson section — <code>/dev/nvhost-ctrl</code> is not valid on L4T R36.5).</li>
+<li><strong>Linux + <code>nvidia-smi</code></strong> → Docker with <code>--gpus all</code>.</li>
+<li><strong>otherwise</strong> → Docker, CPU only.</li>
+</ul>
 <hr />
 <h2 id="how-it-connects-to-the-rest-of-the-system">How it connects to the rest of the system<a class="headerlink" href="#how-it-connects-to-the-rest-of-the-system" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The <strong>Backend</strong> (<code>fl-platform-api</code>) spawns a Python FL server on a dynamic port in <code>50000-50010</code> when a project starts; the port is surfaced in the dashboard's live telemetry. Clients connect to <code>&lt;server-host&gt;:&lt;port&gt;</code>.</li>
-<li>gRPC is <strong>plaintext by default, TLS opt-in</strong>. Unset, the client builds an <code>insecure_channel</code> and
-  <strong>gradients fly plaintext over the WAN</strong>; set <code>FEDLEARN_GRPC_USE_TLS=1</code> (plus
-  <code>FEDLEARN_GRPC_ROOT_CERT</code>, and <code>FEDLEARN_GRPC_CLIENT_CERT</code>/<code>_KEY</code> for mTLS) and the client uses
-  <code>ssl_channel_credentials</code> + <code>secure_channel</code> instead
-  (<code>framework/src/fedlearn/client/grpc_client.py</code>). Server-side this is fail-closed: with
-  <code>FEDLEARN_REQUIRE_TLS=1</code> (which the backend sets on deployed profiles) and TLS not enabled, the FL
-  server refuses to serve rather than fall back to plaintext. See <a href="../../deploy/TLS.md"><code>deploy/TLS.md</code></a>.</li>
-<li>For cross-network demos (e.g. a classroom Jetson + a home Mac), use <strong>Tailscale</strong> to skip NAT/firewall issues.</li>
+<li>The <strong>Backend</strong> (<code>fl-platform-api</code>) spawns a Python FL server on a dynamic port in <code>50000-50010</code> when a project starts; the port is surfaced in the dashboard's live telemetry. Clients dial <code>&lt;server-host&gt;:&lt;port&gt;</code>.</li>
+<li>gRPC is <strong>plaintext by default, TLS opt-in (SE-2)</strong>. Unset, the client builds an <code>insecure_channel</code> and <strong>gradients fly plaintext</strong>; set <code>FEDLEARN_GRPC_USE_TLS=1</code> (plus <code>FEDLEARN_GRPC_ROOT_CERT</code>, and <code>FEDLEARN_GRPC_CLIENT_CERT</code>/<code>_KEY</code> for mTLS) and it uses <code>ssl_channel_credentials</code> + <code>secure_channel</code> (<code>framework/src/fedlearn/client/grpc_client.py:55-76</code>). Server-side this is fail-closed: <code>app.fl.require-tls=true</code> on the <code>ec2demo</code>/<code>production</code> profiles becomes <code>FEDLEARN_REQUIRE_TLS=1</code> on the spawned FL server, which then refuses to serve rather than bind plaintext. See <a href="../../deploy/TLS.md"><code>deploy/TLS.md</code></a>. Dial the DNS name in the cert SAN, not a raw IP.</li>
+<li>Model updates travel as a <strong>deterministic safetensors blob</strong>, never pickle. The wire is <strong>float32-only</strong> so the libtorch-free mobile C++ client can decode it; non-float32 buffers (BatchNorm's int64 <code>num_batches_tracked</code>, for instance) are excluded from the federated set and stay local. On the <em>receive</em> path the server sniffs the legacy <code>torch.save</code> zip / raw pickle magic bytes and rejects loudly.</li>
+<li>Uploads are <strong>unary by default and streamed when large</strong>: <code>GrpcClient.submit_update()</code> picks the chunked streaming path only for a transformer (<code>ALWAYS_STREAM_TRANSFORMERS = True</code>) or a blob over <code>STREAMING_THRESHOLD_MB = 100</code>; once streaming, it always chunks at <code>FEDLEARN_CHUNK_SIZE_MB</code> (default 4 MB). A container federating an LLM is on the streaming path.</li>
+<li>The client holds <strong>two gRPC stubs</strong> — training and heartbeat — so a long round can't be timed out; a <code>HeartbeatResponse</code> with <code>should_stop=True</code> latches a stop the fit loop polls (FR-10).</li>
+<li>For cross-network demos (e.g. a lab Jetson and a laptop elsewhere), a mesh VPN such as Tailscale avoids NAT/firewall work.</li>
 </ul>
+<hr />
+<h2 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h2>
+<p><code>ci.yml</code> has a path-filtered <strong><code>client-docker</code></strong> job (TE-6) that runs whenever this directory changes:</p>
+<ol>
+<li>Build the image with <code>docker/build-push-action</code> — <code>context: .</code> (the repo root), <code>file: client-docker/Dockerfile</code>, <code>platforms: linux/amd64</code>, with a <code>type=gha</code> layer cache.</li>
+<li>Smoke-test the <strong>real entrypoint</strong>:
+   <code>bash
+   docker run --rm -e PROJECT_ID=smoke -e SERVER_ADDRESS=localhost:50000 -e PARTITION_ID=0 \
+     fedlearn-client:ci --help</code>
+   <code>--help</code> rides through <code>"$@"</code>, so argparse prints and exits 0 before any gRPC connect — proving the framework + client imports load and the entrypoint wiring is sound.</li>
+</ol>
+<p>amd64 only: the default <code>BASE_IMAGE</code> is x86 PyTorch/CUDA and hosted runners have no GPU (CUDA runtime libs load lazily, so a CPU-only build is fine). The Jetson lane is arm64 and needs real hardware, so it is deliberately not built here. The job feeds the aggregate <code>ci-gate</code>, which is the single required status check.</p>
+<hr />
+<h2 id="packaging-the-native-sibling-packaging">Packaging — the native sibling (<code>packaging/</code>)<a class="headerlink" href="#packaging-the-native-sibling-packaging" title="Permanent link">&para;</a></h2>
+<p>The same <code>fl-runtime/client.py</code> is also frozen into a standalone binary for the desktop installer, so a Mac/Windows/Linux user never needs Docker or Python. <code>packaging/fedlearn-client.spec</code> is a PyInstaller <strong>onedir</strong> spec that:</p>
+<ul>
+<li>resolves the entry point as <code>../../fl-runtime/client.py</code> and hard-fails if it is missing;</li>
+<li><code>collect_all()</code>s the dynamic-dispatch libraries (<code>transformers</code>, <code>tokenizers</code>, <code>datasets</code>, <code>huggingface_hub</code>, <code>safetensors</code>, <code>accelerate</code>, <code>scipy</code>, <code>sklearn</code>, <code>fedlearn</code>);</li>
+<li>bundles the sibling modules <code>client.py</code> imports by name — <code>config.py</code>, <code>data.py</code>, <code>recipes.py</code>, <code>device.py</code>, <code>models/</code>, <code>data_loaders/</code>, <code>architecture/</code> — a missing entry surfaces only as a runtime <code>ModuleNotFoundError</code> in the frozen binary, never at build time;</li>
+<li>disables UPX deliberately (it breaks torch dylib loading on macOS and trips Windows AV heuristics).</li>
+</ul>
+<p>The per-platform wrappers (<code>build-mac.sh</code>, <code>build-win-cpu.ps1</code>, <code>build-win-cuda.ps1</code>, <code>build-linux.sh</code>) create a venv, install the right torch wheel for the target, install <code>requirements-client.txt</code>, then <code>pip install -e ../../framework --no-deps</code>.</p>
+<blockquote>
+<p><strong>The spec still carries dead <code>flwr</code> wiring — noisy, not fatal.</strong> <code>FULL_COLLECT</code> still lists <code>'flwr_datasets'</code>, but <code>requirements-client.txt</code> no longer installs it (its "FL Datasets" section is now empty). The spec wraps each <code>collect_all</code> in a <code>try/except … raise</code>, which reads as "a missing package aborts the build" — it does <strong>not</strong>, because on the pinned PyInstaller 6.11.1 <code>collect_all()</code> on an absent package logs two <code>WARNING: … not a package</code> lines and returns empty tuples rather than raising (verified against the pinned version). So the entry is a silent no-op: remove it, but it is not blocking a release.</p>
+<p>Three related leftovers, all now false: the <code>excludes</code> comment claiming matplotlib <strong>cannot</strong> be excluded "because <code>flwr_datasets/__init__.py</code> eagerly imports its visualization submodule" — with Flower gone, that exclusion is now available and is a real (unclaimed) size win; the <code>--no-deps</code> rationale repeated in <code>build-mac.sh</code> / <code>build-win-cpu.ps1</code> / <code>build-win-cuda.ps1</code> ("the framework's <code>requirements.txt</code> pulls in flwr + friends that downgrade protobuf/numpy/transformers"); and the <code>ResolutionImpossible</code> troubleshooting entry in <code>packaging/README.md</code>, which names the same dead cause. <code>--no-deps</code> is still the right flag — it just needs a current reason.</p>
+</blockquote>
+<hr />
 <h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Permanent link">&para;</a></h2>
 <ul>
+<li><a href="../../client-docker/README.md"><code>client-docker/README.md</code></a> — the unit's own entry point</li>
+<li><a href="../../client-docker/DEPLOYMENT_GUIDE.md"><code>client-docker/DEPLOYMENT_GUIDE.md</code></a> — full Jetson + native deployment procedure and troubleshooting playbook (its <code>--runtime nvidia</code> sections are stale on JetPack 6 — see above)</li>
+<li><a href="../../client-docker/packaging/README.md"><code>client-docker/packaging/README.md</code></a> — PyInstaller bundling for the desktop app</li>
 <li><a href="../framework/README.html">Framework Wiki</a> — the FL engine this container wraps</li>
 <li><a href="../desktop/README.html">Desktop Wiki</a> — the Electron orchestrator that launches this image for end users</li>
 <li><a href="../desktop/07-hardware-profiles.html">Desktop: Hardware Profiles</a> — the Jetson Docker device-mount path in detail</li>
+<li><a href="../../deploy/TLS.md"><code>deploy/TLS.md</code></a> — certificate provisioning for the gRPC boundary</li>
 </ul></article>
     <nav class="toc"></nav>
   </div>
