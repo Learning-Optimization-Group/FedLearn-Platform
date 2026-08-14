@@ -38,7 +38,10 @@ export class MobileFedAvgUnsupportedError extends Error {
 function roundConfigFor(joined: JoinedRun): RoundConfig {
   const m = joined.manifest;
   return {
-    strategy: m.strategy === 'FedAvg' ? 'FedAvg' : 'DeComFL',
+    // First-order runs upload a WEIGHT blob regardless of the server strategy (the server aggregates
+    // per its own strategy — FedAvg/FedProx/FedOpt/Robust — all consume SubmitModelUpdateStream). Only
+    // fall back to the zeroth-order DeComFL wire when no first-order bundle was provisioned.
+    strategy: m.strategy === 'FedAvg' || m.firstOrderSupported ? 'FedAvg' : 'DeComFL',
     learningRate: 0.001,
     mu: 0.001,
     numPerturbations: 1,
@@ -200,18 +203,23 @@ export async function runTrainingLoop(
   hooks: TrainingHooks,
   overrides?: { policy?: ResiliencePolicy; ops?: Partial<RoundOps> },
 ): Promise<void> {
-  const isFedAvg = joined.manifest.strategy === 'FedAvg';
+  // A run is FIRST-ORDER trainable on-device whenever the backend provisioned a trainable bundle
+  // (manifest.firstOrderSupported) — the native firstOrderRound does real backprop and uploads a WEIGHT
+  // blob that ANY gradient-aggregation server consumes (FedAvg/FedProx/FedOpt/Robust all take
+  // SubmitModelUpdateStream). The server applies its own strategy to the weight update; only FedProx's
+  // client-side proximal term is not yet applied on-device (see note), so it runs as FedAvg-equivalent
+  // local training under a FedProx server. Non-FedAvg servers therefore no longer force the DeComFL wire.
+  const isFirstOrder = joined.manifest.firstOrderSupported === true;
 
-  // MO-4 (capability-gated): a FedAvg run is on-device-trainable ONLY when the backend provisioned a
-  // first-order-capable bundle (manifest.firstOrderSupported) — then the native firstOrderRound does
-  // real backprop and uploads a WEIGHT blob a FedAvg server aggregates. Without it, the only on-device
-  // path is the ZO-scalar fedAvgRound the server can't consume, so refuse fail-closed BEFORE any
-  // provisioning/native work rather than submit into a void.
-  if (isFedAvg && !joined.manifest.firstOrderSupported) {
+  // MO-4 (capability-gated, generalized): without a first-order bundle the only on-device path is the
+  // ZO-scalar DeComFL round, which a NON-DeComFL server can't consume — refuse fail-closed before any
+  // provisioning/native work rather than submit into a void. (A DeComFL server + no bundle is the
+  // supported zeroth-order path and is allowed.)
+  if (!isFirstOrder && joined.manifest.strategy !== 'DeComFL') {
     throw new MobileFedAvgUnsupportedError(
-      'This project uses the FedAvg strategy, which is not provisioned for on-device training on this ' +
-        'run yet: first-order (weight-update) support is not enabled. Join a DeComFL project to train ' +
-        'on this device.',
+      `This run uses the ${joined.manifest.strategy} strategy but is not provisioned for on-device ` +
+        'training yet: first-order (weight-update) support is not enabled. Join a first-order-provisioned ' +
+        'or DeComFL project to train on this device.',
     );
   }
 
@@ -244,7 +252,7 @@ export async function runTrainingLoop(
   };
 
   await runResilientRoundLoop(
-    { runId: joined.runId, isFedAvg, cfg: roundConfigFor(joined) },
+    { runId: joined.runId, isFedAvg: isFirstOrder, cfg: roundConfigFor(joined) },
     ops,
     overrides?.policy ?? DEFAULT_RESILIENCE,
     hooks,
