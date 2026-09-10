@@ -181,3 +181,19 @@ proto/gen/
 # Stray local artifacts
 report-top.jpeg
 *.log.*.marker
+
+# Presentation / report tooling — LOCAL ONLY.
+# Deck builders, slide editors and report generators. These produce deliverables under
+# docs/ (itself ignored) and are not part of the platform build, so neither the output
+# nor the tooling belongs in the repo. scripts/presentation/ is reserved as the home for
+# any future ones — put them there and they are ignored automatically.
+scripts/presentation/
+scripts/group_talk/
+scripts/build_changelog.py
+scripts/add_competitive_slides.py
+scripts/add_headtohead_slide.py
+scripts/rebalance_headtohead.py
+scripts/restore_lost_slides.py
+scripts/trim_and_correct_slides.py
+scripts/*slide*.py
+scripts/*_deck*.py
