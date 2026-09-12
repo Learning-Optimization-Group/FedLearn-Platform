@@ -516,6 +516,73 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             context.set_details("An internal server error occurred.")
             return fedlearn_pb2.GetDeComFLConfigResponse()
 
+    def _submit_masked_gradients(self, request, context, trained_on_round):
+        """P2-2 phase 3a: record one client's masked scalars and name the surviving set.
+
+        The plaintext path is not merely skipped here, it is unreachable: a masked submission
+        carries no ``gradients``, so there is nothing for the coordinator to aggregate and no way
+        for an individual contribution to leak into the strategy. Recovery happens later, once
+        enough summed shares have arrived, and yields only the SUM.
+
+        Three things are checked before the value is accepted, all of which would otherwise
+        decode to plausible-looking noise rather than fail:
+
+        * the caller's identity is the SE-15 verified partition, not the wire ``client_id``;
+        * the modulus matches the field the server will decode in -- a client that quantised
+          under slice 1's power-of-two modulus is not interoperable with the Shamir path's prime;
+        * ``K`` and ``P`` match the strategy, so ``elements`` is the length the decode assumes.
+        """
+        # Imported here, matching _secure_session: the security modules are only needed on the
+        # secure path and the servicer is imported by every deployment, secure or not.
+        from fedlearn.security.lightsecagg import PRIME as LIGHTSECAGG_PRIME
+
+        partition = self._require_partition(context)
+        if partition is None:
+            return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
+
+        masked = request.masked_gradients
+        strategy = self.coordinator.strategy
+
+        if masked.modulus != LIGHTSECAGG_PRIME:
+            msg = (
+                f"masked submission uses modulus {masked.modulus}, but this server decodes over "
+                f"{LIGHTSECAGG_PRIME}; the values would dequantize to noise"
+            )
+            logging.warning("[Server] Rejecting masked gradients from partition %s: %s",
+                            partition, msg)
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details(msg)
+            return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
+
+        if (masked.num_local_steps, masked.num_perturbations) != (strategy.K, strategy.P):
+            msg = (
+                f"masked submission declares K={masked.num_local_steps}, "
+                f"P={masked.num_perturbations}; this round is K={strategy.K}, P={strategy.P}"
+            )
+            logging.warning("[Server] Rejecting masked gradients from partition %s: %s",
+                            partition, msg)
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details(msg)
+            return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
+
+        session = self._secure_session(trained_on_round)
+        try:
+            survivors = session.submit_masked(
+                partition=partition, elements=list(masked.elements)
+            )
+        except ValueError as exc:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details(str(exc))
+            return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
+
+        logging.info(
+            "[Server] Masked gradients accepted from partition %s for round %s; %d survivor(s)",
+            partition, trained_on_round, len(survivors),
+        )
+        return fedlearn_pb2.SubmitGradientScalarsResponse(
+            received=True, surviving_partitions=survivors
+        )
+
     def SubmitGradientScalars(self, request: fedlearn_pb2.SubmitGradientScalarsRequest, context):
         """
         Handle submission of gradient scalars from DeComFL client.
@@ -536,6 +603,12 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                 context.set_details(error_msg)
                 # FR-6: return THIS RPC's response type, not GetDeComFLConfigResponse.
                 return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
+
+            # P2-2: a masked submission takes the secure path and never touches the plaintext
+            # aggregation. Checked before _proto_to_gradients so a client cannot send both and
+            # have the plaintext half silently win.
+            if request.HasField("masked_gradients"):
+                return self._submit_masked_gradients(request, context, trained_on_round)
 
             # Convert proto gradients to nested list format
             gradient_scalars = self._proto_to_gradients(request.gradients)

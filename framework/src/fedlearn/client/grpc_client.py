@@ -5,13 +5,14 @@ import os
 import threading
 import time
 from collections import OrderedDict
-from typing import Callable, Dict, List, Optional, Tuple, TypeVar
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, TypeVar
 
 import grpc
 import torch
 
 from fedlearn.communication.generated import fedlearn_pb2
 from fedlearn.communication.generated import fedlearn_pb2_grpc
+from fedlearn.security.lightsecagg import PRIME as LIGHTSECAGG_PRIME
 from fedlearn.communication.serializer import (
     parameters_to_proto, parameters_to_chunks, chunks_to_parameters,
 )
@@ -485,3 +486,68 @@ class GrpcClient:
         except grpc.RpcError as e:
             log.error("[%s] SubmitGradientScalars failed: %s", self.client_id, e.details())
             return False
+
+    def submit_masked_gradient_scalars(
+            self,
+            masked_elements: Sequence[int],
+            num_examples: int,
+            round_num: int,
+            num_local_steps: int,
+            num_perturbations: int,
+    ) -> Optional[List[int]]:
+        """P2-2 phase 3a: submit ``quantize(g) + z`` instead of the plaintext scalars.
+
+        Deliberately a SEPARATE method rather than a flag on ``submit_gradient_scalars``. The two
+        requests differ in which oneof-like field is set, and a shared body would make it possible
+        -- through a default argument or an early return -- to populate ``gradients`` alongside
+        ``masked_gradients``. That request would leak every scalar in the clear while still being
+        accepted, and no server-side check would catch it because the masked half is perfectly
+        valid. Keeping the paths apart makes that request unconstructible here.
+
+        The masking itself belongs to :class:`~fedlearn.client.secure_agg_client.SecureAggregationClient`;
+        this method only puts its output on the wire.
+
+        Returns:
+            The surviving partitions, which phase 3b sums over -- or ``None`` if the server
+            refused. An empty list means every client dropped and is NOT the same as a refusal,
+            so the two are not collapsed into one falsy value.
+
+        Raises:
+            ValueError: if the payload length contradicts ``num_local_steps * num_perturbations``.
+                Checked locally so the failure names this client's bug rather than arriving as a
+                rejection from a remote host.
+        """
+        expected = int(num_local_steps) * int(num_perturbations)
+        if len(masked_elements) != expected:
+            raise ValueError(
+                f"{len(masked_elements)} masked elements for K={num_local_steps}, "
+                f"P={num_perturbations}; expected K*P = {expected}"
+            )
+
+        request = fedlearn_pb2.SubmitGradientScalarsRequest(
+            client_id=self.client_id,
+            trained_on_round=round_num,
+            num_examples=num_examples,
+            masked_gradients=fedlearn_pb2.MaskedGradientScalars(
+                elements=[int(v) for v in masked_elements],
+                modulus=LIGHTSECAGG_PRIME,
+                num_local_steps=int(num_local_steps),
+                num_perturbations=int(num_perturbations),
+            ),
+        )
+
+        try:
+            response = _retry_unary(
+                lambda: self.stub.SubmitGradientScalars(request),
+                op_name="SubmitGradientScalars(masked)",
+            )
+        except grpc.RpcError as e:
+            log.error("[%s] masked SubmitGradientScalars failed: %s",
+                      self.client_id, e.details())
+            return None
+
+        if not response.received:
+            log.error("[%s] server refused the masked submission for round %s",
+                      self.client_id, round_num)
+            return None
+        return list(response.surviving_partitions)
