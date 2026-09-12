@@ -16,6 +16,7 @@ import torch
 
 from fedlearn.security.secure_aggregation import (
     DEFAULT_MODULUS,
+    DEFAULT_SCALE,
     dequantize,
     mask_contribution,
     masking_cost,
@@ -148,3 +149,24 @@ def test_masking_cost_advantage_is_reported_and_grows_with_dimension():
 def test_masking_cost_rejects_an_unknown_channel():
     with pytest.raises(ValueError, match="channel"):
         masking_cost("carrier-pigeon", model_dim=10)
+
+
+def test_dequantised_aggregate_is_within_the_quantisation_bound_not_bit_identical():
+    """Pins the honest precision claim: exact in the field, bounded after dequantisation.
+
+    Each client's value is rounded to the nearest 1/scale, contributing at most 0.5/scale of
+    error, so an n-client sum is within n/(2*scale) of the plain float sum. Asserting equality
+    here would be wrong, and asserting a loose tolerance would hide a regression in `scale`.
+    """
+    cohort = ["a", "b", "c", "d"]
+    vals = {
+        "a": [0.0012345, -0.5000004], "b": [-0.0009876, 0.2500001],
+        "c": [0.4999999, 0.1250003], "d": [0.3333333, -0.6666667],
+    }
+    masked = [mask_contribution(vals[c], client_id=c, cohort=cohort, round_seed=1) for c in cohort]
+    secure = dequantize(unmask_sum(masked)).to(torch.float64)
+    plain = torch.tensor([sum(vals[c][i] for c in cohort) for i in range(2)], dtype=torch.float64)
+
+    bound = len(cohort) / (2 * DEFAULT_SCALE)
+    assert not torch.equal(secure, plain), "exactness here would mean quantisation was skipped"
+    assert torch.all((secure - plain).abs() <= bound), f"error exceeds n/(2*scale) = {bound}"

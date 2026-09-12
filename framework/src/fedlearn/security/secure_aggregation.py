@@ -11,8 +11,17 @@ cost is ``O(K*P)`` and constant in ``d``.
 The composition is only possible because of a property of the existing aggregation, not a change
 to it: ``DeComFL.aggregate_fit`` reads exactly ``sum(grad_scalars[k][p] for ... in clients)`` and
 ``len(clients)``. It never touches an individual client's scalars. Additive masks that cancel over
-the cohort therefore leave the aggregate *bit-identical* while the server learns nothing about any
-single contribution.
+the cohort therefore leave the aggregate intact while the server learns nothing about any single
+contribution.
+
+HOW EXACT, PRECISELY — the earlier wording here said "bit-identical" and that overstated it
+    In the FIELD the recovery is exact: the recovered integer sum equals the sum of the quantised
+    inputs to the bit, and ``test_masked_aggregate_recovers_the_exact_quantised_sum`` asserts that.
+    After ``dequantize`` it is not, because quantisation itself rounds: each client contributes at
+    most half a step (``0.5 / scale``), so an ``n``-client aggregate can differ from the plain float
+    sum by up to ``n / (2 * scale)`` — about 2e-6 for 4 clients at the default scale. Measured on a
+    4-client fixture: 1.1e-6. That is far below the noise of a zeroth-order gradient estimate, but
+    it is an error, not zero, and the bound is pinned by a test.
 
 SCOPE OF THIS MODULE (slice 1 of P2-2)
     Implemented: pairwise additive masking with exact cancellation in a finite field, and the

@@ -317,19 +317,37 @@ class DeComFL(Strategy):
             self.client_last_round[client_id] = server_round - 1
 
         # Get current model parameters
+        # The update needs only the PER-(k,p) SUM across clients, never an individual client's
+        # scalars. That is what lets secure aggregation substitute a recovered sum here without
+        # touching the mathematics -- see aggregate_fit_secure.
+        g_sums = [
+            [sum(gs[k][p] for gs in client_gradients.values()) for p in range(self.P)]
+            for k in range(self.K)
+        ]
+        return self._apply_zo_update(server_round, g_sums, len(client_gradients))
+
+    def _apply_zo_update(
+            self,
+            server_round: int,
+            g_sums: List[List[float]],
+            num_clients: int,
+    ) -> OrderedDict[str, torch.Tensor]:
+        """Apply one DeComFL update from the per-(k,p) summed gradient scalars.
+
+        Shared by the plaintext and secure paths so the two cannot drift: whichever way the sums
+        were obtained, the model moves identically.
+        """
         x_current = self.global_params_flat.clone()
-        num_clients = len(client_gradients)
 
         # For each local step
         for k in range(self.K):
             delta = torch.zeros_like(x_current)
 
             for p in range(self.P):
-                # z depends only on (k, p), NOT on the client — regenerate it once and sum the
-                # gradient scalars across clients (O(K*P) instead of the v1 O(K*P*N) loop, C-1).
+                # z depends only on (k, p), NOT on the client — regenerate it once and use the
+                # summed gradient scalar (O(K*P) instead of the v1 O(K*P*N) loop, C-1).
                 z = self._generate_perturbation(self.seed_history[server_round][k][p])
-                g_sum = sum(grad_scalars[k][p] for grad_scalars in client_gradients.values())
-                delta += g_sum * z
+                delta += g_sums[k][p] * z
 
             # Average across clients and perturbations.
             delta = delta / (num_clients * self.P)
@@ -348,6 +366,55 @@ class DeComFL(Strategy):
         updated_params = self._unflatten_params(x_current, self.initial_parameters)
 
         return updated_params
+
+    def aggregate_fit_secure(
+            self,
+            server_round: int,
+            masked_values: List[torch.Tensor],
+            summed_shares: Dict[int, torch.Tensor],
+            threshold: int,
+            num_clients: int,
+    ) -> Optional[OrderedDict[str, torch.Tensor]]:
+        """P2-2: aggregate a round in which clients sent MASKED scalars (LightSecAgg).
+
+        The server recovers ``sum_i x_i`` over the survivors without ever seeing any individual
+        client's contribution, then feeds it to the same :meth:`_apply_zo_update` the plaintext
+        path uses — so the resulting model matches the plaintext one to within the quantisation
+        bound (``n / (2 * scale)`` per scalar; see fedlearn.security.secure_aggregation).
+
+        This is cheap here precisely because the payload is ``K * P`` scalars rather than a
+        d-dimensional vector: the masking cost does not scale with the model.
+
+        Args:
+            masked_values: each survivor's ``y_i``, a flat ``[K*P]`` int64 field vector.
+            summed_shares: ``{holder_index: summed_share}`` — one vector per holder, whatever the
+                dropout count (the one-shot property).
+            threshold: Shamir reconstruction threshold.
+            num_clients: survivor count, used for the 1/N averaging.
+
+        Returns:
+            The updated global model, or ``None`` if no masked values were supplied.
+        """
+        from fedlearn.security.lightsecagg import recover_aggregate
+
+        if not masked_values:
+            return None
+
+        recovered = recover_aggregate(
+            masked_values=masked_values,
+            summed_shares=summed_shares,
+            threshold=threshold,
+        )
+        expected = self.K * self.P
+        if recovered.numel() != expected:
+            raise ValueError(
+                f"secure round recovered {recovered.numel()} scalars, expected K*P = {expected}"
+            )
+
+        flat = recovered.tolist()
+        g_sums = [[flat[k * self.P + p] for p in range(self.P)] for k in range(self.K)]
+        log.debug("Secure aggregation recovered %d scalars for round %d", expected, server_round)
+        return self._apply_zo_update(server_round, g_sums, num_clients)
 
     def _prune_history(self, server_round: int) -> None:
         """Drop history no client can still ask for.
