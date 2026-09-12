@@ -24,6 +24,13 @@ service FederatedLearningService {
   rpc GetDeComFLConfig      (GetDeComFLConfigRequest)      returns (GetDeComFLConfigResponse);
   rpc SubmitGradientScalars (SubmitGradientScalarsRequest) returns (SubmitGradientScalarsResponse);
 
+  // --- secure aggregation over the zeroth-order channel (P2-2) ---
+  // Three RPCs, one per protocol phase. All ADDITIVE: a client that ignores them runs the
+  // existing plaintext DeComFL path unchanged.
+  rpc PublishPublicKey      (PublishPublicKeyRequest)      returns (PublishPublicKeyResponse);
+  rpc SubmitSecureShares    (SubmitSecureSharesRequest)    returns (SubmitSecureSharesResponse);
+  rpc SubmitAggregatedShare (SubmitAggregatedShareRequest) returns (SubmitAggregatedShareResponse);
+
   // --- telemetry (closes the mobile observability island, B3 §6.4) ---
   rpc ReportClientMetrics   (ReportClientMetricsRequest)   returns (ReportClientMetricsResponse);
 }
@@ -225,11 +232,86 @@ message SubmitGradientScalarsRequest {
   // Per-(k,p) seeds that produced each g-scalar. DeComFL: server already has them (ignored). FedAvg
   // ZO-SGD: the CLIENT generates them, so the server needs them to reconstruct z and apply the update.
   PerturbationSeeds perturbation_seeds = 6;
+  // P2-2: set INSTEAD of `gradients` when the run uses secure aggregation. Carries K*P field
+  // elements (mod 2^31-1) rather than doubles, because masks must cancel exactly and float masks
+  // cancel only approximately. Leave unset for a plaintext round.
+  MaskedGradientScalars masked_gradients = 7;
 }
 
 message SubmitGradientScalarsResponse {
   bool  received       = 1;
   int64 bytes_received = 2;   // K*P*8 bytes typically — the O(K*P) comm-cost number (B3 §6.2)
+  // P2-2: the partitions whose masked submissions the server accepted this round. A client sums
+  // the shares it holds from EXACTLY this set before calling SubmitAggregatedShare — summing over
+  // a different set reconstructs the wrong mask and corrupts the aggregate.
+  repeated int32 surviving_partitions = 3;
+}
+
+// ============================================================================
+// SECURE AGGREGATION  (P2-2 — LightSecAgg over the zeroth-order channel)
+//
+// Masking cost is set by the PAYLOAD, and the zeroth-order payload is K*P scalars whatever the
+// model dimension. So masking here is O(K*P) and constant in d, where masking a gradient update
+// would be O(d) — that is the reason to compose secure aggregation with this channel.
+// ============================================================================
+
+// K*P masked field elements. Flat, in (local_step, perturbation) order, matching the flattening
+// the server applies when it rebuilds g_sums.
+message MaskedGradientScalars {
+  repeated uint64 elements = 1;
+  uint64 modulus  = 2;   // field size the client masked under; the server rejects a mismatch
+  uint32 num_local_steps = 3;   // K, so the server can verify elements.size() == K*P
+  uint32 num_perturbations = 4; // P
+}
+
+// Phase 1 — publish this client's X25519 public key and learn the cohort's.
+message PublishPublicKeyRequest {
+  string client_id  = 1;   // NOT trusted for authz; the server binds on the token's partition
+  string run_id     = 2;
+  int32  round      = 3;
+  bytes  public_key = 4;   // raw X25519, 32 bytes
+}
+message PublishPublicKeyResponse {
+  bool accepted = 1;
+  // partition -> raw X25519 public key, for every client that has published so far.
+  map<int32, bytes> cohort_public_keys = 2;
+  string rejection_reason = 3;   // set when a partition tries to replace an existing key
+}
+
+// Phase 2 — hand the server sealed shares addressed to peers, and collect those addressed to us.
+// The server relays ciphertext it cannot open; the sealing key comes from the pairwise X25519
+// exchange, so a relaying server learns nothing.
+message SealedShare {
+  int32 recipient_partition = 1;
+  bytes ciphertext          = 2;   // AES-GCM: nonce || ct || tag
+  bytes associated_data     = 3;   // binds (round, sender, recipient) — rejects replay/misrouting
+}
+message SubmitSecureSharesRequest {
+  string client_id = 1;
+  string run_id    = 2;
+  int32  round     = 3;
+  repeated SealedShare shares = 4;
+}
+message SubmitSecureSharesResponse {
+  bool accepted = 1;
+  // Shares addressed TO this client, keyed by the sending partition.
+  map<int32, bytes> inbound_ciphertexts = 2;
+}
+
+// Phase 3 — after learning the surviving set, each holder returns ONE summed share vector.
+// One vector per holder regardless of how many clients dropped: that is the property that makes
+// this LightSecAgg rather than classic SecAgg, where the server would reconstruct each dropped
+// client's mask separately.
+message SubmitAggregatedShareRequest {
+  string client_id = 1;
+  string run_id    = 2;
+  int32  round     = 3;
+  int32  holder_index = 4;          // this client's Shamir x-coordinate (1-based)
+  repeated uint64 summed_share = 5; // length K*P
+}
+message SubmitAggregatedShareResponse {
+  bool  received = 1;
+  int32 shares_still_needed = 2;   // how many more the server needs to hit the threshold
 }
 
 // ============================================================================

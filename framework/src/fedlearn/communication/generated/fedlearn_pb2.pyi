@@ -307,28 +307,132 @@ class GetDeComFLConfigResponse(_message.Message):
     def __init__(self, current_round: _Optional[int] = ..., current_seeds: _Optional[_Union[PerturbationSeeds, _Mapping]] = ..., rebuild_history: _Optional[_Union[RebuildHistory, _Mapping]] = ..., config: _Optional[_Mapping[str, str]] = ..., torch_version: _Optional[str] = ..., grad_estimate_method: _Optional[str] = ..., golden_vector_sha256: _Optional[str] = ...) -> None: ...
 
 class SubmitGradientScalarsRequest(_message.Message):
-    __slots__ = ("client_id", "run_id", "trained_on_round", "gradients", "num_examples", "perturbation_seeds")
+    __slots__ = ("client_id", "run_id", "trained_on_round", "gradients", "num_examples", "perturbation_seeds", "masked_gradients")
     CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
     RUN_ID_FIELD_NUMBER: _ClassVar[int]
     TRAINED_ON_ROUND_FIELD_NUMBER: _ClassVar[int]
     GRADIENTS_FIELD_NUMBER: _ClassVar[int]
     NUM_EXAMPLES_FIELD_NUMBER: _ClassVar[int]
     PERTURBATION_SEEDS_FIELD_NUMBER: _ClassVar[int]
+    MASKED_GRADIENTS_FIELD_NUMBER: _ClassVar[int]
     client_id: str
     run_id: str
     trained_on_round: int
     gradients: GradientScalars
     num_examples: int
     perturbation_seeds: PerturbationSeeds
-    def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., trained_on_round: _Optional[int] = ..., gradients: _Optional[_Union[GradientScalars, _Mapping]] = ..., num_examples: _Optional[int] = ..., perturbation_seeds: _Optional[_Union[PerturbationSeeds, _Mapping]] = ...) -> None: ...
+    masked_gradients: MaskedGradientScalars
+    def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., trained_on_round: _Optional[int] = ..., gradients: _Optional[_Union[GradientScalars, _Mapping]] = ..., num_examples: _Optional[int] = ..., perturbation_seeds: _Optional[_Union[PerturbationSeeds, _Mapping]] = ..., masked_gradients: _Optional[_Union[MaskedGradientScalars, _Mapping]] = ...) -> None: ...
 
 class SubmitGradientScalarsResponse(_message.Message):
-    __slots__ = ("received", "bytes_received")
+    __slots__ = ("received", "bytes_received", "surviving_partitions")
     RECEIVED_FIELD_NUMBER: _ClassVar[int]
     BYTES_RECEIVED_FIELD_NUMBER: _ClassVar[int]
+    SURVIVING_PARTITIONS_FIELD_NUMBER: _ClassVar[int]
     received: bool
     bytes_received: int
-    def __init__(self, received: bool = ..., bytes_received: _Optional[int] = ...) -> None: ...
+    surviving_partitions: _containers.RepeatedScalarFieldContainer[int]
+    def __init__(self, received: bool = ..., bytes_received: _Optional[int] = ..., surviving_partitions: _Optional[_Iterable[int]] = ...) -> None: ...
+
+class MaskedGradientScalars(_message.Message):
+    __slots__ = ("elements", "modulus", "num_local_steps", "num_perturbations")
+    ELEMENTS_FIELD_NUMBER: _ClassVar[int]
+    MODULUS_FIELD_NUMBER: _ClassVar[int]
+    NUM_LOCAL_STEPS_FIELD_NUMBER: _ClassVar[int]
+    NUM_PERTURBATIONS_FIELD_NUMBER: _ClassVar[int]
+    elements: _containers.RepeatedScalarFieldContainer[int]
+    modulus: int
+    num_local_steps: int
+    num_perturbations: int
+    def __init__(self, elements: _Optional[_Iterable[int]] = ..., modulus: _Optional[int] = ..., num_local_steps: _Optional[int] = ..., num_perturbations: _Optional[int] = ...) -> None: ...
+
+class PublishPublicKeyRequest(_message.Message):
+    __slots__ = ("client_id", "run_id", "round", "public_key")
+    CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    ROUND_FIELD_NUMBER: _ClassVar[int]
+    PUBLIC_KEY_FIELD_NUMBER: _ClassVar[int]
+    client_id: str
+    run_id: str
+    round: int
+    public_key: bytes
+    def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., round: _Optional[int] = ..., public_key: _Optional[bytes] = ...) -> None: ...
+
+class PublishPublicKeyResponse(_message.Message):
+    __slots__ = ("accepted", "cohort_public_keys", "rejection_reason")
+    class CohortPublicKeysEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: int
+        value: bytes
+        def __init__(self, key: _Optional[int] = ..., value: _Optional[bytes] = ...) -> None: ...
+    ACCEPTED_FIELD_NUMBER: _ClassVar[int]
+    COHORT_PUBLIC_KEYS_FIELD_NUMBER: _ClassVar[int]
+    REJECTION_REASON_FIELD_NUMBER: _ClassVar[int]
+    accepted: bool
+    cohort_public_keys: _containers.ScalarMap[int, bytes]
+    rejection_reason: str
+    def __init__(self, accepted: bool = ..., cohort_public_keys: _Optional[_Mapping[int, bytes]] = ..., rejection_reason: _Optional[str] = ...) -> None: ...
+
+class SealedShare(_message.Message):
+    __slots__ = ("recipient_partition", "ciphertext", "associated_data")
+    RECIPIENT_PARTITION_FIELD_NUMBER: _ClassVar[int]
+    CIPHERTEXT_FIELD_NUMBER: _ClassVar[int]
+    ASSOCIATED_DATA_FIELD_NUMBER: _ClassVar[int]
+    recipient_partition: int
+    ciphertext: bytes
+    associated_data: bytes
+    def __init__(self, recipient_partition: _Optional[int] = ..., ciphertext: _Optional[bytes] = ..., associated_data: _Optional[bytes] = ...) -> None: ...
+
+class SubmitSecureSharesRequest(_message.Message):
+    __slots__ = ("client_id", "run_id", "round", "shares")
+    CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    ROUND_FIELD_NUMBER: _ClassVar[int]
+    SHARES_FIELD_NUMBER: _ClassVar[int]
+    client_id: str
+    run_id: str
+    round: int
+    shares: _containers.RepeatedCompositeFieldContainer[SealedShare]
+    def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., round: _Optional[int] = ..., shares: _Optional[_Iterable[_Union[SealedShare, _Mapping]]] = ...) -> None: ...
+
+class SubmitSecureSharesResponse(_message.Message):
+    __slots__ = ("accepted", "inbound_ciphertexts")
+    class InboundCiphertextsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: int
+        value: bytes
+        def __init__(self, key: _Optional[int] = ..., value: _Optional[bytes] = ...) -> None: ...
+    ACCEPTED_FIELD_NUMBER: _ClassVar[int]
+    INBOUND_CIPHERTEXTS_FIELD_NUMBER: _ClassVar[int]
+    accepted: bool
+    inbound_ciphertexts: _containers.ScalarMap[int, bytes]
+    def __init__(self, accepted: bool = ..., inbound_ciphertexts: _Optional[_Mapping[int, bytes]] = ...) -> None: ...
+
+class SubmitAggregatedShareRequest(_message.Message):
+    __slots__ = ("client_id", "run_id", "round", "holder_index", "summed_share")
+    CLIENT_ID_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    ROUND_FIELD_NUMBER: _ClassVar[int]
+    HOLDER_INDEX_FIELD_NUMBER: _ClassVar[int]
+    SUMMED_SHARE_FIELD_NUMBER: _ClassVar[int]
+    client_id: str
+    run_id: str
+    round: int
+    holder_index: int
+    summed_share: _containers.RepeatedScalarFieldContainer[int]
+    def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., round: _Optional[int] = ..., holder_index: _Optional[int] = ..., summed_share: _Optional[_Iterable[int]] = ...) -> None: ...
+
+class SubmitAggregatedShareResponse(_message.Message):
+    __slots__ = ("received", "shares_still_needed")
+    RECEIVED_FIELD_NUMBER: _ClassVar[int]
+    SHARES_STILL_NEEDED_FIELD_NUMBER: _ClassVar[int]
+    received: bool
+    shares_still_needed: int
+    def __init__(self, received: bool = ..., shares_still_needed: _Optional[int] = ...) -> None: ...
 
 class ReportClientMetricsRequest(_message.Message):
     __slots__ = ("client_id", "run_id", "round", "loss", "accuracy", "current_step", "total_steps", "client_type", "compute_ms")

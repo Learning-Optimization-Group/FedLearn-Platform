@@ -82,6 +82,21 @@ class FederatedLearningServiceStub(object):
                 request_serializer=fedlearn__pb2.SubmitGradientScalarsRequest.SerializeToString,
                 response_deserializer=fedlearn__pb2.SubmitGradientScalarsResponse.FromString,
                 _registered_method=True)
+        self.PublishPublicKey = channel.unary_unary(
+                '/fedlearn.v2.FederatedLearningService/PublishPublicKey',
+                request_serializer=fedlearn__pb2.PublishPublicKeyRequest.SerializeToString,
+                response_deserializer=fedlearn__pb2.PublishPublicKeyResponse.FromString,
+                _registered_method=True)
+        self.SubmitSecureShares = channel.unary_unary(
+                '/fedlearn.v2.FederatedLearningService/SubmitSecureShares',
+                request_serializer=fedlearn__pb2.SubmitSecureSharesRequest.SerializeToString,
+                response_deserializer=fedlearn__pb2.SubmitSecureSharesResponse.FromString,
+                _registered_method=True)
+        self.SubmitAggregatedShare = channel.unary_unary(
+                '/fedlearn.v2.FederatedLearningService/SubmitAggregatedShare',
+                request_serializer=fedlearn__pb2.SubmitAggregatedShareRequest.SerializeToString,
+                response_deserializer=fedlearn__pb2.SubmitAggregatedShareResponse.FromString,
+                _registered_method=True)
         self.ReportClientMetrics = channel.unary_unary(
                 '/fedlearn.v2.FederatedLearningService/ReportClientMetrics',
                 request_serializer=fedlearn__pb2.ReportClientMetricsRequest.SerializeToString,
@@ -152,6 +167,27 @@ class FederatedLearningServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def PublishPublicKey(self, request, context):
+        """--- secure aggregation over the zeroth-order channel (P2-2) ---
+        Three RPCs, one per protocol phase. All ADDITIVE: a client that ignores them runs the
+        existing plaintext DeComFL path unchanged.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubmitSecureShares(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubmitAggregatedShare(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ReportClientMetrics(self, request, context):
         """--- telemetry (closes the mobile observability island, B3 §6.4) ---
         """
@@ -206,6 +242,21 @@ def add_FederatedLearningServiceServicer_to_server(servicer, server):
                     servicer.SubmitGradientScalars,
                     request_deserializer=fedlearn__pb2.SubmitGradientScalarsRequest.FromString,
                     response_serializer=fedlearn__pb2.SubmitGradientScalarsResponse.SerializeToString,
+            ),
+            'PublishPublicKey': grpc.unary_unary_rpc_method_handler(
+                    servicer.PublishPublicKey,
+                    request_deserializer=fedlearn__pb2.PublishPublicKeyRequest.FromString,
+                    response_serializer=fedlearn__pb2.PublishPublicKeyResponse.SerializeToString,
+            ),
+            'SubmitSecureShares': grpc.unary_unary_rpc_method_handler(
+                    servicer.SubmitSecureShares,
+                    request_deserializer=fedlearn__pb2.SubmitSecureSharesRequest.FromString,
+                    response_serializer=fedlearn__pb2.SubmitSecureSharesResponse.SerializeToString,
+            ),
+            'SubmitAggregatedShare': grpc.unary_unary_rpc_method_handler(
+                    servicer.SubmitAggregatedShare,
+                    request_deserializer=fedlearn__pb2.SubmitAggregatedShareRequest.FromString,
+                    response_serializer=fedlearn__pb2.SubmitAggregatedShareResponse.SerializeToString,
             ),
             'ReportClientMetrics': grpc.unary_unary_rpc_method_handler(
                     servicer.ReportClientMetrics,
@@ -459,6 +510,87 @@ class FederatedLearningService(object):
             '/fedlearn.v2.FederatedLearningService/SubmitGradientScalars',
             fedlearn__pb2.SubmitGradientScalarsRequest.SerializeToString,
             fedlearn__pb2.SubmitGradientScalarsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PublishPublicKey(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/fedlearn.v2.FederatedLearningService/PublishPublicKey',
+            fedlearn__pb2.PublishPublicKeyRequest.SerializeToString,
+            fedlearn__pb2.PublishPublicKeyResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubmitSecureShares(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/fedlearn.v2.FederatedLearningService/SubmitSecureShares',
+            fedlearn__pb2.SubmitSecureSharesRequest.SerializeToString,
+            fedlearn__pb2.SubmitSecureSharesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubmitAggregatedShare(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/fedlearn.v2.FederatedLearningService/SubmitAggregatedShare',
+            fedlearn__pb2.SubmitAggregatedShareRequest.SerializeToString,
+            fedlearn__pb2.SubmitAggregatedShareResponse.FromString,
             options,
             channel_credentials,
             insecure,
