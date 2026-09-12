@@ -681,6 +681,15 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             return None
         return self._partition_extractor(context)
 
+    def secure_session_if_present(self, round_index: int):
+        """The secure session for a round, or None -- WITHOUT creating one.
+
+        The coordinator's deadline path uses this to ask "is this round secure?". It must not
+        create a session as a side effect of asking, or every plaintext round would sprout an
+        empty one and take the secure resolution branch.
+        """
+        return self._secure_sessions.get(round_index)
+
     def _secure_session(self, round_index: int):
         """The session for ``round_index``, created on first use."""
         from fedlearn.server.secure_agg_session import SecureAggregationSession

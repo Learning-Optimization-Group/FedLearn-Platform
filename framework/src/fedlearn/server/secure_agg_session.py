@@ -133,6 +133,12 @@ class SecureAggregationSession:
         return sorted(self._masked)
 
     @property
+    def summed_share_count(self) -> int:
+        """How many holders have returned a summed share. Reported when a round fails so the log
+        says how far short of the threshold it fell."""
+        return len(self._summed)
+
+    @property
     def is_closed(self) -> bool:
         """True once the surviving set is frozen and safe for holders to sum over."""
         return self._closed

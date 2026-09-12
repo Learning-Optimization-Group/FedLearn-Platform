@@ -118,6 +118,12 @@ class FLCoordinator:
         # enforce round_timeout_s independently of wall-clock adjustments.
         self._round_started_at = time.monotonic()
 
+        # P2-2: set by the gRPC servicer, which owns the per-round secure-aggregation sessions.
+        # The coordinator needs to reach the current round's session on the deadline path, but it
+        # must not own that state -- a plaintext deployment has none, and the servicer is where
+        # the verified-partition context lives. Returns None when the round is not secure.
+        self._secure_session_provider = None
+
     def start_round(self):
         """Called by the main loop to begin a new round."""
         with self._lock:
@@ -139,6 +145,20 @@ class FLCoordinator:
             if (time.monotonic() - self._round_started_at) >= self.round_timeout_s:
                 self._handle_round_timeout()
                 break
+
+    def set_secure_session_provider(self, provider) -> None:
+        """Register how to reach a round's secure-aggregation session (P2-2).
+
+        Called by the servicer at construction. Left unset on a plaintext deployment, where every
+        secure branch below is then inert.
+        """
+        self._secure_session_provider = provider
+
+    def _current_secure_session(self):
+        """The secure session for the current round, or None if this round is not secure."""
+        if self._secure_session_provider is None:
+            return None
+        return self._secure_session_provider(self.current_round)
 
     def _handle_round_timeout(self):
         """Resolve a round that blew its dropout deadline.
@@ -180,6 +200,16 @@ class FLCoordinator:
             if self._round_complete_event.is_set():
                 return
 
+            # P2-2: a secure round resolves differently, and the difference is not a special case
+            # so much as a different question. The plaintext deadline asks "aggregate what
+            # arrived?"; a secure round cannot, because holders have not produced summed shares
+            # yet -- there is nothing to recover from. What the deadline does here is FREEZE the
+            # surviving set, which is precisely what unblocks the holders.
+            session = self._current_secure_session()
+            if session is not None and session.survivors:
+                self._resolve_secure_round_incomplete(session, reason)
+                return
+
             received = len(self._client_updates_received)
             total = self.clients_per_round
             # The strategy aggregates from min_clients; require at least 1.
@@ -215,6 +245,66 @@ class FLCoordinator:
                 )
                 self.stop_requested = True
                 self._round_complete_event.set()  # Release the main loop
+
+    def _resolve_secure_round_incomplete(self, session, reason: str) -> None:
+        """Resolve a secure round that will not complete on its own. Caller holds self._lock.
+
+        Three outcomes, in the order the round passes through them:
+
+        * **Not yet frozen** -- freeze the surviving set and return. The round is not finished;
+          it is now *finishable*, because holders can compute summed shares over an agreed set.
+          This is the ordinary dropout case and the reason the deadline exists.
+        * **Frozen, but too few survivors** -- stop the run rather than aggregate a thin cohort,
+          mirroring the plaintext rule. A survivor count below the Shamir threshold could not be
+          reconstructed anyway, so this is a hard floor and not just a quality judgement.
+        * **Frozen, enough survivors, still not recoverable** -- the holders did not return their
+          summed shares within a second deadline. Freezing was not a cure, and the round must
+          fail loudly rather than hang.
+        """
+        survivors = session.survivors
+        required = max(1, self.min_clients, session.threshold)
+
+        # The floor is checked BEFORE freezing, because freezing a cohort this thin only delays a
+        # certain failure: the holders who return summed shares ARE the survivors, so a survivor
+        # count below the Shamir threshold can never reach it however long we wait.
+        if len(survivors) >= required and not session.is_closed:
+            frozen = session.close_submissions()
+            log.warning(
+                "Secure round %d %s; freezing the surviving set at %d client(s): %s. Holders can "
+                "now return summed shares over an agreed set.",
+                self.current_round, reason, len(frozen), frozen,
+            )
+            return
+
+        if len(survivors) < required:
+            log.error(
+                "Secure round %d %s with only %d survivor(s) (min required=%d, Shamir "
+                "threshold=%d); stopping server",
+                self.current_round, reason, len(survivors), required, session.threshold,
+            )
+            self.last_round_failed = True
+            self.last_round_message = (
+                f"Round {self.current_round} {reason} with only {len(survivors)} secure "
+                f"survivor(s) (min required={required}); server stopped."
+            )
+            self.stop_requested = True
+            self._round_complete_event.set()
+            return
+
+        log.error(
+            "Secure round %d %s: the set was frozen at %d survivor(s) but only %d of %d "
+            "summed shares came back; the round cannot be recovered. Stopping server.",
+            self.current_round, reason, len(survivors),
+            session.summed_share_count, session.threshold,
+        )
+        self.last_round_failed = True
+        self.last_round_message = (
+            f"Round {self.current_round} {reason}: frozen at {len(survivors)} survivor(s) but "
+            f"only {session.summed_share_count}/{session.threshold} summed share(s) returned; "
+            f"server stopped."
+        )
+        self.stop_requested = True
+        self._round_complete_event.set()
 
     def get_global_model_for_client(self) -> Tuple[Optional[OrderedDict[str, torch.Tensor]], int, dict]:
         with self._lock:
