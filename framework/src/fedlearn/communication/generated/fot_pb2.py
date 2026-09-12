@@ -6,11 +6,17 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
+from google.protobuf import runtime_version as _runtime_version
 from google.protobuf import symbol_database as _symbol_database
 from google.protobuf.internal import builder as _builder
-# NOTE: the protobuf 5.29 runtime-version guard emitted by grpc_tools was removed so this module
-# imports under the pinned protobuf 4.25.x runtime. The FoT stubs are generated with newer tools
-# than the runtime; the serialized FileDescriptor format below is version-stable.
+_runtime_version.ValidateProtobufRuntimeVersion(
+    _runtime_version.Domain.PUBLIC,
+    5,
+    29,
+    0,
+    '',
+    'fot.proto'
+)
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()

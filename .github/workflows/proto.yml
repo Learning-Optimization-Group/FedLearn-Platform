@@ -51,9 +51,16 @@ jobs:
         working-directory: proto
         run: buf breaking --against '.git#branch=main'
 
-      # Regenerating the stubs must produce no change. Catches both a modified tracked stub and a
-      # newly generated (never-committed) one, so committed generated code cannot silently rot.
-      - name: buf generate — freshness (regeneration must be a no-op)
+      # NOTE ON WHAT THIS STEP DOES AND DOES NOT COVER.
+      # buf.gen.yaml writes every target into proto/gen/, which .gitignore:179 IGNORES — so
+      # `git status --porcelain` here is always clean and this step cannot detect a stale stub.
+      # It is still worth running: it proves the contract compiles under all five plugins.
+      # The stubs the Python framework actually imports live in
+      # framework/src/fedlearn/communication/generated/ and are gated by the step BELOW, which is
+      # the one that fails on rot. Before that step existed, fedlearn_pb2.py sat at gencode 4.25.1
+      # while fot_pb2.py had moved to 5.29.0 and the protobuf pins had been raised to match the
+      # latter — drift no gate was watching.
+      - name: buf generate — contract compiles under every plugin
         working-directory: proto
         run: |
           buf generate
@@ -64,6 +71,21 @@ jobs:
             exit 1
           fi
           git diff --exit-code
+
+      # THE step that actually gates the committed Python stubs. Regeneration is reproducible only
+      # because scripts/regen_python_protos.sh captures BOTH post-processing steps that used to be
+      # done by hand (the relative-import rewrite, and — historically — stripping the protobuf
+      # runtime-version guard, now obsolete under the >=5.29.0 pins). It pins grpcio-tools, since
+      # different releases emit different gencode headers.
+      - name: python stubs — freshness (regeneration must be a no-op)
+        run: |
+          pip install "grpcio-tools==1.71.2" --quiet
+          bash scripts/regen_python_protos.sh
+          if [[ -n "$(git status --porcelain framework/src/fedlearn/communication/generated)" ]]; then
+            echo "::error::committed Python stubs are stale. Run scripts/regen_python_protos.sh and commit the result."
+            git --no-pager diff --stat framework/src/fedlearn/communication/generated
+            exit 1
+          fi
 
   mirror:
     runs-on: ubuntu-latest
