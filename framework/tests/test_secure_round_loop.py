@@ -157,6 +157,11 @@ def test_the_round_loop_gives_up_rather_than_blocking_forever():
 def test_the_round_loop_flattens_the_KxP_grid_the_way_the_server_reshapes_it():
     """The server reads flat[k*P + q]. A column-major flatten would transpose every round's
     update and still decode cleanly, so this ordering has to be pinned."""
+    # threshold=1 with a single client is a configuration build_servicer REFUSES for a real
+    # deployment -- a one-client aggregate is that client's own contribution. It is used here
+    # deliberately: this test is about the flatten order, and one client makes the expected
+    # values readable. Constructing the servicer directly is what lets it bypass that policy,
+    # which is the same mechanism/policy split the round-timeout code already uses.
     K, P, t = 2, 2, 1
     servicer = _servicer(secure=True, threshold=t, K=K, P=P, clients_per_round=1)
     server_round = servicer.coordinator.current_round

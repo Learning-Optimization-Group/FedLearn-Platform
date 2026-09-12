@@ -42,9 +42,56 @@ def configure_logging() -> None:
     root.handlers = [handler]
 
 
+# A secure round needs at least two survivors: a one-client aggregate is that client's own
+# contribution, so the mechanism would report success while providing nothing.
+MIN_SECURE_AGG_THRESHOLD = 2
+
+
 @dataclass
 class ServerConfig:
     num_rounds: int = 3
+
+    # P2-2. Off by default: turning secure aggregation on changes the wire format for gradient
+    # submissions, so a server that enabled it unasked would refuse every existing client.
+    secure_aggregation: bool = False
+    # Shamir reconstruction threshold -- how many holders must return a summed share. Validated
+    # against the cohort in build_servicer, where clients_per_round is known.
+    secure_agg_threshold: int = 2
+
+
+def build_servicer(coordinator, config: "ServerConfig"):
+    """Construct the gRPC servicer for a run, validating the secure-aggregation configuration.
+
+    A seam rather than inline construction inside start_server, which binds a port and blocks:
+    the configuration is worth testing on its own, and a bad threshold should be caught here
+    rather than discovered when a round fails its deadline.
+    """
+    if config.secure_aggregation:
+        threshold = int(config.secure_agg_threshold)
+        if threshold < MIN_SECURE_AGG_THRESHOLD:
+            raise ValueError(
+                f"secure aggregation threshold must be at least {MIN_SECURE_AGG_THRESHOLD}, got "
+                f"{threshold}. A threshold of 1 admits a round with a single survivor, and a "
+                f"one-client aggregate IS that client's own contribution in plaintext -- the "
+                f"protocol would run and every check would pass while providing no privacy."
+            )
+        cohort = getattr(coordinator, "clients_per_round", 0) or 0
+        if cohort and threshold > cohort:
+            raise ValueError(
+                f"secure aggregation threshold {threshold} exceeds the cohort of {cohort} "
+                f"clients per round. Holders are survivors of that cohort, so the threshold "
+                f"could never be met and every round would freeze and then fail its deadline."
+            )
+
+    return FederatedLearningServiceServicer(
+        coordinator,
+        # SE-15: bind each connection token's server-assigned partition to a single client_id.
+        # Wired to the same FEDLEARN_REQUIRE_CLIENT_AUTH gate as the auth interceptor; returns
+        # None (binding disabled) in local/dev fail-open.
+        partition_extractor=partition_extractor_from_env(),
+        secure_agg_threshold=int(config.secure_agg_threshold),
+        secure_aggregation=bool(config.secure_aggregation),
+    )
 
 
 def start_server(
@@ -110,15 +157,14 @@ def start_server(
 
     # Add servicer
     fedlearn_pb2_grpc.add_FederatedLearningServiceServicer_to_server(
-        FederatedLearningServiceServicer(
-            coordinator,
-            # SE-15: bind each connection token's server-assigned partition to a single client_id.
-            # Wired to the same FEDLEARN_REQUIRE_CLIENT_AUTH gate as the auth interceptor; returns
-            # None (binding disabled) in local/dev fail-open.
-            partition_extractor=partition_extractor_from_env(),
-        ),
+        build_servicer(coordinator, config),
         grpc_server
     )
+    if config.secure_aggregation:
+        logging.info(
+            "[Server] Secure aggregation ENABLED (LightSecAgg, threshold=%d). Plaintext "
+            "gradient scalars will be refused.", config.secure_agg_threshold,
+        )
 
     # Bind address. Uses TLS when FEDLEARN_GRPC_USE_TLS=1. SE-2: fail closed rather than serve a
     # deployed profile (FEDLEARN_REQUIRE_TLS=1) in plaintext, and require the certs when TLS is on.

@@ -510,6 +510,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-name", type=str, required=True, help="Model name")
     parser.add_argument("--port", type=int, default=50051, help="gRPC server port")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="Aggregation strategy")
+    # P2-2 (LightSecAgg). Orthogonal to --strategy: secure aggregation masks the DeComFL
+    # gradient scalars in transit, it does not change which rule aggregates them.
+    parser.add_argument("--secure-aggregation", action="store_true",
+                        help="Run DeComFL rounds under LightSecAgg: clients submit masked "
+                             "scalars and the server recovers only the SUM. Changes the wire "
+                             "format -- plaintext gradient scalars are then REFUSED, so every "
+                             "client in the federation must support it. Off by default.")
+    parser.add_argument("--secure-agg-threshold", type=int, default=2,
+                        help="Shamir reconstruction threshold: how many surviving holders must "
+                             "return a summed share. Must be >= 2 (a threshold of 1 admits a "
+                             "single-survivor round, whose aggregate IS that client's own "
+                             "contribution) and <= the cohort. Default: 2")
     parser.add_argument("--robust-method", type=str, default=None,
                         choices=["median", "trimmed_mean", "krum", "multi_krum", "bulyan",
                                  "centered_clip"],
@@ -1088,7 +1100,11 @@ def main():
 
     history, final_parameters = fl.server.start_server(
         server_address=server_address,
-        config=fl.server.ServerConfig(num_rounds=args.num_rounds),
+        config=fl.server.ServerConfig(
+            num_rounds=args.num_rounds,
+            secure_aggregation=getattr(args, "secure_aggregation", False),
+            secure_agg_threshold=getattr(args, "secure_agg_threshold", 2),
+        ),
         strategy=strategy,
     )
 
