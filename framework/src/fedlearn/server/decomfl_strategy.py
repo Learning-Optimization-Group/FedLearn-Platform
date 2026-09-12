@@ -413,6 +413,23 @@ class DeComFL(Strategy):
 
         flat = recovered.tolist()
         g_sums = [[flat[k * self.P + p] for p in range(self.P)] for k in range(self.K)]
+
+        # Record the round's AVERAGED scalars so a client catching up can replay it.
+        #
+        # The plaintext path stores this from the coordinator, which holds the per-client results.
+        # The secure path has none to hold -- that is the point -- so the strategy records it
+        # here, from the recovered sum. Skipping it is not a missing optimisation but a torn
+        # rebuild chain: get_rebuild_history refuses a round with no gradients (correctly, since
+        # a silent gap diverges the client), so a secure round would make rejoin raise
+        # DeComFLRebuildGap outright rather than degrade.
+        #
+        # The AVERAGE, not the sum: clients replay this value directly, and a sum would step every
+        # rejoining client num_clients times too far. Nothing individual is exposed -- the average
+        # is the aggregate the round already published.
+        self.gradient_history[server_round] = [
+            [g / num_clients for g in row] for row in g_sums
+        ]
+
         log.debug("Secure aggregation recovered %d scalars for round %d", expected, server_round)
         return self._apply_zo_update(server_round, g_sums, num_clients)
 

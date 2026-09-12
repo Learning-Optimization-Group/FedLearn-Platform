@@ -776,6 +776,21 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             context.set_details(str(exc))
             return fedlearn_pb2.SubmitAggregatedShareResponse(received=False)
 
+        # The threshold-th summed share is what makes the round recoverable -- masked values
+        # alone are not enough, because holders cannot sum until the set is frozen. Completion is
+        # idempotent on the coordinator, so a race between holders cannot aggregate twice.
+        if session.ready():
+            try:
+                self.coordinator.complete_secure_decomfl_round(session)
+            except Exception:
+                # A failure here must not be reported to the holder as a rejected share: the share
+                # WAS accepted, and retrying it would not help. Surfaced in the server log and via
+                # the round staying incomplete.
+                logging.exception(
+                    "[Server] Secure round %s failed to complete after the threshold share",
+                    request.round,
+                )
+
         return fedlearn_pb2.SubmitAggregatedShareResponse(
             received=True, shares_still_needed=remaining,
         )

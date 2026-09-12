@@ -725,6 +725,68 @@ class FLCoordinator:
         self.current_round += 1
         self._round_complete_event.set()
 
+    def complete_secure_decomfl_round(self, session) -> bool:
+        """P2-2: finish a round whose clients sent MASKED scalars, once recovery is possible.
+
+        The secure analogue of _trigger_decomfl_aggregation_and_evaluation, and deliberately a
+        separate entry point rather than a branch inside it: the plaintext trigger consumes
+        per-client results, and on this path there are none to consume. That absence is the
+        privacy property, not a missing feature.
+
+        Unlike the plaintext path, completion is a TWO-stage condition. Masked submissions being
+        in is not enough — holders cannot compute their summed shares until the surviving set is
+        frozen, so the round completes on the threshold-th summed share arriving, not on the last
+        masked value.
+
+        Idempotent and lock-guarded, matching resolve_round_incomplete: the threshold share and a
+        deadline may race, and double-aggregating would step the global model twice.
+
+        Returns:
+            True if this call completed the round; False if it was not ready or already done.
+        """
+        with self._lock:
+            if self._round_complete_event.is_set():
+                return False
+            if not session.is_closed or not session.ready():
+                return False
+
+            masked_values, summed_shares = session.recovery_inputs()
+            num_clients = len(masked_values)
+            log.info(
+                "Completing secure DeComFL round %d over %d survivor(s) from %d summed share(s)",
+                self.current_round, num_clients, len(summed_shares),
+            )
+
+            aggregated = self.strategy.aggregate_fit_secure(
+                server_round=self.current_round,
+                masked_values=masked_values,
+                summed_shares=summed_shares,
+                threshold=session.threshold,
+                num_clients=num_clients,
+            )
+
+            if aggregated is not None:
+                self._global_model_params = aggregated
+                eval_result = self.strategy.evaluate(
+                    self.current_round, self._global_model_params
+                )
+                if eval_result is not None:
+                    loss, metrics = eval_result
+                    self.latest_metrics = {"loss": loss, **metrics}
+                    log.info("Secure round %d complete (loss=%.4f, metrics=%s)",
+                             self.current_round, loss, metrics)
+                else:
+                    log.info("Secure round %d complete (no evaluate_fn configured)",
+                             self.current_round)
+            else:
+                log.warning("Secure DeComFL aggregation for round %d failed", self.current_round)
+                self.latest_metrics = None
+
+            # Advance and signal LAST, matching the plaintext trigger's ordering.
+            self.current_round += 1
+            self._round_complete_event.set()
+            return True
+
     def _calculate_average_gradients(
             self,
             results: List[Tuple[str, List[List[float]], int]]

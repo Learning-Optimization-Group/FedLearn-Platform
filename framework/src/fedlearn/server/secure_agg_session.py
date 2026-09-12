@@ -170,16 +170,20 @@ class SecureAggregationSession:
         """True once enough summed shares are in to decode."""
         return len(self._summed) >= self.threshold and bool(self._masked)
 
-    def recover(self) -> torch.Tensor:
-        """The plaintext sum over the surviving clients, as float32.
+    def recovery_inputs(self):
+        """``(masked_values, summed_shares)`` in the shape the strategy's secure path expects.
 
-        One Lagrange interpolation regardless of how many clients dropped — the LightSecAgg
-        property. The server never holds an individual client's mask or contribution.
+        Returned as copies of the stored tensors' references in a fresh list/dict so a caller
+        cannot mutate the session's state, and so the strategy never reaches into it.
 
         Raises:
-            ValueError: if fewer than ``threshold`` summed shares have arrived, or no masked
-                submissions have.
+            ValueError: if the round is not yet recoverable — the same preconditions as
+                :meth:`recover`, checked here so a caller cannot build a half-valid input set.
         """
+        self._assert_recoverable()
+        return [self._masked[p] for p in self.survivors], dict(self._summed)
+
+    def _assert_recoverable(self) -> None:
         if not self._closed:
             raise ValueError(
                 f"round {self.round_index}: submissions have not been closed, so the surviving "
@@ -193,6 +197,18 @@ class SecureAggregationSession:
                 f"round {self.round_index}: have {len(self._summed)} summed shares, "
                 f"threshold is {self.threshold}"
             )
+
+    def recover(self) -> torch.Tensor:
+        """The plaintext sum over the surviving clients, as float32.
+
+        One Lagrange interpolation regardless of how many clients dropped — the LightSecAgg
+        property. The server never holds an individual client's mask or contribution.
+
+        Raises:
+            ValueError: if fewer than ``threshold`` summed shares have arrived, or no masked
+                submissions have.
+        """
+        self._assert_recoverable()
         log.info(
             "Secure aggregation round %d: recovering over %d survivors from %d summed shares",
             self.round_index, len(self._masked), len(self._summed),

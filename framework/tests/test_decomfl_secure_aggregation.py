@@ -166,3 +166,89 @@ def test_quantisation_error_does_not_compound_over_a_long_run():
         f"({drift / signal:.2e}) -- quantisation error is compounding"
     )
     assert signal < 4.0, "the run did not converge, so the drift comparison is meaningless"
+
+
+# ---------------------------------------------------------------------------------------------
+# A secure round must leave the same server-side history a plaintext round does
+# ---------------------------------------------------------------------------------------------
+def _secure_round_inputs(strategy, values, threshold, seed_base=100):
+    """Run the client-side masking for one round; return what the server would hold."""
+    from fedlearn.security.lightsecagg import (
+        aggregate_shares, client_mask, mask_values, shamir_share,
+    )
+    n = len(values)
+    length = strategy.K * strategy.P
+    masks = {c: client_mask(str(c), round_seed=seed_base, length=length) for c in values}
+    shares = {
+        c: shamir_share(masks[c], num_shares=n, threshold=threshold, seed=seed_base + c)
+        for c in values
+    }
+    masked = [mask_values(values[c], masks[c]) for c in values]
+    summed = {
+        h: aggregate_shares([shares[c][h] for c in values])
+        for h in range(1, threshold + 1)
+    }
+    return masked, summed
+
+
+def test_a_secure_round_records_gradient_history_so_rejoin_still_works():
+    """Without this, a secure round is a hole in the rebuild chain.
+
+    ``get_rebuild_history`` refuses to hand back a torn chain -- correctly, since a silent gap
+    would diverge the client's model. But that means a client catching up across a secure round
+    gets a hard DeComFLRebuildGap instead of rejoining: the privacy path would break rejoin
+    outright rather than degrade it.
+    """
+    K, P, n, t = 2, 2, 3, 2
+    strategy = DeComFL(
+        initial_parameters=OrderedDict({"w": torch.zeros(4)}),
+        num_local_steps=K, num_perturbations=P,
+    )
+    server_round = 1
+    strategy.get_or_create_seeds(server_round)
+    values = {1: [0.1, -0.2, 0.3, 0.05], 2: [0.2, 0.1, -0.1, 0.0], 3: [-0.1, 0.05, 0.2, 0.1]}
+    masked, summed = _secure_round_inputs(strategy, values, threshold=t)
+
+    strategy.aggregate_fit_secure(
+        server_round=server_round, masked_values=masked, summed_shares=summed,
+        threshold=t, num_clients=n,
+    )
+
+    assert server_round in strategy.gradient_history, (
+        "secure round left no gradient history; a rejoining client hits DeComFLRebuildGap"
+    )
+    recorded = strategy.gradient_history[server_round]
+    assert len(recorded) == K and all(len(row) == P for row in recorded)
+
+    # The recorded value is the AVERAGE, matching what the plaintext path stores -- clients
+    # replay it directly, so a sum here would step every rejoining client N times too far.
+    expected_avg = [
+        [sum(values[c][k * P + p] for c in values) / n for p in range(P)]
+        for k in range(K)
+    ]
+    for k in range(K):
+        for p in range(P):
+            assert abs(recorded[k][p] - expected_avg[k][p]) < 1e-4, (
+                f"gradient_history[{k}][{p}] is not the client-replayable average"
+            )
+
+
+def test_a_client_can_rebuild_across_a_secure_round():
+    """The end the previous test protects: catch-up across a secure round must not raise."""
+    K, P, n, t = 1, 2, 3, 2
+    strategy = DeComFL(
+        initial_parameters=OrderedDict({"w": torch.zeros(4)}),
+        num_local_steps=K, num_perturbations=P,
+    )
+    strategy.client_last_round["late"] = 0
+    for r in (1, 2):
+        strategy.get_or_create_seeds(r)
+        values = {c: [0.1 * c, -0.05 * c] for c in (1, 2, 3)}
+        masked, summed = _secure_round_inputs(strategy, values, threshold=t, seed_base=100 * r)
+        strategy.aggregate_fit_secure(
+            server_round=r, masked_values=masked, summed_shares=summed,
+            threshold=t, num_clients=n,
+        )
+
+    history = strategy.get_rebuild_history("late", current_round=3)
+    assert [h["round_number"] for h in history] == [1, 2]

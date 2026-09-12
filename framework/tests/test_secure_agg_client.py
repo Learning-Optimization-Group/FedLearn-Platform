@@ -379,3 +379,51 @@ def test_a_genuinely_late_client_is_still_refused_after_the_freeze():
         ))
     assert not late.received
     assert session.survivors == [1], "a late client slipped into the frozen set"
+
+
+# ---------------------------------------------------------------------------------------------
+# Completing the round: recovery has to actually drive the strategy
+# ---------------------------------------------------------------------------------------------
+def test_the_threshold_summed_share_completes_the_round():
+    """Phase 3b currently records shares and stops. Recovering the sum has to move the model and
+    advance the round, or a secure federation makes no progress however correct the crypto is."""
+    n, t, round_num = 3, 2, 1
+    servicer = _servicer(threshold=t, K=1, P=2)
+    coordinator = servicer.coordinator
+    strategy = coordinator.strategy
+    strategy.get_or_create_seeds(round_num)
+    before = strategy.global_params_flat.clone()
+
+    partitions = [1, 2, 3]
+    values = {1: [0.4, -0.2], 2: [0.1, 0.3], 3: [-0.2, 0.1]}
+    clients = {
+        p: SecureAggregationClient(_DirectStub(servicer, p), client_id=f"c{p}")
+        for p in partitions
+    }
+    for p in partitions:
+        clients[p].begin_round(round_num=round_num, threshold=t, num_scalars=2, cohort_size=n)
+    for p in partitions:
+        clients[p].distribute_shares(round_num=round_num)
+    for p in partitions:
+        clients[p].collect_shares(round_num=round_num)
+
+    frozen = None
+    for p in partitions:
+        r = _DirectStub(servicer, p)._call("SubmitGradientScalars", pb.SubmitGradientScalarsRequest(
+            client_id=f"c{p}", trained_on_round=round_num, num_examples=1,
+            masked_gradients=pb.MaskedGradientScalars(
+                elements=clients[p].mask(values[p]), modulus=2 ** 31 - 1,
+                num_local_steps=1, num_perturbations=2),
+        ))
+        if r.submissions_closed:
+            frozen = FrozenSurvivors(tuple(r.surviving_partitions))
+    assert frozen is not None
+
+    for p in partitions[:t]:
+        clients[p].finish_round(round_num=round_num, survivors=frozen)
+
+    assert not torch.equal(strategy.global_params_flat, before), (
+        "the recovered sum never reached the strategy; the global model did not move"
+    )
+    assert coordinator.current_round == round_num + 1, "the round did not advance"
+    assert round_num in strategy.gradient_history, "no rebuild history for the secure round"
