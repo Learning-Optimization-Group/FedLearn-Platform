@@ -23,6 +23,7 @@ WHAT THE SERVER LEARNS, AND WHAT IT DOES NOT
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Dict, List, Sequence
 
 import torch
@@ -59,6 +60,12 @@ class SecureAggregationSession:
         self._masked: Dict[int, torch.Tensor] = {}
         self._summed: Dict[int, torch.Tensor] = {}
         self._closed = False
+        self._cohort_closed = False
+        # gRPC serves clients from a thread pool, so every mutator below can run concurrently.
+        # The coordinator guards its own state this way; a session holds the same kind of
+        # read-then-write state (the key registry's first-write-wins check, the close trigger)
+        # and needs the same discipline. Re-entrant because recover() calls _assert_recoverable.
+        self._lock = threading.RLock()
 
     # ---- phase 1: key publication ----------------------------------------------------------
     def publish_key(self, partition: int, public_key: bytes) -> Dict[int, bytes]:
@@ -68,14 +75,47 @@ class SecureAggregationSession:
             PublicKeyConflict: if the partition already published a different key. First write
                 wins — peers may already have sealed shares to the original.
         """
-        self._registry.register(partition_id=partition, public_key=public_key)
-        return self._registry.cohort()
+        with self._lock:
+            if self._cohort_closed and self._registry.get(partition) is None:
+                raise ValueError(
+                    f"round {self.round_index}: key registration is closed; partition "
+                    f"{partition} cannot join this round. Peers have already sealed their shares "
+                    f"against the frozen cohort, so a new member would hold no share from anyone."
+                )
+            self._registry.register(partition_id=partition, public_key=public_key)
+            return self._registry.cohort()
+
+    @property
+    def is_cohort_closed(self) -> bool:
+        """True once key registration is final and shares are safe to seal against it."""
+        return self._cohort_closed
+
+    def close_cohort(self) -> Dict[int, bytes]:
+        """Freeze key registration. Idempotent.
+
+        Shares are sealed against the cohort view, so sealing against a view that is still growing
+        leaves later-arriving peers holding no share from this client -- and a peer holding no
+        share from a surviving dealer cannot contribute a summed share at all. Freezing first is
+        what makes every client seal against the same set.
+
+        Driven by the expected cohort having published, or by the round deadline. Both must be
+        able to fire, so calling this twice is not an error.
+        """
+        with self._lock:
+            if not self._cohort_closed:
+                self._cohort_closed = True
+                log.info(
+                    "Secure aggregation round %d: cohort closed with %d key(s): %s",
+                    self.round_index, len(self._registry), sorted(self._registry.cohort()),
+                )
+            return self._registry.cohort()
 
     def cohort_keys(self) -> Dict[int, bytes]:
         """The published keys, without publishing one. Used when a publish is REFUSED: the caller
         still needs the cohort view, and reaching into the registry from outside would couple the
         servicer to this class's internals."""
-        return self._registry.cohort()
+        with self._lock:
+            return self._registry.cohort()
 
     # ---- phase 2: share relay ---------------------------------------------------------------
     def relay_shares(self, sender: int, shares: Dict[int, bytes]) -> None:
@@ -87,6 +127,10 @@ class SecureAggregationSession:
             ValueError: if a share is addressed to the sender itself — meaningless, and it would
                 skew the holder count the threshold is measured against.
         """
+        with self._lock:
+            self._relay_shares_locked(sender, shares)
+
+    def _relay_shares_locked(self, sender: int, shares: Dict[int, bytes]) -> None:
         if sender in shares:
             raise ValueError(
                 f"partition {sender} addressed a share to itself; a dealer does not relay to "
@@ -97,7 +141,8 @@ class SecureAggregationSession:
 
     def inbound_for(self, partition: int) -> Dict[int, bytes]:
         """Sealed shares addressed TO ``partition``, keyed by sending partition."""
-        return dict(self._relayed.get(int(partition), {}))
+        with self._lock:
+            return dict(self._relayed.get(int(partition), {}))
 
     # ---- phase 3a: masked submissions --------------------------------------------------------
     def submit_masked(self, partition: int, elements: Sequence[int]) -> List[int]:
@@ -107,6 +152,10 @@ class SecureAggregationSession:
             ValueError: if the submission is not exactly ``num_scalars`` long. A short or long
                 vector would misalign the decode rather than fail, so it is rejected here.
         """
+        with self._lock:
+            return self._submit_masked_locked(partition, elements)
+
+    def _submit_masked_locked(self, partition: int, elements: Sequence[int]) -> List[int]:
         if self._closed:
             raise ValueError(
                 f"round {self.round_index}: submissions are closed; partition {partition} is too "
@@ -152,13 +201,14 @@ class SecureAggregationSession:
         Returns:
             The frozen surviving set.
         """
-        if not self._closed:
-            self._closed = True
-            log.info(
-                "Secure aggregation round %d: submissions closed with %d survivor(s): %s",
-                self.round_index, len(self._masked), self.survivors,
-            )
-        return self.survivors
+        with self._lock:
+            if not self._closed:
+                self._closed = True
+                log.info(
+                    "Secure aggregation round %d: submissions closed with %d survivor(s): %s",
+                    self.round_index, len(self._masked), self.survivors,
+                )
+            return self.survivors
 
     # ---- phase 3b: summed shares -------------------------------------------------------------
     def submit_summed_share(self, holder_index: int, share: Sequence[int]) -> int:
@@ -168,13 +218,17 @@ class SecureAggregationSession:
                 f"summed share from holder {holder_index} has {len(share)} elements, "
                 f"expected num_scalars = {self.num_scalars}"
             )
-        self._summed[int(holder_index)] = torch.tensor(list(share), dtype=torch.int64) % PRIME
-        return max(0, self.threshold - len(self._summed))
+        with self._lock:
+            self._summed[int(holder_index)] = (
+                torch.tensor(list(share), dtype=torch.int64) % PRIME
+            )
+            return max(0, self.threshold - len(self._summed))
 
     # ---- recovery ----------------------------------------------------------------------------
     def ready(self) -> bool:
         """True once enough summed shares are in to decode."""
-        return len(self._summed) >= self.threshold and bool(self._masked)
+        with self._lock:
+            return len(self._summed) >= self.threshold and bool(self._masked)
 
     def recovery_inputs(self):
         """``(masked_values, summed_shares)`` in the shape the strategy's secure path expects.
@@ -186,8 +240,9 @@ class SecureAggregationSession:
             ValueError: if the round is not yet recoverable — the same preconditions as
                 :meth:`recover`, checked here so a caller cannot build a half-valid input set.
         """
-        self._assert_recoverable()
-        return [self._masked[p] for p in self.survivors], dict(self._summed)
+        with self._lock:
+            self._assert_recoverable()
+            return [self._masked[p] for p in self.survivors], dict(self._summed)
 
     def _assert_recoverable(self) -> None:
         if not self._closed:

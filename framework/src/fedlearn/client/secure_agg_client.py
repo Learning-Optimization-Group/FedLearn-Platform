@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import Dict, List, Sequence, Tuple
 
@@ -110,6 +111,7 @@ class SecureAggregationClient:
 
         self.partition: int | None = None
         self._cohort: Dict[int, bytes] = {}
+        self._cohort_closed = False
         self._round: int | None = None
         self._threshold: int | None = None
         self._num_scalars: int | None = None
@@ -164,6 +166,7 @@ class SecureAggregationClient:
         self._num_scalars = int(num_scalars)
         self._cohort_size = int(cohort_size)
         self._cohort = dict(response.cohort_public_keys)
+        self._cohort_closed = bool(response.cohort_closed)
         self.partition = self._locate_self(self._cohort)
 
         # Real entropy, not a function of (client_id, round) -- see the module docstring.
@@ -205,16 +208,14 @@ class SecureAggregationClient:
         """
         self._require_round(round_num)
 
-        refreshed = self._stub.PublishPublicKey(
-            fedlearn_pb2.PublishPublicKeyRequest(
-                client_id=self.client_id,
-                run_id=run_id,
-                round=int(round_num),
-                public_key=self._public,
+        self._refresh_cohort(round_num, run_id)
+        if not self._cohort_closed:
+            raise SecureAggregationNotReady(
+                f"round {round_num}: the server has not closed key registration, so the cohort is "
+                f"still growing. Sealing shares against a partial view would leave every "
+                f"later-arriving peer holding no share from this client, and those peers could "
+                f"never contribute a summed share. Call await_cohort() first."
             )
-        )
-        self._cohort = dict(refreshed.cohort_public_keys)
-        self.partition = self._locate_self(self._cohort)
 
         indices = self._holder_indices()
         num_shares = max(len(indices), self._cohort_size)
@@ -260,6 +261,60 @@ class SecureAggregationClient:
 
         self._absorb(round_num, response.inbound_ciphertexts)
         return dict(self._held)
+
+    def _refresh_cohort(self, round_num: int, run_id: str = "") -> bool:
+        """Re-publish the (identical) key to read the server's current cohort view.
+
+        Not a redundant call: a client that published early saw a partial cohort. The registry is
+        idempotent for an identical key precisely so this refresh is safe -- a retry is not
+        mistaken for a key-swap attack.
+
+        Returns:
+            Whether the server has closed key registration.
+        """
+        response = self._stub.PublishPublicKey(
+            fedlearn_pb2.PublishPublicKeyRequest(
+                client_id=self.client_id,
+                run_id=run_id,
+                round=int(round_num),
+                public_key=self._public,
+            )
+        )
+        self._cohort = dict(response.cohort_public_keys)
+        self._cohort_closed = bool(response.cohort_closed)
+        self.partition = self._locate_self(self._cohort)
+        return self._cohort_closed
+
+    def await_cohort(
+            self,
+            round_num: int,
+            poll_interval_s: float = 1.0,
+            max_wait_s: float = 300.0,
+            run_id: str = "",
+    ) -> bool:
+        """Block until the server closes key registration for this round.
+
+        The first rendezvous of the round, and the one that has to happen before any sealing:
+        shares are encrypted to a specific cohort, so every client must seal against the SAME
+        set. A client sealing against a view that is still growing leaves later-arriving peers
+        holding no share from it, and a peer holding no share from a surviving dealer cannot
+        contribute a summed share at all -- the round becomes unrecoverable rather than degraded.
+
+        Returns:
+            True once the cohort is closed; False if it did not close within ``max_wait_s``.
+        """
+        self._require_round(round_num)
+        deadline = time.monotonic() + max_wait_s
+        while True:
+            if self._refresh_cohort(round_num, run_id):
+                return True
+            if time.monotonic() >= deadline:
+                log.error(
+                    "[%s] Round %d: key registration did not close within %.1fs (%d key(s) "
+                    "published)", self.client_id, round_num, max_wait_s, len(self._cohort),
+                )
+                return False
+            time.sleep(poll_interval_s)
 
     def collect_shares(self, round_num: int, run_id: str = "") -> Dict[int, torch.Tensor]:
         """Poll for shares that peers relayed AFTER this client submitted its own.

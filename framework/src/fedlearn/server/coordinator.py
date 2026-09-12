@@ -206,6 +206,10 @@ class FLCoordinator:
             # yet -- there is nothing to recover from. What the deadline does here is FREEZE the
             # surviving set, which is precisely what unblocks the holders.
             session = self._current_secure_session()
+            if session is not None and not session.is_cohort_closed and len(session.cohort_keys()):
+                # Clients wait for a closed cohort before sealing shares, so a round where fewer
+                # than clients_per_round ever published would otherwise never get started at all.
+                session.close_cohort()
             if session is not None and session.survivors:
                 self._resolve_secure_round_incomplete(session, reason)
                 return

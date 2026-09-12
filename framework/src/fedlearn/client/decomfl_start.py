@@ -9,6 +9,7 @@ import time
 import traceback
 from .grpc_client import GrpcClient
 from .decomfl_client import DeComFLClient
+from .secure_agg_client import SecureAggregationClient, SecureAggregationNotReady
 
 log = logging.getLogger(__name__)
 
@@ -21,6 +22,115 @@ OUTCOME_ERROR = "error"              # registration/unexpected failure
 # Bounded rejoin budget for transient, non-terminal errors before giving up.
 _MAX_CONSECUTIVE_FAILURES = 3
 _RETRY_DELAY_SECONDS = 10
+
+
+# P2-2 -----------------------------------------------------------------------------------------
+# Defaults for the secure round's two waits. Both are polls against a rendezvous the client
+# cannot otherwise observe: peers relay shares on their own schedule, and the server freezes the
+# surviving set when the last client submits or a deadline fires. Overridable per call so tests
+# do not sleep.
+SECURE_POLL_INTERVAL_S = 1.0
+SECURE_MAX_WAIT_S = 300.0
+
+
+def run_secure_round(
+        comm_client,
+        secure,
+        gradient_scalars,
+        num_examples: int,
+        server_round: int,
+        K: int,
+        P: int,
+        poll_interval_s: float = SECURE_POLL_INTERVAL_S,
+        max_wait_s: float = SECURE_MAX_WAIT_S,
+) -> bool:
+    """Run phases 2 and 3 of secure aggregation for one round. Phase 1 already ran.
+
+    Phase 1 (publishing this client's key) belongs BEFORE ``fit()`` in the caller, not here: it
+    does not depend on the training output, and putting it first lets the key-publication
+    rendezvous overlap with the long local training instead of adding a round trip after it.
+
+    ORDER, AND WHY IT IS NOT THE OBVIOUS ONE
+        Shares are distributed first, then the masked value is submitted, and only THEN are
+        inbound shares collected. Collecting before submitting looks more natural and is wrong:
+        a holder needs shares from the SURVIVORS, and the surviving set does not exist until the
+        server freezes it. Waiting for the whole cohort instead would block on exactly the client
+        that dropped -- the case the scheme is built to survive.
+
+    Returns:
+        True if this client completed its part of the round. False if the round did not freeze
+        within ``max_wait_s``, or a submission was refused, or the shares needed never arrived --
+        all recoverable at the loop level, where the next config poll will say whether the server
+        moved on or failed the round.
+    """
+    flat = [g for row in gradient_scalars for g in row]
+    if len(flat) != K * P:
+        raise ValueError(
+            f"expected a {K}x{P} gradient grid ({K * P} scalars), got {len(flat)}"
+        )
+
+    # The round's first rendezvous: every client must seal against the SAME cohort, so wait for
+    # the server to close key registration before distributing. Sealing against a partial view
+    # leaves later-arriving peers holding no share from this client, and a peer holding no share
+    # from a surviving dealer cannot contribute a summed share at all.
+    if not secure.await_cohort(
+            round_num=server_round,
+            poll_interval_s=poll_interval_s,
+            max_wait_s=max_wait_s,
+    ):
+        log.error("[%s] Round %d: cohort never closed; skipping this round",
+                  secure.client_id, server_round)
+        return False
+
+    # Phase 2: hand this client's sealed shares to the server for relay.
+    secure.distribute_shares(round_num=server_round)
+
+    # Phase 3a: submit the masked scalars, then poll until the server freezes the surviving set.
+    # Re-submitting is how a client asks; the server answers a repeat from an already-counted
+    # client as a poll rather than a late arrival.
+    deadline = time.monotonic() + max_wait_s
+    frozen = None
+    while True:
+        result = comm_client.submit_masked_gradient_scalars(
+            masked_elements=secure.mask(flat),
+            num_examples=num_examples,
+            round_num=server_round,
+            num_local_steps=K,
+            num_perturbations=P,
+        )
+        if not result.accepted:
+            log.error("[%s] Masked submission refused for round %d",
+                      secure.client_id, server_round)
+            return False
+        if result.frozen is not None:
+            frozen = result.frozen
+            break
+        if time.monotonic() >= deadline:
+            log.error(
+                "[%s] Round %d did not freeze within %.1fs; giving up on this round",
+                secure.client_id, server_round, max_wait_s,
+            )
+            return False
+        time.sleep(poll_interval_s)
+
+    # Phase 3b: collect any shares that arrived after we distributed, then return ONE summed
+    # vector over the frozen set. Only now is it known which dealers that set contains.
+    while time.monotonic() < deadline:
+        held = secure.collect_shares(round_num=server_round)
+        if all(int(p) in held for p in frozen):
+            break
+        time.sleep(poll_interval_s)
+
+    try:
+        secure.finish_round(round_num=server_round, survivors=frozen)
+    except SecureAggregationNotReady as exc:
+        # Missing a surviving dealer's share. Refusing is correct -- a partial sum decodes to a
+        # well-formed wrong aggregate -- so this client simply does not contribute a summed share
+        # and the round completes on the other holders, or fails on the server's deadline.
+        log.error("[%s] Cannot contribute a summed share for round %d: %s",
+                  secure.client_id, server_round, exc)
+        return False
+    return True
 
 
 def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: str) -> str:
@@ -36,6 +146,10 @@ def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: 
         One of OUTCOME_COMPLETED / OUTCOME_DISCONNECTED / OUTCOME_ERROR.
     """
     comm_client = GrpcClient(client_id=client_id, server_address=server_address)
+    # P2-2: created on the first secure round and kept for the run -- the X25519 keypair is
+    # long-lived, and per-round separation comes from the context mixed into the KDF rather than
+    # from rotating keys.
+    secure = None
     last_completed_round = -1
     consecutive_failures = 0
     outcome = OUTCOME_ERROR
@@ -135,6 +249,31 @@ def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: 
                         learning_rate = float(config.get('learning_rate', 0.001))
                         client.rebuild_model(rebuild_history, learning_rate)
 
+                    # P2-2 phase 1, deliberately BEFORE fit(): publishing this client's key
+                    # does not depend on the training output, so doing it here lets the
+                    # key-publication rendezvous overlap with local training instead of adding a
+                    # round trip after it. The keypair is long-lived; begin_round draws a fresh
+                    # mask and clears the previous round's held shares.
+                    secure_round_ready = False
+                    if config.get('secure_aggregation') == '1':
+                        if secure is None:
+                            secure = SecureAggregationClient(comm_client.stub, client_id)
+                        try:
+                            secure.begin_round(
+                                round_num=server_round,
+                                threshold=int(config['secagg_threshold']),
+                                num_scalars=int(config['num_local_steps'])
+                                * int(config['num_perturbations']),
+                                cohort_size=int(config['secagg_cohort_size']),
+                            )
+                            secure_round_ready = True
+                        except (SecureAggregationNotReady, KeyError, ValueError) as sec_err:
+                            # Not fatal to the run: the server refuses a plaintext submission on a
+                            # secure deployment, so this round simply does not count for this
+                            # client and the next config poll re-attempts.
+                            log.error("[%s] Cannot start secure round %d: %s",
+                                      client_id, server_round, sec_err)
+
                     # 3. Perform local ZO training
                     comm_client.update_status("training", 0, 1)
                     training_config = dict(config)
@@ -155,7 +294,22 @@ def start_decomfl_client(server_address: str, client: DeComFLClient, client_id: 
                               client_id, server_round)
                     comm_client.update_status("submitting_update", 0, 0)
 
-                    if comm_client.submit_gradient_scalars(gradient_scalars, num_examples, server_round):
+                    if secure is not None and config.get('secure_aggregation') == '1':
+                        submitted = secure_round_ready and run_secure_round(
+                            comm_client=comm_client,
+                            secure=secure,
+                            gradient_scalars=gradient_scalars,
+                            num_examples=num_examples,
+                            server_round=server_round,
+                            K=int(config['num_local_steps']),
+                            P=int(config['num_perturbations']),
+                        )
+                    else:
+                        submitted = comm_client.submit_gradient_scalars(
+                            gradient_scalars, num_examples, server_round
+                        )
+
+                    if submitted:
                         log.info("[%s] Submitted gradient scalars for round %d",
                                  client_id, server_round)
                         last_completed_round = server_round

@@ -361,7 +361,7 @@ class PublishPublicKeyRequest(_message.Message):
     def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., round: _Optional[int] = ..., public_key: _Optional[bytes] = ...) -> None: ...
 
 class PublishPublicKeyResponse(_message.Message):
-    __slots__ = ("accepted", "cohort_public_keys", "rejection_reason")
+    __slots__ = ("accepted", "cohort_public_keys", "rejection_reason", "cohort_closed")
     class CohortPublicKeysEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -372,10 +372,12 @@ class PublishPublicKeyResponse(_message.Message):
     ACCEPTED_FIELD_NUMBER: _ClassVar[int]
     COHORT_PUBLIC_KEYS_FIELD_NUMBER: _ClassVar[int]
     REJECTION_REASON_FIELD_NUMBER: _ClassVar[int]
+    COHORT_CLOSED_FIELD_NUMBER: _ClassVar[int]
     accepted: bool
     cohort_public_keys: _containers.ScalarMap[int, bytes]
     rejection_reason: str
-    def __init__(self, accepted: bool = ..., cohort_public_keys: _Optional[_Mapping[int, bytes]] = ..., rejection_reason: _Optional[str] = ...) -> None: ...
+    cohort_closed: bool
+    def __init__(self, accepted: bool = ..., cohort_public_keys: _Optional[_Mapping[int, bytes]] = ..., rejection_reason: _Optional[str] = ..., cohort_closed: bool = ...) -> None: ...
 
 class SealedShare(_message.Message):
     __slots__ = ("recipient_partition", "ciphertext", "associated_data")

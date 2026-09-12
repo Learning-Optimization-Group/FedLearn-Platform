@@ -281,6 +281,12 @@ message PublishPublicKeyResponse {
   // partition -> raw X25519 public key, for every client that has published so far.
   map<int32, bytes> cohort_public_keys = 2;
   string rejection_reason = 3;   // set when a partition tries to replace an existing key
+  // P2-2: true once the server has CLOSED key registration for this round. Until it is set,
+  // cohort_public_keys is still growing, and a client that sealed its Shamir shares against that
+  // partial view would leave later-arriving peers holding no share from it -- so those peers
+  // could never contribute a summed share and the round could not be recovered. A client must
+  // wait for this flag before distributing shares.
+  bool cohort_closed = 4;
 }
 
 // Phase 2 — hand the server sealed shares addressed to peers, and collect those addressed to us.

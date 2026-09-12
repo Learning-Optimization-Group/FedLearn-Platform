@@ -52,8 +52,13 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
     """
 
     def __init__(self, coordinator: FLCoordinator, partition_extractor=None,
-                 secure_agg_threshold: int = 2):
+                 secure_agg_threshold: int = 2, secure_aggregation: bool = False):
         self.coordinator = coordinator
+        # P2-2: whether THIS deployment runs the secure path. Off by default, and deliberately an
+        # explicit switch rather than an inference from "a client sent masked scalars": a server
+        # that merely tolerates both cannot refuse a downgrade, and a privacy guarantee a client
+        # can opt out of unilaterally is not a guarantee.
+        self.secure_aggregation = bool(secure_aggregation)
         # P2-2: one SecureAggregationSession per round, created lazily on first secure RPC.
         self._secure_sessions = {}
 
@@ -502,6 +507,12 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                 # or mobile) can fail loud at the handshake if its own trainable dim differs — instead
                 # of training on a misaligned shared-seed perturbation and diverging silently.
                 'model_dim': str(strategy.model_dim),
+                # P2-2: a client cannot invent these. The threshold must match what the server
+                # decodes against, and the cohort size sizes the Shamir sharing -- both are the
+                # server's to choose, so they travel with the round's other knobs.
+                'secure_aggregation': '1' if self.secure_aggregation else '0',
+                'secagg_threshold': str(self.secure_agg_threshold),
+                'secagg_cohort_size': str(self.coordinator.clients_per_round),
             }
 
             logging.info(f"[Server] Sending {len(seeds)} local steps, {len(rebuild_history)} missed rounds")
@@ -596,10 +607,17 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             context.set_details(str(exc))
             return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
 
-        # Close as soon as everyone who published a key has submitted -- the all-present fast
-        # path. A dropout never reaches this count, so a deployment must also close on a deadline;
-        # close_submissions() is idempotent precisely so both triggers can fire.
-        expected = len(session.cohort_keys())
+        # Close as soon as the EXPECTED cohort has submitted -- the all-present fast path.
+        #
+        # Expected means clients_per_round, NOT the number of keys published so far. Counting
+        # published keys makes the trigger race the cohort: a client that publishes and submits
+        # before its peers have even published sees a cohort of one, satisfies the count, and
+        # freezes the round on itself -- every slower client is then refused as a late arrival and
+        # a 3-client federation silently aggregates one.
+        #
+        # A dropout never reaches this count either, so a deployment must also close on a
+        # deadline; close_submissions() is idempotent precisely so both triggers can fire.
+        expected = getattr(self.coordinator, "clients_per_round", 0) or 0
         if expected and len(survivors) >= expected:
             survivors = session.close_submissions()
 
@@ -640,6 +658,21 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             # have the plaintext half silently win.
             if request.HasField("masked_gradients"):
                 return self._submit_masked_gradients(request, context, trained_on_round)
+
+            # Downgrade protection. A secure deployment must not accept plaintext scalars just
+            # because a client chose to send them -- the server would learn that client's
+            # individual contribution while the deployment believed everyone was masked. Refused
+            # here rather than merely ignored, so the client learns its round did not count.
+            if self.secure_aggregation:
+                msg = (
+                    "this server runs secure aggregation; plaintext gradient scalars are refused. "
+                    "Send masked_gradients (the round config advertises secure_aggregation=1)."
+                )
+                logging.warning("[Server] Refusing plaintext submission from %s: %s",
+                                client_id, msg)
+                context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+                context.set_details(msg)
+                return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
 
             # Convert proto gradients to nested list format
             gradient_scalars = self._proto_to_gradients(request.gradients)
@@ -749,13 +782,25 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             return fedlearn_pb2.PublishPublicKeyResponse(
                 accepted=False, rejection_reason=str(exc),
                 cohort_public_keys=session.cohort_keys(),
+                cohort_closed=session.is_cohort_closed,
             )
         except ValueError as exc:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
             context.set_details(str(exc))
             return fedlearn_pb2.PublishPublicKeyResponse(accepted=False, rejection_reason=str(exc))
 
-        return fedlearn_pb2.PublishPublicKeyResponse(accepted=True, cohort_public_keys=cohort)
+        # Close registration once the expected cohort has published -- the all-present fast path,
+        # symmetric with the survivor freeze. A client that never joins never trips this, so the
+        # round deadline closes it instead; close_cohort() is idempotent so both can fire.
+        expected = getattr(self.coordinator, "clients_per_round", 0) or 0
+        if expected and len(cohort) >= expected:
+            cohort = session.close_cohort()
+
+        return fedlearn_pb2.PublishPublicKeyResponse(
+            accepted=True,
+            cohort_public_keys=cohort,
+            cohort_closed=session.is_cohort_closed,
+        )
 
     def SubmitSecureShares(self, request: fedlearn_pb2.SubmitSecureSharesRequest, context):
         """Phase 2 — accept sealed shares for peers, return those addressed to this caller."""

@@ -9,6 +9,7 @@ What it cannot cover, and what a live server is still needed for: channel behavi
 retries, the interceptor chain) and the real partition extractor. Those are the reason this is
 not the same as a deployment test.
 """
+import threading
 from collections import OrderedDict
 from unittest.mock import MagicMock
 
@@ -25,6 +26,13 @@ from fedlearn.server.decomfl_strategy import DeComFL
 from fedlearn.server.grpc_servicer import FederatedLearningServiceServicer
 
 
+# The real servicer reads the caller's partition from the per-call gRPC context. This stub fakes
+# that by setting a field on the servicer, which is shared -- so two threads calling at once would
+# cross-attribute their partitions. Serializing in-process calls restores the per-call isolation
+# the real transport provides; it constrains the HARNESS, not the server.
+_DIRECT_STUB_LOCK = threading.Lock()
+
+
 class _DirectStub:
     """A stub that calls the servicer in-process, with a settable caller partition."""
 
@@ -38,20 +46,33 @@ class _DirectStub:
         def invocation_metadata(self): return ()
 
     def _call(self, name, request):
-        self._s._partition_extractor = lambda ctx, p=self.partition: p
-        return getattr(self._s, name)(request, self._Ctx())
+        with _DIRECT_STUB_LOCK:
+            self._s._partition_extractor = lambda ctx, p=self.partition: p
+            return getattr(self._s, name)(request, self._Ctx())
 
     def PublishPublicKey(self, r): return self._call("PublishPublicKey", r)
     def SubmitSecureShares(self, r): return self._call("SubmitSecureShares", r)
     def SubmitAggregatedShare(self, r): return self._call("SubmitAggregatedShare", r)
+    def SubmitGradientScalars(self, r): return self._call("SubmitGradientScalars", r)
+    def GetDeComFLConfig(self, r): return self._call("GetDeComFLConfig", r)
 
 
-def _servicer(threshold, K=1, P=2):
+def _servicer(threshold, K=1, P=2, clients_per_round=None):
+    """A servicer over a real coordinator.
+
+    ``clients_per_round`` is what the server's all-present freeze trigger counts, so a test with
+    an N-client cohort must say so -- otherwise the first submission satisfies the count and
+    freezes the round on one client.
+    """
     strategy = DeComFL(
         initial_parameters=OrderedDict({"w": torch.zeros(4)}),
         num_local_steps=K, num_perturbations=P,
     )
-    coord = FLCoordinator(strategy, min_clients_for_aggregation=1, clients_per_round=1)
+    coord = FLCoordinator(
+        strategy,
+        min_clients_for_aggregation=1,
+        clients_per_round=1 if clients_per_round is None else clients_per_round,
+    )
     coord.bind_or_check_identity = MagicMock(return_value=True)
     return FederatedLearningServiceServicer(coord, secure_agg_threshold=threshold)
 
@@ -59,7 +80,7 @@ def _servicer(threshold, K=1, P=2):
 def test_a_full_secure_round_recovers_the_plaintext_sum():
     """The capstone: four clients, real servicer, and the server learns only the sum."""
     n, t, round_num = 4, 3, 1
-    servicer = _servicer(threshold=t)
+    servicer = _servicer(threshold=t, clients_per_round=4)
     partitions = [1, 2, 3, 4]
     values = {1: [1.0, -2.0], 2: [0.5, 0.25], 3: [-1.5, 3.0], 4: [2.0, 1.0]}
 
@@ -108,7 +129,7 @@ def test_the_client_discovers_its_own_partition_from_the_cohort_view():
 
 
 def test_masking_hides_the_values_from_anyone_reading_the_wire():
-    servicer = _servicer(threshold=2)
+    servicer = _servicer(threshold=2, clients_per_round=2)
     c = SecureAggregationClient(_DirectStub(servicer, 1), client_id="c1")
     c.begin_round(round_num=1, threshold=2, num_scalars=2, cohort_size=2)
     masked = c.mask([1.0, 2.0])
@@ -126,7 +147,7 @@ def test_the_mask_is_not_derivable_from_public_values():
 
     Two clients that agree on every public input must still draw different masks.
     """
-    servicer = _servicer(threshold=2)
+    servicer = _servicer(threshold=2, clients_per_round=2)
     a = SecureAggregationClient(_DirectStub(servicer, 1), client_id="same")
     b = SecureAggregationClient(_DirectStub(servicer, 2), client_id="same")
     a.begin_round(round_num=1, threshold=2, num_scalars=8, cohort_size=2)
@@ -142,7 +163,7 @@ def test_an_inbound_share_is_opened_against_a_LOCALLY_rebuilt_binding():
     value, the binding to ``(round, sender, recipient)`` would authenticate nothing, since an
     attacker rewriting the routing would rewrite the AD to match.
     """
-    servicer = _servicer(threshold=2)
+    servicer = _servicer(threshold=2, clients_per_round=2)
     a = SecureAggregationClient(_DirectStub(servicer, 1), client_id="a")
     b = SecureAggregationClient(_DirectStub(servicer, 2), client_id="b")
     for c in (a, b):
@@ -165,7 +186,7 @@ def test_a_client_that_drops_after_sharing_is_excluded_without_a_second_decode()
     separately.
     """
     n, t, round_num = 4, 3, 1
-    servicer = _servicer(threshold=t)
+    servicer = _servicer(threshold=t, clients_per_round=4)
     partitions = [1, 2, 3, 4]
     values = {1: [1.0, -2.0], 2: [0.5, 0.25], 3: [-1.5, 3.0]}
     dropped = 4
@@ -208,7 +229,7 @@ def test_summing_over_a_stale_survivor_set_is_refused_rather_than_decoded_wrong(
     Silently summing the subset produces a well-formed vector that decodes to the wrong number --
     the worst possible failure here, because nothing downstream can detect it.
     """
-    servicer = _servicer(threshold=2)
+    servicer = _servicer(threshold=2, clients_per_round=2)
     a = SecureAggregationClient(_DirectStub(servicer, 1), client_id="a")
     b = SecureAggregationClient(_DirectStub(servicer, 2), client_id="b")
     for c in (a, b):
@@ -235,7 +256,7 @@ def test_masked_scalars_reach_the_session_through_SubmitGradientScalars():
     """
     import pytest
     n, t, round_num = 3, 2, 1
-    servicer = _servicer(threshold=t, K=1, P=2)
+    servicer = _servicer(threshold=t, K=1, P=2, clients_per_round=3)
     partitions = [1, 2, 3]
     values = {1: [1.0, -2.0], 2: [0.5, 0.25], 3: [-1.5, 3.0]}
 
@@ -282,7 +303,7 @@ def test_a_masked_submission_under_the_wrong_field_is_refused():
 
     Accepting it would decode to noise, so it is refused at the door rather than aggregated.
     """
-    servicer = _servicer(threshold=2, K=1, P=2)
+    servicer = _servicer(threshold=2, K=1, P=2, clients_per_round=2)
     c = SecureAggregationClient(_DirectStub(servicer, 1), client_id="c1")
     c.begin_round(round_num=1, threshold=2, num_scalars=2, cohort_size=2)
 
@@ -303,7 +324,7 @@ def test_a_masked_submission_under_the_wrong_field_is_refused():
 def test_the_server_freezes_the_round_once_every_key_holder_has_submitted():
     """Nobody is told the set is final until it actually is."""
     n, t, round_num = 3, 2, 1
-    servicer = _servicer(threshold=t, K=1, P=2)
+    servicer = _servicer(threshold=t, K=1, P=2, clients_per_round=3)
     partitions = [1, 2, 3]
     clients = {
         p: SecureAggregationClient(_DirectStub(servicer, p), client_id=f"c{p}")
@@ -331,7 +352,7 @@ def test_polling_after_the_freeze_returns_the_frozen_set_rather_than_a_refusal()
     """A holder learns the set is final by re-submitting, so a re-submit from a client already
     counted must read as a poll -- not as a late arrival to be rejected."""
     n, round_num = 2, 1
-    servicer = _servicer(threshold=2, K=1, P=2)
+    servicer = _servicer(threshold=2, K=1, P=2, clients_per_round=2)
     clients = {
         p: SecureAggregationClient(_DirectStub(servicer, p), client_id=f"c{p}")
         for p in (1, 2)
@@ -358,7 +379,7 @@ def test_polling_after_the_freeze_returns_the_frozen_set_rather_than_a_refusal()
 
 def test_a_genuinely_late_client_is_still_refused_after_the_freeze():
     """The poll allowance must not become a back door for a dealer nobody holds a share for."""
-    servicer = _servicer(threshold=2, K=1, P=2)
+    servicer = _servicer(threshold=2, K=1, P=2, clients_per_round=3)
     clients = {
         p: SecureAggregationClient(_DirectStub(servicer, p), client_id=f"c{p}")
         for p in (1, 2, 3)
@@ -388,7 +409,7 @@ def test_the_threshold_summed_share_completes_the_round():
     """Phase 3b currently records shares and stops. Recovering the sum has to move the model and
     advance the round, or a secure federation makes no progress however correct the crypto is."""
     n, t, round_num = 3, 2, 1
-    servicer = _servicer(threshold=t, K=1, P=2)
+    servicer = _servicer(threshold=t, K=1, P=2, clients_per_round=3)
     coordinator = servicer.coordinator
     strategy = coordinator.strategy
     strategy.get_or_create_seeds(round_num)
