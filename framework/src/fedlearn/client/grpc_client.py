@@ -5,13 +5,14 @@ import os
 import threading
 import time
 from collections import OrderedDict
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, TypeVar
+from typing import Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple, TypeVar
 
 import grpc
 import torch
 
 from fedlearn.communication.generated import fedlearn_pb2
 from fedlearn.communication.generated import fedlearn_pb2_grpc
+from fedlearn.client.secure_agg_client import FrozenSurvivors
 from fedlearn.security.lightsecagg import PRIME as LIGHTSECAGG_PRIME
 from fedlearn.communication.serializer import (
     parameters_to_proto, parameters_to_chunks, chunks_to_parameters,
@@ -487,6 +488,19 @@ class GrpcClient:
             log.error("[%s] SubmitGradientScalars failed: %s", self.client_id, e.details())
             return False
 
+    class MaskedSubmissionResult(NamedTuple):
+        """Outcome of one masked submission.
+
+        ``survivors`` is always the server's current view; ``frozen`` is populated ONLY once the
+        server has declared the round closed. Callers drive phase 3b off ``frozen`` and poll while
+        it is ``None`` — the two are kept separate so a partial view cannot be mistaken for a
+        final one.
+        """
+
+        accepted: bool
+        survivors: List[int]
+        frozen: Optional[FrozenSurvivors]
+
     def submit_masked_gradient_scalars(
             self,
             masked_elements: Sequence[int],
@@ -494,7 +508,7 @@ class GrpcClient:
             round_num: int,
             num_local_steps: int,
             num_perturbations: int,
-    ) -> Optional[List[int]]:
+    ) -> "GrpcClient.MaskedSubmissionResult":
         """P2-2 phase 3a: submit ``quantize(g) + z`` instead of the plaintext scalars.
 
         Deliberately a SEPARATE method rather than a flag on ``submit_gradient_scalars``. The two
@@ -508,9 +522,9 @@ class GrpcClient:
         this method only puts its output on the wire.
 
         Returns:
-            The surviving partitions, which phase 3b sums over -- or ``None`` if the server
-            refused. An empty list means every client dropped and is NOT the same as a refusal,
-            so the two are not collapsed into one falsy value.
+            A :class:`MaskedSubmissionResult`. ``frozen`` is set only once the server has closed
+            the round, and is what phase 3b consumes; while it is ``None`` the caller re-submits
+            to poll. ``accepted`` distinguishes a refusal from an empty-but-legitimate cohort.
 
         Raises:
             ValueError: if the payload length contradicts ``num_local_steps * num_perturbations``.
@@ -544,10 +558,18 @@ class GrpcClient:
         except grpc.RpcError as e:
             log.error("[%s] masked SubmitGradientScalars failed: %s",
                       self.client_id, e.details())
-            return None
+            return self.MaskedSubmissionResult(accepted=False, survivors=[], frozen=None)
 
         if not response.received:
             log.error("[%s] server refused the masked submission for round %s",
                       self.client_id, round_num)
-            return None
-        return list(response.surviving_partitions)
+            return self.MaskedSubmissionResult(accepted=False, survivors=[], frozen=None)
+
+        survivors = [int(p) for p in response.surviving_partitions]
+        frozen = (
+            FrozenSurvivors(partitions=tuple(survivors))
+            if response.submissions_closed else None
+        )
+        return self.MaskedSubmissionResult(
+            accepted=True, survivors=survivors, frozen=frozen
+        )

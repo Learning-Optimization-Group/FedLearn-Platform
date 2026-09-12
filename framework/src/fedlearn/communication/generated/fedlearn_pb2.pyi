@@ -325,14 +325,16 @@ class SubmitGradientScalarsRequest(_message.Message):
     def __init__(self, client_id: _Optional[str] = ..., run_id: _Optional[str] = ..., trained_on_round: _Optional[int] = ..., gradients: _Optional[_Union[GradientScalars, _Mapping]] = ..., num_examples: _Optional[int] = ..., perturbation_seeds: _Optional[_Union[PerturbationSeeds, _Mapping]] = ..., masked_gradients: _Optional[_Union[MaskedGradientScalars, _Mapping]] = ...) -> None: ...
 
 class SubmitGradientScalarsResponse(_message.Message):
-    __slots__ = ("received", "bytes_received", "surviving_partitions")
+    __slots__ = ("received", "bytes_received", "surviving_partitions", "submissions_closed")
     RECEIVED_FIELD_NUMBER: _ClassVar[int]
     BYTES_RECEIVED_FIELD_NUMBER: _ClassVar[int]
     SURVIVING_PARTITIONS_FIELD_NUMBER: _ClassVar[int]
+    SUBMISSIONS_CLOSED_FIELD_NUMBER: _ClassVar[int]
     received: bool
     bytes_received: int
     surviving_partitions: _containers.RepeatedScalarFieldContainer[int]
-    def __init__(self, received: bool = ..., bytes_received: _Optional[int] = ..., surviving_partitions: _Optional[_Iterable[int]] = ...) -> None: ...
+    submissions_closed: bool
+    def __init__(self, received: bool = ..., bytes_received: _Optional[int] = ..., surviving_partitions: _Optional[_Iterable[int]] = ..., submissions_closed: bool = ...) -> None: ...
 
 class MaskedGradientScalars(_message.Message):
     __slots__ = ("elements", "modulus", "num_local_steps", "num_perturbations")

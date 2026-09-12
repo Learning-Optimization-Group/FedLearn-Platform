@@ -15,6 +15,7 @@ from unittest.mock import MagicMock
 import torch
 
 from fedlearn.client.secure_agg_client import (
+    FrozenSurvivors,
     SecureAggregationClient,
     SecureAggregationNotReady,
 )
@@ -82,10 +83,12 @@ def test_a_full_secure_round_recovers_the_plaintext_sum():
     session = servicer._secure_session(round_num)
     for p in partitions:
         session.submit_masked(partition=p, elements=clients[p].mask(values[p]))
+    session.close_submissions()   # freeze, so every holder sums the same set
 
     # Phase 3b: each holder returns ONE summed vector.
     for p in partitions[:t]:
-        clients[p].finish_round(round_num=round_num, survivors=session.survivors)
+        clients[p].finish_round(
+            round_num=round_num, survivors=FrozenSurvivors(tuple(session.survivors)))
 
     recovered = session.recover()
     expected = torch.tensor([sum(values[p][i] for p in partitions) for i in range(2)])
@@ -184,9 +187,13 @@ def test_a_client_that_drops_after_sharing_is_excluded_without_a_second_decode()
             continue  # gone: no masked submission ever arrives
         session.submit_masked(partition=p, elements=clients[p].mask(values[p]))
 
+    # The dropout never arrives, so the all-present trigger never fires: this is the deadline
+    # path, and it is the one that matters -- a federation of phones drops clients routinely.
+    session.close_submissions()
     assert session.survivors == [1, 2, 3]
     for p in session.survivors:
-        clients[p].finish_round(round_num=round_num, survivors=session.survivors)
+        clients[p].finish_round(
+            round_num=round_num, survivors=FrozenSurvivors(tuple(session.survivors)))
 
     recovered = session.recover()
     expected = torch.tensor([sum(values[p][i] for p in session.survivors) for i in range(2)])
@@ -213,7 +220,7 @@ def test_summing_over_a_stale_survivor_set_is_refused_rather_than_decoded_wrong(
 
     import pytest
     with pytest.raises(SecureAggregationNotReady, match="missing shares from surviving dealers"):
-        a.finish_round(round_num=1, survivors=[1, 2, 99])
+        a.finish_round(round_num=1, survivors=FrozenSurvivors((1, 2, 99)))
 
 
 # ---------------------------------------------------------------------------------------------
@@ -262,7 +269,8 @@ def test_masked_scalars_reach_the_session_through_SubmitGradientScalars():
 
     session = servicer._secure_session(round_num)
     for p in partitions[:t]:
-        clients[p].finish_round(round_num=round_num, survivors=session.survivors)
+        clients[p].finish_round(
+            round_num=round_num, survivors=FrozenSurvivors(tuple(session.survivors)))
 
     recovered = session.recover()
     expected = torch.tensor([sum(values[p][i] for p in partitions) for i in range(2)])
@@ -287,3 +295,87 @@ def test_a_masked_submission_under_the_wrong_field_is_refused():
         ),
     ))
     assert not response.received
+
+
+# ---------------------------------------------------------------------------------------------
+# Freezing the surviving set, end to end
+# ---------------------------------------------------------------------------------------------
+def test_the_server_freezes_the_round_once_every_key_holder_has_submitted():
+    """Nobody is told the set is final until it actually is."""
+    n, t, round_num = 3, 2, 1
+    servicer = _servicer(threshold=t, K=1, P=2)
+    partitions = [1, 2, 3]
+    clients = {
+        p: SecureAggregationClient(_DirectStub(servicer, p), client_id=f"c{p}")
+        for p in partitions
+    }
+    for p in partitions:
+        clients[p].begin_round(round_num=round_num, threshold=t, num_scalars=2, cohort_size=n)
+
+    seen = []
+    for p in partitions:
+        stub = _DirectStub(servicer, p)
+        r = stub._call("SubmitGradientScalars", pb.SubmitGradientScalarsRequest(
+            client_id=f"c{p}", trained_on_round=round_num, num_examples=1,
+            masked_gradients=pb.MaskedGradientScalars(
+                elements=clients[p].mask([1.0, 2.0]), modulus=2 ** 31 - 1,
+                num_local_steps=1, num_perturbations=2),
+        ))
+        seen.append(r.submissions_closed)
+    assert seen == [False, False, True], (
+        "the round closed early or never closed; a holder would sum over a partial set"
+    )
+
+
+def test_polling_after_the_freeze_returns_the_frozen_set_rather_than_a_refusal():
+    """A holder learns the set is final by re-submitting, so a re-submit from a client already
+    counted must read as a poll -- not as a late arrival to be rejected."""
+    n, round_num = 2, 1
+    servicer = _servicer(threshold=2, K=1, P=2)
+    clients = {
+        p: SecureAggregationClient(_DirectStub(servicer, p), client_id=f"c{p}")
+        for p in (1, 2)
+    }
+    for p in (1, 2):
+        clients[p].begin_round(round_num=round_num, threshold=2, num_scalars=2, cohort_size=n)
+
+    def submit(p):
+        return _DirectStub(servicer, p)._call(
+            "SubmitGradientScalars", pb.SubmitGradientScalarsRequest(
+                client_id=f"c{p}", trained_on_round=round_num, num_examples=1,
+                masked_gradients=pb.MaskedGradientScalars(
+                    elements=clients[p].mask([1.0, 2.0]), modulus=2 ** 31 - 1,
+                    num_local_steps=1, num_perturbations=2),
+            ))
+
+    submit(1)
+    submit(2)                      # closes the round
+    again = submit(1)              # client 1 polls
+    assert again.received, "a poll from an already-counted client read as a late submission"
+    assert again.submissions_closed
+    assert sorted(again.surviving_partitions) == [1, 2]
+
+
+def test_a_genuinely_late_client_is_still_refused_after_the_freeze():
+    """The poll allowance must not become a back door for a dealer nobody holds a share for."""
+    servicer = _servicer(threshold=2, K=1, P=2)
+    clients = {
+        p: SecureAggregationClient(_DirectStub(servicer, p), client_id=f"c{p}")
+        for p in (1, 2, 3)
+    }
+    for p in (1, 2, 3):
+        clients[p].begin_round(round_num=1, threshold=2, num_scalars=2, cohort_size=3)
+
+    session = servicer._secure_session(1)
+    session.submit_masked(partition=1, elements=clients[1].mask([1.0, 2.0]))
+    session.close_submissions()
+
+    late = _DirectStub(servicer, 3)._call(
+        "SubmitGradientScalars", pb.SubmitGradientScalarsRequest(
+            client_id="c3", trained_on_round=1, num_examples=1,
+            masked_gradients=pb.MaskedGradientScalars(
+                elements=clients[3].mask([1.0, 2.0]), modulus=2 ** 31 - 1,
+                num_local_steps=1, num_perturbations=2),
+        ))
+    assert not late.received
+    assert session.survivors == [1], "a late client slipped into the frozen set"

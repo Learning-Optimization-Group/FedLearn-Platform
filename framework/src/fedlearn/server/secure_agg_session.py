@@ -58,6 +58,7 @@ class SecureAggregationSession:
         self._relayed: Dict[int, Dict[int, bytes]] = {}
         self._masked: Dict[int, torch.Tensor] = {}
         self._summed: Dict[int, torch.Tensor] = {}
+        self._closed = False
 
     # ---- phase 1: key publication ----------------------------------------------------------
     def publish_key(self, partition: int, public_key: bytes) -> Dict[int, bytes]:
@@ -106,6 +107,12 @@ class SecureAggregationSession:
             ValueError: if the submission is not exactly ``num_scalars`` long. A short or long
                 vector would misalign the decode rather than fail, so it is rejected here.
         """
+        if self._closed:
+            raise ValueError(
+                f"round {self.round_index}: submissions are closed; partition {partition} is too "
+                f"late. Holders have already summed over the frozen set, so admitting a dealer "
+                f"now would leave its mask in the total with no share to cancel it."
+            )
         if len(elements) != self.num_scalars:
             raise ValueError(
                 f"masked submission from partition {partition} has {len(elements)} elements, "
@@ -116,8 +123,36 @@ class SecureAggregationSession:
 
     @property
     def survivors(self) -> List[int]:
-        """Partitions whose masked submission the server accepted this round."""
+        """Partitions whose masked submission the server accepted this round.
+
+        Only AUTHORITATIVE once :attr:`is_closed`. Before then it is a partial view that is still
+        growing, and two holders acting on the views they were handed at different moments would
+        sum over different dealer sets — producing shares of different mask-sums, which decode to
+        a well-formed wrong aggregate. That is why phase 3b waits for the freeze.
+        """
         return sorted(self._masked)
+
+    @property
+    def is_closed(self) -> bool:
+        """True once the surviving set is frozen and safe for holders to sum over."""
+        return self._closed
+
+    def close_submissions(self) -> List[int]:
+        """Freeze the surviving set. Idempotent.
+
+        Driven by whichever comes first: the last expected client submitting, or a deadline the
+        deployment enforces. Both must be able to fire, so calling this twice is not an error.
+
+        Returns:
+            The frozen surviving set.
+        """
+        if not self._closed:
+            self._closed = True
+            log.info(
+                "Secure aggregation round %d: submissions closed with %d survivor(s): %s",
+                self.round_index, len(self._masked), self.survivors,
+            )
+        return self.survivors
 
     # ---- phase 3b: summed shares -------------------------------------------------------------
     def submit_summed_share(self, holder_index: int, share: Sequence[int]) -> int:
@@ -145,6 +180,12 @@ class SecureAggregationSession:
             ValueError: if fewer than ``threshold`` summed shares have arrived, or no masked
                 submissions have.
         """
+        if not self._closed:
+            raise ValueError(
+                f"round {self.round_index}: submissions have not been closed, so the surviving "
+                f"set is not yet frozen; holders may have summed over different sets and the "
+                f"decode would be silently wrong"
+            )
         if not self._masked:
             raise ValueError(f"round {self.round_index}: no masked submissions to aggregate")
         if len(self._summed) < self.threshold:

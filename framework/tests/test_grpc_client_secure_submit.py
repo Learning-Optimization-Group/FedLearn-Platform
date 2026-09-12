@@ -53,23 +53,33 @@ def test_the_submission_declares_the_field_it_was_masked_under(client):
 
 def test_it_returns_the_surviving_set_the_next_phase_needs(client):
     """Phase 3b sums over the survivors, so the caller cannot proceed on a bare boolean."""
-    survivors = client.submit_masked_gradient_scalars(
+    result = client.submit_masked_gradient_scalars(
         masked_elements=[1, 2], num_examples=8, round_num=1,
         num_local_steps=1, num_perturbations=2,
     )
-    assert survivors == [1, 2, 3]
+    assert result.survivors == [1, 2, 3]
 
 
-def test_a_refused_masked_submission_returns_None_rather_than_an_empty_cohort(client):
+def test_a_refusal_is_distinguishable_from_an_empty_cohort(client):
     """An empty survivor list is a legitimate value (everyone dropped); a refusal is not the same
-    thing and must not be mistaken for one."""
+    thing, so the two are carried on separate fields rather than collapsed into one falsy value."""
     client.stub.SubmitGradientScalars.return_value = pb.SubmitGradientScalarsResponse(
         received=False
     )
-    assert client.submit_masked_gradient_scalars(
+    refused = client.submit_masked_gradient_scalars(
         masked_elements=[1, 2], num_examples=8, round_num=1,
         num_local_steps=1, num_perturbations=2,
-    ) is None
+    )
+    assert refused.accepted is False and refused.frozen is None
+
+    client.stub.SubmitGradientScalars.return_value = pb.SubmitGradientScalarsResponse(
+        received=True, surviving_partitions=[], submissions_closed=True
+    )
+    empty = client.submit_masked_gradient_scalars(
+        masked_elements=[1, 2], num_examples=8, round_num=1,
+        num_local_steps=1, num_perturbations=2,
+    )
+    assert empty.accepted is True and empty.frozen is not None and len(empty.frozen) == 0
 
 
 def test_a_length_that_contradicts_K_times_P_is_caught_before_the_wire(client):
@@ -81,3 +91,43 @@ def test_a_length_that_contradicts_K_times_P_is_caught_before_the_wire(client):
             num_local_steps=1, num_perturbations=2,
         )
     client.stub.SubmitGradientScalars.assert_not_called()
+
+
+# ---------------------------------------------------------------------------------------------
+# The frozen-set marker — a partial survivor view must not be passable to phase 3b
+# ---------------------------------------------------------------------------------------------
+def test_a_partial_survivor_view_carries_no_frozen_marker(client):
+    """While the round is open the view is still growing, so there is nothing safe to hand on."""
+    client.stub.SubmitGradientScalars.return_value = pb.SubmitGradientScalarsResponse(
+        received=True, surviving_partitions=[1], submissions_closed=False
+    )
+    result = client.submit_masked_gradient_scalars(
+        masked_elements=[1, 2], num_examples=8, round_num=1,
+        num_local_steps=1, num_perturbations=2,
+    )
+    assert result.accepted
+    assert result.survivors == [1]
+    assert result.frozen is None, "a growing view was handed out as final"
+
+
+def test_a_closed_round_yields_a_frozen_marker(client):
+    from fedlearn.client.secure_agg_client import FrozenSurvivors
+    client.stub.SubmitGradientScalars.return_value = pb.SubmitGradientScalarsResponse(
+        received=True, surviving_partitions=[1, 2, 3], submissions_closed=True
+    )
+    result = client.submit_masked_gradient_scalars(
+        masked_elements=[1, 2], num_examples=8, round_num=1,
+        num_local_steps=1, num_perturbations=2,
+    )
+    assert result.frozen == FrozenSurvivors(partitions=(1, 2, 3))
+
+
+def test_finish_round_will_not_accept_a_bare_list(client):
+    """The type is the guard. A plain list is exactly what an impatient caller would pass after
+    reading surviving_partitions off its own submission response -- the mistake that decodes to a
+    well-formed wrong aggregate."""
+    from fedlearn.client.secure_agg_client import SecureAggregationClient
+    c = SecureAggregationClient.__new__(SecureAggregationClient)
+    c._round = 1
+    with pytest.raises(TypeError, match="FrozenSurvivors"):
+        c.finish_round(round_num=1, survivors=[1, 2, 3])

@@ -566,6 +566,17 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
 
         session = self._secure_session(trained_on_round)
+
+        # A client learns the surviving set is final by re-submitting, so a repeat from a client
+        # ALREADY counted is a poll, not a late arrival. Answer it from the frozen set instead of
+        # routing it into submit_masked, which would (correctly) reject it as too late.
+        if session.is_closed and partition in session.survivors:
+            return fedlearn_pb2.SubmitGradientScalarsResponse(
+                received=True,
+                surviving_partitions=session.survivors,
+                submissions_closed=True,
+            )
+
         try:
             survivors = session.submit_masked(
                 partition=partition, elements=list(masked.elements)
@@ -575,12 +586,22 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             context.set_details(str(exc))
             return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
 
+        # Close as soon as everyone who published a key has submitted -- the all-present fast
+        # path. A dropout never reaches this count, so a deployment must also close on a deadline;
+        # close_submissions() is idempotent precisely so both triggers can fire.
+        expected = len(session.cohort_keys())
+        if expected and len(survivors) >= expected:
+            survivors = session.close_submissions()
+
         logging.info(
-            "[Server] Masked gradients accepted from partition %s for round %s; %d survivor(s)",
-            partition, trained_on_round, len(survivors),
+            "[Server] Masked gradients accepted from partition %s for round %s; %d/%d "
+            "survivor(s), closed=%s",
+            partition, trained_on_round, len(survivors), expected, session.is_closed,
         )
         return fedlearn_pb2.SubmitGradientScalarsResponse(
-            received=True, surviving_partitions=survivors
+            received=True,
+            surviving_partitions=survivors,
+            submissions_closed=session.is_closed,
         )
 
     def SubmitGradientScalars(self, request: fedlearn_pb2.SubmitGradientScalarsRequest, context):

@@ -245,6 +245,11 @@ message SubmitGradientScalarsResponse {
   // the shares it holds from EXACTLY this set before calling SubmitAggregatedShare — summing over
   // a different set reconstructs the wrong mask and corrupts the aggregate.
   repeated int32 surviving_partitions = 3;
+  // P2-2: true once the server has FROZEN the surviving set for this round. Until it is set,
+  // surviving_partitions is a partial view that is still growing, and two holders that summed
+  // over their own views would produce shares of different mask-sums -- decoding to a
+  // well-formed wrong aggregate. A holder must wait for this flag before phase 3b.
+  bool submissions_closed = 4;
 }
 
 // ============================================================================

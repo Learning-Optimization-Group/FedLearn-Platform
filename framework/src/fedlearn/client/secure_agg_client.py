@@ -40,7 +40,8 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Dict, List, Sequence
+from dataclasses import dataclass
+from typing import Dict, List, Sequence, Tuple
 
 import torch
 
@@ -60,6 +61,31 @@ _QUANTIZATION_SCALE = 1_000_000
 
 class SecureAggregationNotReady(RuntimeError):
     """Raised when a phase runs before the phase it depends on."""
+
+
+@dataclass(frozen=True)
+class FrozenSurvivors:
+    """A surviving set the server has declared FINAL for a round.
+
+    A distinct type rather than a plain list, because the difference is not cosmetic. The
+    ``surviving_partitions`` a client reads off its own submission response is a partial view
+    that is still growing: the first client to submit is told ``[1]`` while the last is told
+    ``[1,2,3]``. If each holder sums the shares for the set IT was handed, they produce shares of
+    DIFFERENT mask-sums, and the server's single interpolation decodes to a well-formed wrong
+    aggregate that nothing downstream can detect. Measured, before this existed: an expected
+    ``[0.0, 1.25]`` came back as ``[-764.6, 61.4]``, with every RPC reporting success.
+
+    Only a response carrying ``submissions_closed`` produces one of these, so the dangerous call
+    is not merely discouraged — it does not typecheck.
+    """
+
+    partitions: Tuple[int, ...]
+
+    def __iter__(self):
+        return iter(self.partitions)
+
+    def __len__(self) -> int:
+        return len(self.partitions)
 
 
 class SecureAggregationClient:
@@ -296,7 +322,9 @@ class SecureAggregationClient:
         return [int(v) for v in mask_values(scalars, self._mask, scale=_QUANTIZATION_SCALE)]
 
     # ---- phase 3b -------------------------------------------------------------------------
-    def finish_round(self, round_num: int, survivors: Sequence[int], run_id: str = "") -> int:
+    def finish_round(
+            self, round_num: int, survivors: "FrozenSurvivors", run_id: str = ""
+    ) -> int:
         """Return ONE summed share covering the surviving dealers.
 
         This is the step that makes the scheme *Light*SecAgg: whatever the dropout, a holder
@@ -306,9 +334,21 @@ class SecureAggregationClient:
         A dealer that dropped is simply absent from ``survivors``, so its share is left out of
         the sum and its mask never enters the recovered total.
 
+        Args:
+            survivors: a :class:`FrozenSurvivors`, obtainable only from a response in which the
+                server declared submissions closed. A bare list is refused — see that class for
+                what accepting one silently produces.
+
         Returns:
             How many more summed shares the server still needs to reach the threshold.
         """
+        if not isinstance(survivors, FrozenSurvivors):
+            raise TypeError(
+                f"finish_round needs a FrozenSurvivors, got {type(survivors).__name__}. The "
+                f"surviving set is only safe to sum over once the server has frozen it; a view "
+                f"read off this client's own submission response is still growing, and holders "
+                f"acting on different views decode to a well-formed wrong aggregate."
+            )
         self._require_round(round_num)
 
         held = [self._held[p] for p in survivors if p in self._held]
