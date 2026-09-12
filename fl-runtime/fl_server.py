@@ -427,15 +427,35 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             variant=fedopt_variant,
         )
     elif args.strategy.lower() == 'robust':
-        # FR-12: Byzantine-robust aggregation. Default to coordinate-wise median (breakdown 0.5),
-        # clipping disabled and byzantine_fraction=0 so the guard never refuses a healthy round.
-        robust_method = "median"
-        robust_trim_ratio = 0.1
-        robust_clip_norm = None
-        robust_byzantine_fraction = 0.0
+        # FR-12: Byzantine-robust aggregation. The METHOD is selectable -- median and
+        # trimmed-mean are coordinate-wise; krum, multi_krum, bulyan and centered_clip score or
+        # clip the whole update (see fedlearn.server.robust_aggregation).
+        #
+        # Read via getattr so a bare namespace -- an older caller, or the backend's spawn path
+        # before it learns these flags -- still constructs with the historical defaults:
+        # coordinate-wise median, clipping off, byzantine_fraction=0 so the guard never refuses a
+        # healthy round.
+        robust_method = getattr(args, "robust_method", None) or "median"
+        robust_trim_ratio = getattr(args, "robust_trim_ratio", None)
+        robust_trim_ratio = 0.1 if robust_trim_ratio is None else robust_trim_ratio
+        robust_clip_norm = getattr(args, "robust_clip_norm", None)
+        robust_byzantine_fraction = getattr(args, "robust_byzantine_fraction", None) or 0.0
+        centered_clip_tau = getattr(args, "centered_clip_tau", None) or 1.0
+
+        # Krum and Bulyan derive f from this fraction and the live cohort size; at the default of
+        # 0.0 they run at f=0, which is the no-attacker assumption. Selecting them without setting
+        # a fraction is almost certainly not what the operator meant, so say so.
+        if robust_method in ("krum", "multi_krum", "bulyan") and robust_byzantine_fraction == 0.0:
+            logging.warning(
+                "RobustAggregator method=%s selected with byzantine_fraction=0.0, so f=0 and the "
+                "rule assumes no attacker. Pass --robust-byzantine-fraction to size f.",
+                robust_method,
+            )
+
         logging.info(f"Using RobustAggregator strategy (method={robust_method}, "
                      f"trim_ratio={robust_trim_ratio}, clip_norm={robust_clip_norm}, "
-                     f"byzantine_fraction={robust_byzantine_fraction})")
+                     f"byzantine_fraction={robust_byzantine_fraction}, "
+                     f"centered_clip_tau={centered_clip_tau})")
         strategy = RobustAggregator(
             initial_parameters=initial_parameters,
             evaluate_fn=evaluate_fn,
@@ -444,6 +464,7 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             trim_ratio=robust_trim_ratio,
             clip_norm=robust_clip_norm,
             byzantine_fraction=robust_byzantine_fraction,
+            centered_clip_tau=centered_clip_tau,
         )
     else:
         # FR-28: an unrecognized strategy must FAIL LOUD, not silently train FedAvg while every
@@ -489,6 +510,22 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-name", type=str, required=True, help="Model name")
     parser.add_argument("--port", type=int, default=50051, help="gRPC server port")
     parser.add_argument("--strategy", type=str, default="FedAvg", help="Aggregation strategy")
+    parser.add_argument("--robust-method", type=str, default=None,
+                        choices=["median", "trimmed_mean", "krum", "multi_krum", "bulyan",
+                                 "centered_clip"],
+                        help="RobustAggregator rule (--strategy robust). median/trimmed_mean are "
+                             "coordinate-wise; krum/multi_krum/bulyan/centered_clip score or clip "
+                             "the whole update. Default: median")
+    parser.add_argument("--robust-trim-ratio", type=float, default=None,
+                        help="beta for trimmed_mean, in [0, 0.5). Default: 0.1")
+    parser.add_argument("--robust-clip-norm", type=float, default=None,
+                        help="L2 bound on each client's delta before aggregation. Default: off")
+    parser.add_argument("--robust-byzantine-fraction", type=float, default=None,
+                        help="Estimated malicious client fraction. Sizes f for krum/multi_krum/"
+                             "bulyan, and arms the breakdown-point guard. Default: 0.0")
+    parser.add_argument("--centered-clip-tau", type=float, default=None,
+                        help="Clipping radius for centered_clip; must be comparable to a typical "
+                             "honest update norm. Default: 1.0")
     parser.add_argument("--training-arm", type=str, default=None,
                         help="Training arm: FULL (default) or FROZEN_HEAD. Must be declared in the "
                              "recipe's supported_arms. Omitted resolves to FULL, so existing "

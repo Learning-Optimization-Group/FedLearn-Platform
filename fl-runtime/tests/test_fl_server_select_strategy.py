@@ -205,3 +205,32 @@ def test_select_strategy_still_accepts_plain_fedavg():
     for name in ("fedavg", "FedAvg"):
         strat = fl_server.select_strategy(_args(name), _initial_parameters(), None)
         assert isinstance(strat, fl.FedAvg)
+
+
+# --------------------------------------------------------------------------------------------------
+# FR-12 extension: the robust METHOD is selectable, not hardcoded to median
+# --------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("method", ["median", "trimmed_mean", "krum", "multi_krum",
+                                    "bulyan", "centered_clip"])
+def test_select_strategy_threads_the_robust_method_through(method):
+    args = _args("robust")
+    args.robust_method = method
+    strategy = fl_server.select_strategy(args, _initial_parameters(), None)
+    assert isinstance(strategy, RobustAggregator)
+    assert strategy.method == method
+
+
+def test_select_strategy_defaults_robust_method_to_median_when_absent():
+    """A bare namespace (older callers, the backend's spawn path) must still construct."""
+    strategy = fl_server.select_strategy(_args("robust"), _initial_parameters(), None)
+    assert strategy.method == "median"
+
+
+def test_select_strategy_threads_byzantine_fraction_so_krum_knows_f():
+    # Krum and Bulyan derive f from this; without it they would always run at f=0, which is
+    # the no-attacker assumption and defeats the point of selecting them.
+    args = _args("robust")
+    args.robust_method = "krum"
+    args.robust_byzantine_fraction = 0.2
+    strategy = fl_server.select_strategy(args, _initial_parameters(), None)
+    assert strategy.byzantine_fraction == pytest.approx(0.2)

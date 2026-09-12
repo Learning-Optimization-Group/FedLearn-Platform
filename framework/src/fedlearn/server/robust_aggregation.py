@@ -92,6 +92,190 @@ def trimmed_mean(stacked: torch.Tensor, trim_ratio: float) -> torch.Tensor:
     return kept.mean(dim=0)
 
 
+def _krum_scores(stacked: torch.Tensor, num_byzantine: int) -> torch.Tensor:
+    """Per-client Krum scores: the sum of squared L2 distances to the ``n - f - 2`` closest others.
+
+    Shared by :func:`krum_select` and :func:`multi_krum_select` so the two cannot drift apart —
+    Multi-Krum is defined as "the m lowest Krum scores", and that only holds if it is literally the
+    same score.
+
+    Raises:
+        ValueError: if ``num_byzantine`` is negative or ``n < 2f + 3``.
+    """
+    n = int(stacked.shape[0])
+    f = int(num_byzantine)
+    if f < 0:
+        raise ValueError(f"num_byzantine must be non-negative, got {f}")
+    if n < 2 * f + 3:
+        raise ValueError(
+            f"Krum requires n >= 2f + 3 for its guarantee; got n={n}, f={f} (needs {2 * f + 3})."
+        )
+
+    flat = stacked.float().reshape(n, -1)
+    sq_dists = torch.cdist(flat, flat).pow(2)
+    num_neighbours = n - f - 2
+
+    scores = []
+    for i in range(n):
+        others = torch.cat([sq_dists[i, :i], sq_dists[i, i + 1:]])
+        nearest, _ = torch.sort(others)
+        scores.append(nearest[:num_neighbours].sum())
+    return torch.stack(scores)
+
+
+def krum_select(stacked: torch.Tensor, num_byzantine: int) -> int:
+    """Krum (Blanchard et al., NIPS 2017, https://arxiv.org/abs/1703.02757): index of the selected client.
+
+    ``stacked`` is ``[n_clients, D]`` — each row is a client's ENTIRE update flattened and
+    concatenated across every parameter. This is not optional: Krum scores clients by L2 distance
+    over the whole update, so applying it per parameter key would compute a different (and
+    unjustified) rule. Median and trimmed-mean are coordinate-wise and do not have this constraint.
+
+    For each client ``i``, the score is the sum of the squared L2 distances to its ``n - f - 2``
+    CLOSEST other clients; the selected client is the argmin. The intuition is that an honest client
+    sits inside the honest cluster and so has many close neighbours, while a Byzantine client that
+    moved far enough to matter is far from everyone.
+
+    Requires ``n >= 2f + 3`` — the paper's condition for the guarantee to hold. Below it the
+    neighbour count is still arithmetically defined, which is exactly why this raises rather than
+    silently returning a number with no robustness behind it.
+
+    Raises:
+        ValueError: if ``n < 2f + 3`` or ``num_byzantine`` is negative.
+    """
+    return int(_krum_scores(stacked, num_byzantine).argmin().item())
+
+
+def multi_krum_select(stacked: torch.Tensor, num_byzantine: int, num_select: int) -> List[int]:
+    """Multi-Krum (same paper): the ``m`` lowest-scoring client indices, in ASCENDING score order.
+
+    ``m = 1`` reduces to :func:`krum_select` by construction — both read the same
+    :func:`_krum_scores`. Returning score order rather than index order is deliberate: the caller
+    averaging these clients may want to know which was most central, and a set loses that.
+
+    Raises:
+        ValueError: if ``num_select`` is not in ``[1, n]``, or via :func:`_krum_scores`.
+    """
+    n = int(stacked.shape[0])
+    m = int(num_select)
+    if not (1 <= m <= n):
+        raise ValueError(f"num_select must be in [1, n={n}], got {m}")
+    scores = _krum_scores(stacked, num_byzantine)
+    return [int(i) for i in torch.argsort(scores)[:m].tolist()]
+
+
+def bulyan_aggregate(stacked: torch.Tensor, num_byzantine: int) -> torch.Tensor:
+    """Bulyan (Mhamdi et al., ICML 2018, https://arxiv.org/abs/1802.07927): robust aggregate vector.
+
+    Krum picks ONE client, which leaves a gap the paper exploits: an attacker can sit close enough
+    to the honest cluster to be selected while still being off in a few coordinates. Bulyan closes
+    it in two stages:
+
+      1. **Selection** — run Krum ``theta = n - 2f`` times, removing the winner from the pool each
+         time, to get a selection set that is a majority-honest committee rather than one client.
+      2. **Coordinate-wise trim** — over that set, for EACH coordinate independently, keep the
+         ``beta = theta - 2f`` values closest to that coordinate's median and average them.
+
+    Stage 2 is why Bulyan is not simply Multi-Krum: it bounds each coordinate separately, so a
+    client selected for its overall proximity cannot still smuggle in one extreme coordinate.
+
+    Unlike :func:`krum_select` this returns the aggregate itself (shape ``[D]``), because stage 2
+    produces a value that is not any single client's update.
+
+    Requires ``n >= 4f + 3`` — strictly stronger than Krum's ``2f + 3``, since stage 1 must run
+    ``theta`` times and still leave ``beta >= 1``.
+
+    Raises:
+        ValueError: if ``n < 4f + 3`` or ``num_byzantine`` is negative.
+    """
+    n = int(stacked.shape[0])
+    f = int(num_byzantine)
+    if f < 0:
+        raise ValueError(f"num_byzantine must be non-negative, got {f}")
+    if n < 4 * f + 3:
+        raise ValueError(
+            f"Bulyan requires n >= 4f + 3; got n={n}, f={f} (needs {4 * f + 3}). Krum's weaker "
+            f"n >= 2f + 3 is not sufficient — stage 1 runs theta = n - 2f selections."
+        )
+
+    flat = stacked.float().reshape(n, -1)
+    theta = n - 2 * f
+
+    # Stage 1: iterated Krum over a shrinking pool. Indices are tracked against the ORIGINAL rows so
+    # the selection set refers to real clients after removals.
+    remaining = list(range(n))
+    selected: List[int] = []
+    for _ in range(theta):
+        pool = flat[remaining]
+        # The pool shrinks, so f must shrink with it or the n >= 2f + 3 guard trips mid-loop; the
+        # paper's accounting is that at most f of whatever remains is Byzantine.
+        pool_f = min(f, max(0, (len(remaining) - 3) // 2))
+        winner_local = krum_select(pool, num_byzantine=pool_f)
+        selected.append(remaining.pop(winner_local))
+
+    chosen = flat[selected]                      # [theta, D]
+    beta = theta - 2 * f
+    if beta < 1:
+        raise ValueError(
+            f"Bulyan's trim leaves beta = theta - 2f = {beta} < 1 (n={n}, f={f}); cohort too small."
+        )
+
+    # Stage 2: per coordinate, keep the beta values closest to that coordinate's median.
+    median = torch.quantile(chosen, 0.5, dim=0, keepdim=True)     # [1, D]
+    order = torch.argsort((chosen - median).abs(), dim=0)          # [theta, D]
+    keep = torch.gather(chosen, 0, order[:beta])                   # [beta, D]
+    return keep.mean(dim=0)
+
+
+def centered_clip(
+        stacked: torch.Tensor, centre: torch.Tensor, tau: float, iterations: int = 1
+) -> torch.Tensor:
+    """Centered Clipping (Karimireddy et al., ICML 2021, https://arxiv.org/abs/2012.10333).
+
+    Iterate ``v <- v + (1/n) * sum_i clip(x_i - v, tau)``, where
+    ``clip(z, tau) = z * min(1, tau / ||z||)``.
+
+    The robustness is structural rather than statistical: every clipped term has norm at most
+    ``tau``, so their mean does too, so ONE iteration moves the centre by at most ``tau`` no matter
+    what an attacker sends. That is what gives it a 0.5 breakdown point without needing to sort,
+    select or discard anyone — every client contributes, but none can contribute more than ``tau``.
+
+    Unlike the selection rules this needs a ``centre`` to clip around. The natural choice on the
+    server is the CURRENT GLOBAL MODEL: honest clients sit near it and pass through unclipped, while
+    a client that has moved far is scaled back to the ``tau`` ball. A poor centre does not break
+    correctness, only the rate — with ``tau`` large enough that nothing clips, one iteration is
+    exactly the plain mean regardless of where the centre started.
+
+    Args:
+        stacked: ``[n_clients, D]`` — flattened client updates (see :func:`krum_select` on why this
+            is flattened rather than per parameter key).
+        centre: ``[D]`` — the point to clip around.
+        tau: clipping radius; must be positive.
+        iterations: how many times to re-centre. The paper finds small values suffice; 1 is the
+            common choice and is what the strategy uses.
+
+    Raises:
+        ValueError: if ``tau <= 0``, ``iterations < 1``, or the cohort is empty.
+    """
+    n = int(stacked.shape[0])
+    if n == 0:
+        raise ValueError("centered_clip requires at least one client.")
+    if tau <= 0:
+        raise ValueError(f"tau (clipping radius) must be positive, got {tau}")
+    if int(iterations) < 1:
+        raise ValueError(f"iterations must be >= 1, got {iterations}")
+
+    flat = stacked.float().reshape(n, -1)
+    v = centre.float().reshape(-1).clone()
+
+    for _ in range(int(iterations)):
+        deltas = flat - v                                             # [n, D]
+        norms = torch.linalg.vector_norm(deltas, dim=1, keepdim=True)  # [n, 1]
+        scale = torch.clamp(tau / (norms + _NORM_EPS), max=1.0)
+        v = v + (deltas * scale).mean(dim=0)
+    return v
+
+
 def clip_l2_norm(
         update: "OrderedDict[str, torch.Tensor]", max_norm: float
 ) -> Tuple["OrderedDict[str, torch.Tensor]", float]:
@@ -112,7 +296,23 @@ def clip_l2_norm(
 # --------------------------------------------------------------------------------------------------
 # Strategy
 # --------------------------------------------------------------------------------------------------
-_METHODS = ("median", "trimmed_mean")
+# Coordinate-wise rules reduce each parameter coordinate independently, so they can be applied
+# per parameter key. Vector rules score or clip a client's ENTIRE flattened update and therefore
+# must see it concatenated across every key — applying them per key computes a different rule.
+_COORDINATE_METHODS = ("median", "trimmed_mean")
+_VECTOR_METHODS = ("krum", "multi_krum", "bulyan", "centered_clip")
+_METHODS = _COORDINATE_METHODS + _VECTOR_METHODS
+
+# Asymptotic Byzantine breakdown points. The EXACT per-round admissibility condition (n >= 2f + 3
+# for Krum/Multi-Krum, n >= 4f + 3 for Bulyan) is enforced inside the estimators, where n is known;
+# these are the cohort-size-independent values the guard compares a fraction against.
+_BREAKDOWN = {
+    "median": 0.5,
+    "krum": 0.5,
+    "multi_krum": 0.5,
+    "bulyan": 0.25,
+    "centered_clip": 0.5,
+}
 
 
 class RobustAggregator(Strategy):
@@ -142,6 +342,9 @@ class RobustAggregator(Strategy):
             trim_ratio: float = 0.1,
             clip_norm: Optional[float] = None,
             byzantine_fraction: float = 0.0,
+            centered_clip_tau: float = 1.0,
+            centered_clip_iterations: int = 1,
+            multi_krum_m: Optional[int] = None,
     ):
         method = str(method).lower()
         if method not in _METHODS:
@@ -150,6 +353,10 @@ class RobustAggregator(Strategy):
             raise ValueError(f"trim_ratio (beta) must be in [0, 0.5), got {trim_ratio}")
         if clip_norm is not None and clip_norm <= 0:
             raise ValueError(f"clip_norm (S) must be positive or None, got {clip_norm}")
+        if centered_clip_tau <= 0:
+            raise ValueError(f"centered_clip_tau must be positive, got {centered_clip_tau}")
+        if multi_krum_m is not None and multi_krum_m < 1:
+            raise ValueError(f"multi_krum_m must be >= 1 or None, got {multi_krum_m}")
 
         self.initial_parameters = initial_parameters
         self.evaluate_fn = evaluate_fn
@@ -160,6 +367,12 @@ class RobustAggregator(Strategy):
         self.trim_ratio = float(trim_ratio)
         self.clip_norm = None if clip_norm is None else float(clip_norm)
         self.byzantine_fraction = float(byzantine_fraction)
+        # Centered Clipping's radius is scale-dependent: it must be comparable to a typical honest
+        # update norm, so the default of 1.0 is a placeholder and should be tuned per task.
+        self.centered_clip_tau = float(centered_clip_tau)
+        self.centered_clip_iterations = int(centered_clip_iterations)
+        # Multi-Krum's committee size; None -> n - 2f at aggregation time (the presumed-honest count).
+        self.multi_krum_m = multi_krum_m
 
         # The clip reference / carry-across-rounds global (kept float32, mirroring the aggregator's
         # output dtype so a delta subtraction never silently upcasts).
@@ -179,8 +392,15 @@ class RobustAggregator(Strategy):
 
     @property
     def tolerance(self) -> float:
-        """The estimator's Byzantine breakdown point: 0.5 for median, beta for trimmed-mean."""
-        return 0.5 if self.method == "median" else self.trim_ratio
+        """The estimator's Byzantine breakdown point.
+
+        beta for trimmed-mean (operator-chosen), otherwise the rule's published value: 0.5 for
+        median, Krum, Multi-Krum and Centered Clipping; 0.25 for Bulyan, whose n >= 4f + 3
+        requirement is strictly stronger than Krum's n >= 2f + 3.
+        """
+        if self.method == "trimmed_mean":
+            return self.trim_ratio
+        return _BREAKDOWN[self.method]
 
     def initialize_parameters(self) -> Optional["OrderedDict[str, torch.Tensor]"]:
         return self.initial_parameters
@@ -307,7 +527,14 @@ class RobustAggregator(Strategy):
     def _robust_reduce(
             self, clients: List["OrderedDict[str, torch.Tensor]"]
     ) -> "OrderedDict[str, torch.Tensor]":
-        """Apply the coordinate-wise estimator per parameter key over the stacked client tensors."""
+        """Reduce the surviving client updates to one aggregate.
+
+        Dispatches on the rule's KIND, not just its name: coordinate-wise rules go per parameter
+        key; vector rules are handed the whole flattened update (see :func:`krum_select`).
+        """
+        if self.method in _VECTOR_METHODS:
+            return self._vector_reduce(clients)
+
         out: "OrderedDict[str, torch.Tensor]" = OrderedDict()
         # FR-19: template on the global model's keys, not clients[0] — every survivor has passed
         # _conforms_to_global, so all keys are present with matching shapes, and an empty/mis-keyed
@@ -319,6 +546,48 @@ class RobustAggregator(Strategy):
             else:
                 out[key] = trimmed_mean(stacked, self.trim_ratio)
         return out
+
+    def _flatten(self, params: "OrderedDict[str, torch.Tensor]") -> torch.Tensor:
+        """Concatenate an update into one 1-D vector, in the global model's key order."""
+        return torch.cat([params[k].float().reshape(-1) for k in self._global.keys()])
+
+    def _unflatten(self, flat: torch.Tensor) -> "OrderedDict[str, torch.Tensor]":
+        """Inverse of :meth:`_flatten`, templated on the global model's keys and shapes."""
+        out: "OrderedDict[str, torch.Tensor]" = OrderedDict()
+        offset = 0
+        for key, ref in self._global.items():
+            numel = ref.numel()
+            out[key] = flat[offset: offset + numel].reshape(ref.shape).clone()
+            offset += numel
+        return out
+
+    def _vector_reduce(
+            self, clients: List["OrderedDict[str, torch.Tensor]"]
+    ) -> "OrderedDict[str, torch.Tensor]":
+        """Apply a whole-update rule (Krum family, Centered Clipping) and rebuild the key structure.
+
+        ``f`` is derived from the operator's ``byzantine_fraction`` and the ACTUAL cohort size, so
+        it tracks a round that came in short. The estimators enforce their own admissibility
+        (n >= 2f + 3 / 4f + 3) and raise if the cohort cannot support the rule.
+        """
+        flat = torch.stack([self._flatten(c) for c in clients], dim=0)
+        n = flat.shape[0]
+        f = int(self.byzantine_fraction * n)
+
+        if self.method == "krum":
+            reduced = flat[krum_select(flat, f)]
+        elif self.method == "multi_krum":
+            m = self.multi_krum_m if self.multi_krum_m is not None else max(1, n - 2 * f)
+            m = min(m, n)
+            reduced = flat[multi_krum_select(flat, f, m)].mean(dim=0)
+        elif self.method == "bulyan":
+            reduced = bulyan_aggregate(flat, f)
+        else:  # centered_clip -- clip around the CURRENT GLOBAL, which honest clients sit near
+            reduced = centered_clip(
+                flat, self._flatten(self._global),
+                tau=self.centered_clip_tau, iterations=self.centered_clip_iterations,
+            )
+        return self._unflatten(reduced)
 
 
 def _is_finite(params: "OrderedDict[str, torch.Tensor]") -> bool:
