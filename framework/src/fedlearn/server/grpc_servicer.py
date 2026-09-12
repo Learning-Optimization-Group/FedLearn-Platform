@@ -51,8 +51,16 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
     The gRPC servicer class. Acts as a dispatcher, forwarding calls to the FLCoordinator.
     """
 
-    def __init__(self, coordinator: FLCoordinator, partition_extractor=None):
+    def __init__(self, coordinator: FLCoordinator, partition_extractor=None,
+                 secure_agg_threshold: int = 2):
         self.coordinator = coordinator
+        # P2-2: one SecureAggregationSession per round, created lazily on first secure RPC.
+        self._secure_sessions = {}
+        # Shamir reconstruction threshold. A POLICY knob, not a derived value: it must be set to a
+        # majority of the expected cohort for the scheme to mean anything, and the servicer cannot
+        # know the cohort size before clients arrive. The default of 2 is the minimum that
+        # reconstructs, deliberately conservative rather than silently permissive.
+        self.secure_agg_threshold = int(secure_agg_threshold)
         # SE-15: (context) -> Optional[int] returning the verified connection-token partition; None
         # disables identity binding (client-auth off / dev fail-open), preserving existing behavior.
         self._partition_extractor = partition_extractor
@@ -566,6 +574,117 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details("An internal server error occurred.")
             return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
+
+    # ==========================================================================================
+    # SECURE AGGREGATION (P2-2) — three RPCs, one per protocol phase
+    #
+    # These are thin adapters over SecureAggregationSession. What they own is the part the session
+    # cannot see: the gRPC context, and therefore the SE-15 verified partition.
+    # ==========================================================================================
+    def _verified_partition(self, context):
+        """The SE-15 partition for this call, or ``None`` when identity binding is unavailable."""
+        if self._partition_extractor is None:
+            return None
+        return self._partition_extractor(context)
+
+    def _secure_session(self, round_index: int):
+        """The session for ``round_index``, created on first use."""
+        from fedlearn.server.secure_agg_session import SecureAggregationSession
+        if round_index not in self._secure_sessions:
+            strategy = self.coordinator.strategy
+            num_scalars = (strategy.K * strategy.P) if isinstance(strategy, DeComFL) else 1
+            self._secure_sessions[round_index] = SecureAggregationSession(
+                round_index=round_index,
+                threshold=self.secure_agg_threshold,
+                num_scalars=num_scalars,
+            )
+        return self._secure_sessions[round_index]
+
+    def _require_partition(self, context):
+        """Resolve the verified partition or FAIL CLOSED.
+
+        Secure aggregation is keyed on the partition. With identity binding unavailable there is
+        no verified partition, and falling back to the wire ``client_id`` — which the proto marks
+        untrusted — would let any client publish keys and relay shares as any other. That is the
+        precise attack the binding exists to stop, so the RPC is refused instead. A privacy
+        feature that silently degrades to no privacy is worth being loud about.
+        """
+        partition = self._verified_partition(context)
+        if partition is None:
+            context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+            context.set_details(
+                "Secure aggregation requires verified client identity (SE-15). Enable client "
+                "auth so calls carry a connection token; the untrusted wire client_id is not a "
+                "substitute."
+            )
+        return partition
+
+    def PublishPublicKey(self, request: fedlearn_pb2.PublishPublicKeyRequest, context):
+        """Phase 1 — record this client's X25519 key, return the cohort's."""
+        from fedlearn.security.public_key_registry import PublicKeyConflict
+
+        partition = self._require_partition(context)
+        if partition is None:
+            return fedlearn_pb2.PublishPublicKeyResponse(accepted=False)
+
+        session = self._secure_session(request.round)
+        try:
+            cohort = session.publish_key(partition=partition, public_key=request.public_key)
+        except PublicKeyConflict as exc:
+            # Not an error condition for the SERVER — a refusal with a reason the client can act
+            # on, so the round continues for everyone else.
+            return fedlearn_pb2.PublishPublicKeyResponse(
+                accepted=False, rejection_reason=str(exc),
+                cohort_public_keys=session.cohort_keys(),
+            )
+        except ValueError as exc:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details(str(exc))
+            return fedlearn_pb2.PublishPublicKeyResponse(accepted=False, rejection_reason=str(exc))
+
+        return fedlearn_pb2.PublishPublicKeyResponse(accepted=True, cohort_public_keys=cohort)
+
+    def SubmitSecureShares(self, request: fedlearn_pb2.SubmitSecureSharesRequest, context):
+        """Phase 2 — accept sealed shares for peers, return those addressed to this caller."""
+        partition = self._require_partition(context)
+        if partition is None:
+            return fedlearn_pb2.SubmitSecureSharesResponse(accepted=False)
+
+        session = self._secure_session(request.round)
+        try:
+            if request.shares:
+                session.relay_shares(
+                    sender=partition,
+                    shares={s.recipient_partition: s.ciphertext for s in request.shares},
+                )
+        except ValueError as exc:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details(str(exc))
+            return fedlearn_pb2.SubmitSecureSharesResponse(accepted=False)
+
+        return fedlearn_pb2.SubmitSecureSharesResponse(
+            accepted=True, inbound_ciphertexts=session.inbound_for(partition),
+        )
+
+    def SubmitAggregatedShare(self, request: fedlearn_pb2.SubmitAggregatedShareRequest, context):
+        """Phase 3b — one summed share vector per holder, whatever the dropout count."""
+        partition = self._require_partition(context)
+        if partition is None:
+            return fedlearn_pb2.SubmitAggregatedShareResponse(received=False)
+
+        session = self._secure_session(request.round)
+        try:
+            remaining = session.submit_summed_share(
+                holder_index=request.holder_index, share=list(request.summed_share),
+            )
+        except ValueError as exc:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details(str(exc))
+            return fedlearn_pb2.SubmitAggregatedShareResponse(received=False)
+
+        return fedlearn_pb2.SubmitAggregatedShareResponse(
+            received=True, shares_still_needed=remaining,
+        )
 
     def ReportClientMetrics(self, request: fedlearn_pb2.ReportClientMetricsRequest, context):
         """v2 telemetry (§6.4): accept a client's per-round loss/accuracy/compute and record it on the

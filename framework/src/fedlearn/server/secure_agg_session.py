@@ -70,6 +70,12 @@ class SecureAggregationSession:
         self._registry.register(partition_id=partition, public_key=public_key)
         return self._registry.cohort()
 
+    def cohort_keys(self) -> Dict[int, bytes]:
+        """The published keys, without publishing one. Used when a publish is REFUSED: the caller
+        still needs the cohort view, and reaching into the registry from outside would couple the
+        servicer to this class's internals."""
+        return self._registry.cohort()
+
     # ---- phase 2: share relay ---------------------------------------------------------------
     def relay_shares(self, sender: int, shares: Dict[int, bytes]) -> None:
         """Accept sealed shares from ``sender``, addressed by recipient partition.
