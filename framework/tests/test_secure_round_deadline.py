@@ -32,9 +32,9 @@ def _servicer(threshold=2, K=1, P=2, clients_per_round=3, min_clients=2):
     )
     coord.bind_or_check_identity = MagicMock(return_value=True)
     strategy.get_or_create_seeds(coord.current_round)
-    s = FederatedLearningServiceServicer(coord, secure_agg_threshold=threshold)
-    coord.set_secure_session_provider(s.secure_session_if_present)
-    return s
+    # NOT registering the provider by hand: the servicer does it at construction, and these
+    # tests are only meaningful if they run against that same wiring.
+    return FederatedLearningServiceServicer(coord, secure_agg_threshold=threshold)
 
 
 def _mask_in(servicer, clients, values, round_num):
@@ -140,3 +140,26 @@ def test_a_round_with_no_secure_session_still_takes_the_plaintext_path():
     coord.resolve_round_incomplete("deadline")
 
     assert coord.current_round == 2, "the plaintext force-aggregation did not run"
+
+
+def test_constructing_the_servicer_registers_the_provider_with_the_coordinator():
+    """Otherwise every test above passes on a wiring the deployment never performs.
+
+    The helper in this file registers the provider by hand. Production constructs the servicer
+    and nothing else, so if registration does not happen there, the deadline branch is dead code
+    and a real dropout still hangs -- with a green suite.
+    """
+    strategy = DeComFL(
+        initial_parameters=OrderedDict({"w": torch.zeros(4)}),
+        num_local_steps=1, num_perturbations=2,
+    )
+    coord = FLCoordinator(strategy, min_clients_for_aggregation=2, clients_per_round=3)
+    coord.bind_or_check_identity = MagicMock(return_value=True)
+
+    servicer = FederatedLearningServiceServicer(coord)   # nothing else
+
+    assert coord._current_secure_session() is None, "asking created a session"
+    created = servicer._secure_session(coord.current_round)
+    assert coord._current_secure_session() is created, (
+        "the coordinator cannot reach the round's secure session; the deadline branch is dead"
+    )

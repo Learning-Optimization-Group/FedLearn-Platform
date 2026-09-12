@@ -56,6 +56,16 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         self.coordinator = coordinator
         # P2-2: one SecureAggregationSession per round, created lazily on first secure RPC.
         self._secure_sessions = {}
+
+        # P2-2: let the coordinator reach this round's secure session on its deadline path. The
+        # servicer owns the sessions (it has the verified-partition context), so registration has
+        # to happen from here -- and it has to happen at construction, not on first secure use,
+        # or a round that times out before anyone publishes a key would take the plaintext
+        # resolution branch. Registered unconditionally: the provider returns None for a
+        # plaintext round, which is what keeps the secure branch inert on a plaintext server.
+        register = getattr(coordinator, "set_secure_session_provider", None)
+        if register is not None:
+            register(self.secure_session_if_present)
         # Shamir reconstruction threshold. A POLICY knob, not a derived value: it must be set to a
         # majority of the expected cohort for the scheme to mean anything, and the servicer cannot
         # know the cohort size before clients arrive. The default of 2 is the minimum that
