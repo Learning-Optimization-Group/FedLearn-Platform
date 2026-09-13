@@ -45,7 +45,26 @@ for _p in (_HERE, os.path.join(_HERE, "..", "src"), os.path.join(_HERE, "..", ".
 import robust_aggregation_attack as raa  # noqa: E402 — reuse the harness verbatim (same task/partition/attacks)
 import recipes  # noqa: E402
 
-AGGREGATORS = ("fedavg", "trimmed_mean", "median")
+# The three coordinate-wise rules the original FR-12 sweep measured, plus the four selection /
+# clipping rules added later. Selection rules (krum, multi_krum, bulyan) score the WHOLE flattened
+# update rather than each coordinate, so they are a different family and their guarantees carry a
+# cohort-size precondition the coordinate-wise rules do not have -- see FEASIBILITY below.
+AGGREGATORS = ("fedavg", "trimmed_mean", "median",
+               "krum", "multi_krum", "bulyan", "centered_clip")
+
+# Rules that need to be TOLD how many attackers to expect. They are given the TRUE f here, which is
+# oracle knowledge no deployment has. That is deliberate: the classical guarantees (Blanchard 2017,
+# Mhamdi 2018) assume f is known, so giving the true f measures the estimator against its own
+# theory. A misconfigured-f sweep is a separate question and is NOT answered here.
+NEEDS_F = ("krum", "multi_krum", "bulyan")
+
+# FEASIBILITY -- why some cells cannot run at all, and why that is a result rather than a gap.
+#   Krum   requires n >= 2f + 3
+#   Bulyan requires n >= 4f + 3
+# Bulyan's is the sharp one: at f = 0.25n (its own theoretical breakdown) the requirement becomes
+# n >= n + 3, which is never satisfiable. Bulyan can therefore NEVER be run at the fraction its
+# guarantee is quoted for -- only strictly below it. Refused cells are recorded with their reason,
+# never as a zero and never silently omitted.
 # Retention (final_acc / clean_acc) below this counts as "broken" — the aggregator no longer protects
 # the model. 0.5 is a wide margin between "defended" (~1.0 here) and "collapsed" (near-random ~0.25).
 BROKEN_RETENTION = 0.5
@@ -73,6 +92,18 @@ def _theoretical_breakdown(strategy: str, trim_beta: float) -> str:
         return f"> beta = {trim_beta:g}"
     if strategy == "median":
         return ">= 0.5"
+    if strategy in ("krum", "multi_krum"):
+        # Blanchard et al., NIPS 2017. The 0.5 is asymptotic; the binding constraint in practice is
+        # the per-round admissibility n >= 2f + 3, which caps the reachable fraction at (n-3)/2n.
+        return ">= 0.5 (n >= 2f + 3, so f/n <= (n-3)/2n)"
+    if strategy == "bulyan":
+        # Mhamdi et al., ICML 2018. n >= 4f + 3 caps f/n at (n-3)/4n, which APPROACHES 0.25 from
+        # below but never reaches it: at f = 0.25n the requirement reads n >= n + 3.
+        return "0.25 (n >= 4f + 3, so f/n <= (n-3)/4n < 0.25 always)"
+    if strategy == "centered_clip":
+        # Karimireddy et al., ICML 2021. A clipping rule, not a selection rule: it bounds each
+        # contribution rather than rejecting any, so it has no admissibility precondition.
+        return ">= 0.5 (no cohort precondition)"
     return "?"
 
 
@@ -85,7 +116,12 @@ def _clone_updates(updates):
     return [(cid, OrderedDict((k, v.clone()) for k, v in st.items()), n) for cid, st, n in updates]
 
 
-def _make_strat(name, initial, trim_beta, min_fit):
+class AggregatorInfeasible(RuntimeError):
+    """The rule's own cohort-size precondition rules this cell out. Recorded, not swallowed."""
+
+
+def _make_strat(name, initial, trim_beta, min_fit, byz_fraction=0.0, num_clients=None,
+                clip_tau=1.0):
     """A fresh strategy for a single aggregate call. min_fit=1 so a partial (honest-only) set is not
     refused by the min-clients gate — we want the estimator's OUTPUT on whatever set we hand it."""
     from fedlearn.server.strategy import FedAvg
@@ -98,6 +134,22 @@ def _make_strat(name, initial, trim_beta, min_fit):
                                  min_fit_clients=min_fit)
     elif name == "median":
         strat = RobustAggregator(initial_parameters=init, method="median", min_fit_clients=min_fit)
+    elif name in NEEDS_F:
+        # Fail fast on the rule's own precondition so the cell is recorded as REFUSED with its
+        # reason, rather than surfacing later as an aggregation error mid-sweep.
+        if num_clients is not None:
+            f = int(round(byz_fraction * num_clients))
+            need = (4 * f + 3) if name == "bulyan" else (2 * f + 3)
+            if num_clients < need:
+                raise AggregatorInfeasible(
+                    f"{name} requires n >= {'4f+3' if name == 'bulyan' else '2f+3'}; "
+                    f"n={num_clients}, f={f} needs {need}"
+                )
+        strat = RobustAggregator(initial_parameters=init, method=name, min_fit_clients=min_fit,
+                                 byzantine_fraction=byz_fraction)
+    elif name == "centered_clip":
+        strat = RobustAggregator(initial_parameters=init, method="centered_clip",
+                                 min_fit_clients=min_fit, centered_clip_tau=clip_tau)
     else:
         raise ValueError(name)
     strat.initialize_parameters()  # set the strategy's internal global model — aggregate_fit drops any
@@ -137,6 +189,7 @@ def measure_estimate_deviation(common, attack, fractions):
         client_records[cid] = {"n_examples": n_examples, "client_state": state, "honest_delta": honest_delta}
 
     out = {s: [] for s in AGGREGATORS}
+    refusals = {s: {} for s in AGGREGATORS}   # aggregator -> {f: reason}, kept out of the curve
     for f in fractions:
         num_attackers = int(round(f * num_clients))
         attacker_ids = set(range(num_attackers))
@@ -164,8 +217,25 @@ def measure_estimate_deviation(common, attack, fractions):
             # aggregate_fit CONSUMES (clears) the state dicts it is handed; all_updates and
             # honest_updates share the same client-state objects, so clone per call or the first
             # aggregate empties the states the second needs.
-            agg_all = _make_strat(s, initial, common["trim_beta"], 1).aggregate_fit(0, _clone_updates(all_updates))
-            agg_hon = _make_strat(s, initial, common["trim_beta"], 1).aggregate_fit(0, _clone_updates(honest_updates))
+            kw = dict(byz_fraction=f, num_clients=num_clients,
+                      clip_tau=common.get("clip_tau", 1.0))
+            try:
+                agg_all = _make_strat(s, initial, common["trim_beta"], 1, **kw).aggregate_fit(
+                    0, _clone_updates(all_updates))
+                # The honest-only reference is the estimator's uncorrupted output, so it is built
+                # with f=0: telling it to expect attackers among clients that are all honest would
+                # make it discard good updates and move the reference itself.
+                agg_hon = _make_strat(
+                    s, initial, common["trim_beta"], 1,
+                    byz_fraction=0.0, num_clients=num_clients, clip_tau=kw["clip_tau"],
+                ).aggregate_fit(0, _clone_updates(honest_updates))
+            except AggregatorInfeasible as exc:
+                # A precondition failure is a RESULT, not a gap: the rule cannot be run at this
+                # fraction at all. Recorded with its reason and rendered as "refused", never as a
+                # zero and never silently dropped.
+                out[s].append((f, None))
+                refusals[s][f] = str(exc)
+                continue
             keys = list(global_params.keys())
             if (agg_all is None or agg_hon is None
                     or any(k not in agg_all for k in keys) or any(k not in agg_hon for k in keys)):
@@ -175,13 +245,13 @@ def measure_estimate_deviation(common, attack, fractions):
             corruption = _flat_l2_diff(agg_all, agg_hon)
             ratio = corruption / honest_step if honest_step > 1e-12 else None
             out[s].append((f, round(ratio, 3) if ratio is not None else None))
-    return out
+    return out, refusals
 
 
 def _first_broken_fraction(curve, clean_acc):
     """The smallest swept fraction whose retention < BROKEN_RETENTION (None if never broken)."""
     for f, acc in curve:
-        if f == 0.0:
+        if f == 0.0 or acc is None:      # None = the rule refused this cell; it is not "broken"
             continue
         ret = acc / clean_acc if clean_acc > 0 else 0.0
         if ret < BROKEN_RETENTION:
@@ -255,13 +325,50 @@ def main() -> None:
     print(f"[*] clean baseline (FedAvg, no attack): {clean_acc:.4f}", flush=True)
 
     # ---- sweep f x aggregator under the fixed attack ----
-    sweep = {s: [] for s in AGGREGATORS}          # strategy -> [(f, final_acc), ...]
+    sweep = {s: [] for s in AGGREGATORS}          # strategy -> [(f, final_acc | None), ...]
+    acc_refusals = {}                              # strategy -> {f: reason} for infeasible cells
     records = []
     for strat in AGGREGATORS:
         for f in fractions:
             atk = "none" if f == 0.0 else args.attack
-            rec = raa.run_config(label=f"{strat} @ f={f:g} / {atk}", strategy_name=strat,
-                                 attack=atk, attack_fraction=f, **common)
+
+            # A cell the aggregator DECLINES is not a cell where it failed, and recording the
+            # untrained model's accuracy would read as a breakdown. Two distinct refusals:
+            #   * the Byzantine-fraction guard (f > the rule's tolerance) -- aggregate_fit returns
+            #     None every round, the global model never moves, and the run ends at ~random
+            #     accuracy. Measured live: bulyan at f=0.4 scored 0.197, which is "refused to
+            #     operate above its 0.25 tolerance", NOT "broke at 0.4".
+            #   * the cohort precondition (n >= 2f+3 / 4f+3), which raises.
+            # The tolerance is read off the strategy itself rather than re-derived here, so this
+            # check cannot drift from the guard it is predicting.
+            probe = raa.build_strategy(strat, common["initial"], args.clients,
+                                       common["trim_beta"], byz_fraction=f)
+            # Mirror the guard EXACTLY (robust_aggregation.py: `byzantine_fraction > tolerance`),
+            # testing the probe's own byzantine_fraction rather than the sweep's f. They differ:
+            # build_strategy sets byzantine_fraction only for the rules that need to be told f, so
+            # the coordinate-wise rules keep 0.0 and their guard never fires. Predicting from f
+            # instead would refuse trimmed_mean above beta -- a cell the published result measured.
+            tol = getattr(probe, "tolerance", None)
+            probe_f = getattr(probe, "byzantine_fraction", 0.0)
+            if tol is not None and probe_f > tol:
+                reason = (f"byzantine-fraction guard: byzantine_fraction={probe_f:g} exceeds the "
+                          f"{strat} tolerance {tol:g}; the aggregator refuses every round")
+                acc_refusals.setdefault(strat, {})[f] = reason
+                sweep[strat].append((f, None))
+                print(f"    {strat:>12} f={f:.2f}: REFUSED — {reason}", flush=True)
+                continue
+
+            try:
+                rec = raa.run_config(label=f"{strat} @ f={f:g} / {atk}", strategy_name=strat,
+                                     attack=atk, attack_fraction=f, **common)
+            except ValueError as exc:
+                # The rule's own cohort precondition (Krum n>=2f+3, Bulyan n>=4f+3) rules this cell
+                # out. That is a result -- the rule is inapplicable here -- so it is recorded with
+                # its reason and rendered as "refused", never as an accuracy of zero.
+                acc_refusals.setdefault(strat, {})[f] = str(exc)
+                sweep[strat].append((f, None))
+                print(f"    {strat:>12} f={f:.2f}: REFUSED — {str(exc)[:80]}", flush=True)
+                continue
             ret = rec["final_accuracy"] / clean_acc if clean_acc > 0 else 0.0
             rec["retention_vs_clean"] = round(ret, 4)
             records.append(rec)
@@ -272,16 +379,18 @@ def main() -> None:
     # Estimator-level breakdown (the quantity the theory is about): aggregate deviation from the
     # honest-only aggregate, measured once at round 0. Sharp where accuracy is forgiving.
     print("[*] measuring estimator-level deviation (aggregate vs honest-only aggregate) ...", flush=True)
-    deviation = measure_estimate_deviation(common, args.attack, fractions)
+    deviation, dev_refusals = measure_estimate_deviation(common, args.attack, fractions)
     for s in AGGREGATORS:
         print(f"    {s:>12} deviation ratio: "
-              + ", ".join(f"f={f:.1f}:{r}" for f, r in deviation[s]), flush=True)
+              + ", ".join(f"f={f:g}:{r}" for f, r in deviation[s]), flush=True)
 
     breakdown = {
         s: {
             "empirical_first_broken_fraction": _first_broken_fraction(sweep[s], clean_acc),
             "theoretical_breakdown": _theoretical_breakdown(s, args.trim_beta),
             "estimate_deviation_ratio_by_fraction": deviation[s],
+            "refused_accuracy_cells": acc_refusals.get(s, {}),
+            "refused_deviation_cells": dev_refusals.get(s, {}),
         }
         for s in AGGREGATORS
     }
@@ -328,12 +437,19 @@ def _write_markdown(args, meta, clean_acc, sweep, breakdown, stem="robust_breakd
         "| aggregator | " + " | ".join(f"f={f:g}" for f in fr) + " |",
         "|---|" + "---|" * len(fr),
     ]
-    agg_labels = {"fedavg": "FedAvg", "trimmed_mean": f"trimmed-mean (beta={meta['trim_beta']:g})", "median": "median"}
+    agg_labels = {"fedavg": "FedAvg", "trimmed_mean": f"trimmed-mean (beta={meta['trim_beta']:g})",
+                  "median": "median", "krum": "Krum", "multi_krum": "Multi-Krum",
+                  "bulyan": "Bulyan", "centered_clip": "centered clipping"}
     for s in AGGREGATORS:
         cells = []
         by_f = dict(sweep[s])
         for f in fr:
             acc = by_f[f]
+            if acc is None:
+                # Rendered as a refusal, never as 0.000 — the rule declined to operate here, which
+                # is a different statement from "it failed to defend".
+                cells.append("refused")
+                continue
             ret = acc / clean_acc if clean_acc > 0 else 0.0
             mark = "" if ret >= meta["broken_retention_threshold"] or f == 0.0 else " ✗"
             cells.append(f"{acc:.3f} ({ret * 100:.0f}%){mark}")

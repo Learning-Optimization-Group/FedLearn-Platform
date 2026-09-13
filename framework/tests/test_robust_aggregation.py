@@ -314,3 +314,35 @@ def test_robust_empty_client_does_not_wipe_the_global():
     assert result is not None
     assert set(result.keys()) == {"w"}
     assert torch.allclose(result["w"], torch.tensor([2.0, 2.0]))
+
+
+# ---------------------------------------------------------------------------------------------
+# Bulyan's stage-1 selection loop, at the small end
+# ---------------------------------------------------------------------------------------------
+def test_bulyan_handles_a_cohort_it_selects_almost_entirely():
+    """Found while benchmarking: Bulyan raised Krum's precondition error on its OWN internal call.
+
+    Stage 1 runs theta = n - 2f Krum selections over a SHRINKING pool. When f is small, theta
+    approaches n, so the pool is drawn down to 2 or 1 members -- and Krum refuses a pool below 3
+    (n >= 2f + 3 with f = 0). The failure surfaces as a confusing "Krum requires n >= 2f + 3; got
+    n=2" from inside an aggregator the caller asked for Bulyan, at a configuration (low f) that is
+    supposed to be the EASY case.
+    """
+    import torch
+    from fedlearn.server.robust_aggregation import bulyan_aggregate
+
+    updates = torch.randn(6, 12, generator=torch.Generator().manual_seed(0))
+    out = bulyan_aggregate(updates, 0)          # f=0: theta = n, the pool drains to 1
+    assert out.shape == (12,)
+    assert torch.isfinite(out).all()
+
+
+def test_bulyan_with_no_byzantine_clients_stays_near_the_mean():
+    """With f=0 every client is honest, so Bulyan's trimmed selection should land near the mean --
+    a sanity check that draining the pool does not also corrupt the estimate."""
+    import torch
+    from fedlearn.server.robust_aggregation import bulyan_aggregate
+
+    updates = torch.randn(9, 20, generator=torch.Generator().manual_seed(1))
+    out = bulyan_aggregate(updates, 0)
+    assert (out - updates.mean(dim=0)).abs().max() < 1.0, "f=0 Bulyan drifted far from the mean"

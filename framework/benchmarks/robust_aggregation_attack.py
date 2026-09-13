@@ -175,7 +175,14 @@ def _l2_norm(d: "OrderedDict[str, torch.Tensor]") -> float:
     return sum(float((v.float() ** 2).sum()) for v in d.values()) ** 0.5
 
 
-def build_strategy(strategy_name: str, initial, num_clients: int, trim_beta: float):
+def build_strategy(strategy_name: str, initial, num_clients: int, trim_beta: float,
+                   byz_fraction: float = 0.0, clip_tau: float = 1.0):
+    """Construct an aggregator by name.
+
+    The selection rules (krum / multi_krum / bulyan) and centered_clip were added after the
+    original ablation; the two new keyword arguments default so every pre-existing call site
+    builds exactly the strategy it built before.
+    """
     initial = OrderedDict((k, v.clone()) for k, v in initial.items())
     if strategy_name == "fedavg":
         return FedAvg(initial_parameters=initial, min_fit_clients=num_clients)
@@ -185,6 +192,14 @@ def build_strategy(strategy_name: str, initial, num_clients: int, trim_beta: flo
     if strategy_name == "median":
         return RobustAggregator(initial_parameters=initial, method="median",
                                  min_fit_clients=num_clients)
+    if strategy_name in ("krum", "multi_krum", "bulyan"):
+        # Given the TRUE attacker fraction -- oracle knowledge, matching the assumption the
+        # classical guarantees are stated under. See NEEDS_F in robust_breakdown_point.py.
+        return RobustAggregator(initial_parameters=initial, method=strategy_name,
+                                min_fit_clients=num_clients, byzantine_fraction=byz_fraction)
+    if strategy_name == "centered_clip":
+        return RobustAggregator(initial_parameters=initial, method="centered_clip",
+                                min_fit_clients=num_clients, centered_clip_tau=clip_tau)
     raise ValueError(f"unknown strategy {strategy_name!r}")
 
 
@@ -265,7 +280,8 @@ def run_config(*, label, strategy_name, attack, attack_fraction, attack_scale_ma
     result record. `attack_fraction=0.0` is the clean baseline (no attacker set, `attack` unused)."""
     torch.manual_seed(seed)
 
-    strategy = build_strategy(strategy_name, initial, num_clients, trim_beta)
+    strategy = build_strategy(strategy_name, initial, num_clients, trim_beta,
+                              byz_fraction=attack_fraction)
     global_params = strategy.initialize_parameters()
 
     # Deterministic Byzantine set: the lowest-numbered client ids, sized by attack_fraction. Nested

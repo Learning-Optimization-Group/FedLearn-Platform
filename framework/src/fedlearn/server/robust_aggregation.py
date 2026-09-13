@@ -206,6 +206,18 @@ def bulyan_aggregate(stacked: torch.Tensor, num_byzantine: int) -> torch.Tensor:
     remaining = list(range(n))
     selected: List[int] = []
     for _ in range(theta):
+        # Below three candidates there is no Krum score to compute -- and no guarantee left to
+        # preserve, since Krum's own precondition needs n >= 3 even at f = 0. Take what remains in
+        # index order, which is deterministic and cannot depend on the attacker's values.
+        #
+        # This is reached whenever f is SMALL relative to n (theta = n - 2f approaches n, so the
+        # pool drains), i.e. exactly the easy case. Calling krum_select here raised its own
+        # precondition error from inside Bulyan, which read as a Krum misconfiguration to any
+        # caller who had asked for Bulyan.
+        if len(remaining) < 3:
+            selected.extend(remaining)
+            remaining = []
+            break
         pool = flat[remaining]
         # The pool shrinks, so f must shrink with it or the n >= 2f + 3 guard trips mid-loop; the
         # paper's accounting is that at most f of whatever remains is Byzantine.
