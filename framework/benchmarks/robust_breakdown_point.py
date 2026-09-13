@@ -203,7 +203,16 @@ def measure_estimate_deviation(common, attack, fractions):
         overrides = raa._apply_attack_to_round(
             attack=(attack if num_attackers else "none"), attacker_ids=attacker_ids,
             client_records=client_records, global_params=global_params,
-            attack_scale_signed=(-10.0 if attack == "sign_flip_scale" else None),
+            # Derive the sign the same way run_config does, from the ATTACK. Hardcoding it for
+            # sign_flip_scale alone left same_dir_scale with None and crashed the deviation pass
+            # with `unsupported operand type(s) for *: 'NoneType' and 'Tensor'` -- so that attack,
+            # which is the honest CONTROL (correct direction, large positive multiple), had never
+            # been measured on this metric at all.
+            attack_scale_signed=(
+                -abs(common["attack_scale_magnitude"]) if attack == "sign_flip_scale"
+                else abs(common["attack_scale_magnitude"]) if attack == "same_dir_scale"
+                else None
+            ),
             ipm_epsilon=ipm_eps, alie_z=(raa._ALIE_Z_DEFAULT if attack == "alie" else None),
         )
         all_updates, honest_updates = [], []
