@@ -642,7 +642,9 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             trained_on_round = request.trained_on_round
             num_examples = request.num_examples
 
-            logging.info(f"[Server] Receiving gradient scalars from {client_id} for round {trained_on_round}")
+            # Logged below, after the masked branch. A single line here would describe every
+            # masked submission as "receiving gradient scalars", and an operator auditing a
+            # secure deployment would read that as plaintext crossing the wire.
 
             # FR-6: typed dispatch (DeComFL is imported at module level — no circular import).
             if not isinstance(self.coordinator.strategy, DeComFL):
@@ -673,6 +675,11 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
                 context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
                 context.set_details(msg)
                 return fedlearn_pb2.SubmitGradientScalarsResponse(received=False)
+
+            logging.info(
+                "[Server] Receiving PLAINTEXT gradient scalars from %s for round %s",
+                client_id, trained_on_round,
+            )
 
             # Convert proto gradients to nested list format
             gradient_scalars = self._proto_to_gradients(request.gradients)

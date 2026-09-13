@@ -295,6 +295,28 @@ class FLCoordinator:
             self._round_complete_event.set()
             return
 
+        # Two very different failures reach this point, and saying the wrong one sends an
+        # operator to the wrong place. If the round is READY, the holders did their part and
+        # recovery itself failed -- which the servicer swallowed, because the share was
+        # legitimately accepted and a retry would not have helped.
+        if session.ready():
+            log.error(
+                "Secure round %d %s: the round was recoverable (%d survivor(s), %d/%d summed "
+                "shares) but recovery did not complete -- see the earlier traceback, typically a "
+                "server-supplied evaluate_fn. Stopping server.",
+                self.current_round, reason, len(survivors),
+                session.summed_share_count, session.threshold,
+            )
+            self.last_round_failed = True
+            self.last_round_message = (
+                f"Round {self.current_round} {reason}: the round was recoverable "
+                f"({len(survivors)} survivors, {session.summed_share_count}/{session.threshold} "
+                f"shares) but recovery failed on the server; see the server log. Server stopped."
+            )
+            self.stop_requested = True
+            self._round_complete_event.set()
+            return
+
         log.error(
             "Secure round %d %s: the set was frozen at %d survivor(s) but only %d of %d "
             "summed shares came back; the round cannot be recovered. Stopping server.",
@@ -841,6 +863,23 @@ class FLCoordinator:
         with self._lock:
             if self._round_complete_event.is_set():
                 return False
+
+            # The session must belong to the round we are about to advance. A holder's summed
+            # share for round r can arrive after the server has already moved to r+1 -- the
+            # client polls on its own schedule -- and applying r's recovered scalars as r+1's
+            # update, against r+1's perturbation seeds, produces a well-formed model that is
+            # simply wrong, with nothing downstream able to detect it.
+            #
+            # The round-complete event is not a guard against this: start_round clears it at the
+            # top of every round, which is precisely when the late share lands.
+            if session.round_index != self.current_round:
+                log.warning(
+                    "Ignoring a summed share for round %d: the server is on round %d. The stale "
+                    "round already resolved and its scalars must not be applied here.",
+                    session.round_index, self.current_round,
+                )
+                return False
+
             if not session.is_closed or not session.ready():
                 return False
 

@@ -72,3 +72,46 @@ def test_the_threshold_cannot_exceed_the_cohort():
             _coord(),   # clients_per_round=3
             ServerConfig(num_rounds=1, secure_aggregation=True, secure_agg_threshold=4),
         )
+
+
+# ---------------------------------------------------------------------------------------------
+# Auditability: the log has to distinguish masked from plaintext
+# ---------------------------------------------------------------------------------------------
+def test_the_log_does_not_describe_a_masked_submission_as_plaintext_scalars(caplog):
+    """A live secure run logged 'Receiving gradient scalars from c1' ten times while accepting
+    only masked submissions -- the line is emitted before the masked branch.
+
+    For a privacy mechanism that is not cosmetic: an operator auditing the logs of a secure
+    deployment would read that as plaintext scalars crossing the wire and conclude the mechanism
+    was not engaged, or worse, that it had failed open. The log has to say which path ran.
+    """
+    import logging as _logging
+    from unittest.mock import MagicMock
+
+    import grpc
+    from fedlearn.communication.generated import fedlearn_pb2 as pb
+
+    coord = _coord()
+    servicer = build_servicer(
+        coord, ServerConfig(num_rounds=1, secure_aggregation=True, secure_agg_threshold=2),
+    )
+    servicer._partition_extractor = lambda ctx: 1
+
+    ctx = MagicMock()
+    ctx.invocation_metadata.return_value = ()
+    with caplog.at_level(_logging.INFO):
+        servicer.SubmitGradientScalars(
+            pb.SubmitGradientScalarsRequest(
+                client_id="c1", trained_on_round=coord.current_round, num_examples=10,
+                masked_gradients=pb.MaskedGradientScalars(
+                    elements=[1, 2], modulus=2 ** 31 - 1,
+                    num_local_steps=1, num_perturbations=2),
+            ),
+            ctx,
+        )
+
+    text = caplog.text
+    assert "Masked gradients accepted" in text, "the masked path left no audit trail"
+    assert "Receiving gradient scalars" not in text, (
+        "a masked submission was logged as plaintext gradient scalars"
+    )

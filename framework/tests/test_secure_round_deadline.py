@@ -163,3 +163,84 @@ def test_constructing_the_servicer_registers_the_provider_with_the_coordinator()
     assert coord._current_secure_session() is created, (
         "the coordinator cannot reach the round's secure session; the deadline branch is dead"
     )
+
+
+def test_a_round_that_could_be_recovered_but_errored_is_not_blamed_on_missing_shares():
+    """Distinguish "the holders never came back" from "recovery was possible and failed".
+
+    Found live: a server-supplied evaluate_fn that returned None instead of (loss, metrics) made
+    complete_secure_decomfl_round raise. The servicer swallows that -- correctly, since the
+    holder's share WAS accepted and a retry would not help -- so the round then sat until its
+    deadline and was reported as
+
+        frozen at 3 survivor(s) but only 0/2 summed share(s) returned
+
+    which is false and sends an operator looking at the network instead of at their callback.
+    """
+    servicer = _servicer()
+    coord = servicer.coordinator
+    clients = _cohort(servicer, [1, 2, 3], round_num=1, threshold=2, n=3)
+    session = _mask_in(servicer, clients, {1: [0.4, -0.2], 2: [0.1, 0.3]}, round_num=1)
+    coord.resolve_round_incomplete("deadline")          # freeze
+
+    # Exactly the live failure: a server-supplied callback that blows up during completion.
+    coord.strategy.evaluate = MagicMock(
+        side_effect=TypeError("cannot unpack non-iterable NoneType object")
+    )
+
+    # Both holders return summed shares, so the round IS recoverable...
+    frozen = FrozenSurvivors(tuple(session.survivors))
+    for p in session.survivors:
+        clients[p].finish_round(round_num=1, survivors=frozen)
+    assert session.ready(), "the round should be recoverable"
+    assert coord.current_round == 1, "completion should have failed, leaving the round open"
+
+    # ...so when the next deadline lands, the diagnosis must not blame the holders.
+    coord.resolve_round_incomplete("deadline")
+
+    assert coord.stop_requested
+    assert "summed share" not in (coord.last_round_message or ""), (
+        "an errored recovery was reported as missing shares"
+    )
+    assert "recover" in (coord.last_round_message or "").lower()
+
+
+def test_a_late_summed_share_cannot_complete_a_DIFFERENT_round():
+    """Found by the live run: rounds 1-3 all reported "completing", but only rounds 1 and 2 ever
+    received a masked submission.
+
+    A holder's summed share for round r can arrive after the server has already moved to r+1 --
+    the client polls on its own schedule. complete_secure_decomfl_round took the session it was
+    handed but read the round number off the COORDINATOR, so round r's recovered scalars were
+    applied as round r+1's update, against round r+1's perturbation seeds. The result is a
+    well-formed model that is simply wrong, and nothing downstream can detect it.
+
+    The round-complete event does not protect against this: start_round clears it at the top of
+    every round, which is exactly when the late share lands.
+    """
+    servicer = _servicer()
+    coord = servicer.coordinator
+    strategy = coord.strategy
+    round_one = coord.current_round
+
+    clients = _cohort(servicer, [1, 2, 3], round_num=round_one, threshold=2, n=3)
+    session = _mask_in(
+        servicer, clients,
+        {1: [0.4, -0.2], 2: [0.1, 0.3], 3: [-0.2, 0.1]}, round_num=round_one,
+    )
+    session.close_submissions()
+    frozen = FrozenSurvivors(tuple(session.survivors))
+    for p in session.survivors[:2]:
+        clients[p].finish_round(round_num=round_one, survivors=frozen)
+    assert coord.current_round == round_one + 1, "round one did not complete"
+
+    # The server opens the next round; the third holder's share for round ONE arrives now.
+    coord.start_round()
+    before = strategy.global_params_flat.clone()
+    strategy.get_or_create_seeds(coord.current_round)
+    clients[session.survivors[2]].finish_round(round_num=round_one, survivors=frozen)
+
+    assert torch.equal(strategy.global_params_flat, before), (
+        "a stale round's scalars were applied as the current round's update"
+    )
+    assert coord.current_round == round_one + 1, "a stale share advanced the round"
