@@ -494,7 +494,9 @@ def _write_markdown(args, meta, clean_acc, sweep, breakdown, stem="robust_breakd
     med_bp = breakdown["median"]["empirical_first_broken_fraction"]
     beta = meta["trim_beta"]
     dev = {s: dict(breakdown[s]["estimate_deviation_ratio_by_fraction"]) for s in AGGREGATORS}
-    f1 = fr[1] if len(fr) > 1 else beta            # first non-zero swept fraction
+    # The smallest non-zero swept fraction. `fr[1]` was only right when the grid starts at 0; the
+    # five-seed pass swept {0.35..0.5}, where it named 0.4.
+    f1 = next((f for f in fr if f > 1e-9), beta)
     at_beta = max((f for f in fr if f <= beta + 1e-9), default=f1)
     past_beta = min((f for f in fr if f > beta + 1e-9), default=fr[-1])
     # Do accuracy and estimator AGREE for trimmed-mean (accuracy breaks near beta) or DISAGREE (accuracy
@@ -516,16 +518,41 @@ def _write_markdown(args, meta, clean_acc, sweep, breakdown, stem="robust_breakd
                      f"at f={at_beta:g}) and jumps just past beta ({dev['trimmed_mean'].get(past_beta)} at "
                      f"f={past_beta:g}): the beta onset the theory predicts IS visible in the estimator, exactly "
                      "what the forgiving accuracy metric hides on this well-separated task.")
+    # FedAvg bullet, from the data. The old text always said accuracy "collapses at the first non-zero
+    # fraction" and formatted the breakdown with :g -- false whenever FedAvg broke later in the grid
+    # (alie at n=40 broke at 0.3, not 0.05) and a crash whenever it never broke at all, which is
+    # exactly what the same_dir_scale control is supposed to show.
+    swept = f"[{fr[0]:g}, {fr[-1]:g}]"
+    if fed_bp is None:
+        fed_bullet = (f"- **FedAvg** — accuracy never fell below the threshold anywhere in {swept}; the "
+                      f"estimator deviation is {dev['fedavg'].get(fr[-1])} at f={fr[-1]:g}. For a "
+                      "non-adversarial control (e.g. `same_dir_scale`) that is the expected result; for a real "
+                      "attack it means the grid never reached FedAvg's breakdown.")
+    elif abs(fed_bp - f1) < 1e-9:
+        fed_bullet = (f"- **FedAvg** — accuracy collapses at f={fed_bp:g}, the smallest non-zero fraction "
+                      f"swept; the estimator deviation there is {dev['fedavg'].get(f1)}. Consistent with the "
+                      "classical 0+ breakdown of a mean.")
+    else:
+        fed_bullet = (f"- **FedAvg** — accuracy collapses at f={fed_bp:g}, later than the smallest swept "
+                      f"fraction (f={f1:g}); the estimator deviation is {dev['fedavg'].get(f1)} at f={f1:g} "
+                      f"and {dev['fedavg'].get(fed_bp)} at f={fed_bp:g}. Accuracy tolerated the corruption "
+                      "below that point on this task.")
+    # Median bullet, from the data. `med_bp if med_bp else '~0.5'` printed a guessed breakdown as if it
+    # were measured whenever the median never broke inside the grid.
+    if med_bp is None:
+        med_bullet = (f"- **median** — accuracy never fell below the threshold anywhere in {swept}; the "
+                      f"estimator deviation grows to {dev['median'].get(fr[-1])} at f={fr[-1]:g}. The "
+                      "classical bound is 0.5.")
+    else:
+        med_bullet = (f"- **median** — accuracy holds until it collapses at f={med_bp:g}; the estimator "
+                      f"deviation is {dev['median'].get(med_bp)} there and {dev['median'].get(fr[-1])} at "
+                      f"f={fr[-1]:g}. The classical bound is 0.5.")
     lines += [
         "",
         "## Reading the result (both metrics, honestly)",
         "",
-        f"- **FedAvg** — accuracy collapses at the first non-zero fraction (f={fed_bp:g}); the estimator "
-        f"deviation jumps 0 -> {dev['fedavg'].get(f1)} at f={f1:g} and stays high. Both metrics agree: "
-        "breakdown 0+, the classical result — a mean has no robustness.",
-        f"- **median** — the most robust: accuracy holds until it collapses at f={med_bp if med_bp else '~0.5'} "
-        f"(a Byzantine MAJORITY), the deviation growing gradually to {dev['median'].get(fr[-1])} at f={fr[-1]:g}. "
-        "Matches the 0.5 bound.",
+        fed_bullet,
+        med_bullet,
         tm_bullet,
         "",
         "### The honest headline",
