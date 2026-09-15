@@ -78,6 +78,22 @@ public class Run {
     @Column(name = "ended_at")
     private Instant endedAt;
 
+    // V24: which Byzantine-robust rule a Robust run used, and the settings sent to the server. All null for any
+    // other strategy, which a CHECK enforces. A Robust run started without settings records MEDIAN, the server
+    // default, so the record names the rule that actually ran.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "robust_method", length = 16)
+    private RobustMethod robustMethod;
+
+    @Column(name = "robust_byzantine_fraction")
+    private Double robustByzantineFraction;
+
+    @Column(name = "robust_trim_ratio")
+    private Double robustTrimRatio;
+
+    @Column(name = "centered_clip_tau")
+    private Double centeredClipTau;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getProjectId() { return projectId; }
@@ -123,4 +139,12 @@ public class Run {
     public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }
     public Instant getEndedAt() { return endedAt; }
     public void setEndedAt(Instant endedAt) { this.endedAt = endedAt; }
+    public RobustMethod getRobustMethod() { return robustMethod; }
+    public void setRobustMethod(RobustMethod robustMethod) { this.robustMethod = robustMethod; }
+    public Double getRobustByzantineFraction() { return robustByzantineFraction; }
+    public void setRobustByzantineFraction(Double robustByzantineFraction) { this.robustByzantineFraction = robustByzantineFraction; }
+    public Double getRobustTrimRatio() { return robustTrimRatio; }
+    public void setRobustTrimRatio(Double robustTrimRatio) { this.robustTrimRatio = robustTrimRatio; }
+    public Double getCenteredClipTau() { return centeredClipTau; }
+    public void setCenteredClipTau(Double centeredClipTau) { this.centeredClipTau = centeredClipTau; }
 }

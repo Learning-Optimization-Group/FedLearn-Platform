@@ -412,4 +412,73 @@ class RunServiceTest {
     private ProjectMembership membership(Project p, User u, MembershipRole role) {
         return new ProjectMembership(p, u, role, JoinedVia.OWNER_ADD, u);
     }
+
+    // ─── Robust aggregation settings on the run record ──────────────────────────────────────────
+    // A run must say which Byzantine-robust rule actually ran. "Robust" alone cannot distinguish median
+    // from Bulyan, which lets two different experiments share one label (the bug class V22 closed for
+    // the training arm).
+
+    private Run savedRun(String strategy, RobustAggregationSettings robust) {
+        when(runRepository.save(any(Run.class))).thenAnswer(inv -> inv.getArgument(0));
+        return runService.createForStart(project(UUID.randomUUID()), strategy, 5, 20, 20, robust);
+    }
+
+    @Test
+    void createForStart_persistsTheRobustSettingsGiven() {
+        Run run = savedRun("Robust", new RobustAggregationSettings(RobustMethod.BULYAN, 0.2, null, null));
+        assertEquals(RobustMethod.BULYAN, run.getRobustMethod());
+        assertEquals(0.2, run.getRobustByzantineFraction());
+        assertNull(run.getRobustTrimRatio());
+        assertNull(run.getCenteredClipTau());
+    }
+
+    @Test
+    void createForStart_robustWithoutSettings_recordsTheServerDefaultRule() {
+        // No settings means fl_server.py falls back to median; the record says so rather than staying
+        // blank, so the manifest names the rule that really ran.
+        Run run = savedRun("Robust", null);
+        assertEquals(RobustMethod.MEDIAN, run.getRobustMethod());
+        assertNull(run.getRobustByzantineFraction());
+    }
+
+    @Test
+    void createForStart_nonRobust_recordsNoRobustSettings() {
+        Run run = savedRun("FedAvg", null);
+        assertNull(run.getRobustMethod());
+        assertNull(run.getRobustByzantineFraction());
+        assertNull(run.getRobustTrimRatio());
+        assertNull(run.getCenteredClipTau());
+    }
+
+    @Test
+    void getManifest_namesTheRobustRuleAndItsSettings() {
+        UUID rid = UUID.randomUUID();
+        UUID pid = UUID.randomUUID();
+        Run r = new Run();
+        r.setId(rid); r.setProjectId(pid);
+        r.setStatus(RunStatus.RUNNING);
+        r.setRecipeKey("CNN");
+        r.setStrategy("Robust");
+        r.setNumRounds(10);
+        r.setClientsPerRound(20);
+        r.setPartitioningMode(PartitioningMode.SHARDED);
+        r.setRobustMethod(RobustMethod.CENTERED_CLIP);
+        r.setCenteredClipTau(1.5);
+
+        Project p = project(pid);
+        User u = new User(); u.setId(7L);
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+
+        var dto = runService.getManifest(rid);
+
+        assertEquals("Robust", dto.getStrategy());
+        assertEquals("CENTERED_CLIP", dto.getRobustMethod());
+        assertEquals(1.5, dto.getCenteredClipTau());
+        assertNull(dto.getRobustByzantineFraction());
+        assertNull(dto.getRobustTrimRatio());
+    }
 }

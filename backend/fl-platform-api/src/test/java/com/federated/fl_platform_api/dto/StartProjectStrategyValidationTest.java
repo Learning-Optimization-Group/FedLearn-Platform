@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The StartProject strategy allowlist. Exposes the strategies that produce a WORKING run when
- * selected — FedOpt (server-side adaptive) and Robust (Byzantine-robust median) are now accepted
+ * selected — FedOpt (server-side adaptive) and Robust (Byzantine-robust aggregation, median by default) are now accepted
  * alongside FedAvg/DeComFL/FoT. FR-32: FedProx is now accepted too — the production client honors the
  * proximal term mu*(w - w_global), so it produces a real FedProx run rather than a mislabeled FedAvg.
  */

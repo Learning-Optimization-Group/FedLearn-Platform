@@ -16,6 +16,11 @@ public class RunManifestDto {
     // possible). The mobile client fail-closes on FedAvg when this is false/absent, running the DeComFL
     // zeroth-order path instead. Tied to the staged bundle's actual trainablePtePath, not the recipe alone.
     private boolean firstOrderSupported;
+    // V24: the Byzantine-robust rule a Robust run used and its settings; all null for other strategies.
+    private String robustMethod;
+    private Double robustByzantineFraction;
+    private Double robustTrimRatio;
+    private Double centeredClipTau;
 
     public UUID getRunId() { return runId; }
     public void setRunId(UUID runId) { this.runId = runId; }
@@ -37,4 +42,12 @@ public class RunManifestDto {
     public void setTorchVersion(String torchVersion) { this.torchVersion = torchVersion; }
     public boolean isFirstOrderSupported() { return firstOrderSupported; }
     public void setFirstOrderSupported(boolean firstOrderSupported) { this.firstOrderSupported = firstOrderSupported; }
+    public String getRobustMethod() { return robustMethod; }
+    public void setRobustMethod(String robustMethod) { this.robustMethod = robustMethod; }
+    public Double getRobustByzantineFraction() { return robustByzantineFraction; }
+    public void setRobustByzantineFraction(Double robustByzantineFraction) { this.robustByzantineFraction = robustByzantineFraction; }
+    public Double getRobustTrimRatio() { return robustTrimRatio; }
+    public void setRobustTrimRatio(Double robustTrimRatio) { this.robustTrimRatio = robustTrimRatio; }
+    public Double getCenteredClipTau() { return centeredClipTau; }
+    public void setCenteredClipTau(Double centeredClipTau) { this.centeredClipTau = centeredClipTau; }
 }

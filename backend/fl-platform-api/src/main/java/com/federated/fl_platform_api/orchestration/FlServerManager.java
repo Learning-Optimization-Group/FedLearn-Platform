@@ -1,5 +1,7 @@
 package com.federated.fl_platform_api.orchestration;
 
+import com.federated.fl_platform_api.model.RobustAggregationSettings;
+
 import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.model.Project;
@@ -134,6 +136,12 @@ public class FlServerManager {
      */
     public Optional<Integer> startServerForProject(Project project, String strategy,
                                                    Integer numRounds, Integer minClients) {
+        return startServerForProject(project, strategy, numRounds, minClients, null);
+    }
+
+    /** As above, with the Robust aggregation settings to pass to fl_server.py (null = none). */
+    public Optional<Integer> startServerForProject(Project project, String strategy, Integer numRounds,
+                                                   Integer minClients, RobustAggregationSettings robust) {
         requireDpPolicySatisfied(project);   // SE-11: gate every start path, before any spawn
         requireModelTypeInCatalog(project, strategy);   // SE-10: unknown modelType -> 400 before spawn
         if (!isBlank(ecsClusterName)) {
@@ -151,11 +159,12 @@ public class FlServerManager {
                             + "(tasks cannot be tracked or stopped). "
                             + "Unset ecs.cluster-name to run FL servers as local processes.");
         }
-        return startLocalServer(project, strategy, numRounds, minClients);
+        return startLocalServer(project, strategy, numRounds, minClients, robust);
     }
 
     private Optional<Integer> startLocalServer(Project project, String strategy,
-                                               Integer numRounds, Integer minClients) {
+                                               Integer numRounds, Integer minClients,
+                                               RobustAggregationSettings robust) {
         SpawnedFlProcess process = null;
         int freePort = -1;
         boolean started = false;   // BA-13: true once the child is tracked + holds its port for its life
@@ -177,7 +186,7 @@ public class FlServerManager {
             String initModelPath = registryModelResolver.resolveModelPath(project).orElse(null);
             List<String> command = buildServerCommand(
                     project, strategy, numRounds, minClients, freePort, absoluteScriptPath, isWindows,
-                    initModelPath);
+                    initModelPath, robust);
 
             // SE-7: mint a random per-run internal token scoped to (projectId, runId) and hand ONLY
             // it to the child — never a secret it could use to forge another project's token. It is
@@ -458,6 +467,24 @@ public class FlServerManager {
     static List<String> buildServerCommand(Project project, String strategy, Integer numRounds,
                                            Integer minClients, int freePort, String absoluteScriptPath,
                                            boolean isWindows, String initModelPath) {
+        return buildServerCommand(project, strategy, numRounds, minClients, freePort, absoluteScriptPath,
+                isWindows, initModelPath, null);
+    }
+
+    /**
+     * As above, plus the Robust aggregation settings. {@code null} emits no robust flags, so the argv of every
+     * existing start is unchanged and fl_server.py applies its defaults.
+     */
+    static List<String> buildServerCommand(Project project, String strategy, Integer numRounds,
+                                           Integer minClients, int freePort, String absoluteScriptPath,
+                                           boolean isWindows, String initModelPath,
+                                           RobustAggregationSettings robust) {
+        // Robust settings mean something only to the Robust strategy. Anywhere else fl_server.py would ignore
+        // them, and the run record would name a rule that never ran.
+        if (robust != null && !"Robust".equals(strategy)) {
+            throw new IllegalArgumentException(
+                    "Robust aggregation settings are valid only for the Robust strategy, not " + strategy);
+        }
         boolean isFoT = "FoT".equalsIgnoreCase(strategy);
         // SE-11: the FoT text-federation server has no DP flag contract; spawning it for a
         // DP-enabled project would silently train without DP. Fail closed.
@@ -556,6 +583,27 @@ public class FlServerManager {
                 command.add(String.valueOf(numRounds));
                 command.add("--dp-num-clients");
                 command.add(String.valueOf(minClients));
+            }
+            // Robust aggregation rule and settings. The flag names are a pinned contract with fl_server.py's
+            // argparse. The method comes from an enum (still allowlist-checked); numbers go through
+            // String.valueOf, and each is emitted only when set, so 0.0 is passed rather than dropped.
+            if (robust != null) {
+                String wire = robust.method().wireName();
+                requireSafeToken("robust-method", wire);
+                command.add("--robust-method");
+                command.add(wire);
+                if (robust.byzantineFraction() != null) {
+                    command.add("--robust-byzantine-fraction");
+                    command.add(String.valueOf(robust.byzantineFraction().doubleValue()));
+                }
+                if (robust.trimRatio() != null) {
+                    command.add("--robust-trim-ratio");
+                    command.add(String.valueOf(robust.trimRatio().doubleValue()));
+                }
+                if (robust.centeredClipTau() != null) {
+                    command.add("--centered-clip-tau");
+                    command.add(String.valueOf(robust.centeredClipTau().doubleValue()));
+                }
             }
         }
         return command;

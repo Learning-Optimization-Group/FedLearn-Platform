@@ -54,6 +54,14 @@ export interface StartServerData {
     strategy?: string;
     numRounds?: number;
     minClients?: number;
+    /** Robust strategy only: the backend RobustMethod name (MEDIAN, TRIMMED_MEAN, KRUM, MULTI_KRUM, BULYAN, CENTERED_CLIP). */
+    robustMethod?: string;
+    /** Robust only: estimated share of malicious clients, in [0, 0.5). Sizes f for Krum, Multi-Krum and Bulyan. */
+    byzantineFraction?: number;
+    /** Robust TRIMMED_MEAN only: share trimmed from each end, in [0, 0.5). */
+    trimRatio?: number;
+    /** Robust CENTERED_CLIP only: clipping radius, > 0. */
+    centeredClipTau?: number;
 }
 
 export interface Project {
@@ -203,6 +211,20 @@ export const startProjectServer = (projectId: string, startData: StartServerData
     }
     if (startData?.minClients) {
         body.minClients = startData.minClients;
+    }
+    // Robust-aggregation fields. Checked with `!== undefined`, not truthiness: 0 is a real value here
+    // (a trim ratio of 0 is the plain mean), and dropping it would let the server substitute its default.
+    if (startData?.robustMethod) {
+        body.robustMethod = startData.robustMethod;
+    }
+    if (startData?.byzantineFraction !== undefined) {
+        body.byzantineFraction = startData.byzantineFraction;
+    }
+    if (startData?.trimRatio !== undefined) {
+        body.trimRatio = startData.trimRatio;
+    }
+    if (startData?.centeredClipTau !== undefined) {
+        body.centeredClipTau = startData.centeredClipTau;
     }
     return api.post<Project>(`/projects/${projectId}/start`, body);
 };

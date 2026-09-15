@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { StartProjectModal } from './StartProjectModal';
 import type { Project } from '../../services/apiServices';
 
@@ -66,5 +66,94 @@ describe('StartProjectModal — strategy options', () => {
     );
     // FR-32: FedProx is now exposed — the production client honors its proximal term.
     expect(values).toContain('FedProx');
+  });
+});
+
+// Robust aggregation rule. The picker appears only for the Robust method and shows exactly the one
+// parameter each rule reads. Robust fields must never be sent for another method: the backend rejects
+// them there rather than silently ignoring them, so a user who tried Robust and switched back would
+// otherwise get an error for a field they can no longer see.
+describe('StartProjectModal — robust aggregation rule', () => {
+  const FRACTION = 'Share of devices that may be malicious';
+  const TRIM = 'Share trimmed from each end';
+  const TAU = 'Clipping radius';
+  const PARAM_LABELS = [FRACTION, TRIM, TAU];
+
+  const chooseStrategy = (value: string) =>
+    fireEvent.change(screen.getByLabelText('Training method'), { target: { value } });
+  const chooseRule = (value: string) =>
+    fireEvent.change(screen.getByLabelText('Aggregation rule'), { target: { value } });
+
+  it('offers the rule picker only for the Robust method, with every server-side rule', () => {
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    expect(screen.queryByLabelText('Aggregation rule')).not.toBeInTheDocument();
+
+    chooseStrategy('Robust');
+    const values = within(screen.getByLabelText('Aggregation rule'))
+      .getAllByRole('option')
+      .map((o) => (o as HTMLOptionElement).value);
+    expect(values).toEqual(['MEDIAN', 'TRIMMED_MEAN', 'KRUM', 'MULTI_KRUM', 'BULYAN', 'CENTERED_CLIP']);
+  });
+
+  it.each([
+    ['MEDIAN', [] as string[]],
+    ['TRIMMED_MEAN', [TRIM]],
+    ['KRUM', [FRACTION]],
+    ['MULTI_KRUM', [FRACTION]],
+    ['BULYAN', [FRACTION]],
+    ['CENTERED_CLIP', [TAU]],
+  ])('%s shows exactly the parameter it uses', (rule, expected) => {
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    chooseStrategy('Robust');
+    chooseRule(rule);
+    for (const label of PARAM_LABELS) {
+      if (expected.includes(label)) {
+        expect(screen.getByLabelText(label)).toBeInTheDocument();
+      } else {
+        expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
+      }
+    }
+  });
+
+  it('submits the chosen rule with its parameter', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={onSubmit} />);
+    chooseStrategy('Robust');
+    chooseRule('BULYAN');
+    fireEvent.change(screen.getByLabelText(FRACTION), { target: { value: '0.2' } });
+    fireEvent.change(screen.getByLabelText('Devices needed to start'), { target: { value: '20' } });
+    fireEvent.click(screen.getByRole('button', { name: /start training/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit).toHaveBeenCalledWith('p1', {
+      strategy: 'Robust', numRounds: 5, minClients: 20, robustMethod: 'BULYAN', byzantineFraction: 0.2,
+    });
+  });
+
+  it('sends only the rule for median, which reads no parameter', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={onSubmit} />);
+    chooseStrategy('Robust');
+    chooseRule('MEDIAN');
+    fireEvent.click(screen.getByRole('button', { name: /start training/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit).toHaveBeenCalledWith('p1', {
+      strategy: 'Robust', numRounds: 5, minClients: 2, robustMethod: 'MEDIAN',
+    });
+  });
+
+  it('sends no robust fields after switching back to another method', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={onSubmit} />);
+    chooseStrategy('Robust');
+    chooseRule('KRUM');
+    fireEvent.change(screen.getByLabelText(FRACTION), { target: { value: '0.1' } });
+    chooseStrategy('FedAvg');
+    fireEvent.click(screen.getByRole('button', { name: /start training/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    const [, config] = onSubmit.mock.calls[0];
+    expect(Object.keys(config).sort()).toEqual(['minClients', 'numRounds', 'strategy']);
   });
 });

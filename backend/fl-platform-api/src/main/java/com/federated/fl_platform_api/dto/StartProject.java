@@ -1,5 +1,9 @@
 package com.federated.fl_platform_api.dto;
 
+import com.federated.fl_platform_api.model.RobustMethod;
+import com.federated.fl_platform_api.validation.ValueOfEnum;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
@@ -18,7 +22,7 @@ public class StartProject {
      * Gradient strategies mirror those registered in
      * {@code framework/src/fedlearn/server/strategy.py} + {@code decomfl_strategy.py} and spawn
      * the gradient FL server: {@code FedAvg}, {@code DeComFL}, {@code FedOpt} (server-side adaptive,
-     * FedAdam by default) and {@code Robust} (Byzantine-robust coordinate-wise median). {@code FoT}
+     * FedAdam by default) and {@code Robust} (Byzantine-robust aggregation; the rule is chosen by {@code robustMethod}, median by default). {@code FoT}
      * (Federation over Text) is a SEPARATE, additive text-federation mode that spawns the standalone
      * {@code fl_fot_server.py} instead. Keep this regex in sync when a strategy/mode is added on the
      * Python side.
@@ -57,6 +61,35 @@ public class StartProject {
     @Min(value = 1, message = "clientsPerRound must be at least 1")
     @Max(value = 100, message = "clientsPerRound must be at most 100")
     private Integer clientsPerRound;
+
+    /**
+     * Robust strategy only: which Byzantine-robust rule to run, as a {@link RobustMethod} name. Omitted means
+     * the server default (median). Refused on any other strategy rather than ignored; whether the rule can
+     * run at this start's minClients is checked in the service, which knows the resolved values.
+     */
+    @ValueOfEnum(enumClass = RobustMethod.class)
+    private String robustMethod;
+
+    /**
+     * Robust only: the operator's estimate of the malicious share. Sizes f for Krum, Multi-Krum and Bulyan
+     * and feeds every rule's tolerance guard. The Python aggregator does not range-check it, so this is its
+     * only bound.
+     */
+    @DecimalMin(value = "0.0", message = "byzantineFraction must be at least 0")
+    @DecimalMax(value = "0.5", inclusive = false, message = "byzantineFraction must be below 0.5")
+    private Double byzantineFraction;
+
+    /** Robust TRIMMED_MEAN only: share trimmed from each end. Mirrors RobustAggregator's [0, 0.5) check. */
+    @DecimalMin(value = "0.0", message = "trimRatio must be at least 0")
+    @DecimalMax(value = "0.5", inclusive = false, message = "trimRatio must be below 0.5")
+    private Double trimRatio;
+
+    /**
+     * Robust CENTERED_CLIP only: clipping radius, strictly positive. fl_server.py reads it with
+     * {@code or 1.0}, so a 0 that got through would silently become 1.0 instead of failing.
+     */
+    @DecimalMin(value = "0.0", inclusive = false, message = "centeredClipTau must be greater than 0")
+    private Double centeredClipTau;
 
     public String getStrategy() {
         return strategy;
@@ -106,5 +139,37 @@ public class StartProject {
 
     public void setTrainingArm(String trainingArm) {
         this.trainingArm = trainingArm;
+    }
+
+    public String getRobustMethod() {
+        return robustMethod;
+    }
+
+    public void setRobustMethod(String robustMethod) {
+        this.robustMethod = robustMethod;
+    }
+
+    public Double getByzantineFraction() {
+        return byzantineFraction;
+    }
+
+    public void setByzantineFraction(Double byzantineFraction) {
+        this.byzantineFraction = byzantineFraction;
+    }
+
+    public Double getTrimRatio() {
+        return trimRatio;
+    }
+
+    public void setTrimRatio(Double trimRatio) {
+        this.trimRatio = trimRatio;
+    }
+
+    public Double getCenteredClipTau() {
+        return centeredClipTau;
+    }
+
+    public void setCenteredClipTau(Double centeredClipTau) {
+        this.centeredClipTau = centeredClipTau;
     }
 }

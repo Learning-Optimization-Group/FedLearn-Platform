@@ -4,6 +4,8 @@ import com.federated.fl_platform_api.audit.Auditable;
 import com.federated.fl_platform_api.dto.*;
 import com.federated.fl_platform_api.exception.ProjectStateException;
 import com.federated.fl_platform_api.model.TrainingArm;
+import com.federated.fl_platform_api.model.RobustAggregationSettings;
+import com.federated.fl_platform_api.model.RobustMethod;
 import com.federated.fl_platform_api.exception.ResourceNotFoundException;
 import com.federated.fl_platform_api.exception.ServerProcessException;
 import com.federated.fl_platform_api.model.AuditAction;
@@ -136,6 +138,52 @@ public class ProjectService {
      * type therefore dictates the strategy. Everything else honors the requested
      * strategy (or FedAvg by default).
      */
+    /**
+     * The Robust aggregation settings for a start, or null when the request carries none.
+     *
+     * <p>Refuses, with a 400, anything the server would ignore or could not run: robust fields on another
+     * strategy (including an LLM_LORA project, whose strategy is forced to FedLoRA), parameters without a
+     * method, a parameter the chosen rule does not read, and a rule that cannot run at {@code minClients}.
+     * The last one matters most - on the Python side such a rule does not fail, it refuses every round and
+     * the run "completes" without ever training.
+     */
+    static RobustAggregationSettings resolveRobustSettings(String strategy, int minClients, StartProject request) {
+        if (request == null) {
+            return null;
+        }
+        String method = request.getRobustMethod();
+        Double fraction = request.getByzantineFraction();
+        Double trim = request.getTrimRatio();
+        Double tau = request.getCenteredClipTau();
+        if (method == null && fraction == null && trim == null && tau == null) {
+            return null;
+        }
+        if (!"Robust".equals(strategy)) {
+            throw new IllegalArgumentException(String.format(
+                    "robustMethod, byzantineFraction, trimRatio and centeredClipTau apply only to the Robust "
+                            + "strategy, but this run's strategy is %s. They would be ignored, so they are refused.",
+                    strategy));
+        }
+        if (method == null) {
+            throw new IllegalArgumentException(
+                    "robustMethod is required when setting byzantineFraction, trimRatio or centeredClipTau.");
+        }
+        RobustMethod rule = RobustMethod.valueOf(method);
+        if (trim != null && rule != RobustMethod.TRIMMED_MEAN) {
+            throw new IllegalArgumentException(
+                    "trimRatio applies only to TRIMMED_MEAN, not " + rule + "; it would be ignored.");
+        }
+        if (tau != null && rule != RobustMethod.CENTERED_CLIP) {
+            throw new IllegalArgumentException(
+                    "centeredClipTau applies only to CENTERED_CLIP, not " + rule + "; it would be ignored.");
+        }
+        RobustAggregationSettings settings = new RobustAggregationSettings(rule, fraction, trim, tau);
+        settings.refusalReason(minClients).ifPresent(reason -> {
+            throw new IllegalArgumentException(reason);
+        });
+        return settings;
+    }
+
     static String resolveStrategy(String modelType, String requestedStrategy) {
         if ("LLM_LORA".equalsIgnoreCase(modelType)) {
             return "FedLoRA";
@@ -305,6 +353,10 @@ public class ProjectService {
                 ? request.getMinClients()
                 : 1;
 
+        // Robust aggregation settings, checked against the RESOLVED strategy and minClients before anything is
+        // created. The same object is then persisted on the run and passed to the spawn.
+        RobustAggregationSettings robustSettings = resolveRobustSettings(strategyToUse, minClients, request);
+
         Integer numRoundsToUse;
         if (request != null && request.getNumRounds() != null && request.getNumRounds() > 0) {
             numRoundsToUse = request.getNumRounds();
@@ -335,12 +387,13 @@ public class ProjectService {
 
             Run run = null;
             try {
-                run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound);
+                run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
+                        robustSettings);
                 project.setActiveRunId(run.getId());
                 projectRepository.save(project);
 
                 Optional<Integer> port = flServerManager.startServerForProject(
-                        project, strategyToUse, numRoundsToUse, minClients);
+                        project, strategyToUse, numRoundsToUse, minClients, robustSettings);
                 project.setServerPort(port.orElse(null));
                 project.setStatus(ProjectStatus.RUNNING.name());
                 Project updatedProject = projectRepository.save(project);

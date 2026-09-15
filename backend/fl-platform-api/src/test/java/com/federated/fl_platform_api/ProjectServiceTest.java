@@ -2,6 +2,10 @@ package com.federated.fl_platform_api;
 
 import com.federated.fl_platform_api.dto.CreateProjectRequest;
 import com.federated.fl_platform_api.dto.ProjectResponseDto;
+import com.federated.fl_platform_api.dto.StartProject;
+import com.federated.fl_platform_api.model.RobustAggregationSettings;
+import com.federated.fl_platform_api.model.RobustMethod;
+import org.mockito.ArgumentCaptor;
 import com.federated.fl_platform_api.orchestration.FlServerManager;
 import com.federated.fl_platform_api.service.ModelInitializationWorker;
 import com.federated.fl_platform_api.model.Project;
@@ -38,6 +42,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -212,14 +217,14 @@ class ProjectServiceTest {
 
         Run run = mock(Run.class);
         lenient().when(run.getId()).thenReturn(UUID.randomUUID());
-        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt())).thenReturn(run);
+        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any())).thenReturn(run);
 
         // Model the FlServerManager runningServers map: a spawn flips it "running" and briefly
         // holds — widening the check-then-act window the race would otherwise exploit.
         AtomicBoolean running = new AtomicBoolean(false);
         AtomicInteger spawnCount = new AtomicInteger(0);
         lenient().when(flServerManager.isServerRunning(projectId)).thenAnswer(inv -> running.get());
-        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt()))
+        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any()))
             .thenAnswer(inv -> {
                 spawnCount.incrementAndGet();
                 Thread.sleep(60);
@@ -267,9 +272,9 @@ class ProjectServiceTest {
         lenient().when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
         Run run = mock(Run.class);
         lenient().when(run.getId()).thenReturn(UUID.randomUUID());
-        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt())).thenReturn(run);
+        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any())).thenReturn(run);
         lenient().when(flServerManager.isServerRunning(projectId)).thenReturn(false);
-        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt()))
+        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any()))
                 .thenReturn(Optional.of(50000));
         return run;
     }
@@ -290,7 +295,7 @@ class ProjectServiceTest {
         doThrow(new RuntimeException("boom")).when(modelBundleStager).stageForRun(any(), any());
         assertDoesNotThrow(() -> projectService.startServerForProject(testProject.getId(), null));
         // the FL server still spawned despite the staging failure
-        verify(flServerManager).startServerForProject(any(), any(), anyInt(), anyInt());
+        verify(flServerManager).startServerForProject(any(), any(), anyInt(), anyInt(), any());
     }
 
     // ─── SE-11: DP policy at project creation ────────────────────────────────────────────────────
@@ -458,5 +463,113 @@ class ProjectServiceTest {
         assertThrows(
                 com.federated.fl_platform_api.exception.ProjectStateException.class,
                 () -> projectService.resolveInferenceTarget(p.getId()));
+    }
+
+    // ─── Robust aggregation settings at /start ──────────────────────────────────────────────────
+    // Validated against the RESOLVED request (strategy and minClients after defaults), then the one
+    // settings object is both persisted on the run and passed to the spawn, so the run record and the
+    // argv cannot disagree about which rule ran.
+
+    private void arrangeRobustStart() {
+        UUID projectId = testProject.getId();
+        testProject.setStatus("CREATED");
+        lenient().when(projectRepository.findById(projectId)).thenReturn(Optional.of(testProject));
+        lenient().when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
+        Run run = mock(Run.class);
+        lenient().when(run.getId()).thenReturn(UUID.randomUUID());
+        lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any())).thenReturn(run);
+        lenient().when(flServerManager.isServerRunning(projectId)).thenReturn(false);
+        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any()))
+                .thenReturn(Optional.of(50000));
+    }
+
+    private static StartProject startRequest(String strategy, String method, Double fraction, Integer minClients) {
+        StartProject r = new StartProject();
+        r.setStrategy(strategy);
+        r.setRobustMethod(method);
+        r.setByzantineFraction(fraction);
+        r.setMinClients(minClients);
+        return r;
+    }
+
+    private void assertNothingCreatedOrSpawned() {
+        verify(runService, never()).createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any());
+        verify(flServerManager, never()).startServerForProject(any(), any(), anyInt(), anyInt(), any());
+    }
+
+    @Test
+    void robustStart_feasibleRule_persistsAndSpawnsTheSameSettings() throws Exception {
+        arrangeRobustStart();
+        projectService.startServerForProject(testProject.getId(), startRequest("Robust", "BULYAN", 0.2, 20));
+
+        RobustAggregationSettings expected = new RobustAggregationSettings(RobustMethod.BULYAN, 0.2, null, null);
+        ArgumentCaptor<RobustAggregationSettings> persisted = ArgumentCaptor.forClass(RobustAggregationSettings.class);
+        ArgumentCaptor<RobustAggregationSettings> spawned = ArgumentCaptor.forClass(RobustAggregationSettings.class);
+        verify(runService).createForStart(eq(testProject), eq("Robust"), anyInt(), eq(20), anyInt(), persisted.capture());
+        verify(flServerManager).startServerForProject(eq(testProject), eq("Robust"), anyInt(), eq(20), spawned.capture());
+        assertEquals(expected, persisted.getValue());
+        assertEquals(expected, spawned.getValue());
+    }
+
+    @Test
+    void robustStart_ruleThatCannotRunAtMinClients_isRefusedBeforeAnythingIsCreated() {
+        arrangeRobustStart();
+        // f = int(0.2 * 10) = 2 and Bulyan needs 4*2+3 = 11 > 10: the server would refuse every round.
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), startRequest("Robust", "BULYAN", 0.2, 10)));
+        assertTrue(ex.getMessage().contains("BULYAN"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("minClients = 10"), ex.getMessage());
+        assertNothingCreatedOrSpawned();
+    }
+
+    @Test
+    void robustStart_krumAtTheStartDialogDefaultOfTwoClients_isRefused() {
+        arrangeRobustStart();
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), startRequest("Robust", "KRUM", 0.0, 2)));
+        assertTrue(ex.getMessage().contains("at least 3"), ex.getMessage());
+        assertNothingCreatedOrSpawned();
+    }
+
+    @Test
+    void robustFieldsOnAnotherStrategy_areRefusedRatherThanIgnored() {
+        arrangeRobustStart();
+        assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), startRequest("FedAvg", "MEDIAN", null, 2)));
+        assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), startRequest("FedAvg", null, 0.1, 2)));
+        assertNothingCreatedOrSpawned();
+    }
+
+    @Test
+    void robustParametersWithoutAMethod_areRefused() {
+        arrangeRobustStart();
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), startRequest("Robust", null, 0.1, 20)));
+        assertTrue(ex.getMessage().contains("robustMethod"), ex.getMessage());
+        assertNothingCreatedOrSpawned();
+    }
+
+    @Test
+    void aParameterTheChosenRuleDoesNotRead_isRefused() {
+        arrangeRobustStart();
+        StartProject krumWithTrim = startRequest("Robust", "KRUM", 0.1, 20);
+        krumWithTrim.setTrimRatio(0.2);
+        assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), krumWithTrim));
+
+        StartProject medianWithTau = startRequest("Robust", "MEDIAN", null, 20);
+        medianWithTau.setCenteredClipTau(1.0);
+        assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), medianWithTau));
+        assertNothingCreatedOrSpawned();
+    }
+
+    @Test
+    void robustStartWithoutSettings_passesNoneSoTheServerDefaultAndArgvAreUnchanged() throws Exception {
+        arrangeRobustStart();
+        projectService.startServerForProject(testProject.getId(), startRequest("Robust", null, null, 2));
+        verify(runService).createForStart(eq(testProject), eq("Robust"), anyInt(), eq(2), anyInt(), isNull());
+        verify(flServerManager).startServerForProject(eq(testProject), eq("Robust"), anyInt(), eq(2), isNull());
     }
 }

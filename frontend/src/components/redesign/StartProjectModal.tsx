@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { Project, errorMessage } from '../../services/apiServices';
+import { Project, StartServerData, errorMessage } from '../../services/apiServices';
 import { createLogger } from '../../lib/logger';
 import { Modal, Input, Select, Button, FormField } from '../ui';
 
@@ -10,7 +10,7 @@ interface StartProjectModalProps {
   isOpen: boolean;
   project: Project | null;
   onClose: () => void;
-  onSubmit: (projectId: string, config: { strategy: string; numRounds: number; minClients: number }) => Promise<void>;
+  onSubmit: (projectId: string, config: StartServerData) => Promise<void>;
 }
 
 // Plain-language descriptions for each training method (values stay as-is).
@@ -23,31 +23,71 @@ const STRATEGIES: { value: string; label: string }[] = [
   { value: 'FoT', label: 'For text models' },
 ];
 
+type RobustParam = 'fraction' | 'trim' | 'tau' | null;
+
+// Byzantine-robust aggregation rules the server implements (value = backend RobustMethod name). The help
+// lines state what the FR-12 breakdown sweeps measured, not only the textbook bound: several rules refuse
+// to run below a cohort size, and the server rejects those configurations at start.
+const ROBUST_RULES: { value: string; label: string; help: string; param: RobustParam }[] = [
+  { value: 'MEDIAN', label: 'Median — middle value for each weight', param: null,
+    help: 'Tolerates up to half of devices being bad. The simplest choice.' },
+  { value: 'TRIMMED_MEAN', label: 'Trimmed mean — drops the extremes', param: 'trim',
+    help: 'Tolerates bad devices up to the share it trims from each end.' },
+  { value: 'KRUM', label: 'Krum — keeps the single most typical update', param: 'fraction',
+    help: 'Needs at least 3 devices, and more as the expected bad share grows. Uses one device’s update per round.' },
+  { value: 'MULTI_KRUM', label: 'Multi-Krum — averages the most typical updates', param: 'fraction',
+    help: 'Needs at least 3 devices, and more as the expected bad share grows.' },
+  { value: 'BULYAN', label: 'Bulyan — strictest filtering', param: 'fraction',
+    help: 'Needs many devices: fewer than a quarter can be bad, and 20 devices support about 1 in 5.' },
+  { value: 'CENTERED_CLIP', label: 'Centered clipping — caps how far one update can pull', param: 'tau',
+    help: 'Bounds each update instead of discarding any. The radius should match a typical update size.' },
+];
+
 export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartProjectModalProps) {
   const [strategy, setStrategy] = useState('FedAvg');
   const [numRounds, setNumRounds] = useState(5);
   const [minClients, setMinClients] = useState(2);
+  const [robustMethod, setRobustMethod] = useState('MEDIAN');
+  const [byzantineFraction, setByzantineFraction] = useState(0.1);
+  const [trimRatio, setTrimRatio] = useState(0.1);
+  const [centeredClipTau, setCenteredClipTau] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   if (!project) return null;
 
   const isLlmLora = (project?.modelType ?? '').toUpperCase() === 'LLM_LORA';
+  const showRobust = !isLlmLora && strategy === 'Robust';
+  const selectedRule = ROBUST_RULES.find((r) => r.value === robustMethod);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
       setIsLoading(true);
-      await onSubmit(project.id, {
+      const config: StartServerData = {
         strategy,
         numRounds: Number(numRounds),
         minClients: Number(minClients),
-      });
+      };
+      // Robust fields are added only for the Robust method, and only the parameter the chosen rule
+      // reads. The backend rejects robust fields on any other method, so leftovers from a rule the user
+      // looked at and then switched away from must never ride along.
+      if (showRobust && selectedRule) {
+        config.robustMethod = selectedRule.value;
+        if (selectedRule.param === 'fraction') config.byzantineFraction = Number(byzantineFraction);
+        if (selectedRule.param === 'trim') config.trimRatio = Number(trimRatio);
+        if (selectedRule.param === 'tau') config.centeredClipTau = Number(centeredClipTau);
+      }
+      await onSubmit(project.id, config);
       // Reset form defaults upon success
       setStrategy('FedAvg');
       setNumRounds(5);
       setMinClients(2);
+      setRobustMethod('MEDIAN');
+      setByzantineFraction(0.1);
+      setTrimRatio(0.1);
+      setCenteredClipTau(1);
     } catch (err) {
       // Keep the modal open and surface the backend detail inline, so the
       // failure isn't hidden behind the modal on the route beneath it.
@@ -102,6 +142,62 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
               ))}
             </Select>
           </FormField>
+        )}
+
+        {showRobust && (
+          <>
+            <FormField label="Aggregation rule" help={selectedRule?.help}>
+              <Select value={robustMethod} onChange={(e) => setRobustMethod(e.target.value)}>
+                {ROBUST_RULES.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </Select>
+            </FormField>
+            {selectedRule?.param === 'fraction' && (
+              <FormField
+                label="Share of devices that may be malicious"
+                help="Your estimate, from 0 to 0.49 — 0.1 means about 1 in 10. It decides how many updates the rule sets aside."
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  max="0.49"
+                  step="0.01"
+                  value={byzantineFraction}
+                  onChange={(e) => setByzantineFraction(Number(e.target.value))}
+                  required
+                />
+              </FormField>
+            )}
+            {selectedRule?.param === 'trim' && (
+              <FormField
+                label="Share trimmed from each end"
+                help="From 0 to 0.49. This is also the largest share of bad devices the rule tolerates."
+              >
+                <Input
+                  type="number"
+                  min="0"
+                  max="0.49"
+                  step="0.01"
+                  value={trimRatio}
+                  onChange={(e) => setTrimRatio(Number(e.target.value))}
+                  required
+                />
+              </FormField>
+            )}
+            {selectedRule?.param === 'tau' && (
+              <FormField label="Clipping radius" help="How far a single update may pull the model. Must be above 0.">
+                <Input
+                  type="number"
+                  min="0.0001"
+                  step="any"
+                  value={centeredClipTau}
+                  onChange={(e) => setCenteredClipTau(Number(e.target.value))}
+                  required
+                />
+              </FormField>
+            )}
+          </>
         )}
 
         <div className="grid grid-cols-2 gap-4">

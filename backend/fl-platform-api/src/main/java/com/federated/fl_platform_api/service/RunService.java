@@ -1,5 +1,8 @@
 package com.federated.fl_platform_api.service;
 
+import com.federated.fl_platform_api.model.RobustAggregationSettings;
+import com.federated.fl_platform_api.model.RobustMethod;
+
 import com.federated.fl_platform_api.dto.EnrollmentDto;
 import com.federated.fl_platform_api.dto.ModelBundleDto;
 import com.federated.fl_platform_api.dto.RunManifestDto;
@@ -99,6 +102,11 @@ public class RunService {
 
     public Run createForStart(Project project, String strategy, int numRounds,
                               int minClients, int clientsPerRound) {
+        return createForStart(project, strategy, numRounds, minClients, clientsPerRound, null);
+    }
+
+    public Run createForStart(Project project, String strategy, int numRounds,
+                              int minClients, int clientsPerRound, RobustAggregationSettings robust) {
         Run run = new Run();
         run.setProjectId(project.getId());
         run.setStrategy(strategy);
@@ -111,7 +119,23 @@ public class RunService {
         run.setRecipeKey(project.getModelType());
         run.setCreatedBy(project.getUser() != null ? project.getUser().getId() : null);
         run.setCreatedAt(Instant.now());
+        applyRobustSettings(run, strategy, robust);
         return runRepository.save(run);
+    }
+
+    /**
+     * V24: record which Byzantine-robust rule the run uses. Given settings are stored as sent. A Robust run
+     * with none used the server's default rule, so MEDIAN is recorded rather than leaving the rule blank.
+     */
+    private static void applyRobustSettings(Run run, String strategy, RobustAggregationSettings robust) {
+        if (robust != null) {
+            run.setRobustMethod(robust.method());
+            run.setRobustByzantineFraction(robust.byzantineFraction());
+            run.setRobustTrimRatio(robust.trimRatio());
+            run.setCenteredClipTau(robust.centeredClipTau());
+        } else if ("Robust".equals(strategy)) {
+            run.setRobustMethod(RobustMethod.MEDIAN);
+        }
     }
 
     @Transactional
@@ -200,6 +224,10 @@ public class RunService {
         m.setPartitioningMode(run.getPartitioningMode().name());
         m.setSeed(run.getSeed());
         m.setTorchVersion(run.getTorchVersion());
+        m.setRobustMethod(run.getRobustMethod() == null ? null : run.getRobustMethod().name());
+        m.setRobustByzantineFraction(run.getRobustByzantineFraction());
+        m.setRobustTrimRatio(run.getRobustTrimRatio());
+        m.setCenteredClipTau(run.getCenteredClipTau());
         m.setFirstOrderSupported(hasStagedTrainableBundle(run.getId()));
         return m;
     }
