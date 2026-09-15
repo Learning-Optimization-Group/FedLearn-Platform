@@ -68,6 +68,12 @@ re-run) and writes the `FEDLEARN_GRPC_SERVER_KEY` / `FEDLEARN_GRPC_SERVER_CERT`
 `Environment=` lines into `fedlearn.service` — **always active**, because a
 fail-closed FL server that cannot read the keypair cannot launch at all.
 
+**The desktop app configures this itself**: when `app.fl.require-tls` is on, the backend reads the server
+certificate from `app.fl.grpc.server-cert-path` (which defaults to `FEDLEARN_GRPC_SERVER_CERT`) and returns it with
+enrollment and with `GET /api/client/projects/{id}/connection`. The desktop app writes it to a file and sets the two
+variables below for the client it launches, in both the native and the Docker path. The manual steps below remain
+for clients the platform does not launch, such as a standalone Docker client. The phone does not dial TLS yet.
+
 **Configuring clients (required)**: because the server now fails closed, every
 client must dial TLS or be rejected. Copy `/etc/fedlearn/grpc/server.crt`
 (public — not a secret) to the client machine, set `FEDLEARN_GRPC_USE_TLS=1` and

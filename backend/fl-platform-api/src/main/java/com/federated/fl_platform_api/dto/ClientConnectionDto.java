@@ -20,6 +20,11 @@ public class ClientConnectionDto {
     // the arm uploads the FULL state dict against a server expecting the head only. Carried here
     // rather than inferred, because the arm is a project property the client cannot derive.
     private String trainingArm;
+    // Server trust, as enrollment resolved it: whether the FL server serves TLS, the certificate to verify it with,
+    // and that certificate's sha256. The desktop writes the certificate to a file its client process trusts.
+    private boolean grpcTls;
+    private String grpcServerCertPem;
+    private String grpcServerCertFingerprint;
 
     public UUID getProjectId() { return projectId; }
     public void setProjectId(UUID projectId) { this.projectId = projectId; }
@@ -39,4 +44,13 @@ public class ClientConnectionDto {
     public void setStrategy(String strategy) { this.strategy = strategy; }
     public String getTrainingArm() { return trainingArm; }
     public void setTrainingArm(String trainingArm) { this.trainingArm = trainingArm; }
+
+    public boolean isGrpcTls() { return grpcTls; }
+    public void setGrpcTls(boolean grpcTls) { this.grpcTls = grpcTls; }
+    public String getGrpcServerCertPem() { return grpcServerCertPem; }
+    public void setGrpcServerCertPem(String grpcServerCertPem) { this.grpcServerCertPem = grpcServerCertPem; }
+    public String getGrpcServerCertFingerprint() { return grpcServerCertFingerprint; }
+    public void setGrpcServerCertFingerprint(String grpcServerCertFingerprint) {
+        this.grpcServerCertFingerprint = grpcServerCertFingerprint;
+    }
 }

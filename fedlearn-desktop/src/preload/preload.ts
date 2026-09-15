@@ -133,6 +133,19 @@ function isValidConnectionToken(val: unknown): boolean {
   return /^[A-Za-z0-9._-]+$/.test(val);
 }
 
+// The FL server's certificate from the connection payload: absent (null or undefined, as a plaintext deployment
+// sends it) or a bounded PEM certificate. Main validates it fully before writing it to a file.
+function isShapedLikeCertificatePem(val: unknown): boolean {
+  if (val === undefined || val === null) {
+    return true;
+  }
+  if (typeof val !== 'string' || val.length > 16 * 1024) {
+    console.error('[Preload:Validation] Server certificate is not a bounded string');
+    return false;
+  }
+  return val.startsWith('-----BEGIN CERTIFICATE-----') && val.trimEnd().endsWith('-----END CERTIFICATE-----');
+}
+
 // ========== Secure API exposed to Renderer ==========
 
 export interface TrainingConfigInput {
@@ -145,6 +158,9 @@ export interface TrainingConfigInput {
   connectionToken?: string;
   strategy?: string;
   trainingArm?: string;
+  // Server trust from the connection payload: whether to dial TLS, and the certificate to verify the server with.
+  grpcTls?: boolean | null;
+  grpcServerCertPem?: string | null;
 }
 
 interface InferencePayloadInput {
@@ -211,6 +227,12 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
     if (config.strategy !== undefined && !/^[a-zA-Z0-9_\-.]{1,64}$/.test(config.strategy)) {
       return { success: false, error: 'Invalid strategy' };
     }
+    if (config.grpcTls !== undefined && config.grpcTls !== null && typeof config.grpcTls !== 'boolean') {
+      return { success: false, error: 'Invalid grpcTls' };
+    }
+    if (!isShapedLikeCertificatePem(config.grpcServerCertPem)) {
+      return { success: false, error: 'Invalid server certificate' };
+    }
 
     return ipcRenderer.invoke('docker:start-training', {
       hardwareProfile: config.hardwareProfile,
@@ -223,6 +245,8 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
       strategy: config.strategy,
       // Main validates the arm strictly; leaving it out here meant a FROZEN_HEAD project trained as FULL.
       trainingArm: config.trainingArm,
+      grpcTls: config.grpcTls ?? undefined,
+      grpcServerCertPem: config.grpcServerCertPem ?? undefined,
     });
   },
 

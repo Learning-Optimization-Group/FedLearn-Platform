@@ -124,6 +124,10 @@ public class ClientApiService {
         dto.setPartitionId(enrollment.getPartitionId());
         dto.setStatus(projectStatusService.currentStatus(project).name());   // BA-4
         dto.setConnectionToken(enrollment.getConnectionToken());
+        // Server trust, as enrollment resolved it: whether to dial TLS, and the certificate to verify the server with.
+        dto.setGrpcTls(enrollment.isGrpcTls());
+        dto.setGrpcServerCertPem(enrollment.getGrpcServerCertPem());
+        dto.setGrpcServerCertFingerprint(enrollment.getCaFingerprint());
         // P1-5: the arm the FL server was spawned with, so the client federates the same parameter
         // subset. Always stated (never null) — the client must not have to read FULL out of silence.
         dto.setTrainingArm(project.getTrainingArm() != null

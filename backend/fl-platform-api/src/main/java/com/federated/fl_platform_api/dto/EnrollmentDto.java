@@ -9,12 +9,18 @@ public class EnrollmentDto {
     private String grpcEndpoint;
     private int partitionId;
     private String clientKind;
-    private String caFingerprint;   // null in Phase 1
+    private String caFingerprint;   // sha256 of the FL server's certificate when TLS is required; null otherwise
     private String connectionToken;
     // SE-12: per-client mTLS cert issued at enrollment (null unless feature.fl-client-cert.enabled). The
     // client presents these to the FL gRPC server when require_client_auth is on; the key never leaves it.
     private String clientCertPem;
     private String clientKeyPem;
+    // The SE-12 client-cert bundle's issuing CA, kept apart from caFingerprint, which describes the FL server.
+    private String clientCaFingerprint;
+    // Server trust: whether the FL server requires TLS, and the certificate to verify it with (null on a plaintext
+    // deployment, or when none is configured and the client verifies against its system roots).
+    private boolean grpcTls;
+    private String grpcServerCertPem;
     private Instant expiresAt;
     private RunManifestDto manifest;
 
@@ -36,6 +42,12 @@ public class EnrollmentDto {
     public void setClientCertPem(String clientCertPem) { this.clientCertPem = clientCertPem; }
     public String getClientKeyPem() { return clientKeyPem; }
     public void setClientKeyPem(String clientKeyPem) { this.clientKeyPem = clientKeyPem; }
+    public String getClientCaFingerprint() { return clientCaFingerprint; }
+    public void setClientCaFingerprint(String clientCaFingerprint) { this.clientCaFingerprint = clientCaFingerprint; }
+    public boolean isGrpcTls() { return grpcTls; }
+    public void setGrpcTls(boolean grpcTls) { this.grpcTls = grpcTls; }
+    public String getGrpcServerCertPem() { return grpcServerCertPem; }
+    public void setGrpcServerCertPem(String grpcServerCertPem) { this.grpcServerCertPem = grpcServerCertPem; }
     public Instant getExpiresAt() { return expiresAt; }
     public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
     public RunManifestDto getManifest() { return manifest; }

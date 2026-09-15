@@ -47,3 +47,38 @@ describe('preload startTraining forwarding', () => {
     );
   });
 });
+
+const PEM =
+  '-----BEGIN CERTIFICATE-----\n' +
+  'MIIBszCCAVmgAwIBAgIUQ2FrZUZha2VGYWtlRmFrZUZha2UwCgYIKoZIzj0EAwIw\n' +
+  '-----END CERTIFICATE-----\n';
+
+// Server trust: the backend sends whether the FL server serves TLS and the certificate to verify it with. Main
+// validates the certificate fully and writes it to a file; the preload has to pass both through and reject junk.
+describe('preload startTraining — server trust', () => {
+  test('forwards whether to dial TLS and the certificate to verify the server with', async () => {
+    await exposedApi().startTraining({ ...BASE, grpcTls: true, grpcServerCertPem: PEM });
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith(
+      'docker:start-training',
+      expect.objectContaining({ grpcTls: true, grpcServerCertPem: PEM }),
+    );
+  });
+
+  test('a plaintext deployment, whose payload carries a null certificate, still starts', async () => {
+    const res = await exposedApi().startTraining({ ...BASE, grpcTls: false, grpcServerCertPem: null });
+    expect(res.success).toBe(true);
+    expect(ipcRenderer.invoke).toHaveBeenCalled();
+  });
+
+  test('refuses a grpcTls that is not a boolean', async () => {
+    const res = await exposedApi().startTraining({ ...BASE, grpcTls: 'yes' });
+    expect(res.success).toBe(false);
+    expect(ipcRenderer.invoke).not.toHaveBeenCalled();
+  });
+
+  test('refuses a certificate that is not a PEM certificate', async () => {
+    const res = await exposedApi().startTraining({ ...BASE, grpcTls: true, grpcServerCertPem: 'not a certificate' });
+    expect(res.success).toBe(false);
+    expect(ipcRenderer.invoke).not.toHaveBeenCalled();
+  });
+});

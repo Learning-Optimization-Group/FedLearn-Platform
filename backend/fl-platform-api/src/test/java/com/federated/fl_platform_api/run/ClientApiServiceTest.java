@@ -260,4 +260,29 @@ class ClientApiServiceTest {
         assertEquals(8.0, out.get(0).getRequirements().minRamGb());
         assertEquals(Boolean.FALSE, out.get(0).getRequirements().mobileSafe());
     }
+
+    @Test
+    void getConnection_carriesServerTrust_fromTheEnrollment() {
+        UUID pid = UUID.randomUUID();
+        UUID rid = UUID.randomUUID();
+        Project p = proj(pid, ProjectVisibility.PUBLIC, user(2L));
+        p.setStatus("RUNNING");
+        p.setActiveRunId(rid);
+        when(projectRepository.findById(pid)).thenReturn(Optional.of(p));
+
+        com.federated.fl_platform_api.dto.EnrollmentDto enr = new com.federated.fl_platform_api.dto.EnrollmentDto();
+        enr.setGrpcEndpoint("fl.example.org:50007");
+        enr.setPartitionId(1);
+        enr.setConnectionToken("tok");
+        enr.setGrpcTls(true);
+        enr.setGrpcServerCertPem("SERVER-PEM");
+        enr.setCaFingerprint("srv-fp");
+        when(runService.enroll(rid)).thenReturn(enr);
+
+        var dto = service.getConnection(pid);
+
+        org.junit.jupiter.api.Assertions.assertTrue(dto.isGrpcTls());
+        assertEquals("SERVER-PEM", dto.getGrpcServerCertPem());
+        assertEquals("srv-fp", dto.getGrpcServerCertFingerprint());
+    }
 }

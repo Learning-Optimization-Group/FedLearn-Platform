@@ -28,4 +28,7 @@ export interface ProjectConnection {
   // The project's training arm; forwarded to the client as --training-arm so it federates the same
   // parameter subset the server expects (a FROZEN_HEAD server receives head-only updates).
   trainingArm?: string;
+  // Server trust: whether the FL server serves TLS, and the certificate to verify it with (null when none).
+  grpcTls?: boolean;
+  grpcServerCertPem?: string | null;
 }

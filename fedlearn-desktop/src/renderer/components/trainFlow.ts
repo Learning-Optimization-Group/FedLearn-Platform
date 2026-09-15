@@ -35,6 +35,9 @@ export interface StartTrainingConfig {
   strategy?: string;
   // Forwarded to the client as --training-arm so a FROZEN_HEAD project federates head-only.
   trainingArm?: string;
+  // Server trust from the connection; main writes the certificate to a file the client trusts.
+  grpcTls?: boolean;
+  grpcServerCertPem?: string;
 }
 
 /** Layout phase for the Train section. */

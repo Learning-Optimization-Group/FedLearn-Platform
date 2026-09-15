@@ -39,6 +39,10 @@ export interface ProjectConnection {
   // The project's training arm; forwarded to the client as --training-arm so a FROZEN_HEAD project
   // federates the head subset the server expects instead of the full state dict.
   trainingArm?: string;
+  // Server trust (ClientConnectionDto.grpcTls / grpcServerCertPem): whether the FL server serves TLS, and the
+  // certificate to verify it with; null when there is none to send.
+  grpcTls?: boolean;
+  grpcServerCertPem?: string | null;
 }
 
 export class ClientProjectService {

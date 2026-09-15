@@ -21,6 +21,7 @@
 import Docker from 'dockerode';
 import { app, BrowserWindow } from 'electron';
 import { ChildProcess, spawn } from 'child_process';
+import { CONTAINER_ROOT_CERT_PATH } from './grpcTls';
 import * as fs from 'fs';
 import * as path from 'path';
 import log from 'electron-log';
@@ -48,6 +49,10 @@ export interface TrainingConfig {
   // Optional so the legacy no-auth flow still type-checks; required in practice once
   // the FL server is fail-closed (app.fl.require-client-auth=true).
   connectionToken?: string;
+  // Server trust (from the connection payload): whether the FL server serves TLS, and the host path of the
+  // certificate to verify it with, written by main from grpcServerCertPem. No path means the system roots.
+  grpcTls?: boolean;
+  grpcServerCertPath?: string;
 }
 
 /**
@@ -76,6 +81,13 @@ export function buildContainerEnv(config: TrainingConfig): string[] {
   if (config.connectionToken) {
     env.push(`FEDLEARN_CONNECTION_TOKEN=${config.connectionToken}`);
   }
+  if (config.grpcTls) {
+    env.push('FEDLEARN_GRPC_USE_TLS=1');
+    if (config.grpcServerCertPath) {
+      // The host file is mounted read-only at this path (buildContainerBinds).
+      env.push(`FEDLEARN_GRPC_ROOT_CERT=${CONTAINER_ROOT_CERT_PATH}`);
+    }
+  }
   return env;
 }
 
@@ -91,6 +103,28 @@ export function withConnectionTokenEnv(
   return config.connectionToken
     ? { ...base, FEDLEARN_CONNECTION_TOKEN: config.connectionToken }
     : base;
+}
+
+/**
+ * Adds server trust to a spawn env for the native client path: dial TLS, and verify the server against the
+ * certificate file when one was sent. Returns the base env unchanged on a plaintext deployment.
+ */
+export function withGrpcTlsEnv(base: NodeJS.ProcessEnv, config: TrainingConfig): NodeJS.ProcessEnv {
+  if (!config.grpcTls) {
+    return base;
+  }
+  return config.grpcServerCertPath
+    ? { ...base, FEDLEARN_GRPC_USE_TLS: '1', FEDLEARN_GRPC_ROOT_CERT: config.grpcServerCertPath }
+    : { ...base, FEDLEARN_GRPC_USE_TLS: '1' };
+}
+
+/** Container binds: the dataset, plus the server certificate, read-only, when the client verifies against it. */
+export function buildContainerBinds(config: TrainingConfig): string[] {
+  const binds = [`${config.datasetPath}:/data`];
+  if (config.grpcTls && config.grpcServerCertPath) {
+    binds.push(`${config.grpcServerCertPath}:${CONTAINER_ROOT_CERT_PATH}:ro`);
+  }
+  return binds;
 }
 
 // Full list of Jetson SoC device nodes required for GPU access inside containers.
@@ -356,7 +390,7 @@ export class DockerService {
     log.info(`[Native] cwd=${invocation.cwd}`);
 
     const child = spawn(invocation.command, args, {
-      env: withConnectionTokenEnv(invocation.env, config),
+      env: withGrpcTlsEnv(withConnectionTokenEnv(invocation.env, config), config),
       cwd: invocation.cwd,
     });
 
@@ -403,7 +437,7 @@ export class DockerService {
       // Principle of least privilege — never mount the host Docker socket
       // into the training container.
       AutoRemove: false,
-      Binds: [`${config.datasetPath}:/data`],
+      Binds: buildContainerBinds(config),
     };
 
     switch (config.hardwareProfile) {

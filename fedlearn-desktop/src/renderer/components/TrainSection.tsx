@@ -261,6 +261,8 @@ export const TrainSection: React.FC<TrainSectionProps> = ({
         connectionToken: c.connectionToken,
         strategy: c.strategy,
         trainingArm: c.trainingArm,
+        grpcTls: c.grpcTls,
+        grpcServerCertPem: c.grpcServerCertPem ?? undefined,
       });
     } catch (err: unknown) {
       setValidationError(err instanceof Error ? err.message : 'Failed to start training.');

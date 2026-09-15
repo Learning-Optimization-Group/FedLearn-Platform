@@ -16,6 +16,7 @@ import com.federated.fl_platform_api.repository.RunEnrollmentRepository;
 import com.federated.fl_platform_api.repository.RunRepository;
 import com.federated.fl_platform_api.security.ConnectionTokenService;
 import com.federated.fl_platform_api.security.FlClientCertificateAuthority;
+import com.federated.fl_platform_api.security.FlServerCertificate;
 import com.federated.fl_platform_api.security.OrgScope;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -53,6 +54,7 @@ public class RunService {
     @Autowired private OrgScope orgScope;
     @Autowired private ConnectionTokenService tokenService;
     @Autowired private FlClientCertificateAuthority clientCa;
+    @Autowired private FlServerCertificate serverCert;
     @Autowired private ObjectMapper objectMapper;
 
     private static final Logger log = LoggerFactory.getLogger(RunService.class);
@@ -160,6 +162,10 @@ public class RunService {
         }
         run.setServerHost(advertisedHost());
         run.setServerPort(port);
+        // Server trust: the certificate this run's FL server serves, so status and enrollment can name it.
+        if (serverCert.tlsRequired()) {
+            serverCert.fingerprint().ifPresent(run::setGrpcCaFingerprint);
+        }
         run.setStatus(RunStatus.RUNNING);
         run.setStartedAt(Instant.now());
         runRepository.save(run);
@@ -325,6 +331,12 @@ public class RunService {
         dto.setClientKind(enrollment.getClientKind().name());
         dto.setCaFingerprint(run.getGrpcCaFingerprint());
         dto.setConnectionToken(minted.token());
+        // Server trust: the FL server's certificate, so a client can verify a self-signed server without anyone
+        // copying the file to it (deploy/TLS.md). Nothing on a plaintext deployment.
+        dto.setGrpcTls(serverCert.tlsRequired());
+        if (serverCert.tlsRequired()) {
+            serverCert.pem().ifPresent(dto::setGrpcServerCertPem);
+        }
         // SE-12: when client-cert issuance is enabled, mint a short-lived per-client mTLS cert bound to THIS
         // identity (CN=userId) + run. Off by default, so enrollment is unchanged until the operator turns it on
         // and points the FL server's FEDLEARN_GRPC_ROOT_CERT at the issuing CA.
@@ -333,7 +345,7 @@ public class RunService {
                     clientCa.issueClientCert(String.valueOf(self.getId()), runId);
             dto.setClientCertPem(issued.clientCertPem());
             dto.setClientKeyPem(issued.clientKeyPem());
-            dto.setCaFingerprint(issued.caFingerprint());
+            dto.setClientCaFingerprint(issued.caFingerprint());
         }
         dto.setExpiresAt(minted.expiresAt());
         dto.setManifest(toManifest(run));

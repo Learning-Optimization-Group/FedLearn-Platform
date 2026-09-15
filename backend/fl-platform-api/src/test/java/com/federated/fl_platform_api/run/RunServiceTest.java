@@ -34,6 +34,7 @@ class RunServiceTest {
     @Mock OrgScope orgScope;
     @Mock ConnectionTokenService tokenService;
     @Mock FlClientCertificateAuthority clientCa;
+    @Mock com.federated.fl_platform_api.security.FlServerCertificate serverCert;
 
     @InjectMocks RunService runService;
 
@@ -327,10 +328,12 @@ class RunServiceTest {
 
         var dto = runService.enroll(rid);
 
-        // the bundle is delivered, and the advertised fingerprint is the issuing CA's (not the run's null).
+        // the bundle is delivered with its CA's fingerprint, kept apart from caFingerprint, which describes the
+        // FL server the client dials (null here: this run recorded none).
         assertEquals("CERT-PEM", dto.getClientCertPem());
         assertEquals("KEY-PEM", dto.getClientKeyPem());
-        assertEquals("ca-fp-sha256", dto.getCaFingerprint());
+        assertEquals("ca-fp-sha256", dto.getClientCaFingerprint());
+        assertNull(dto.getCaFingerprint());
         // the cert is bound to THIS caller's id, not an attacker-supplied one.
         verify(clientCa).issueClientCert("7", rid);
     }
@@ -528,5 +531,78 @@ class RunServiceTest {
 
         assertTrue(dto.isSecureAggregation());
         assertEquals(3, dto.getSecureAggThreshold());
+    }
+
+    // ─── Server trust: the FL server's certificate at enrollment ───────────────────────────────
+    // A deployment requires TLS on the FL boundary and self-signs the server certificate, so a client can verify the
+    // server only if enrollment hands that certificate over. Nothing did, so a desktop or phone client could not dial
+    // TLS without someone copying the file by hand.
+
+    private Run arrangeEnrollment(UUID rid, UUID pid) {
+        Project p = project(pid); User u = new User(); u.setId(7L);
+        Run r = runningRun(rid, pid, 4, PartitioningMode.SHARDED);
+        when(runRepository.lockById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+        when(enrollmentRepository.findByIdRunIdAndIdUserId(rid, 7L)).thenReturn(java.util.Optional.empty());
+        when(enrollmentRepository.maxPartitionIdForRun(rid)).thenReturn(-1);
+        when(enrollmentRepository.save(any(RunEnrollment.class))).thenAnswer(i -> i.getArgument(0));
+        when(tokenService.mint(any(), anyLong())).thenReturn(
+                new ConnectionTokenService.Minted("tok", java.time.Instant.now().plusSeconds(120)));
+        return r;
+    }
+
+    @Test
+    void enroll_handsTheClientTheServerCertificate_whenTlsIsRequired() {
+        UUID rid = UUID.randomUUID(); UUID pid = UUID.randomUUID();
+        Run r = arrangeEnrollment(rid, pid);
+        r.setGrpcCaFingerprint("srv-fp");
+        when(serverCert.tlsRequired()).thenReturn(true);
+        when(serverCert.pem()).thenReturn(java.util.Optional.of("SERVER-PEM"));
+
+        var dto = runService.enroll(rid);
+
+        assertTrue(dto.isGrpcTls());
+        assertEquals("SERVER-PEM", dto.getGrpcServerCertPem());
+        assertEquals("srv-fp", dto.getCaFingerprint());
+    }
+
+    @Test
+    void enroll_onAPlaintextDeployment_handsOutNoCertificate() {
+        UUID rid = UUID.randomUUID(); UUID pid = UUID.randomUUID();
+        arrangeEnrollment(rid, pid);
+        when(serverCert.tlsRequired()).thenReturn(false);
+
+        var dto = runService.enroll(rid);
+
+        assertFalse(dto.isGrpcTls());
+        assertNull(dto.getGrpcServerCertPem());
+    }
+
+    @Test
+    void markRunning_recordsTheServerCertificateFingerprint_whenTlsIsRequired() {
+        UUID rid = UUID.randomUUID();
+        Run r = new Run(); r.setId(rid); r.setStatus(RunStatus.STARTING);
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(serverCert.tlsRequired()).thenReturn(true);
+        when(serverCert.fingerprint()).thenReturn(java.util.Optional.of("srv-fp"));
+
+        runService.markRunning(rid, 50001);
+
+        assertEquals("srv-fp", r.getGrpcCaFingerprint());
+    }
+
+    @Test
+    void markRunning_onAPlaintextDeployment_recordsNoFingerprint() {
+        UUID rid = UUID.randomUUID();
+        Run r = new Run(); r.setId(rid); r.setStatus(RunStatus.STARTING);
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(serverCert.tlsRequired()).thenReturn(false);
+
+        runService.markRunning(rid, 50001);
+
+        assertNull(r.getGrpcCaFingerprint());
     }
 }

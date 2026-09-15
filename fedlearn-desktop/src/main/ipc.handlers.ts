@@ -6,7 +6,7 @@
 // preload.ts performs primary allowlist validation.
 // =============================================================================
 
-import { ipcMain, BrowserWindow, dialog } from 'electron';
+import { app, ipcMain, BrowserWindow, dialog } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import { DockerService, TrainingConfig, HardwareProfile } from './docker.service';
@@ -20,6 +20,8 @@ import {
   validateStringInput,
 } from './validators';
 import { recordConsentedDatasetPath, isDatasetPathConsented } from './dataset-consent';
+import * as path from 'path';
+import { resolveServerTrust } from './grpcTls';
 import { AuthService } from './auth.service';
 import { InferenceService, InferencePayload } from './inference.service';
 import { ClientProjectService } from './client-projects.service';
@@ -195,6 +197,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         trainingArm = cfg.trainingArm;
       }
 
+      // Server trust from the connection payload: dial TLS when the FL server serves it, verifying against the
+      // certificate the backend sent, written under userData (a public certificate, not a secret). A malformed value
+      // throws, and the start fails with its message.
+      const serverTrust = resolveServerTrust(cfg, path.join(app.getPath('userData'), 'certs'));
+
       const validConfig: TrainingConfig = {
         hardwareProfile: cfg.hardwareProfile as HardwareProfile,
         projectId: cfg.projectId as string,
@@ -206,6 +213,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         connectionToken,
         strategy,
         trainingArm,
+        grpcTls: serverTrust.grpcTls,
+        grpcServerCertPath: serverTrust.grpcServerCertPath,
       };
 
       log.info(`[IPC:docker:start-training] Starting training with profile=${validConfig.hardwareProfile}, project=${validConfig.projectId}, model=${validConfig.modelType}`);
