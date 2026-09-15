@@ -221,6 +221,8 @@ contextBridge.exposeInMainWorld('fedLearnAPI', {
       datasetPath: config.datasetPath,
       connectionToken: config.connectionToken,
       strategy: config.strategy,
+      // Main validates the arm strictly; leaving it out here meant a FROZEN_HEAD project trained as FULL.
+      trainingArm: config.trainingArm,
     });
   },
 
