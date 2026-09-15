@@ -34,8 +34,8 @@ jobs:
   buf:
     runs-on: ubuntu-latest
     steps:
-      # fetch-depth: 0 — `buf breaking --against '.git#branch=main'` needs the main branch ref,
-      # which a shallow (depth-1) checkout does not include.
+      # fetch-depth: 0 — `buf breaking` below compares against origin/main, which a shallow
+      # (depth-1) checkout does not include.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -46,10 +46,17 @@ jobs:
         run: buf lint
 
       # On a push to main this compares main against itself (a no-op); on a PR it compares the
-      # PR head against main and fails on any breaking change to the contract.
+      # PR head against main and fails on any breaking change to the contract. The input is the
+      # repo-root .git (this step runs in proto/) at origin/main, because a PR checkout has no local
+      # main branch. Until main has a proto/ there is no contract to break, so the step says so.
       - name: buf breaking (against main)
         working-directory: proto
-        run: buf breaking --against '.git#branch=main'
+        run: |
+          if git cat-file -e origin/main:proto/buf.yaml 2>/dev/null; then
+            buf breaking --against '../.git#branch=origin/main,subdir=proto'
+          else
+            echo "::notice::main has no proto/buf.yaml yet, so there is no contract to check for breaking changes."
+          fi
 
       # NOTE ON WHAT THIS STEP DOES AND DOES NOT COVER.
       # buf.gen.yaml writes every target into proto/gen/, which .gitignore:179 IGNORES — so
