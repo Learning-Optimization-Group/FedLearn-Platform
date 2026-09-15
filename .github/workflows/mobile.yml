@@ -116,6 +116,8 @@ jobs:
       - name: Build host ExecuTorch from source if cache missed
         if: steps.et-cache.outputs.cache-hit != 'true'
         run: |
+          # The kernel codegen this build runs (codegen/tools/merge_yaml.py) imports yaml.
+          pip install "pyyaml>=6.0,<7.0"
           ET_SRC="$RUNNER_TEMP/executorch"
           git clone --depth 1 --branch "v${ET_VERSION}" https://github.com/pytorch/executorch "$ET_SRC"
           cd "$ET_SRC"
