@@ -160,7 +160,11 @@ jobs:
           npm run lint
           npx tsc --noEmit
           npm run test:coverage   # TE-11: vitest --coverage; thresholds enforced from vitest.config.ts
-          npm run build
+          # FE-7: the committed .env.production carries a placeholder API host and the prebuild guard
+          # refuses to bundle it. This job only proves the production bundle compiles - nothing is
+          # deployed from it - so a reserved, never-resolving https origin satisfies the guard. Set on
+          # the build command alone, so lint, typecheck and tests keep seeing the committed env files.
+          VITE_FEDLEARN_API_URL=https://api.ci.invalid/api VITE_SERVER_ROOT_URL=https://api.ci.invalid npm run build
 
   design-tokens:
     # The per-platform token outputs (frontend/desktop CSS, mobile TS) must stay byte-in-sync with
