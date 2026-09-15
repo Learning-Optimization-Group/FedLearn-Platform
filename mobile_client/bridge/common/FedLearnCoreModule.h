@@ -92,7 +92,8 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
 
   // ---- JSI spec methods (signatures must match the generated CxxSpec; see header banner) ----
   jsi::Value registerClient(jsi::Runtime& rt, jsi::String serverAddress, jsi::String runId,
-                            jsi::String clientId, jsi::String enrollmentToken, bool useTls);
+                            jsi::String clientId, jsi::String enrollmentToken, bool useTls,
+                            jsi::String serverCertPem);
   jsi::Value getServerStatus(jsi::Runtime& rt, jsi::String runId);
   jsi::Value stop(jsi::Runtime& rt);
   // JSI overloads of the setModelManifest / setTrainingDataFromFiles platform hooks: the RN app layer
@@ -113,7 +114,7 @@ class FedLearnCoreModule : public react::NativeFedLearnCoreCxxSpec<FedLearnCoreM
   // ---- pure logic (no JSI; the portable, correct core) ----
   RegisterResult doRegister(const std::string& serverAddress, const std::string& runId,
                             const std::string& clientId, const std::string& enrollmentToken,
-                            bool useTls);
+                            bool useTls, const std::string& serverCertPem);
   ServerStatus doGetServerStatus(const std::string& runId);
   void doStop();
   ModelInfo doLoadModel(const std::string& modelPath, const std::string& expectedSha256);

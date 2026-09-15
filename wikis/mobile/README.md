@@ -93,7 +93,7 @@ The script checks **three** mirrors — this one, the framework's `fedlearn.prot
 
 | Method | Purpose |
 |---|---|
-| `registerClient(serverAddress, runId, clientId, enrollmentToken, useTls)` | gRPC register; returns `assignedRound` (late-joiner) + the server protocol version |
+| `registerClient(serverAddress, runId, clientId, enrollmentToken, useTls, serverCertPem)` | gRPC register over TLS when `useTls` (verifying the server against `serverCertPem`, the certificate from enrollment; `''` means the default roots); returns `assignedRound` (late-joiner) + the server protocol version |
 | `getServerStatus(runId)` | live `serverState`, `currentRound`, participation counts, `roundDeadlineUnixMs` |
 | `stop()` | sets the abort flag and joins the native threads |
 | `setModelManifest(manifest)` | trainable param layout + total param count + the separate infer graph (+ optional trainable graph). **Must precede `loadModel`** — the ExecuTorch loss graph is weights-free, so the layout cannot come from the `.pte` |

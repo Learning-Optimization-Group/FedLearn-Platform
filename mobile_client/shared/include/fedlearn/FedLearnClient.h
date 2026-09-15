@@ -27,7 +27,11 @@ namespace fedlearn {
 
 struct GrpcClientConfig {
   std::string serverAddress;
-  bool useTls = true;  // default secure (TLS+mTLS); only a dev RN build sets false (E13)
+  bool useTls = true;  // default secure; only a dev RN build sets false (E13)
+  // Server trust: the FL server's certificate PEM handed out at enrollment. Preferred over caCertPath; with neither, the
+  // channel verifies against gRPC's default roots (a server whose certificate chains to a public CA).
+  std::string caCertPem;
+  // Client identity (mTLS): presented only when both are set. Nothing provisions a phone keypair yet.
   std::string clientCertPath;
   std::string clientKeyPath;
   std::string caCertPath;

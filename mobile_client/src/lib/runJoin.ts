@@ -28,7 +28,7 @@ export interface RunManifest {
 
 export interface JoinParams {
   projectId: string;
-  /** Phase-1 gRPC is plaintext → defaults false. TLS + CA-pin land in the transport-security phase. */
+  /** Overrides the backend's grpcTls. Normally omitted, so the join follows what the deployment requires. */
   useTls?: boolean;
 }
 
@@ -51,6 +51,8 @@ interface EnrollResponse {
   runId: string; projectId: string; grpcEndpoint: string; partitionId: number;
   clientKind: string; caFingerprint: string | null; connectionToken: string;
   expiresAt: string; manifest: RunManifest;
+  // Server trust: whether the FL server requires TLS, and its certificate to verify it with (null when there is none).
+  grpcTls?: boolean; grpcServerCertPem?: string | null;
 }
 
 /** The project's active run id, or throw if the owner hasn't started one. */
@@ -90,8 +92,9 @@ export async function joinRun(p: JoinParams): Promise<JoinedRun> {
   const { data: enroll } = await api.post<EnrollResponse>(`/api/runs/${runId}/enroll`);
 
   const clientId = await getOrCreateClientId();
+  const useTls = p.useTls ?? enroll.grpcTls ?? false;
   const reg = await nativeCore.registerClient(
-    enroll.grpcEndpoint, runId, clientId, enroll.connectionToken, p.useTls ?? false,
+    enroll.grpcEndpoint, runId, clientId, enroll.connectionToken, useTls, enroll.grpcServerCertPem ?? '',
   );
   if (!reg.accepted) {
     throw new Error(reg.message || 'Server rejected the client registration.');

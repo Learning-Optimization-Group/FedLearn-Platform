@@ -186,8 +186,8 @@
 </thead>
 <tbody>
 <tr>
-<td><code>registerClient(serverAddress, runId, clientId, enrollmentToken, useTls)</code></td>
-<td>gRPC register; returns <code>assignedRound</code> (late-joiner) + the server protocol version</td>
+<td><code>registerClient(serverAddress, runId, clientId, enrollmentToken, useTls, serverCertPem)</code></td>
+<td>gRPC register over TLS when <code>useTls</code> (verifying the server against <code>serverCertPem</code>, the certificate from enrollment; <code>''</code> means the default roots); returns <code>assignedRound</code> (late-joiner) + the server protocol version</td>
 </tr>
 <tr>
 <td><code>getServerStatus(runId)</code></td>

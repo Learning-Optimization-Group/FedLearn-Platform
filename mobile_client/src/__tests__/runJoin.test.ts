@@ -41,7 +41,7 @@ describe('joinRun (slice 1b connect/enroll/register)', () => {
     expect(mApi.get).toHaveBeenCalledWith('/api/client/projects/p1');
     expect(mApi.get).toHaveBeenCalledWith('/api/runs/r1/status');
     expect(mApi.post).toHaveBeenCalledWith('/api/runs/r1/enroll');
-    expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', false);
+    expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', false, '');
     expect(out.runId).toBe('r1');
     expect(out.partitionId).toBe(2);
     expect(out.assignedRound).toBe(3);
@@ -79,7 +79,7 @@ describe('joinRun (slice 1b connect/enroll/register)', () => {
   test('passes useTls=true when explicitly requested', async () => {
     stubHappyPath();
     await joinRun({ projectId: 'p1', useTls: true });
-    expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', true);
+    expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', true, '');
   });
 
   // MO-16: each join must RE-RESOLVE the project's current active run — never reuse a stale runId. The
@@ -113,5 +113,39 @@ describe('joinRun (slice 1b connect/enroll/register)', () => {
     const second = await joinRun({ projectId: 'p1' });
     expect(second.runId).toBe('r2'); // re-resolved to the CURRENT run, not the stale r1
     expect(mApi.post).toHaveBeenCalledWith('/api/runs/r2/enroll'); // the second join enrolled the NEW run
+  });
+});
+
+// Server trust. The backend now tells an enrolling client whether the FL server requires TLS and hands it the server's
+// certificate, so the phone can verify a self-signed deployment without anything provisioned on the device.
+describe('joinRun — server trust from enrollment', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const enrollWith = (extra: Record<string, unknown>) =>
+    mApi.post.mockResolvedValue({ data: {
+      runId: 'r1', projectId: 'p1', grpcEndpoint: 'host:50001', partitionId: 2, clientKind: 'SHARD',
+      caFingerprint: 'srv-fp', connectionToken: 'tok-123', expiresAt: '2026-06-24T00:02:00Z', manifest: MANIFEST,
+      ...extra,
+    }});
+
+  test('dials TLS when the backend says the FL server requires it, trusting the certificate it sent', async () => {
+    stubHappyPath();
+    enrollWith({ grpcTls: true, grpcServerCertPem: 'SERVER-PEM' });
+    await joinRun({ projectId: 'p1' });
+    expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', true, 'SERVER-PEM');
+  });
+
+  test('a plaintext deployment dials plaintext and passes no certificate', async () => {
+    stubHappyPath();
+    enrollWith({ grpcTls: false, grpcServerCertPem: null });
+    await joinRun({ projectId: 'p1' });
+    expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', false, '');
+  });
+
+  test('an explicit useTls still wins over the backend', async () => {
+    stubHappyPath();
+    enrollWith({ grpcTls: true, grpcServerCertPem: 'SERVER-PEM' });
+    await joinRun({ projectId: 'p1', useTls: false });
+    expect(mCore.registerClient).toHaveBeenCalledWith('host:50001', 'r1', 'device-uuid', 'tok-123', false, 'SERVER-PEM');
   });
 });

@@ -72,7 +72,8 @@ fail-closed FL server that cannot read the keypair cannot launch at all.
 certificate from `app.fl.grpc.server-cert-path` (which defaults to `FEDLEARN_GRPC_SERVER_CERT`) and returns it with
 enrollment and with `GET /api/client/projects/{id}/connection`. The desktop app writes it to a file and sets the two
 variables below for the client it launches, in both the native and the Docker path. The manual steps below remain
-for clients the platform does not launch, such as a standalone Docker client. The phone does not dial TLS yet.
+for clients the platform does not launch, such as a standalone Docker client. The phone app does the same from its
+enrollment response, passing the certificate to its native client instead of writing a file.
 
 **Configuring clients (required)**: because the server now fails closed, every
 client must dial TLS or be rejected. Copy `/etc/fedlearn/grpc/server.crt`

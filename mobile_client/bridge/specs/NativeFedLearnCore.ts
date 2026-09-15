@@ -96,6 +96,8 @@ export interface Spec extends TurboModule {
     clientId: string,
     enrollmentToken: string,
     useTls: boolean,
+    // The FL server's certificate PEM from enrollment; '' when the deployment sent none.
+    serverCertPem: string,
   ): Promise<RegisterResult>;
   getServerStatus(runId: string): Promise<ServerStatus>;
   stop(): Promise<void>; // sets the abort flag; joins threads

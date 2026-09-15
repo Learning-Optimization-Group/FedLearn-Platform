@@ -228,16 +228,34 @@ void FedLearnCoreModule::requireReady() const {
     throw std::runtime_error("on-device training data not set (wired by the RN app layer, task 14)");
 }
 
+namespace {
+bool certFileExists(const std::string& path) {
+  struct stat st;
+  return ::stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode);
+}
+}  // namespace
+
 RegisterResult FedLearnCoreModule::doRegister(const std::string& serverAddress,
                                               const std::string& runId, const std::string& clientId,
-                                              const std::string& enrollmentToken, bool useTls) {
+                                              const std::string& enrollmentToken, bool useTls,
+                                              const std::string& serverCertPem) {
   std::lock_guard<std::mutex> lk(stateMutex_);
   fedlearn::GrpcClientConfig cfg;
   cfg.serverAddress = serverAddress;
   cfg.useTls = useTls;
-  cfg.caCertPath = dataDir_ + "/certs/ca.pem";
-  cfg.clientCertPath = dataDir_ + "/certs/client.pem";
-  cfg.clientKeyPath = dataDir_ + "/certs/client.key";
+  // Server trust: the FL server's certificate from enrollment, else a file pinned on the device, if any.
+  cfg.caCertPem = serverCertPem;
+  const std::string pinnedCa = dataDir_ + "/certs/ca.pem";
+  if (serverCertPem.empty() && certFileExists(pinnedCa)) {
+    cfg.caCertPath = pinnedCa;
+  }
+  // Client identity (mTLS) only when a keypair was provisioned. Nothing provisions one yet, so this is server TLS.
+  const std::string clientCert = dataDir_ + "/certs/client.pem";
+  const std::string clientKey = dataDir_ + "/certs/client.key";
+  if (certFileExists(clientCert) && certFileExists(clientKey)) {
+    cfg.clientCertPath = clientCert;
+    cfg.clientKeyPath = clientKey;
+  }
 
   net_ = std::make_unique<fedlearn::FedLearnClient>(cfg);
   clientId_ = clientId;
@@ -569,11 +587,12 @@ jsi::Value FedLearnCoreModule::runOnWorker(jsi::Runtime& rt, Work work, Build bu
 
 jsi::Value FedLearnCoreModule::registerClient(jsi::Runtime& rt, jsi::String serverAddress,
                                               jsi::String runId, jsi::String clientId,
-                                              jsi::String enrollmentToken, bool useTls) {
+                                              jsi::String enrollmentToken, bool useTls,
+                                              jsi::String serverCertPem) {
   std::string addr = serverAddress.utf8(rt), run = runId.utf8(rt), cid = clientId.utf8(rt),
-              tok = enrollmentToken.utf8(rt);
+              tok = enrollmentToken.utf8(rt), pem = serverCertPem.utf8(rt);
   return runOnWorker(
-      rt, [this, addr, run, cid, tok, useTls]() { return doRegister(addr, run, cid, tok, useTls); },
+      rt, [this, addr, run, cid, tok, useTls, pem]() { return doRegister(addr, run, cid, tok, useTls, pem); },
       [](jsi::Runtime& r, const RegisterResult& v) { return toJs(r, v); });
 }
 
