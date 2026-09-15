@@ -75,9 +75,19 @@ target_include_directories(fedlearn_core PUBLIC
   "${TORCH_INCLUDE}"            # ordered last: only the missing cmake_macros.h should fall through
 )
 
+# GNU ld reads static archives in one left-to-right pass, and extension_module (added with the
+# training libs) needs extension_data_loader and extension_flat_tensor, which are listed before it.
+# A group makes the linker search these archives until nothing new resolves. Apple's linker does
+# not depend on archive order, so its link line is unchanged.
+if(APPLE)
+  set(_et_link ${_resolved})
+else()
+  set(_et_link "-Wl,--start-group" ${_resolved} "-Wl,--end-group")
+endif()
+
 target_link_libraries(fedlearn_core PUBLIC
   ${_force_ops}
-  ${_resolved}
+  ${_et_link}
 )
 target_compile_features(fedlearn_core PUBLIC cxx_std_17)
 
