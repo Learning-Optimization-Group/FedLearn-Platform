@@ -4,9 +4,12 @@ The all-present trigger (every key-publisher submitted) is the fast path. A drop
 reaches that count, so without a deadline the round freezes forever -- which would make
 LightSecAgg's headline property, dropout resilience, unreachable in deployment.
 
-These tests drive the MECHANISM directly, the way the simulator does, so no test sleeps out a
-120s deadline. The wall-clock POLICY stays in _handle_round_timeout.
+Most of these tests drive the MECHANISM directly, the way the simulator does, so none sleeps out
+a 120s deadline. The wall-clock POLICY lives in _handle_round_timeout and the wait loop, and the
+tests that exercise that loop give it a sub-second deadline.
 """
+import threading
+import time
 from collections import OrderedDict
 from unittest.mock import MagicMock
 
@@ -20,7 +23,7 @@ from fedlearn.server.grpc_servicer import FederatedLearningServiceServicer
 from tests.test_secure_agg_client import _DirectStub
 
 
-def _servicer(threshold=2, K=1, P=2, clients_per_round=3, min_clients=2):
+def _servicer(threshold=2, K=1, P=2, clients_per_round=3, min_clients=2, round_timeout_s=None):
     strategy = DeComFL(
         initial_parameters=OrderedDict({"w": torch.zeros(4)}),
         num_local_steps=K, num_perturbations=P,
@@ -29,6 +32,7 @@ def _servicer(threshold=2, K=1, P=2, clients_per_round=3, min_clients=2):
         strategy,
         min_clients_for_aggregation=min_clients,
         clients_per_round=clients_per_round,
+        round_timeout_s=round_timeout_s,
     )
     coord.bind_or_check_identity = MagicMock(return_value=True)
     strategy.get_or_create_seeds(coord.current_round)
@@ -244,3 +248,130 @@ def test_a_late_summed_share_cannot_complete_a_DIFFERENT_round():
         "a stale round's scalars were applied as the current round's update"
     )
     assert coord.current_round == round_one + 1, "a stale share advanced the round"
+
+
+def _published(servicer, partitions, round_num, n, threshold=2):
+    """Clients that have published their key for ``round_num`` and are waiting for the cohort."""
+    clients = {
+        p: SecureAggregationClient(_DirectStub(servicer, p), client_id=f"c{p}")
+        for p in partitions
+    }
+    for c in clients.values():
+        c.begin_round(round_num=round_num, threshold=threshold, num_scalars=2, cohort_size=n)
+    return clients
+
+
+def _wait_until(predicate, timeout_s=5.0):
+    deadline = time.monotonic() + timeout_s
+    while not predicate() and time.monotonic() < deadline:
+        time.sleep(0.02)
+    return predicate()
+
+
+# The tests above call the resolution mechanism directly. The server does not: its main loop calls
+# wait_for_round_to_complete() once per round and moves on when it returns. These drive that real
+# wait loop with a short deadline, which is where a live gRPC run with a dropout found it
+# returning as soon as the deadline froze the set -- the loop then logged the round complete and
+# started the next, and the holders finished the frozen round inside the next iteration, so a
+# 3-round run aggregated 2 rounds and logged 3.
+
+def test_the_wait_loop_keeps_waiting_on_a_frozen_round_instead_of_moving_on():
+    servicer = _servicer(round_timeout_s=0.5)
+    coord = servicer.coordinator
+    coord.start_round()
+    clients = _cohort(servicer, [1, 2, 3], round_num=1, threshold=2, n=3)
+    session = _mask_in(servicer, clients, {1: [0.4, -0.2], 2: [0.1, 0.3]}, round_num=1)
+
+    waiter = threading.Thread(target=coord.wait_for_round_to_complete, daemon=True)
+    waiter.start()
+    assert _wait_until(lambda: session.is_closed), "the deadline never froze the set"
+    time.sleep(0.1)
+    assert waiter.is_alive(), (
+        "the wait returned when the set froze, before any summed share arrived; the server's "
+        "main loop then starts the next round and the run ends a round short"
+    )
+
+    frozen = FrozenSurvivors(tuple(session.survivors))
+    for p in session.survivors:
+        clients[p].finish_round(round_num=1, survivors=frozen)
+    waiter.join(timeout=5)
+
+    assert not waiter.is_alive()
+    assert coord.current_round == 2
+    assert not coord.stop_requested
+
+
+def test_the_wait_loop_stops_a_frozen_round_whose_holders_never_return():
+    """Waiting on past the freeze must not become waiting forever."""
+    servicer = _servicer(round_timeout_s=0.5)
+    coord = servicer.coordinator
+    coord.start_round()
+    clients = _cohort(servicer, [1, 2, 3], round_num=1, threshold=2, n=3)
+    _mask_in(servicer, clients, {1: [0.4, -0.2], 2: [0.1, 0.3]}, round_num=1)
+
+    waiter = threading.Thread(target=coord.wait_for_round_to_complete, daemon=True)
+    waiter.start()
+    waiter.join(timeout=6)
+
+    assert not waiter.is_alive(), "a frozen round with no summed shares hung the wait loop"
+    assert coord.stop_requested, "the wait returned without finishing or stopping the round"
+    assert "summed share" in (coord.last_round_message or "")
+
+
+# A client that leaves for good never publishes a key again, so no later round's cohort reaches
+# clients_per_round. Clients wait for a closed cohort before sealing shares, so when the deadline
+# closes it nobody can have submitted yet. The live run showed that same deadline call then
+# judging the round as a plaintext round with 0 of 4 reports and stopping the server -- every run
+# that lost a client for good stopped at the next round.
+
+def test_a_deadline_on_a_cohort_that_never_filled_closes_it_and_lets_the_round_run():
+    servicer = _servicer()                     # 3 per round, min 2, threshold 2
+    coord = servicer.coordinator
+    _published(servicer, [1, 2], round_num=1, n=3)
+    session = servicer._secure_session(1)
+    assert not session.is_cohort_closed
+
+    coord.resolve_round_incomplete("deadline")
+
+    assert session.is_cohort_closed, "the deadline did not close the cohort"
+    assert not coord.stop_requested, (
+        "the run was stopped although the two clients in the cohort can still finish the round"
+    )
+    assert coord.current_round == 1
+
+
+def test_after_that_close_the_remaining_clients_complete_the_round():
+    servicer = _servicer()
+    coord = servicer.coordinator
+    strategy = coord.strategy
+    before = strategy.global_params_flat.clone()
+
+    clients = _published(servicer, [1, 2], round_num=1, n=3)
+    coord.resolve_round_incomplete("deadline")          # closes the cohort at two keys
+    assert not coord.stop_requested
+    for c in clients.values():
+        c.distribute_shares(round_num=1)
+    for c in clients.values():
+        c.collect_shares(round_num=1)
+    session = _mask_in(servicer, clients, {1: [0.4, -0.2], 2: [0.1, 0.3]}, round_num=1)
+    coord.resolve_round_incomplete("deadline")          # freezes the two survivors
+    frozen = FrozenSurvivors(tuple(session.survivors))
+    for p in session.survivors:
+        clients[p].finish_round(round_num=1, survivors=frozen)
+
+    assert not torch.equal(strategy.global_params_flat, before)
+    assert coord.current_round == 2
+
+
+def test_a_cohort_too_small_for_the_minimum_stops_the_run_and_says_so():
+    """Closing is only worth it when the cohort can still meet the minimum. One key against a
+    minimum of two cannot, and the message must say keys, not "0 of 3 clients reported"."""
+    servicer = _servicer(min_clients=2)
+    coord = servicer.coordinator
+    _published(servicer, [1], round_num=1, n=3)
+
+    coord.resolve_round_incomplete("deadline")
+
+    assert coord.stop_requested
+    assert "key" in (coord.last_round_message or ""), coord.last_round_message
+

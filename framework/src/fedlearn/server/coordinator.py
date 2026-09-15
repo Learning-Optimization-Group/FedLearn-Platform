@@ -138,13 +138,22 @@ class FLCoordinator:
         ``clients_per_round`` report, the round is resolved instead of hanging
         forever: force-aggregated with whatever arrived if at least
         ``min_clients`` (>=1) reported, otherwise the server is signalled to stop.
+
+        A secure round is resolved in steps, not at once: a deadline may only close its cohort or
+        freeze its surviving set, after which clients still have work to do. So the wait carries
+        on with a fresh deadline until the round completes or is stopped. Returning after the
+        first step made the main loop log the round complete and start the next one while the
+        holders were still finishing it, and a run ended a round short.
         """
         while not self._round_complete_event.wait(timeout=1.0):
             if self.stop_requested:
                 break
             if (time.monotonic() - self._round_started_at) >= self.round_timeout_s:
                 self._handle_round_timeout()
-                break
+                if self._round_complete_event.is_set() or self.stop_requested:
+                    break
+                with self._lock:
+                    self._round_started_at = time.monotonic()
 
     def set_secure_session_provider(self, provider) -> None:
         """Register how to reach a round's secure-aggregation session (P2-2).
@@ -209,7 +218,33 @@ class FLCoordinator:
             if session is not None and not session.is_cohort_closed and len(session.cohort_keys()):
                 # Clients wait for a closed cohort before sealing shares, so a round where fewer
                 # than clients_per_round ever published would otherwise never get started at all.
-                session.close_cohort()
+                keys = session.close_cohort()
+                if not session.survivors:
+                    # Nobody can have submitted yet: every client was waiting for this close, so the
+                    # round has only just started and is not judged here. Judging it as a short
+                    # plaintext round ("0 of N reported") stopped every run at the first round after
+                    # a client left for good.
+                    required = max(1, self.min_clients, session.threshold)
+                    if len(keys) >= required:
+                        log.warning(
+                            "Secure round %d %s; closing the cohort at %d key(s): %s. Clients can "
+                            "now seal shares, and the round has until the next deadline to submit.",
+                            self.current_round, reason, len(keys), sorted(keys),
+                        )
+                        return
+                    log.error(
+                        "Secure round %d %s with only %d client(s) publishing a key (min "
+                        "required=%d); stopping server",
+                        self.current_round, reason, len(keys), required,
+                    )
+                    self.last_round_failed = True
+                    self.last_round_message = (
+                        f"Round {self.current_round} {reason} with only {len(keys)} client(s) "
+                        f"publishing a key (min required={required}); server stopped."
+                    )
+                    self.stop_requested = True
+                    self._round_complete_event.set()
+                    return
             if session is not None and session.survivors:
                 self._resolve_secure_round_incomplete(session, reason)
                 return
