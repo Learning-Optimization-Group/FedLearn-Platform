@@ -481,4 +481,52 @@ class RunServiceTest {
         assertNull(dto.getRobustByzantineFraction());
         assertNull(dto.getRobustTrimRatio());
     }
+
+    // ─── Secure aggregation on the run record ───────────────────────────────────────────────────
+    // The phone decides from the manifest whether it can take part, so the flag is stored, not inferred.
+
+    @Test
+    void createForStart_recordsSecureAggregationAndItsThreshold() {
+        when(runRepository.save(any(Run.class))).thenAnswer(inv -> inv.getArgument(0));
+        Run run = runService.createForStart(project(UUID.randomUUID()), "DeComFL", 5, 3, 3, null, 2);
+        assertTrue(run.isSecureAggregation());
+        assertEquals(2, run.getSecureAggThreshold());
+    }
+
+    @Test
+    void createForStart_withoutAThreshold_recordsSecureAggregationOff() {
+        when(runRepository.save(any(Run.class))).thenAnswer(inv -> inv.getArgument(0));
+        Run run = runService.createForStart(project(UUID.randomUUID()), "DeComFL", 5, 3, 3, null, null);
+        assertFalse(run.isSecureAggregation());
+        assertNull(run.getSecureAggThreshold());
+    }
+
+    @Test
+    void getManifest_saysWhetherTheRunIsSecure() {
+        UUID rid = UUID.randomUUID();
+        UUID pid = UUID.randomUUID();
+        Run r = new Run();
+        r.setId(rid); r.setProjectId(pid);
+        r.setStatus(RunStatus.RUNNING);
+        r.setRecipeKey("CNN");
+        r.setStrategy("DeComFL");
+        r.setNumRounds(5);
+        r.setClientsPerRound(3);
+        r.setPartitioningMode(PartitioningMode.SHARDED);
+        r.setSecureAggregation(true);
+        r.setSecureAggThreshold(3);
+
+        Project p = project(pid);
+        User u = new User(); u.setId(7L);
+        when(runRepository.findById(rid)).thenReturn(java.util.Optional.of(r));
+        when(projectRepository.findById(pid)).thenReturn(java.util.Optional.of(p));
+        when(authz.currentUser()).thenReturn(u);
+        when(membershipRepository.findByIdProjectIdAndIdUserId(pid, 7L))
+                .thenReturn(java.util.Optional.of(membership(p, u, MembershipRole.CLIENT)));
+
+        var dto = runService.getManifest(rid);
+
+        assertTrue(dto.isSecureAggregation());
+        assertEquals(3, dto.getSecureAggThreshold());
+    }
 }

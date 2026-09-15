@@ -157,3 +157,72 @@ describe('StartProjectModal — robust aggregation rule', () => {
     expect(Object.keys(config).sort()).toEqual(['minClients', 'numRounds', 'strategy']);
   });
 });
+
+// Secure aggregation. Offered only for DeComFL, because masking exists only on DeComFL's gradient-scalar
+// channel; on any other method the server flag would do nothing. The threshold appears only when it is on, and
+// the dialog says plainly that phones cannot join a secure run yet.
+describe('StartProjectModal — secure aggregation', () => {
+  const SECURE = 'Secure aggregation';
+  const THRESHOLD = 'Devices needed to rebuild the sum';
+
+  const chooseStrategy = (value: string) =>
+    fireEvent.change(screen.getByLabelText('Training method'), { target: { value } });
+  const setSecure = (value: 'on' | 'off') =>
+    fireEvent.change(screen.getByLabelText(SECURE), { target: { value } });
+  const submit = () => fireEvent.click(screen.getByRole('button', { name: /start training/i }));
+
+  it('is offered only for the DeComFL method', () => {
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    expect(screen.queryByLabelText(SECURE)).not.toBeInTheDocument();
+    chooseStrategy('Robust');
+    expect(screen.queryByLabelText(SECURE)).not.toBeInTheDocument();
+    chooseStrategy('DeComFL');
+    expect(screen.getByLabelText(SECURE)).toBeInTheDocument();
+  });
+
+  it('shows the threshold only once it is on, and warns that phones cannot join', () => {
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    chooseStrategy('DeComFL');
+    expect(screen.queryByLabelText(THRESHOLD)).not.toBeInTheDocument();
+    setSecure('on');
+    expect(screen.getByLabelText(THRESHOLD)).toBeInTheDocument();
+    expect(screen.getByText(/phones can.?t join/i)).toBeInTheDocument();
+  });
+
+  it('submits secure aggregation with its threshold', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={onSubmit} />);
+    chooseStrategy('DeComFL');
+    setSecure('on');
+    fireEvent.change(screen.getByLabelText(THRESHOLD), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('Devices needed to start'), { target: { value: '5' } });
+    submit();
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit).toHaveBeenCalledWith('p1', {
+      strategy: 'DeComFL', numRounds: 5, minClients: 5, secureAggregation: true, secureAggThreshold: 3,
+    });
+  });
+
+  it('sends no secure-aggregation fields while it is off', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={onSubmit} />);
+    chooseStrategy('DeComFL');
+    submit();
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(Object.keys(onSubmit.mock.calls[0][1]).sort()).toEqual(['minClients', 'numRounds', 'strategy']);
+  });
+
+  it('sends no secure-aggregation fields after switching to another method', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={onSubmit} />);
+    chooseStrategy('DeComFL');
+    setSecure('on');
+    chooseStrategy('FedAvg');
+    submit();
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(Object.keys(onSubmit.mock.calls[0][1]).sort()).toEqual(['minClients', 'numRounds', 'strategy']);
+  });
+});

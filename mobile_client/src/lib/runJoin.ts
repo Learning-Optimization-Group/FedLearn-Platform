@@ -21,6 +21,9 @@ export interface RunManifest {
   // exactly as before. Set true only once the trainable-.pte bundle + the native firstOrderRound
   // wiring are in place end-to-end.
   firstOrderSupported?: boolean;
+  // Secure aggregation (LightSecAgg): the server accepts only masked gradient scalars. The phone cannot mask,
+  // so runTrainingLoop refuses such a run. Absent (a backend from before this field) means off.
+  secureAggregation?: boolean;
 }
 
 export interface JoinParams {

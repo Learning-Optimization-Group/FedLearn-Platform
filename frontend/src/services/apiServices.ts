@@ -62,6 +62,10 @@ export interface StartServerData {
     trimRatio?: number;
     /** Robust CENTERED_CLIP only: clipping radius, > 0. */
     centeredClipTau?: number;
+    /** DeComFL only: devices mask their updates so the server sees only the sum. Needs client auth on the server. */
+    secureAggregation?: boolean;
+    /** Secure aggregation only: shares needed to rebuild the sum, from 2 to minClients. Server default 2. */
+    secureAggThreshold?: number;
 }
 
 export interface Project {
@@ -225,6 +229,13 @@ export const startProjectServer = (projectId: string, startData: StartServerData
     }
     if (startData?.centeredClipTau !== undefined) {
         body.centeredClipTau = startData.centeredClipTau;
+    }
+    // Secure aggregation is sent only when on: the backend refuses a threshold without it.
+    if (startData?.secureAggregation) {
+        body.secureAggregation = true;
+        if (startData.secureAggThreshold !== undefined) {
+            body.secureAggThreshold = startData.secureAggThreshold;
+        }
     }
     return api.post<Project>(`/projects/${projectId}/start`, body);
 };

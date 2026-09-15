@@ -27,7 +27,11 @@ import { joinRun } from '../lib/runJoin';
 import nativeCore from '../lib/nativeCore';
 import { connectStomp, type StompHandle } from '../lib/stompClient';
 import { foregroundService } from '../lib/foregroundService';
-import { runTrainingLoop, MobileFedAvgUnsupportedError } from '../lib/training';
+import {
+  runTrainingLoop,
+  MobileFedAvgUnsupportedError,
+  MobileSecureAggregationUnsupportedError,
+} from '../lib/training';
 import { startServerStatusHeartbeat } from '../lib/statusHeartbeat';
 import { ModelDeliveryUnavailableError } from '../lib/modelProvisioning';
 import { readError } from '../lib/errors';
@@ -150,7 +154,11 @@ export function TrainingProvider({ children }: { children: React.ReactNode }) {
         shouldStop: () => stopRef.current,
       });
     } catch (e) {
-      if (e instanceof ModelDeliveryUnavailableError || e instanceof MobileFedAvgUnsupportedError) {
+      if (
+        e instanceof ModelDeliveryUnavailableError ||
+        e instanceof MobileFedAvgUnsupportedError ||
+        e instanceof MobileSecureAggregationUnsupportedError
+      ) {
         // Known "can't train here (yet)" refusals — informational, not a failure.
         dispatch({ type: 'LOG_APPEND', body: e.message, level: 'INFO' });
       } else {

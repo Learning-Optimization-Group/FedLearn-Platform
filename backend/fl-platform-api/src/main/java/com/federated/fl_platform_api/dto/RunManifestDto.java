@@ -21,6 +21,10 @@ public class RunManifestDto {
     private Double robustByzantineFraction;
     private Double robustTrimRatio;
     private Double centeredClipTau;
+    // V25: true when the run uses secure aggregation; the threshold is null when it does not. A client that
+    // cannot mask its update must refuse such a run, and the phone does.
+    private boolean secureAggregation;
+    private Integer secureAggThreshold;
 
     public UUID getRunId() { return runId; }
     public void setRunId(UUID runId) { this.runId = runId; }
@@ -50,4 +54,8 @@ public class RunManifestDto {
     public void setRobustTrimRatio(Double robustTrimRatio) { this.robustTrimRatio = robustTrimRatio; }
     public Double getCenteredClipTau() { return centeredClipTau; }
     public void setCenteredClipTau(Double centeredClipTau) { this.centeredClipTau = centeredClipTau; }
+    public boolean isSecureAggregation() { return secureAggregation; }
+    public void setSecureAggregation(boolean secureAggregation) { this.secureAggregation = secureAggregation; }
+    public Integer getSecureAggThreshold() { return secureAggThreshold; }
+    public void setSecureAggThreshold(Integer secureAggThreshold) { this.secureAggThreshold = secureAggThreshold; }
 }

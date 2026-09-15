@@ -34,6 +34,19 @@ export class MobileFedAvgUnsupportedError extends Error {
   }
 }
 
+/**
+ * Raised when a phone joins a run that uses secure aggregation (manifest.secureAggregation). Such a server
+ * accepts only masked gradient scalars and refuses unmasked ones, and the phone has no key agreement, share
+ * sealing or masking, so every round it trained would be thrown away. Refused before any provisioning or native
+ * work. Caught by the training UI and shown as information, like the MO-4 refusal above.
+ */
+export class MobileSecureAggregationUnsupportedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MobileSecureAggregationUnsupportedError';
+  }
+}
+
 // The client proposes a config; the server is authoritative on K/P (applied inside the native round).
 function roundConfigFor(joined: JoinedRun): RoundConfig {
   const m = joined.manifest;
@@ -203,6 +216,15 @@ export async function runTrainingLoop(
   hooks: TrainingHooks,
   overrides?: { policy?: ResiliencePolicy; ops?: Partial<RoundOps> },
 ): Promise<void> {
+  // Secure aggregation rules out every on-device path, so it is checked first: the first-order path's weight
+  // upload is not masked either.
+  if (joined.manifest.secureAggregation === true) {
+    throw new MobileSecureAggregationUnsupportedError(
+      'This run uses secure aggregation, which this device cannot take part in yet: the phone cannot mask ' +
+        'its update, and the server refuses unmasked ones. Join this run from the desktop app instead.',
+    );
+  }
+
   // A run is FIRST-ORDER trainable on-device whenever the backend provisioned a trainable bundle
   // (manifest.firstOrderSupported) — the native firstOrderRound does real backprop and uploads a WEIGHT
   // blob that ANY gradient-aggregation server consumes (FedAvg/FedProx/FedOpt/Robust all take

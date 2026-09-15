@@ -43,6 +43,9 @@ const ROBUST_RULES: { value: string; label: string; help: string; param: RobustP
     help: 'Bounds each update instead of discarding any. The radius should match a typical update size.' },
 ];
 
+// Secure aggregation's lowest reconstruction threshold, and its default: the server refuses anything lower.
+const SECURE_AGG_MIN_THRESHOLD = 2;
+
 export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartProjectModalProps) {
   const [strategy, setStrategy] = useState('FedAvg');
   const [numRounds, setNumRounds] = useState(5);
@@ -51,6 +54,8 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
   const [byzantineFraction, setByzantineFraction] = useState(0.1);
   const [trimRatio, setTrimRatio] = useState(0.1);
   const [centeredClipTau, setCenteredClipTau] = useState(1);
+  const [secureAggregation, setSecureAggregation] = useState(false);
+  const [secureAggThreshold, setSecureAggThreshold] = useState(SECURE_AGG_MIN_THRESHOLD);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -59,6 +64,8 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
   const isLlmLora = (project?.modelType ?? '').toUpperCase() === 'LLM_LORA';
   const showRobust = !isLlmLora && strategy === 'Robust';
   const selectedRule = ROBUST_RULES.find((r) => r.value === robustMethod);
+  // Secure aggregation masks only DeComFL's gradient scalars, so it is offered only there.
+  const showSecure = !isLlmLora && strategy === 'DeComFL';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +86,11 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
         if (selectedRule.param === 'trim') config.trimRatio = Number(trimRatio);
         if (selectedRule.param === 'tau') config.centeredClipTau = Number(centeredClipTau);
       }
+      // Likewise secure aggregation: sent only while DeComFL is selected and it is switched on.
+      if (showSecure && secureAggregation) {
+        config.secureAggregation = true;
+        config.secureAggThreshold = Number(secureAggThreshold);
+      }
       await onSubmit(project.id, config);
       // Reset form defaults upon success
       setStrategy('FedAvg');
@@ -88,6 +100,8 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       setByzantineFraction(0.1);
       setTrimRatio(0.1);
       setCenteredClipTau(1);
+      setSecureAggregation(false);
+      setSecureAggThreshold(SECURE_AGG_MIN_THRESHOLD);
     } catch (err) {
       // Keep the modal open and surface the backend detail inline, so the
       // failure isn't hidden behind the modal on the route beneath it.
@@ -196,6 +210,46 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
                   required
                 />
               </FormField>
+            )}
+          </>
+        )}
+
+        {showSecure && (
+          <>
+            <FormField
+              label="Secure aggregation"
+              help="Each device masks its update, so the server only ever sees the combined result."
+            >
+              <Select
+                value={secureAggregation ? 'on' : 'off'}
+                onChange={(e) => setSecureAggregation(e.target.value === 'on')}
+              >
+                <option value="off">Off</option>
+                <option value="on">On</option>
+              </Select>
+            </FormField>
+            {secureAggregation && (
+              <>
+                <FormField
+                  label="Devices needed to rebuild the sum"
+                  help="At least 2, and no more than the devices needed to start."
+                >
+                  <Input
+                    type="number"
+                    min={SECURE_AGG_MIN_THRESHOLD}
+                    max={minClients}
+                    step="1"
+                    value={secureAggThreshold}
+                    onChange={(e) => setSecureAggThreshold(Number(e.target.value))}
+                    required
+                  />
+                </FormField>
+                <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2.5 text-label text-fg">
+                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-warning" strokeWidth={1.5} />
+                  Phones can’t join a secure run yet, so devices need the desktop app or the Docker client. The
+                  server also can’t screen individual updates for poisoning, because it never sees them.
+                </p>
+              </>
             )}
           </>
         )}

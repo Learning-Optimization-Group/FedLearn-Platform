@@ -91,6 +91,22 @@ public class StartProject {
     @DecimalMin(value = "0.0", inclusive = false, message = "centeredClipTau must be greater than 0")
     private Double centeredClipTau;
 
+    /**
+     * DeComFL only: mask each client's gradient scalars with secure aggregation, so the server learns only their
+     * sum. The service refuses it on any other strategy, where nothing would be masked, and when the FL server
+     * does not require client auth.
+     */
+    private Boolean secureAggregation;
+
+    /**
+     * Secure aggregation only: how many clients' shares are needed to rebuild the sum. The floor of 2 mirrors
+     * fl_server.py's own minimum; the ceiling of minClients is checked in the service, which knows the resolved
+     * value. Omitted means 2.
+     */
+    @Min(value = 2, message = "secureAggThreshold must be at least 2")
+    @Max(value = 100, message = "secureAggThreshold must be at most 100")
+    private Integer secureAggThreshold;
+
     public String getStrategy() {
         return strategy;
     }
@@ -171,5 +187,21 @@ public class StartProject {
 
     public void setCenteredClipTau(Double centeredClipTau) {
         this.centeredClipTau = centeredClipTau;
+    }
+
+    public Boolean getSecureAggregation() {
+        return secureAggregation;
+    }
+
+    public void setSecureAggregation(Boolean secureAggregation) {
+        this.secureAggregation = secureAggregation;
+    }
+
+    public Integer getSecureAggThreshold() {
+        return secureAggThreshold;
+    }
+
+    public void setSecureAggThreshold(Integer secureAggThreshold) {
+        this.secureAggThreshold = secureAggThreshold;
     }
 }

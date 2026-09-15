@@ -128,6 +128,14 @@ public class FlServerManager {
     private final Map<UUID, Integer> reservedPortByProject = new ConcurrentHashMap<>();
 
     /**
+     * Whether spawned FL servers require a verified client connection token (SE-14). Secure aggregation depends
+     * on it, so {@code /start} consults this before accepting a secure run.
+     */
+    public boolean isClientAuthRequired() {
+        return requireClientAuth;
+    }
+
+    /**
      * Start the FL server for a project and return the reserved local port.
      *
      * <p>Returns {@link Optional#empty()} only on the managed/ECS path, which is
@@ -142,6 +150,16 @@ public class FlServerManager {
     /** As above, with the Robust aggregation settings to pass to fl_server.py (null = none). */
     public Optional<Integer> startServerForProject(Project project, String strategy, Integer numRounds,
                                                    Integer minClients, RobustAggregationSettings robust) {
+        return startServerForProject(project, strategy, numRounds, minClients, robust, null);
+    }
+
+    /**
+     * As above, plus the secure-aggregation reconstruction threshold: non-null turns secure aggregation on at
+     * that threshold, null leaves it off.
+     */
+    public Optional<Integer> startServerForProject(Project project, String strategy, Integer numRounds,
+                                                   Integer minClients, RobustAggregationSettings robust,
+                                                   Integer secureAggThreshold) {
         requireDpPolicySatisfied(project);   // SE-11: gate every start path, before any spawn
         requireModelTypeInCatalog(project, strategy);   // SE-10: unknown modelType -> 400 before spawn
         if (!isBlank(ecsClusterName)) {
@@ -159,12 +177,12 @@ public class FlServerManager {
                             + "(tasks cannot be tracked or stopped). "
                             + "Unset ecs.cluster-name to run FL servers as local processes.");
         }
-        return startLocalServer(project, strategy, numRounds, minClients, robust);
+        return startLocalServer(project, strategy, numRounds, minClients, robust, secureAggThreshold);
     }
 
     private Optional<Integer> startLocalServer(Project project, String strategy,
                                                Integer numRounds, Integer minClients,
-                                               RobustAggregationSettings robust) {
+                                               RobustAggregationSettings robust, Integer secureAggThreshold) {
         SpawnedFlProcess process = null;
         int freePort = -1;
         boolean started = false;   // BA-13: true once the child is tracked + holds its port for its life
@@ -186,7 +204,7 @@ public class FlServerManager {
             String initModelPath = registryModelResolver.resolveModelPath(project).orElse(null);
             List<String> command = buildServerCommand(
                     project, strategy, numRounds, minClients, freePort, absoluteScriptPath, isWindows,
-                    initModelPath, robust);
+                    initModelPath, robust, secureAggThreshold);
 
             // SE-7: mint a random per-run internal token scoped to (projectId, runId) and hand ONLY
             // it to the child — never a secret it could use to forge another project's token. It is
@@ -479,11 +497,29 @@ public class FlServerManager {
                                            Integer minClients, int freePort, String absoluteScriptPath,
                                            boolean isWindows, String initModelPath,
                                            RobustAggregationSettings robust) {
+        return buildServerCommand(project, strategy, numRounds, minClients, freePort, absoluteScriptPath,
+                isWindows, initModelPath, robust, null);
+    }
+
+    /**
+     * As above, plus the secure-aggregation threshold. {@code null} emits no secure-aggregation flags, so every
+     * other start's argv is unchanged.
+     */
+    static List<String> buildServerCommand(Project project, String strategy, Integer numRounds,
+                                           Integer minClients, int freePort, String absoluteScriptPath,
+                                           boolean isWindows, String initModelPath,
+                                           RobustAggregationSettings robust, Integer secureAggThreshold) {
         // Robust settings mean something only to the Robust strategy. Anywhere else fl_server.py would ignore
         // them, and the run record would name a rule that never ran.
         if (robust != null && !"Robust".equals(strategy)) {
             throw new IllegalArgumentException(
                     "Robust aggregation settings are valid only for the Robust strategy, not " + strategy);
+        }
+        // Secure aggregation masks only DeComFL's gradient scalars. On any other strategy fl_server.py would take
+        // the flag and mask nothing, and the run record would call the run secure.
+        if (secureAggThreshold != null && !"DeComFL".equals(strategy)) {
+            throw new IllegalArgumentException(
+                    "Secure aggregation is valid only for the DeComFL strategy, not " + strategy);
         }
         boolean isFoT = "FoT".equalsIgnoreCase(strategy);
         // SE-11: the FoT text-federation server has no DP flag contract; spawning it for a
@@ -604,6 +640,13 @@ public class FlServerManager {
                     command.add("--centered-clip-tau");
                     command.add(String.valueOf(robust.centeredClipTau().doubleValue()));
                 }
+            }
+            // Secure aggregation, a pinned flag contract with fl_server.py's argparse. The threshold is always
+            // passed, so the argv carries the value the run was stored with rather than relying on the default.
+            if (secureAggThreshold != null) {
+                command.add("--secure-aggregation");
+                command.add("--secure-agg-threshold");
+                command.add(String.valueOf(secureAggThreshold.intValue()));
             }
         }
         return command;

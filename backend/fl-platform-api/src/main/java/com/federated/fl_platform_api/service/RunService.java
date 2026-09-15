@@ -107,6 +107,15 @@ public class RunService {
 
     public Run createForStart(Project project, String strategy, int numRounds,
                               int minClients, int clientsPerRound, RobustAggregationSettings robust) {
+        return createForStart(project, strategy, numRounds, minClients, clientsPerRound, robust, null);
+    }
+
+    /**
+     * As above, plus secure aggregation: a non-null {@code secureAggThreshold} records a secure run at that
+     * threshold, and null records secure aggregation off.
+     */
+    public Run createForStart(Project project, String strategy, int numRounds, int minClients,
+                              int clientsPerRound, RobustAggregationSettings robust, Integer secureAggThreshold) {
         Run run = new Run();
         run.setProjectId(project.getId());
         run.setStrategy(strategy);
@@ -120,6 +129,8 @@ public class RunService {
         run.setCreatedBy(project.getUser() != null ? project.getUser().getId() : null);
         run.setCreatedAt(Instant.now());
         applyRobustSettings(run, strategy, robust);
+        run.setSecureAggregation(secureAggThreshold != null);
+        run.setSecureAggThreshold(secureAggThreshold);
         return runRepository.save(run);
     }
 
@@ -228,6 +239,8 @@ public class RunService {
         m.setRobustByzantineFraction(run.getRobustByzantineFraction());
         m.setRobustTrimRatio(run.getRobustTrimRatio());
         m.setCenteredClipTau(run.getCenteredClipTau());
+        m.setSecureAggregation(run.isSecureAggregation());
+        m.setSecureAggThreshold(run.getSecureAggThreshold());
         m.setFirstOrderSupported(hasStagedTrainableBundle(run.getId()));
         return m;
     }

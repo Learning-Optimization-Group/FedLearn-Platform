@@ -45,4 +45,16 @@ describe('startProjectServer — request body', () => {
       strategy: 'FedAvg', numRounds: 5, minClients: 2,
     });
   });
+
+  it('passes secure aggregation and its threshold through', async () => {
+    await startProjectServer('p1', { strategy: 'DeComFL', secureAggregation: true, secureAggThreshold: 2 });
+    expect(api.post).toHaveBeenCalledWith('/projects/p1/start', {
+      strategy: 'DeComFL', secureAggregation: true, secureAggThreshold: 2,
+    });
+  });
+
+  it('sends nothing secure when secure aggregation is off', async () => {
+    await startProjectServer('p1', { strategy: 'DeComFL', secureAggregation: false });
+    expect(api.post).toHaveBeenCalledWith('/projects/p1/start', { strategy: 'DeComFL' });
+  });
 });

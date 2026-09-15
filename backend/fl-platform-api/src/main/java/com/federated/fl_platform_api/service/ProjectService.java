@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 
 @Service
@@ -182,6 +183,59 @@ public class ProjectService {
             throw new IllegalArgumentException(reason);
         });
         return settings;
+    }
+
+    /**
+     * fl_server.py's lowest secure-aggregation threshold, and its default. A one-client "sum" is that client's own
+     * update.
+     */
+    static final int MIN_SECURE_AGG_THRESHOLD = 2;
+
+    /**
+     * The secure-aggregation reconstruction threshold for a start, or null when secure aggregation is off.
+     *
+     * <p>Refuses, with a 400, a start that would claim secure aggregation without delivering it: a threshold without
+     * {@code secureAggregation=true}; secure aggregation on a strategy other than DeComFL, where fl_server.py takes
+     * the flag and masks nothing; secure aggregation while the FL server does not require client auth, where the
+     * server has no verified identity for any client and refuses every secure-aggregation call; and a threshold
+     * above minClients, which no round can reach because each DeComFL round aggregates exactly minClients clients.
+     * {@code clientAuthRequired} is consulted only when secure aggregation is on.
+     */
+    static Integer resolveSecureAggThreshold(String strategy, int minClients, StartProject request,
+                                             BooleanSupplier clientAuthRequired) {
+        if (request == null) {
+            return null;
+        }
+        Integer threshold = request.getSecureAggThreshold();
+        if (!Boolean.TRUE.equals(request.getSecureAggregation())) {
+            if (threshold != null) {
+                throw new IllegalArgumentException(
+                        "secureAggThreshold applies only when secureAggregation is true; it would be ignored.");
+            }
+            return null;
+        }
+        if (!"DeComFL".equals(strategy)) {
+            throw new IllegalArgumentException(String.format(
+                    "Secure aggregation is available only for the DeComFL strategy, but this run's strategy is %s. "
+                            + "Masking exists only on DeComFL's gradient-scalar channel, so the run would be "
+                            + "labelled secure without being so.",
+                    strategy));
+        }
+        if (!clientAuthRequired.getAsBoolean()) {
+            throw new IllegalArgumentException(
+                    "Secure aggregation needs client auth. Without it the FL server has no verified identity for any "
+                            + "client and refuses every secure-aggregation call, so no round could complete. Enable "
+                            + "client auth on the backend (app.fl.require-client-auth) first.");
+        }
+        int resolved = threshold != null ? threshold : MIN_SECURE_AGG_THRESHOLD;
+        if (resolved > minClients) {
+            throw new IllegalArgumentException(String.format(
+                    "secureAggThreshold %d is above minClients = %d. Each DeComFL round aggregates exactly "
+                            + "minClients clients, so no round could gather %d shares. Lower the threshold or raise "
+                            + "minClients.",
+                    resolved, minClients, resolved));
+        }
+        return resolved;
     }
 
     static String resolveStrategy(String modelType, String requestedStrategy) {
@@ -356,6 +410,10 @@ public class ProjectService {
         // Robust aggregation settings, checked against the RESOLVED strategy and minClients before anything is
         // created. The same object is then persisted on the run and passed to the spawn.
         RobustAggregationSettings robustSettings = resolveRobustSettings(strategyToUse, minClients, request);
+        // Secure aggregation, checked the same way. Null means off; otherwise the one threshold is persisted on the
+        // run and passed to the spawn.
+        Integer secureAggThreshold = resolveSecureAggThreshold(strategyToUse, minClients, request,
+                flServerManager::isClientAuthRequired);
 
         Integer numRoundsToUse;
         if (request != null && request.getNumRounds() != null && request.getNumRounds() > 0) {
@@ -388,12 +446,12 @@ public class ProjectService {
             Run run = null;
             try {
                 run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
-                        robustSettings);
+                        robustSettings, secureAggThreshold);
                 project.setActiveRunId(run.getId());
                 projectRepository.save(project);
 
                 Optional<Integer> port = flServerManager.startServerForProject(
-                        project, strategyToUse, numRoundsToUse, minClients, robustSettings);
+                        project, strategyToUse, numRoundsToUse, minClients, robustSettings, secureAggThreshold);
                 project.setServerPort(port.orElse(null));
                 project.setStatus(ProjectStatus.RUNNING.name());
                 Project updatedProject = projectRepository.save(project);

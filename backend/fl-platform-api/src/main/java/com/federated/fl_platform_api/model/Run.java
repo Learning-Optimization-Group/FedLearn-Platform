@@ -94,6 +94,15 @@ public class Run {
     @Column(name = "centered_clip_tau")
     private Double centeredClipTau;
 
+    // V25: whether the run masks client gradient scalars with secure aggregation (LightSecAgg), and how many
+    // clients' shares rebuild the sum. The manifest carries the flag so a client that cannot mask, such as the
+    // phone, refuses the run before training. CHECKs tie the two together and to DeComFL.
+    @Column(name = "secure_aggregation", nullable = false)
+    private boolean secureAggregation;
+
+    @Column(name = "secure_agg_threshold")
+    private Integer secureAggThreshold;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getProjectId() { return projectId; }
@@ -147,4 +156,8 @@ public class Run {
     public void setRobustTrimRatio(Double robustTrimRatio) { this.robustTrimRatio = robustTrimRatio; }
     public Double getCenteredClipTau() { return centeredClipTau; }
     public void setCenteredClipTau(Double centeredClipTau) { this.centeredClipTau = centeredClipTau; }
+    public boolean isSecureAggregation() { return secureAggregation; }
+    public void setSecureAggregation(boolean secureAggregation) { this.secureAggregation = secureAggregation; }
+    public Integer getSecureAggThreshold() { return secureAggThreshold; }
+    public void setSecureAggThreshold(Integer secureAggThreshold) { this.secureAggThreshold = secureAggThreshold; }
 }
