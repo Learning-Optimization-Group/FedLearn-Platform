@@ -44,6 +44,12 @@ _ALLOWED_SKIP_REASONS = frozenset(
         # have no CUDA/MPS device, so cross-device determinism is only checkable on dev machines
         # that carry a second device; there is nothing to fix by "making it run" on a CPU-only box.
         "no non-CPU device available to check cross-device determinism",
+        # test_decomfl_vs_fedavg_dim_smoke.py's *_on_mps tests — the same kind of gate: they run on
+        # Apple's MPS device, which exists only on Apple-silicon dev machines, never on a CI runner.
+        "no MPS device",
+        # test_strategy_device_placement.py — strategy behaviour on an accelerator device. CI runners
+        # are CPU-only, so there is no accelerator to place tensors on.
+        "no accelerator available",
     }
 )
 
