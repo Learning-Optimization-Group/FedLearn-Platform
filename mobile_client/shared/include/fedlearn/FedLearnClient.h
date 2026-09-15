@@ -21,6 +21,7 @@
 
 #include "fedlearn/AuthMetadata.h"
 #include "fedlearn/IFedLearnClient.h"
+#include "fedlearn/TlsTrust.h"
 #include "fedlearn/Types.h"
 
 namespace fedlearn {

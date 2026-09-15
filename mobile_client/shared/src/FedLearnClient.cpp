@@ -59,21 +59,12 @@ std::shared_ptr<grpc::Channel> FedLearnClient::makeChannel() const {
 
   std::shared_ptr<grpc::ChannelCredentials> creds;
   if (cfg_.useTls) {
+    const TlsMaterial tls =
+        resolveTlsMaterial(cfg_.caCertPem, cfg_.caCertPath, cfg_.clientCertPath, cfg_.clientKeyPath, readFile);
     grpc::SslCredentialsOptions ssl;
-    // Server trust: the certificate handed out at enrollment, else a pinned file, else gRPC's default roots.
-    if (!cfg_.caCertPem.empty()) {
-      ssl.pem_root_certs = cfg_.caCertPem;
-    } else if (!cfg_.caCertPath.empty()) {
-      ssl.pem_root_certs = readFile(cfg_.caCertPath);
-    }
-    // Client identity (mTLS) is optional, but a keypair is both halves or neither.
-    if (cfg_.clientCertPath.empty() != cfg_.clientKeyPath.empty()) {
-      throw std::runtime_error("FedLearnClient: clientCertPath and clientKeyPath must be set together");
-    }
-    if (!cfg_.clientCertPath.empty()) {
-      ssl.pem_private_key = readFile(cfg_.clientKeyPath);
-      ssl.pem_cert_chain = readFile(cfg_.clientCertPath);  // mTLS: client presents its cert; CN binds identity (R6)
-    }
+    ssl.pem_root_certs = tls.rootCertsPem;
+    ssl.pem_private_key = tls.clientKeyPem;
+    ssl.pem_cert_chain = tls.clientCertChainPem;  // mTLS: client presents its cert; CN binds identity (R6)
     creds = grpc::SslCredentials(ssl);
   } else {
     // Dev-only. A release RN build never sets useTls=false (FEDLEARN_ALLOW_INSECURE_GRPC, E13).
