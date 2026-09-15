@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Dict, List, Sequence
+from typing import Dict, List, Sequence, Tuple
 
 import torch
 
@@ -209,6 +209,16 @@ class SecureAggregationSession:
                     self.round_index, len(self._masked), self.survivors,
                 )
             return self.survivors
+
+    def submission_state(self) -> Tuple[bool, List[int]]:
+        """Whether submissions are closed, and the surviving set, read together under one lock.
+
+        A response built from two separate reads can pair a survivor list taken before a concurrent freeze with
+        ``is_closed`` read after it, telling a holder the round is final on a partial set. Once closed, the set
+        returned here is the frozen one.
+        """
+        with self._lock:
+            return self._closed, sorted(self._masked)
 
     # ---- phase 3b: summed shares -------------------------------------------------------------
     def submit_summed_share(self, holder_index: int, share: Sequence[int]) -> int:

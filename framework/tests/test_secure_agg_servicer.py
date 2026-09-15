@@ -132,3 +132,63 @@ def test_submitting_an_aggregated_share_reports_how_many_remain():
     )
     assert resp.received is True
     assert resp.shares_still_needed >= 0
+
+
+# The masked-submission response must describe ONE state of the round. A live TLS run aggregated a wrong model: a
+# holder was told the round was frozen while being handed the survivor list from before the freeze, so it summed
+# shares over two of three dealers and the recovery decoded to a wrong aggregate. The handler took `survivors` when
+# this request's submission was recorded and read `is_closed` again when building the response; a concurrent request
+# closing the set in between produced submissions_closed=True with a partial list.
+
+class _PartitionContext(_FakeContext):
+    def __init__(self, partition):
+        super().__init__()
+        self.partition = partition
+
+
+def _cohort_servicer(clients_per_round=3):
+    strategy = DeComFL(
+        initial_parameters=OrderedDict({"w": torch.zeros(4)}),
+        num_local_steps=1, num_perturbations=2,
+    )
+    coordinator = FLCoordinator(strategy, min_clients_for_aggregation=1, clients_per_round=clients_per_round)
+    coordinator.bind_or_check_identity = MagicMock(return_value=True)
+    return FederatedLearningServiceServicer(coordinator, partition_extractor=lambda ctx: ctx.partition)
+
+
+def _masked_request(client_id, round_num=1):
+    from fedlearn.security.lightsecagg import PRIME
+    return pb.SubmitGradientScalarsRequest(
+        client_id=client_id, trained_on_round=round_num, num_examples=8,
+        masked_gradients=pb.MaskedGradientScalars(
+            elements=[5, 7], modulus=PRIME, num_local_steps=1, num_perturbations=2,
+        ),
+    )
+
+
+def test_a_response_that_says_frozen_carries_the_whole_frozen_set_even_when_the_freeze_races_it():
+    s = _cohort_servicer(clients_per_round=3)
+    s.SubmitGradientScalars(_masked_request("c3"), _PartitionContext(3))
+    session = s._secure_session(1)
+
+    # Partition 2's request records its submission and closes the set in the window between partition 1's
+    # submission being recorded and partition 1's response being built.
+    record = session.submit_masked
+
+    def submit_then_race(partition, elements):
+        survivors = record(partition=partition, elements=elements)
+        if partition == 1:
+            record(partition=2, elements=elements)
+            session.close_submissions()
+        return survivors
+
+    session.submit_masked = submit_then_race
+
+    resp = s.SubmitGradientScalars(_masked_request("c1"), _PartitionContext(1))
+
+    assert resp.received
+    if resp.submissions_closed:
+        assert list(resp.surviving_partitions) == [1, 2, 3], (
+            f"told the round is frozen but handed {list(resp.surviving_partitions)}; a holder sums its shares over "
+            f"exactly that set, so any missing dealer's mask never cancels"
+        )

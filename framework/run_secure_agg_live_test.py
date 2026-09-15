@@ -54,10 +54,16 @@ DROPOUT
     sets the server's per-round deadline (FEDLEARN_ROUND_TIMEOUT_S), which is what resolves a round
     a client left, so a dropout run need not sit out the 120 s default.
 
+TLS
+    ``--tls`` serves and dials gRPC over TLS the way a deployment does (deploy/TLS.md): a self-signed server keypair,
+    the server fail-closed on plaintext, and every client trusting that certificate as its root through
+    FEDLEARN_GRPC_USE_TLS and FEDLEARN_GRPC_ROOT_CERT, the variables the desktop app sets for its client. The server
+    log must show a TLS listener and no plaintext one.
+
 USAGE
     PYTHONPATH=src python3 run_secure_agg_live_test.py [--rounds N] [--clients N]
         [--min-clients M] [--dropout PHASE] [--dropout-round R] [--dropout-count D]
-        [--round-timeout S]
+        [--round-timeout S] [--tls]
 
     Exit code 0 on success. Logs land in ./secure_agg_live_logs/.
 """
@@ -115,6 +121,30 @@ def _client_data(partition: int, num_clients: int):
     x = torch.randn(SAMPLES_PER_CLIENT, INPUT_DIM, generator=g)
     y = (x.sum(dim=1) > 0).long()
     return x, y
+
+
+def _make_self_signed_tls() -> str:
+    """Set up TLS for the whole run: a throwaway self-signed keypair for localhost and 127.0.0.1, placed in this
+    process's environment, which every spawned server and client inherits."""
+    import subprocess
+    import tempfile
+
+    cert_dir = tempfile.mkdtemp(prefix="fl-grpc-tls-")
+    key, cert = os.path.join(cert_dir, "server.key"), os.path.join(cert_dir, "server.crt")
+    subprocess.run(
+        ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-sha256", "-days", "1", "-nodes",
+         "-keyout", key, "-out", cert, "-subj", "/CN=localhost",
+         "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1"],
+        check=True, capture_output=True,
+    )
+    os.environ.update({
+        "FEDLEARN_GRPC_USE_TLS": "1",
+        "FEDLEARN_REQUIRE_TLS": "1",
+        "FEDLEARN_GRPC_SERVER_KEY": key,
+        "FEDLEARN_GRPC_SERVER_CERT": cert,
+        "FEDLEARN_GRPC_ROOT_CERT": cert,
+    })
+    return cert_dir
 
 
 def _free_port() -> int:
@@ -379,6 +409,8 @@ def main() -> int:
                              "than a plaintext one, so it needs more than the obvious amount.")
     parser.add_argument("--secure-only", action="store_true",
                         help="skip the plaintext control run")
+    parser.add_argument("--tls", action="store_true",
+                        help="serve and dial gRPC over TLS with a throwaway self-signed certificate")
     args = parser.parse_args()
 
     min_clients = args.clients if args.min_clients is None else args.min_clients
@@ -394,6 +426,8 @@ def main() -> int:
 
     os.makedirs(LOG_DIR, exist_ok=True)
     print(f"Logs -> {LOG_DIR}")
+    if args.tls:
+        print(f"TLS on: self-signed certificate in {_make_self_signed_tls()}")
 
     shape = (f"{args.clients} clients (min {min_clients}), {args.rounds} rounds, "
              f"threshold {args.threshold}, auth ON")
@@ -408,7 +442,7 @@ def main() -> int:
 
     # Both checks always run, so a failing run still prints its audit.
     secure_ok = _run_succeeded(secure, args.clients)
-    ok = _audit_server_log("secure", expect_secure=True, rounds=args.rounds) and secure_ok
+    ok = _audit_server_log("secure", expect_secure=True, rounds=args.rounds, tls=args.tls) and secure_ok
 
     if not args.secure_only:
         print(f"\n=== PLAINTEXT control run (same seed, auth ON, same dropout) ===")
@@ -420,7 +454,7 @@ def main() -> int:
         # Evaluated even when the secure run failed: whether the plaintext control survived the
         # same dropout is what says a failure belongs to the secure path.
         plain_ok = _run_succeeded(plain, args.clients)
-        plain_ok = _audit_server_log("plain", expect_secure=False, rounds=args.rounds) and plain_ok
+        plain_ok = _audit_server_log("plain", expect_secure=False, rounds=args.rounds, tls=args.tls) and plain_ok
         ok = ok and plain_ok
 
         if ok:
@@ -449,10 +483,12 @@ def scan_server_log(tag):
         "freezes": text.count("freezing the surviving set"),
         "force_aggregations": text.count("force-aggregating"),
         "stopped_early": text.count("Stop requested, ending training"),
+        "tls_listener": text.count("gRPC TLS enabled"),
+        "plaintext_listener": text.count("running without TLS"),
     }
 
 
-def _audit_server_log(tag, expect_secure, rounds) -> bool:
+def _audit_server_log(tag, expect_secure, rounds, tls=False) -> bool:
     """Read the server log back and prove the path we think ran actually ran.
 
     A secure run that silently fell back to plaintext would pass every liveness check -- the
@@ -473,6 +509,9 @@ def _audit_server_log(tag, expect_secure, rounds) -> bool:
         return False
     if counts["stopped_early"]:
         print("  FAILED: the server stopped the run before its last round")
+        return False
+    if tls and (counts["tls_listener"] == 0 or counts["plaintext_listener"]):
+        print("  FAILED: --tls was set but the server did not serve TLS only")
         return False
 
     if expect_secure:

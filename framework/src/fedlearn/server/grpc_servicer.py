@@ -619,17 +619,22 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
         # deadline; close_submissions() is idempotent precisely so both triggers can fire.
         expected = getattr(self.coordinator, "clients_per_round", 0) or 0
         if expected and len(survivors) >= expected:
-            survivors = session.close_submissions()
+            session.close_submissions()
 
+        # One snapshot of the round for both the log and the response. `survivors` above was read when this
+        # request's submission was recorded, and another request can close the set before this point. Pairing that
+        # earlier list with a later is_closed told a holder the round was frozen on a partial set; a holder sums its
+        # shares over exactly the set it is handed, so the recovery decoded to a wrong aggregate.
+        closed, survivors = session.submission_state()
         logging.info(
             "[Server] Masked gradients accepted from partition %s for round %s; %d/%d "
             "survivor(s), closed=%s",
-            partition, trained_on_round, len(survivors), expected, session.is_closed,
+            partition, trained_on_round, len(survivors), expected, closed,
         )
         return fedlearn_pb2.SubmitGradientScalarsResponse(
             received=True,
             surviving_partitions=survivors,
-            submissions_closed=session.is_closed,
+            submissions_closed=closed,
         )
 
     def SubmitGradientScalars(self, request: fedlearn_pb2.SubmitGradientScalarsRequest, context):
