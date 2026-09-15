@@ -93,7 +93,7 @@ class ModelBundleAutostageIntegrationTest {
     @BeforeEach
     void setUp() {
         when(flServerManager.isServerRunning(any())).thenReturn(false);
-        when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any()))
+        when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenReturn(Optional.of(50000));
         // Stage on the calling thread so the served bundle is ready the moment /start returns (the same
         // executor seam the ScriptModelBundleStager unit test uses).

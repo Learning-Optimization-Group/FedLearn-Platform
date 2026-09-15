@@ -56,6 +56,8 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
   const [centeredClipTau, setCenteredClipTau] = useState(1);
   const [secureAggregation, setSecureAggregation] = useState(false);
   const [secureAggThreshold, setSecureAggThreshold] = useState(SECURE_AGG_MIN_THRESHOLD);
+  // null = follow "Devices needed to start" until the user sets a round size of their own.
+  const [clientsPerRound, setClientsPerRound] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -66,6 +68,9 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
   const selectedRule = ROBUST_RULES.find((r) => r.value === robustMethod);
   // Secure aggregation masks only DeComFL's gradient scalars, so it is offered only there.
   const showSecure = !isLlmLora && strategy === 'DeComFL';
+  // Text federation has no rounds of devices to size.
+  const showPerRound = isLlmLora || strategy !== 'FoT';
+  const perRound = clientsPerRound ?? minClients;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +96,10 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
         config.secureAggregation = true;
         config.secureAggThreshold = Number(secureAggThreshold);
       }
+      // Sent only when a round waits for more devices than the minimum; equal is what the server does anyway.
+      if (showPerRound && Number(perRound) > Number(minClients)) {
+        config.clientsPerRound = Number(perRound);
+      }
       await onSubmit(project.id, config);
       // Reset form defaults upon success
       setStrategy('FedAvg');
@@ -102,6 +111,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
       setCenteredClipTau(1);
       setSecureAggregation(false);
       setSecureAggThreshold(SECURE_AGG_MIN_THRESHOLD);
+      setClientsPerRound(null);
     } catch (err) {
       // Keep the modal open and surface the backend detail inline, so the
       // failure isn't hidden behind the modal on the route beneath it.
@@ -232,12 +242,12 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
               <>
                 <FormField
                   label="Devices needed to rebuild the sum"
-                  help="At least 2, and no more than the devices needed to start."
+                  help="At least 2, and no more than the devices per round."
                 >
                   <Input
                     type="number"
                     min={SECURE_AGG_MIN_THRESHOLD}
-                    max={minClients}
+                    max={perRound}
                     step="1"
                     value={secureAggThreshold}
                     onChange={(e) => setSecureAggThreshold(Number(e.target.value))}
@@ -264,7 +274,7 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
               required
             />
           </FormField>
-          <FormField label="Devices needed to start" help="Training begins once this many join.">
+          <FormField label="Devices needed to start" help="The fewest a round can finish with if others drop out.">
             <Input
               type="number"
               min="1"
@@ -273,6 +283,20 @@ export function StartProjectModal({ isOpen, project, onClose, onSubmit }: StartP
               required
             />
           </FormField>
+          {showPerRound && (
+            <FormField
+              label="Devices per round"
+              help="A round finishes once this many report. Set it above the minimum so one device dropping out doesn't stop training."
+            >
+              <Input
+                type="number"
+                min={minClients}
+                value={perRound}
+                onChange={(e) => setClientsPerRound(Number(e.target.value))}
+                required
+              />
+            </FormField>
+          )}
         </div>
       </form>
     </Modal>

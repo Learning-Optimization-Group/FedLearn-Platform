@@ -144,11 +144,13 @@ public class ProjectService {
      *
      * <p>Refuses, with a 400, anything the server would ignore or could not run: robust fields on another
      * strategy (including an LLM_LORA project, whose strategy is forced to FedLoRA), parameters without a
-     * method, a parameter the chosen rule does not read, and a rule that cannot run at {@code minClients}.
+     * method, a parameter the chosen rule does not read, and a rule that cannot run at every round size from
+     * {@code minClients} to {@code clientsPerRound}.
      * The last one matters most - on the Python side such a rule does not fail, it refuses every round and
      * the run "completes" without ever training.
      */
-    static RobustAggregationSettings resolveRobustSettings(String strategy, int minClients, StartProject request) {
+    static RobustAggregationSettings resolveRobustSettings(String strategy, int minClients, int clientsPerRound,
+                                                           StartProject request) {
         if (request == null) {
             return null;
         }
@@ -179,7 +181,7 @@ public class ProjectService {
                     "centeredClipTau applies only to CENTERED_CLIP, not " + rule + "; it would be ignored.");
         }
         RobustAggregationSettings settings = new RobustAggregationSettings(rule, fraction, trim, tau);
-        settings.refusalReason(minClients).ifPresent(reason -> {
+        settings.refusalReason(minClients, clientsPerRound).ifPresent(reason -> {
             throw new IllegalArgumentException(reason);
         });
         return settings;
@@ -198,11 +200,11 @@ public class ProjectService {
      * {@code secureAggregation=true}; secure aggregation on a strategy other than DeComFL, where fl_server.py takes
      * the flag and masks nothing; secure aggregation while the FL server does not require client auth, where the
      * server has no verified identity for any client and refuses every secure-aggregation call; and a threshold
-     * above minClients, which no round can reach because each DeComFL round aggregates exactly minClients clients.
+     * above clientsPerRound, which no round can reach because a round aggregates at most that many clients.
      * {@code clientAuthRequired} is consulted only when secure aggregation is on.
      */
-    static Integer resolveSecureAggThreshold(String strategy, int minClients, StartProject request,
-                                             BooleanSupplier clientAuthRequired) {
+    static Integer resolveSecureAggThreshold(String strategy, int minClients, int clientsPerRound,
+                                             StartProject request, BooleanSupplier clientAuthRequired) {
         if (request == null) {
             return null;
         }
@@ -228,14 +230,48 @@ public class ProjectService {
                             + "client auth on the backend (app.fl.require-client-auth) first.");
         }
         int resolved = threshold != null ? threshold : MIN_SECURE_AGG_THRESHOLD;
-        if (resolved > minClients) {
+        if (resolved > clientsPerRound) {
             throw new IllegalArgumentException(String.format(
-                    "secureAggThreshold %d is above minClients = %d. Each DeComFL round aggregates exactly "
-                            + "minClients clients, so no round could gather %d shares. Lower the threshold or raise "
-                            + "minClients.",
-                    resolved, minClients, resolved));
+                    "secureAggThreshold %d is above clientsPerRound = %d (minClients = %d). A round aggregates at "
+                            + "most clientsPerRound clients, so no round could gather %d shares. Lower the threshold "
+                            + "or raise clientsPerRound.",
+                    resolved, clientsPerRound, minClients, resolved));
         }
         return resolved;
+    }
+
+    /**
+     * The round size for a start: {@code clientsPerRound} when given, otherwise {@code minClients}, as before.
+     *
+     * <p>A round completes as soon as this many updates arrive and the deadline resolves it with as few as
+     * minClients, so a round size above the minimum is what lets a run survive a client dropping out. Refused, with
+     * a 400: below minClients, where a round would finish short of the minimum; above it on FoT, whose server has no
+     * round of devices to size; and above it on a differentially private project, whose accounting is computed for
+     * a fixed cohort of minClients and which fl_server.py refuses to start with any other round size.
+     */
+    static int resolveClientsPerRound(Project project, String strategy, int minClients, StartProject request) {
+        Integer requested = request != null ? request.getClientsPerRound() : null;
+        if (requested == null) {
+            return minClients;
+        }
+        if (requested < minClients) {
+            throw new IllegalArgumentException(String.format(
+                    "clientsPerRound = %d is below minClients = %d. A round completes as soon as clientsPerRound "
+                            + "updates arrive, so it would finish short of the minimum.", requested, minClients));
+        }
+        if (requested > minClients && "FoT".equals(strategy)) {
+            throw new IllegalArgumentException(
+                    "clientsPerRound applies to gradient strategies. The FoT server has no round of devices to size, "
+                            + "so a clientsPerRound above minClients would be ignored.");
+        }
+        if (requested > minClients && project.isDpEnabled()) {
+            throw new IllegalArgumentException(String.format(
+                    "clientsPerRound = %d is above minClients = %d on a differentially private project. The privacy "
+                            + "accounting is computed for a fixed cohort of minClients, and fl_server.py refuses to "
+                            + "start with any other round size. Keep clientsPerRound equal to minClients.",
+                    requested, minClients));
+        }
+        return requested;
     }
 
     static String resolveStrategy(String modelType, String requestedStrategy) {
@@ -407,12 +443,13 @@ public class ProjectService {
                 ? request.getMinClients()
                 : 1;
 
-        // Robust aggregation settings, checked against the RESOLVED strategy and minClients before anything is
-        // created. The same object is then persisted on the run and passed to the spawn.
-        RobustAggregationSettings robustSettings = resolveRobustSettings(strategyToUse, minClients, request);
-        // Secure aggregation, checked the same way. Null means off; otherwise the one threshold is persisted on the
-        // run and passed to the spawn.
-        Integer secureAggThreshold = resolveSecureAggThreshold(strategyToUse, minClients, request,
+        // The round size, then the settings that depend on it, checked against the RESOLVED strategy and minClients
+        // before anything is created. Each resolved value is persisted on the run and passed to the spawn as is.
+        int clientsPerRound = resolveClientsPerRound(project, strategyToUse, minClients, request);
+        RobustAggregationSettings robustSettings = resolveRobustSettings(strategyToUse, minClients, clientsPerRound,
+                request);
+        // Secure aggregation: null means off; otherwise the one threshold is persisted on the run and spawned.
+        Integer secureAggThreshold = resolveSecureAggThreshold(strategyToUse, minClients, clientsPerRound, request,
                 flServerManager::isClientAuthRequired);
 
         Integer numRoundsToUse;
@@ -439,10 +476,6 @@ public class ProjectService {
                                 + " on port " + project.getServerPort());
             }
 
-            int clientsPerRound = (request != null && request.getClientsPerRound() != null)
-                    ? request.getClientsPerRound()
-                    : minClients;
-
             Run run = null;
             try {
                 run = runService.createForStart(project, strategyToUse, numRoundsToUse, minClients, clientsPerRound,
@@ -451,7 +484,8 @@ public class ProjectService {
                 projectRepository.save(project);
 
                 Optional<Integer> port = flServerManager.startServerForProject(
-                        project, strategyToUse, numRoundsToUse, minClients, robustSettings, secureAggThreshold);
+                        project, strategyToUse, numRoundsToUse, minClients, robustSettings, secureAggThreshold,
+                        clientsPerRound);
                 project.setServerPort(port.orElse(null));
                 project.setStatus(ProjectStatus.RUNNING.name());
                 Project updatedProject = projectRepository.save(project);

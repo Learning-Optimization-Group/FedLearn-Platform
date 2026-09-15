@@ -224,7 +224,7 @@ class ProjectServiceTest {
         AtomicBoolean running = new AtomicBoolean(false);
         AtomicInteger spawnCount = new AtomicInteger(0);
         lenient().when(flServerManager.isServerRunning(projectId)).thenAnswer(inv -> running.get());
-        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any()))
+        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any()))
             .thenAnswer(inv -> {
                 spawnCount.incrementAndGet();
                 Thread.sleep(60);
@@ -274,7 +274,7 @@ class ProjectServiceTest {
         lenient().when(run.getId()).thenReturn(UUID.randomUUID());
         lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any())).thenReturn(run);
         lenient().when(flServerManager.isServerRunning(projectId)).thenReturn(false);
-        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any()))
+        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenReturn(Optional.of(50000));
         return run;
     }
@@ -295,7 +295,7 @@ class ProjectServiceTest {
         doThrow(new RuntimeException("boom")).when(modelBundleStager).stageForRun(any(), any());
         assertDoesNotThrow(() -> projectService.startServerForProject(testProject.getId(), null));
         // the FL server still spawned despite the staging failure
-        verify(flServerManager).startServerForProject(any(), any(), anyInt(), anyInt(), any(), any());
+        verify(flServerManager).startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any());
     }
 
     // ─── SE-11: DP policy at project creation ────────────────────────────────────────────────────
@@ -479,7 +479,7 @@ class ProjectServiceTest {
         lenient().when(run.getId()).thenReturn(UUID.randomUUID());
         lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any())).thenReturn(run);
         lenient().when(flServerManager.isServerRunning(projectId)).thenReturn(false);
-        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any()))
+        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenReturn(Optional.of(50000));
     }
 
@@ -494,7 +494,7 @@ class ProjectServiceTest {
 
     private void assertNothingCreatedOrSpawned() {
         verify(runService, never()).createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any());
-        verify(flServerManager, never()).startServerForProject(any(), any(), anyInt(), anyInt(), any(), any());
+        verify(flServerManager, never()).startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any());
     }
 
     @Test
@@ -506,7 +506,7 @@ class ProjectServiceTest {
         ArgumentCaptor<RobustAggregationSettings> persisted = ArgumentCaptor.forClass(RobustAggregationSettings.class);
         ArgumentCaptor<RobustAggregationSettings> spawned = ArgumentCaptor.forClass(RobustAggregationSettings.class);
         verify(runService).createForStart(eq(testProject), eq("Robust"), anyInt(), eq(20), anyInt(), persisted.capture(), isNull());
-        verify(flServerManager).startServerForProject(eq(testProject), eq("Robust"), anyInt(), eq(20), spawned.capture(), isNull());
+        verify(flServerManager).startServerForProject(eq(testProject), eq("Robust"), anyInt(), eq(20), spawned.capture(), isNull(), eq(20));
         assertEquals(expected, persisted.getValue());
         assertEquals(expected, spawned.getValue());
     }
@@ -570,7 +570,7 @@ class ProjectServiceTest {
         arrangeRobustStart();
         projectService.startServerForProject(testProject.getId(), startRequest("Robust", null, null, 2));
         verify(runService).createForStart(eq(testProject), eq("Robust"), anyInt(), eq(2), anyInt(), isNull(), isNull());
-        verify(flServerManager).startServerForProject(eq(testProject), eq("Robust"), anyInt(), eq(2), isNull(), isNull());
+        verify(flServerManager).startServerForProject(eq(testProject), eq("Robust"), anyInt(), eq(2), isNull(), isNull(), eq(2));
     }
 
     // ─── Secure aggregation at /start ──────────────────────────────────────────────────────────
@@ -588,7 +588,7 @@ class ProjectServiceTest {
         lenient().when(runService.createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any())).thenReturn(run);
         lenient().when(flServerManager.isServerRunning(projectId)).thenReturn(false);
         lenient().when(flServerManager.isClientAuthRequired()).thenReturn(clientAuthRequired);
-        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any()))
+        lenient().when(flServerManager.startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any()))
                 .thenReturn(Optional.of(50000));
     }
 
@@ -603,7 +603,7 @@ class ProjectServiceTest {
 
     private void assertNoSecureRunCreatedOrSpawned() {
         verify(runService, never()).createForStart(any(), any(), anyInt(), anyInt(), anyInt(), any(), any());
-        verify(flServerManager, never()).startServerForProject(any(), any(), anyInt(), anyInt(), any(), any());
+        verify(flServerManager, never()).startServerForProject(any(), any(), anyInt(), anyInt(), any(), any(), any());
     }
 
     @Test
@@ -611,14 +611,14 @@ class ProjectServiceTest {
         arrangeSecureStart(true);
         projectService.startServerForProject(testProject.getId(), secureStart("DeComFL", true, 3, 5));
         verify(runService).createForStart(eq(testProject), eq("DeComFL"), anyInt(), eq(5), anyInt(), isNull(), eq(3));
-        verify(flServerManager).startServerForProject(eq(testProject), eq("DeComFL"), anyInt(), eq(5), isNull(), eq(3));
+        verify(flServerManager).startServerForProject(eq(testProject), eq("DeComFL"), anyInt(), eq(5), isNull(), eq(3), eq(5));
     }
 
     @Test
     void secureStart_withoutAThreshold_usesTheServerDefaultOfTwo() throws Exception {
         arrangeSecureStart(true);
         projectService.startServerForProject(testProject.getId(), secureStart("DeComFL", true, null, 2));
-        verify(flServerManager).startServerForProject(eq(testProject), eq("DeComFL"), anyInt(), eq(2), isNull(), eq(2));
+        verify(flServerManager).startServerForProject(eq(testProject), eq("DeComFL"), anyInt(), eq(2), isNull(), eq(2), eq(2));
     }
 
     @Test
@@ -665,6 +665,100 @@ class ProjectServiceTest {
         arrangeSecureStart(false);
         projectService.startServerForProject(testProject.getId(), secureStart("DeComFL", false, null, 2));
         verify(runService).createForStart(eq(testProject), eq("DeComFL"), anyInt(), eq(2), anyInt(), isNull(), isNull());
-        verify(flServerManager).startServerForProject(eq(testProject), eq("DeComFL"), anyInt(), eq(2), isNull(), isNull());
+        verify(flServerManager).startServerForProject(eq(testProject), eq("DeComFL"), anyInt(), eq(2), isNull(), isNull(), eq(2));
+    }
+
+    // ─── Round size (clientsPerRound) at /start ─────────────────────────────────────────────────
+    // A round completes as soon as clientsPerRound updates arrive, and the deadline resolves it with as few as
+    // minClients. A round size above the minimum is what lets a run survive a client dropping out; until it was
+    // wired through, clientsPerRound was stored and never reached fl_server.py.
+
+    private static StartProject roundSizeStart(String strategy, Integer minClients, Integer clientsPerRound) {
+        StartProject r = new StartProject();
+        r.setStrategy(strategy);
+        r.setMinClients(minClients);
+        r.setClientsPerRound(clientsPerRound);
+        return r;
+    }
+
+    @Test
+    void roundSize_defaultsToMinClients_andReachesTheSpawn() throws Exception {
+        arrangeSecureStart(true);
+        projectService.startServerForProject(testProject.getId(), roundSizeStart("DeComFL", 3, null));
+        verify(runService).createForStart(eq(testProject), eq("DeComFL"), anyInt(), eq(3), eq(3), isNull(), isNull());
+        verify(flServerManager).startServerForProject(eq(testProject), eq("DeComFL"), anyInt(), eq(3), isNull(), isNull(), eq(3));
+    }
+
+    @Test
+    void roundSize_aboveTheMinimum_isPersistedAndSpawned() throws Exception {
+        arrangeSecureStart(true);
+        projectService.startServerForProject(testProject.getId(), roundSizeStart("FedAvg", 3, 5));
+        verify(runService).createForStart(eq(testProject), eq("FedAvg"), anyInt(), eq(3), eq(5), isNull(), isNull());
+        verify(flServerManager).startServerForProject(eq(testProject), eq("FedAvg"), anyInt(), eq(3), isNull(), isNull(), eq(5));
+    }
+
+    @Test
+    void roundSize_belowTheMinimum_isRefused() {
+        arrangeSecureStart(true);
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), roundSizeStart("DeComFL", 3, 2)));
+        assertTrue(ex.getMessage().contains("clientsPerRound"), ex.getMessage());
+        assertNoSecureRunCreatedOrSpawned();
+    }
+
+    @Test
+    void roundSize_aboveTheMinimum_onADpProject_isRefused() {
+        arrangeSecureStart(true);
+        testProject.setDpEnabled(true);
+        testProject.setDpTargetEpsilon(6.0);
+        testProject.setDpDelta(1e-5);
+        testProject.setDpClipNorm(1.5);
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), roundSizeStart("FedAvg", 3, 5)));
+        assertTrue(ex.getMessage().contains("privacy"), ex.getMessage());
+        assertNoSecureRunCreatedOrSpawned();
+    }
+
+    @Test
+    void roundSize_aboveTheMinimum_onTextFederation_isRefused() {
+        arrangeSecureStart(true);
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), roundSizeStart("FoT", 3, 5)));
+        assertTrue(ex.getMessage().contains("FoT"), ex.getMessage());
+        assertNoSecureRunCreatedOrSpawned();
+    }
+
+    @Test
+    void secureThreshold_betweenMinClientsAndTheRoundSize_isAccepted() throws Exception {
+        arrangeSecureStart(true);
+        StartProject r = roundSizeStart("DeComFL", 3, 5);
+        r.setSecureAggregation(true);
+        r.setSecureAggThreshold(4);
+        projectService.startServerForProject(testProject.getId(), r);
+        verify(flServerManager).startServerForProject(eq(testProject), eq("DeComFL"), anyInt(), eq(3), isNull(), eq(4), eq(5));
+    }
+
+    @Test
+    void secureThreshold_aboveTheRoundSize_isRefused() {
+        arrangeSecureStart(true);
+        StartProject r = roundSizeStart("DeComFL", 3, 5);
+        r.setSecureAggregation(true);
+        r.setSecureAggThreshold(6);
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), r));
+        assertTrue(ex.getMessage().contains("clientsPerRound = 5"), ex.getMessage());
+        assertNoSecureRunCreatedOrSpawned();
+    }
+
+    @Test
+    void robustRule_thatCannotRunSomewhereInTheRoundSizeRange_isRefused() {
+        arrangeRobustStart();
+        // Bulyan at 0.25 runs with 23 updates but not 24, so a round allowed to end anywhere in 23..24 is refused.
+        StartProject r = startRequest("Robust", "BULYAN", 0.25, 23);
+        r.setClientsPerRound(24);
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                projectService.startServerForProject(testProject.getId(), r));
+        assertTrue(ex.getMessage().contains("clientsPerRound = 24"), ex.getMessage());
+        assertNothingCreatedOrSpawned();
     }
 }

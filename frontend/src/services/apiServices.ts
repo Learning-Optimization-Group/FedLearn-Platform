@@ -64,8 +64,10 @@ export interface StartServerData {
     centeredClipTau?: number;
     /** DeComFL only: devices mask their updates so the server sees only the sum. Needs client auth on the server. */
     secureAggregation?: boolean;
-    /** Secure aggregation only: shares needed to rebuild the sum, from 2 to minClients. Server default 2. */
+    /** Secure aggregation only: shares needed to rebuild the sum, from 2 to clientsPerRound. Server default 2. */
     secureAggThreshold?: number;
+    /** Devices a round waits for; it can still finish with minClients. Defaults to minClients on the server. */
+    clientsPerRound?: number;
 }
 
 export interface Project {
@@ -215,6 +217,9 @@ export const startProjectServer = (projectId: string, startData: StartServerData
     }
     if (startData?.minClients) {
         body.minClients = startData.minClients;
+    }
+    if (startData?.clientsPerRound !== undefined) {
+        body.clientsPerRound = startData.clientsPerRound;
     }
     // Robust-aggregation fields. Checked with `!== undefined`, not truthiness: 0 is a real value here
     // (a trim ratio of 0 is the plain mean), and dropping it would let the server substitute its default.

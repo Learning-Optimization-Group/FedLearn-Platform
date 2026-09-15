@@ -57,4 +57,9 @@ describe('startProjectServer — request body', () => {
     await startProjectServer('p1', { strategy: 'DeComFL', secureAggregation: false });
     expect(api.post).toHaveBeenCalledWith('/projects/p1/start', { strategy: 'DeComFL' });
   });
+
+  it('passes the round size through', async () => {
+    await startProjectServer('p1', { strategy: 'FedAvg', minClients: 3, clientsPerRound: 5 });
+    expect(api.post).toHaveBeenCalledWith('/projects/p1/start', { strategy: 'FedAvg', minClients: 3, clientsPerRound: 5 });
+  });
 });

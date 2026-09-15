@@ -226,3 +226,60 @@ describe('StartProjectModal — secure aggregation', () => {
     expect(Object.keys(onSubmit.mock.calls[0][1]).sort()).toEqual(['minClients', 'numRounds', 'strategy']);
   });
 });
+
+// Devices per round. A round finishes as soon as this many devices report, and can still finish with as few as
+// "Devices needed to start" if some drop out. It follows that minimum until changed, and is sent only when larger.
+describe('StartProjectModal — devices per round', () => {
+  const PER_ROUND = 'Devices per round';
+  const MIN = 'Devices needed to start';
+  const chooseStrategy = (value: string) =>
+    fireEvent.change(screen.getByLabelText('Training method'), { target: { value } });
+  const submit = () => fireEvent.click(screen.getByRole('button', { name: /start training/i }));
+
+  it('follows the minimum until changed, and then sends nothing extra', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByLabelText(MIN), { target: { value: '4' } });
+    expect(screen.getByLabelText(PER_ROUND)).toHaveValue(4);
+    submit();
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(Object.keys(onSubmit.mock.calls[0][1]).sort()).toEqual(['minClients', 'numRounds', 'strategy']);
+  });
+
+  it('sends a round size above the minimum', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByLabelText(MIN), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText(PER_ROUND), { target: { value: '5' } });
+    submit();
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit).toHaveBeenCalledWith('p1', { strategy: 'FedAvg', numRounds: 5, minClients: 3, clientsPerRound: 5 });
+  });
+
+  it('lets the secure-aggregation threshold go up to the round size', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={onSubmit} />);
+    chooseStrategy('DeComFL');
+    fireEvent.change(screen.getByLabelText(MIN), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText(PER_ROUND), { target: { value: '5' } });
+    fireEvent.change(screen.getByLabelText('Secure aggregation'), { target: { value: 'on' } });
+    const threshold = screen.getByLabelText('Devices needed to rebuild the sum');
+    expect(threshold).toHaveAttribute('max', '5');
+    fireEvent.change(threshold, { target: { value: '4' } });
+    submit();
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit).toHaveBeenCalledWith('p1', {
+      strategy: 'DeComFL', numRounds: 5, minClients: 3, clientsPerRound: 5, secureAggregation: true, secureAggThreshold: 4,
+    });
+  });
+
+  it('is not offered for text federation, which has no rounds of devices', () => {
+    render(<StartProjectModal isOpen project={PROJECT} onClose={vi.fn()} onSubmit={vi.fn()} />);
+    expect(screen.getByLabelText(PER_ROUND)).toBeInTheDocument();
+    chooseStrategy('FoT');
+    expect(screen.queryByLabelText(PER_ROUND)).not.toBeInTheDocument();
+  });
+});

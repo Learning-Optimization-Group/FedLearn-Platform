@@ -82,7 +82,7 @@ calls `python` directly.)
 | Script | Wrapper | Required flags | Notes |
 |---|---|---|---|
 | `client.py` | *(none — run directly, or via the Docker/desktop bundle)* | `--project-id`, `--server-address`, `--partition-id` | Also `--model-type`, `--model-name`, `--strategy`, `--training-arm`, `--dataset`, `--aggregation`, `--task-type`, `--device`, `--use-llm` (deprecated). **There is no `--client-id`.** |
-| `fl_server.py` | `run_fl_server.sh` / `.bat` | `--model-path`, `--project-id`, `--model-type`, `--model-name` | Plus `--init-model-path`, `--num-rounds`, `--min-clients`, `--port`, `--strategy`, `--training-arm`, `--seed`, `--aggregation`, `--task-type`, `--dataset` and the `--dp-*` family. |
+| `fl_server.py` | `run_fl_server.sh` / `.bat` | `--model-path`, `--project-id`, `--model-type`, `--model-name` | Plus `--init-model-path`, `--num-rounds`, `--min-clients`, `--clients-per-round` (defaults to `--min-clients`), `--port`, `--strategy`, `--training-arm`, `--seed`, `--aggregation`, `--task-type`, `--dataset`, the `--dp-*` family, `--robust-method` with `--robust-byzantine-fraction` / `--robust-trim-ratio` / `--centered-clip-tau` (Robust), and `--secure-aggregation` with `--secure-agg-threshold` (DeComFL). |
 | `fl_fot_server.py` | `run_fot_server.sh` | `--port` | `--project-id`, `--num-rounds`, `--round-seconds`, `--quorum`, `--backend`. |
 | `init_model.py` | `run_init_model.sh` / `.bat` | `--model-type`, `--model-name`, `--optimizer`, `--out` | Plus `--pretrain-epochs`, `--aggregation`, `--task-type`. Writes the initial global weights as `.npz` (keys escape `.` as `__DOT__`). |
 | `infer.py` | `run_infer.sh` | `--model-path`, `--model-type`, `--model-name`, `--in`, `--out` | Plus `--task-type`, `--max-new-tokens`, `--temperature`. |

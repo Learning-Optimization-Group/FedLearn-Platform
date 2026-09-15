@@ -299,6 +299,15 @@ def select_strategy(args, initial_parameters, evaluate_fn):
     hyperparameters — full plumbing of those values from the run config / project UI is a
     separate follow-up.
     """
+    # --clients-per-round: a round completes as soon as this many updates arrive, and the deadline still resolves it
+    # with min_clients. Omitted, every strategy falls back to min_clients as before. getattr keeps hand-built
+    # namespaces that predate the flag working.
+    clients_per_round = getattr(args, "clients_per_round", None)
+    if clients_per_round is not None and clients_per_round < args.min_clients:
+        raise ValueError(
+            f"--clients-per-round={clients_per_round} is below --min-clients={args.min_clients}: a round completes "
+            f"as soon as clients_per_round updates arrive, so it would finish short of the minimum."
+        )
     if args.strategy.lower() == 'decomfl':
         logging.info("Using DeComFL strategy from framework")
 
@@ -309,6 +318,7 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             initial_parameters=initial_parameters,
             evaluate_fn=evaluate_fn,
             min_fit_clients=args.min_clients,
+            clients_per_round=clients_per_round,
             num_local_steps=decomfl_config.num_local_steps,
             num_perturbations=decomfl_config.num_perturbations,
             learning_rate=decomfl_config.learning_rate,
@@ -356,6 +366,13 @@ def select_strategy(args, initial_parameters, evaluate_fn):
                 # card. Refuse it on the live path: dp_num_clients must equal the cohort (q=1) or be
                 # omitted. (The framework accountant/FedLoRA can still be driven at q<1 directly for
                 # offline analysis — this guards only live runs spawned through fl_server.)
+                if clients_per_round is not None and clients_per_round != args.min_clients:
+                    raise ValueError(
+                        f"--clients-per-round={clients_per_round} differs from --min-clients={args.min_clients} "
+                        f"on a DP run. The accountant's sampling rate is clients_per_round / dp_num_clients for a "
+                        f"fixed cohort, while a round here may finish with anywhere between the two, so the "
+                        f"accounted ε would not describe the run. Keep them equal."
+                    )
                 cohort = args.min_clients
                 if dp_num_clients is not None and dp_num_clients != cohort:
                     raise ValueError(
@@ -381,6 +398,7 @@ def select_strategy(args, initial_parameters, evaluate_fn):
                 initial_parameters=initial_parameters,
                 evaluate_fn=evaluate_fn,
                 min_fit_clients=args.min_clients,
+                clients_per_round=clients_per_round,
                 aggregation=args.aggregation,
                 dp_enabled=dp_enabled,
                 dp_clip_norm=dp_clip_norm,
@@ -406,6 +424,7 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             initial_parameters=initial_parameters,
             evaluate_fn=evaluate_fn,
             min_fit_clients=args.min_clients,
+            clients_per_round=clients_per_round,
             proximal_mu=proximal_mu,
         )
     elif args.strategy.lower() == 'fedopt':
@@ -420,6 +439,7 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             initial_parameters=initial_parameters,
             evaluate_fn=evaluate_fn,
             min_fit_clients=args.min_clients,
+            clients_per_round=clients_per_round,
             server_learning_rate=server_learning_rate,
             beta1=beta1,
             beta2=beta2,
@@ -460,6 +480,7 @@ def select_strategy(args, initial_parameters, evaluate_fn):
             initial_parameters=initial_parameters,
             evaluate_fn=evaluate_fn,
             min_fit_clients=args.min_clients,
+            clients_per_round=clients_per_round,
             method=robust_method,
             trim_ratio=robust_trim_ratio,
             clip_norm=robust_clip_norm,
@@ -480,7 +501,8 @@ def select_strategy(args, initial_parameters, evaluate_fn):
         strategy = fl.FedAvg(
             initial_parameters=initial_parameters,
             evaluate_fn=evaluate_fn,
-            min_fit_clients=args.min_clients
+            min_fit_clients=args.min_clients,
+            clients_per_round=clients_per_round
         )
 
         logging.info("Using FedAvg strategy")
@@ -506,6 +528,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--project-id", type=str, required=True, help="Project ID")
     parser.add_argument("--num-rounds", type=int, default=5, help="Number of FL rounds")
     parser.add_argument("--min-clients", type=int, default=1, help="Minimum clients per round")
+    parser.add_argument("--clients-per-round", type=int, default=None,
+                        help="Clients a round waits for; it still completes with --min-clients at the deadline. "
+                             "Defaults to --min-clients.")
     parser.add_argument("--model-type", type=str.upper, required=True, choices=recipes.catalog_keys(), help="Model type (recipe catalog key; data-driven — DA-14 Ph3.1)")
     parser.add_argument("--model-name", type=str, required=True, help="Model name")
     parser.add_argument("--port", type=int, default=50051, help="gRPC server port")

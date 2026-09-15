@@ -160,6 +160,16 @@ public class FlServerManager {
     public Optional<Integer> startServerForProject(Project project, String strategy, Integer numRounds,
                                                    Integer minClients, RobustAggregationSettings robust,
                                                    Integer secureAggThreshold) {
+        return startServerForProject(project, strategy, numRounds, minClients, robust, secureAggThreshold, null);
+    }
+
+    /**
+     * As above, plus the round size: a round completes once {@code clientsPerRound} updates arrive and can still
+     * finish with {@code minClients} at the deadline. Null, or equal to minClients, keeps the previous behaviour.
+     */
+    public Optional<Integer> startServerForProject(Project project, String strategy, Integer numRounds,
+                                                   Integer minClients, RobustAggregationSettings robust,
+                                                   Integer secureAggThreshold, Integer clientsPerRound) {
         requireDpPolicySatisfied(project);   // SE-11: gate every start path, before any spawn
         requireModelTypeInCatalog(project, strategy);   // SE-10: unknown modelType -> 400 before spawn
         if (!isBlank(ecsClusterName)) {
@@ -177,12 +187,14 @@ public class FlServerManager {
                             + "(tasks cannot be tracked or stopped). "
                             + "Unset ecs.cluster-name to run FL servers as local processes.");
         }
-        return startLocalServer(project, strategy, numRounds, minClients, robust, secureAggThreshold);
+        return startLocalServer(project, strategy, numRounds, minClients, robust, secureAggThreshold,
+                clientsPerRound);
     }
 
     private Optional<Integer> startLocalServer(Project project, String strategy,
                                                Integer numRounds, Integer minClients,
-                                               RobustAggregationSettings robust, Integer secureAggThreshold) {
+                                               RobustAggregationSettings robust, Integer secureAggThreshold,
+                                               Integer clientsPerRound) {
         SpawnedFlProcess process = null;
         int freePort = -1;
         boolean started = false;   // BA-13: true once the child is tracked + holds its port for its life
@@ -204,7 +216,7 @@ public class FlServerManager {
             String initModelPath = registryModelResolver.resolveModelPath(project).orElse(null);
             List<String> command = buildServerCommand(
                     project, strategy, numRounds, minClients, freePort, absoluteScriptPath, isWindows,
-                    initModelPath, robust, secureAggThreshold);
+                    initModelPath, robust, secureAggThreshold, clientsPerRound);
 
             // SE-7: mint a random per-run internal token scoped to (projectId, runId) and hand ONLY
             // it to the child — never a secret it could use to forge another project's token. It is
@@ -509,6 +521,19 @@ public class FlServerManager {
                                            Integer minClients, int freePort, String absoluteScriptPath,
                                            boolean isWindows, String initModelPath,
                                            RobustAggregationSettings robust, Integer secureAggThreshold) {
+        return buildServerCommand(project, strategy, numRounds, minClients, freePort, absoluteScriptPath,
+                isWindows, initModelPath, robust, secureAggThreshold, null);
+    }
+
+    /**
+     * As above, plus the round size. {@code --clients-per-round} is emitted only when it exceeds minClients, so a run
+     * whose rounds wait for exactly minClients keeps its argv.
+     */
+    static List<String> buildServerCommand(Project project, String strategy, Integer numRounds,
+                                           Integer minClients, int freePort, String absoluteScriptPath,
+                                           boolean isWindows, String initModelPath,
+                                           RobustAggregationSettings robust, Integer secureAggThreshold,
+                                           Integer clientsPerRound) {
         // Robust settings mean something only to the Robust strategy. Anywhere else fl_server.py would ignore
         // them, and the run record would name a rule that never ran.
         if (robust != null && !"Robust".equals(strategy)) {
@@ -522,6 +547,20 @@ public class FlServerManager {
                     "Secure aggregation is valid only for the DeComFL strategy, not " + strategy);
         }
         boolean isFoT = "FoT".equalsIgnoreCase(strategy);
+        if (clientsPerRound != null && minClients != null && clientsPerRound < minClients) {
+            throw new IllegalArgumentException("clientsPerRound " + clientsPerRound + " is below minClients "
+                    + minClients + ": a round would complete short of the minimum.");
+        }
+        // A larger round size means nothing to the FoT server, which has no round of devices, and is refused on a DP
+        // project, whose accounting is fixed to a cohort of minClients (fl_server.py refuses it too).
+        boolean largerRound = clientsPerRound != null && minClients != null && clientsPerRound > minClients;
+        if (largerRound && isFoT) {
+            throw new IllegalArgumentException("clientsPerRound does not apply to FoT text-federation runs");
+        }
+        if (largerRound && project.isDpEnabled()) {
+            throw new IllegalArgumentException(
+                    "clientsPerRound must equal minClients on a differentially private project");
+        }
         // SE-11: the FoT text-federation server has no DP flag contract; spawning it for a
         // DP-enabled project would silently train without DP. Fail closed.
         if (isFoT && project.isDpEnabled()) {
@@ -578,6 +617,12 @@ public class FlServerManager {
             command.add(project.getModelName());
             command.add("--min-clients");
             command.add(String.valueOf(minClients));
+            if (largerRound) {
+                // A round completes once clientsPerRound updates arrive and can still finish with minClients at the
+                // deadline, which is what lets a run survive a dropout.
+                command.add("--clients-per-round");
+                command.add(String.valueOf(clientsPerRound.intValue()));
+            }
             // P1: pass the project's training arm through to the runtime. Emitted only when it is
             // not FULL, so every existing spawn's argv is byte-identical to before -- fl_server.py
             // and client.py both resolve an omitted arm to FULL. Whether the RECIPE supports the

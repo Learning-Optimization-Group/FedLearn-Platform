@@ -204,11 +204,16 @@ The gradient (`fl_server`) wrapper receives:
 - `--strategy`: Aggregation strategy (FedAvg, DeComFL)
 - `--num-rounds`: Number of training rounds
 - `--min-clients`: Minimum clients required
+- `--clients-per-round`: Clients a round waits for; added only when it exceeds `--min-clients`, so a round can still
+  finish with `--min-clients` when others drop out
 - `--model-type`: Type of model (CNN, Transformer, etc.)
 - `--model-name`: Specific model architecture
 - `--aggregation FFA_LORA` + `--task-type`: added only for the `LLM_LORA` model type
 - `--dp-enabled`, `--dp-clip-norm`, `--dp-target-epsilon`, `--dp-delta`, `--dp-rounds`,
   `--dp-num-clients`: differential-privacy config, when DP is enabled
+- `--robust-method`, plus `--robust-byzantine-fraction`, `--robust-trim-ratio` or `--centered-clip-tau` when set:
+  the Byzantine-robust rule, on the `Robust` strategy only
+- `--secure-aggregation --secure-agg-threshold N`: secure aggregation, on `DeComFL` only and only when enabled
 
 The FoT wrapper takes a narrower set: `--project-id`, `--port`, `--num-rounds`.
 

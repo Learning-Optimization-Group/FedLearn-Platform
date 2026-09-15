@@ -19,9 +19,9 @@ import java.util.Optional;
  *   <li><b>Cohort precondition</b>, with {@code f = int(fraction * n)}: Krum and Multi-Krum need
  *       {@code n >= 2f + 3}, Bulyan needs {@code n >= 4f + 3}. This is not monotone in n.</li>
  * </ul>
- * The n to check is {@code minClients}: {@code fl_server.py} builds the aggregator with only
- * {@code min_fit_clients}, so {@code clients_per_round} falls back to it and every round aggregates
- * exactly that many updates.
+ * The n to check is every round size a run allows: a round completes once {@code clientsPerRound} updates
+ * arrive and can still finish with {@code minClients} at the deadline, so n ranges over both and everything
+ * between (see {@link RobustAggregationSettings#refusalReason(int, int)}).
  */
 public enum RobustMethod {
 
@@ -75,11 +75,19 @@ public enum RobustMethod {
     }
 
     /**
+     * The updates a round of {@code cohortSize} needs for this rule to run ({@code k*f + 3}), or 0 when the rule has
+     * no cohort precondition.
+     */
+    public int updatesNeeded(double byzantineFraction, int cohortSize) {
+        return attackerMultiplier == 0 ? 0 : attackerMultiplier * attackerCount(byzantineFraction, cohortSize) + 3;
+    }
+
+    /**
      * Why the server would refuse every round at this configuration, or empty if it can run.
      *
      * @param byzantineFraction the operator's estimate of the malicious share, in [0, 1)
      * @param trimRatio         the trim ratio actually in effect (the default when unset)
-     * @param cohortSize        updates aggregated per round, i.e. {@code minClients}
+     * @param cohortSize        updates aggregated in the round being checked
      */
     public Optional<String> refusalReason(double byzantineFraction, double trimRatio, int cohortSize) {
         double tolerance = tolerance(trimRatio);
@@ -91,7 +99,7 @@ public enum RobustMethod {
         }
         if (attackerMultiplier > 0) {
             int f = attackerCount(byzantineFraction, cohortSize);
-            int needed = attackerMultiplier * f + 3;
+            int needed = updatesNeeded(byzantineFraction, cohortSize);
             if (cohortSize < needed) {
                 return Optional.of(String.format(
                         "%s needs at least %d clients per round (%d x %d expected attackers + 3), but each "
