@@ -843,9 +843,29 @@ class FederatedLearningServiceServicer(fedlearn_pb2_grpc.FederatedLearningServic
             return fedlearn_pb2.SubmitAggregatedShareResponse(received=False)
 
         session = self._secure_session(request.round)
+        # The x-coordinate this share is filed under comes from the VERIFIED partition, never from
+        # the request. A caller-chosen holder_index is a write into another holder's slot: the
+        # victim's share is overwritten and the round decodes a well-formed wrong aggregate, with
+        # nothing in the log naming the client that did it.
+        try:
+            holder_index = session.holder_index_for(partition)
+        except ValueError as exc:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details(str(exc))
+            return fedlearn_pb2.SubmitAggregatedShareResponse(received=False)
+
+        if request.holder_index != holder_index:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details(
+                f"holder_index {request.holder_index} is not partition {partition}'s position in "
+                f"the cohort ({holder_index}); the share is refused rather than filed under the "
+                f"claimed index"
+            )
+            return fedlearn_pb2.SubmitAggregatedShareResponse(received=False)
+
         try:
             remaining = session.submit_summed_share(
-                holder_index=request.holder_index, share=list(request.summed_share),
+                holder_index=holder_index, share=list(request.summed_share),
             )
         except ValueError as exc:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)

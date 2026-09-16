@@ -73,6 +73,23 @@ def test_summed_shares_count_down_to_the_threshold():
     assert s.submit_summed_share(holder_index=3, share=[3, 3]) == 0
 
 
+def test_the_holder_index_is_the_position_in_the_sorted_cohort():
+    """The x-coordinate every client derives for itself, so the server can derive it too instead of
+    believing the one in the request."""
+    s = SecureAggregationSession(round_index=1, threshold=2, num_scalars=2)
+    for p in (9, 2, 5):
+        s.publish_key(partition=p, public_key=generate_keypair()[1])
+
+    assert [s.holder_index_for(p) for p in (2, 5, 9)] == [1, 2, 3]
+
+
+def test_a_partition_outside_the_cohort_has_no_holder_index():
+    s = SecureAggregationSession(round_index=1, threshold=2, num_scalars=2)
+    s.publish_key(partition=1, public_key=generate_keypair()[1])
+    with pytest.raises(ValueError, match="cohort"):
+        s.holder_index_for(7)
+
+
 def test_recovery_is_refused_before_the_threshold_is_met():
     s = SecureAggregationSession(round_index=1, threshold=3, num_scalars=2)
     s.submit_masked(partition=1, elements=[1, 1])

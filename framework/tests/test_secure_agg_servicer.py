@@ -125,6 +125,13 @@ def test_a_malformed_public_key_is_rejected_with_a_reason():
 
 def test_submitting_an_aggregated_share_reports_how_many_remain():
     s = _servicer(partition=1)
+    # A summed share comes from a cohort member; publishing the key is what puts this partition in
+    # the cohort, and so what gives it a holder index.
+    _, pub = generate_keypair()
+    s.PublishPublicKey(
+        pb.PublishPublicKeyRequest(client_id="a", run_id="r", round=1, public_key=pub),
+        _FakeContext(),
+    )
     resp = s.SubmitAggregatedShare(
         pb.SubmitAggregatedShareRequest(client_id="a", run_id="r", round=1,
                                         holder_index=1, summed_share=[1, 2]),
@@ -192,3 +199,61 @@ def test_a_response_that_says_frozen_carries_the_whole_frozen_set_even_when_the_
             f"told the round is frozen but handed {list(resp.surviving_partitions)}; a holder sums its shares over "
             f"exactly that set, so any missing dealer's mask never cancels"
         )
+
+
+# A holder's Shamir x-coordinate is its position in the cohort, and the request carries it as
+# holder_index. Believing that field lets a verified client write its summed share into ANOTHER
+# holder's slot: the round then decodes a well-formed wrong aggregate, or misses the threshold,
+# with nothing in the log naming the client that did it. The server already holds the cohort, so
+# the index is derived from the verified partition rather than taken from the request.
+
+def _publish_cohort(s, partitions=(1, 2, 3)):
+    """Publish a key per partition through the servicer, as the real phase-1 cohort does."""
+    keys = {}
+    for p in partitions:
+        s._partition_extractor = lambda ctx, _p=p: _p
+        _, pub = generate_keypair()
+        keys[p] = pub
+        s.PublishPublicKey(
+            pb.PublishPublicKeyRequest(client_id=f"c{p}", run_id="r", round=1, public_key=pub),
+            _FakeContext(),
+        )
+    return keys
+
+
+def test_a_client_cannot_submit_a_summed_share_as_another_holder():
+    s = _servicer(partition=1)
+    _publish_cohort(s)
+    s._partition_extractor = lambda ctx: 1          # this caller is verified as partition 1
+    ctx = _FakeContext()
+
+    resp = s.SubmitAggregatedShare(
+        pb.SubmitAggregatedShareRequest(client_id="c1", run_id="r", round=1,
+                                        holder_index=2,   # partition 2's x-coordinate
+                                        summed_share=[1, 2]),
+        ctx,
+    )
+
+    assert resp.received is False
+    assert ctx.code == grpc.StatusCode.INVALID_ARGUMENT
+    assert s._secure_session(1).summed_share_count == 0, (
+        "a share claiming another holder's index was stored; it overwrites that holder's slot and "
+        "the round decodes to a wrong aggregate"
+    )
+
+
+def test_a_caller_that_never_joined_the_cohort_cannot_submit_a_summed_share():
+    s = _servicer(partition=4)
+    _publish_cohort(s)                               # partitions 1-3 published; 4 never did
+    s._partition_extractor = lambda ctx: 4
+    ctx = _FakeContext()
+
+    resp = s.SubmitAggregatedShare(
+        pb.SubmitAggregatedShareRequest(client_id="c4", run_id="r", round=1,
+                                        holder_index=1, summed_share=[1, 2]),
+        ctx,
+    )
+
+    assert resp.received is False
+    assert ctx.code == grpc.StatusCode.INVALID_ARGUMENT
+    assert s._secure_session(1).summed_share_count == 0

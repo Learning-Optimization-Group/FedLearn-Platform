@@ -221,6 +221,29 @@ class SecureAggregationSession:
             return self._closed, sorted(self._masked)
 
     # ---- phase 3b: summed shares -------------------------------------------------------------
+    def holder_index_for(self, partition: int) -> int:
+        """This partition's Shamir x-coordinate: its 1-based position in the sorted cohort.
+
+        Every client derives the same mapping from the cohort it was handed (``x = 0`` is reserved —
+        it evaluates to the secret itself), so the server can derive a caller's index from its
+        VERIFIED partition instead of believing the one in the request. Believing it would let one
+        client write its summed share into another holder's slot, and the round would decode a
+        well-formed wrong aggregate.
+
+        Raises:
+            ValueError: if the partition published no key. It is not in the cohort, so it has no
+                x-coordinate and no share of anyone's mask.
+        """
+        with self._lock:
+            members = sorted(self._registry.cohort())
+        try:
+            return members.index(int(partition)) + 1
+        except ValueError:
+            raise ValueError(
+                f"partition {partition} is not in round {self.round_index}'s cohort {members}, so "
+                f"it has no holder index and cannot contribute a summed share"
+            ) from None
+
     def submit_summed_share(self, holder_index: int, share: Sequence[int]) -> int:
         """Record one holder's summed share; return how many more are needed for the threshold."""
         if len(share) != self.num_scalars:
