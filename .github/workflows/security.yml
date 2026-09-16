@@ -37,10 +37,26 @@ jobs:
         uses: pypa/gh-action-pip-audit@v1.1.0
         with:
           inputs: framework/requirements.txt
-          # transformers 4.55.2 advisories: the only fix is transformers 5.x, which
-          # requires a coordinated tokenizers (>=0.22) + huggingface-hub (>=1.5) major
-          # bump and is used by the FoT path — tracked as a separate upgrade. All other
-          # framework deps are patched (flwr removed; aiohttp/pillow/requests/cryptography bumped).
+          # Everything fixable IS fixed here (flwr removed; aiohttp/pillow/requests/cryptography/
+          # click bumped). Each entry below is ignored because it cannot be, with the reason:
+          #
+          # PYSEC-2025-214..218, CVE-2026-1839 — earlier entries, kept as they were.
+          #
+          # PYSEC-2025-194 (torch 2.12.0 -> 2.13.0) and PYSEC-2026-3447 (setuptools 81.0.0 ->
+          #   83.0.0): torch is pinned to the version the DeComFL golden fixtures were generated
+          #   with (framework/tests/fixtures/decomfl_golden) and paired with executorch 1.3.1, and
+          #   torch 2.12.0 itself requires setuptools<82 — so neither moves until those fixtures
+          #   are regenerated against a newer torch/ExecuTorch pairing.
+          #
+          # PYSEC-2026-2289/2290/3929 (transformers 4.55.2): the fixes are transformers 5.3/5.5/
+          #   5.10, a major bump that also needs tokenizers >=0.22 and huggingface-hub >=1.5, and
+          #   the FoT path depends on it — tracked as a separate upgrade.
+          #
+          # PYSEC-2026-3716 (datasets 3.1.0 -> 5.0.1): major bump, coupled to the same
+          #   huggingface-hub move as transformers.
+          #
+          # PYSEC-2026-3804 (accelerate 1.10.0): no fixed version is published (checked against
+          #   OSV), so there is nothing to upgrade to; revisit when one ships.
           ignore-vulns: |
             PYSEC-2025-214
             PYSEC-2025-215
@@ -48,6 +64,13 @@ jobs:
             PYSEC-2025-217
             PYSEC-2025-218
             CVE-2026-1839
+            PYSEC-2025-194
+            PYSEC-2026-2289
+            PYSEC-2026-2290
+            PYSEC-2026-3929
+            PYSEC-2026-3716
+            PYSEC-2026-3804
+            PYSEC-2026-3447
 
   npm-audit:
     runs-on: ubuntu-latest
